@@ -38,7 +38,8 @@ or target-cluster qualification is implied by the version number.
   expiring HIGH exceptions; retain complete reports and fresh database identity.
 - Build/export once, verify and copy the scanned OCI graph without rebuilding;
   defer the release image tag until signatures and Continuum Attest verification
-  pass. Bind reports/policy in signed checksums, the delivered chart and receipt.
+  pass. Pin the scanned digest in the delivered chart and bind reports/policy
+  in signed checksums and the receipt.
 - Build cosign as a versioned dependency for scanner visibility and update its
   crypto dependency to v0.56.0 after image scanning identified fixable findings.
 
