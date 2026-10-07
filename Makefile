@@ -41,6 +41,7 @@ chart-test:
 	bash $(CHART)/tests/cluster-identity.sh
 	bash $(CHART)/tests/network-policy.sh
 	python3 $(CHART)/tests/keycloak-transport.py
+	python3 $(CHART)/tests/observability.py
 	python3 $(CHART)/tests/kubernetes-compatibility.py
 integration-test:
 	@assets="$$(bash scripts/install-envtest.sh $(KUBERNETES_VERSION))" && \

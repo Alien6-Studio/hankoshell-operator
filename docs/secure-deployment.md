@@ -372,6 +372,83 @@ the image-policy ConfigMap and install the independent
 It initially binds the `auth` namespace; adapt and review that binding for
 another namespace. An empty image policy denies new workload image execution.
 
+## Metrics and Prometheus
+
+`metrics.enabled: false` is the default and disables the manager metrics server
+(`--metrics-bind-address=0`), container port, Service, scrape annotations,
+ServiceMonitor and metrics ingress. The separate health probe port 8081 remains.
+The binary's default is also `0`; direct deployments must explicitly configure
+their metrics bind address and equivalent network controls.
+The global disable also overrides a retained `serviceMonitor.enabled: true`:
+no monitor is created and no Prometheus API is needed while metrics are off.
+
+`metrics.enabled: true` exposes HTTP `/metrics` on TCP/8080 through the
+release-owned ClusterIP Service. With `metrics.serviceMonitor.enabled: false`,
+pod annotations advertise scraping; annotation discovery must already be configured
+in Prometheus. With `true`, the chart creates a ServiceMonitor selecting only
+that Service in the operator namespace and suppresses pod scrape annotations.
+The Prometheus Operator API must be installed. Configure Prometheus to discover
+ServiceMonitors in that namespace and match their metadata labels; use
+`metrics.serviceMonitor.labels` for an existing discovery filter. Those labels
+cannot replace chart identity labels. The chart does not install monitoring
+components or change Prometheus's outbound policies.
+
+Default-deny NetworkPolicy remains enabled. Enabling metrics with it requires
+both source selectors, regardless of the discovery method:
+
+```yaml
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: prometheus-stack
+  networkPolicy:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: monitoring
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: prometheus
+        prometheus: platform
+```
+
+Replace the namespace and pod/discovery labels with your actual configuration.
+Selectors accept only nonempty exact `matchLabels`. The namespace must be pinned
+by its immutable `kubernetes.io/metadata.name`; arbitrary namespace labels alone,
+expression-only selectors, wildcards and IP/CIDR sources are rejected. The
+rendered rule has **one peer containing both selectors**, and only TCP/8080.
+This conjunctive source constraint avoids the cluster-wide grant produced by
+empty selectors or separate namespace/pod peers. See the Kubernetes
+[NetworkPolicy selector semantics](https://kubernetes.io/docs/concepts/services-networking/network-policies/#behavior-of-to-and-from-selectors).
+Other pod ingress remains denied by this policy. The optional Cilium egress
+policy preserves this baseline ingress and grants no additional source.
+
+For offline rendering with ServiceMonitor enabled, add
+`--api-versions monitoring.coreos.com/v1/ServiceMonitor` to `helm template`.
+Inspect the Deployment flags/ports, Service, ServiceMonitor and NetworkPolicy.
+Check the actual Prometheus pod labels, its monitor discovery filters and its
+own egress policy. On each target installation, verify scraping from the selected
+pods and denial from an unrelated pod in the same namespace and from another
+namespace. The API-server tests validate admission and policy shape, not CNI
+enforcement or a running Prometheus deployment.
+
+Metrics may disclose operational details. They use unauthenticated plaintext
+HTTP; these selectors restrict reachability and provide neither encryption nor
+cryptographic authentication. Control who can deploy/relabel pods in the selected
+namespace. Review other additive allow policies, node/host-network behavior and
+your CNI's enforcement. Disabling `networkPolicy.enabled` in standard mode means
+this chart provides no ingress restriction; enterprise rejects that opt-out.
+
+**Migration and rollback:** the old `metrics.enabled` only created a
+ServiceMonitor while the listener, Service and annotations were always active.
+Retaining ServiceMonitor discovery now requires both enable flags, the explicit
+Prometheus identity when NetworkPolicy is on, and matching discovery labels.
+The old flag alone fails closed with default networking. Default `false` now
+removes that exposure. Service names, selectors and TCP/8080 remain compatible.
+An older chart/image restores its previous exposure/defaults; inspect its render
+and network controls before rollback.
+
 ## Enterprise profile
 
 Set `profile: enterprise` with `hub.enabled`, `continuum.enabled`, baseline

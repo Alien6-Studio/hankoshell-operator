@@ -32,6 +32,12 @@ or target-cluster qualification is implied by the version number.
 
 ### Security
 
+- Make metrics disabled by default across the binary and Helm listener, port,
+  Service, discovery and ingress. Separate optional ServiceMonitor discovery,
+  require exact Prometheus namespace/pod selectors with baseline NetworkPolicy,
+  and admit only their conjunction on TCP/8080. Reject invalid/broad configuration
+  and verify the contract with Helm, controller-runtime and real Kubernetes APIs.
+
 - Require a checksum-pinned Trivy gate on both final OCI runtime platforms,
   including cosign's versioned main module, dependencies, Go runtime and OS
   inventory. Block fixable HIGH/CRITICAL vulnerabilities and validate scoped,
@@ -76,6 +82,12 @@ or target-cluster qualification is implied by the version number.
   omits Location, and the successful 201 response to authorization updates.
 
 ### Compatibility and limits
+
+- `metrics.enabled` is now the global switch; existing ServiceMonitor users must
+  also set `metrics.serviceMonitor.enabled` and configure Prometheus identity and
+  discovery labels. Disabled metrics remove the old always-on listener/Service.
+  Metrics remain unauthenticated HTTP; NetworkPolicy requires a supporting CNI
+  and does not encrypt traffic. Review prior exposure/defaults before rollback.
 
 - Existing HTTP Keycloak values now fail closed unless administrators explicitly
   set `keycloak.allowInsecureHTTP: true`; prefer migrating to verified HTTPS.

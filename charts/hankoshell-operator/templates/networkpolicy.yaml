@@ -18,10 +18,21 @@ spec:
   policyTypes:
     - Ingress
     - Egress
-  # No pod-to-pod ingress is required. Kubelet health probes originate from
-  # the node and are not blocked by Kubernetes NetworkPolicy. Metrics must be
-  # opened later only to an explicitly identified Prometheus workload.
+  # Kubelet probes originate from the node. Remote metrics are the only pod
+  # ingress grant; one peer combines namespace AND pod identity, never OR.
+  {{- if .Values.metrics.enabled }}
+  ingress:
+    - from:
+        - namespaceSelector:
+            {{- toYaml .Values.metrics.networkPolicy.namespaceSelector | nindent 12 }}
+          podSelector:
+            {{- toYaml .Values.metrics.networkPolicy.podSelector | nindent 12 }}
+      ports:
+        - port: 8080
+          protocol: TCP
+  {{- else }}
   ingress: []
+  {{- end }}
   egress:
     {{- if .Values.networkPolicy.kubernetesAPIServiceCIDRs }}
     - to:

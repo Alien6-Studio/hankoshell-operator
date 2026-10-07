@@ -1,4 +1,4 @@
-{{- if .Values.metrics.enabled }}
+{{- if and .Values.metrics.enabled .Values.metrics.serviceMonitor.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -6,7 +6,16 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "hanko-operator.labels" . | nindent 4 }}
+    {{- $reserved := include "hanko-operator.labels" . | fromYaml }}
+    {{- range $key, $value := .Values.metrics.serviceMonitor.labels }}
+    {{- if not (hasKey $reserved $key) }}
+    {{ $key | quote }}: {{ $value | quote }}
+    {{- end }}
+    {{- end }}
 spec:
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace | quote }}
   selector:
     matchLabels:
       {{- include "hanko-operator.selectorLabels" . | nindent 6 }}

@@ -213,7 +213,22 @@ env:
 leaderElect: true
 
 metrics:
+  # Global switch: false disables the listener (bind address "0"), metrics
+  # container port, Service, scrape annotations and metrics ingress.
   enabled: false
+  serviceMonitor:
+    # Effective only when metrics.enabled; then requires Prometheus Operator API.
+    # When false, enabled metrics advertise pod scraping via annotations.
+    enabled: false
+    # Match your Prometheus serviceMonitorSelector (for example release: stack).
+    # Existing chart identity labels cannot be overridden.
+    labels: {}
+  networkPolicy:
+    # Both selectors are required whenever metrics and NetworkPolicy are on,
+    # even without ServiceMonitor. Only nonempty exact matchLabels are accepted.
+    # Namespace labels must include kubernetes.io/metadata.name for one namespace.
+    namespaceSelector: {}
+    podSelector: {}
 
 networkPolicy:
   enabled: true

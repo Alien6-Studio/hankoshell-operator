@@ -210,6 +210,15 @@ assign the `viewer` role to users.
 Review resource ownership and finalizers before deleting managed resources:
 deletion can remove their corresponding Keycloak objects.
 
+Metrics are disabled by default: the chart renders no metrics listener, port,
+Service, scrape annotations or ServiceMonitor. `metrics.enabled: true` enables
+port 8080 and its ClusterIP Service; `metrics.serviceMonitor.enabled` separately
+opts into Prometheus Operator discovery. With default-deny NetworkPolicy enabled,
+both modes require an explicit Prometheus namespace and pod identity, admitting
+only those selected pods on TCP/8080. Metrics are unauthenticated HTTP; networking
+does not provide encryption. See the [configuration, migration and verification
+guide](docs/secure-deployment.md#metrics-and-prometheus).
+
 ## Choose provider ownership
 
 The official Keycloak operator is optional. `HankoKeycloakInstance` selects

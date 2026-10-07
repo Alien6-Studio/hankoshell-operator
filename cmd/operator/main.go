@@ -110,7 +110,7 @@ func main() {
 
 func parseRuntimeConfig() runtimeConfig {
 	config := runtimeConfig{}
-	flag.StringVar(&config.metricsAddr, "metrics-bind-address", ":8080", "Address for the metrics endpoint.")
+	flag.StringVar(&config.metricsAddr, "metrics-bind-address", "0", "Address for the metrics endpoint; 0 disables it.")
 	flag.StringVar(&config.probeAddr, "health-probe-bind-address", ":8081", "Address for the health probe endpoint.")
 	flag.BoolVar(&config.enableLeaderElection, "leader-elect", true, "Enable leader election for controller manager.")
 	flag.StringVar(&config.watchNamespace, "watch-namespace", os.Getenv("WATCH_NAMESPACE"), "Required namespace watched and managed by the operator.")
