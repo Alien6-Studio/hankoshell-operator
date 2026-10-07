@@ -256,9 +256,15 @@ implemented. Existing installations should follow the
 ## Verified delivery
 
 The release workflow builds Linux AMD64/ARM64 images and the Helm chart from a
-reviewed SemVer tag. Passing CI, image signing, BuildKit provenance and a signed,
-timestamped **Continuum Attest** delivery receipt are required before chart and
-repository-metadata publication. The receipt binds artifact hashes, the image
+reviewed SemVer tag. CI scans the final OCI image, including embedded `cosign`,
+on both architectures with checksum-pinned Trivy. The [OCI vulnerability policy](SECURITY.md#final-oci-image-vulnerability-gate)
+blocks fixable HIGH/CRITICAL findings, with only scoped temporary HIGH exceptions.
+The same scanned archive/digest is copied, signed and selected by the packaged
+chart; it is never rebuilt after scanning. Passing CI, image signing, BuildKit
+provenance and a signed, timestamped **Continuum Attest** delivery receipt are
+required before assigning the release image tag and publishing the chart and
+repository metadata. Full JSON scan reports and the policy enter release
+checksums and the receipt. The receipt binds artifact hashes, the image
 digest and source revision; it does not supervise the image build itself.
 
 Verify release receipts against an independently trusted signer and TSA.

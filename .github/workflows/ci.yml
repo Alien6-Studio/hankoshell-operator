@@ -4,6 +4,11 @@ on:
     branches: [main]
   pull_request:
   workflow_call:
+    outputs:
+      oci_digest:
+        value: ${{ jobs.oci.outputs.digest }}
+      oci_artifact_id:
+        value: ${{ jobs.oci.outputs.artifact_id }}
   workflow_dispatch:
   schedule:
     - cron: '17 6 * * 1'
@@ -101,15 +106,18 @@ jobs:
         run: |
           go vet -tags=keycloak_integration ./...
           make lint LINT_BUILD_TAGS=keycloak_integration
+  oci:
+    uses: ./.github/workflows/oci-security.yml
   checks:
     name: Source and chart checks
-    needs: [source, kubernetes, keycloak]
+    needs: [source, kubernetes, keycloak, oci]
     if: always()
     runs-on: ubuntu-24.04
     steps:
-      - name: Require every source, Kubernetes and Keycloak compatibility check
+      - name: Require every source, Kubernetes, Keycloak and final OCI security check
         env:
           SOURCE_RESULT: ${{ needs.source.result }}
           KUBERNETES_RESULT: ${{ needs.kubernetes.result }}
           KEYCLOAK_RESULT: ${{ needs.keycloak.result }}
-        run: test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success
+          OCI_RESULT: ${{ needs.oci.result }}
+        run: test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$OCI_RESULT" = success

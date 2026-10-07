@@ -3,6 +3,7 @@
 import argparse
 import base64
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -13,7 +14,13 @@ import subprocess
 import tarfile
 from urllib.parse import urlsplit
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location("oci_security", ROOT / "scripts/oci-security.py")
+oci_security = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(oci_security)
+
 CHECKS = {"schema", "consistency", "signature", "timestamp", "recompute"}
 PUBLIC_KEY_FILE = "hankoshell-operator-attest-public-key.pem"
 
@@ -64,7 +71,8 @@ def validate_verdict(report, signer, receipt):
 def delivery_files(dist, version, revision, image):
     expected = {f"hankoshell-operator-{version}.tgz", "image-digest.txt",
                 "source-revision.txt", "checksums.txt", "checksums.sigstore.json",
-                "artifacthub-repo.yml", PUBLIC_KEY_FILE}
+                "artifacthub-repo.yml", PUBLIC_KEY_FILE, "oci-security.json",
+                "trivy-amd64.json", "trivy-arm64.json", "oci-vulnerability-policy.json"}
     files = {path.name: path for path in dist.iterdir()}
     if set(files) != expected or any(path.is_symlink() or not path.is_file() for path in files.values()):
         raise ValueError("Expected only the exact operator release artifacts")
@@ -79,6 +87,15 @@ def delivery_files(dist, version, revision, image):
         recorded[match[2]] = match[1]
     if set(recorded) != covered or any(hashlib.sha256(files[name].read_bytes()).hexdigest() != digest for name, digest in recorded.items()):
         raise ValueError("Delivery artifact checksum mismatch")
+    if files["oci-vulnerability-policy.json"].read_bytes() != oci_security.POLICY.read_bytes():
+        raise ValueError("Delivered OCI vulnerability policy mismatch")
+    oci_security.verify(dist, revision, version, image.split("@")[1])
+    with tarfile.open(files[f"hankoshell-operator-{version}.tgz"]) as chart:
+        values = yaml.safe_load(chart.extractfile("hankoshell-operator/values.yaml"))
+        metadata = yaml.safe_load(chart.extractfile("hankoshell-operator/Chart.yaml"))
+    if (values["image"]["repository"] + "@" + values["image"]["digest"] != image or values["image"].get("tag")
+            or metadata["version"] != version or metadata["appVersion"] != version):
+        raise ValueError("Packaged chart must select the scanned image digest and release version")
     return files
 
 

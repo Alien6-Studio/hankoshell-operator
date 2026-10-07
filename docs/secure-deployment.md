@@ -20,6 +20,33 @@ can exercise its granted Kubernetes and provider permissions; workload hardening
 does not eliminate those privileges. A compromised cluster administrator, Hub
 or provider is outside the protection offered by these client-side controls.
 
+### OCI delivery evidence
+
+Review the [final-image vulnerability gate and exception policy](../SECURITY.md#final-oci-image-vulnerability-gate)
+alongside source govulncheck. Required CI scans the final AMD64/ARM64 runtime
+filesystems, including the separately compiled cosign executable. The release
+copies that same OCI archive without rebuilding, preserves BuildKit SBOM and
+provenance, and selects its signed index digest in the chart. Do not install
+`staging-*` references; only reviewed release references have passed every delivery
+gate, including Continuum Attest. Verify the exact digest and independent signer
+identity, not just a human-readable tag.
+
+`oci-security.json` records the index and per-platform/configuration digests,
+scanner version/binary hash, database hash/metadata, scan time, policy hash,
+report hashes and decision. The complete reports and policy are checksum-signed
+and included in the Attest delivery receipt. A scan is a point-in-time database
+assessment; new vulnerabilities may be discovered after release. The fixable-only
+threshold retains unfixed and lower-severity findings for review and does not
+certify an image as vulnerability-free.
+
+BuildKit's SBOM is inventory and its provenance is producer build evidence.
+The vulnerability report evaluates detected inventory; the Sigstore signature
+authenticates a digest; Attest binds and timestamps the verified delivery files.
+The OCI index retains BuildKit's platform-linked evidence, including producer
+predicate formats whose pre-publication subject array may be empty. The index
+annotations establish that link; the signed index authenticates the complete
+graph. Attest does not replace scanning or supervise the build.
+
 ### Hub bundle authentication
 
 The bundle endpoint returns an HMAC-SHA256 over `JSON(Bundle)` using
