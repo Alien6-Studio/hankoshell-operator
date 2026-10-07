@@ -7,6 +7,15 @@ nameOverride: hanko-operator
 # It does not promote the optional workload-policy audit path to enforcement.
 profile: standard
 
+# Optional node-dependent protections. Baseline non-root, RuntimeDefault seccomp,
+# dropped capabilities and read-only filesystem remain mandatory in every mode.
+hardening:
+  # Requires AppArmor enabled on every eligible Linux node.
+  appArmor: false
+  # Uses hostUsers: false; requires Kubernetes >=1.36, Linux >=6.3, idmap-capable
+  # filesystems and a compatible CRI/OCI runtime on every eligible node.
+  userNamespaces: false
+
 image:
   repository: ghcr.io/alien6-studio/hankoshell-operator
   tag: ""

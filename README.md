@@ -21,7 +21,7 @@ operator, and can also provision a Keycloak Deployment.
 [![CI](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml)
 [![Release preparation](https://img.shields.io/badge/release-0.1.0%20in%20preparation-blue.svg)](CHANGELOG.md)
 [![Go](https://img.shields.io/badge/go-1.27.1-00ADD8.svg)](go.mod)
-[![Kubernetes](https://img.shields.io/badge/kubernetes-%E2%89%A51.30-326CE5.svg)](charts/hankoshell-operator/Chart.yaml)
+[![Kubernetes](https://img.shields.io/badge/kubernetes-1.35%E2%80%931.37-326CE5.svg)](docs/secure-deployment.md#kubernetes-compatibility-and-hardening)
 [![Delivery](https://img.shields.io/badge/delivery-Continuum%20Attest-blue.svg)](#verified-delivery)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
@@ -102,7 +102,12 @@ configuration; portable backup and restore are not qualified.
 
 ## Deployment
 
-The chart declares Kubernetes **>=1.30** as its minimum. The first **0.1.0**
+The chart targets Kubernetes **1.35–1.37** on Linux nodes. Required CI checks
+qualify all 16 CRDs, server-side apply, namespace/credential RBAC boundaries and
+Restricted Pod Security admission against each minor version. Optional AppArmor
+and stable user namespaces extend the baseline when supported by the nodes.
+See the [compatibility and hardening matrix](docs/secure-deployment.md#kubernetes-compatibility-and-hardening).
+The first **0.1.0**
 release is being prepared; published artifacts and evidence will appear in the
 [release history](https://github.com/Alien6-Studio/hankoshell-operator/releases).
 The `0.x` series is in initial development, and public APIs may change between
@@ -267,12 +272,16 @@ make install-tools
 make check arch lint generated-check vuln
 python3 -m unittest discover -s scripts -p 'test_*.py'
 make build
+make integration-test KUBERNETES_VERSION=1.37.0
 ```
 
 `make lint` installs and verifies golangci-lint **v2.14.0** under `.tools`.
-CRDs are generated with the pinned controller-gen version. Tests use simulated
-Kubernetes clients and HTTP/TLS servers; target-cluster qualification remains
-part of an installation's acceptance checks.
+CRDs are generated with the pinned controller-gen version. Unit tests use simulated
+Kubernetes clients and HTTP/TLS servers. `make integration-test` downloads official
+API-server/etcd fixtures with pinned SHA-512 checksums and starts a local control
+plane. CI runs it on **1.35.0, 1.36.2 and 1.37.0**; all matrix jobs must pass before
+merge or delivery. These API tests do not run kubelets, CNI, CSI or Keycloak;
+target-cluster qualification remains part of an installation's acceptance checks.
 
 [Contributing](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md) ·
 [Report a vulnerability](SECURITY.md) ·

@@ -62,6 +62,75 @@ must be reduced before rollout; the client does not silently truncate them.
 
 ## Configure an installation
 
+### Kubernetes compatibility and hardening
+
+The operator and chart keep their own SemVer (`0.1.0`); they do not share the
+cluster's version number. Kubernetes libraries are upgraded together:
+`k8s.io/{api,apimachinery,client-go,apiextensions-apiserver}` **v0.37.1** and
+`controller-runtime` **v0.25.2**, following its
+[compatibility table](https://github.com/kubernetes-sigs/controller-runtime#compatibility).
+
+The chart accepts Kubernetes **1.35–1.37**, including managed-provider version
+suffixes, and rejects upstream alpha/beta/RC builds and unqualified future minors.
+The qualification window follows the three recent upstream minors; consult the
+[Kubernetes release/support dates](https://kubernetes.io/releases/) and install
+the latest security-patched version offered by your provider within that window.
+Provider extended support for an older cluster does not qualify this chart for it.
+
+| Kubernetes minor | Pinned CI API-server fixture | Baseline | Optional AppArmor | Optional user namespaces |
+| --- | --- | --- | --- | --- |
+| 1.35 | 1.35.0 | Restricted admission, non-root, seccomp, dropped capabilities, read-only filesystem, NetworkPolicy | Node support required | Rejected: feature not yet stable |
+| 1.36 | 1.36.2 | Same mandatory baseline | Node support required | Node/runtime support required |
+| 1.37 | 1.37.0 | Same mandatory baseline | Node support required | Node/runtime support required |
+
+CI starts a real API server and etcd for each fixture, installs all 16 CRDs and
+validates chart resources with strict server field validation. It tests actual
+Restricted pod admission, including rejection of host networking, host probes,
+privileged containers and BPF capabilities; server-side apply preserves explicit
+`false`/`0`, CEL validation and status updates work, and RBAC denies cross-namespace
+access and Secret enumeration. The required check aggregates every matrix result,
+and the release workflow reuses that gate before Attest delivery.
+The same CI, including vulnerability checks, runs weekly on `main`. Review the
+upstream support window before each release; changing the SDK family or cluster
+window requires updating and passing the compatibility tests together.
+
+The API fixtures are reproducible compatibility tests, not recommended production
+patches. They have no kubelet, CNI, CSI, provider or Keycloak process. AWS, Google,
+Azure, Scaleway and other installations still need acceptance tests of networking,
+storage, provider lifecycle and restore on their actual patched clusters.
+
+The operator workload is scheduled on Linux nodes. Set `hardening.appArmor: true`
+only after verifying that AppArmor is enabled on every eligible node; it requests
+`RuntimeDefault` and cannot run on nodes lacking that support. Set
+`hardening.userNamespaces: true` on Kubernetes **>=1.36** only after qualifying
+Linux **>=6.3**, idmap-capable filesystems (including mounted volumes) and compatible
+CRI/OCI runtimes. Kubernetes documents these
+[user namespace requirements](https://kubernetes.io/docs/concepts/workloads/pods/user-namespaces/).
+This sets `hostUsers: false`. The chart rejects the option on 1.35, even if the
+cluster enables the beta feature. Node-dependent options remain explicit and
+never weaken the baseline; API-version detection alone cannot prove node support.
+
+Enforce Restricted Pod Security on the dedicated namespace using the cluster
+minor version, for example:
+
+```sh
+kubectl label namespace auth --overwrite \
+  pod-security.kubernetes.io/enforce=restricted \
+  pod-security.kubernetes.io/enforce-version=v1.37 \
+  pod-security.kubernetes.io/audit=restricted \
+  pod-security.kubernetes.io/audit-version=v1.37 \
+  pod-security.kubernetes.io/warn=restricted \
+  pod-security.kubernetes.io/warn-version=v1.37
+```
+
+Use the actual namespace and minor version. Review and requalify these labels
+when upgrading the cluster, because admission requirements can evolve. Labels
+apply to every workload in the namespace, including Jobs and managed Keycloak
+pods; review existing workloads before enforcing them. Helm does not change
+administrator-owned namespace labels or install admission/CNI components.
+
+### Installation steps
+
 1. Select an immutable operator image digest from a verified delivery. Check
    source revision, image provenance and the Attest receipt against independent
    signer/TSA trust. A digest alone proves content identity, not publisher identity.
@@ -160,6 +229,12 @@ integration, or promote mesh-policy auditing to enforcement. Admission of
 Attest-approved operator images is a separate administrator-owned control.
 
 ## Upgrade and rollback
+
+Clusters below 1.35 must be upgraded and qualified before installing this chart;
+the previous unrestricted `>=1.30` declaration did not establish that support.
+When rolling back optional AppArmor or user namespace settings, disable the
+corresponding `hardening` values and review the resulting pod rollout. Keep the
+mandatory baseline and namespace admission controls enabled.
 
 Review the [changelog](../CHANGELOG.md), CRD schema changes, ownership and
 finalizers. Preserve the previous image digest, chart, values and provider

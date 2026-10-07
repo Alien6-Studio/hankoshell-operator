@@ -11,7 +11,7 @@ import tempfile
 import yaml
 
 chart = pathlib.Path(sys.argv[1]) / 'charts/hankoshell-operator'
-base = ['helm', 'template', 'network-test', str(chart), '--namespace', 'auth',
+base = ['helm', 'template', 'network-test', str(chart), '--namespace', 'auth', '--kube-version', '1.37.0',
         '--set-string', 'image.tag=fixture']
 
 def render(values=None, cilium_api=False, invalid=False):

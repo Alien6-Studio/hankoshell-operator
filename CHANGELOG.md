@@ -23,6 +23,11 @@ or target-cluster qualification is implied by the version number.
 
 ### Security
 
+- Qualify Kubernetes 1.35–1.37 with real API-server/etcd tests of all 16 CRDs,
+  server-side apply, CEL, status, RBAC and Restricted admission. Require every
+  matrix result before merge or Attest delivery; reject unqualified cluster minors.
+- Schedule the operator on Linux nodes and add optional RuntimeDefault AppArmor
+  and stable user namespaces (>=1.36), preserving the mandatory baseline.
 - Bound Hub bundle and mesh-policy responses to 1 MiB, control responses to
   64 KiB, and error responses to 8 KiB; propagate body-read errors and discard
   partially decoded heartbeat commands.

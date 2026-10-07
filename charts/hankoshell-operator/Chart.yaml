@@ -4,7 +4,7 @@ description: Declarative IAM reconciliation for Keycloak and hankoShell platform
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
-kubeVersion: ">=1.30.0-0"
+kubeVersion: ">=1.35.0-0 <1.38.0-0"
 keywords:
   - oidc
   - keycloak
@@ -28,6 +28,8 @@ annotations:
       description: Initial chart with declarative Keycloak IAM reconciliation and optional hankoShell API and Hub integrations.
     - kind: security
       description: Add an optional enterprise Continuum transport profile with TLS 1.3 and constrained endpoint and bootstrap configuration.
+    - kind: security
+      description: Qualify Kubernetes 1.35-1.37 with Restricted admission and optional AppArmor and stable user namespaces.
   artifacthub.io/images: |
     - name: hankoshell-operator
       image: ghcr.io/alien6-studio/hankoshell-operator:0.1.0

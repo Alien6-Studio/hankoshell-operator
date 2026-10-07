@@ -5,6 +5,19 @@ development; public APIs may change between minor versions. It retains all 16
 `hanko.sh/v1alpha1` CRDs and registers all existing controllers; optional
 integration flags do not define an IAM-only controller profile.
 
+Kubernetes **1.35–1.37** and Linux nodes are the qualification window. CI uses
+real API-server/etcd fixtures to check CRDs, server-side apply, RBAC and Restricted
+admission on each minor. Future minors and upstream prereleases are rejected
+until qualified. Install the latest provider security patch; fixed CI fixtures
+do not certify nodes, CNI/CSI or cloud-provider behavior.
+
+`hardening.appArmor: true` requests `RuntimeDefault` on AppArmor-enabled nodes.
+`hardening.userNamespaces: true` sets `hostUsers: false` and requires Kubernetes
+**>=1.36**, Linux **>=6.3**, idmap-capable filesystems and compatible runtimes.
+The chart rejects user namespaces on 1.35 and invalid or unknown hardening options.
+The baseline non-root/seccomp/capability/filesystem protections remain mandatory.
+See the [compatibility matrix and namespace admission configuration](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md#kubernetes-compatibility-and-hardening).
+
 Configure an exact image digest, existing Keycloak Secret, dedicated watch
 namespace, authority realm and protected clients. Supply your Kubernetes API
 Service/endpoint addresses to the NetworkPolicy; API egress is closed by

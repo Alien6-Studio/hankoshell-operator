@@ -12,7 +12,7 @@ root = pathlib.Path(sys.argv[1])
 chart = root / 'charts/hankoshell-operator'
 
 def render(*values):
-    command = ['helm', 'template', 'identity-test', str(chart), '--namespace', 'auth',
+    command = ['helm', 'template', 'identity-test', str(chart), '--namespace', 'auth', '--kube-version', '1.37.0',
                '--set-string', 'fullnameOverride=hanko-operator', '--set-string', 'image.tag=test']
     for value in values:
         command.extend(['--set-string', value])

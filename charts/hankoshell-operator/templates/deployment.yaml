@@ -1,4 +1,14 @@
 {{- include "hanko-operator.validateProfile" . }}
+{{- if regexMatch "-(alpha|beta|rc)([.-]|$)" .Capabilities.KubeVersion.Version }}
+{{- fail "Kubernetes alpha, beta and release-candidate versions are incompatible with this chart's qualification policy" }}
+{{- end }}
+{{- range $name, $enabled := .Values.hardening }}
+{{- if not (has $name (list "appArmor" "userNamespaces")) }}{{ fail (printf "unknown hardening option %s" $name) }}{{ end }}
+{{- if not (kindIs "bool" $enabled) }}{{ fail (printf "hardening.%s must be a boolean" $name) }}{{ end }}
+{{- end }}
+{{- if and .Values.hardening.userNamespaces (not (semverCompare ">=1.36.0-0" .Capabilities.KubeVersion.Version)) }}
+{{- fail "hardening.userNamespaces requires stable user namespace support in Kubernetes >=1.36 and compatible Linux nodes/runtimes" }}
+{{- end }}
 {{- range $integration := list .Values.organizationProjection .Values.supervision }}
 {{- if $integration.enabled }}
 {{- if not $integration.apiPorts }}{{ fail "enabled API integrations require explicit apiPorts" }}{{ end }}
@@ -74,6 +84,13 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"
     spec:
+      os:
+        name: linux
+      nodeSelector:
+        kubernetes.io/os: linux
+      {{- if .Values.hardening.userNamespaces }}
+      hostUsers: false
+      {{- end }}
       serviceAccountName: {{ include "hanko-operator.fullname" . }}
       terminationGracePeriodSeconds: 60
       securityContext:
@@ -81,6 +98,10 @@ spec:
         runAsUser: 65534
         seccompProfile:
           type: RuntimeDefault
+        {{- if .Values.hardening.appArmor }}
+        appArmorProfile:
+          type: RuntimeDefault
+        {{- end }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}

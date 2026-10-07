@@ -10,7 +10,7 @@ import yaml
 
 root = pathlib.Path(sys.argv[1])
 chart = root / 'charts/hankoshell-operator'
-base = ['helm', 'template', 'image-policy-test', str(chart), '--namespace', 'auth',
+base = ['helm', 'template', 'image-policy-test', str(chart), '--namespace', 'auth', '--kube-version', '1.37.0',
         '--set-string', 'image.tag=fixture']
 def render(*values):
     args = base.copy()

@@ -10,6 +10,11 @@ minor series, and its matching Helm chart. Upgrade to that patch release to
 receive fixes. Older minor series, prereleases, development builds and forks
 receive no separate security backports. No long-term support branch is available.
 
+Kubernetes **1.35–1.37** is the current qualification window. Use the latest
+provider security patch within it; an end-of-life or provider-extended version
+does not receive additional project qualification. See the
+[Kubernetes compatibility and hardening matrix](docs/secure-deployment.md#kubernetes-compatibility-and-hardening).
+
 The project is in initial development; public APIs may change between minor
 versions before `1.0.0`. Reports against `main` are welcome, but use a tagged
 release for deployments.
