@@ -269,7 +269,7 @@ python3 -m unittest discover -s scripts -p 'test_*.py'
 make build
 ```
 
-`make lint` installs and verifies golangci-lint **v2.12.2** under `.tools`.
+`make lint` installs and verifies golangci-lint **v2.14.0** under `.tools`.
 CRDs are generated with the pinned controller-gen version. Tests use simulated
 Kubernetes clients and HTTP/TLS servers; target-cluster qualification remains
 part of an installation's acceptance checks.

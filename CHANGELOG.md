@@ -30,7 +30,7 @@ or target-cluster qualification is implied by the version number.
   with controlled public bootstrap and no implicit public synchronization fallback.
 - Keep signing and policy-administration privileges outside the operator;
   require reviewed admission controls for workload-image policy changes.
-- Install and verify the pinned golangci-lint v2.12.2 independently of the PATH.
+- Install and verify the pinned golangci-lint v2.14.0 independently of the PATH.
 
 ### Compatibility and limits
 
