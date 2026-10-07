@@ -53,7 +53,7 @@ def check_disabled(docs):
     assert not any(port["containerPort"] == 8080 or port["name"] == "metrics" for port in manager["ports"])
     assert manager["livenessProbe"]["httpGet"]["port"] == 8081
     assert manager["readinessProbe"]["httpGet"]["port"] == 8081
-    assert not any(key.startswith("prometheus.io/") for key in pod["metadata"].get("annotations", {}))
+    assert not pod["metadata"].get("annotations")
     assert operator_policies(docs)[0]["spec"]["ingress"] == []
 
 
@@ -73,7 +73,7 @@ def check_enabled(docs, service_monitor=False):
     assert bool(resources(docs, "ServiceMonitor")) == service_monitor
     annotations = pod["metadata"].get("annotations", {})
     if service_monitor:
-        assert not any(key.startswith("prometheus.io/") for key in annotations)
+        assert not annotations
         monitor, = resources(docs, "ServiceMonitor")
         assert monitor["spec"]["selector"]["matchLabels"] == service["spec"]["selector"]
         assert monitor["spec"]["namespaceSelector"] == {"matchNames": ["auth"]}
