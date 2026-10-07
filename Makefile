@@ -7,7 +7,7 @@ CONTROLLER_GEN_VERSION := v0.21.0
 GOLANGCI_LINT_VERSION := v2.14.0
 GOLANGCI_LINT := $(CURDIR)/.tools/golangci-lint-$(GOLANGCI_LINT_VERSION)-$(shell go env GOVERSION)/golangci-lint
 GO_ARCH_LINT_VERSION := v1.19.0
-GOVULNCHECK_VERSION := v1.1.4
+GOVULNCHECK_VERSION := v1.8.0
 CHART := charts/hankoshell-operator
 
 .PHONY: all check fmt-check generate manifests generated-check build vet test chart-test lint arch vuln install-tools
