@@ -8,6 +8,10 @@ or target-cluster qualification is implied by the version number.
 
 ### Added
 
+- Required real-Keycloak HTTPS Admin API qualification on digest-pinned 26.8.0
+  and 26.7.5: lifecycle, IAM/MFA policy, roles, brokers, credential rotation,
+  drift, ownership/finalizers and read-only import. Document exact qualification
+  limits and master administration requirements; preserve existing API/versions.
 - Declarative Keycloak realms, applications, roles, reusable IAM profiles,
   service accounts and resource servers using the existing `hanko.sh/v1alpha1` API.
 - External, managed and adopted provider modes; the official Keycloak operator

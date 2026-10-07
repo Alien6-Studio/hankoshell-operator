@@ -102,6 +102,15 @@ configuration; portable backup and restore are not qualified.
 
 ## Deployment
 
+hankoShell Operator **0.1.0 is qualified against Keycloak 26.8.0 and 26.7.5**
+through its real HTTPS Admin API v1. Required CI exercises realm/client lifecycles,
+IAM/MFA settings, roles, identity-provider configuration, secret rotation,
+drift recovery, ownership, finalizers and read-only import. Other 26.x patches
+may work but are unqualified; older and future major lines are outside the
+0.1.0 support contract pending qualification. This does not qualify browser login,
+external identity-provider handshakes or production database/cluster operations.
+See the [Keycloak compatibility contract](docs/secure-deployment.md#keycloak-compatibility).
+
 The chart targets Kubernetes **1.35–1.37** on Linux nodes. Required CI checks
 qualify all 16 CRDs, server-side apply, namespace/credential RBAC boundaries and
 Restricted Pod Security admission against each minor version. Optional AppArmor
@@ -273,6 +282,8 @@ make check arch lint generated-check vuln
 python3 -m unittest discover -s scripts -p 'test_*.py'
 make build
 make integration-test KUBERNETES_VERSION=1.37.0
+make keycloak-integration-test KEYCLOAK_VERSION=26.8.0
+make keycloak-integration-test KEYCLOAK_VERSION=26.7.5
 ```
 
 `make lint` installs and verifies golangci-lint **v2.14.0** under `.tools`.
@@ -282,6 +293,13 @@ API-server/etcd fixtures with pinned SHA-512 checksums and starts a local contro
 plane. CI runs it on **1.35.0, 1.36.2 and 1.37.0**; all matrix jobs must pass before
 merge or delivery. These API tests do not run kubelets, CNI, CSI or Keycloak;
 target-cluster qualification remains part of an installation's acceptance checks.
+
+`make keycloak-integration-test` requires a running Docker daemon and pulls the
+official image pinned by digest. It starts a disposable HTTPS-only server with
+ephemeral credentials and certificate trust, reconciles through the real Admin
+API, and removes only its own container. Startup failures fail the test. Both
+Keycloak versions are required in PR, weekly and release quality checks; the
+suite uses a fake Kubernetes client alongside the separate real Kubernetes matrix.
 
 [Contributing](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md) ·
 [Report a vulnerability](SECURITY.md) ·

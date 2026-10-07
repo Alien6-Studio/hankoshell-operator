@@ -62,6 +62,64 @@ must be reduced before rollout; the client does not silently truncate them.
 
 ## Configure an installation
 
+### Keycloak compatibility
+
+hankoShell Operator **0.1.0 is qualified against Keycloak 26.8.0 and 26.7.5**
+using the HTTPS Admin API v1 and service-account `client_credentials` flow.
+The official images are pinned by immutable multi-architecture index digests
+in the [qualification fixture](../internal/controller/keycloak_fixture_test.go).
+Both versions run in required PR/release CI and weekly CI; the aggregate required
+check fails on either matrix failure or startup failure. Qualification is a
+compatibility contract, not a recommendation to retain a vulnerable patch.
+
+| Version | 0.1.0 qualification |
+| --- | --- |
+| 26.8.0, 26.7.5 | Qualified by the real Admin API suite |
+| Other 26.x patches | May work; unqualified until the same suite passes |
+| <=25.x or future major lines | Unsupported by this contract pending explicit qualification |
+
+Tests run real controllers against an HTTPS-only disposable Keycloak with
+verified certificates, hostname validation and TLS 1.3. They cover realm create,
+update, repeated reconciliation and deletion; SPA/web/M2M clients, redirect and
+post-logout URLs; realm/client/composite roles; IAM profiles, TOTP required-action
+and OTP settings, password/session/brute-force policy; OIDC broker/mapping paths;
+credential projection, recovery and rotation without repeated rotation; drift
+restoration; unrelated client/role/provider preservation; finalizer ordering;
+and read-only import/observe. Admin write-event history must remain unchanged
+during observation. CRD specs/status, controller logs and Kubernetes events
+must contain no credential values or bearer tokens.
+
+The fixture creates a temporary bootstrap administrator inside its own container.
+Reconcilers use a separate master-realm service account with administrative
+authority for the complete realm lifecycle, including management-role/proxy
+provisioning. The suite explicitly checks that a service account with no admin
+roles cannot discover server information, create a realm or grant itself access.
+It does **not** establish a minimal permission set: qualify reduced provider roles
+for the selected features before using them. Anyone authorized to write managed
+CRDs can exercise the operator's provider authority; do not treat these objects
+as safe for mutually hostile tenants. `HankoKeycloakInstance` also applies the
+existing master-realm security baseline, even in external mode, and reports the
+detected version in its existing `status.keycloakVersion` field.
+
+Unmanaged clients, roles and brokers survive child reconciliation/deletion.
+Deleting a managed realm is an explicit destructive ownership boundary: once
+managed applications/service accounts/issuers are gone, Keycloak deletes the
+realm and **all contents**, including objects added outside the operator. Separate
+unrelated realms and master configuration survive this path. Keep backups and
+review ownership before deletion; neither reverting the operator nor the chart
+restores deleted provider state or previously rotated credentials.
+
+The suite uses Keycloak's disposable `dev-file` database in production server
+mode and a fake Kubernetes client. It does not qualify PostgreSQL, clustering,
+browser login/MFA challenges, actual upstream federation, Admin API v2, custom
+providers/themes, authorization/resource-server flows, managed/adopted instance
+rollouts, backups/restores, or cloud/CNI/storage behavior. Those surfaces require
+installation acceptance tests. No API schema, chart/app version or provider
+migration is changed by this qualification; no runtime version rejection is added.
+The application discovery probe still uses system CA trust: this suite's private
+test CA intentionally leaves its `Operational` condition false without bypassing
+certificate verification.
+
 ### Kubernetes compatibility and hardening
 
 The operator and chart keep their own SemVer (`0.1.0`); they do not share the
