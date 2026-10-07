@@ -7,6 +7,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 func TestManagerOptionsConfineCacheAndLeaderElection(t *testing.T) {
@@ -64,6 +65,24 @@ func TestDeploymentConfiguration(t *testing.T) {
 	t.Setenv("HANKO_KEYCLOAK_DEPLOYMENT", "identity")
 	if got := keycloakDeploymentName(); got != "identity" {
 		t.Fatalf("configured Keycloak deployment = %q", got)
+	}
+}
+
+func TestDefaultMetricsDoNotCreateAServer(t *testing.T) {
+	originalArgs, originalFlags := os.Args, flag.CommandLine
+	t.Cleanup(func() {
+		os.Args, flag.CommandLine = originalArgs, originalFlags
+	})
+	flag.CommandLine = flag.NewFlagSet("operator-test", flag.ContinueOnError)
+	os.Args = []string{"operator", "--watch-namespace=auth"}
+	config := parseRuntimeConfig()
+	if config.metricsAddr != "0" || config.probeAddr != ":8081" {
+		t.Fatalf("unexpected default listener configuration: %#v", config)
+	}
+	opts := managerOptions(config.metricsAddr, config.probeAddr, true, "auth")
+	server, err := metricsserver.NewServer(opts.Metrics, nil, nil)
+	if err != nil || server != nil {
+		t.Fatalf("disabled metrics created a server: %v, %v", server, err)
 	}
 }
 

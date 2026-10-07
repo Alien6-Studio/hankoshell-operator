@@ -9,12 +9,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -110,6 +112,47 @@ func TestKubernetesCompatibility(t *testing.T) {
 			"--set-string", "hub.tenantID=tenant-acme,hub.endpoint=https://hub.mesh.example:9443",
 			"--set-string", "continuum.hubAddress=10.250.0.1,continuum.hubHostname=hub.mesh.example",
 		})
+	})
+	t.Run("metrics-service-and-network-boundary", func(t *testing.T) {
+		values := filepath.Join(t.TempDir(), "metrics.yaml")
+		if err := os.WriteFile(values, []byte(`metrics:
+  enabled: true
+  networkPolicy:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: monitoring
+    podSelector:
+      matchLabels:
+        app: prometheus
+`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		installCompatibilityChart(t, ctx, admin, chart, version, []string{"--values", values})
+		service := &corev1.Service{}
+		if err := admin.Get(ctx, client.ObjectKey{Namespace: "auth", Name: "compatibility-hanko-operator-metrics"}, service); err != nil {
+			t.Fatal(err)
+		}
+		if service.Spec.Type != corev1.ServiceTypeClusterIP || len(service.Spec.Ports) != 1 || service.Spec.Ports[0].Port != 8080 || service.Spec.Ports[0].TargetPort.StrVal != "metrics" {
+			t.Fatalf("unexpected metrics Service: %#v", service.Spec)
+		}
+		policy := &networkingv1.NetworkPolicy{}
+		if err := admin.Get(ctx, client.ObjectKey{Namespace: "auth", Name: "compatibility-hanko-operator"}, policy); err != nil {
+			t.Fatal(err)
+		}
+		if len(policy.Spec.Ingress) != 1 || len(policy.Spec.Ingress[0].From) != 1 || len(policy.Spec.Ingress[0].Ports) != 1 {
+			t.Fatalf("metrics ingress must have exactly one peer and port: %#v", policy.Spec.Ingress)
+		}
+		peer, port := policy.Spec.Ingress[0].From[0], policy.Spec.Ingress[0].Ports[0]
+		expected := networkingv1.NetworkPolicyPeer{
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"kubernetes.io/metadata.name": "monitoring"}},
+			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{"app": "prometheus"}},
+		}
+		if !reflect.DeepEqual(peer, expected) {
+			t.Fatalf("metrics ingress lost conjunctive identity: %#v", peer)
+		}
+		if port.Port == nil || port.Port.IntVal != 8080 || port.Protocol == nil || *port.Protocol != corev1.ProtocolTCP || port.EndPort != nil {
+			t.Fatalf("metrics ingress must allow only TCP/8080: %#v", port)
+		}
 	})
 	user, err := environment.AddUser(envtest.User{
 		Name:   "system:serviceaccount:auth:compatibility-hanko-operator",

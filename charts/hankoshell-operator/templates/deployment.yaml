@@ -1,4 +1,5 @@
 {{- include "hanko-operator.validateProfile" . }}
+{{- include "hanko-operator.validateMetrics" . }}
 {{- if regexMatch "-(alpha|beta|rc)([.-]|$)" .Capabilities.KubeVersion.Version }}
 {{- fail "Kubernetes alpha, beta and release-candidate versions are incompatible with this chart's qualification policy" }}
 {{- end }}
@@ -80,9 +81,12 @@ spec:
       labels:
         {{- include "hanko-operator.selectorLabels" . | nindent 8 }}
         app: hanko-operator
+      {{- if and .Values.metrics.enabled (not .Values.metrics.serviceMonitor.enabled) }}
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"
+        prometheus.io/path: /metrics
+      {{- end }}
     spec:
       os:
         name: linux
@@ -118,15 +122,17 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - --health-probe-bind-address=:8081
-            - --metrics-bind-address=:8080
+            - --metrics-bind-address={{ ternary ":8080" "0" .Values.metrics.enabled }}
             - --watch-namespace={{ .Release.Namespace }}
             {{- if .Values.leaderElect }}
             - --leader-elect
             {{- end }}
           ports:
+            {{- if .Values.metrics.enabled }}
             - name: metrics
               containerPort: 8080
               protocol: TCP
+            {{- end }}
             - name: healthz
               containerPort: 8081
               protocol: TCP

@@ -30,6 +30,8 @@ annotations:
       description: Add an optional enterprise Continuum transport profile with TLS 1.3 and constrained endpoint and bootstrap configuration.
     - kind: security
       description: Qualify Kubernetes 1.35-1.37 with Restricted admission and optional AppArmor and stable user namespaces.
+    - kind: security
+      description: Disable metrics exposure by default and require exact Prometheus identity for TCP/8080 ingress when enabled.
   artifacthub.io/images: |
     - name: hankoshell-operator
       image: ghcr.io/alien6-studio/hankoshell-operator:0.1.0
