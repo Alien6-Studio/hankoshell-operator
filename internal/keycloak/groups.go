@@ -357,7 +357,7 @@ func (c *Client) DeleteGroup(ctx context.Context, realm, groupID string) error {
 	}
 	req.Header.Set(authorizationHeader, bearerPrefix+tok)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
@@ -416,7 +416,7 @@ func (c *Client) doJSON(ctx context.Context, method, path string, payload any) (
 	req.Header.Set(authorizationHeader, bearerPrefix+tok)
 	req.Header.Set(contentTypeHeader, jsonMediaType)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	return c.httpClient.Do(req)
+	return c.do(req)
 }
 
 // idFromLocation extracts the trailing UUID from a Keycloak Location header.

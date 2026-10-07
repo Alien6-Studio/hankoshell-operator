@@ -176,9 +176,6 @@ func (r *HankoRealmReconciler) reconcileRealmDeletion(ctx context.Context, realm
 	if err := kc.DeleteRealm(ctx, realm.Name); err != nil {
 		return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("delete realm from keycloak: %w", err)
 	}
-	if err := kc.DeleteRealmManagementAccess(ctx, realm.Name); err != nil {
-		return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("delete realm management access: %w", err)
-	}
 	if r.Recorder != nil {
 		r.Recorder.Eventf(realm, nil, corev1.EventTypeNormal, "RealmDeleted", "Reconcile", "%s", fmt.Sprintf("HankoRealm %q deleted from Keycloak", realm.Name))
 	}
@@ -380,7 +377,7 @@ func (r *HankoRealmReconciler) ensureRealmAndManagementAccess(ctx context.Contex
 			return nil, r.realmSyncError(ctx, realm, patch, fmt.Errorf("create realm in keycloak: %w", createErr), "patch status after create failure")
 		}
 		log.FromContext(ctx).Info("HankoRealm created in Keycloak", "realm", realm.Name)
-	} else if err != nil && !keycloak.IsForbidden(err) {
+	} else if err != nil {
 		return nil, r.realmSyncError(ctx, realm, patch, fmt.Errorf("get realm from keycloak: %w", err), "patch status")
 	}
 	if err := kc.EnsureRealmManagementAccess(ctx, realm.Name); err != nil {

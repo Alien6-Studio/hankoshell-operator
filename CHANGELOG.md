@@ -8,10 +8,15 @@ or target-cluster qualification is implied by the version number.
 
 ### Added
 
+- Tested Keycloak administrative permission contract for existing realms, optional
+  features and read-only import/observation, with required positive and denied
+  operations on real 26.8.0/26.7.5 service accounts and a complete API inventory.
+  Record version-dependent server disclosure and 26.7.5 view-client secret access.
+
 - Required real-Keycloak HTTPS Admin API qualification on digest-pinned 26.8.0
   and 26.7.5: lifecycle, IAM/MFA policy, roles, brokers, credential rotation,
   drift, ownership/finalizers and read-only import. Document exact qualification
-  limits and master administration requirements; preserve existing API/versions.
+  limits and scoped administration requirements; preserve existing API/versions.
 - Declarative Keycloak realms, applications, roles, reusable IAM profiles,
   service accounts and resource servers using the existing `hanko.sh/v1alpha1` API.
 - External, managed and adopted provider modes; the official Keycloak operator
@@ -27,6 +32,14 @@ or target-cluster qualification is implied by the version number.
 
 ### Security
 
+- Remove operator self-grants of master proxy roles, including impersonation;
+  require administrator-provisioned target access and let Keycloak own proxy
+  lifecycle. Verify the three-role common profile without global administrator
+  privileges; document native creator grants and optional master authority.
+- Reject unreviewed Keycloak HTTP methods/routes at a common permission gateway;
+  refuse redirects, require inventory updates and reject network-call bypasses
+  in regression tests.
+
 - Qualify Kubernetes 1.35–1.37 with real API-server/etcd tests of all 16 CRDs,
   server-side apply, CEL, status, RBAC and Restricted admission. Require every
   matrix result before merge or Attest delivery; reject unqualified cluster minors.
@@ -40,6 +53,11 @@ or target-cluster qualification is implied by the version number.
 - Keep signing and policy-administration privileges outside the operator;
   require reviewed admission controls for workload-image policy changes.
 - Install and verify the pinned golangci-lint v2.14.0 independently of the PATH.
+
+### Fixed
+
+- Accept bounded native authorization creation representations when Keycloak
+  omits Location, and the successful 201 response to authorization updates.
 
 ### Compatibility and limits
 

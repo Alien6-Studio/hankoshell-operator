@@ -214,7 +214,7 @@ func (c *Client) DeleteOrganization(ctx context.Context, realm, orgID string) er
 	}
 	req.Header.Set(authorizationHeader, bearerPrefix+tok)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
@@ -295,7 +295,7 @@ func (c *Client) doRaw(ctx context.Context, method, path, body string) (*http.Re
 	}
 	req.Header.Set(authorizationHeader, bearerPrefix+tok)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	return c.httpClient.Do(req)
+	return c.do(req)
 }
 
 // createOrganization POSTs the desired organization. It returns the new UUID

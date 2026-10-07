@@ -89,17 +89,27 @@ and read-only import/observe. Admin write-event history must remain unchanged
 during observation. CRD specs/status, controller logs and Kubernetes events
 must contain no credential values or bearer tokens.
 
-The fixture creates a temporary bootstrap administrator inside its own container.
-Reconcilers use a separate master-realm service account with administrative
-authority for the complete realm lifecycle, including management-role/proxy
-provisioning. The suite explicitly checks that a service account with no admin
-roles cannot discover server information, create a realm or grant itself access.
-It does **not** establish a minimal permission set: qualify reduced provider roles
-for the selected features before using them. Anyone authorized to write managed
-CRDs can exercise the operator's provider authority; do not treat these objects
-as safe for mutually hostile tenants. `HankoKeycloakInstance` also applies the
-existing master-realm security baseline, even in external mode, and reports the
-detected version in its existing `status.keycloakVersion` field.
+The fixture creates a temporary bootstrap administrator only for setup, drift
+injection and state verification. Normal reconcilers use a dedicated master
+service client with target-scoped `manage-realm`, `manage-clients`, `manage-events`,
+`manage-users` (MFA/session enforcement) and `manage-identity-providers` (brokers).
+Import/Observe runs under a separate `view-realm`, `view-clients`,
+`view-identity-providers` identity. Capability tests prove the three-role common
+profile, role-omission failures and unauthorized-operation denials. An isolated
+creator account qualifies `create-realm` and Keycloak's native broad scoped grants.
+No normal operator identity has master `admin`, `realm-admin` or `impersonation`.
+
+Follow the **[tested Keycloak permission model](keycloak-permissions.md)** when
+provisioning credentials. The operator no longer creates master proxy clients or
+self-grants administrative roles. Anyone authorized to write managed CRDs can
+exercise its provider authority; do not treat these objects as safe for mutually
+hostile tenants. Master hardening remains an attempted optional operation, reported
+in `MasterRealmHardened`; without master `manage-realm`, administrators enforce
+that baseline independently. Keycloak 26.7.5 allows `view-clients` to read secrets;
+26.8.0 rejects that read without `manage-clients`. Import/Observe omits those
+credentials on both. Target-scoped master credentials do not receive the
+server version on either qualified version, so `status.keycloakVersion` can be empty.
+Do not broaden master permissions merely to fill this diagnostic field.
 
 Unmanaged clients, roles and brokers survive child reconciliation/deletion.
 Deleting a managed realm is an explicit destructive ownership boundary: once
@@ -112,7 +122,7 @@ restores deleted provider state or previously rotated credentials.
 The suite uses Keycloak's disposable `dev-file` database in production server
 mode and a fake Kubernetes client. It does not qualify PostgreSQL, clustering,
 browser login/MFA challenges, actual upstream federation, Admin API v2, custom
-providers/themes, authorization/resource-server flows, managed/adopted instance
+providers/themes, end-user resource-server authorization decisions, managed/adopted instance
 rollouts, backups/restores, or cloud/CNI/storage behavior. Those surfaces require
 installation acceptance tests. No API schema, chart/app version or provider
 migration is changed by this qualification; no runtime version rejection is added.
@@ -241,7 +251,8 @@ Use `/128` for IPv6 API destinations. Add the actual Keycloak target port if
 it differs from the Service port. For an external provider, use
 `keycloakSelector: null`, exact `keycloakExternalCIDRs` and
 `keycloakExternalPorts`. For another namespace, configure its selector boundary.
-Per-instance Admin API Secrets use `HANKO_KEYCLOAK_URL`, `HANKO_KC_CLIENT_ID`
+Use a [dedicated service account with the tested target-scoped permissions](keycloak-permissions.md),
+not `realm-admin`. Per-instance Admin API Secrets use `HANKO_KEYCLOAK_URL`, `HANKO_KC_CLIENT_ID`
 and `HANKO_KC_CLIENT_SECRET`; `spec.tlsCARef` supplies their private CA separately.
 
 ```sh

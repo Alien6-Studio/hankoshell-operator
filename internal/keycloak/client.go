@@ -24,7 +24,6 @@ import (
 
 const (
 	adminRealmsPath                = "/admin/realms/"
-	masterClientsPath              = "/admin/realms/master/clients/"
 	clientsPath                    = "/clients/"
 	rolesPath                      = "/roles"
 	rolesSegment                   = "/roles/"
@@ -67,7 +66,7 @@ func New(baseURL, clientID, clientSecret string) *Client {
 		baseURL:      strings.TrimRight(baseURL, "/"),
 		clientID:     clientID,
 		clientSecret: clientSecret,
-		httpClient:   &http.Client{Timeout: 10 * time.Second},
+		httpClient:   &http.Client{Timeout: 10 * time.Second, CheckRedirect: rejectKeycloakRedirect},
 	}
 }
 
@@ -101,7 +100,7 @@ func NewWithTLS(baseURL, clientID, clientSecret string, caPEM []byte) (*Client, 
 		baseURL:      strings.TrimRight(baseURL, "/"),
 		clientID:     clientID,
 		clientSecret: clientSecret,
-		httpClient:   &http.Client{Timeout: 10 * time.Second, Transport: transport},
+		httpClient:   &http.Client{Timeout: 10 * time.Second, Transport: transport, CheckRedirect: rejectKeycloakRedirect},
 	}, nil
 }
 
@@ -265,39 +264,6 @@ type RealmSpec struct {
 	IDPBrokerTrustEmail       *bool
 }
 
-var realmManagementRoles = []string{
-	"create-client",
-	"impersonation",
-	"manage-authorization",
-	"manage-clients",
-	"manage-events",
-	"manage-identity-providers",
-	"manage-realm",
-	"manage-users",
-	"query-clients",
-	"query-groups",
-	"query-realms",
-	"query-users",
-	"view-authorization",
-	"view-clients",
-	"view-events",
-	"view-identity-providers",
-	"view-realm",
-	"view-users",
-}
-
-type realmManagementClient struct {
-	ID                     string            `json:"id"`
-	ClientID               string            `json:"clientId"`
-	Enabled                bool              `json:"enabled"`
-	BearerOnly             bool              `json:"bearerOnly"`
-	PublicClient           bool              `json:"publicClient"`
-	ServiceAccountsEnabled bool              `json:"serviceAccountsEnabled"`
-	FullScopeAllowed       bool              `json:"fullScopeAllowed"`
-	Protocol               string            `json:"protocol"`
-	Attributes             map[string]string `json:"attributes"`
-}
-
 // CreateRealm creates a new realm in Keycloak with all RealmRepresentation security fields.
 // Required-action defaults are reconciled by UpdateRealm after management access is ready.
 func (c *Client) CreateRealm(ctx context.Context, spec RealmSpec) error {
@@ -315,12 +281,14 @@ func (c *Client) CreateRealm(ctx context.Context, spec RealmSpec) error {
 	req.Header.Set(authorizationHeader, bearerPrefix+tok)
 	req.Header.Set(contentTypeHeader, jsonMediaType)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusCreated {
+		// Native Keycloak grants the creator access to the new realm.
+		c.invalidateToken()
 		return nil
 	}
 	body, _ := io.ReadAll(resp.Body)
@@ -370,7 +338,7 @@ func (c *Client) UpdateRealm(ctx context.Context, realmID string, spec RealmSpec
 	req.Header.Set(authorizationHeader, bearerPrefix+tok)
 	req.Header.Set(contentTypeHeader, jsonMediaType)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
@@ -400,7 +368,7 @@ func (c *Client) LogoutAllRealmSessions(ctx context.Context, realm string) error
 	}
 	req.Header.Set(authorizationHeader, bearerPrefix+tok)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
@@ -553,7 +521,7 @@ func (c *Client) setRequiredActionDefault(ctx context.Context, realmID, alias st
 	req.Header.Set(authorizationHeader, bearerPrefix+tok)
 	req.Header.Set(contentTypeHeader, jsonMediaType)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
@@ -592,7 +560,7 @@ func (c *Client) DeleteRealm(ctx context.Context, realmID string) error {
 	}
 	req.Header.Set(authorizationHeader, bearerPrefix+tok)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
@@ -604,228 +572,27 @@ func (c *Client) DeleteRealm(ctx context.Context, realmID string) error {
 	return fmt.Errorf("delete realm %q: keycloak %d: %s", realmID, resp.StatusCode, body)
 }
 
-// EnsureRealmManagementAccess creates the master-realm proxy used to administer
-// realmID and grants its standard administration roles directly to this client's
-// service account. Existing proxy settings and unrelated role mappings are never
-// overwritten. The cached access token is refreshed after adding mappings so the
-// new realm permissions are immediately usable.
+// EnsureRealmManagementAccess checks administrator-provisioned access without
+// creating master clients, roles, or grants. Keycloak owns its native proxies.
 func (c *Client) EnsureRealmManagementAccess(ctx context.Context, realmID string) error {
 	if err := validateManagedRealmID(realmID); err != nil {
 		return err
 	}
-	proxyUUID, proxyClientID, err := c.resolveRealmManagementProxy(ctx, realmID)
-	if err != nil {
-		return err
-	}
-	if err := c.validateRealmManagementClient(ctx, proxyUUID, proxyClientID); err != nil {
-		return err
-	}
-	rolesByName, err := c.ensureRealmManagementRoles(ctx, proxyUUID, proxyClientID)
-	if err != nil {
-		return err
-	}
-	serviceAccountID, err := c.operatorServiceAccountID(ctx)
-	if err != nil {
-		return err
-	}
-	mappingsPath := "/admin/realms/master/users/" + url.PathEscape(serviceAccountID) +
-		"/role-mappings/clients/" + url.PathEscape(proxyUUID)
-	missingMappings, err := c.missingRealmManagementMappings(ctx, mappingsPath, proxyClientID, rolesByName)
-	if err != nil {
-		return err
-	}
-	if len(missingMappings) == 0 {
-		return nil
-	}
-	if err := c.writeRealmRoleMappings(ctx, http.MethodPost, mappingsPath, missingMappings); err != nil {
-		return fmt.Errorf("grant operator access to realm management proxy %q: %w", proxyClientID, err)
-	}
-
-	c.invalidateToken()
-	if _, err := c.bearerToken(ctx); err != nil {
-		return fmt.Errorf("refresh operator token after granting realm %q access: %w", realmID, err)
-	}
-	return nil
+	_, err := c.GetRealm(ctx, realmID)
+	return err
 }
 
-func (c *Client) resolveRealmManagementProxy(ctx context.Context, realmID string) (string, string, error) {
-	proxyClientID := realmID + "-realm"
-	proxyUUID, err := c.resolveClientUUID(ctx, "master", proxyClientID)
-	if err != nil {
-		return "", proxyClientID, fmt.Errorf("resolve realm management proxy %q: %w", proxyClientID, err)
-	}
-	if proxyUUID != "" {
-		return proxyUUID, proxyClientID, nil
-	}
-	if err := c.createRealmManagementClient(ctx, proxyClientID); err != nil {
-		return "", proxyClientID, err
-	}
-	proxyUUID, err = c.resolveClientUUID(ctx, "master", proxyClientID)
-	if err != nil {
-		return "", proxyClientID, fmt.Errorf("resolve created realm management proxy %q: %w", proxyClientID, err)
-	}
-	if proxyUUID == "" {
-		return "", proxyClientID, fmt.Errorf("created realm management proxy %q was not found", proxyClientID)
-	}
-	return proxyUUID, proxyClientID, nil
-}
-
-func (c *Client) ensureRealmManagementRoles(ctx context.Context, proxyUUID, proxyClientID string) (map[string]RealmRole, error) {
-	path := masterClientsPath + url.PathEscape(proxyUUID) + rolesPath
-	var roles []RealmRole
-	if err := c.get(ctx, path, &roles); err != nil {
-		return nil, fmt.Errorf("list roles for realm management proxy %q: %w", proxyClientID, err)
-	}
-	created, err := c.createMissingRealmManagementRoles(ctx, path, proxyClientID, roles)
-	if err != nil {
-		return nil, err
-	}
-	if created {
-		if err := c.get(ctx, path, &roles); err != nil {
-			return nil, fmt.Errorf("reload roles for realm management proxy %q: %w", proxyClientID, err)
-		}
-	}
-	return requiredRealmManagementRoles(roles)
-}
-
-func (c *Client) createMissingRealmManagementRoles(ctx context.Context, path, proxyClientID string, roles []RealmRole) (bool, error) {
-	existing := make(map[string]struct{}, len(roles))
-	for _, role := range roles {
-		existing[role.Name] = struct{}{}
-	}
-	created := false
-	for _, roleName := range realmManagementRoles {
-		if _, ok := existing[roleName]; ok {
-			continue
-		}
-		if err := c.createClientRole(ctx, path, roleName); err != nil {
-			return false, fmt.Errorf("create role %q for realm management proxy %q: %w", roleName, proxyClientID, err)
-		}
-		created = true
-	}
-	return created, nil
-}
-
-func requiredRealmManagementRoles(roles []RealmRole) (map[string]RealmRole, error) {
-	required := make(map[string]struct{}, len(realmManagementRoles))
-	for _, roleName := range realmManagementRoles {
-		required[roleName] = struct{}{}
-	}
-	byName := make(map[string]RealmRole, len(roles))
-	for _, role := range roles {
-		if _, ok := required[role.Name]; !ok {
-			continue
-		}
-		if role.ID == "" {
-			return nil, fmt.Errorf("realm management role %q has no Keycloak ID", role.Name)
-		}
-		byName[role.Name] = role
-	}
-	for _, roleName := range realmManagementRoles {
-		if _, ok := byName[roleName]; !ok {
-			return nil, fmt.Errorf("realm management role %q was not found after creation", roleName)
-		}
-	}
-	return byName, nil
-}
-
-func (c *Client) operatorServiceAccountID(ctx context.Context) (string, error) {
-	operatorUUID, err := c.resolveClientUUID(ctx, "master", c.clientID)
-	if err != nil {
-		return "", fmt.Errorf("resolve operator client %q: %w", c.clientID, err)
-	}
-	if operatorUUID == "" {
-		return "", fmt.Errorf("operator client %q not found in master realm", c.clientID)
-	}
-	var serviceAccount struct {
-		ID string `json:"id"`
-	}
-	path := masterClientsPath + url.PathEscape(operatorUUID) + "/service-account-user"
-	if err := c.get(ctx, path, &serviceAccount); err != nil {
-		return "", fmt.Errorf("get service account for operator client %q: %w", c.clientID, err)
-	}
-	if serviceAccount.ID == "" {
-		return "", fmt.Errorf("operator client %q service account has no Keycloak ID", c.clientID)
-	}
-	return serviceAccount.ID, nil
-}
-
-func (c *Client) missingRealmManagementMappings(ctx context.Context, path, proxyClientID string, rolesByName map[string]RealmRole) ([]RealmRole, error) {
-	var current []RealmRole
-	if err := c.get(ctx, path, &current); err != nil {
-		return nil, fmt.Errorf("list operator mappings for realm management proxy %q: %w", proxyClientID, err)
-	}
-	mapped := make(map[string]struct{}, len(current))
-	for _, role := range current {
-		mapped[role.Name] = struct{}{}
-	}
-	missing := make([]RealmRole, 0, len(realmManagementRoles))
-	for _, roleName := range realmManagementRoles {
-		if _, ok := mapped[roleName]; !ok {
-			missing = append(missing, rolesByName[roleName])
-		}
-	}
-	return missing, nil
-}
-
-// EnsureRealmDeletionAccess bootstraps realm administration only when the
-// target realm still exists. A missing realm needs no Keycloak permission and
-// must not create an orphan master-realm proxy during finalizer recovery.
+// EnsureRealmDeletionAccess accepts an already absent realm and never attempts
+// to repair a forbidden response by granting the operator more authority.
 func (c *Client) EnsureRealmDeletionAccess(ctx context.Context, realmID string) error {
 	if err := validateManagedRealmID(realmID); err != nil {
 		return err
 	}
 	_, err := c.GetRealm(ctx, realmID)
-	if err == nil || IsForbidden(err) {
-		return c.EnsureRealmManagementAccess(ctx, realmID)
-	}
 	if IsNotFound(err) {
 		return nil
 	}
-	return fmt.Errorf("check realm %q before deletion: %w", realmID, err)
-}
-
-// DeleteRealmManagementAccess removes only the validated master-realm proxy for
-// realmID. It refuses to delete a client whose security-sensitive settings do
-// not match a Keycloak realm-management proxy.
-func (c *Client) DeleteRealmManagementAccess(ctx context.Context, realmID string) error {
-	if err := validateManagedRealmID(realmID); err != nil {
-		return err
-	}
-	proxyClientID := realmID + "-realm"
-	proxyUUID, err := c.resolveClientUUID(ctx, "master", proxyClientID)
-	if err != nil {
-		return fmt.Errorf("resolve realm management proxy %q for deletion: %w", proxyClientID, err)
-	}
-	if proxyUUID == "" {
-		return nil
-	}
-	if err := c.validateRealmManagementClient(ctx, proxyUUID, proxyClientID); err != nil {
-		return err
-	}
-
-	tok, err := c.bearerToken(ctx)
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete,
-		c.baseURL+masterClientsPath+url.PathEscape(proxyUUID), nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set(authorizationHeader, bearerPrefix+tok)
-	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusNotFound {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("delete realm management proxy %q: keycloak %d: %s", proxyClientID, resp.StatusCode, body)
-	}
-	c.invalidateToken()
-	return nil
+	return err
 }
 
 func validateManagedRealmID(realmID string) error {
@@ -839,89 +606,6 @@ func validateManagedRealmID(realmID string) error {
 		return fmt.Errorf("managed realm ID %q is not safe for a Keycloak path", realmID)
 	}
 	return nil
-}
-
-func (c *Client) createRealmManagementClient(ctx context.Context, clientID string) error {
-	payload := realmManagementClient{
-		ClientID:               clientID,
-		Enabled:                true,
-		BearerOnly:             true,
-		PublicClient:           false,
-		ServiceAccountsEnabled: false,
-		FullScopeAllowed:       false,
-		Protocol:               openIDConnectProtocol,
-		Attributes:             map[string]string{"realm_client": "true"},
-	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("marshal realm management proxy %q: %w", clientID, err)
-	}
-	tok, err := c.bearerToken(ctx)
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.baseURL+"/admin/realms/master/clients", strings.NewReader(string(body)))
-	if err != nil {
-		return err
-	}
-	req.Header.Set(authorizationHeader, bearerPrefix+tok)
-	req.Header.Set(contentTypeHeader, jsonMediaType)
-	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusConflict {
-		return nil
-	}
-	responseBody, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf("create realm management proxy %q: keycloak %d: %s", clientID, resp.StatusCode, responseBody)
-}
-
-func (c *Client) validateRealmManagementClient(ctx context.Context, uuid, clientID string) error {
-	var proxy realmManagementClient
-	path := masterClientsPath + url.PathEscape(uuid)
-	if err := c.get(ctx, path, &proxy); err != nil {
-		return fmt.Errorf("get realm management proxy %q: %w", clientID, err)
-	}
-	if proxy.ID != uuid || proxy.ClientID != clientID || !proxy.Enabled || !proxy.BearerOnly ||
-		proxy.PublicClient || proxy.ServiceAccountsEnabled || proxy.FullScopeAllowed ||
-		(proxy.Protocol != "" && proxy.Protocol != openIDConnectProtocol) ||
-		proxy.Attributes["realm_client"] != "true" {
-		return fmt.Errorf("client %q is not a safe realm management proxy", clientID)
-	}
-	return nil
-}
-
-func (c *Client) createClientRole(ctx context.Context, rolesPath, roleName string) error {
-	body, err := json.Marshal(RealmRole{Name: roleName})
-	if err != nil {
-		return fmt.Errorf("marshal client role %q: %w", roleName, err)
-	}
-	tok, err := c.bearerToken(ctx)
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.baseURL+rolesPath, strings.NewReader(string(body)))
-	if err != nil {
-		return err
-	}
-	req.Header.Set(authorizationHeader, bearerPrefix+tok)
-	req.Header.Set(contentTypeHeader, jsonMediaType)
-	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusConflict {
-		return nil
-	}
-	responseBody, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf(keycloakPathErrorFormat, rolesPath, resp.StatusCode, responseBody)
 }
 
 // RealmRole is the subset of Keycloak's RoleRepresentation required to manage
@@ -1083,7 +767,7 @@ func (c *Client) EnsureRealmRoleComposites(ctx context.Context, realm, parentNam
 	req.Header.Set(authorizationHeader, bearerPrefix+tok)
 	req.Header.Set(contentTypeHeader, jsonMediaType)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
@@ -1133,7 +817,7 @@ func (c *Client) writeRealmRole(ctx context.Context, method, path string, role R
 	req.Header.Set(authorizationHeader, bearerPrefix+tok)
 	req.Header.Set(contentTypeHeader, jsonMediaType)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
@@ -1181,7 +865,7 @@ func (c *Client) DeleteRealmRole(ctx context.Context, realm, roleName string) er
 	}
 	req.Header.Set(authorizationHeader, bearerPrefix+tok)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
@@ -1282,7 +966,7 @@ func (c *Client) writeRealmRoleMappings(ctx context.Context, method, path string
 	req.Header.Set(authorizationHeader, bearerPrefix+tok)
 	req.Header.Set(contentTypeHeader, jsonMediaType)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
@@ -1388,7 +1072,7 @@ func (c *Client) CreateClientRole(ctx context.Context, realm, clientID, roleName
 	req.Header.Set(contentTypeHeader, jsonMediaType)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
@@ -1422,7 +1106,7 @@ func (c *Client) DeleteClientRole(ctx context.Context, realm, clientID, roleName
 	}
 	req.Header.Set(authorizationHeader, bearerPrefix+tok)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
@@ -1456,7 +1140,7 @@ func (c *Client) DeleteApp(ctx context.Context, realm, clientID string) error {
 	req.Header.Set(authorizationHeader, bearerPrefix+tok)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
@@ -1536,7 +1220,7 @@ func (c *Client) CreateApp(ctx context.Context, realm string, spec CreateAppSpec
 	req.Header.Set(contentTypeHeader, jsonMediaType)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return "", err
 	}
@@ -1635,7 +1319,7 @@ func (c *Client) UpdateApp(ctx context.Context, realm string, spec CreateAppSpec
 	req.Header.Set(contentTypeHeader, jsonMediaType)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
@@ -1695,7 +1379,7 @@ func (c *Client) SyncClientAttributes(ctx context.Context, realm, clientID strin
 	req.Header.Set(contentTypeHeader, jsonMediaType)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
@@ -1767,7 +1451,7 @@ func (c *Client) SetClientSecret(ctx context.Context, realm, clientID, desiredSe
 	req.Header.Set(authorizationHeader, bearerPrefix+tok)
 	req.Header.Set(contentTypeHeader, jsonMediaType)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
@@ -1799,7 +1483,7 @@ func (c *Client) RotateClientSecret(ctx context.Context, realm, clientID string)
 	}
 	req.Header.Set(authorizationHeader, bearerPrefix+tok)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return "", err
 	}
@@ -1851,7 +1535,7 @@ func (c *Client) HardenMasterRealm(ctx context.Context) error {
 	req.Header.Set(authorizationHeader, bearerPrefix+tok)
 	req.Header.Set(contentTypeHeader, jsonMediaType)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return fmt.Errorf("harden master realm: %w", err)
 	}
@@ -1929,7 +1613,7 @@ func (c *Client) ConfigureRealmEvents(ctx context.Context, realm string, spec Re
 	req.Header.Set(authorizationHeader, bearerPrefix+tok)
 	req.Header.Set(contentTypeHeader, jsonMediaType)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return fmt.Errorf("configure realm events %q: %w", realm, err)
 	}
@@ -2054,7 +1738,7 @@ func (c *Client) putJSON(ctx context.Context, path string, payload any) error {
 	req.Header.Set(authorizationHeader, bearerPrefix+tok)
 	req.Header.Set(contentTypeHeader, jsonMediaType)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
@@ -2094,7 +1778,7 @@ func (c *Client) get(ctx context.Context, path string, out any) error {
 	req.Header.Set("Accept", jsonMediaType)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
@@ -2144,7 +1828,7 @@ func (c *Client) fetchToken(ctx context.Context) (string, error) {
 	req.Header.Set(contentTypeHeader, "application/x-www-form-urlencoded")
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return "", err
 	}

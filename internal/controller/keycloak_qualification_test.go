@@ -85,8 +85,9 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 	ctx := log.IntoContext(context.Background(), zap.New(zap.WriteTo(&f.logs)))
 	version, err := f.kc.ServerVersion(ctx)
 	f.requireNoError(err)
-	fixtureEqual(t, "detected server version", version, f.version)
-	t.Logf("qualified fixture: Keycloak %s; verified HTTPS, Admin API v1, client_credentials", version)
+	expectedVersion := "" // Both qualified versions restrict systemInfo to master managers.
+	fixtureEqual(t, "scoped server discovery", version, expectedVersion)
+	t.Logf("qualified fixture: Keycloak %s; verified HTTPS, Admin API v1, client_credentials (version disclosure may be restricted)", f.version)
 
 	t.Log("TLS verification and insufficient-privilege rejection")
 	untrusted := keycloak.New(f.baseURL, "fixture-operator", f.credential)
@@ -113,7 +114,7 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 	if err := keycloak.New("http://"+address, "fixture-operator", f.credential).RequireHTTPS(); err == nil {
 		t.Fatal("enterprise client accepted cleartext HTTP")
 	}
-	restricted, _ := f.serviceClient("fixture-no-admin", false)
+	restricted, _ := f.serviceClient("fixture-no-admin")
 	if _, err := restricted.ServerVersion(ctx); err == nil || !keycloak.IsForbidden(err) {
 		t.Fatal("unprivileged service account was not rejected by serverinfo")
 	}
@@ -123,7 +124,7 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 	if err := restricted.CreateRealm(ctx, keycloak.RealmSpec{ID: "forbidden-realm"}); err == nil || !keycloak.IsForbidden(err) {
 		t.Fatal("unprivileged service account created a realm")
 	}
-	if _, err := f.kc.GetRealm(ctx, "forbidden-realm"); !keycloak.IsNotFound(err) {
+	if f.admin(http.MethodGet, "/admin/realms/forbidden-realm", nil, nil) != http.StatusNotFound {
 		t.Fatal("denied realm creation left provider state behind")
 	}
 	var forbiddenProxies []map[string]any
@@ -171,7 +172,7 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 	fixtureReconcile(f, ctx, ir, instance)
 	fixtureGet(f, ctx, k8s, instance)
 	fixtureEqual(t, "instance phase", instance.Status.Phase, "Ready")
-	fixtureEqual(t, "instance status version", instance.Status.KeycloakVersion, f.version)
+	fixtureEqual(t, "instance status version", instance.Status.KeycloakVersion, expectedVersion)
 	operatorBefore := f.client("master", "fixture-operator")
 	unprivilegedBefore := f.client("master", "fixture-no-admin")
 
@@ -188,7 +189,7 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 	fixtureReconcile(f, ctx, sr, self)
 	fixtureEqual(t, "own credential client preserved after denied adoption/deletion", f.client("master", "fixture-operator"), operatorBefore)
 
-	t.Log("realm creation, IAM/MFA/password/session/brute-force policy, roles and identity provider")
+	t.Log("pre-provisioned realm, IAM/MFA/password/session/brute-force policy, roles and identity provider")
 	enabled, disabled := true, false
 	profile := &hanko.HankoIAMProfile{ObjectMeta: fixtureMeta("secure"), Spec: hanko.HankoIAMProfileSpec{Security: hanko.RealmSecurityProfile{
 		MFAPolicy: "required", PasswordMinLength: 14, PasswordRequireDigit: &enabled,
@@ -397,6 +398,12 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 	fixtureEqual(t, "unowned IDP preserved", provider["alias"], "unowned-idp")
 
 	t.Log("real import and observe paths are read-only and omit sensitive credentials")
+	observer, _ := f.serviceClient("qualification-observer")
+	f.grantClientRoles("qualification-observer", "managed", []string{"view-realm", "view-clients", "view-identity-providers"})
+	observePool := keycloak.NewPool(observer)
+	observeRealm := &controller.HankoRealmReconciler{Client: k8s, Scheme: scheme, Pool: observePool, Recorder: recorder}
+	observeApp := &controller.HankoApplicationReconciler{Client: k8s, OwnershipReader: k8s, Scheme: scheme, Pool: observePool, Recorder: recorder}
+	observeAccount := &controller.HankoServiceAccountReconciler{Client: k8s, OwnershipReader: k8s, Scheme: scheme, Pool: observePool, Recorder: recorder}
 	beforeObserveRealm := getRealm()
 	beforeObserveSPA := f.client("managed", "app-spa")
 	beforeObserveWorker := f.client("managed", "worker")
@@ -405,7 +412,7 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 	if len(beforeEvents) == 0 {
 		t.Fatal("Admin API write-event auditing is inactive; observation cannot be qualified")
 	}
-	importer := &controller.HankoImportReconciler{Client: k8s, Scheme: scheme, Pool: pool, RequireHTTPS: true}
+	importer := &controller.HankoImportReconciler{Client: k8s, Scheme: scheme, Pool: observePool, RequireHTTPS: true}
 	importObject := &hanko.HankoImport{ObjectMeta: metav1.ObjectMeta{Name: "inventory", Namespace: "inventory"}, Spec: hanko.HankoImportSpec{SourceRef: "external", Realms: []string{"managed"}}}
 	f.requireNoError(k8s.Create(ctx, importObject))
 	fixtureReconcile(f, ctx, importer, importObject)
@@ -432,8 +439,8 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 		}
 		observed.Finalizers = []string{controller.RealmFinalizerName}
 		f.requireNoError(k8s.Update(ctx, observed))
-		fixtureReconcile(f, ctx, rr, observed)
-		fixtureReconcile(f, ctx, rr, observed)
+		fixtureReconcile(f, ctx, observeRealm, observed)
+		fixtureReconcile(f, ctx, observeRealm, observed)
 		fixtureGet(f, ctx, k8s, observed)
 		if len(observed.Finalizers) != 0 {
 			t.Fatal("observed realm retained legacy destructive ownership")
@@ -444,7 +451,7 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 	for i := range importedApps.Items {
 		observed := &importedApps.Items[i]
 		fixtureEqual(t, "application observe mode", observed.Spec.Mode, "Observe")
-		fixtureReconcile(f, ctx, ar, observed)
+		fixtureReconcile(f, ctx, observeApp, observed)
 		fixtureGet(f, ctx, k8s, observed)
 		if observed.Status.ClientSecret != nil || len(observed.Finalizers) != 0 {
 			t.Fatal("observed application acquired credential/destructive ownership")
@@ -454,7 +461,7 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 		observed.Finalizers = []string{controller.FinalizerName}
 		f.requireNoError(k8s.Update(ctx, observed))
 		f.requireNoError(k8s.Delete(ctx, observed))
-		fixtureReconcile(f, ctx, ar, observed)
+		fixtureReconcile(f, ctx, observeApp, observed)
 		if err := k8s.Get(ctx, client.ObjectKeyFromObject(observed), &hanko.HankoApplication{}); !apierrors.IsNotFound(err) {
 			t.Fatal("observed application deletion retained a legacy finalizer")
 		}
@@ -465,8 +472,8 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 		observed := &importedAccounts.Items[i]
 		observed.Finalizers = []string{controller.SAFinalizerName}
 		f.requireNoError(k8s.Update(ctx, observed))
-		fixtureReconcile(f, ctx, sr, observed)
-		fixtureReconcile(f, ctx, sr, observed)
+		fixtureReconcile(f, ctx, observeAccount, observed)
+		fixtureReconcile(f, ctx, observeAccount, observed)
 		fixtureGet(f, ctx, k8s, observed)
 		if observed.Status.SecretRef != nil || observed.Status.LastRotated != nil || len(observed.Finalizers) != 0 {
 			t.Fatal("observed service account acquired credentials/destructive ownership")
