@@ -3,15 +3,46 @@ import hashlib
 import importlib.util
 import json
 import os
+import itertools
 from pathlib import Path
+import subprocess
 import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
+import yaml
+
 spec = importlib.util.spec_from_file_location("attest_release", Path(__file__).with_name("attest-release.py"))
 release = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release)
+
+
+class QualificationGateTests(unittest.TestCase):
+    def test_ci_aggregate_fails_on_any_failed_cancelled_or_skipped_matrix(self):
+        workflow = yaml.safe_load((Path(__file__).parents[1] / ".github/workflows/ci.yml").read_text())
+        aggregate = workflow["jobs"]["checks"]
+        self.assertEqual(aggregate["name"], "Source and chart checks")
+        self.assertEqual(aggregate["if"], "always()")
+        self.assertEqual(set(aggregate["needs"]), {"source", "kubernetes", "keycloak"})
+        step = aggregate["steps"][0]
+        dependencies = {f"${{{{ needs.{job}.result }}}}" for job in aggregate["needs"]}
+        self.assertEqual(set(step["env"].values()), dependencies)
+        for results in itertools.product(("success", "failure", "cancelled", "skipped"), repeat=3):
+            with self.subTest(results=results):
+                environment = dict(os.environ, **dict(zip(step["env"], results)))
+                result = subprocess.run(["bash", "-c", step["run"]], env=environment,
+                                        capture_output=True, check=False)
+                self.assertEqual(result.returncode == 0, all(value == "success" for value in results))
+
+    def test_release_reuses_the_full_required_qualification_gate(self):
+        root = Path(__file__).parents[1] / ".github/workflows"
+        ci = yaml.safe_load((root / "ci.yml").read_text())
+        delivery = yaml.safe_load((root / "release.yml").read_text())
+        self.assertEqual(ci["jobs"]["keycloak"]["strategy"]["matrix"]["version"], ["26.8.0", "26.7.5"])
+        self.assertFalse(ci["jobs"]["keycloak"].get("continue-on-error", False))
+        self.assertEqual(delivery["jobs"]["quality"]["uses"], "./.github/workflows/ci.yml")
+        self.assertEqual(delivery["jobs"]["publish"]["needs"], "quality")
 
 
 class AttestVerdictTests(unittest.TestCase):

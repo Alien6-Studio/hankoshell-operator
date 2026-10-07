@@ -11,8 +11,9 @@ GO_ARCH_LINT_VERSION := v1.19.0
 GOVULNCHECK_VERSION := v1.8.0
 CHART := charts/hankoshell-operator
 KUBERNETES_VERSION ?= 1.37.0
+KEYCLOAK_VERSION ?= 26.8.0
 
-.PHONY: all check fmt-check generate manifests generated-check build vet test chart-test integration-test lint arch vuln install-tools
+.PHONY: all check fmt-check generate manifests generated-check build vet test chart-test integration-test keycloak-integration-test lint arch vuln install-tools
 all: check build
 check: fmt-check vet test chart-test
 
@@ -44,6 +45,8 @@ integration-test:
 	@assets="$$(bash scripts/install-envtest.sh $(KUBERNETES_VERSION))" && \
 		KUBEBUILDER_ASSETS="$$assets" KUBERNETES_VERSION=$(KUBERNETES_VERSION) \
 		go test -tags=integration -race -count=1 -timeout=5m -v ./api/v1alpha1
+keycloak-integration-test:
+	KEYCLOAK_VERSION=$(KEYCLOAK_VERSION) go test -tags=keycloak_integration -race -count=1 -timeout=8m -v ./internal/controller
 $(GOLANGCI_LINT):
 	@mkdir -p "$(@D)"
 	GOBIN="$(@D)" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
