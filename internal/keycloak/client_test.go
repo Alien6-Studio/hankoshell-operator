@@ -112,145 +112,35 @@ func TestOperationalSecurityControls(t *testing.T) {
 	}
 }
 
-func TestRealmManagementAccessBootstrapIsIdempotentAndScoped(t *testing.T) {
-	expectedRoles := map[string]struct{}{
-		"create-client": {}, "impersonation": {}, "manage-authorization": {},
-		"manage-clients": {}, "manage-events": {}, "manage-identity-providers": {},
-		"manage-realm": {}, "manage-users": {}, "query-clients": {},
-		"query-groups": {}, "query-realms": {}, "query-users": {},
-		"view-authorization": {}, "view-clients": {}, "view-events": {},
-		"view-identity-providers": {}, "view-realm": {}, "view-users": {},
-	}
-	proxyExists := false
-	proxyDeletes := 0
-	tokenCalls := 0
-	roleCreates := 0
-	mappingPosts := 0
-	roles := make(map[string]keycloak.RealmRole)
-	var mappings []keycloak.RealmRole
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.Method == http.MethodPost && r.URL.Path == "/realms/master/protocol/openid-connect/token":
-			tokenCalls++
-			_, _ = fmt.Fprintf(w, `{"access_token":"token-%d","expires_in":60}`, tokenCalls)
-		case r.Method == http.MethodGet && r.URL.Path == "/admin/realms/recipe":
-			http.Error(w, "forbidden", http.StatusForbidden)
-		case r.Method == http.MethodGet && r.URL.Path == "/admin/realms/master/clients":
-			switch r.URL.Query().Get("clientId") {
-			case "recipe-realm":
-				if proxyExists {
-					_, _ = w.Write([]byte(`[{"id":"proxy-uuid","clientId":"recipe-realm"}]`))
-				} else {
-					_, _ = w.Write([]byte(`[]`))
+func TestRealmManagementAccessNeverGrantsAuthority(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusForbidden, http.StatusNotFound} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/realms/master/protocol/openid-connect/token":
+					_, _ = w.Write([]byte(`{"access_token":"test-token","expires_in":60}`))
+				case "/admin/realms/recipe":
+					if r.Method != http.MethodGet {
+						t.Error("access check mutated realm")
+					}
+					w.WriteHeader(status)
+					_, _ = w.Write([]byte(`{"realm":"recipe"}`))
+				default:
+					t.Errorf("access check attempted unprovisioned authority: %s %s", r.Method, r.URL.Path)
+					http.Error(w, "forbidden", http.StatusForbidden)
 				}
-			case "keycloak-ops":
-				_, _ = w.Write([]byte(`[{"id":"operator-uuid","clientId":"keycloak-ops"}]`))
-			default:
-				t.Errorf("unexpected client lookup %q", r.URL.Query().Get("clientId"))
-				http.Error(w, "unexpected client lookup", http.StatusBadRequest)
+			}))
+			defer server.Close()
+			client := keycloak.New(server.URL, "operator", "secret")
+			err := client.EnsureRealmManagementAccess(context.Background(), "recipe")
+			if (err == nil) != (status == http.StatusOK) {
+				t.Fatalf("access check: %v", err)
 			}
-		case r.Method == http.MethodPost && r.URL.Path == "/admin/realms/master/clients":
-			var created map[string]any
-			if err := json.NewDecoder(r.Body).Decode(&created); err != nil {
-				t.Errorf("decode proxy: %v", err)
-				http.Error(w, "invalid proxy", http.StatusBadRequest)
-				return
+			err = client.EnsureRealmDeletionAccess(context.Background(), "recipe")
+			if (err == nil) != (status != http.StatusForbidden) {
+				t.Fatalf("deletion access check: %v", err)
 			}
-			for field, want := range map[string]any{
-				"clientId": "recipe-realm", "enabled": true, "bearerOnly": true,
-				"publicClient": false, "serviceAccountsEnabled": false,
-				"fullScopeAllowed": false, "protocol": "openid-connect",
-			} {
-				if got := created[field]; got != want {
-					t.Errorf("proxy %s = %#v, want %#v", field, got, want)
-				}
-			}
-			attributes, ok := created["attributes"].(map[string]any)
-			if !ok || attributes["realm_client"] != "true" {
-				t.Errorf("unsafe proxy attributes: %#v", created["attributes"])
-			}
-			proxyExists = true
-			w.WriteHeader(http.StatusCreated)
-		case r.Method == http.MethodGet && r.URL.Path == "/admin/realms/master/clients/proxy-uuid":
-			_, _ = w.Write([]byte(`{
-				"id":"proxy-uuid","clientId":"recipe-realm","enabled":true,
-				"bearerOnly":true,"publicClient":false,"serviceAccountsEnabled":false,
-				"fullScopeAllowed":false,"protocol":null,
-				"attributes":{"realm_client":"true"}
-			}`))
-		case r.Method == http.MethodGet && r.URL.Path == "/admin/realms/master/clients/proxy-uuid/roles":
-			listed := make([]keycloak.RealmRole, 0, len(roles))
-			for _, role := range roles {
-				listed = append(listed, role)
-			}
-			_ = json.NewEncoder(w).Encode(listed)
-		case r.Method == http.MethodPost && r.URL.Path == "/admin/realms/master/clients/proxy-uuid/roles":
-			var role keycloak.RealmRole
-			if err := json.NewDecoder(r.Body).Decode(&role); err != nil {
-				t.Errorf("decode role: %v", err)
-				http.Error(w, "invalid role", http.StatusBadRequest)
-				return
-			}
-			if _, expected := expectedRoles[role.Name]; !expected {
-				t.Errorf("unexpected realm management role %q", role.Name)
-			}
-			role.ID = "role-" + role.Name
-			role.ClientRole = true
-			role.ContainerID = "proxy-uuid"
-			roles[role.Name] = role
-			roleCreates++
-			w.WriteHeader(http.StatusCreated)
-		case r.Method == http.MethodGet && r.URL.Path == "/admin/realms/master/clients/operator-uuid/service-account-user":
-			_, _ = w.Write([]byte(`{"id":"service-account-uuid"}`))
-		case r.Method == http.MethodGet && r.URL.Path == "/admin/realms/master/users/service-account-uuid/role-mappings/clients/proxy-uuid":
-			_ = json.NewEncoder(w).Encode(mappings)
-		case r.Method == http.MethodPost && r.URL.Path == "/admin/realms/master/users/service-account-uuid/role-mappings/clients/proxy-uuid":
-			if err := json.NewDecoder(r.Body).Decode(&mappings); err != nil {
-				t.Errorf("decode mappings: %v", err)
-				http.Error(w, "invalid mappings", http.StatusBadRequest)
-				return
-			}
-			mappingPosts++
-			w.WriteHeader(http.StatusNoContent)
-		case r.Method == http.MethodDelete && r.URL.Path == "/admin/realms/master/clients/proxy-uuid":
-			proxyExists = false
-			proxyDeletes++
-			w.WriteHeader(http.StatusNoContent)
-		default:
-			t.Errorf("unexpected Keycloak request: %s %s", r.Method, r.URL.String())
-			http.NotFound(w, r)
-		}
-	}))
-	defer server.Close()
-
-	client := keycloak.New(server.URL, "keycloak-ops", "secret")
-	ctx := context.Background()
-	if err := client.EnsureRealmDeletionAccess(ctx, "recipe"); err != nil {
-		t.Fatalf("EnsureRealmDeletionAccess: %v", err)
-	}
-	if roleCreates != len(expectedRoles) || len(roles) != len(expectedRoles) {
-		t.Fatalf("created %d roles, want %d", roleCreates, len(expectedRoles))
-	}
-	if mappingPosts != 1 || len(mappings) != len(expectedRoles) {
-		t.Fatalf("mapped %d roles in %d request(s), want %d roles in one request", len(mappings), mappingPosts, len(expectedRoles))
-	}
-	if tokenCalls != 2 {
-		t.Fatalf("token calls = %d, want initial token plus immediate refresh", tokenCalls)
-	}
-
-	if err := client.EnsureRealmManagementAccess(ctx, "recipe"); err != nil {
-		t.Fatalf("idempotent EnsureRealmManagementAccess: %v", err)
-	}
-	if roleCreates != len(expectedRoles) || mappingPosts != 1 || tokenCalls != 2 {
-		t.Fatalf("idempotent reconcile mutated state: roles=%d mappings=%d tokens=%d", roleCreates, mappingPosts, tokenCalls)
-	}
-
-	if err := client.DeleteRealmManagementAccess(ctx, "recipe"); err != nil {
-		t.Fatalf("DeleteRealmManagementAccess: %v", err)
-	}
-	if proxyDeletes != 1 || proxyExists {
-		t.Fatalf("proxy cleanup = %d deletion(s), exists=%t", proxyDeletes, proxyExists)
+		})
 	}
 }
 
@@ -281,44 +171,15 @@ func TestRealmDeletionAccessSkipsProxyForMissingRealm(t *testing.T) {
 	}
 }
 
-func TestRealmManagementAccessFailsClosed(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.Method == http.MethodPost && r.URL.Path == "/realms/master/protocol/openid-connect/token":
-			_, _ = w.Write([]byte(`{"access_token":"test-token","expires_in":60}`))
-		case r.Method == http.MethodGet && r.URL.Path == "/admin/realms/master/clients":
-			_, _ = w.Write([]byte(`[{"id":"unsafe-uuid","clientId":"recipe-realm"}]`))
-		case r.Method == http.MethodGet && r.URL.Path == "/admin/realms/master/clients/unsafe-uuid":
-			_, _ = w.Write([]byte(`{
-				"id":"unsafe-uuid","clientId":"recipe-realm","enabled":true,
-				"bearerOnly":false,"serviceAccountsEnabled":true,"fullScopeAllowed":true,
-				"protocol":"openid-connect","attributes":{"realm_client":"true"}
-			}`))
-		default:
-			t.Errorf("unexpected Keycloak request: %s %s", r.Method, r.URL.String())
-			http.NotFound(w, r)
-		}
-	}))
-	defer server.Close()
-
-	client := keycloak.New(server.URL, "keycloak-ops", "secret")
-	err := client.EnsureRealmManagementAccess(context.Background(), "recipe")
-	if err == nil || !strings.Contains(err.Error(), "not a safe realm management proxy") {
-		t.Fatalf("unsafe proxy error = %v", err)
-	}
-	err = client.DeleteRealmManagementAccess(context.Background(), "recipe")
-	if err == nil || !strings.Contains(err.Error(), "not a safe realm management proxy") {
-		t.Fatalf("unsafe proxy deletion error = %v", err)
-	}
-}
-
 func TestRealmManagementAccessProtectsMasterRealm(t *testing.T) {
 	client := keycloak.New("http://unused.invalid", "keycloak-ops", "secret")
-	if err := client.EnsureRealmManagementAccess(context.Background(), "master"); err == nil {
-		t.Fatal("master realm access must be rejected")
-	}
-	if err := client.DeleteRealmManagementAccess(context.Background(), "master"); err == nil {
-		t.Fatal("master realm access deletion must be rejected")
+	for _, realm := range []string{"master", "", "unsafe/path"} {
+		if err := client.EnsureRealmManagementAccess(context.Background(), realm); err == nil {
+			t.Fatal("unsafe realm accepted")
+		}
+		if err := client.EnsureRealmDeletionAccess(context.Background(), realm); err == nil {
+			t.Fatal("unsafe deletion accepted")
+		}
 	}
 }
 

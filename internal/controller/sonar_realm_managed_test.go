@@ -16,30 +16,18 @@ import (
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 )
 
-var managedRealmRoleNames = []string{
-	"create-client", "impersonation", "manage-authorization", "manage-clients",
-	"manage-events", "manage-identity-providers", "manage-realm", "manage-users",
-	"query-clients", "query-groups", "query-realms", "query-users",
-	"view-authorization", "view-clients", "view-events", "view-identity-providers",
-	"view-realm", "view-users",
-}
-
 type managedRealmAPIFixture struct {
-	t                  *testing.T
-	realmPayload       map[string]any
-	eventsPayload      map[string]any
-	adminPayload       map[string]any
-	identityPayload    map[string]any
-	requiredAction     map[string]any
-	managementMappings []keycloak.RealmRole
+	t               *testing.T
+	realmPayload    map[string]any
+	eventsPayload   map[string]any
+	adminPayload    map[string]any
+	identityPayload map[string]any
+	requiredAction  map[string]any
 }
 
 func newManagedRealmAPIFixture(t *testing.T) (*managedRealmAPIFixture, *keycloak.Client) {
 	t.Helper()
 	fixture := &managedRealmAPIFixture{t: t}
-	for _, name := range managedRealmRoleNames {
-		fixture.managementMappings = append(fixture.managementMappings, keycloak.RealmRole{ID: "role-" + name, Name: name})
-	}
 	server := httptest.NewServer(http.HandlerFunc(fixture.serveHTTP))
 	t.Cleanup(server.Close)
 	return fixture, keycloak.New(server.URL, "operator", "secret")
@@ -57,28 +45,6 @@ func (fixture *managedRealmAPIFixture) serveHTTP(w http.ResponseWriter, request 
 	case request.Method == http.MethodPut && request.URL.Path == "/admin/realms/acme":
 		fixture.decode(request, &fixture.realmPayload)
 		w.WriteHeader(http.StatusNoContent)
-	case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/master/clients":
-		switch request.URL.Query().Get("clientId") {
-		case "acme-realm":
-			_ = json.NewEncoder(w).Encode([]map[string]string{{"id": "proxy-uuid", "clientId": "acme-realm"}})
-		case "operator":
-			_ = json.NewEncoder(w).Encode([]map[string]string{{"id": "operator-uuid", "clientId": "operator"}})
-		default:
-			fixture.unexpected(w, request)
-		}
-	case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/master/clients/proxy-uuid":
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"id": "proxy-uuid", "clientId": "acme-realm", "enabled": true,
-			"bearerOnly": true, "publicClient": false, "serviceAccountsEnabled": false,
-			"fullScopeAllowed": false, "protocol": "openid-connect",
-			"attributes": map[string]string{"realm_client": "true"},
-		})
-	case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/master/clients/proxy-uuid/roles":
-		_ = json.NewEncoder(w).Encode(fixture.managementMappings)
-	case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/master/clients/operator-uuid/service-account-user":
-		_ = json.NewEncoder(w).Encode(map[string]string{"id": "service-account-uuid"})
-	case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/master/users/service-account-uuid/role-mappings/clients/proxy-uuid":
-		_ = json.NewEncoder(w).Encode(fixture.managementMappings)
 	case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/acme/roles/auditor":
 		_ = json.NewEncoder(w).Encode(keycloak.RealmRole{ID: "auditor-uuid", Name: "auditor", Description: "Audit access"})
 	case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/acme/authentication/required-actions/CONFIGURE_TOTP":
@@ -192,10 +158,6 @@ func TestManagedRealmReconcileAppliesSecurityBaselineEndToEnd(t *testing.T) {
 
 func TestManagedRealmDeletionRemovesOnlyValidatedRealmResources(t *testing.T) {
 	deletedRealm, deletedProxy := false, false
-	roles := make([]keycloak.RealmRole, 0, len(managedRealmRoleNames))
-	for _, name := range managedRealmRoleNames {
-		roles = append(roles, keycloak.RealmRole{ID: "role-" + name, Name: name})
-	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		switch {
 		case request.Method == http.MethodPost && request.URL.Path == "/realms/master/protocol/openid-connect/token":
@@ -205,31 +167,11 @@ func TestManagedRealmDeletionRemovesOnlyValidatedRealmResources(t *testing.T) {
 		case request.Method == http.MethodDelete && request.URL.Path == "/admin/realms/acme":
 			deletedRealm = true
 			w.WriteHeader(http.StatusNoContent)
-		case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/master/clients":
-			switch request.URL.Query().Get("clientId") {
-			case "acme-realm":
-				_ = json.NewEncoder(w).Encode([]map[string]string{{"id": "proxy-uuid", "clientId": "acme-realm"}})
-			case "operator":
-				_ = json.NewEncoder(w).Encode([]map[string]string{{"id": "operator-uuid", "clientId": "operator"}})
-			default:
-				http.NotFound(w, request)
-			}
-		case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/master/clients/proxy-uuid":
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"id": "proxy-uuid", "clientId": "acme-realm", "enabled": true, "bearerOnly": true,
-				"publicClient": false, "serviceAccountsEnabled": false, "fullScopeAllowed": false,
-				"protocol": "openid-connect", "attributes": map[string]string{"realm_client": "true"},
-			})
-		case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/master/clients/proxy-uuid/roles":
-			_ = json.NewEncoder(w).Encode(roles)
-		case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/master/clients/operator-uuid/service-account-user":
-			_ = json.NewEncoder(w).Encode(map[string]string{"id": "service-account-uuid"})
-		case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/master/users/service-account-uuid/role-mappings/clients/proxy-uuid":
-			_ = json.NewEncoder(w).Encode(roles)
 		case request.Method == http.MethodDelete && request.URL.Path == "/admin/realms/master/clients/proxy-uuid":
 			deletedProxy = true
 			w.WriteHeader(http.StatusNoContent)
 		default:
+			t.Errorf("unprovisioned authority requested: %s %s", request.Method, request.URL.Path)
 			http.Error(w, "unexpected request", http.StatusNotFound)
 		}
 	}))
@@ -249,8 +191,8 @@ func TestManagedRealmDeletionRemovesOnlyValidatedRealmResources(t *testing.T) {
 	if _, err := reconciler.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(realm)}); err != nil {
 		t.Fatalf("delete managed realm: %v", err)
 	}
-	if !deletedRealm || !deletedProxy {
-		t.Fatalf("Keycloak cleanup incomplete: realm=%t proxy=%t", deletedRealm, deletedProxy)
+	if !deletedRealm || deletedProxy {
+		t.Fatalf("realm deletion must leave proxy lifecycle to Keycloak: realm=%t proxyMutation=%t", deletedRealm, deletedProxy)
 	}
 }
 

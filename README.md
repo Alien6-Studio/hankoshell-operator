@@ -16,6 +16,7 @@ operator, and can also provision a Keycloak Deployment.
 **[What it manages](#what-it-manages-in-keycloak)** · [First application](#declare-your-first-realm) ·
 [Deployment](#deployment) ·
 [Secure deployment and trust model](docs/secure-deployment.md) ·
+[Keycloak permissions](docs/keycloak-permissions.md) ·
 [Changes](CHANGELOG.md)
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml)
@@ -101,6 +102,12 @@ configuration; portable backup and restore are not qualified.
 | Build or contribute | [Development](#development) → [contributing](CONTRIBUTING.md) |
 
 ## Deployment
+
+For an existing realm, the tested common service-account profile uses only
+`manage-realm`, `manage-clients` and `manage-events` on that target realm.
+See the **[Keycloak permission model](docs/keycloak-permissions.md)** before
+provisioning credentials: it specifies optional feature roles, read-only import,
+forbidden authority and the broader native grants attached to realm creation.
 
 hankoShell Operator **0.1.0 is qualified against Keycloak 26.8.0 and 26.7.5**
 through its real HTTPS Admin API v1. Required CI exercises realm/client lifecycles,

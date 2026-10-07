@@ -194,7 +194,9 @@ func newKeycloakFixture(t *testing.T) *keycloakFixture {
 	// Password grant exists only in this disposable bootstrap fixture. Production
 	// reconcilers below authenticate exclusively with client_credentials.
 	f.adminToken = f.token(url.Values{"client_id": {"admin-cli"}, "grant_type": {"password"}, "username": {"fixture-admin"}, "password": {password}})
-	f.kc, f.credential = f.serviceClient("fixture-operator", true)
+	f.admin(http.MethodPost, "/admin/realms", map[string]any{"realm": "managed", "enabled": true}, nil)
+	f.kc, f.credential = f.serviceClient("fixture-operator")
+	f.grantClientRoles("fixture-operator", "managed", []string{"manage-realm", "manage-clients", "manage-events", "manage-users", "manage-identity-providers"})
 	return f
 }
 
@@ -259,7 +261,7 @@ func (f *keycloakFixture) client(realm, name string) map[string]any {
 	return full
 }
 
-func (f *keycloakFixture) serviceClient(name string, privileged bool) (*keycloak.Client, string) {
+func (f *keycloakFixture) serviceClient(name string) (*keycloak.Client, string) {
 	f.t.Helper()
 	secret := fixtureSecret(f.t)
 	f.secrets = append(f.secrets, secret)
@@ -268,17 +270,6 @@ func (f *keycloakFixture) serviceClient(name string, privileged bool) (*keycloak
 		"publicClient": false, "serviceAccountsEnabled": true, "standardFlowEnabled": false,
 		"directAccessGrantsEnabled": false, "fullScopeAllowed": false,
 	}, nil)
-	if privileged {
-		client := f.client("master", name)
-		var user map[string]any
-		f.admin(http.MethodGet, "/admin/realms/master/clients/"+client["id"].(string)+"/service-account-user", nil, &user)
-		var role map[string]any
-		f.admin(http.MethodGet, "/admin/realms/master/roles/admin", nil, &role)
-		// The complete realm lifecycle currently requires master administrative
-		// authority. Do not label this fixture as a least-privilege deployment.
-		f.admin(http.MethodPost, "/admin/realms/master/users/"+user["id"].(string)+"/role-mappings/realm", []any{role}, nil)
-		f.admin(http.MethodPost, "/admin/realms/master/clients/"+client["id"].(string)+"/scope-mappings/realm", []any{role}, nil)
-	}
 	kc, err := keycloak.NewWithTLS(f.baseURL, name, secret, f.ca)
 	if err != nil {
 		f.t.Fatal(err)

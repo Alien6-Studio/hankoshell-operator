@@ -18,6 +18,11 @@ The chart rejects user namespaces on 1.35 and invalid or unknown hardening optio
 The baseline non-root/seccomp/capability/filesystem protections remain mandatory.
 See the [compatibility matrix and namespace admission configuration](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md#kubernetes-compatibility-and-hardening).
 
+Provision a **[dedicated Keycloak service account using the tested permission model](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/keycloak-permissions.md)**.
+The existing-realm profile needs target `manage-realm`, `manage-clients` and
+`manage-events`; optional capabilities have additional or inherited authority.
+Keep secrets outside committed values and review native realm-creation grants.
+
 Configure an exact image digest, existing Keycloak Secret, dedicated watch
 namespace, authority realm and protected clients. Supply your Kubernetes API
 Service/endpoint addresses to the NetworkPolicy; API egress is closed by

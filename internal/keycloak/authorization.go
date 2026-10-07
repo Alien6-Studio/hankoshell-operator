@@ -641,21 +641,47 @@ func (c *Client) authorizationCreate(ctx context.Context, path string, payload a
 	if err != nil {
 		return "", err
 	}
+	defer response.Body.Close()
 	location := response.Header.Get("Location")
 	if location == "" {
-		return "", fmt.Errorf("keycloak %s create response omitted Location", path)
+		// Keycloak authorization APIs return the created representation rather
+		// than Location on supported versions. Both resource ID spellings occur.
+		body, err := io.ReadAll(io.LimitReader(response.Body, (1<<20)+1))
+		if err != nil || len(body) > 1<<20 {
+			return "", fmt.Errorf("keycloak authorization create response unreadable or oversized")
+		}
+		var created struct {
+			ID         string `json:"id"`
+			ResourceID string `json:"_id"`
+		}
+		if err := json.Unmarshal(body, &created); err != nil {
+			return "", fmt.Errorf("keycloak authorization create response invalid")
+		}
+		if created.ID != "" {
+			return created.ID, nil
+		}
+		if created.ResourceID != "" {
+			return created.ResourceID, nil
+		}
+		return "", fmt.Errorf("keycloak %s create response omitted object ID", path)
 	}
 	location = strings.TrimSuffix(location, "/")
 	return location[strings.LastIndex(location, "/")+1:], nil
 }
 
 func (c *Client) authorizationUpdate(ctx context.Context, path string, payload any) error {
-	_, err := c.authorizationRequest(ctx, http.MethodPut, path, payload, http.StatusNoContent, http.StatusOK)
+	response, err := c.authorizationRequest(ctx, http.MethodPut, path, payload, http.StatusNoContent, http.StatusOK, http.StatusCreated)
+	if response != nil {
+		response.Body.Close()
+	}
 	return err
 }
 
 func (c *Client) authorizationDelete(ctx context.Context, path string) error {
-	_, err := c.authorizationRequest(ctx, http.MethodDelete, path, nil, http.StatusNoContent, http.StatusOK)
+	response, err := c.authorizationRequest(ctx, http.MethodDelete, path, nil, http.StatusNoContent, http.StatusOK)
+	if response != nil {
+		response.Body.Close()
+	}
 	return err
 }
 
@@ -679,12 +705,11 @@ func (c *Client) authorizationRequest(ctx context.Context, method, path string, 
 	request.Header.Set(authorizationHeader, bearerPrefix+token)
 	request.Header.Set(contentTypeHeader, jsonMediaType)
 	request.Header.Set(forwardedProtoHeader, httpsScheme)
-	response, err := c.httpClient.Do(request)
+	response, err := c.do(request)
 	if err != nil {
 		return nil, err
 	}
 	if slices.Contains(accepted, response.StatusCode) {
-		_ = response.Body.Close()
 		return response, nil
 	}
 	defer response.Body.Close()

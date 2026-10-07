@@ -305,7 +305,7 @@ func (c *Client) mapperRequest(ctx context.Context, method, mapperPath string, p
 	req.Header.Set(authorizationHeader, bearerPrefix+token)
 	req.Header.Set(contentTypeHeader, jsonMediaType)
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return nil, nil, err
 	}
