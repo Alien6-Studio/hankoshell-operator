@@ -32,6 +32,17 @@ or target-cluster qualification is implied by the version number.
 
 ### Security
 
+- Require a checksum-pinned Trivy gate on both final OCI runtime platforms,
+  including cosign's versioned main module, dependencies, Go runtime and OS
+  inventory. Block fixable HIGH/CRITICAL vulnerabilities and validate scoped,
+  expiring HIGH exceptions; retain complete reports and fresh database identity.
+- Build/export once, verify and copy the scanned OCI graph without rebuilding;
+  defer the release image tag until signatures and Continuum Attest verification
+  pass. Pin the scanned digest in the delivered chart and bind reports/policy
+  in signed checksums and the receipt.
+- Build cosign as a versioned dependency for scanner visibility and update its
+  crypto dependency to v0.56.0 after image scanning identified fixable findings.
+
 - Require verified HTTPS by default for administrative Keycloak connections,
   including instance, tenant and rotation paths. Require explicit standard-only
   HTTP acknowledgement, retain HTTPS-only enterprise, validate endpoint forms

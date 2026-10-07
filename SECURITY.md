@@ -19,6 +19,66 @@ The project is in initial development; public APIs may change between minor
 versions before `1.0.0`. Reports against `main` are welcome, but use a tagged
 release for deployments.
 
+## Final OCI image vulnerability gate
+
+Source `govulncheck` remains mandatory and is supplemented by a scan of the actual
+final runtime image on **both linux/amd64 and linux/arm64**. The image includes
+`/hankoshell-operator` and `/usr/local/bin/cosign`; cosign has its own versioned
+module, dependencies and Go runtime. Scanning the operator's go.mod alone does
+not cover that second executable or the runtime OS. Trivy must identify OS
+packages, both binaries, their Go runtimes and cosign's main module version;
+missing inventory or mismatched architecture/configuration identity fails closed.
+
+The reviewed scanner is **Trivy 0.75.0**, acquired from its fixed
+[upstream release](https://github.com/aquasecurity/trivy/releases/tag/v0.75.0)
+with archive SHA256 values committed in [the installer](scripts/install-trivy.py)
+and a runtime version check. No scanner action/image uses `latest`. Scan failures,
+unavailable databases, malformed reports and missing architectures block delivery.
+A fresh database is downloaded once for both scans; its hash and metadata are
+recorded. Data older than 48 hours is rejected. Release evidence must be less
+than 24 hours old and match the current source revision, policy and image digest.
+Database updates intentionally remain current, rather than frozen with the tool.
+
+[The versioned policy](security/oci-vulnerability-policy.json) blocks known
+**HIGH and CRITICAL vulnerabilities with an available fixed version**. It reports
+all severities and unfixed findings without filtering them out of the JSON.
+This 0.1.0 baseline makes actionable upgrades mandatory while retaining visibility
+of issues without an upstream fix. Passing does not mean there are no unfixed,
+lower-severity, unknown or undiscovered vulnerabilities; maintainers must review
+those findings and can defer publication independently of the automated threshold.
+This inventory-based scan does not establish vulnerable-function reachability;
+source govulncheck remains separate. See Trivy's [Go binary coverage and limits](https://trivy.dev/docs/latest/coverage/language/golang/).
+
+Only HIGH findings can receive a narrowly scoped temporary exception. There
+are currently **no exceptions**. Each entry must contain an exact `cve`, `package`,
+`target` (binary path or `os:<distribution>`), `installed_version`, substantive
+`justification` and ISO `expires` date. Wildcards, duplicate or incomplete entries
+fail parsing. Expiry is the start of that UTC date, must be in the future and
+within 90 days; expired entries fail the gate even if the vulnerability no longer
+appears. Review and remove exceptions through a PR. CRITICAL fixes cannot be
+exempted. No `.trivyignore`, VEX or implicit scanner configuration bypass is used.
+
+The [OCI workflow](.github/workflows/oci-security.yml) exports an OCI archive once,
+retains BuildKit SBOM/provenance for each platform, and scans digest-fixed views
+of the original child manifests. It verifies Trivy's configuration digest for
+each platform; `--platform` alone is not treated as proof of selection. This
+required job is included in the existing aggregate CI gate and the release
+workflow reuses its immutable artifact ID and index digest. The publisher verifies
+archive/report hashes, then copies the original graph without rebuilding. A
+`staging-<run>-<attempt>` reference is explicitly non-release. The SemVer OCI tag
+is assigned only after scan, source/compatibility CI, signature verification,
+packaging/checksum verification and strict Continuum Attest delivery verification.
+Failed gates cannot publish a new release image tag or chart.
+
+Release assets include `oci-security.json`, both complete `trivy-*.json` reports
+and the reviewed policy. Their hashes enter the signed checksums and Attest
+receipt. The delivered chart selects the same `image@sha256` in its default
+values and Artifact Hub annotation. A SBOM is an inventory; a vulnerability
+report is a database-based evaluation of detected inventory; provenance records
+producer build claims; a signature authenticates content under a signing identity;
+Continuum Attest signs/timestamps/recomputes the delivery bindings. None of those
+alone proves absence of vulnerabilities, and Attest does not supervise the build.
+
 ## Report a vulnerability
 
 Use GitHub's [private vulnerability reporting form](https://github.com/Alien6-Studio/hankoshell-operator/security/advisories/new).

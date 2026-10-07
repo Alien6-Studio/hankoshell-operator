@@ -53,6 +53,11 @@ def prepare(version, image, chart_output, dist, repository_id, public_key):
     }, sort_keys=False)
     shutil.copytree(source, chart_output)
     (chart_output / "Chart.yaml").write_text(yaml.safe_dump(chart, sort_keys=False))
+    values_path = chart_output / "values.yaml"
+    values = yaml.safe_load(values_path.read_text())
+    values["image"]["repository"], values["image"]["digest"] = image.split("@")
+    values["image"]["tag"] = ""
+    values_path.write_text(yaml.safe_dump(values, sort_keys=False))
     dist.mkdir(parents=True, exist_ok=True)
     # This ID comes from Artifact Hub, never from a generated placeholder UUID.
     (dist / "artifacthub-repo.yml").write_text(yaml.safe_dump({"repositoryID": repository_id}))

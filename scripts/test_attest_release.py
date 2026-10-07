@@ -1,11 +1,13 @@
 import copy
 import hashlib
 import importlib.util
+import io
 import json
 import os
 import itertools
 from pathlib import Path
 import subprocess
+import tarfile
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -24,11 +26,11 @@ class QualificationGateTests(unittest.TestCase):
         aggregate = workflow["jobs"]["checks"]
         self.assertEqual(aggregate["name"], "Source and chart checks")
         self.assertEqual(aggregate["if"], "always()")
-        self.assertEqual(set(aggregate["needs"]), {"source", "kubernetes", "keycloak"})
+        self.assertEqual(set(aggregate["needs"]), {"source", "kubernetes", "keycloak", "oci"})
         step = aggregate["steps"][0]
         dependencies = {f"${{{{ needs.{job}.result }}}}" for job in aggregate["needs"]}
         self.assertEqual(set(step["env"].values()), dependencies)
-        for results in itertools.product(("success", "failure", "cancelled", "skipped"), repeat=3):
+        for results in itertools.product(("success", "failure", "cancelled", "skipped"), repeat=4):
             with self.subTest(results=results):
                 environment = dict(os.environ, **dict(zip(step["env"], results)))
                 result = subprocess.run(["bash", "-c", step["run"]], env=environment,
@@ -94,17 +96,30 @@ class DeliveryArtifactTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.dist = Path(self.temp.name)
-        self.version = "0.1.0-alpha.1"
+        self.version = "0.1.0"
         self.revision = "1" * 40
         self.image = "ghcr.io/alien6-studio/hankoshell-operator@sha256:" + "a" * 64
         self.chart = self.dist / f"hankoshell-operator-{self.version}.tgz"
-        self.chart.write_bytes(b"synthetic chart")
+        with tarfile.open(self.chart, "w:gz") as archive:
+            documents = {
+                "values.yaml": {"image": {"repository": self.image.split("@")[0], "digest": self.image.split("@")[1], "tag": ""}},
+                "Chart.yaml": {"version": self.version, "appVersion": self.version},
+            }
+            for name, document in documents.items():
+                data = yaml.safe_dump(document).encode()
+                member = tarfile.TarInfo("hankoshell-operator/" + name)
+                member.size = len(data)
+                archive.addfile(member, io.BytesIO(data))
+        from test_oci_security import write_evidence
+        write_evidence(self.dist, self.revision, self.version, self.image.split("@")[1])
+        (self.dist / "oci-vulnerability-policy.json").write_bytes(release.oci_security.POLICY.read_bytes())
         (self.dist / "image-digest.txt").write_text(self.image + "\n")
         (self.dist / "source-revision.txt").write_text(self.revision + "\n")
         (self.dist / "artifacthub-repo.yml").write_text("repositoryID: 8d452bd5-e2f7-47b6-94f1-c3b2ac7b4aac\n")
         (self.dist / release.PUBLIC_KEY_FILE).write_text(release.public_key_pem("b" * 64))
         (self.dist / "checksums.sigstore.json").write_text(json.dumps({"fixture": True}))
-        names = [self.chart.name, "image-digest.txt", "source-revision.txt", "artifacthub-repo.yml", release.PUBLIC_KEY_FILE]
+        names = [self.chart.name, "image-digest.txt", "source-revision.txt", "artifacthub-repo.yml", release.PUBLIC_KEY_FILE,
+                 "oci-security.json", "trivy-amd64.json", "trivy-arm64.json", "oci-vulnerability-policy.json"]
         (self.dist / "checksums.txt").write_text("".join(
             hashlib.sha256((self.dist / name).read_bytes()).hexdigest() + "  " + name + "\n"
             for name in names))
@@ -113,7 +128,7 @@ class DeliveryArtifactTests(unittest.TestCase):
         return release.delivery_files(self.dist, self.version, self.revision, self.image)
 
     def test_exact_delivery_is_accepted(self):
-        self.assertEqual(len(self.check()), 7)
+        self.assertEqual(len(self.check()), 11)
 
     def test_modified_publisher_metadata_or_public_key_is_refused(self):
         for name in ("artifacthub-repo.yml", release.PUBLIC_KEY_FILE):
@@ -135,6 +150,30 @@ class DeliveryArtifactTests(unittest.TestCase):
         self.chart.write_bytes(b"changed after build")
         with self.assertRaises(ValueError):
             self.check()
+
+    def test_chart_cannot_select_another_digest_or_tag_even_with_matching_checksums(self):
+        original = self.chart.read_bytes()
+        for field, value in (("digest", "sha256:" + "f" * 64), ("tag", "0.1.0"),
+                             ("repository", "ghcr.io/another/operator")):
+            self.chart.write_bytes(original)
+            with tarfile.open(self.chart) as archive:
+                documents = {member.name: archive.extractfile(member).read() for member in archive}
+            name = "hankoshell-operator/values.yaml"
+            values = yaml.safe_load(documents[name])
+            values["image"][field] = value
+            documents[name] = yaml.safe_dump(values).encode()
+            with tarfile.open(self.chart, "w:gz") as archive:
+                for name, data in documents.items():
+                    member = tarfile.TarInfo(name)
+                    member.size = len(data)
+                    archive.addfile(member, io.BytesIO(data))
+            checksums = self.dist / "checksums.txt"
+            lines = checksums.read_text().splitlines(keepends=True)
+            checksums.write_text("".join(
+                hashlib.sha256(self.chart.read_bytes()).hexdigest() + "  " + self.chart.name + "\n"
+                if line.endswith("  " + self.chart.name + "\n") else line for line in lines))
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, "Packaged chart"):
+                self.check()
 
     def test_another_source_or_image_is_refused(self):
         with self.assertRaises(ValueError):

@@ -42,6 +42,9 @@ class ReleaseMetadataTests(unittest.TestCase):
                          {"repositoryID": self.repository_id})
         self.assertTrue((self.dist / metadata.PUBLIC_KEY_FILE).read_text().startswith("-----BEGIN PUBLIC KEY-----\n"))
         self.assertTrue((self.chart / "icon.svg").is_file())
+        image_values = yaml.safe_load((self.chart / "values.yaml").read_text())["image"]
+        self.assertEqual(image_values["repository"] + "@" + image_values["digest"], self.image)
+        self.assertEqual(image_values["tag"], "")
         self.assertEqual((metadata.ROOT / "charts/hankoshell-operator/Chart.yaml").read_bytes(), source)
 
     def test_unsigned_image_another_repository_and_version_drift_are_refused(self):
