@@ -1,22 +1,22 @@
 # hankoShell Operator
 
-Manage Keycloak identity configuration declaratively from Kubernetes.
+Manage Keycloak alongside the applications that depend on it.
 
-hankoShell Operator reconciles realms, applications, roles and service accounts
-from versioned custom resources. Connect it to an existing Keycloak instance,
-including one managed by the official Keycloak operator, or let it manage a
-Keycloak Deployment. Optional integrations connect clusters to the hankoShell
-API and Hub.
+hankoShell Operator turns your application's identity requirements into Keycloak
+configuration: its login client, redirect URLs, roles, token claims and machine
+credentials. Declare the desired configuration in Kubernetes, review it in Git,
+and let the operator keep the fields it manages in sync with Keycloak.
 
-**[Deployment](#deployment)** · [First realm](#declare-your-first-realm) ·
+Platform teams can reuse authentication policies across realms, connect upstream
+identity providers and rotate client secrets. Application teams can keep their
+login and access configuration with their deployment manifests. It works with
+an existing Keycloak instance, including one managed by the official Keycloak
+operator, and can also provision a Keycloak Deployment.
+
+**[What it manages](#what-it-manages-in-keycloak)** · [First application](#declare-your-first-realm) ·
+[Deployment](#deployment) ·
 [Secure deployment and trust model](docs/secure-deployment.md) ·
 [Changes](CHANGELOG.md)
-
-Go **1.26.6** · Kubernetes **>=1.30** (declared chart minimum) · Apache-2.0.
-The first **0.1.0** release is being prepared. The `0.x` series is in initial
-development; public APIs may change between minor versions before `1.0.0`.
-Published artifacts and their evidence will appear in the
-[release history](https://github.com/Alien6-Studio/hankoshell-operator/releases).
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml)
 [![Release preparation](https://img.shields.io/badge/release-0.1.0%20in%20preparation-blue.svg)](CHANGELOG.md)
@@ -25,18 +25,52 @@ Published artifacts and their evidence will appear in the
 [![Delivery](https://img.shields.io/badge/delivery-Continuum%20Attest-blue.svg)](#verified-delivery)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-## Choose your path
+## Why use it?
 
-| Your goal | Start here |
+- **Onboard applications with their identity configuration.** A new web app or
+  service can declare its Keycloak client, allowed callbacks and roles alongside
+  its Kubernetes deployment, rather than relying on a separate console checklist.
+- **Review identity changes before applying them.** Redirect URLs, role mappings
+  and authentication policies can follow your existing pull request and GitOps
+  workflow. The operator periodically reconciles the fields under its ownership,
+  correcting drift in managed configuration.
+- **Reuse security policies.** Define MFA, password rules, session durations and
+  brute-force protection in a shared IAM profile, then reference it from the
+  realms that need that policy.
+- **Keep machine credentials current.** Configure rotation for confidential
+  clients and service accounts; the operator updates their Kubernetes Secrets.
+  Applications still need to reload or restart when their credentials change.
+- **Start with the Keycloak you already run.** Import supported configuration
+  into Kubernetes resources in observation mode, review it, and choose which
+  objects the operator will own.
+
+For example, a customer portal can declare its login callbacks and `viewer`
+role, while a background worker declares its own machine identity and rotation
+schedule. Both use the realm's authentication policy. Your deployment tooling
+applies those declarations; hankoShell reconciles the corresponding Keycloak
+objects and reports their status in Kubernetes.
+
+## What it manages in Keycloak
+
+| Keycloak configuration | What you can declare |
 | --- | --- |
-| Reconcile IAM in an existing Keycloak instance | [Deployment](#deployment) → [First realm](#declare-your-first-realm) |
-| Coexist with the official Keycloak operator | [Provider ownership](#choose-provider-ownership) |
-| Connect a cluster to hankoShell API and Hub | [Platform integrations](#platform-integrations) → [chart configuration](charts/hankoshell-operator/README.md) |
-| Use private Hub synchronization through Continuum | [Enterprise profile](docs/secure-deployment.md#enterprise-profile) |
-| Review trust, privileges and network controls | [Secure deployment](docs/secure-deployment.md) → [security policy](SECURITY.md) |
-| Build or contribute | [Development](#development) → [contributing](CONTRIBUTING.md) |
+| Realms and login experience | Realm display name, public frontend URL, login theme and realm roles. |
+| Application clients | SPA, web and machine clients; login/logout redirect URLs, client roles, realm-role scopes and client attributes. |
+| Authentication policies | Reusable MFA, password, session, brute-force, email-verification and authentication-event settings. |
+| Identity brokering | Upstream identity providers and their Keycloak mappers, with provider credentials referenced from Secrets. Application mappings can turn upstream OIDC claims into roles or user attributes. |
+| Token contents | Client-specific claims from user attributes or fixed values, with control over the declared realm roles included in application tokens. |
+| Roles and API permissions | Realm and client roles, composite realm roles, and resource-server scopes, resources and permissions for role or workload principals. |
+| Machine credentials | Service-account clients, confidential client secrets, scheduled or requested rotation, and explicitly authorized application Secret projections. |
+| Existing configuration | Import reports and supported realm, client, service-account and identity-provider configuration; observe existing objects before taking ownership. |
 
-## What the operator reconciles
+Use one writer for each managed Keycloak object. Observation mode does not
+modify provider objects or read their client secrets; management mode owns their
+supported lifecycle. General user provisioning and LDAP synchronization are not
+exposed as dedicated resources. Keycloak remains responsible for user login,
+token issuance and its authentication emails.
+
+<details>
+<summary>Custom resource reference</summary>
 
 | Area | Custom resources |
 | --- | --- |
@@ -46,11 +80,33 @@ Published artifacts and their evidence will appear in the
 | Workload operations | `HankoTheme`, `HankoSnapshot`, `HankoOperation` |
 
 All 16 `hanko.sh/v1alpha1` CRDs are retained, including the deprecated
-`HankoEmailProvider`. Integration flags configure clients and do not disable
-controller registration. Snapshot data backup still uses installation-specific
-PostgreSQL/PVC configuration; portable backup and restore are not qualified.
+`HankoEmailProvider`. See the [API definitions](api/v1alpha1) for supported fields.
+Integration flags configure clients and do not disable controller registration.
+Snapshot data backup still uses installation-specific PostgreSQL/PVC
+configuration; portable backup and restore are not qualified.
+
+</details>
+
+## Choose your path
+
+| Your goal | Start here |
+| --- | --- |
+| Configure login for an application | [Deployment](#deployment) → [Realm and application example](#declare-your-first-realm) |
+| Reuse an authentication policy across realms | [IAM profile fields](api/v1alpha1/hankoiamprofile_types.go) → [authentication policy fields](api/v1alpha1/hankorealm_types.go) |
+| Import an existing Keycloak configuration | [Import options](api/v1alpha1/hankoimport_types.go) → [provider ownership](#choose-provider-ownership) |
+| Coexist with the official Keycloak operator | [Provider ownership](#choose-provider-ownership) |
+| Connect a cluster to hankoShell API and Hub | [Platform integrations](#platform-integrations) → [chart configuration](charts/hankoshell-operator/README.md) |
+| Use private Hub synchronization through Continuum | [Enterprise profile](docs/secure-deployment.md#enterprise-profile) |
+| Review trust, privileges and network controls | [Secure deployment](docs/secure-deployment.md) → [security policy](SECURITY.md) |
+| Build or contribute | [Development](#development) → [contributing](CONTRIBUTING.md) |
 
 ## Deployment
+
+The chart declares Kubernetes **>=1.30** as its minimum. The first **0.1.0**
+release is being prepared; published artifacts and evidence will appear in the
+[release history](https://github.com/Alien6-Studio/hankoshell-operator/releases).
+The `0.x` series is in initial development, and public APIs may change between
+minor versions before `1.0.0`.
 
 Start with the [chart configuration](charts/hankoshell-operator/README.md) and
 the [secure deployment steps](docs/secure-deployment.md#configure-an-installation).
@@ -75,8 +131,10 @@ not certify EKS, GKE, AKS, Scaleway or other hosted installations.
 
 ### Declare your first realm
 
-Applying this resource creates or reconciles the `example` realm in the
-configured Keycloak instance. It uses provider authentication defaults; attach
+These resources declare an `example` realm and a public SPA client for a customer
+portal. The operator creates or reconciles their Keycloak configuration, including
+the portal's allowed login callback and logout destination. The realm uses
+provider authentication defaults; attach
 a reviewed `HankoIAMProfile` when defining your deployment's authentication
 policy.
 
@@ -91,12 +149,34 @@ spec:
   roles:
     - name: viewer
       description: Read-only application access
+---
+apiVersion: hanko.sh/v1alpha1
+kind: HankoApplication
+metadata:
+  name: customer-portal
+  namespace: auth
+spec:
+  realmRef: example
+  clientID: customer-portal
+  type: spa
+  redirectURIs:
+    - https://portal.example.com/callback
+  postLogoutRedirectURIs:
+    - https://portal.example.com/
+  realmRoleScopes:
+    - viewer
 ```
 
 ```sh
-kubectl apply -f realm.yaml
+kubectl apply -f portal-identity.yaml
 kubectl get hankorealm example --namespace auth
+kubectl get hankoapplication customer-portal --namespace auth
 ```
+
+Replace the example URLs with your application's actual endpoints. The SPA still
+needs its OIDC configuration and login flow; this declares the Keycloak side.
+`realmRoleScopes` limits which realm roles may appear in its tokens and does not
+assign the `viewer` role to users.
 
 Review resource ownership and finalizers before deleting managed resources:
 deletion can remove their corresponding Keycloak objects.
@@ -116,6 +196,10 @@ Use one management writer per provider object. Theme rollout integrations are
 Deployment-based; provider workload ownership and IAM ownership are separate.
 
 ## Platform integrations
+
+The Keycloak workflow above can run on its own. The hankoShell API and Hub are
+optional extensions for organization projection, cluster supervision and fleet
+synchronization.
 
 `profile: standard` works independently of Continuum. Enable API organization
 projection, supervision or Hub synchronization when those services are
@@ -148,11 +232,17 @@ timestamped **Continuum Attest** delivery receipt are required before chart and
 repository-metadata publication. The receipt binds artifact hashes, the image
 digest and source revision; it does not supervise the image build itself.
 
+Verify release receipts against an independently trusted signer and TSA.
+Installation-time image admission remains an administrator-owned control; see
+[secure deployment](docs/secure-deployment.md).
+
+<details>
+<summary>Release configuration for maintainers</summary>
+
 Configure the release environment secret `HANKOSHELL_ATTEST_SIGNING_KEY`
 (PKCS#8 PEM) and variables `HANKOSHELL_ATTEST_KEY_ID`,
 `HANKOSHELL_ATTEST_PUBLIC_KEY` (32 bytes as lowercase hex),
 `HANKOSHELL_ATTEST_TSA_URL`, and `HANKOSHELL_ATTEST_TSA_CERTIFICATE` (pinned PEM).
-Verify receipts against an independently trusted signer and TSA.
 
 Register `oci://ghcr.io/alien6-studio/charts/hankoshell-operator` in Artifact Hub
 and set `HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID` to its assigned UUID. The workflow
@@ -163,8 +253,9 @@ reporting and public artifact access before launching the release.
 
 `artifacthub.io/signKey` links the Ed25519 public key for the Attest receipt.
 The release also provides a keyless Sigstore bundle; these are separate from
-Helm's OpenPGP `.prov` verification. Installation-time image admission remains
-an administrator-owned control; see [secure deployment](docs/secure-deployment.md).
+Helm's OpenPGP `.prov` verification.
+
+</details>
 
 ## Development
 
