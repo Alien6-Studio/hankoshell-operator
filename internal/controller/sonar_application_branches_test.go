@@ -323,7 +323,7 @@ func TestManagedApplicationDeletionRemovesProviderClientBeforeFinalizer(t *testi
 	scheme := controllerTestScheme(t)
 	k8sClient := controllerTestClient(scheme, application)
 	reconciler := &HankoApplicationReconciler{Client: k8sClient, Scheme: scheme}
-	if result, err := reconciler.reconcileApplicationDeletion(context.Background(), application, keycloak.New(server.URL, "operator", "secret"), ModeManage); err != nil || !result.IsZero() {
+	if result, err := reconciler.reconcileApplicationDeletion(context.Background(), application, keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP()), ModeManage); err != nil || !result.IsZero() {
 		t.Fatalf("managed deletion result=%v err=%v", result, err)
 	}
 	if !deleted || len(application.Finalizers) != 0 {
@@ -364,7 +364,7 @@ func TestManagedApplicationDeletionCleansOnlyRecordedMappers(t *testing.T) {
 		},
 	}
 	reconciler := &HankoApplicationReconciler{}
-	if err := reconciler.cleanupApplicationMappings(context.Background(), application, keycloak.New(server.URL, "operator", "secret")); err != nil {
+	if err := reconciler.cleanupApplicationMappings(context.Background(), application, keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP())); err != nil {
 		t.Fatalf("clean recorded application mappers: %v", err)
 	}
 	if !deleted["identity"] || !deleted["claim"] || len(deleted) != 2 {
@@ -403,7 +403,7 @@ func TestApplicationMapperValidationCheckpointsPartialProgress(t *testing.T) {
 		},
 	}
 	reconciler := &HankoApplicationReconciler{}
-	if err := reconciler.reconcileIdentityMappings(context.Background(), application, keycloak.New(server.URL, "operator", "secret")); err == nil {
+	if err := reconciler.reconcileIdentityMappings(context.Background(), application, keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP())); err == nil {
 		t.Fatal("duplicate identity mapping must fail closed")
 	}
 	if len(application.Status.ManagedIdentityMappings) != 2 || application.Status.ManagedIdentityMappings[0].KeycloakID != "first-uuid" ||
@@ -452,7 +452,7 @@ func TestApplicationStaleTokenCleanupFailureRetainsOwnership(t *testing.T) {
 	t.Cleanup(server.Close)
 	previous := []hankoshv1alpha1.ManagedTokenClaimReference{{Name: "stale", KeycloakID: "stale-uuid"}}
 	owner := tokenClaimOwner{generation: 4, realm: "acme", clientID: "portal"}
-	managed, err := deleteStaleClientTokenClaims(context.Background(), keycloak.New(server.URL, "operator", "secret"), owner, nil, previous)
+	managed, err := deleteStaleClientTokenClaims(context.Background(), keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP()), owner, nil, previous)
 	if err == nil || len(managed) != 1 || managed[0].KeycloakID != "stale-uuid" || conditionReason(managed[0].Conditions, "Synced") != "DeleteFailed" {
 		t.Fatalf("failed stale cleanup managed=%#v err=%v", managed, err)
 	}
@@ -474,7 +474,7 @@ func TestApplicationProviderMapperFailuresRetainCleanupOwnership(t *testing.T) {
 		}
 	}))
 	t.Cleanup(server.Close)
-	kc := keycloak.New(server.URL, "operator", "secret")
+	kc := keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP())
 	application := &hankoshv1alpha1.HankoApplication{
 		ObjectMeta: metav1.ObjectMeta{Generation: 5},
 		Spec:       hankoshv1alpha1.HankoApplicationSpec{RealmRef: "acme"},

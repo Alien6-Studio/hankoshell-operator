@@ -62,6 +62,78 @@ must be reduced before rollout; the client does not silently truncate them.
 
 ## Configure an installation
 
+### Keycloak administrative transport
+
+Administrative service-account credentials, bearer tokens and Keycloak Admin
+API requests/responses are security-sensitive. Verified HTTPS is required by
+default in every operator Keycloak client, including default, per-instance,
+Import/Observe, pending credential rotation and dedicated tenant connections.
+The chart defaults to `https://keycloak.auth.svc:8443`; this is a configurable
+Service placeholder, not discovery of the installation's endpoint or trust.
+An enabled Keycloak with an empty URL fails Helm rendering. Disabled/spoke
+installations need no default URL but still enforce the policy for any dedicated
+connection they register.
+
+| Transport | Standard | Enterprise | Trust configuration |
+| --- | --- | --- | --- |
+| HTTPS, public CA | Accepted | Accepted | System CA roots; no custom CA Secret required |
+| HTTPS, private CA | Accepted | Accepted | `keycloak.caSecret`/`caKey`, or per-instance `spec.tlsCARef` |
+| HTTP, default settings | Rejected before credentials are sent | Rejected | No implicit exception for an absent CA Secret |
+| HTTP, explicit `keycloak.allowInsecureHTTP: true` | Accepted for intentionally trusted environments | Rejected | No TLS protection; a custom CA configuration is rejected |
+
+Standard uses verified TLS >=1.2; enterprise additionally requires TLS 1.3 and
+its existing origin/proxy restrictions. TLS verifies certificate trust and the
+endpoint hostname. The dedicated private CA is confined to its Keycloak client;
+it does not change trust for other integrations. Invalid or missing configured
+CA data fails rather than falling back. Redirects are refused. There is no
+`insecureSkipVerify` or equivalent option.
+
+URLs must be HTTP(S) origins with a DNS/IPv4 host or bracketed IPv6 literal and
+an optional unescaped context path such as `/auth`. Userinfo (even username-only),
+queries, fragments (including empty delimiters), malformed/out-of-range ports,
+encoded path segments, repeated separators and `.`/`..` path segments are
+rejected. Put credentials in the existing Secret, never in the URL. Helm and
+Go exercise the same endpoint fixture contract; instance clients retain the
+existing cloud metadata endpoint denial.
+
+For pre-1.0 migration, review stored release values before upgrade. Old HTTP
+values are not converted to HTTPS or implicitly accepted. Prefer configuring
+verified HTTPS and the appropriate public/private trust, then set exact Service,
+target and external egress ports. The default in-cluster policy now uses 8443;
+external HTTPS remains 443 unless configured otherwise.
+
+If an administrator intentionally accepts HTTP on an independently trusted
+network, the required standard-profile acknowledgement is:
+
+```yaml
+profile: standard
+keycloak:
+  url: http://keycloak.auth.svc:8080
+  allowInsecureHTTP: true
+  credentialsSecret: keycloak-ops-credentials
+networkPolicy:
+  keycloakPorts: [8080]
+```
+
+This exception provides **no transport confidentiality, integrity or server
+authentication** for the administrative connection. A party able to intercept
+or alter that path can capture credentials/tokens and read or modify traffic.
+NetworkPolicy limits reachable destinations; it does not encrypt or authenticate
+HTTP. A service mesh or TLS-terminating proxy must independently secure every
+hop; this flag does not install or verify that protection. Verified HTTPS does
+not protect credentials in a compromised operator/provider or against an
+administrator holding those credentials.
+
+For a non-Helm deployment, only the exact environment value
+`HANKO_KEYCLOAK_ALLOW_INSECURE_HTTP=true` acknowledges HTTP; unset/`false` denies
+it and other spellings fail configuration. The chart owns this environment value
+and `HANKO_KEYCLOAK_URL` and rejects overrides through `env`. The acknowledgement
+is administrator-controlled and process-wide, including endpoints from instance
+and tenant Secrets; it is not granted by a CRD. Enterprise ignores the HTTP
+allowance and still requires HTTPS. Remove the exception after migration.
+Keep existing authentication and least-privilege controls: transport encryption
+does not reduce the service account's granted administrative authority.
+
 ### Keycloak compatibility
 
 hankoShell Operator **0.1.0 is qualified against Keycloak 26.8.0 and 26.7.5**
@@ -207,8 +279,9 @@ administrator-owned namespace labels or install admission/CNI components.
    `client-id` and `client-secret`, granting only the provider operations needed.
    Configure `controlPlane.fleetAuthorityRealm` and `authorizedClients` for the
    actual authority realm; do not treat their defaults as discovery.
-3. Configure verified HTTPS and certificate trust for Keycloak. The default
-   URL in the values file is a compatibility default; review it before deployment.
+3. Configure verified HTTPS and certificate trust for Keycloak. Replace the
+   default Service URL with the actual endpoint; use system trust for public CAs
+   or the dedicated CA Secret for private CAs. Review the [transport migration](#keycloak-administrative-transport).
 4. Supply exact Kubernetes API Service and endpoint addresses, their ports,
    DNS destinations, and Keycloak pod labels or external addresses. A CNI must
    enforce NetworkPolicy; an accepted YAML manifest alone is not enforcement.

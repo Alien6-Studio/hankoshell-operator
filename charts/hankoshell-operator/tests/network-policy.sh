@@ -106,7 +106,7 @@ for values in [
     {'networkPolicy': {'keycloakExternalPorts': []}},
     {'networkPolicy': {'keycloakPorts': [0]}},
     {'networkPolicy': {'keycloakExternalCIDRs': ['0.0.0.0/0']}},
-    {'keycloak': {'caSecret': 'iam-ca'}},
+    {'keycloak': {'url': 'http://iam.example.com', 'caSecret': 'iam-ca', 'allowInsecureHTTP': True}},
     {'env': {'HANKO_KEYCLOAK_CA_FILE': '/unreviewed.crt'}},
     {'env': {'HANKO_CILIUM_POLICY_ENABLED': 'true'}},
     {'networkPolicy': {'enabled': False, 'cilium': {'enabled': True}}},
@@ -176,7 +176,7 @@ for path, value in [
     (('continuum', 'hubPort'), 65536),
     (('continuum', 'hubHostname'), '*.mesh.example'),
     (('continuum', 'bootstrap', 'cidrs'), ['192.0.2.10/32']),
-    (('keycloak', 'enabled'), True),
+    (('keycloak', 'url'), 'http://keycloak.auth.svc'),
     (('organizationProjection', 'enabled'), True),
     (('env', 'HANKO_SECURITY_PROFILE'), 'standard'),
     (('env', 'HANKO_ENTERPRISE_HUB_ENDPOINT'), 'https://public.example'),
@@ -190,6 +190,8 @@ for path, value in [
     for key in path[:-1]:
         target = target.setdefault(key, {})
     target[path[-1]] = value
+    if path == ('keycloak', 'url'):
+        invalid['keycloak']['enabled'] = True
     render(invalid, invalid=True)
 invalid = copy.deepcopy(enterprise)
 invalid['supervision'] = {'enabled': True, 'apiURL': 'http://hanko-api.auth.svc'}

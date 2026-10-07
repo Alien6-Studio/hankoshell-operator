@@ -84,7 +84,7 @@ func TestPermissionGatewayRejectsUnclassifiedCalls(t *testing.T) {
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { requests++; w.WriteHeader(http.StatusNoContent) }))
 	defer server.Close()
-	client := New(server.URL+"/auth", "operator", "secret")
+	client := New(server.URL+"/auth", "operator", "secret", WithInsecureHTTP())
 	for _, test := range []struct {
 		method, path string
 		allowed      bool
@@ -132,7 +132,7 @@ func TestPermissionGatewayDoesNotFollowRedirects(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
-	client := New(server.URL, "operator", "secret")
+	client := New(server.URL, "operator", "secret", WithInsecureHTTP())
 	req, err := http.NewRequest(http.MethodGet, server.URL+"/admin/serverinfo", nil)
 	if err != nil {
 		t.Fatal(err)

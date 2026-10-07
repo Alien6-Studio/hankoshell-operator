@@ -30,7 +30,7 @@ func newManagedRealmAPIFixture(t *testing.T) (*managedRealmAPIFixture, *keycloak
 	fixture := &managedRealmAPIFixture{t: t}
 	server := httptest.NewServer(http.HandlerFunc(fixture.serveHTTP))
 	t.Cleanup(server.Close)
-	return fixture, keycloak.New(server.URL, "operator", "secret")
+	return fixture, keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP())
 }
 
 func (fixture *managedRealmAPIFixture) serveHTTP(w http.ResponseWriter, request *http.Request) {
@@ -186,7 +186,7 @@ func TestManagedRealmDeletionRemovesOnlyValidatedRealmResources(t *testing.T) {
 	scheme := controllerTestScheme(t)
 	k8sClient := controllerTestClient(scheme, realm)
 	reconciler := &HankoRealmReconciler{
-		Client: k8sClient, Scheme: scheme, Pool: keycloak.NewPool(keycloak.New(server.URL, "operator", "secret")),
+		Client: k8sClient, Scheme: scheme, Pool: keycloak.NewPool(keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP())),
 	}
 	if _, err := reconciler.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(realm)}); err != nil {
 		t.Fatalf("delete managed realm: %v", err)

@@ -25,7 +25,7 @@ func TestLogoutAllRealmSessionsUsesAdministrativeEndpoint(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	client := New(server.URL, "operator", "secret")
+	client := New(server.URL, "operator", "secret", WithInsecureHTTP())
 	if err := client.LogoutAllRealmSessions(t.Context(), "acme"); err != nil {
 		t.Fatal(err)
 	}

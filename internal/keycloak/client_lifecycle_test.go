@@ -55,6 +55,15 @@ func TestNewWithTLSUsesProvidedCAAndTLS12Minimum(t *testing.T) {
 	if version, err := envClient.ServerVersion(context.Background()); err != nil || version != "26.1.0" {
 		t.Fatalf("environment client with private CA: version=%q err=%v", version, err)
 	}
+	if err := os.WriteFile(caFile, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewFromEnv(); err == nil {
+		t.Fatal("an empty configured CA file must not fall back to system trust")
+	}
+	if err := os.WriteFile(caFile, caPEM, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("HANKO_KEYCLOAK_URL", "http://keycloak.example.com")
 	if _, err := NewFromEnv(); err == nil {
 		t.Fatal("a CA must not silently allow plaintext HTTP")
@@ -140,7 +149,7 @@ func newClientLifecycleFixture(t *testing.T) (*clientLifecycleFixture, *Client) 
 	fixture := &clientLifecycleFixture{t: t, deleted: map[string]bool{}}
 	server := httptest.NewServer(http.HandlerFunc(fixture.serveHTTP))
 	t.Cleanup(server.Close)
-	return fixture, New(server.URL, "operator", "secret")
+	return fixture, New(server.URL, "operator", "secret", WithInsecureHTTP())
 }
 
 func (fixture *clientLifecycleFixture) serveHTTP(w http.ResponseWriter, request *http.Request) {

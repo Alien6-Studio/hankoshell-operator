@@ -215,6 +215,9 @@ func kcForObject(pool *keycloak.Pool, namespace string, labels map[string]string
 // validateKeycloakURL enforces ADR-022: Keycloak URL must use http/https and
 // must not target cloud metadata endpoints.
 func validateKeycloakURL(rawURL string) error {
+	if err := keycloak.ValidateEndpoint(rawURL, true); err != nil {
+		return err
+	}
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return fmt.Errorf("invalid Keycloak URL %q: %w", rawURL, err)
@@ -268,16 +271,20 @@ func buildKCClientFromAdminSecret(ctx context.Context, c client.Client, ki *hank
 			return nil, fmt.Errorf("get TLS CA secret %q: %w", ki.Spec.TLSCARef, err)
 		}
 		caPEM, ok := caSecret.Data["ca.crt"]
-		if !ok {
-			return nil, fmt.Errorf("TLS CA secret %q missing \"ca.crt\" key", ki.Spec.TLSCARef)
+		if !ok || len(caPEM) == 0 {
+			return nil, fmt.Errorf("TLS CA secret %q missing or empty \"ca.crt\" key", ki.Spec.TLSCARef)
 		}
 		var err error
-		kc, err = keycloak.NewWithTLS(baseURL, clientID, clientSecret, caPEM)
+		kc, err = keycloak.NewForOperator(baseURL, clientID, clientSecret, caPEM)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		kc = keycloak.New(baseURL, clientID, clientSecret)
+		var err error
+		kc, err = keycloak.NewForOperator(baseURL, clientID, clientSecret, nil)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if requireHTTPS {
 		if err := kc.RequireHTTPS(); err != nil {

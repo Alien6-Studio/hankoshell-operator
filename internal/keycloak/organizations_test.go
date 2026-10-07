@@ -33,7 +33,7 @@ func TestEnsureOrganizationsEnabled(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := New(server.URL, "client", "secret")
+	client := New(server.URL, "client", "secret", WithInsecureHTTP())
 	if err := client.EnsureOrganizationsEnabled(context.Background(), "acme"); err != nil {
 		t.Fatalf("EnsureOrganizationsEnabled: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestEnsureOrganizationCreates(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := New(server.URL, "client", "secret")
+	client := New(server.URL, "client", "secret", WithInsecureHTTP())
 	id, err := client.EnsureOrganization(context.Background(), "acme", OrganizationSpec{
 		Alias: "alien6", Name: "Alien6", Domains: []string{"alien6.com"},
 	})
@@ -107,7 +107,7 @@ func TestEnsureOrganizationAdoptsAndRealignsDrift(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := New(server.URL, "client", "secret")
+	client := New(server.URL, "client", "secret", WithInsecureHTTP())
 	id, err := client.EnsureOrganization(context.Background(), "acme", OrganizationSpec{
 		Alias: "alien6", Name: "Alien6", Domains: []string{"alien6.com"},
 	})
@@ -146,7 +146,7 @@ func TestEnsureOrganizationConflictAdoptsWinner(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := New(server.URL, "client", "secret")
+	client := New(server.URL, "client", "secret", WithInsecureHTTP())
 	id, err := client.EnsureOrganization(context.Background(), "acme", OrganizationSpec{Alias: "alien6", Name: "Alien6"})
 	if err != nil {
 		t.Fatalf("EnsureOrganization: %v", err)
@@ -166,7 +166,7 @@ func TestDeleteOrganizationMissingIsSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := New(server.URL, "client", "secret")
+	client := New(server.URL, "client", "secret", WithInsecureHTTP())
 	if err := client.DeleteOrganization(context.Background(), "acme", "gone-uuid"); err != nil {
 		t.Fatalf("DeleteOrganization on a missing organization must succeed: %v", err)
 	}
@@ -243,7 +243,7 @@ func TestEnsureOrganizationIdentityProviderLinksAndPrunes(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := New(server.URL, "client", "secret")
+	client := New(server.URL, "client", "secret", WithInsecureHTTP())
 	if err := client.EnsureOrganizationIdentityProvider(context.Background(), "acme", "org-uuid", "entra"); err != nil {
 		t.Fatalf("EnsureOrganizationIdentityProvider: %v", err)
 	}
@@ -270,7 +270,7 @@ func TestEnsureOrganizationIdentityProviderAlreadyLinkedIsNoop(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := New(server.URL, "client", "secret")
+	client := New(server.URL, "client", "secret", WithInsecureHTTP())
 	if err := client.EnsureOrganizationIdentityProvider(context.Background(), "acme", "org-uuid", "entra"); err != nil {
 		t.Fatalf("EnsureOrganizationIdentityProvider: %v", err)
 	}
@@ -282,7 +282,7 @@ func TestEnsureOrganizationIdentityProviderEmptyAliasIsUnmanaged(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := New(server.URL, "client", "secret")
+	client := New(server.URL, "client", "secret", WithInsecureHTTP())
 	if err := client.EnsureOrganizationIdentityProvider(context.Background(), "acme", "org-uuid", ""); err != nil {
 		t.Fatalf("EnsureOrganizationIdentityProvider with empty alias: %v", err)
 	}

@@ -53,31 +53,49 @@ type Client struct {
 	clientID     string
 	clientSecret string
 
-	httpClient  *http.Client
-	mu          sync.Mutex
-	token       string
-	tokenExpiry time.Time
+	allowInsecureHTTP bool
+	endpointError     error
+	httpClient        *http.Client
+	mu                sync.Mutex
+	token             string
+	tokenExpiry       time.Time
 }
 
 // New creates a Client with explicit credentials. Equivalent to NewFromEnv but
-// sourced programmatically (e.g. from a Kubernetes Secret).
-func New(baseURL, clientID, clientSecret string) *Client {
-	return &Client{
+// sourced programmatically (e.g. from a Kubernetes Secret). HTTPS is required
+// unless WithInsecureHTTP is explicitly supplied; unsafe endpoints fail before I/O.
+func New(baseURL, clientID, clientSecret string, options ...ClientOption) *Client {
+	c := &Client{
 		baseURL:      strings.TrimRight(baseURL, "/"),
 		clientID:     clientID,
 		clientSecret: clientSecret,
-		httpClient:   &http.Client{Timeout: 10 * time.Second, CheckRedirect: rejectKeycloakRedirect},
+		httpClient: &http.Client{
+			Timeout: 10 * time.Second, CheckRedirect: rejectKeycloakRedirect,
+			Transport: &http.Transport{
+				Proxy:           http.ProxyFromEnvironment,
+				TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12},
+			},
+		},
 	}
+	for _, option := range options {
+		option(c)
+	}
+	c.endpointError = ValidateEndpoint(baseURL, c.allowInsecureHTTP)
+	return c
 }
 
 // RequireHTTPS constrains a newly constructed enterprise client before use.
 // Call it before registering the client in a pool or starting reconciliation.
 func (c *Client) RequireHTTPS() error {
+	if c.endpointError != nil {
+		return c.endpointError
+	}
 	secured, err := httpsecurity.RequireHTTPS(c.httpClient, c.baseURL)
 	if err != nil {
 		return err
 	}
 	c.httpClient = secured
+	c.allowInsecureHTTP = false
 	return nil
 }
 
@@ -85,8 +103,7 @@ func (c *Client) RequireHTTPS() error {
 // against the provided PEM-encoded CA bundle. Use when Keycloak is exposed on HTTPS
 // (KC_HTTPS_*) and a custom or self-signed CA is in use.
 func NewWithTLS(baseURL, clientID, clientSecret string, caPEM []byte) (*Client, error) {
-	endpoint, err := url.Parse(baseURL)
-	if err != nil || endpoint.Scheme != httpsScheme || endpoint.Host == "" {
+	if err := ValidateEndpoint(baseURL, false); err != nil {
 		return nil, fmt.Errorf("keycloak: a custom CA requires an HTTPS URL")
 	}
 	pool := x509.NewCertPool()
@@ -121,9 +138,12 @@ func NewFromEnv() (*Client, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read Keycloak CA bundle: %w", err)
 		}
-		return NewWithTLS(base, clientID, clientSecret, caPEM)
+		if len(caPEM) == 0 {
+			return nil, fmt.Errorf("keycloak CA bundle is empty")
+		}
+		return NewForOperator(base, clientID, clientSecret, caPEM)
 	}
-	return New(base, clientID, clientSecret), nil
+	return NewForOperator(base, clientID, clientSecret, nil)
 }
 
 // readCAFile confines projected Secret symlinks to the configured directory.
@@ -1795,6 +1815,9 @@ func (c *Client) get(ctx context.Context, path string, out any) error {
 // The mutex is held only for cache reads and writes, not during the HTTP call,
 // to avoid blocking all reconcile goroutines on a single token refresh.
 func (c *Client) bearerToken(ctx context.Context) (string, error) {
+	if c.endpointError != nil {
+		return "", c.endpointError
+	}
 	c.mu.Lock()
 	if c.token != "" && time.Now().Before(c.tokenExpiry) {
 		tok := c.token

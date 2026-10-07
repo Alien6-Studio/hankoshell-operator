@@ -46,7 +46,7 @@ func TestImportDryRunDiscoversSelectedRealmWithoutMutation(t *testing.T) {
 	}
 	scheme := controllerTestScheme(t)
 	k8sClient := controllerTestClient(scheme, operation)
-	reconciler := &HankoImportReconciler{Client: k8sClient, Scheme: scheme, Pool: keycloak.NewPool(keycloak.New(server.URL, "operator", "secret"))}
+	reconciler := &HankoImportReconciler{Client: k8sClient, Scheme: scheme, Pool: keycloak.NewPool(keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP()))}
 	if _, err := reconciler.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(operation)}); err != nil {
 		t.Fatalf("dry-run import: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestImportFailureAndTerminalPathsAreCheckpointed(t *testing.T) {
 		t.Cleanup(server.Close)
 		operation := &hankoshv1alpha1.HankoImport{ObjectMeta: metav1.ObjectMeta{Name: "failure", Namespace: "test"}}
 		k8sClient := controllerTestClient(scheme, operation)
-		reconciler := &HankoImportReconciler{Client: k8sClient, Scheme: scheme, Pool: keycloak.NewPool(keycloak.New(server.URL, "operator", "secret"))}
+		reconciler := &HankoImportReconciler{Client: k8sClient, Scheme: scheme, Pool: keycloak.NewPool(keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP()))}
 		if _, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(operation)}); err != nil {
 			t.Fatalf("provider discovery failure must be recorded in status: %v", err)
 		}

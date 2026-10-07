@@ -60,7 +60,7 @@ func TestManagedServiceAccountCreatesCredentialAndSchedulesRotation(t *testing.T
 	scheme := controllerTestScheme(t)
 	k8sClient := controllerTestClient(scheme, serviceAccount)
 	reconciler := &HankoServiceAccountReconciler{
-		Client: k8sClient, Scheme: scheme, Pool: keycloak.NewPool(keycloak.New(server.URL, "operator", "secret")), Recorder: events.NewFakeRecorder(2),
+		Client: k8sClient, Scheme: scheme, Pool: keycloak.NewPool(keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP())), Recorder: events.NewFakeRecorder(2),
 	}
 	request := ctrl.Request{NamespacedName: client.ObjectKeyFromObject(serviceAccount)}
 	result, err := reconciler.Reconcile(context.Background(), request)
@@ -93,7 +93,7 @@ func TestManagedServiceAccountCreatesCredentialAndSchedulesRotation(t *testing.T
 	}
 	rotationTime := metav1.Now()
 	actual.Status.LastRotated = &metav1.Time{Time: rotationTime.AddDate(0, 0, -31)}
-	if err := reconciler.maybeRotate(context.Background(), &actual, actual.Spec.SecretRotationPolicy, &rotationTime, keycloak.New(server.URL, "operator", "secret")); err != nil {
+	if err := reconciler.maybeRotate(context.Background(), &actual, actual.Spec.SecretRotationPolicy, &rotationTime, keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP())); err != nil {
 		t.Fatalf("rotate expired service-account secret: %v", err)
 	}
 	if actual.Status.LastRotated == nil || !actual.Status.LastRotated.Equal(&rotationTime) {

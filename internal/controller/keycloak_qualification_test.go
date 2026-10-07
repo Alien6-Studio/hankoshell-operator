@@ -111,6 +111,9 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 	if !errors.As(err, &hostnameError) {
 		t.Fatal("operator client did not reject the real server's certificate hostname mismatch")
 	}
+	if _, err := keycloak.New("http://"+address, "fixture-operator", f.credential).ServerVersion(ctx); err == nil || !strings.Contains(err.Error(), "requires explicit") {
+		t.Fatal("standard client attempted real-Keycloak cleartext traffic without opt-in")
+	}
 	if err := keycloak.New("http://"+address, "fixture-operator", f.credential).RequireHTTPS(); err == nil {
 		t.Fatal("enterprise client accepted cleartext HTTP")
 	}
