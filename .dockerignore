@@ -1,0 +1,6 @@
+.git
+.github
+.tools
+dist
+coverage.out
+*.tgz

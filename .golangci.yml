@@ -1,0 +1,100 @@
+# golangci-lint configuration for repository root.
+# The operator is security-critical because it manages Keycloak.
+version: "2"
+run:
+  modules-download-mode: readonly
+linters:
+  enable:
+    - cyclop
+    - forbidigo
+    - gochecknoinits
+    - gocognit
+    - godot
+    - gosec
+    - nilerr
+    - revive
+    - whitespace
+    - wrapcheck
+  settings:
+    cyclop:
+      max-complexity: 15
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
+    forbidigo:
+      forbid:
+        - pattern: ^fmt\.Print(ln|f)?$
+          msg: Use log/slog for structured logging in internal packages
+    gocognit:
+      min-complexity: 20
+    godot:
+      scope: toplevel
+      period: true
+    gosec:
+      excludes:
+        - G101
+    revive:
+      rules:
+        - name: exported
+          arguments:
+            - checkPrivateReceivers
+        - name: error-return
+        - name: error-strings
+        - name: var-naming
+        - name: receiver-naming
+    wrapcheck:
+      ignore-package-globs:
+        - fmt
+        - errors
+        - context
+        # Standard-library errors are wrapped at the reconciler boundary.
+        - encoding/json
+        - io
+        - net/http
+        - github.com/Alien6-Studio/hankoshell-operator/*
+        - sigs.k8s.io/controller-runtime/*
+        - k8s.io/*
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - cyclop
+          - errcheck
+          - forbidigo
+          - gocognit
+          - wrapcheck
+        path: _test\.go
+      - linters:
+          - forbidigo
+        path: cmd/
+      - linters:
+          - cyclop
+          - gocognit
+        path: internal/controller/
+      # Kubernetes API registration conventionally uses init() in every CRD type.
+      - linters:
+          - gochecknoinits
+        path: api/v1alpha1/.*_types\.go
+      # Kubebuilder markers are directives, not prose comments.
+      - linters:
+          - godot
+        path: api/v1alpha1/groupversion_info\.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 3
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

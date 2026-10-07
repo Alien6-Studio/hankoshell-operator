@@ -1,0 +1,9 @@
+/.tools/
+/dist/
+/.attest/
+/release-evidence/
+/hanko-operator
+coverage.out
+*.tgz
+.DS_Store
+__pycache__/
