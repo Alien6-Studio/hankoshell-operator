@@ -1,0 +1,190 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- include "hanko-operator.validateNetworkPolicy" . }}
+{{- if and .Values.continuum.enabled (or .Values.continuum.gateway.namespace .Values.continuum.gateway.selector) }}
+{{- if not .Values.continuum.gateway.namespace }}{{ fail "continuum.gateway.namespace is required with a gateway selector" }}{{ end }}
+{{- if not .Values.continuum.gateway.selector }}{{ fail "continuum.gateway.selector is required with a gateway namespace" }}{{ end }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "hanko-operator.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hanko-operator.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "hanko-operator.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  # No pod-to-pod ingress is required. Kubelet health probes originate from
+  # the node and are not blocked by Kubernetes NetworkPolicy. Metrics must be
+  # opened later only to an explicitly identified Prometheus workload.
+  ingress: []
+  egress:
+    {{- if .Values.networkPolicy.kubernetesAPIServiceCIDRs }}
+    - to:
+        {{- range .Values.networkPolicy.kubernetesAPIServiceCIDRs }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+      ports:
+        - port: 443
+          protocol: TCP
+    {{- end }}
+    {{- if .Values.networkPolicy.kubernetesAPIEndpointCIDRs }}
+    - to:
+        {{- range .Values.networkPolicy.kubernetesAPIEndpointCIDRs }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+      ports:
+        {{- range .Values.networkPolicy.kubernetesAPIEndpointPorts }}
+        - port: {{ . }}
+          protocol: TCP
+        {{- end }}
+    {{- end }}
+    {{- if and .Values.keycloak.enabled .Values.networkPolicy.keycloakSelector }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ default .Release.Namespace .Values.networkPolicy.keycloakNamespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.keycloakSelector | nindent 14 }}
+      ports:
+        {{- range .Values.networkPolicy.keycloakPorts }}
+        - port: {{ . }}
+          protocol: TCP
+        {{- end }}
+    {{- end }}
+    {{- if and .Values.keycloak.enabled .Values.networkPolicy.keycloakExternalCIDRs }}
+    - to:
+        {{- range .Values.networkPolicy.keycloakExternalCIDRs }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+      ports:
+        {{- range .Values.networkPolicy.keycloakExternalPorts }}
+        - port: {{ . }}
+          protocol: TCP
+        {{- end }}
+    {{- end }}
+    {{- if .Values.organizationProjection.enabled }}
+    # Organization projection posts HankoOrganization positions to the local
+    # hankoShell API. Same-namespace only, admitted by immutable workload labels.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Release.Namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.organizationProjection.apiSelector | nindent 14 }}
+      ports:
+        {{- range .Values.organizationProjection.apiPorts }}
+        - port: {{ . }}
+          protocol: TCP
+        {{- end }}
+    {{- end }}
+    {{- if .Values.supervision.enabled }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Release.Namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.supervision.apiSelector | nindent 14 }}
+      ports:
+        {{- range .Values.supervision.apiPorts }}
+        - port: {{ . }}
+          protocol: TCP
+        {{- end }}
+    {{- end }}
+    {{- if and .Values.hub.enabled (not .Values.continuum.enabled) }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Release.Namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.hub.selector | nindent 14 }}
+      ports:
+        - port: {{ .Values.hub.port }}
+          protocol: TCP
+    {{- if .Values.hub.externalCIDRs }}
+    - to:
+        {{- range .Values.hub.externalCIDRs }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+      ports:
+        - port: {{ .Values.hub.externalPort }}
+          protocol: TCP
+    {{- end }}
+    {{- end }}
+    {{- if .Values.continuum.enabled }}
+    # The node-local Continuum DaemonSet owns WireGuard. The unprivileged
+    # operator can reach only the exact private Hub relay VIP.
+    - to:
+        - ipBlock:
+            cidr: {{ printf "%s/32" .Values.continuum.hubAddress | quote }}
+      ports:
+        - port: {{ .Values.continuum.hubPort }}
+          protocol: TCP
+    {{- if .Values.continuum.gateway.namespace }}
+    # Calico may enforce after Service DNAT. Admit the same destination by its
+    # immutable workload labels, never by namespace alone.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.continuum.gateway.namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.continuum.gateway.selector | nindent 14 }}
+      ports:
+        - port: {{ .Values.continuum.hubPort }}
+          protocol: TCP
+    {{- end }}
+    {{- if .Values.continuum.bootstrap.cidrs }}
+    # Public ingress is bootstrap-only and is not used after enrollment.
+    - to:
+        {{- range .Values.continuum.bootstrap.cidrs }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+      ports:
+        - port: {{ .Values.continuum.bootstrap.port }}
+          protocol: TCP
+    {{- end }}
+    {{- end }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.dnsNamespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.dnsSelector | nindent 14 }}
+        {{- range .Values.networkPolicy.dnsCIDRs }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    {{- if .Values.imageVerification.policyConfigMap }}
+    - to:
+        {{- range .Values.imageVerification.egressCIDRs }}
+        {{- if not (regexMatch "^([0-9.]+/32|[0-9a-fA-F:]+/128)$" .) }}
+        {{ fail "imageVerification.egressCIDRs accepts only exact /32 or /128 addresses" }}
+        {{- end }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+      ports:
+        - port: 443
+          protocol: TCP
+    {{- end }}
+{{- end }}

@@ -1,0 +1,65 @@
+{{- /*
+Self-enrollment (US-54): a single-use enrollment token and a HankoTenant CR.
+The operator exchanges the token for a 24-hour Hub credential on its first
+reconcile and rotates it over the private synchronization path. After
+enrollment, render the tenant from hub.tenantID without retaining the consumed
+token in Helm values or a Kubernetes Secret.
+*/ -}}
+{{- if .Values.hub.enrollToken }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hanko-hub-enroll
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hanko-operator.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  enroll_token: {{ .Values.hub.enrollToken | quote }}
+---
+{{- end }}
+{{- if or .Values.hub.enrollToken .Values.hub.tenantID }}
+apiVersion: hanko.sh/v1alpha1
+kind: HankoTenant
+metadata:
+  name: {{ .Values.hub.tenantName | default "hanko-tenant" }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hanko-operator.labels" . | nindent 4 }}
+spec:
+  {{- with .Values.hub.clusterName }}
+  clusterName: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.hub.tenantID }}
+  hubTenantID: {{ . | quote }}
+  {{- end }}
+  hubEndpoint: {{ required "hub.endpoint is required when a Hub tenant is managed" .Values.hub.endpoint | quote }}
+  {{- with .Values.hub.enrollmentEndpoint }}
+  hubEnrollmentEndpoint: {{ . | quote }}
+  {{- end }}
+  hubTransport: {{ ternary "continuum" "direct" .Values.continuum.enabled | quote }}
+  isolationMode: {{ .Values.hub.isolationMode | default "realm" }}
+  {{- with .Values.hub.realmRef }}
+  realmRef: {{ . | quote }}
+  {{- end }}
+  hubTokenSecretRef:
+    name: {{ .Values.hub.tokenSecret | default "hanko-hub-token" | quote }}
+  {{- if .Values.hub.enrollToken }}
+  hubEnrollSecretRef:
+    name: hanko-hub-enroll
+  {{- end }}
+{{- end }}
+{{- if .Values.hub.ca }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.hub.caSecret }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hanko-operator.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  {{ .Values.hub.caKey }}: |
+    {{- .Values.hub.ca | nindent 4 }}
+{{- end }}
