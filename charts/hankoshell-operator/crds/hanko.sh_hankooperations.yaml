@@ -1,0 +1,245 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: hankooperations.hanko.sh
+spec:
+  group: hanko.sh
+  names:
+    categories:
+    - hanko
+    kind: HankoOperation
+    listKind: HankoOperationList
+    plural: hankooperations
+    shortNames:
+    - hop
+    singular: hankooperation
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.type
+      name: Type
+      type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .spec.instanceRef
+      name: Instance
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: HankoOperation is a one-shot lifecycle operation on a Keycloak
+          instance.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: HankoOperationSpec defines the desired lifecycle operation.
+            properties:
+              clone:
+                description: Clone holds parameters for the Clone operation.
+                properties:
+                  includeData:
+                    description: IncludeData triggers a data snapshot (pg_dump) for
+                      the clone.
+                    type: boolean
+                  targetName:
+                    description: TargetName is the name for the new HankoKeycloakInstance.
+                    type: string
+                  targetNamespace:
+                    description: TargetNamespace is the namespace for the clone. Defaults
+                      to the source namespace.
+                    type: string
+                required:
+                - targetName
+                type: object
+              dbSwitch:
+                description: DBSwitch holds parameters for the DBSwitch operation.
+                properties:
+                  newDatabaseSecretRef:
+                    description: |-
+                      NewDatabaseSecretRef is the name of a Secret containing the new DB credentials
+                      (KC_DB, KC_DB_URL, KC_DB_USERNAME, KC_DB_PASSWORD).
+                    type: string
+                required:
+                - newDatabaseSecretRef
+                type: object
+              dryRun:
+                description: DryRun validates the operation without applying any changes.
+                type: boolean
+              instanceRef:
+                description: InstanceRef is the name of the HankoKeycloakInstance
+                  to operate on.
+                type: string
+              snapshotBefore:
+                default: true
+                description: |-
+                  SnapshotBefore controls whether a HankoSnapshot is created before the operation.
+                  Defaults to true — always recommended.
+                type: boolean
+              type:
+                description: Type is the operation to perform.
+                enum:
+                - Upgrade
+                - Clone
+                - DBSwitch
+                type: string
+              upgrade:
+                description: Upgrade holds parameters for the Upgrade operation.
+                properties:
+                  toImage:
+                    description: ToImage is the target Keycloak container image.
+                    type: string
+                required:
+                - toImage
+                type: object
+            required:
+            - instanceRef
+            - type
+            type: object
+          status:
+            description: HankoOperationStatus describes the observed state of the
+              operation.
+            properties:
+              completedAt:
+                description: CompletedAt is when the operation finished (Done or Failed).
+                format: date-time
+                type: string
+              conditions:
+                description: Conditions holds standard Kubernetes condition objects.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              lastReconciled:
+                description: LastReconciled is the timestamp of the last reconcile
+                  loop.
+                format: date-time
+                type: string
+              phase:
+                description: 'Phase: Pending | Snapshotting | Running | Validating
+                  | Done | Failed | RolledBack'
+                enum:
+                - Pending
+                - Snapshotting
+                - Running
+                - Validating
+                - Done
+                - Failed
+                - RolledBack
+                type: string
+              snapshotRef:
+                description: SnapshotRef is the name of the HankoSnapshot created
+                  before this operation.
+                type: string
+              startedAt:
+                description: StartedAt is when the operation began.
+                format: date-time
+                type: string
+              steps:
+                description: Steps is the ordered list of operation steps with their
+                  current status.
+                items:
+                  description: OperationStep tracks the status of a single step within
+                    the operation.
+                  properties:
+                    completedAt:
+                      description: CompletedAt is when this step finished.
+                      format: date-time
+                      type: string
+                    message:
+                      description: Message holds a human-readable description or error.
+                      type: string
+                    name:
+                      description: Name is the step identifier.
+                      type: string
+                    startedAt:
+                      description: StartedAt is when this step began.
+                      format: date-time
+                      type: string
+                    status:
+                      description: 'Status: Pending | Running | Done | Failed | Skipped'
+                      type: string
+                  required:
+                  - name
+                  - status
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

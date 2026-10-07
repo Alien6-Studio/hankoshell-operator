@@ -1,0 +1,51 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    name: Source and chart checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.1'
+          cache: true
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned Helm and test dependencies
+        run: |
+          curl -fLsS https://get.helm.sh/helm-v3.17.0-linux-amd64.tar.gz -o /tmp/helm.tgz
+          echo 'fb5d12662fde6eeff36ac4ccacbf3abed96b0ee2de07afdde4edb14e613aee24  /tmp/helm.tgz' | sha256sum -c -
+          tar -xzf /tmp/helm.tgz -C /tmp
+          sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
+          python -m pip install -r scripts/requirements.txt
+          make install-tools
+      - name: Validate source, contracts and generated schemas
+        run: make check arch lint generated-check vuln
+      - name: Validate Attest delivery gates
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: Cross-compile both Linux architectures
+        run: |
+          make build GOARCH=amd64
+          make build GOARCH=arm64
+      - name: Check for exposed credentials
+        run: |
+          docker run --rm -v "$PWD:/src:ro" \
+            zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            dir /src --no-banner --redact

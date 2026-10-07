@@ -1,0 +1,50 @@
+{{- $targetNamespace := default .Release.Namespace .Values.meshPolicyAudit.targetNamespace -}}
+{{- if and .Values.meshPolicyAudit.enabled (ne $targetNamespace .Release.Namespace) }}
+{{- $writerName := printf "%s-mesh-policy" (include "hanko-operator.fullname" .) | trunc 63 | trimSuffix "-" -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.meshPolicyAudit.configMapName }}
+  namespace: {{ $targetNamespace }}
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    mesh.hanko.io/projection: hanko-operator
+  annotations:
+    mesh.hanko.io/projection: hanko-operator
+    mesh.hanko.io/operator-namespace: {{ .Release.Namespace | quote }}
+    mesh.hanko.io/tenant-name: {{ .Values.hub.tenantName | quote }}
+    mesh.hanko.io/mode: audit-only
+    mesh.hanko.io/state: quarantined
+data:
+  policy.json: '{}'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $writerName }}
+  namespace: {{ $targetNamespace }}
+  labels:
+    {{- include "hanko-operator.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames:
+      - {{ .Values.meshPolicyAudit.configMapName }}
+    verbs: ["get", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $writerName }}
+  namespace: {{ $targetNamespace }}
+  labels:
+    {{- include "hanko-operator.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $writerName }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "hanko-operator.fullname" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
