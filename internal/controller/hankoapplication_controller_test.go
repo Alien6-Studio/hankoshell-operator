@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -61,7 +61,7 @@ func newReconciler(t *testing.T, c client.Client, kc *keycloak.Client) *controll
 		OwnershipReader: c,
 		Scheme:          newScheme(t),
 		Pool:            keycloak.NewPool(kc),
-		Recorder:        record.NewFakeRecorder(10),
+		Recorder:        events.NewFakeRecorder(10),
 	}
 }
 

@@ -68,7 +68,3 @@ type HankoSnapshotList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []HankoSnapshot `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&HankoSnapshot{}, &HankoSnapshotList{})
-}

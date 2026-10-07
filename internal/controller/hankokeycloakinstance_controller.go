@@ -16,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,7 +54,7 @@ type HankoKeycloakInstanceReconciler struct {
 	client.Client
 	Scheme                  *runtime.Scheme
 	ImageValidator          *imagevalidator.Validator
-	Recorder                record.EventRecorder
+	Recorder                events.EventRecorder
 	CredentialRotationAudit CredentialRotationAuditor
 	ServiceAccountMaxAge    time.Duration
 	RequireHTTPS            bool

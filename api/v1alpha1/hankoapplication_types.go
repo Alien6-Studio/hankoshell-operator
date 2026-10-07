@@ -333,7 +333,3 @@ type HankoApplicationList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []HankoApplication `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&HankoApplication{}, &HankoApplicationList{})
-}

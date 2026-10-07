@@ -9,7 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -46,7 +46,7 @@ type HankoServiceAccountReconciler struct {
 	ProtectedRealm string
 	Scheme         *runtime.Scheme
 	Pool           *keycloak.Pool
-	Recorder       record.EventRecorder
+	Recorder       events.EventRecorder
 }
 
 func (r *HankoServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -195,7 +195,7 @@ func (r *HankoServiceAccountReconciler) prepareServiceAccountObserve(ctx context
 		if err := r.Update(ctx, sa); err != nil {
 			return ctrl.Result{}, fmt.Errorf("remove imported service account finalizer: %w", err)
 		}
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{RequeueAfter: requeueImmediately}, nil
 	}
 	return r.reconcileServiceAccountObserve(ctx, sa, kc, client.MergeFrom(sa.DeepCopy()))
 }
@@ -399,8 +399,7 @@ func (r *HankoServiceAccountReconciler) maybeRotate(ctx context.Context, sa *han
 	}
 	setServiceAccountSecretStatus(sa, now)
 	setServiceAccountNextRotation(sa, p)
-	r.Recorder.Event(sa, corev1.EventTypeNormal, "SecretRotated",
-		fmt.Sprintf("M2M client secret rotated for %q", sa.Spec.ClientID))
+	r.Recorder.Eventf(sa, nil, corev1.EventTypeNormal, "SecretRotated", "Reconcile", "%s", fmt.Sprintf("M2M client secret rotated for %q", sa.Spec.ClientID))
 	logger.Info("M2M client secret rotated", "clientID", sa.Spec.ClientID)
 	return nil
 }

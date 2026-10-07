@@ -155,7 +155,7 @@ func TestServiceAccountRotationPersistsAppliesVerifiesPromotesAndAudits(t *testi
 		t.Fatal(err)
 	}
 	result, handled, err = reconciler.reconcileServiceAccountCredential(ctx, current, activeClient, client.MergeFrom(current.DeepCopy()))
-	if err != nil || !handled || !result.Requeue {
+	if err != nil || !handled || result.RequeueAfter != requeueImmediately {
 		t.Fatalf("complete rotation must rebuild the promoted client: handled=%t result=%#v err=%v", handled, result, err)
 	}
 	_, promoted := getRotationObjects(t, k8sClient)
@@ -193,7 +193,7 @@ func TestServiceAccountRotationRecoversAfterKeycloakUpdateBeforePromotion(t *tes
 		t.Fatal(err)
 	}
 	result, handled, err := reconciler.reconcileServiceAccountCredential(ctx, current, activeClient, client.MergeFrom(current.DeepCopy()))
-	if err != nil || !handled || !result.Requeue {
+	if err != nil || !handled || result.RequeueAfter != requeueImmediately {
 		t.Fatalf("recover rotation must rebuild the promoted client: handled=%t result=%#v err=%v", handled, result, err)
 	}
 	_, promoted := getRotationObjects(t, k8sClient)

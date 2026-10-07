@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -88,7 +88,7 @@ type HankoApplicationReconciler struct {
 	ProtectedRealm     string
 	Scheme             *runtime.Scheme
 	Pool               *keycloak.Pool
-	Recorder           record.EventRecorder
+	Recorder           events.EventRecorder
 }
 
 func (r *HankoApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -210,7 +210,7 @@ func (r *HankoApplicationReconciler) releaseProtectedApplication(ctx context.Con
 		return ctrl.Result{}, fmt.Errorf("record protected control-plane client deletion: %w", err)
 	}
 	if r.Recorder != nil {
-		r.Recorder.Event(app, corev1.EventTypeWarning, "ProtectedControlPlaneClient", message)
+		r.Recorder.Eventf(app, nil, corev1.EventTypeWarning, "ProtectedControlPlaneClient", "Reconcile", "%s", message)
 	}
 	if controllerutil.ContainsFinalizer(app, finalizerName) {
 		controllerutil.RemoveFinalizer(app, finalizerName)
@@ -470,7 +470,7 @@ func (r *HankoApplicationReconciler) createApplication(ctx context.Context, app 
 		return result, err
 	}
 	if r.Recorder != nil {
-		r.Recorder.Event(app, corev1.EventTypeNormal, "ClientCreated", fmt.Sprintf("Keycloak client %q created in realm %q", app.Spec.ClientID, app.Spec.RealmRef))
+		r.Recorder.Eventf(app, nil, corev1.EventTypeNormal, "ClientCreated", "Reconcile", "%s", fmt.Sprintf("Keycloak client %q created in realm %q", app.Spec.ClientID, app.Spec.RealmRef))
 	}
 	logger.Info("Keycloak client created", "clientID", app.Spec.ClientID)
 	return result, nil
@@ -577,7 +577,7 @@ func (r *HankoApplicationReconciler) maybeRotateApplicationSecret(ctx context.Co
 	setApplicationNextRotation(app, policy)
 	setCondition(&app.Status.Conditions, "SecretRotation", metav1.ConditionTrue, "Rotated", "confidential client secret rotated")
 	if r.Recorder != nil {
-		r.Recorder.Event(app, corev1.EventTypeNormal, "SecretRotated", fmt.Sprintf("client secret rotated for %q", app.Spec.ClientID))
+		r.Recorder.Eventf(app, nil, corev1.EventTypeNormal, "SecretRotated", "Reconcile", "%s", fmt.Sprintf("client secret rotated for %q", app.Spec.ClientID))
 	}
 	return nil
 }

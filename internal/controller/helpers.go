@@ -24,7 +24,9 @@ import (
 const (
 	requeueInterval = 30 * time.Second
 	requeueOnError  = 10 * time.Second
-	requeueJitter   = 5 * time.Second
+	// Reconcile promptly after a persisted checkpoint without the deprecated Requeue flag.
+	requeueImmediately = time.Millisecond
+	requeueJitter      = 5 * time.Second
 )
 
 const (

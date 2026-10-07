@@ -122,7 +122,3 @@ type HankoTenantList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []HankoTenant `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&HankoTenant{}, &HankoTenantList{})
-}

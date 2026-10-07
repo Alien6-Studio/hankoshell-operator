@@ -13,8 +13,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/hub"
@@ -123,5 +127,68 @@ func TestTenantInvalidBundleObjectFailsBeforeApply(t *testing.T) {
 	counts, err := reconciler.applyBundle(context.Background(), tenant, &hub.Bundle{Realms: []json.RawMessage{json.RawMessage(`{"metadata":`)}})
 	if err == nil || counts["realms"] != 0 {
 		t.Fatalf("invalid bundle should fail before apply: counts=%v err=%v", counts, err)
+	}
+}
+
+func TestTenantBundleApplyPreservesExplicitValuesAndTenantBoundary(t *testing.T) {
+	for _, typeMeta := range []string{`"apiVersion":"hanko.sh/v1alpha1","kind":"HankoRealm",`, ""} {
+		t.Run(typeMeta, func(t *testing.T) {
+			var applied unstructured.Unstructured
+			var applyOptions client.ApplyOptions
+			k8sClient := fake.NewClientBuilder().WithScheme(controllerTestScheme(t)).WithInterceptorFuncs(interceptor.Funcs{
+				Apply: func(_ context.Context, _ client.WithWatch, configuration runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
+					payload, err := json.Marshal(configuration)
+					if err != nil {
+						return err
+					}
+					applyOptions.ApplyOptions(opts)
+					return json.Unmarshal(payload, &applied)
+				},
+			}).Build()
+			reconciler := &HankoTenantReconciler{Client: k8sClient}
+			tenant := &hankoshv1alpha1.HankoTenant{ObjectMeta: metav1.ObjectMeta{Name: "tenant", Namespace: "test"}}
+			raw := json.RawMessage(`{` + typeMeta + `"metadata":{"name":"realm","namespace":"other","labels":{"hanko.sh/tenant":"other","team":"auth"}},"spec":{"otpRequired":false,"securityProfile":{"passwordExpiryDays":0}}}`)
+			counts, err := reconciler.applyBundle(context.Background(), tenant, &hub.Bundle{Realms: []json.RawMessage{raw}})
+			if err != nil || counts["realms"] != 1 {
+				t.Fatalf("apply bundle: counts=%v err=%v", counts, err)
+			}
+			if applied.GetAPIVersion() != "hanko.sh/v1alpha1" || applied.GetKind() != "HankoRealm" || applied.GetNamespace() != "test" || applied.GetLabels()["hanko.sh/tenant"] != "tenant" || applied.GetLabels()["team"] != "auth" {
+				t.Fatalf("unexpected apply identity: %#v", applied.Object)
+			}
+			if value, found, err := unstructured.NestedBool(applied.Object, "spec", "otpRequired"); err != nil || !found || value {
+				t.Fatalf("explicit false lost: value=%v found=%v err=%v", value, found, err)
+			}
+			if value, found, err := unstructured.NestedInt64(applied.Object, "spec", "securityProfile", "passwordExpiryDays"); err != nil || !found || value != 0 {
+				t.Fatalf("explicit zero lost: value=%v found=%v err=%v", value, found, err)
+			}
+			if applyOptions.FieldManager != hankoOperatorFieldManager || applyOptions.Force == nil || !*applyOptions.Force {
+				t.Fatalf("unexpected apply ownership: %#v", applyOptions)
+			}
+		})
+	}
+}
+
+func TestTenantBundleRejectsUnexpectedResourceBeforeApply(t *testing.T) {
+	for name, raw := range map[string]string{
+		"wrong kind":    `{"apiVersion":"hanko.sh/v1alpha1","kind":"HankoApplication","metadata":{"name":"realm"}}`,
+		"wrong group":   `{"apiVersion":"v1","kind":"Secret","metadata":{"name":"realm"}}`,
+		"wrong version": `{"apiVersion":"hanko.sh/v1beta1","kind":"HankoRealm","metadata":{"name":"realm"}}`,
+		"invalid spec":  `{"metadata":{"name":"realm"},"spec":{"otpRequired":"false"}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			applied := false
+			k8sClient := fake.NewClientBuilder().WithScheme(controllerTestScheme(t)).WithInterceptorFuncs(interceptor.Funcs{
+				Apply: func(context.Context, client.WithWatch, runtime.ApplyConfiguration, ...client.ApplyOption) error {
+					applied = true
+					return nil
+				},
+			}).Build()
+			reconciler := &HankoTenantReconciler{Client: k8sClient}
+			tenant := &hankoshv1alpha1.HankoTenant{ObjectMeta: metav1.ObjectMeta{Name: "tenant", Namespace: "test"}}
+			counts, err := reconciler.applyBundle(context.Background(), tenant, &hub.Bundle{Realms: []json.RawMessage{json.RawMessage(raw)}})
+			if err == nil || counts["realms"] != 0 || applied {
+				t.Fatalf("unexpected resource reached apply: counts=%v applied=%v err=%v", counts, applied, err)
+			}
+		})
 	}
 }

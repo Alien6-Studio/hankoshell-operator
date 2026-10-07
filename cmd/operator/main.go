@@ -194,7 +194,7 @@ func setupControllers(
 	protectedClientIDs := controlPlaneAuthorizedClientIDs()
 	protectedRealm := fleetAuthorityRealm()
 	fatalIfError((&controller.HankoIAMProfileReconciler{Client: mgr.GetClient()}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoIAMProfile")
-	fatalIfError((&controller.HankoRealmReconciler{Client: mgr.GetClient(), ProtectedRealm: protectedRealm, Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorderFor(operatorRecorderName)}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoRealm")
+	fatalIfError((&controller.HankoRealmReconciler{Client: mgr.GetClient(), ProtectedRealm: protectedRealm, Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName)}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoRealm")
 	fatalIfError((&controller.HankoEmailProviderReconciler{
 		Client: mgr.GetClient(),
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoEmailProvider")
@@ -206,14 +206,14 @@ func setupControllers(
 	fatalIfError((&controller.HankoApplicationReconciler{
 		Client: mgr.GetClient(), OwnershipReader: mgr.GetAPIReader(), SecretProjectionClient: applicationSecretProjectionClient,
 		ProtectedClientIDs: protectedClientIDs, ProtectedRealm: protectedRealm,
-		Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorderFor(operatorRecorderName),
+		Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName),
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoApplication")
 	fatalIfError((&controller.HankoServiceAccountReconciler{
 		Client: mgr.GetClient(), OwnershipReader: mgr.GetAPIReader(), Scheme: mgr.GetScheme(), Pool: pool,
-		Recorder: mgr.GetEventRecorderFor(operatorRecorderName), ProtectedClientIDs: protectedClientIDs, ProtectedRealm: protectedRealm,
+		Recorder: mgr.GetEventRecorder(operatorRecorderName), ProtectedClientIDs: protectedClientIDs, ProtectedRealm: protectedRealm,
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoServiceAccount")
-	fatalIfError((&controller.HankoRoleReconciler{Client: mgr.GetClient(), ProtectedRealm: protectedRealm, Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorderFor(operatorRecorderName)}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoRole")
-	organizationReconciler := &controller.HankoOrganizationReconciler{Client: mgr.GetClient(), ProtectedRealm: protectedRealm, Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorderFor(operatorRecorderName)}
+	fatalIfError((&controller.HankoRoleReconciler{Client: mgr.GetClient(), ProtectedRealm: protectedRealm, Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName)}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoRole")
+	organizationReconciler := &controller.HankoOrganizationReconciler{Client: mgr.GetClient(), ProtectedRealm: protectedRealm, Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName)}
 	// Assign only a live projector: storing a nil *PositionClient in the
 	// interface field would defeat the reconciler's nil check (typed nil) and
 	// panic instead of failing closed with ProjectorUnavailable.
@@ -221,7 +221,7 @@ func setupControllers(
 		organizationReconciler.Positions = positions
 	}
 	fatalIfError(organizationReconciler.SetupWithManager(mgr), controllerSetupError, "controller", "HankoOrganization")
-	fatalIfError((&controller.HankoResourceServerReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorderFor(operatorRecorderName)}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoResourceServer")
+	fatalIfError((&controller.HankoResourceServerReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName)}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoResourceServer")
 	fatalIfError((&controller.HankoMeshServiceReconciler{
 		Client: mgr.GetClient(), NodeReader: mgr.GetAPIReader(), EgressReader: mgr.GetAPIReader(),
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoMeshService")
@@ -237,7 +237,7 @@ func setupControllers(
 		Scheme:                 mgr.GetScheme(),
 		KeycloakDeploymentName: keycloakDeploymentName(),
 		ImageValidator:         imgValidator,
-		Recorder:               mgr.GetEventRecorderFor(operatorRecorderName),
+		Recorder:               mgr.GetEventRecorder(operatorRecorderName),
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoTheme")
 	fatalIfError((&controller.HankoTenantReconciler{
 		Client:                       mgr.GetClient(),
@@ -261,7 +261,7 @@ func setupControllers(
 	}
 	fatalIfError((&controller.HankoKeycloakInstanceReconciler{
 		Client: mgr.GetClient(), Scheme: mgr.GetScheme(), ImageValidator: imgValidator,
-		Recorder: mgr.GetEventRecorderFor(operatorRecorderName), CredentialRotationAudit: rotationAudit,
+		Recorder: mgr.GetEventRecorder(operatorRecorderName), CredentialRotationAudit: rotationAudit,
 		ServiceAccountMaxAge: serviceAccountMaxAge,
 		RequireHTTPS:         hubPolicy != nil,
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoKeycloakInstance")

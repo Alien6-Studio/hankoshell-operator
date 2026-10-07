@@ -20,7 +20,7 @@ operator, and can also provision a Keycloak Deployment.
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml)
 [![Release preparation](https://img.shields.io/badge/release-0.1.0%20in%20preparation-blue.svg)](CHANGELOG.md)
-[![Go](https://img.shields.io/badge/go-1.26.6-00ADD8.svg)](go.mod)
+[![Go](https://img.shields.io/badge/go-1.27.1-00ADD8.svg)](go.mod)
 [![Kubernetes](https://img.shields.io/badge/kubernetes-%E2%89%A51.30-326CE5.svg)](charts/hankoshell-operator/Chart.yaml)
 [![Delivery](https://img.shields.io/badge/delivery-Continuum%20Attest-blue.svg)](#verified-delivery)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
@@ -29,7 +29,7 @@ operator, and can also provision a Keycloak Deployment.
 
 - **Onboard applications with their identity configuration.** A new web app or
   service can declare its Keycloak client, allowed callbacks and roles alongside
-  its Kubernetes deployment, rather than relying on a separate console checklist.
+  its Kubernetes deployment in the same reviewable change.
 - **Review identity changes before applying them.** Redirect URLs, role mappings
   and authentication policies can follow your existing pull request and GitOps
   workflow. The operator periodically reconciles the fields under its ownership,
@@ -248,8 +248,8 @@ Register `oci://ghcr.io/alien6-studio/charts/hankoshell-operator` in Artifact Hu
 and set `HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID` to its assigned UUID. The workflow
 includes `artifacthub-repo.yml` in the verified delivery and publishes it under
 the OCI tag `artifacthub.io`. Verified Publisher is granted by Artifact Hub
-after matching that ID during indexing. Enable GitHub private vulnerability
-reporting and public artifact access before launching the release.
+after matching that ID during indexing. Security reports use GitHub private
+vulnerability reporting. Configure public artifact access before launching the release.
 
 `artifacthub.io/signKey` links the Ed25519 public key for the Attest receipt.
 The release also provides a keyless Sigstore bundle; these are separate from
@@ -259,7 +259,7 @@ Helm's OpenPGP `.prov` verification.
 
 ## Development
 
-Use Go 1.26.6, Helm 3.17 or later, Python 3, and a C compiler for race tests.
+Use Go 1.27.1, Helm 3.17 or later, Python 3, and a C compiler for race tests.
 
 ```sh
 python3 -m pip install -r scripts/requirements.txt

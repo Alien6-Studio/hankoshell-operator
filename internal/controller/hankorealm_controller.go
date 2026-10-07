@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,7 +41,7 @@ type HankoRealmReconciler struct {
 	ProtectedRealm string
 	Scheme         *runtime.Scheme
 	Pool           *keycloak.Pool
-	Recorder       record.EventRecorder
+	Recorder       events.EventRecorder
 }
 
 func (r *HankoRealmReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -53,7 +53,7 @@ func (r *HankoRealmReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	// Master realm is Keycloak's own admin realm — never manage it.
 	if realm.Name == "master" {
 		if r.Recorder != nil {
-			r.Recorder.Event(&realm, corev1.EventTypeWarning, "ProtectedRealm", "hanko-operator does not manage the master realm")
+			r.Recorder.Eventf(&realm, nil, corev1.EventTypeWarning, "ProtectedRealm", "Reconcile", "%s", "hanko-operator does not manage the master realm")
 		}
 		return ctrl.Result{}, nil
 	}
@@ -131,7 +131,7 @@ func (r *HankoRealmReconciler) releaseProtectedAuthorityRealm(ctx context.Contex
 		return ctrl.Result{}, fmt.Errorf("record protected authority realm deletion: %w", err)
 	}
 	if r.Recorder != nil {
-		r.Recorder.Event(realm, corev1.EventTypeWarning, "ProtectedAuthorityRealm", message)
+		r.Recorder.Eventf(realm, nil, corev1.EventTypeWarning, "ProtectedAuthorityRealm", "Reconcile", "%s", message)
 	}
 	if controllerutil.ContainsFinalizer(realm, realmFinalizerName) {
 		controllerutil.RemoveFinalizer(realm, realmFinalizerName)
@@ -180,7 +180,7 @@ func (r *HankoRealmReconciler) reconcileRealmDeletion(ctx context.Context, realm
 		return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("delete realm management access: %w", err)
 	}
 	if r.Recorder != nil {
-		r.Recorder.Event(realm, corev1.EventTypeNormal, "RealmDeleted", fmt.Sprintf("HankoRealm %q deleted from Keycloak", realm.Name))
+		r.Recorder.Eventf(realm, nil, corev1.EventTypeNormal, "RealmDeleted", "Reconcile", "%s", fmt.Sprintf("HankoRealm %q deleted from Keycloak", realm.Name))
 	}
 	log.FromContext(ctx).Info("HankoRealm deleted from Keycloak", "realm", realm.Name)
 	return ctrl.Result{}, r.removeRealmFinalizer(ctx, realm, "remove realm finalizer")
@@ -231,7 +231,7 @@ func (r *HankoRealmReconciler) prepareRealmObserve(ctx context.Context, realm *h
 		if err := r.removeRealmFinalizer(ctx, realm, "remove imported realm finalizer"); err != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{RequeueAfter: requeueImmediately}, nil
 	}
 	return r.reconcileRealmObserve(ctx, realm, kc, client.MergeFrom(realm.DeepCopy()))
 }
@@ -310,7 +310,7 @@ func (r *HankoRealmReconciler) enforceStrengthenedAuthenticationPolicy(ctx conte
 	}
 	setCondition(&realm.Status.Conditions, "SessionPolicyEnforced", metav1.ConditionTrue, "SessionsRevoked", fmt.Sprintf("existing sessions revoked after MFA policy changed from %q to %q", realm.Status.AppliedMFAPolicy, desired.MFAPolicy))
 	if r.Recorder != nil {
-		r.Recorder.Event(realm, corev1.EventTypeNormal, "SessionsRevoked", "Existing realm sessions were revoked after MFA policy strengthening")
+		r.Recorder.Eventf(realm, nil, corev1.EventTypeNormal, "SessionsRevoked", "Reconcile", "%s", "Existing realm sessions were revoked after MFA policy strengthening")
 	}
 	return nil
 }

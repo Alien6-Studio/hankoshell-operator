@@ -10,7 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -48,7 +48,7 @@ func TestServiceAccountReconcileLeavesOmittedAttributesUnmanaged(t *testing.T) {
 		Client:   c,
 		Scheme:   newScheme(t),
 		Pool:     keycloak.NewPool(kc.client()),
-		Recorder: record.NewFakeRecorder(10),
+		Recorder: events.NewFakeRecorder(10),
 	}
 
 	request := ctrl.Request{NamespacedName: types.NamespacedName{Name: sa.Name, Namespace: sa.Namespace}}
@@ -85,7 +85,7 @@ func TestServiceAccountReconcilesTokenClaimsWithPerMapperStatus(t *testing.T) {
 	}
 	c := newFakeClient(t, sa, secret)
 	r := &controller.HankoServiceAccountReconciler{
-		Client: c, Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+		Client: c, Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 	}
 	request := ctrl.Request{NamespacedName: types.NamespacedName{Name: sa.Name, Namespace: sa.Namespace}}
 	if _, err := r.Reconcile(context.Background(), request); err != nil {
@@ -134,7 +134,7 @@ func TestServiceAccountRejectsReservedTokenClaim(t *testing.T) {
 	}
 	c := newFakeClient(t, sa, secret)
 	r := &controller.HankoServiceAccountReconciler{
-		Client: c, Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+		Client: c, Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 	}
 	request := ctrl.Request{NamespacedName: types.NamespacedName{Name: sa.Name, Namespace: sa.Namespace}}
 	_, err := r.Reconcile(context.Background(), request)
@@ -201,7 +201,7 @@ func TestServiceAccountRejectsProtectedAndCrossKindClientOwnership(t *testing.T)
 			r := &controller.HankoServiceAccountReconciler{
 				Client: c, OwnershipReader: c, ProtectedClientIDs: tt.protectedClientIDs,
 				ProtectedRealm: "alien6",
-				Scheme:         newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+				Scheme:         newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 			}
 
 			result, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(sa)})
@@ -267,7 +267,7 @@ func TestConflictingServiceAccountDeletionNeverDeletesSharedClient(t *testing.T)
 			c := newFakeClient(t, objects...)
 			r := &controller.HankoServiceAccountReconciler{
 				Client: c, OwnershipReader: c, ProtectedClientIDs: []string{"hanko-dashboard"}, ProtectedRealm: "alien6",
-				Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+				Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 			}
 
 			if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(sa)}); err != nil {
@@ -291,7 +291,7 @@ func TestServiceAccountOwnershipLookupFailsClosed(t *testing.T) {
 	}
 	c := newFakeClient(t, sa)
 	r := &controller.HankoServiceAccountReconciler{
-		Client: c, OwnershipReader: failingOwnershipReader{}, Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+		Client: c, OwnershipReader: failingOwnershipReader{}, Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 	}
 
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(sa)})
@@ -326,7 +326,7 @@ func TestServiceAccountControlPlaneProtectionIsScopedToAuthorityRealm(t *testing
 	c := newFakeClient(t, sa, secret)
 	r := &controller.HankoServiceAccountReconciler{
 		Client: c, OwnershipReader: c, ProtectedClientIDs: []string{"hanko-dashboard"}, ProtectedRealm: "alien6",
-		Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+		Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 	}
 
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(sa)}); err != nil {
@@ -359,7 +359,7 @@ func TestServiceAccountSameKindOwnershipIsDeterministic(t *testing.T) {
 	}
 	c := newFakeClient(t, owner, duplicate, secret)
 	r := &controller.HankoServiceAccountReconciler{
-		Client: c, OwnershipReader: c, Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+		Client: c, OwnershipReader: c, Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 	}
 
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(duplicate)}); err != nil {
@@ -405,7 +405,7 @@ func TestLosingServiceAccountDeletionDropsFinalizerWithoutProviderDelete(t *test
 	}
 	c := newFakeClient(t, owner, duplicate)
 	r := &controller.HankoServiceAccountReconciler{
-		Client: c, OwnershipReader: c, Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+		Client: c, OwnershipReader: c, Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 	}
 
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(duplicate)}); err != nil {
@@ -435,7 +435,7 @@ func TestObserveApplicationDoesNotBlockManagedServiceAccount(t *testing.T) {
 	}
 	c := newFakeClient(t, app, sa, secret)
 	r := &controller.HankoServiceAccountReconciler{
-		Client: c, OwnershipReader: c, Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+		Client: c, OwnershipReader: c, Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 	}
 
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(sa)}); err != nil {
@@ -477,7 +477,7 @@ func TestImportedServiceAccountIsReadOnly(t *testing.T) {
 		Client:   c,
 		Scheme:   newScheme(t),
 		Pool:     keycloak.NewPool(kc.client()),
-		Recorder: record.NewFakeRecorder(10),
+		Recorder: events.NewFakeRecorder(10),
 	}
 
 	request := ctrl.Request{NamespacedName: types.NamespacedName{Name: sa.Name, Namespace: sa.Namespace}}
@@ -523,7 +523,7 @@ func TestImportedServiceAccountDeletionDoesNotDeleteClient(t *testing.T) {
 		Client:   c,
 		Scheme:   newScheme(t),
 		Pool:     keycloak.NewPool(kc.client()),
-		Recorder: record.NewFakeRecorder(10),
+		Recorder: events.NewFakeRecorder(10),
 	}
 
 	request := ctrl.Request{NamespacedName: types.NamespacedName{Name: sa.Name, Namespace: sa.Namespace}}

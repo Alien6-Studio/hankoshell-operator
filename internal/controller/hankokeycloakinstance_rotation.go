@@ -180,7 +180,7 @@ func (r *HankoKeycloakInstanceReconciler) resumeServiceAccountRotation(
 		return r.rotationFailure(ctx, instance, statusPatch, "CredentialPromotionFailed", err)
 	}
 	if r.Recorder != nil {
-		r.Recorder.Eventf(instance, corev1.EventTypeNormal, "ServiceAccountCredentialRotated",
+		r.Recorder.Eventf(instance, nil, corev1.EventTypeNormal, "ServiceAccountCredentialRotated", "Reconcile",
 			"Rotated Keycloak service-account credential for client %s", string(secret.Data["HANKO_KC_CLIENT_ID"]))
 	}
 	r.setRotationSchedule(instance, now)
@@ -195,7 +195,7 @@ func (r *HankoKeycloakInstanceReconciler) resumeServiceAccountRotation(
 	if err := r.Status().Patch(ctx, instance, statusPatch); err != nil {
 		return ctrl.Result{}, true, fmt.Errorf("patch completed credential rotation status: %w", err)
 	}
-	return ctrl.Result{Requeue: true}, true, nil
+	return ctrl.Result{RequeueAfter: requeueImmediately}, true, nil
 }
 
 func (r *HankoKeycloakInstanceReconciler) promotePendingServiceAccountCredential(

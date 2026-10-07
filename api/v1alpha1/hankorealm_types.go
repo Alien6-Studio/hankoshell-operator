@@ -379,7 +379,3 @@ type HankoRealmList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []HankoRealm `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&HankoRealm{}, &HankoRealmList{})
-}

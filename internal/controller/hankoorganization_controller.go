@@ -9,7 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -45,7 +45,7 @@ type HankoOrganizationReconciler struct {
 	ProtectedRealm string
 	Scheme         *runtime.Scheme
 	Pool           *keycloak.Pool
-	Recorder       record.EventRecorder
+	Recorder       events.EventRecorder
 	// Positions projects the reconciled Keycloak group into the hankoShell API model
 	// consumed by hankoShell and product-side ADK clients.
 	Positions interface {

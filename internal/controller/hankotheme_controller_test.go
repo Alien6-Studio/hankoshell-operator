@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -180,7 +180,7 @@ func TestThemeReconcileMissingPVCReportsErrorWithoutJob(t *testing.T) {
 		Client:         c,
 		Scheme:         newThemeScheme(t),
 		ImageValidator: approvedFixtureValidator(t),
-		Recorder:       record.NewFakeRecorder(10),
+		Recorder:       events.NewFakeRecorder(10),
 	}
 
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: theme.Name, Namespace: theme.Namespace}}); err != nil {
@@ -215,7 +215,7 @@ func TestThemeReconcileCreatesBuildJob(t *testing.T) {
 		Client:         c,
 		Scheme:         newThemeScheme(t),
 		ImageValidator: approvedFixtureValidator(t),
-		Recorder:       record.NewFakeRecorder(10),
+		Recorder:       events.NewFakeRecorder(10),
 	}
 
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: theme.Name, Namespace: theme.Namespace}}); err != nil {
@@ -290,7 +290,7 @@ func TestThemeCompletedJobRestartsKeycloakOnlyOnce(t *testing.T) {
 		Scheme:                 newThemeScheme(t),
 		KeycloakDeploymentName: "keycloak",
 		ImageValidator:         approvedFixtureValidator(t),
-		Recorder:               record.NewFakeRecorder(10),
+		Recorder:               events.NewFakeRecorder(10),
 	}
 	request := ctrl.Request{NamespacedName: types.NamespacedName{Name: theme.Name, Namespace: theme.Namespace}}
 
@@ -709,7 +709,7 @@ func TestThemeDeletionIsBlockedWhileApplicationReferencesIt(t *testing.T) {
 		Scheme:                 newThemeScheme(t),
 		KeycloakDeploymentName: "keycloak",
 		ImageValidator:         approvedFixtureValidator(t),
-		Recorder:               record.NewFakeRecorder(10),
+		Recorder:               events.NewFakeRecorder(10),
 	}
 
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: theme.Name, Namespace: theme.Namespace}}); err != nil {
@@ -778,7 +778,7 @@ func TestExistingThemeBuildReportsRunningAndFailedJobs(t *testing.T) {
 			build := &themeBuildState{jobName: "current-build", jarPath: keycloakProvidersPath + theme.Spec.JarName}
 			job := &batchv1.Job{Status: batchv1.JobStatus{Conditions: test.conditions}}
 			k8sClient := newThemeClient(t, theme)
-			reconciler := &HankoThemeReconciler{Client: k8sClient, Recorder: record.NewFakeRecorder(2)}
+			reconciler := &HankoThemeReconciler{Client: k8sClient, Recorder: events.NewFakeRecorder(2)}
 
 			result, err := reconciler.reconcileExistingThemeBuild(context.Background(), theme, job, build)
 			if err != nil || result.RequeueAfter <= 0 {

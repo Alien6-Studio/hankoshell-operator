@@ -6,7 +6,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -100,7 +100,7 @@ func TestOrganizationAuthorityRoleAssignmentFailsBeforeProviders(t *testing.T) {
 	}
 	c := newFakeClient(t, org)
 	r := &controller.HankoOrganizationReconciler{
-		Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+		Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 	}
 
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(org)}); err != nil {
@@ -218,7 +218,7 @@ func TestRealmAuthorityRolePathsFailBeforeKeycloak(t *testing.T) {
 			kc := newMockKeycloak(t)
 			c := newFakeClient(t, tt.realm)
 			r := &controller.HankoRealmReconciler{
-				Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+				Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 			}
 
 			if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(tt.realm)}); err != nil {
@@ -268,7 +268,7 @@ func TestTransitiveRealmRoleWrappersFailBeforeProviderMutation(t *testing.T) {
 		}
 		c := newFakeClient(t, org)
 		r := &controller.HankoOrganizationReconciler{
-			Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+			Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 		}
 
 		if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(org)}); err != nil {
@@ -346,7 +346,7 @@ func TestTransitiveRealmRoleWrappersFailBeforeProviderMutation(t *testing.T) {
 		}
 		c := newFakeClient(t, realm)
 		r := &controller.HankoRealmReconciler{
-			Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+			Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 		}
 
 		if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(realm)}); err != nil {
@@ -376,7 +376,7 @@ func TestTransitiveClientRoleWrappersFailBeforeProviderMutation(t *testing.T) {
 		}
 		c := newFakeClient(t, org)
 		r := &controller.HankoOrganizationReconciler{
-			Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+			Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 		}
 
 		if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(org)}); err != nil {
@@ -425,7 +425,7 @@ func TestAuthorityRoleLookupFailureFailsClosedBeforeProviderMutation(t *testing.
 	}
 	c := newFakeClient(t, org)
 	r := &controller.HankoOrganizationReconciler{
-		Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+		Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 	}
 
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(org)}); err == nil {
@@ -451,7 +451,7 @@ func TestReservedRealmProviderCompositePreventsReady(t *testing.T) {
 	}
 	c := newFakeClient(t, realm)
 	r := &controller.HankoRealmReconciler{
-		Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+		Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 	}
 
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(realm)}); err != nil {
@@ -478,7 +478,7 @@ func TestProtectedAuthorityRealmDeletionNeverDeletesProviderRealm(t *testing.T) 
 	}
 	c := newFakeClient(t, realm)
 	r := &controller.HankoRealmReconciler{
-		Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+		Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 	}
 
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(realm)}); err != nil {
@@ -549,7 +549,7 @@ func TestOrganizationExistingGroupFailsClosedBeforeProviderMutation(t *testing.T
 		}
 		c := newFakeClient(t, org)
 		r := &controller.HankoOrganizationReconciler{
-			Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+			Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 		}
 
 		if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(org)}); err != nil {
@@ -582,7 +582,7 @@ func TestOrganizationExistingGroupFailsClosedBeforeProviderMutation(t *testing.T
 		}
 		c := newFakeClient(t, org)
 		r := &controller.HankoOrganizationReconciler{
-			Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+			Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 		}
 
 		if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(org)}); err != nil {
@@ -609,7 +609,7 @@ func TestOrganizationExistingGroupFailsClosedBeforeProviderMutation(t *testing.T
 		}
 		c := newFakeClient(t, org)
 		r := &controller.HankoOrganizationReconciler{
-			Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+			Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 		}
 
 		if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(org)}); err != nil {
@@ -627,7 +627,7 @@ func TestOrganizationExistingGroupFailsClosedBeforeProviderMutation(t *testing.T
 		}
 		c := newFakeClient(t, org)
 		r := &controller.HankoOrganizationReconciler{
-			Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+			Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 		}
 
 		if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(org)}); err == nil {
@@ -660,7 +660,7 @@ func TestDeletingUnownedOrganizationNeverDeletesProviderGroup(t *testing.T) {
 	}
 	c := newFakeClient(t, org)
 	r := &controller.HankoOrganizationReconciler{
-		Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+		Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 	}
 
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(org)}); err != nil {
@@ -683,7 +683,7 @@ func TestRootOrganizationAliasCannotAdoptOrDeleteUnownedProviderOrganization(t *
 		}
 		c := newFakeClient(t, org)
 		r := &controller.HankoOrganizationReconciler{
-			Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+			Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 		}
 
 		if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(org)}); err != nil {
@@ -718,7 +718,7 @@ func TestRootOrganizationAliasCannotAdoptOrDeleteUnownedProviderOrganization(t *
 		}
 		c := newFakeClient(t, org)
 		r := &controller.HankoOrganizationReconciler{
-			Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: record.NewFakeRecorder(10),
+			Client: c, ProtectedRealm: "alien6", Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
 		}
 
 		if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(org)}); err != nil {

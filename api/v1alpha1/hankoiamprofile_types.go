@@ -54,7 +54,3 @@ type HankoIAMProfileList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []HankoIAMProfile `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&HankoIAMProfile{}, &HankoIAMProfileList{})
-}

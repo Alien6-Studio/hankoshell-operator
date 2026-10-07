@@ -6,7 +6,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
@@ -30,7 +30,7 @@ func TestImportedRealmIsReadOnly(t *testing.T) {
 		Client:   c,
 		Scheme:   newScheme(t),
 		Pool:     keycloak.NewPool(kc.client()),
-		Recorder: record.NewFakeRecorder(10),
+		Recorder: events.NewFakeRecorder(10),
 	}
 
 	request := ctrl.Request{NamespacedName: types.NamespacedName{Name: realm.Name, Namespace: realm.Namespace}}
@@ -81,7 +81,7 @@ func TestImportedRealmDeletionDoesNotDeleteKeycloakRealm(t *testing.T) {
 		Client:   c,
 		Scheme:   newScheme(t),
 		Pool:     keycloak.NewPool(kc.client()),
-		Recorder: record.NewFakeRecorder(10),
+		Recorder: events.NewFakeRecorder(10),
 	}
 
 	request := ctrl.Request{NamespacedName: types.NamespacedName{Name: realm.Name, Namespace: realm.Namespace}}

@@ -141,7 +141,3 @@ type HankoOperationList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []HankoOperation `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&HankoOperation{}, &HankoOperationList{})
-}

@@ -76,10 +76,6 @@ linters:
           - cyclop
           - gocognit
         path: internal/controller/
-      # Kubernetes API registration conventionally uses init() in every CRD type.
-      - linters:
-          - gochecknoinits
-        path: api/v1alpha1/.*_types\.go
       # Kubebuilder markers are directives, not prose comments.
       - linters:
           - godot

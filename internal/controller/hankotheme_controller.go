@@ -16,7 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -51,7 +51,7 @@ type HankoThemeReconciler struct {
 	Scheme                 *runtime.Scheme
 	KeycloakDeploymentName string
 	ImageValidator         *imagevalidator.Validator
-	Recorder               record.EventRecorder
+	Recorder               events.EventRecorder
 	Now                    func() time.Time
 }
 
@@ -229,7 +229,7 @@ func (r *HankoThemeReconciler) markThemeInstalled(ctx context.Context, theme *ha
 	}
 	log.FromContext(ctx).Info("theme build installed", "theme", theme.Name, "jar", build.jarPath)
 	if r.Recorder != nil {
-		r.Recorder.Event(theme, corev1.EventTypeNormal, "ThemeInstalled", "theme JAR installed and Keycloak restarted")
+		r.Recorder.Eventf(theme, nil, corev1.EventTypeNormal, "ThemeInstalled", "Reconcile", "%s", "theme JAR installed and Keycloak restarted")
 	}
 	return ctrl.Result{RequeueAfter: requeueInterval}, nil
 }
@@ -278,7 +278,7 @@ func (r *HankoThemeReconciler) submitThemeBuild(ctx context.Context, theme *hank
 	}
 	log.FromContext(ctx).Info("submitted theme build Job", "theme", theme.Name, "job", build.jobName)
 	if r.Recorder != nil {
-		r.Recorder.Event(theme, corev1.EventTypeNormal, "ThemeBuildSubmitted", "theme build Job submitted")
+		r.Recorder.Eventf(theme, nil, corev1.EventTypeNormal, "ThemeBuildSubmitted", "Reconcile", "%s", "theme build Job submitted")
 	}
 	return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 }
@@ -386,7 +386,7 @@ func (r *HankoThemeReconciler) ensureInstalledThemePVC(ctx context.Context, them
 		return ctrl.Result{}, true, fmt.Errorf("remove HankoTheme finalizer after PVC removal: %w", err)
 	}
 	if r.Recorder != nil {
-		r.Recorder.Event(theme, corev1.EventTypeWarning, "ThemeCleanupSkipped", "theme PVC no longer exists; cleanup skipped")
+		r.Recorder.Eventf(theme, nil, corev1.EventTypeWarning, "ThemeCleanupSkipped", "Reconcile", "%s", "theme PVC no longer exists; cleanup skipped")
 	}
 	return ctrl.Result{}, true, nil
 }
@@ -427,7 +427,7 @@ func (r *HankoThemeReconciler) failTheme(ctx context.Context, theme *hankoshv1al
 		return ctrl.Result{}, err
 	}
 	if r.Recorder != nil {
-		r.Recorder.Event(theme, corev1.EventTypeWarning, reason, cause.Error())
+		r.Recorder.Eventf(theme, nil, corev1.EventTypeWarning, reason, "Reconcile", "%s", cause.Error())
 	}
 	return ctrl.Result{RequeueAfter: requeueOnError}, nil
 }

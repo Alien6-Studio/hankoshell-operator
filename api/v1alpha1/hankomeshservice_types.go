@@ -166,7 +166,3 @@ type HankoMeshServiceList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []HankoMeshService `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&HankoMeshService{}, &HankoMeshServiceList{})
-}

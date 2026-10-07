@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -37,7 +37,7 @@ type HankoResourceServerReconciler struct {
 	Scheme        *runtime.Scheme
 	Pool          *keycloak.Pool
 	DriverFactory AuthorizationDriverFactory
-	Recorder      record.EventRecorder
+	Recorder      events.EventRecorder
 }
 
 func (r *HankoResourceServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -70,7 +70,7 @@ func (r *HankoResourceServerReconciler) reconcileActiveResourceServer(ctx contex
 		if err := r.Update(ctx, resourceServer); err != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{RequeueAfter: requeueImmediately}, nil
 	}
 	model, err := r.resolveAuthorizationModel(ctx, resourceServer)
 	if err != nil {

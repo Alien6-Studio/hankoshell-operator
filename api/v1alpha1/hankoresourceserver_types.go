@@ -229,7 +229,3 @@ type HankoResourceServerList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []HankoResourceServer `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&HankoResourceServer{}, &HankoResourceServerList{})
-}

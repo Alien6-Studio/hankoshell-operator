@@ -124,7 +124,3 @@ type HankoKeycloakInstanceList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []HankoKeycloakInstance `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&HankoKeycloakInstance{}, &HankoKeycloakInstanceList{})
-}

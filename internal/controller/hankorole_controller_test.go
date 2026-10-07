@@ -6,7 +6,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -31,7 +31,7 @@ func newRoleReconciler(t *testing.T, c client.Client, kc *keycloak.Client) *cont
 		Client:   c,
 		Scheme:   newScheme(t),
 		Pool:     keycloak.NewPool(kc),
-		Recorder: record.NewFakeRecorder(10),
+		Recorder: events.NewFakeRecorder(10),
 	}
 }
 

@@ -84,7 +84,7 @@ func TestExecuteDecommissionRunsEngineAndConfirms(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute decommission: %v", err)
 	}
-	if result.RequeueAfter != 0 || result.Requeue { //nolint:staticcheck // asserting the zero Result
+	if result != (ctrl.Result{}) {
 		t.Fatalf("decommission must not requeue, got %+v", result)
 	}
 	if !confirmed {
@@ -192,7 +192,7 @@ func TestExecuteDecommissionTearsDownContinuumTransport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute decommission: %v", err)
 	}
-	if result.RequeueAfter != 0 || result.Requeue { //nolint:staticcheck // asserting the zero Result
+	if result != (ctrl.Result{}) {
 		t.Fatalf("decommission must not requeue, got %+v", result)
 	}
 	if !confirmed {

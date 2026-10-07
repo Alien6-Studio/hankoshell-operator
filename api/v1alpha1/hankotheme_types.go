@@ -121,7 +121,3 @@ type HankoThemeList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []HankoTheme `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&HankoTheme{}, &HankoThemeList{})
-}

@@ -19,8 +19,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	kubejson "k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/validation"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -826,14 +828,14 @@ func (r *HankoTenantReconciler) applyBundle(
 		"themes":          0,
 		"serviceAccounts": 0,
 	}
-	ssaOpts := []client.PatchOption{
+	ssaOpts := []client.ApplyOption{
 		client.FieldOwner(hankoOperatorFieldManager),
 		client.ForceOwnership,
 	}
 	tenantLabel := map[string]string{"hanko.sh/tenant": tenant.Name}
 
 	var err error
-	base := bundleApplyOptions{client: r.Client, namespace: tenant.Namespace, labels: tenantLabel, patchOptions: ssaOpts}
+	base := bundleApplyOptions{client: r.Client, namespace: tenant.Namespace, labels: tenantLabel, applyOptions: ssaOpts}
 	counts["iamProfiles"], err = applyBundleObjects(ctx, bundle.IAMProfiles, base.withType("IAM profile", func() client.Object { return &hankoshv1alpha1.HankoIAMProfile{} }))
 	if err != nil {
 		return counts, err
@@ -862,7 +864,7 @@ type bundleApplyOptions struct {
 	client       client.Client
 	namespace    string
 	labels       map[string]string
-	patchOptions []client.PatchOption
+	applyOptions []client.ApplyOption
 	newObject    func() client.Object
 	kind         string
 }
@@ -876,15 +878,30 @@ func (options bundleApplyOptions) withType(kind string, newObject func() client.
 func applyBundleObjects(ctx context.Context, objects []json.RawMessage, options bundleApplyOptions) (int, error) {
 	for index, raw := range objects {
 		object := options.newObject()
+		expectedGVK, err := options.client.GroupVersionKindFor(object)
+		if err != nil {
+			return index, fmt.Errorf("resolve %s kind: %w", options.kind, err)
+		}
 		if err := json.Unmarshal(raw, object); err != nil {
 			return index, fmt.Errorf("unmarshal %s: %w", options.kind, err)
 		}
-		object.SetNamespace(options.namespace)
-		mergedLabels := object.GetLabels()
+		// Decode the original payload, not the typed object: apply must preserve
+		// explicitly supplied zero values that typed JSON omitempty would lose.
+		var desired unstructured.Unstructured
+		if err := kubejson.Unmarshal(raw, &desired.Object); err != nil {
+			return index, fmt.Errorf("decode %s apply configuration: %w", options.kind, err)
+		}
+		if (desired.GetAPIVersion() != "" && desired.GetAPIVersion() != expectedGVK.GroupVersion().String()) ||
+			(desired.GetKind() != "" && desired.GetKind() != expectedGVK.Kind) {
+			return index, fmt.Errorf("unexpected API version or kind for %s %q", options.kind, desired.GetName())
+		}
+		desired.SetGroupVersionKind(expectedGVK)
+		desired.SetNamespace(options.namespace)
+		mergedLabels := desired.GetLabels()
 		mergeLabels(&mergedLabels, options.labels)
-		object.SetLabels(mergedLabels)
-		if err := options.client.Patch(ctx, object, client.Apply, options.patchOptions...); err != nil {
-			return index, fmt.Errorf("apply %s %q: %w", options.kind, object.GetName(), err)
+		desired.SetLabels(mergedLabels)
+		if err := options.client.Apply(ctx, client.ApplyConfigurationFromUnstructured(&desired), options.applyOptions...); err != nil {
+			return index, fmt.Errorf("apply %s %q: %w", options.kind, desired.GetName(), err)
 		}
 	}
 	return len(objects), nil
