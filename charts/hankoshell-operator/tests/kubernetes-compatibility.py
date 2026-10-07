@@ -16,7 +16,7 @@ sdk_versions = [re.search(rf"\b{re.escape(module)} (v[\d.]+)", go_mod).group(1)
                 for module in ("k8s.io/api", "k8s.io/apimachinery", "k8s.io/client-go",
                                "k8s.io/apiextensions-apiserver")]
 assert len(set(sdk_versions)) == 1 and sdk_versions[0].startswith("v0.37."), sdk_versions
-assert re.search(r"sigs.k8s.io/controller-runtime v0\.25\.\d+\b", go_mod), "review the runtime/SDK compatibility mapping"
+assert re.search(r"sigs\.k8s\.io/controller-runtime v0\.25\.\d+\b", go_mod), "review the runtime/SDK compatibility mapping"
 
 
 def render(version, values=None, error=None):
