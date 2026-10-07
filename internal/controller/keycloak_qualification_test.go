@@ -402,6 +402,9 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 	beforeObserveWorker := f.client("managed", "worker")
 	var beforeEvents []map[string]any
 	f.admin(http.MethodGet, "/admin/realms/managed/admin-events", nil, &beforeEvents)
+	if len(beforeEvents) == 0 {
+		t.Fatal("Admin API write-event auditing is inactive; observation cannot be qualified")
+	}
 	importer := &controller.HankoImportReconciler{Client: k8s, Scheme: scheme, Pool: pool, RequireHTTPS: true}
 	importObject := &hanko.HankoImport{ObjectMeta: metav1.ObjectMeta{Name: "inventory", Namespace: "inventory"}, Spec: hanko.HankoImportSpec{SourceRef: "external", Realms: []string{"managed"}}}
 	f.requireNoError(k8s.Create(ctx, importObject))
