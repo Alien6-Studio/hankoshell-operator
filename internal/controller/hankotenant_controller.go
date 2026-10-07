@@ -803,7 +803,10 @@ func (r *HankoTenantReconciler) registerTenantKeycloak(ctx context.Context, tena
 		values[index] = value
 	}
 	tenantKey := tenant.Namespace + "/" + tenant.Name
-	kc := keycloak.New(values[0], values[1], values[2])
+	kc, err := keycloak.NewForOperator(values[0], values[1], values[2], nil)
+	if err != nil {
+		return "KeycloakTransportInvalid", err
+	}
 	if r.HubTransportPolicy != nil {
 		if err := kc.RequireHTTPS(); err != nil {
 			return "EnterpriseKeycloakHTTPSRequired", err

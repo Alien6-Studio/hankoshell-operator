@@ -14,6 +14,7 @@ import (
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/hub"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 )
 
 func TestHubTransportFailsClosedToDirect(t *testing.T) {
@@ -128,7 +129,64 @@ func TestEnterpriseInstanceClientRejectsHTTPAdminSecret(t *testing.T) {
 	if _, err := buildKCClientForInstance(context.Background(), store, instance, true); err == nil {
 		t.Fatal("enterprise instance accepted an HTTP credential endpoint")
 	}
+	if _, err := buildKCClientForInstance(context.Background(), store, instance, false); err == nil {
+		t.Fatal("standard instance implicitly accepted HTTP")
+	}
+	t.Setenv("HANKO_KEYCLOAK_ALLOW_INSECURE_HTTP", "true")
 	if _, err := buildKCClientForInstance(context.Background(), store, instance, false); err != nil {
-		t.Fatalf("standard installation lost its existing transport behavior: %v", err)
+		t.Fatalf("explicit standard HTTP opt-in rejected: %v", err)
+	}
+	if _, err := buildKCClientForInstance(context.Background(), store, instance, true); err == nil {
+		t.Fatal("compatibility flag weakened enterprise instance transport")
+	}
+}
+
+func TestDedicatedTenantKeycloakTransportPolicy(t *testing.T) {
+	for _, test := range []struct {
+		name, endpoint, profile, flag string
+		valid                         bool
+	}{
+		{"HTTPS default", "https://iam.example.com", "standard", "", true},
+		{"HTTP default", "http://iam.auth.svc", "standard", "", false},
+		{"HTTP acknowledged", "http://iam.auth.svc", "standard", "true", true},
+		{"enterprise HTTP acknowledged", "http://iam.auth.svc", "enterprise", "true", false},
+		{"enterprise HTTPS", "https://iam.example.com", "enterprise", "true", true},
+		{"URL credentials", "https://hidden-user:hidden-password@iam.example.com", "standard", "true", false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Setenv("HANKO_SECURITY_PROFILE", test.profile)
+			t.Setenv("HANKO_KEYCLOAK_ALLOW_INSECURE_HTTP", test.flag)
+			tenant := &hankoshv1alpha1.HankoTenant{
+				ObjectMeta: metav1.ObjectMeta{Name: "acme", Namespace: "auth"},
+				Spec:       hankoshv1alpha1.HankoTenantSpec{IsolationMode: "keycloak", KeycloakSecretRef: &corev1.LocalObjectReference{Name: "iam-admin"}},
+			}
+			secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "iam-admin", Namespace: "auth"},
+				Data: map[string][]byte{"HANKO_KEYCLOAK_URL": []byte(test.endpoint), "HANKO_KC_CLIENT_ID": []byte("operator"), "HANKO_KC_CLIENT_SECRET": []byte("fixture")}}
+			pool := keycloak.NewPool(nil)
+			reconciler := HankoTenantReconciler{Client: controllerTestClient(controllerTestScheme(t), secret), Pool: pool}
+			_, err := reconciler.registerTenantKeycloak(context.Background(), tenant)
+			if (err == nil) != test.valid || (pool.Get("auth/acme") != nil) != test.valid {
+				t.Fatalf("dedicated endpoint acceptance or registration violated policy: %v", err)
+			}
+		})
+	}
+}
+
+func TestInstanceEmptyPrivateCADoesNotFallBackToSystemTrust(t *testing.T) {
+	instance := &hankoshv1alpha1.HankoKeycloakInstance{
+		ObjectMeta: metav1.ObjectMeta{Name: "iam", Namespace: "auth"},
+		Spec: hankoshv1alpha1.HankoKeycloakInstanceSpec{
+			AdminRef: corev1.LocalObjectReference{Name: "iam-admin"}, TLSCARef: "iam-ca",
+		},
+	}
+	admin := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "iam-admin", Namespace: "auth"},
+		Data: map[string][]byte{"HANKO_KEYCLOAK_URL": []byte("https://iam.example.com"),
+			"HANKO_KC_CLIENT_ID": []byte("operator"), "HANKO_KC_CLIENT_SECRET": []byte("fixture")}}
+	for _, data := range []map[string][]byte{nil, {"ca.crt": nil}, {"ca.crt": {}}, {"ca.crt": []byte("invalid PEM")}} {
+		ca := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "iam-ca", Namespace: "auth"}, Data: data}
+		store := controllerTestClient(controllerTestScheme(t), admin, ca)
+		if _, err := buildKCClientForInstance(context.Background(), store, instance, false); err == nil {
+			t.Fatal("invalid configured private CA silently used system trust")
+		}
 	}
 }

@@ -28,7 +28,7 @@ func newMapperAPIFixture(t *testing.T) (*mapperAPIFixture, *Client) {
 	fixture := &mapperAPIFixture{t: t}
 	server := httptest.NewServer(http.HandlerFunc(fixture.serveHTTP))
 	t.Cleanup(server.Close)
-	return fixture, New(server.URL, "operator", "secret")
+	return fixture, New(server.URL, "operator", "secret", WithInsecureHTTP())
 }
 
 func (fixture *mapperAPIFixture) serveHTTP(w http.ResponseWriter, request *http.Request) {

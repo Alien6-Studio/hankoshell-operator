@@ -121,6 +121,7 @@ func getRotationObjects(t *testing.T, c client.Client) (*hankoshv1alpha1.HankoKe
 }
 
 func TestServiceAccountRotationPersistsAppliesVerifiesPromotesAndAudits(t *testing.T) {
+	t.Setenv("HANKO_KEYCLOAK_ALLOW_INSECURE_HTTP", "true")
 	ctx := context.Background()
 	now := time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
 	activeSecret := strings.Repeat("o", 48)
@@ -171,6 +172,7 @@ func TestServiceAccountRotationPersistsAppliesVerifiesPromotesAndAudits(t *testi
 }
 
 func TestServiceAccountRotationRecoversAfterKeycloakUpdateBeforePromotion(t *testing.T) {
+	t.Setenv("HANKO_KEYCLOAK_ALLOW_INSECURE_HTTP", "true")
 	ctx := context.Background()
 	now := time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
 	oldSecret := strings.Repeat("o", 48)
@@ -206,6 +208,7 @@ func TestServiceAccountRotationRecoversAfterKeycloakUpdateBeforePromotion(t *tes
 }
 
 func TestServiceAccountRotationKeepsAuditReceiptPendingUntilHankoRecovers(t *testing.T) {
+	t.Setenv("HANKO_KEYCLOAK_ALLOW_INSECURE_HTTP", "true")
 	ctx := context.Background()
 	now := time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
 	newSecret := strings.Repeat("n", 48)

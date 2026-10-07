@@ -1,3 +1,31 @@
+{{/* Keycloak credentials require explicit transport policy in every profile. */}}
+{{- define "hanko-operator.validateKeycloakTransport" -}}
+{{- range $key := list "HANKO_KEYCLOAK_URL" "HANKO_KEYCLOAK_ALLOW_INSECURE_HTTP" -}}
+{{- if hasKey $.Values.env $key -}}{{- fail (printf "%s is managed by keycloak values; do not override it in env" $key) -}}{{- end -}}
+{{- end -}}
+{{- if not (kindIs "bool" .Values.keycloak.allowInsecureHTTP) -}}
+{{- fail "keycloak.allowInsecureHTTP must be a boolean" -}}
+{{- end -}}
+{{- if .Values.keycloak.enabled -}}
+{{- $endpoint := required "keycloak.url is required when Keycloak is enabled; configure verified HTTPS" .Values.keycloak.url -}}
+{{- if not (kindIs "string" $endpoint) -}}{{- fail "keycloak.url must be a string" -}}{{- end -}}
+{{- if not (regexMatch `^https?://([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*\.?|\[(([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){1,7}:|([0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){1,5}(:[0-9A-Fa-f]{1,4}){1,2}|([0-9A-Fa-f]{1,4}:){1,4}(:[0-9A-Fa-f]{1,4}){1,3}|([0-9A-Fa-f]{1,4}:){1,3}(:[0-9A-Fa-f]{1,4}){1,4}|([0-9A-Fa-f]{1,4}:){1,2}(:[0-9A-Fa-f]{1,4}){1,5}|[0-9A-Fa-f]{1,4}:(:[0-9A-Fa-f]{1,4}){1,6}|:(:[0-9A-Fa-f]{1,4}){1,7}|::)\])(:[0-9]+)?(/[A-Za-z0-9._~-]+)*/?$` $endpoint) -}}
+{{- fail "keycloak.url must be an HTTP(S) origin with an optional plain context path, without userinfo, query or fragment" -}}
+{{- end -}}
+{{- $parsed := urlParse $endpoint -}}
+{{- $authority := get $parsed "host" -}}
+{{- if regexMatch ":[0-9]+$" $authority -}}
+{{- $port := atoi (trimPrefix ":" (regexFind ":[0-9]+$" $authority)) -}}
+{{- if or (lt $port 1) (gt $port 65535) -}}{{- fail "keycloak.url port must be between 1 and 65535" -}}{{- end -}}
+{{- end -}}
+{{- if regexMatch `(^|/)\.{1,2}(/|$)` (get $parsed "path") -}}{{- fail "keycloak.url context path must not contain dot segments" -}}{{- end -}}
+{{- if eq (get $parsed "scheme") "http" -}}
+{{- if eq (default "standard" .Values.profile) "enterprise" -}}{{- fail "enterprise keycloak.url must use HTTPS regardless of keycloak.allowInsecureHTTP" -}}{{- end -}}
+{{- if not .Values.keycloak.allowInsecureHTTP -}}{{- fail "HTTP Keycloak administrative transport requires explicit keycloak.allowInsecureHTTP=true; use verified HTTPS" -}}{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
 {{/*
 Expand the name of the chart.
 */}}
@@ -7,6 +35,7 @@ Expand the name of the chart.
 
 {{/* Enterprise constraints are evaluated before any resource is rendered. */}}
 {{- define "hanko-operator.validateProfile" -}}
+{{- include "hanko-operator.validateKeycloakTransport" . -}}
 {{- $profile := default "standard" .Values.profile -}}
 {{- if not (has $profile (list "standard" "enterprise")) -}}
 {{- fail "profile must be standard or enterprise" -}}

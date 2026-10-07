@@ -135,6 +135,14 @@ Prepare `operator-values.yaml` for the actual cluster: a verified image digest,
 Keycloak endpoint and existing credentials Secret, authority realm, and exact
 Kubernetes API, DNS and provider destinations.
 
+**Keycloak administrative connections require verified HTTPS by default.** Public
+CA certificates need no CA Secret; private CAs use `keycloak.caSecret` or an
+instance's `spec.tlsCARef`. The administrative credential, bearer tokens and
+Admin API traffic are security-sensitive. Existing HTTP installations must
+explicitly set `keycloak.allowInsecureHTTP: true` and review their egress ports;
+HTTP provides no transport confidentiality or server authentication. Enterprise
+remains HTTPS-only. See the [transport contract and migration](docs/secure-deployment.md#keycloak-administrative-transport).
+
 Install the reviewed source chart after configuring those values:
 
 ```sh

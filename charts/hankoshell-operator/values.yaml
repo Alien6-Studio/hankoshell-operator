@@ -49,7 +49,11 @@ resources:
 # skips the Keycloak readiness check.
 keycloak:
   enabled: true
-  url: http://keycloak.auth.svc:80
+  # Replace with the actual HTTPS endpoint; public CAs need no caSecret.
+  url: https://keycloak.auth.svc:8443
+  # Explicit compatibility escape hatch for intentionally trusted HTTP only.
+  # Exposes administrative credentials and traffic; enterprise rejects HTTP.
+  allowInsecureHTTP: false
   credentialsSecret: keycloak-ops-credentials
   # Optional existing Secret for a private HTTPS CA; never disables TLS checks.
   caSecret: ""
@@ -232,7 +236,7 @@ networkPolicy:
   keycloakSelector:
     app: keycloak
   # Include both Service and target ports if the CNI can enforce before DNAT.
-  keycloakPorts: [80, 8080]
+  keycloakPorts: [8443]
   # Existing external Keycloak endpoints, including private VPC addresses.
   keycloakExternalCIDRs: []
   keycloakExternalPorts: [443]

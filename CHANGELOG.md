@@ -32,6 +32,11 @@ or target-cluster qualification is implied by the version number.
 
 ### Security
 
+- Require verified HTTPS by default for administrative Keycloak connections,
+  including instance, tenant and rotation paths. Require explicit standard-only
+  HTTP acknowledgement, retain HTTPS-only enterprise, validate endpoint forms
+  consistently in Helm/Go and keep certificate verification enabled.
+
 - Remove operator self-grants of master proxy roles, including impersonation;
   require administrator-provisioned target access and let Keycloak own proxy
   lifecycle. Verify the three-role common profile without global administrator
@@ -60,6 +65,11 @@ or target-cluster qualification is implied by the version number.
   omits Location, and the successful 201 response to authorization updates.
 
 ### Compatibility and limits
+
+- Existing HTTP Keycloak values now fail closed unless administrators explicitly
+  set `keycloak.allowInsecureHTTP: true`; prefer migrating to verified HTTPS.
+  Default chart endpoint/egress changes to HTTPS/8443. Public CA endpoints need
+  no CA Secret; private CA configuration remains supported.
 
 - Retain all 16 CRDs and existing Kubernetes names/selectors. The deprecated
   `HankoEmailProvider` no longer reads vault credentials or sends messages;

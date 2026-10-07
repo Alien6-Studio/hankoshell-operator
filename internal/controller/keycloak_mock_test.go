@@ -132,7 +132,7 @@ func (m *mockKeycloak) addGroupClientRoles(realm, groupID, clientID, uuid string
 }
 
 func (m *mockKeycloak) client() *keycloak.Client {
-	return keycloak.New(m.server.URL, "test-client", "test-secret")
+	return keycloak.New(m.server.URL, "test-client", "test-secret", keycloak.WithInsecureHTTP())
 }
 
 func (m *mockKeycloak) addClient(realm, clientID, uuid string) {

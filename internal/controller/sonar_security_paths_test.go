@@ -20,6 +20,7 @@ import (
 )
 
 func TestKeycloakInstanceReconcileExternalProbe(t *testing.T) {
+	t.Setenv("HANKO_KEYCLOAK_ALLOW_INSECURE_HTTP", "true")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		switch {
 		case request.Method == http.MethodPost && request.URL.Path == "/realms/master/protocol/openid-connect/token":
@@ -280,7 +281,7 @@ func TestKeycloakInstanceProbeAndHardeningFailuresAreVisible(t *testing.T) {
 			instance := &hankoshv1alpha1.HankoKeycloakInstance{ObjectMeta: metav1.ObjectMeta{Name: "probe", Namespace: "test"}}
 			k8sClient := controllerTestClient(scheme, instance)
 			reconciler := &HankoKeycloakInstanceReconciler{Client: k8sClient, Scheme: scheme}
-			_, _, handled := reconciler.probeKeycloakInstance(ctx, instance, keycloak.New(server.URL, "operator", "secret"), client.MergeFrom(instance.DeepCopy()))
+			_, _, handled := reconciler.probeKeycloakInstance(ctx, instance, keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP()), client.MergeFrom(instance.DeepCopy()))
 			if !handled || instance.Status.Phase != "Degraded" || conditionReason(instance.Status.Conditions, "AdminAPIReachable") != "ProbeError" {
 				t.Fatalf("probe failure status: %#v", instance.Status)
 			}
@@ -339,7 +340,7 @@ func TestManagedRealmSecurityBaselineReconcilesAllProviderControls(t *testing.T)
 	}
 	reconciler := &HankoRealmReconciler{}
 	handled, result, err := reconciler.reconcileManagedRealmSecurity(
-		context.Background(), realm, keycloak.New(server.URL, "operator", "secret"), desired, nil,
+		context.Background(), realm, keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP()), desired, nil,
 	)
 	if err != nil || handled || !result.IsZero() {
 		t.Fatalf("security baseline result=%v handled=%t err=%v", result, handled, err)
@@ -414,7 +415,7 @@ func TestManagedRealmSecurityFailuresAreCheckpointed(t *testing.T) {
 			k8sClient := controllerTestClient(controllerTestScheme(t), realm)
 			reconciler := &HankoRealmReconciler{Client: k8sClient}
 			handled, result, err := reconciler.reconcileManagedRealmSecurity(
-				context.Background(), realm, keycloak.New(server.URL, "operator", "secret"), test.desired, client.MergeFrom(realm.DeepCopy()),
+				context.Background(), realm, keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP()), test.desired, client.MergeFrom(realm.DeepCopy()),
 			)
 			if !handled || err == nil || result.RequeueAfter != requeueOnError || realm.Status.Phase != "Error" || conditionReason(realm.Status.Conditions, "OperationalSecurity") != test.reason {
 				t.Fatalf("%s failure result=%v handled=%t status=%#v err=%v", test.name, result, handled, realm.Status, err)

@@ -108,6 +108,12 @@ func matchAdminPath(pattern, path string) bool {
 }
 
 func (c *Client) do(req *http.Request) (*http.Response, error) {
+	if c.endpointError != nil {
+		return nil, c.endpointError
+	}
+	if err := ValidateEndpoint(c.baseURL, c.allowInsecureHTTP); err != nil {
+		return nil, err
+	}
 	base, err := url.Parse(c.baseURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid Keycloak base URL: %w", err)

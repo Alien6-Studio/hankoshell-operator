@@ -33,7 +33,7 @@ func TestAuthorizationCreateReadsNativeObjectID(t *testing.T) {
 				_, _ = w.Write([]byte(test.body))
 			}))
 			defer server.Close()
-			client := New(server.URL, "operator", "secret")
+			client := New(server.URL, "operator", "secret", WithInsecureHTTP())
 			id, err := client.authorizationCreate(context.Background(), "/admin/realms/managed/clients/client/authz/resource-server/scope", nil)
 			if (err == nil) != test.valid || id != test.expected {
 				t.Fatalf("id=%q valid=%t error=%v", id, test.valid, err)

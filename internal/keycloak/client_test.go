@@ -79,7 +79,7 @@ func TestOperationalSecurityControls(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := keycloak.New(server.URL, "client", "secret")
+	client := keycloak.New(server.URL, "client", "secret", keycloak.WithInsecureHTTP())
 	retention := 365
 	enabled := true
 	disabled := false
@@ -131,7 +131,7 @@ func TestRealmManagementAccessNeverGrantsAuthority(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			client := keycloak.New(server.URL, "operator", "secret")
+			client := keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP())
 			err := client.EnsureRealmManagementAccess(context.Background(), "recipe")
 			if (err == nil) != (status == http.StatusOK) {
 				t.Fatalf("access check: %v", err)
@@ -162,7 +162,7 @@ func TestRealmDeletionAccessSkipsProxyForMissingRealm(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := keycloak.New(server.URL, "keycloak-ops", "secret")
+	client := keycloak.New(server.URL, "keycloak-ops", "secret", keycloak.WithInsecureHTTP())
 	if err := client.EnsureRealmDeletionAccess(context.Background(), "missing"); err != nil {
 		t.Fatalf("EnsureRealmDeletionAccess for missing realm: %v", err)
 	}
@@ -237,7 +237,7 @@ func TestUpdateRealmPreservesAttributesWhenSettingFrontendURL(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := keycloak.New(server.URL, "client", "secret")
+	client := keycloak.New(server.URL, "client", "secret", keycloak.WithInsecureHTTP())
 	enabled := true
 	disabled := false
 	if err := client.UpdateRealm(context.Background(), "alien6", keycloak.RealmSpec{
@@ -318,7 +318,7 @@ func TestUpdateRealmNeverManagesSMTP(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := keycloak.New(server.URL, "client", "secret")
+	client := keycloak.New(server.URL, "client", "secret", keycloak.WithInsecureHTTP())
 	if err := client.UpdateRealm(context.Background(), "acme", keycloak.RealmSpec{DisplayName: "Acme"}); err != nil {
 		t.Fatalf("UpdateRealm: %v", err)
 	}
@@ -354,7 +354,7 @@ func TestUpdateRealmRemovesOnlyManagedMFARequiredAction(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := keycloak.New(server.URL, "client", "secret")
+	client := keycloak.New(server.URL, "client", "secret", keycloak.WithInsecureHTTP())
 	if err := client.UpdateRealm(context.Background(), "alien6", keycloak.RealmSpec{MFAPolicy: "none"}); err != nil {
 		t.Fatalf("UpdateRealm: %v", err)
 	}
@@ -384,7 +384,7 @@ func TestUpdateRealmLeavesAttributesUnmanagedWithoutFrontendURL(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := keycloak.New(server.URL, "client", "secret")
+	client := keycloak.New(server.URL, "client", "secret", keycloak.WithInsecureHTTP())
 	if err := client.UpdateRealm(context.Background(), "gifen", keycloak.RealmSpec{}); err != nil {
 		t.Fatalf("UpdateRealm: %v", err)
 	}
@@ -421,7 +421,7 @@ func TestSyncClientAttributesPreservesPrivilegeBearingFields(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := keycloak.New(server.URL, "client", "secret")
+	client := keycloak.New(server.URL, "client", "secret", keycloak.WithInsecureHTTP())
 	if err := client.SyncClientAttributes(context.Background(), "master", "keycloak-ops", map[string]string{
 		"owner":       "platform",
 		"login_theme": "must-not-override",
@@ -480,7 +480,7 @@ func TestApplicationOwnershipMarkersCannotBeSpoofed(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := keycloak.New(server.URL, "keycloak-ops", "secret")
+	client := keycloak.New(server.URL, "keycloak-ops", "secret", keycloak.WithInsecureHTTP())
 	spoofed := map[string]string{"hanko.app": "false", "hanko.service": "true"}
 	if _, err := client.CreateApp(context.Background(), "acme", keycloak.CreateAppSpec{
 		ClientID: "web", Type: "spa", Attributes: spoofed,
@@ -525,7 +525,7 @@ func TestEnsureRealmRoleCreatesMissingRole(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := keycloak.New(server.URL, "client", "secret")
+	client := keycloak.New(server.URL, "client", "secret", keycloak.WithInsecureHTTP())
 	if err := client.EnsureRealmRole(context.Background(), "alien6", "HANKO_PLATFORM", "hankoShell administrator"); err != nil {
 		t.Fatalf("EnsureRealmRole: %v", err)
 	}
@@ -551,7 +551,7 @@ func TestEnsureRealmRoleLeavesOmittedDescriptionUnmanaged(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := keycloak.New(server.URL, "client", "secret")
+	client := keycloak.New(server.URL, "client", "secret", keycloak.WithInsecureHTTP())
 	if err := client.EnsureRealmRole(context.Background(), "alien6", "A6_TRUNX_PLATFORM", ""); err != nil {
 		t.Fatalf("EnsureRealmRole: %v", err)
 	}
@@ -585,7 +585,7 @@ func TestEnsureRealmRoleCompositesAddsOnlyMissingRoles(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := keycloak.New(server.URL, "client", "secret")
+	client := keycloak.New(server.URL, "client", "secret", keycloak.WithInsecureHTTP())
 	err := client.EnsureRealmRoleComposites(context.Background(), "alien6", "A6_TRUNX_PLATFORM", []string{
 		"A6_EXISTING",
 		"HANKO_PLATFORM",
@@ -626,7 +626,7 @@ func TestReconcileClientRealmRoleScopesAddsAndRemovesDrift(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := keycloak.New(server.URL, "client", "secret")
+	client := keycloak.New(server.URL, "client", "secret", keycloak.WithInsecureHTTP())
 	if err := client.ReconcileClientRealmRoleScopes(context.Background(), "alien6", "hanko-dashboard", []string{"HANKO_PLATFORM"}); err != nil {
 		t.Fatalf("ReconcileClientRealmRoleScopes: %v", err)
 	}
@@ -670,7 +670,7 @@ func TestUpdateRealmOptionalMFAReconcilesOTP(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			client := keycloak.New(server.URL, "test-client", "test-secret")
+			client := keycloak.New(server.URL, "test-client", "test-secret", keycloak.WithInsecureHTTP())
 			err := client.UpdateRealm(context.Background(), "qa", keycloak.RealmSpec{
 				MFAPolicy: "optional", OTPAlgorithm: "HmacSHA256", OTPDigits: tc.digits, OTPPeriod: tc.period,
 			})

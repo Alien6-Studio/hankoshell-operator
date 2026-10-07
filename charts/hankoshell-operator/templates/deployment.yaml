@@ -149,6 +149,8 @@ spec:
               value: {{ required "controlPlane.fleetAuthorityRealm is required" .Values.controlPlane.fleetAuthorityRealm | quote }}
             - name: HANKO_CILIUM_POLICY_ENABLED
               value: {{ .Values.networkPolicy.cilium.enabled | quote }}
+            - name: HANKO_KEYCLOAK_ALLOW_INSECURE_HTTP
+              value: {{ .Values.keycloak.allowInsecureHTTP | quote }}
             {{- if .Values.keycloak.enabled }}
             - name: HANKO_KEYCLOAK_URL
               value: {{ .Values.keycloak.url | quote }}

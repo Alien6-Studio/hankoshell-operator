@@ -41,7 +41,7 @@ func TestEnsureIdentityProviderIsIdempotentAndCorrectsDeclaredDrift(t *testing.T
 	}))
 	defer server.Close()
 
-	client := keycloak.New(server.URL, "client", "secret")
+	client := keycloak.New(server.URL, "client", "secret", keycloak.WithInsecureHTTP())
 	desired := keycloak.IdentityProvider{
 		Alias: "entra", DisplayName: "Microsoft Entra ID", ProviderID: "oidc", Enabled: true, TrustEmail: true,
 		Config: map[string]string{"clientId": "hanko", "issuer": "https://login.microsoftonline.com/tenant/v2.0"},
@@ -82,7 +82,7 @@ func TestDeleteIdentityProviderAcceptsMissingProvider(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := keycloak.New(server.URL, "client", "secret")
+	client := keycloak.New(server.URL, "client", "secret", keycloak.WithInsecureHTTP())
 	if err := client.DeleteIdentityProvider(context.Background(), "alien6", "entra"); err != nil {
 		t.Fatalf("delete existing: %v", err)
 	}

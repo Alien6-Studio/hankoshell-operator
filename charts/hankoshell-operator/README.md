@@ -23,6 +23,28 @@ The existing-realm profile needs target `manage-realm`, `manage-clients` and
 `manage-events`; optional capabilities have additional or inherited authority.
 Keep secrets outside committed values and review native realm-creation grants.
 
+`keycloak.url` defaults to `https://keycloak.auth.svc:8443`; replace it with the
+actual administrative endpoint and its certificate hostname. An enabled
+Keycloak requires a nonempty, valid URL. Helm rejects userinfo, queries,
+fragments, invalid ports, encoded/ambiguous context paths and dot segments.
+Plain context paths such as `/auth` are supported. The in-cluster default
+`networkPolicy.keycloakPorts` is `[8443]`; configure actual Service/target ports.
+
+HTTPS with a publicly trusted certificate works without `keycloak.caSecret`.
+A private CA uses the existing dedicated `caSecret`/`caKey` mount. Both paths
+verify certificate trust and hostname, using TLS >=1.2 in standard and TLS 1.3
+in enterprise. No certificate-verification bypass is available.
+
+**Migration:** an existing `http://` value fails rendering until the administrator
+sets `keycloak.allowInsecureHTTP: true` explicitly. Prefer switching that endpoint
+to verified HTTPS. The flag defaults to `false`, applies to this operator's
+Keycloak connections (including instance/tenant credentials and rotation), and
+is forbidden as an `env` override. HTTP with a CA Secret is rejected; enterprise
+rejects HTTP regardless of the flag. Plaintext HTTP exposes administrative
+credentials, bearer tokens and Admin API traffic to parties on the network path,
+and provides no server authentication. NetworkPolicy does not encrypt traffic.
+See the [transport migration guide](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md#keycloak-administrative-transport).
+
 Configure an exact image digest, existing Keycloak Secret, dedicated watch
 namespace, authority realm and protected clients. Supply your Kubernetes API
 Service/endpoint addresses to the NetworkPolicy; API egress is closed by

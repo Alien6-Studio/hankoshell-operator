@@ -43,7 +43,7 @@ func newAuthorizationTestServer(t *testing.T) *authorizationTestServer {
 }
 
 func (s *authorizationTestServer) client() *Client {
-	return New(s.server.URL, "operator", "secret")
+	return New(s.server.URL, "operator", "secret", WithInsecureHTTP())
 }
 
 func (s *authorizationTestServer) mutationCount() int {

@@ -35,7 +35,7 @@ func TestAssignClientRolesToGroupAddsOnlyMissing(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := New(server.URL, "client", "secret")
+	client := New(server.URL, "client", "secret", WithInsecureHTTP())
 	err := client.AssignClientRolesToGroup(context.Background(), "acme", "group-uuid",
 		"trunx-dashboard", []string{"TRUNX_ACCOUNT_ADMIN", "TRUNX_DEVELOPER"})
 	if err != nil {
@@ -66,7 +66,7 @@ func TestAssignClientRolesToGroupAllPresentIsNoop(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := New(server.URL, "client", "secret")
+	client := New(server.URL, "client", "secret", WithInsecureHTTP())
 	err := client.AssignClientRolesToGroup(context.Background(), "acme", "group-uuid",
 		"trunx-dashboard", []string{"TRUNX_DEVELOPER"})
 	if err != nil {
@@ -87,7 +87,7 @@ func TestAssignClientRolesToGroupMissingClientFails(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := New(server.URL, "client", "secret")
+	client := New(server.URL, "client", "secret", WithInsecureHTTP())
 	err := client.AssignClientRolesToGroup(context.Background(), "acme", "group-uuid",
 		"ghost", []string{"ANY"})
 	if err == nil || !strings.Contains(err.Error(), "not found") {
@@ -101,7 +101,7 @@ func TestAssignClientRolesToGroupEmptyIsNoop(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := New(server.URL, "client", "secret")
+	client := New(server.URL, "client", "secret", WithInsecureHTTP())
 	if err := client.AssignClientRolesToGroup(context.Background(), "acme", "group-uuid", "trunx-dashboard", nil); err != nil {
 		t.Fatalf("AssignClientRolesToGroup with no roles: %v", err)
 	}

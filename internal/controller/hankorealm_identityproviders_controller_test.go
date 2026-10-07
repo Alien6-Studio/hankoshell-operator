@@ -156,7 +156,7 @@ func TestRealmIdentityProvidersReconcileFreshRealmIdempotentlyAndCleanOnlyOwned(
 			},
 		}}},
 	}
-	kc := keycloak.New(server.URL, "client", "secret")
+	kc := keycloak.New(server.URL, "client", "secret", keycloak.WithInsecureHTTP())
 
 	if err := r.reconcileRealmIdentityProviders(context.Background(), realm, kc); err != nil {
 		t.Fatalf("first reconcile: %v", err)
