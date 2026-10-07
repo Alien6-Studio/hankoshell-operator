@@ -4,10 +4,9 @@ package controller_test
 
 import (
 	"context"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	"net"
+	"errors"
 	"net/http"
 	"reflect"
 	"strings"
@@ -100,13 +99,16 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 	if _, err := wrongTrust.ServerVersion(ctx); err == nil {
 		t.Fatal("incorrect CA was accepted")
 	}
-	roots := x509.NewCertPool()
-	roots.AppendCertsFromPEM(f.ca)
 	address := strings.TrimPrefix(f.baseURL, "https://")
-	connection, err := tls.DialWithDialer(&net.Dialer{Timeout: 5 * time.Second}, "tcp", address, &tls.Config{RootCAs: roots, ServerName: "wrong-host.invalid", MinVersion: tls.VersionTLS13})
-	if err == nil {
-		connection.Close()
-		t.Fatal("fixture certificate hostname mismatch was accepted")
+	// Same real server and trusted CA, but no IP SAN: exercise the production
+	// client's hostname verification, not merely the fixture's TLS transport.
+	wrongHost, err := keycloak.NewWithTLS(strings.Replace(f.baseURL, "localhost", "127.0.0.1", 1), "fixture-operator", f.credential, f.ca)
+	f.requireNoError(err)
+	f.requireNoError(wrongHost.RequireHTTPS())
+	_, err = wrongHost.ServerVersion(ctx)
+	var hostnameError x509.HostnameError
+	if !errors.As(err, &hostnameError) {
+		t.Fatal("operator client did not reject the real server's certificate hostname mismatch")
 	}
 	if err := keycloak.New("http://"+address, "fixture-operator", f.credential).RequireHTTPS(); err == nil {
 		t.Fatal("enterprise client accepted cleartext HTTP")

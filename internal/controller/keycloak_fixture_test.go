@@ -69,8 +69,8 @@ func fixtureTLS(t *testing.T) ([]byte, []byte) {
 	cert := &x509.Certificate{
 		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "disposable-keycloak-fixture"},
 		NotBefore: time.Now().Add(-time.Minute), NotAfter: time.Now().Add(time.Hour),
-		DNSNames: []string{"localhost"}, IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
-		IsCA: true, BasicConstraintsValid: true,
+		DNSNames: []string{"localhost"},
+		IsCA:     true, BasicConstraintsValid: true,
 		KeyUsage:    x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 	}
@@ -166,7 +166,11 @@ func newKeycloakFixture(t *testing.T) *keycloakFixture {
 	if !strings.HasPrefix(address, "127.0.0.1:") || strings.ContainsAny(address, "\r\n") {
 		t.Fatal("Docker did not bind the fixture exclusively to loopback")
 	}
-	f.baseURL = "https://" + address
+	_, port, err := net.SplitHostPort(address)
+	if err != nil {
+		t.Fatal("invalid Docker fixture port")
+	}
+	f.baseURL = "https://localhost:" + port
 	roots := x509.NewCertPool()
 	roots.AppendCertsFromPEM(cert)
 	f.http = &http.Client{Timeout: 5 * time.Second, Transport: &http.Transport{
