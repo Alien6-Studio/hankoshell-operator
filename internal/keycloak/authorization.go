@@ -342,7 +342,7 @@ func (c *Client) setAuthorizationEnabled(ctx context.Context, realm, clientID st
 
 func (c *Client) reconcileAuthorizationScopes(ctx context.Context, base string, desired []AuthorizationScope, owned []AuthorizationManagedReference, checkpoint authorizationCheckpoint) ([]AuthorizationManagedReference, map[string]string, error) {
 	var current []authorizationScopeRepresentation
-	if err := c.get(ctx, base+authorizationScopePath, &current); err != nil {
+	if err := readAuthorizationCollection(ctx, c, base+authorizationScopePath, &current); err != nil {
 		return nil, nil, err
 	}
 	currentByID, currentByName := indexScopes(current)
@@ -394,7 +394,7 @@ func (c *Client) ensureAuthorizationScope(ctx context.Context, base string, want
 
 func (c *Client) reconcileAuthorizationResources(ctx context.Context, base string, desired []AuthorizationResource, scopeIDs map[string]string, owned []AuthorizationManagedReference, checkpoint authorizationCheckpoint) ([]AuthorizationManagedReference, map[string]string, error) {
 	var current []authorizationResourceRepresentation
-	if err := c.get(ctx, base+authorizationResourcePath, &current); err != nil {
+	if err := readAuthorizationCollection(ctx, c, base+authorizationResourcePath, &current); err != nil {
 		return nil, nil, err
 	}
 	index := indexAuthorizationResources(current)
@@ -495,7 +495,7 @@ func (c *Client) reconcileAuthorizationPolicies(ctx context.Context, base string
 
 func (c *Client) loadAuthorizationPolicies(ctx context.Context, base string) (authorizationPolicyIndex, error) {
 	var allPolicies []authorizationPolicyRepresentation
-	if err := c.get(ctx, base+authorizationPolicyPath, &allPolicies); err != nil {
+	if err := readAuthorizationCollection(ctx, c, base+authorizationPolicyPath, &allPolicies); err != nil {
 		return authorizationPolicyIndex{}, err
 	}
 	index := authorizationPolicyIndex{
@@ -510,7 +510,7 @@ func (c *Client) loadAuthorizationPolicies(ctx context.Context, base string) (au
 	// required for semantic drift comparison.
 	for _, policyType := range []string{"role", "client"} {
 		var typed []authorizationPolicyRepresentation
-		if err := c.get(ctx, base+authorizationPolicyPath+"/"+policyType, &typed); err != nil {
+		if err := readAuthorizationCollection(ctx, c, base+authorizationPolicyPath+"/"+policyType, &typed); err != nil {
 			return authorizationPolicyIndex{}, err
 		}
 		for _, item := range typed {
@@ -616,7 +616,7 @@ func (c *Client) reconcileAuthorizationPermissions(ctx context.Context, base str
 
 func (c *Client) loadAuthorizationPermissions(ctx context.Context, base string) (map[string]authorizationPermissionRepresentation, map[string]authorizationPermissionRepresentation, error) {
 	var allPermissions []authorizationPermissionRepresentation
-	if err := c.get(ctx, base+authorizationPermissionPath, &allPermissions); err != nil {
+	if err := readAuthorizationCollection(ctx, c, base+authorizationPermissionPath, &allPermissions); err != nil {
 		return nil, nil, err
 	}
 	byID := make(map[string]authorizationPermissionRepresentation, len(allPermissions))
@@ -625,7 +625,7 @@ func (c *Client) loadAuthorizationPermissions(ctx context.Context, base string) 
 		byName[item.Name] = item
 	}
 	var current []authorizationPermissionRepresentation
-	if err := c.get(ctx, base+authorizationPermissionPath+authorizationScopePath+"?fields=*", &current); err != nil {
+	if err := readAuthorizationCollection(ctx, c, base+authorizationPermissionPath+authorizationScopePath+"?fields=*", &current); err != nil {
 		return nil, nil, err
 	}
 	for _, item := range current {
@@ -864,7 +864,7 @@ func (c *Client) deleteOwnedAuthorizationCollection(ctx context.Context, path st
 		ID         string `json:"id"`
 		ResourceID string `json:"_id"`
 	}
-	if err := c.get(ctx, path, &current); err != nil {
+	if err := readAuthorizationCollection(ctx, c, path, &current); err != nil {
 		return false, err
 	}
 	ownedIDs := keepAuthorizationIDs(refs)
@@ -933,7 +933,7 @@ func (c *Client) authorizationDeletedRefsReadBack(ctx context.Context, path stri
 		ID         string `json:"id"`
 		ResourceID string `json:"_id"`
 	}
-	if err := c.get(ctx, path, &current); err != nil {
+	if err := readAuthorizationCollection(ctx, c, path, &current); err != nil {
 		return err
 	}
 	for _, object := range current {

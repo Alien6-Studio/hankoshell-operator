@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -119,19 +120,19 @@ func (s *authorizationTestServer) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		}
 		writeAuthorizationJSON(w, result)
 	case path == "/scope" && r.Method == http.MethodGet:
-		writeAuthorizationJSON(w, sortedMapValues(s.scopes))
+		writeAuthorizationJSON(w, authorizationTestPage(r, sortedMapValues(s.scopes)))
 	case path == "/resource" && r.Method == http.MethodGet:
-		writeAuthorizationJSON(w, sortedMapValues(s.resources))
+		writeAuthorizationJSON(w, authorizationTestPage(r, sortedMapValues(s.resources)))
 	case path == "/policy" && r.Method == http.MethodGet:
-		writeAuthorizationJSON(w, sortedMapValues(s.policies))
+		writeAuthorizationJSON(w, authorizationTestPage(r, sortedMapValues(s.policies)))
 	case path == "/policy/role" && r.Method == http.MethodGet:
-		writeAuthorizationJSON(w, filterPolicies(s.policies, "role"))
+		writeAuthorizationJSON(w, authorizationTestPage(r, filterPolicies(s.policies, "role")))
 	case path == "/policy/client" && r.Method == http.MethodGet:
-		writeAuthorizationJSON(w, filterPolicies(s.policies, "client"))
+		writeAuthorizationJSON(w, authorizationTestPage(r, filterPolicies(s.policies, "client")))
 	case path == "/permission" && r.Method == http.MethodGet:
-		writeAuthorizationJSON(w, sortedMapValues(s.permissions))
+		writeAuthorizationJSON(w, authorizationTestPage(r, sortedMapValues(s.permissions)))
 	case path == "/permission/scope" && r.Method == http.MethodGet:
-		writeAuthorizationJSON(w, sortedMapValues(s.permissions))
+		writeAuthorizationJSON(w, authorizationTestPage(r, sortedMapValues(s.permissions)))
 	case path == "/scope" && r.Method == http.MethodPost:
 		var item authorizationScopeRepresentation
 		_ = json.NewDecoder(r.Body).Decode(&item)
@@ -462,4 +463,15 @@ func TestAuthorizationDeleteWithoutForeignObjectsDisablesOnlyOnce(t *testing.T) 
 	if provider.mutationCount() != count {
 		t.Fatal("repeated cleanup mutated disabled graph")
 	}
+}
+
+// Match native collection pagination, including its default 100-object limit.
+func authorizationTestPage[T any](r *http.Request, items []T) []T {
+	first, _ := strconv.Atoi(r.URL.Query().Get("first"))
+	maximum := authorizationPageSize
+	if value := r.URL.Query().Get("max"); value != "" {
+		maximum, _ = strconv.Atoi(value)
+	}
+	start := min(max(first, 0), len(items))
+	return items[start:min(start+max(maximum, 0), len(items))]
 }

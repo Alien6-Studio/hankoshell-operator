@@ -219,7 +219,7 @@ func (c *Client) authorizationOwnedAbsent(ctx context.Context, model Authorizati
 			ID         string `json:"id"`
 			ResourceID string `json:"_id"`
 		}
-		if err := c.get(ctx, base+collection.path, &objects); err != nil {
+		if err := readAuthorizationCollection(ctx, c, base+collection.path, &objects); err != nil {
 			return false, err
 		}
 		ids := keepAuthorizationIDs(collection.refs)

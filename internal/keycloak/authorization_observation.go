@@ -65,11 +65,11 @@ func ownsObservation(refs []AuthorizationManagedReference, name, id string) bool
 // by the permission contract. Unknown principals are counts, never raw IDs.
 func (c *Client) observeAuthorizationGraph(ctx context.Context, model AuthorizationModel, state *AuthorizationState, owned AuthorizationManagedObjects, base string) error {
 	var scopes []authorizationScopeRepresentation
-	if err := c.get(ctx, base+authorizationScopePath, &scopes); err != nil {
+	if err := readAuthorizationCollection(ctx, c, base+authorizationScopePath, &scopes); err != nil {
 		return err
 	}
 	var resources []authorizationResourceRepresentation
-	if err := c.get(ctx, base+authorizationResourcePath, &resources); err != nil {
+	if err := readAuthorizationCollection(ctx, c, base+authorizationResourcePath, &resources); err != nil {
 		return err
 	}
 	policies, err := c.loadAuthorizationPolicies(ctx, base)

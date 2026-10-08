@@ -33,7 +33,7 @@ func (d *KeycloakDriver) Observe(ctx context.Context, plan Plan) (State, error) 
 	model := plan.resolved.model
 	state, err := d.client.ObserveAuthorization(ctx, modelForPlan(plan))
 	if err != nil {
-		return State{}, iamcontract.SafeError(err)
+		return State{}, boundedAuthorizationError(err)
 	}
 	capabilities, _ := d.Capabilities(ctx, model.Realm)
 	result := observationState(state, capabilities)
@@ -75,7 +75,7 @@ func (d *KeycloakDriver) Reconcile(ctx context.Context, plan Plan, owned Managed
 		if errors.Is(err, keycloak.ErrAuthorizationOwnershipConflict) {
 			return State{ProviderResourceServerID: state.ResourceServerID, ManagedObjects: fromKeycloakManaged(state.ManagedObjects)}, errors.Join(ErrOwnershipConflict, iamcontract.SafeError(err))
 		}
-		return State{ProviderResourceServerID: state.ResourceServerID, ManagedObjects: fromKeycloakManaged(state.ManagedObjects)}, iamcontract.SafeError(err)
+		return State{ProviderResourceServerID: state.ResourceServerID, ManagedObjects: fromKeycloakManaged(state.ManagedObjects)}, boundedAuthorizationError(err)
 	}
 	result, err := d.Observe(ctx, plan)
 	result.ProviderResourceServerID = state.ResourceServerID
@@ -92,7 +92,14 @@ func (d *KeycloakDriver) DeleteOwned(ctx context.Context, model Model, owned Man
 	}
 	native := toKeycloakModel(model)
 	native.OwnerUID = ownerUID
-	return iamcontract.SafeError(d.client.DeleteAuthorizationOwned(ctx, native, owned.ResourceServerID, toKeycloakManaged(owned)))
+	return boundedAuthorizationError(d.client.DeleteAuthorizationOwned(ctx, native, owned.ResourceServerID, toKeycloakManaged(owned)))
+}
+
+func boundedAuthorizationError(err error) error {
+	if errors.Is(err, keycloak.ErrAuthorizationReadLimit) {
+		return errors.Join(iamcontract.ErrObservationIncomplete, iamcontract.SafeError(err))
+	}
+	return iamcontract.SafeError(err)
 }
 
 func toKeycloakModel(model Model) keycloak.AuthorizationModel {

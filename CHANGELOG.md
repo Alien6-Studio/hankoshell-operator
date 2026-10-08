@@ -22,6 +22,8 @@
   recover lost status writes through UID ownership and bounded authorization checkpoints.
 - Observe the complete supported authorization graph and direct additive realm-role
   membership; preserve read-only native findings without exporting provider data.
+- Read every bounded Keycloak authorization collection page before comparison or
+  cleanup; reject incomplete reads and preserve native objects beyond the default first page.
 - Add a deterministic bounded IAM reporting DTO; defer live Hub transport pending
   receiving-schema qualification. Existing enabled unmarked resource servers require
   administrator-reviewed migration before management.

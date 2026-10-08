@@ -270,7 +270,11 @@ references are never truncated: at most 64 scopes, 64 resources, 256 policies an
 128 permissions, names at most 512 bytes and IDs 128 bytes. Journal JSON is at
 most 512 KiB. Creating new names alongside stale references must fit that budget;
 prune old objects in a prior reconcile when necessary. Observation responses retain
-HTTP byte limits; role traversal caps at 512 visited roles and 1024 pending nodes.
+HTTP byte limits. Authorization collections are read in explicit 100-object pages,
+up to 1024 objects per collection, including native objects. An oversized page or
+budget overflow fails with `ObservationIncomplete`; partial collections
+cannot prove equality, object absence or permission to disable a backing graph.
+Role traversal caps at 512 visited roles and 1024 pending nodes.
 Canonical observations stay private; public status contains only hashes, coverage
 and findings, not graph arrays, raw representations or executable plans.
 
