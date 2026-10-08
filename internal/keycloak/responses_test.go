@@ -77,7 +77,7 @@ func TestAllKeycloakOperationsBoundNetworkReadsAndCloseBodies(t *testing.T) {
 					if status == http.StatusBadGateway {
 						limit = maxKeycloakErrorResponseBytes
 					}
-					body := &measuredKeycloakBody{Reader: repeatingKeycloakReader{}}
+					body := &measuredKeycloakBody{Reader: io.LimitReader(repeatingKeycloakReader{}, limit*2)}
 					c := responseBudgetClient(status, -1, body)
 					request, err := http.NewRequest(method, c.baseURL+placeholder.ReplaceAllString(operation.Path, "fixture"), nil)
 					if err != nil {
@@ -243,7 +243,7 @@ func TestKeycloakIgnoredWriteBodyCannotAuthorizeSuccessOrFollowup(t *testing.T) 
 		}},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
-			body := &measuredKeycloakBody{Reader: repeatingKeycloakReader{}}
+			body := &measuredKeycloakBody{Reader: io.LimitReader(repeatingKeycloakReader{}, maxKeycloakAdminResponseBytes*2)}
 			c := responseBudgetClient(http.StatusNoContent, -1, body)
 			if err := scenario.call(c); !errors.Is(err, ErrResponseTooLarge) {
 				t.Fatalf("ignored success body bypassed budget: %v", err)
