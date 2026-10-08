@@ -2,6 +2,9 @@
 
 ## 0.2.0 — Unreleased
 
+- Build the operator and embedded cosign with Go 1.27.2 and patched HTTP/2
+  dependencies; retain the source and exact-image vulnerability gates.
+
 - Introduce versioned internal IAM intent, resolved references, capability evidence
   and locally compiled execution plans for resource-server authorization and realm roles.
 - Separate canonical intent and provider-plan identities; reject stale local inputs
