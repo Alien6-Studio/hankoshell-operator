@@ -19,6 +19,23 @@ system = publish.contract.module("installed_system", "system-test.py")
 
 
 class ReleaseResumeTests(unittest.TestCase):
+    def test_installed_authorization_cleanup_requires_preserved_client_and_absent_server(self):
+        fixture = object.__new__(system.System)
+        client = {"id": "fixture-id", "authorizationServicesEnabled": False, "attributes": {}}
+        with patch.object(fixture, "client", return_value=client), patch.object(fixture, "api") as api:
+            fixture.authorization_cleaned("fixture-id")
+            api.assert_called_once_with("GET", "/admin/realms/managed/clients/fixture-id/authz/resource-server", expected=(404,))
+            api.reset_mock()
+            for field, invalid in (("id", "replacement"), ("authorizationServicesEnabled", True),
+                                   ("authorizationServicesEnabled", None),
+                                   ("attributes", {"hanko.sh/resource-server-ownership": "{}"})):
+                original = client[field]
+                client[field] = invalid
+                with self.assertRaises(ValueError):
+                    fixture.authorization_cleaned("fixture-id")
+                api.assert_not_called()
+                client[field] = original
+
     def test_installed_iam_requires_applied_and_complete_readback_evidence(self):
         fixture = object.__new__(system.System)
         digest = "sha256:" + "a" * 64

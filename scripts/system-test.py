@@ -113,6 +113,16 @@ class System:
             raise ValueError("Expected exactly one provider client")
         return self.api("GET", f'/admin/realms/{realm}/clients/{clients[0]["id"]}')
 
+    def authorization_cleaned(self, client_id):
+        # This fixture has no unowned authorization objects. Complete cleanup
+        # disables Authorization Services; Keycloak then returns 404 for the
+        # resource server rather than an empty scopes collection.
+        client = self.client("managed", "system-contract-api")
+        if (client["id"] != client_id or client.get("authorizationServicesEnabled") is not False
+                or "hanko.sh/resource-server-ownership" in client.get("attributes", {})):
+            raise ValueError("Authorization finalizer did not preserve the client and retire its ownership")
+        self.api("GET", f'/admin/realms/managed/clients/{client_id}/authz/resource-server', expected=(404,))
+
     def create_cluster(self):
         if not run([self.args.kind, "version"]).startswith("kind " + KIND_VERSION + " "):
             raise ValueError("Use the pinned kind 0.33.0 fixture")
@@ -319,9 +329,7 @@ class System:
         if journal.get("ownerUID") != server_uid:
             raise ValueError("Installed authorization ownership journal differs")
         self.kubectl("delete", "hankoresourceserver", "contract-server", "-n", "auth", "--wait=true", "--timeout=120s")
-        scopes = self.api("GET", f'/admin/realms/managed/clients/{api["id"]}/authz/resource-server/scope')
-        if any(scope.get("name") == "read" for scope in scopes):
-            raise ValueError("Authorization finalizer left an owned scope behind")
+        self.authorization_cleaned(api["id"])
         self.kubectl("delete", "hankoapplication", "contract-api", "-n", "auth", "--wait=true", "--timeout=120s")
         self.kubectl("delete", "hankorole", "contract-role", "-n", "auth", "--wait=true", "--timeout=120s")
         if self.api("GET", "/admin/realms/managed/roles?search=system-contract-role"):
