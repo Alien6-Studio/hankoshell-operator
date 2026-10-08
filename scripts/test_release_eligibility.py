@@ -1,9 +1,11 @@
 import copy
 import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 spec = importlib.util.spec_from_file_location(
@@ -21,13 +23,13 @@ class ReleaseEligibilityTests(unittest.TestCase):
         self.ref = "refs/tags/" + self.tag
         self.base = "repos/" + self.repository
         self.ref_path = self.base + "/git/ref/tags/" + self.tag
-        self.commit_path = self.base + "/commits/" + self.revision
+        self.commit_path = self.base + "/git/commits/" + self.revision
         self.object_path = self.base + "/git/tags/" + self.tag_object
         self.responses = {
             self.base: {"private": False},
             self.base + "/private-vulnerability-reporting": {"enabled": True},
-            self.commit_path: {"sha": self.revision, "commit": {
-                "verification": {"verified": True}}},
+            self.commit_path: {"sha": self.revision,
+                "verification": {"verified": True}},
             self.ref_path: {"ref": self.ref, "object": {
                 "type": "tag", "sha": self.tag_object}},
             self.object_path: {"sha": self.tag_object, "tag": self.tag,
@@ -67,7 +69,7 @@ class ReleaseEligibilityTests(unittest.TestCase):
     def test_lightweight_tag_binds_unsigned_root_and_protected_main(self):
         self.tag_object = self.revision
         self.responses[self.ref_path]["object"] = {"type": "commit", "sha": self.revision}
-        self.responses[self.commit_path]["commit"]["verification"] = {"verified": False, "reason": "unsigned"}
+        self.responses[self.commit_path]["verification"] = {"verified": False, "reason": "unsigned"}
         self.assertEqual(self.verify(expected_tag_object=self.revision), {
             "revision": self.revision, "tag": self.tag, "tag_object": self.revision})
         self.assertNotIn(self.object_path, self.api_calls)
@@ -75,10 +77,10 @@ class ReleaseEligibilityTests(unittest.TestCase):
         self.assertIn(("merge-base", "--is-ancestor", self.revision, "origin/main"), self.git_calls)
 
     def test_git_signatures_are_optional_for_commit_and_annotated_tag(self):
-        for path, nested in ((self.object_path, False), (self.commit_path, True)):
+        for path in (self.object_path, self.commit_path):
             for verification in (False, None, True):
                 with self.subTest(path=path, verification=verification):
-                    document = self.responses[path]["commit"] if nested else self.responses[path]
+                    document = self.responses[path]
                     document["verification"] = {"verified": verification}
                     self.verify()
             del document["verification"]
@@ -114,8 +116,8 @@ class ReleaseEligibilityTests(unittest.TestCase):
             git("tag", "--no-sign", self.tag, revision)
             self.assertEqual(git("rev-list", "--count", "HEAD").strip(), "1")
             self.assertEqual(git("cat-file", "-t", self.ref).strip(), "commit")
-            self.responses[self.base + "/commits/" + revision] = {
-                "sha": revision, "commit": {"verification": {"verified": False, "reason": "unsigned"}}}
+            self.responses[self.base + "/git/commits/" + revision] = {
+                "sha": revision, "verification": {"verified": False, "reason": "unsigned"}}
             self.responses[self.ref_path]["object"] = {"type": "commit", "sha": revision}
             self.assertEqual(self.verify(revision=revision, git=git, expected_tag_object=revision), {
                 "revision": revision, "tag": self.tag, "tag_object": revision})
@@ -183,6 +185,15 @@ class ReleaseEligibilityTests(unittest.TestCase):
         self.responses[self.base + "/private-vulnerability-reporting"]["enabled"] = False
         with self.assertRaisesRegex(ValueError, "vulnerability reporting"):
             self.verify()
+
+    def test_metadata_endpoint_avoids_root_diffs_without_weakening_response_bound(self):
+        self.verify()
+        self.assertIn(self.base + "/git/commits/" + self.revision, self.api_calls)
+        self.assertNotIn(self.base + "/commits/" + self.revision, self.api_calls)
+        oversized = SimpleNamespace(returncode=0, stdout="x" * ((1 << 20) + 1))
+        with patch.object(eligibility.subprocess, "run", return_value=oversized), \
+                self.assertRaisesRegex(ValueError, "size limit"):
+            eligibility.command("gh", "api", self.commit_path)
 
     def test_identity_api_failure_does_not_fall_back_to_local_git(self):
         def unavailable(path):

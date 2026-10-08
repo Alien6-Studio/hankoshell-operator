@@ -38,7 +38,7 @@ def verify(repository, tag, revision, ref, api, git, expected_tag_object=None):
     require(api(base).get("private") is False, "Publication requires a public repository")
     require(api(base + "/private-vulnerability-reporting").get("enabled") is True,
             "Private vulnerability reporting must be enabled")
-    commit = api(base + "/commits/" + revision)
+    commit = api(base + "/git/commits/" + revision)
     require(commit.get("sha") == revision, "GitHub returned a different release commit")
     path = base + "/git/ref/tags/" + quote(tag, safe="")
     tag_ref = api(path)
