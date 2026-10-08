@@ -1,0 +1,47 @@
+apiVersion: v2
+name: hankoshell-operator
+description: Declarative IAM reconciliation for Keycloak and hankoShell platform integrations
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.35.0-0 <1.38.0-0"
+keywords:
+  - oidc
+  - keycloak
+  - operator
+  - identity
+home: https://hanko.sh
+icon: https://raw.githubusercontent.com/Alien6-Studio/hankoshell-operator/v0.1.0/charts/hankoshell-operator/icon.svg
+sources:
+  - https://github.com/Alien6-Studio/hankoshell-operator
+maintainers:
+  - name: Alien6 Studio
+    url: https://github.com/Alien6-Studio
+annotations:
+  licenses: Apache-2.0
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/category: security
+  artifacthub.io/operator: "true"
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/changes: |
+    - kind: added
+      description: Initial chart with declarative Keycloak IAM reconciliation and optional hankoShell API and Hub integrations.
+    - kind: security
+      description: Add an optional enterprise Continuum transport profile with TLS 1.3 and constrained endpoint and bootstrap configuration.
+    - kind: security
+      description: Qualify Kubernetes 1.35-1.37 with Restricted admission and optional AppArmor and stable user namespaces.
+    - kind: security
+      description: Disable metrics exposure by default and require exact Prometheus identity for TCP/8080 ingress when enabled.
+  artifacthub.io/images: |
+    - name: hankoshell-operator
+      image: ghcr.io/alien6-studio/hankoshell-operator:0.1.0
+      platforms:
+        - linux/amd64
+        - linux/arm64
+  artifacthub.io/links: |
+    - name: Attest delivery verification key
+      url: https://github.com/Alien6-Studio/hankoshell-operator/releases/download/v0.1.0/hankoshell-operator-attest-public-key.pem
+    - name: Source
+      url: https://github.com/Alien6-Studio/hankoshell-operator
+    - name: Security policy
+      url: https://github.com/Alien6-Studio/hankoshell-operator/blob/main/SECURITY.md
