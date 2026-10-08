@@ -6,6 +6,7 @@ hankoShell Operator turns your application's identity requirements into Keycloak
 configuration: its login client, redirect URLs, roles, token claims and machine
 credentials. Declare the desired configuration in Kubernetes, review it in Git,
 and let the operator keep the fields it manages in sync with Keycloak.
+Keycloak is the first and currently only supported IAM backend.
 
 Platform teams can reuse authentication policies across realms, connect upstream
 identity providers and rotate client secrets. Application teams can keep their
@@ -23,7 +24,7 @@ enterprise fleet. Project website: **[hanko.sh](https://hanko.sh)**.
 [Deployment](#deployment) ·
 [Secure deployment and trust model](docs/secure-deployment.md) ·
 [Keycloak permissions](docs/keycloak-permissions.md) ·
-[Changes](CHANGELOG.md)
+[Changes](CHANGELOG.md) · **[Roadmap](ROADMAP.md)**
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/badge/version-0.1.0%20initial%20development-blue.svg)](#release-maturity)
