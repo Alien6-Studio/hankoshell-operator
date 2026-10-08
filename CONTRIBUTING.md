@@ -25,10 +25,11 @@ minor versions before 1.0. Keep chart, release metadata and curated changelog
 notes consistent with that distinction.
 
 Changes use short-lived PR branches and protected squash merges, signed by GitHub.
-The initial root may be unsigned. Release tags may be lightweight or annotated;
-Git signatures are not delivery prerequisites. After `v0.1.0` is created, never
-rewrite its source history or move/delete the tag. The release workflow requires
-full qualification, Sigstore artifact signatures and Continuum Attest verification.
+The initial root must be signed and GitHub Verified. Publication requires a
+GitHub-verified source commit and a GitHub-verified signed annotated SemVer tag
+bound to that exact commit on protected main. After `v0.1.0` is finalized, never
+rewrite its source history or move/delete the tag. Full qualification, Sigstore
+artifact signatures and Continuum Attest verification remain required.
 
 Contributions are licensed under Apache-2.0. Maintainers review changes before
 merge. Report security issues using [SECURITY.md](SECURITY.md).

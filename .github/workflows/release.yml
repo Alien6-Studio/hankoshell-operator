@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing immutable SemVer tag on reviewed main (for example v0.1.0)
+        description: Existing GitHub-verified signed annotated SemVer tag on verified main (for example v0.1.0)
         required: true
         type: string
 permissions:
@@ -21,7 +21,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Require public launch and exact release tag and source identities
+      - name: Require public launch, GitHub-verified commit and signed annotated tag
         id: identity
         env:
           TAG: ${{ inputs.tag }}
@@ -51,7 +51,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Recheck exact release identities before publication
+      - name: Recheck exact verified commit and signed annotated tag before publication
         env:
           EXPECTED_TAG_OBJECT: ${{ needs.eligibility.outputs.tag_object }}
           TAG: ${{ inputs.tag }}

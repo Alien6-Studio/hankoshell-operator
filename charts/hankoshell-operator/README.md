@@ -61,7 +61,9 @@ manager flag (previously omission left its default enabled); use it only with
 one active writer. This is not a multi-replica failover mode.
 
 Release packaging pins the exact scanned image digest and includes curated notes,
-checksums and verified delivery evidence. The named Attest verification-key link
+checksums and verified delivery evidence. Publication requires a GitHub-verified
+source commit and a GitHub-verified signed annotated SemVer tag bound to that
+exact commit on protected main. The named Attest verification-key link
 is for receipt verification, not Helm OpenPGP `.prov` signing. Artifact Hub Verified
 Publisher identifies repository ownership, not an image-security endorsement.
 The [nonpublishing rehearsal](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md#release-rehearsal-and-publication)

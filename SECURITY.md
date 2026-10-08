@@ -71,13 +71,14 @@ is assigned only after scan, source/compatibility CI, signature verification,
 packaging/checksum verification and strict Continuum Attest delivery verification.
 Failed gates cannot publish a new release image tag or chart.
 
-Release eligibility binds an immutable SemVer tag, lightweight or annotated, to
-the exact source commit on protected main. Conflicting or moved tags are rejected
-before quality work and checked again before publication. Git commit and tag
-signatures are not delivery prerequisites. The initial root may be unsigned;
-subsequent changes use protected, GitHub-signed squash merges. The release-tag
-ruleset blocks deletion and rewriting. These source controls do not authenticate
-delivered artifacts: Sigstore and Continuum Attest verification remain mandatory.
+Publication requires a GitHub-verified source commit and a GitHub-verified signed
+annotated SemVer tag bound to that exact commit on protected main. Eligibility
+rejects unverified or missing signatures, lightweight tags and conflicting or moved
+references before quality work, and checks them again before publication. The
+initial root must be signed and GitHub Verified; subsequent changes use protected,
+GitHub-signed squash merges. The release-tag ruleset blocks deletion and rewriting.
+Source verification uses bounded Git metadata without fetching the commit diff.
+Delivered artifacts require their own Sigstore and Continuum Attest verification.
 
 After these gates, package promotion and GitHub draft creation are separate
 network operations, not an atomic transaction. A later publication failure may

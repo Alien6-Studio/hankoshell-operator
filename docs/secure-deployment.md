@@ -827,15 +827,16 @@ configuration, while installation-specific enforcement still needs qualification
 uses `prerelease: false`; the workflow creates a normal GitHub **draft**, with
 curated notes extracted from the tracked CHANGELOG release overview. Publication
 of that draft remains a separate manual action. The tag must already exist on
-protected main; the workflow does not create tags. Eligibility binds a lightweight
-or annotated SemVer tag to the exact reviewed source commit and checks its
-protected-main ancestry. Conflicting or moved tags are rejected, and the identities
-are checked again immediately before publication work. Git commit and tag
-signatures are not prerequisites: the initial root may be unsigned, and subsequent
-changes use protected, GitHub-signed squash merges. A tag and a Signed-off-by
-trailer do not authenticate delivered artifacts; Sigstore signatures and Continuum
-Attest verification remain mandatory. Once `v0.1.0` exists, its source history and
-tag are immutable.
+protected main; the workflow does not create tags. Publication requires a
+GitHub-verified source commit and a GitHub-verified signed annotated SemVer tag
+bound to that exact commit. Eligibility checks protected-main ancestry and rejects
+missing or unverified signatures, lightweight tags and conflicting or moved
+references. These identities are checked again immediately before publication
+using Git metadata responses limited to 1 MiB, without fetching the commit diff.
+The initial root must be signed and GitHub Verified; subsequent changes use
+protected, GitHub-signed squash merges. Signed-off-by trailers are not signatures.
+Delivered artifacts require separate Sigstore signatures and Continuum Attest
+verification. Once `v0.1.0` is finalized, its source history and tag are immutable.
 
 Required CI builds one AMD64/ARM64 OCI archive with BuildKit SBOM/provenance,
 scans its exact manifests, and passes that immutable artifact ID to the release

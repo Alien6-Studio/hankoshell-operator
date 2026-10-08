@@ -291,9 +291,10 @@ implemented. Existing installations should follow the
 
 ## Verified delivery
 
-The release workflow requires an immutable SemVer tag pointing to the exact
-reviewed source commit on protected main. Tags may be lightweight or annotated;
-Git commit and tag signatures are not delivery prerequisites.
+0.1.0 publication requires a GitHub-verified source commit and a GitHub-verified
+signed annotated SemVer tag bound to that exact commit on protected main.
+The workflow rejects unverified signatures, lightweight tags and conflicting or
+moved references, and checks these identities again before publication.
 It builds Linux AMD64/ARM64 images and the Helm chart from that source.
 CI scans the final OCI image, including embedded `cosign`,
 on both architectures with checksum-pinned Trivy. The [OCI vulnerability policy](SECURITY.md#final-oci-image-vulnerability-gate)

@@ -57,9 +57,9 @@ Install the reviewed source chart, or the published
 when available, following the [secure deployment guide](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md)
 and [permission model](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/keycloak-permissions.md).
 Published chart values select the scanned multi-architecture image digest.
-Publication requires an immutable SemVer tag targeting the exact reviewed source
-commit on protected main. Git commit/tag signatures are not delivery prerequisites;
-Sigstore signatures and Continuum Attest verification remain mandatory.
+Publication requires a GitHub-verified source commit and a GitHub-verified signed
+annotated SemVer tag bound to that exact commit on protected main. Sigstore
+signatures and Continuum Attest verification remain separately mandatory.
 Source govulncheck and final-image scans (including embedded cosign) are additive;
 fixable HIGH/CRITICAL findings block delivery. BuildKit SBOM/provenance, Sigstore
 signatures and signed/timestamped Continuum Attest delivery bindings have distinct
@@ -81,9 +81,12 @@ response targets and supported versions are in SECURITY.md.
 
 ### Added
 
-- Release eligibility binds a lightweight or annotated immutable SemVer tag to
-  the exact reviewed source commit on protected main; moved or conflicting tags
-  fail closed. Git signatures are separate from required artifact authentication.
+- Release eligibility requires a GitHub-verified source commit and a
+  GitHub-verified signed annotated SemVer tag bound to that exact commit on
+  protected main. Missing/unverified signatures, lightweight tags and moved or
+  conflicting references fail closed. Bounded Git metadata avoids the complete
+  root diff while retaining the 1 MiB response limit. Artifact authentication
+  remains separately required through Sigstore and Continuum Attest.
 
 - Required installed-system qualification combining the chart, scanned OCI image,
   real Kubernetes and HTTPS Keycloak with a target-realm service account.
