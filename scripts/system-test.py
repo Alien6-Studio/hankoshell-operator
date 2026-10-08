@@ -102,20 +102,29 @@ class System:
             raise ValueError("Use the pinned kind 0.33.0 fixture")
         run(["docker", "run", "--detach", "--name", self.registry_name, "--publish", "127.0.0.1::5000",
              "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", publication.REGISTRY_IMAGE])
-        address = run(["docker", "port", self.registry_name, "5000/tcp"])
-        if not address.startswith("127.0.0.1:") or "\n" in address:
-            raise ValueError("Registry must be loopback-only")
-        self.registry = "localhost:" + address.split(":")[1]
         run([self.args.kind, "create", "cluster", "--name", self.name, "--image", NODE,
              "--kubeconfig", self.config, "--wait", "120s"])
         node = self.name + "-control-plane"
         run(["docker", "network", "connect", "kind", self.registry_name])
+        # Docker can reassign an ephemeral published port when attaching a
+        # second network. Resolve it after all network mutations, then use the
+        # exact IPv4 loopback endpoint for host writes and containerd aliases.
+        address = run(["docker", "port", self.registry_name, "5000/tcp"])
+        if not re.fullmatch(r"127\.0\.0\.1:[0-9]+", address):
+            raise ValueError("Registry must be loopback-only")
+        self.registry = address
         directory = "/etc/containerd/certs.d/" + self.registry
         run(["docker", "exec", node, "mkdir", "-p", directory])
         hosts = f'[host."http://{self.registry_name}:5000"]\n  capabilities = ["pull", "resolve"]\n'
         run(["docker", "exec", "-i", node, "cp", "/dev/stdin", directory + "/hosts.toml"], input=hosts.encode())
-        run([self.args.oras, "cp", "--from-oci-layout", str(self.args.archive) + "@" + self.args.digest,
-             "--to-plain-http", self.registry + "/hankoshell-operator:scanned"])
+        copy = subprocess.run([str(self.args.oras), "cp", "--from-oci-layout", str(self.args.archive) + "@" + self.args.digest,
+                               "--to-plain-http", self.registry + "/hankoshell-operator:scanned"], capture_output=True, timeout=600)
+        if copy.returncode:
+            diagnostic = copy.stderr.decode(errors="replace")[-2048:]
+            for value in self.sensitive:
+                diagnostic = diagnostic.replace(value, "[REDACTED]")
+            diagnostic = re.sub(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", "[REDACTED JWT]", diagnostic)
+            raise RuntimeError("Local OCI mirror copy failed: " + diagnostic)
         if publication.publish.Registry(self.args.oras, self.args.helm, plain_http=True).resolve(self.registry + "/hankoshell-operator:scanned") != self.args.digest:
             raise ValueError("System-test mirror changed the scanned OCI graph")
         version = json.loads(self.kubectl("version", "-o", "json"))["serverVersion"]["gitVersion"]
