@@ -243,6 +243,11 @@ For all failure rows, Observe clears applied claims once status can be persisted
 Historical hashes must be read with their associated generations/plan identities,
 not taken as a claim about the current desired state or current attempt.
 
+If authorization cleanup completes but Kubernetes rejects finalizer removal,
+the retry confirms absence without provider mutations. A missing collection must
+be accompanied by an absent or disabled backing client; active, ambiguous, denied
+or unavailable responses cannot prove cleanup.
+
 ## Observation normalization and bounds
 
 Authorization reads enabled state, scope descriptions, resource names/display

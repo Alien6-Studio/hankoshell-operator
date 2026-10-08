@@ -220,6 +220,9 @@ func (c *Client) authorizationOwnedAbsent(ctx context.Context, model Authorizati
 			ResourceID string `json:"_id"`
 		}
 		if err := readAuthorizationCollection(ctx, c, base+collection.path, &objects); err != nil {
+			if IsNotFound(err) {
+				return c.authorizationDisabledOrAbsent(ctx, model.Realm, clientID)
+			}
 			return false, err
 		}
 		ids := keepAuthorizationIDs(collection.refs)
@@ -230,4 +233,19 @@ func (c *Client) authorizationOwnedAbsent(ctx context.Context, model Authorizati
 		}
 	}
 	return true, nil
+}
+
+// Keycloak removes the graph and omits the disabled boolean from the client
+// representation. A missing collection alone is insufficient: confirm that
+// the backing client is absent or explicitly/default disabled, without writes.
+func (c *Client) authorizationDisabledOrAbsent(ctx context.Context, realm, clientID string) (bool, error) {
+	var representation map[string]any
+	if err := c.get(ctx, authorizationClientPath(realm, clientID), &representation); err != nil {
+		if IsNotFound(err) {
+			return true, nil
+		}
+		return false, err
+	}
+	enabled, present := representation["authorizationServicesEnabled"]
+	return !present || enabled == false, nil
 }

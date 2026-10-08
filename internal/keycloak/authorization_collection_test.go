@@ -112,3 +112,50 @@ func TestAuthorizationCollectionOverflowRefusesObservationAndReconciliation(t *t
 		t.Fatal("oversize scope collection caused writes or accepted truncation", err)
 	}
 }
+
+func TestAuthorizationCleanupRetryRequiresDisabledGraphOrProvenAbsence(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		enabled any
+		omit    bool
+		status  int
+		accept  bool
+	}{
+		{"disabled", false, false, http.StatusNotFound, true},
+		{"disabled omitted", nil, true, http.StatusNotFound, true},
+		{"enabled collection missing", true, false, http.StatusNotFound, false},
+		{"unknown flag", nil, false, http.StatusNotFound, false},
+		{"denied", false, false, http.StatusForbidden, false},
+		{"unavailable", false, false, http.StatusServiceUnavailable, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/realms/master/protocol/openid-connect/token" {
+					writeAuthorizationJSON(w, map[string]any{"access_token": "fixture-token", "expires_in": 300})
+					return
+				}
+				if r.Method != http.MethodGet {
+					t.Error("cleanup retry attempted an administrative mutation")
+					w.WriteHeader(http.StatusForbidden)
+					return
+				}
+				if r.URL.Path == "/admin/realms/acme/clients/client-uuid" {
+					value := map[string]any{"id": "client-uuid"}
+					if !test.omit {
+						value["authorizationServicesEnabled"] = test.enabled
+					}
+					writeAuthorizationJSON(w, value)
+					return
+				}
+				w.WriteHeader(test.status)
+			}))
+			defer server.Close()
+			c := New(server.URL, "fixture", "fixture-secret", WithInsecureHTTP())
+			owned := AuthorizationManagedObjects{ResourceServerID: "client-uuid", Scopes: []AuthorizationManagedReference{{Name: "read", ID: "stale-scope"}}}
+			err := c.DeleteAuthorizationOwned(context.Background(), AuthorizationModel{Realm: "acme", OwnerUID: "retry-owner"}, "client-uuid", owned)
+			if (err == nil) != test.accept {
+				t.Fatal("missing collection was confused with proven cleanup", err)
+			}
+		})
+	}
+}

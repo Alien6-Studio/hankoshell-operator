@@ -22,8 +22,20 @@ import (
 
 type failEvidenceStatusClient struct {
 	client.Client
-	fail bool
+	fail          bool
+	failFinalizer bool
 }
+
+var errInjectedFinalizerUpdate = errors.New("injected Kubernetes finalizer update failure")
+
+func (c *failEvidenceStatusClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+	if c.failFinalizer && !obj.GetDeletionTimestamp().IsZero() && len(obj.GetFinalizers()) == 0 {
+		c.failFinalizer = false
+		return errInjectedFinalizerUpdate
+	}
+	return c.Client.Update(ctx, obj, opts...)
+}
+
 type failEvidenceStatusWriter struct {
 	client.SubResourceWriter
 	owner *failEvidenceStatusClient
@@ -102,18 +114,25 @@ func checkRealKeycloakEvidenceRecovery(t *testing.T, f *keycloakFixture, kc *key
 			}
 			iamconformance.NoSecrets(t, []string{credential, f.adminToken}, obj)
 			if domain == "authorization" {
-				checkRealAuthorizationEvidenceCleanup(t, f, ctx, k8s, reconciler, obj.(*api.HankoResourceServer))
+				fault.failFinalizer = true
+				checkRealAuthorizationEvidenceCleanup(t, f, ctx, k8s, reconciler, obj.(*api.HankoResourceServer), writes)
 			}
 		})
 	}
 }
 
-func checkRealAuthorizationEvidenceCleanup(t *testing.T, f *keycloakFixture, ctx context.Context, k8s client.Client, reconciler fixtureReconciler, obj *api.HankoResourceServer) {
+func checkRealAuthorizationEvidenceCleanup(t *testing.T, f *keycloakFixture, ctx context.Context, k8s client.Client, reconciler fixtureReconciler, obj *api.HankoResourceServer, writes func() int) {
 	t.Helper()
 	providerID := obj.Status.ProviderResourceServerID
 	f.requireNoError(k8s.Delete(ctx, obj))
 	_, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(obj)})
-	f.requireNoError(err)
+	if !errors.Is(err, errInjectedFinalizerUpdate) {
+		t.Fatal("finalizer update failure did not follow provider cleanup", err)
+	}
+	iamconformance.NoMutation(t, writes, func() error {
+		_, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(obj)})
+		return err
+	})
 	actual := f.client("managed", "evidence-api")
 	enabled, present := actual["authorizationServicesEnabled"]
 	attributes, _ := actual["attributes"].(map[string]any)
