@@ -24,8 +24,9 @@ image:
 imagePullSecrets: []
 
 # Administrator-owned public policy and publisher keys (ADR-047). An empty
-# policy denies new theme Jobs, managed Keycloak Deployment updates and Hub
-# self-updates. Operator updates require an exact operator-update approval.
+# policy denies database snapshot Jobs, theme Jobs, managed Keycloak Deployment
+# updates and Hub self-updates. Database snapshots require database-backup
+# approval; operator updates require exact operator-update approval.
 # No signing key or platform credential is exposed to the verifier.
 imageVerification:
   policyConfigMap: ""

@@ -116,6 +116,57 @@ func TestWorkloadApprovalRevocationHasNoSuccessCache(t *testing.T) {
 	}
 }
 
+func TestDatabaseBackupApprovalIsIndependentAndRechecksRevocation(t *testing.T) {
+	path, approval := policyFixture(t)
+	approval.Purpose = DatabaseBackup
+	writeApprovalPolicy(t, path, approval)
+	verifier := &recordingVerifier{}
+	v := NewWithPolicy(path, verifier)
+	if err := v.VerifyImage(context.Background(), DatabaseBackup, approval.Image); err != nil {
+		t.Fatal(err)
+	}
+	for _, purpose := range []Purpose{ThemeBuilder, Keycloak, OperatorUpdate} {
+		if err := v.VerifyImage(context.Background(), purpose, approval.Image); err != ErrVerificationDenied {
+			t.Fatalf("backup approval authorized %s: %v", purpose, err)
+		}
+	}
+	if verifier.calls != 1 {
+		t.Fatal("unrelated purpose reached publisher verification")
+	}
+	changing := changingKeyVerifier{change: func() { writeApprovalPolicy(t, path) }}
+	if err := NewWithPolicy(path, changing).VerifyImage(context.Background(), DatabaseBackup, approval.Image); err != ErrVerificationDenied {
+		t.Fatalf("revoked backup approval survived signature verification: %v", err)
+	}
+}
+
+func TestWorkloadPublisherKeyReplacementDuringVerificationDenied(t *testing.T) {
+	for _, purpose := range []Purpose{ThemeBuilder, Keycloak, DatabaseBackup} {
+		t.Run(string(purpose), func(t *testing.T) {
+			path, approval := policyFixture(t)
+			approval.Purpose = purpose
+			writeApprovalPolicy(t, path, approval)
+			otherPath, otherApproval := policyFixture(t)
+			replacement, err := os.ReadFile(filepath.Join(filepath.Dir(otherPath), otherApproval.KeyFile))
+			if err != nil {
+				t.Fatal(err)
+			}
+			root, err := os.OpenRoot(filepath.Dir(path))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer root.Close()
+			verifier := changingKeyVerifier{change: func() {
+				if err := root.WriteFile("publisher.pub", replacement, 0600); err != nil {
+					t.Fatal(err)
+				}
+			}}
+			if err := NewWithPolicy(path, verifier).VerifyImage(context.Background(), purpose, approval.Image); err != ErrVerificationDenied {
+				t.Fatalf("replaced workload publisher key remained authorized: %v", err)
+			}
+		})
+	}
+}
+
 func TestMalformedPolicyAndMissingVerifierDenyExecution(t *testing.T) {
 	path, approval := policyFixture(t)
 	verifier := &recordingVerifier{}

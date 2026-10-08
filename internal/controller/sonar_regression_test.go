@@ -103,10 +103,11 @@ func TestSnapshotReconcileCreatesHardenedDataJob(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "data", Namespace: "test"},
 		Spec: hankoshv1alpha1.HankoSnapshotSpec{
 			InstanceRef: instance.Name, IncludeData: true, BackupPVC: "backups",
+			BackupImage: approvedBackupImage, BackupSecretRef: "backup-credentials",
 		},
 	}
-	k8sClient := controllerTestClient(scheme, instance, snapshot)
-	reconciler := &HankoSnapshotReconciler{Client: k8sClient, Scheme: scheme}
+	k8sClient := controllerTestClient(scheme, instance, snapshot, snapshotBackupSecret(snapshot))
+	reconciler := &HankoSnapshotReconciler{Client: k8sClient, Scheme: scheme, ImageValidator: approvedFixtureValidator(t)}
 
 	result, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(snapshot)})
 	if err != nil {
@@ -171,14 +172,14 @@ func TestSnapshotDataJobTerminalStatePrecedence(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "terminal", Namespace: "test"},
 				Spec: hankoshv1alpha1.HankoSnapshotSpec{
 					InstanceRef: instance.Name, IncludeData: true, BackupPVC: "backups",
+					BackupImage: approvedBackupImage, BackupSecretRef: "backup-credentials",
 				},
 			}
-			job := &batchv1.Job{
-				ObjectMeta: metav1.ObjectMeta{Name: "snap-terminal-pgdump", Namespace: "test"},
-				Status:     batchv1.JobStatus{Conditions: testCase.conditions},
-			}
-			k8sClient := controllerTestClient(scheme, snapshot, job)
-			reconciler := &HankoSnapshotReconciler{Client: k8sClient, Scheme: scheme}
+			reconciler := &HankoSnapshotReconciler{Scheme: scheme, ImageValidator: approvedFixtureValidator(t)}
+			job := snapshotOwnedJob(t, reconciler, snapshot)
+			job.Status.Conditions = testCase.conditions
+			k8sClient := controllerTestClient(scheme, snapshot, job, snapshotBackupSecret(snapshot))
+			reconciler.Client = k8sClient
 			result, handled := reconciler.reconcileSnapshotData(ctx, snapshot, instance, client.MergeFrom(snapshot.DeepCopy()))
 			if handled != testCase.handled {
 				t.Fatalf("handled=%t, want %t", handled, testCase.handled)

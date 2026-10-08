@@ -89,8 +89,10 @@ token issuance and its authentication emails.
 The API provides 16 `hanko.sh/v1alpha1` custom resources, including the deprecated
 `HankoEmailProvider`. See the [API definitions](api/v1alpha1) for supported fields.
 Integration flags configure clients and do not disable controller registration.
-Snapshot data backup still uses installation-specific PostgreSQL/PVC
-configuration; portable backup and restore are not qualified.
+Snapshot database Jobs require a locally approved, publisher-verified image digest
+and a dedicated backup credential Secret. PostgreSQL/PVC configuration and
+portable backup/restore remain installation-specific and unqualified; see the
+[backup execution contract](docs/secure-deployment.md#database-snapshot-jobs).
 
 </details>
 

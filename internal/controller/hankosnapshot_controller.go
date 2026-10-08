@@ -7,6 +7,7 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -17,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/imagevalidator"
 )
 
 // HankoSnapshotReconciler reconciles HankoSnapshot objects (one-shot).
@@ -26,10 +28,12 @@ import (
 // +kubebuilder:rbac:groups=hanko.sh,resources=hankokeycloakinstances,verbs=get;list;watch
 // +kubebuilder:rbac:groups=hanko.sh,resources=hankorealms;hankoapplications;hankoserviceaccounts;hankoissuers,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create
 type HankoSnapshotReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme         *runtime.Scheme
+	ImageValidator *imagevalidator.Validator
 }
 
 // snapshotData is the JSON structure stored in the config ConfigMap.
@@ -176,8 +180,12 @@ func (r *HankoSnapshotReconciler) reconcileSnapshotData(ctx context.Context, sna
 		r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"BackupPVCMissing", "includeData=true requires backupPVC to be set", "patch status after backup PVC missing"})
 		return ctrl.Result{}, true
 	}
-	if instance.Spec.Managed == nil {
+	if instance.Spec.Mode != "managed" || instance.Spec.Managed == nil || instance.Spec.Managed.Database.Name == "" {
 		r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"ManagedSpecMissing", "includeData=true requires mode=managed with a Database secret", "patch status after managed spec missing"})
+		return ctrl.Result{}, true
+	}
+	if failure := r.validateSnapshotBackup(ctx, snapshot, instance); failure != nil {
+		r.failSnapshot(ctx, snapshot, patch, *failure)
 		return ctrl.Result{}, true
 	}
 
@@ -190,6 +198,14 @@ func (r *HankoSnapshotReconciler) reconcileSnapshotData(ctx context.Context, sna
 	}
 	if err != nil {
 		r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"JobGetError", err.Error(), "patch status after job get error"})
+		return ctrl.Result{}, true
+	}
+	if !r.snapshotJobMatches(snapshot, &job) {
+		r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"JobContractMismatch", "existing pg_dump Job is not owned by this snapshot or does not match its approved workload contract; inspect it manually", "patch status after job contract mismatch"})
+		return ctrl.Result{}, true
+	}
+	if err := r.ImageValidator.VerifyImage(ctx, imagevalidator.DatabaseBackup, snapshot.Spec.BackupImage); err != nil {
+		r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"UntrustedBackupImage", err.Error(), "patch status after backup image verification"})
 		return ctrl.Result{}, true
 	}
 	if !isJobComplete(&job) {
@@ -206,7 +222,15 @@ func (r *HankoSnapshotReconciler) reconcileSnapshotData(ctx context.Context, sna
 }
 
 func (r *HankoSnapshotReconciler) createSnapshotJob(ctx context.Context, snapshot *hankoshv1alpha1.HankoSnapshot, instance *hankoshv1alpha1.HankoKeycloakInstance, patch client.Patch, jobName string) ctrl.Result {
-	job := r.buildPGDumpJob(jobName, snapshot.Namespace, snapshot.Spec.BackupPVC, instance.Spec.Managed.Database.Name)
+	if failure := r.validateSnapshotBackup(ctx, snapshot, instance); failure != nil {
+		r.failSnapshot(ctx, snapshot, patch, *failure)
+		return ctrl.Result{}
+	}
+	if err := r.ImageValidator.VerifyImage(ctx, imagevalidator.DatabaseBackup, snapshot.Spec.BackupImage); err != nil {
+		r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"UntrustedBackupImage", err.Error(), "patch status after backup image verification"})
+		return ctrl.Result{}
+	}
+	job := r.buildPGDumpJob(jobName, snapshot)
 	if err := controllerutil.SetControllerReference(snapshot, job, r.Scheme); err != nil {
 		r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"JobOwnerRefError", err.Error(), "patch status after job owner ref error"})
 		return ctrl.Result{}
@@ -218,6 +242,45 @@ func (r *HankoSnapshotReconciler) createSnapshotJob(ctx context.Context, snapsho
 	log.FromContext(ctx).Info("created pg_dump Job", "job", jobName)
 	r.patchSnapshotWhileWaiting(ctx, snapshot, patch)
 	return ctrl.Result{RequeueAfter: requeueOnError}
+}
+
+// validateSnapshotBackup never includes credential values or an untrusted image
+// reference in errors. No Secret is copied into a Job; kubelet projects selected keys.
+func (r *HankoSnapshotReconciler) validateSnapshotBackup(ctx context.Context, snapshot *hankoshv1alpha1.HankoSnapshot, instance *hankoshv1alpha1.HankoKeycloakInstance) *snapshotFailure {
+	if err := r.ImageValidator.ValidateWorkloadImage(imagevalidator.DatabaseBackup, snapshot.Spec.BackupImage); err != nil {
+		return &snapshotFailure{"UntrustedBackupImage", err.Error(), "patch status after backup image admission"}
+	}
+	ref := snapshot.Spec.BackupSecretRef
+	if ref == "" || ref == instance.Spec.AdminRef.Name || (instance.Spec.Managed != nil && (ref == instance.Spec.Managed.Database.Name || ref == instance.Spec.Managed.TLSSecretRef)) {
+		return &snapshotFailure{"BackupCredentialsInvalid", "backupSecretRef must name a dedicated database backup Secret", "patch status after backup credential validation"}
+	}
+	var secret corev1.Secret
+	if err := r.Get(ctx, types.NamespacedName{Name: ref, Namespace: snapshot.Namespace}, &secret); err != nil {
+		return &snapshotFailure{"BackupCredentialsInvalid", "cannot read the dedicated backup Secret", "patch status after backup credential lookup"}
+	}
+	for _, key := range []string{"PGHOST", "PGDATABASE", "PGUSER", "PGPASSWORD"} {
+		if len(secret.Data[key]) == 0 {
+			return &snapshotFailure{"BackupCredentialsInvalid", "backup Secret requires nonempty PGHOST, PGDATABASE, PGUSER and PGPASSWORD", "patch status after backup credential validation"}
+		}
+	}
+	return nil
+}
+
+// Existing Jobs are not adopted by name. Check the credential-bearing execution
+// contract before trusting even a completed Job; legacy mutable Jobs fail closed.
+func (r *HankoSnapshotReconciler) snapshotJobMatches(snapshot *hankoshv1alpha1.HankoSnapshot, job *batchv1.Job) bool {
+	if !metav1.IsControlledBy(job, snapshot) {
+		return false
+	}
+	actual := job.Spec.Template.Spec
+	expected := r.buildPGDumpJob(job.Name, snapshot).Spec.Template.Spec
+	return !actual.HostNetwork && !actual.HostPID && !actual.HostIPC &&
+		len(actual.InitContainers) == 0 && len(actual.EphemeralContainers) == 0 &&
+		apiequality.Semantic.DeepEqual(actual.Containers, expected.Containers) &&
+		apiequality.Semantic.DeepEqual(actual.Volumes, expected.Volumes) &&
+		apiequality.Semantic.DeepEqual(actual.SecurityContext, expected.SecurityContext) &&
+		apiequality.Semantic.DeepEqual(actual.AutomountServiceAccountToken, expected.AutomountServiceAccountToken) &&
+		actual.RestartPolicy == expected.RestartPolicy
 }
 
 func (r *HankoSnapshotReconciler) patchSnapshotWhileWaiting(ctx context.Context, snapshot *hankoshv1alpha1.HankoSnapshot, patch client.Patch) {
@@ -239,26 +302,34 @@ func (r *HankoSnapshotReconciler) completeSnapshot(ctx context.Context, snapshot
 }
 
 // buildPGDumpJob constructs a pg_dump Job that writes to a persistent PVC.
-func (r *HankoSnapshotReconciler) buildPGDumpJob(jobName, namespace, backupPVC, dbSecretName string) *batchv1.Job {
+func (r *HankoSnapshotReconciler) buildPGDumpJob(jobName string, snapshot *hankoshv1alpha1.HankoSnapshot) *batchv1.Job {
 	backoffLimit := int32(2)
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
-			Namespace: namespace,
+			Namespace: snapshot.Namespace,
 		},
 		Spec: batchv1.JobSpec{
 			BackoffLimit: &backoffLimit,
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyOnFailure,
+					RestartPolicy:                corev1.RestartPolicyOnFailure,
+					AutomountServiceAccountToken: boolPtr(false),
+					EnableServiceLinks:           boolPtr(false),
 					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot: boolPtr(true),
-						RunAsUser:    int64Ptr(70), // postgres uid in postgres:16-alpine
+						RunAsNonRoot:   boolPtr(true),
+						RunAsUser:      int64Ptr(70),
+						RunAsGroup:     int64Ptr(70),
+						FSGroup:        int64Ptr(70),
+						SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 					},
 					Containers: []corev1.Container{
 						{
-							Name:  "pgdump",
-							Image: "postgres:16-alpine",
+							Name:                     "pgdump",
+							Image:                    snapshot.Spec.BackupImage,
+							ImagePullPolicy:          corev1.PullIfNotPresent,
+							TerminationMessagePath:   "/dev/termination-log",
+							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 							Command: []string{
 								"pg_dump",
 								"--format=custom",
@@ -266,19 +337,15 @@ func (r *HankoSnapshotReconciler) buildPGDumpJob(jobName, namespace, backupPVC, 
 								"--no-owner",
 								"--file=/backup/keycloak.dump",
 							},
-							EnvFrom: []corev1.EnvFromSource{
-								{
-									SecretRef: &corev1.SecretEnvSource{
-										LocalObjectReference: corev1.LocalObjectReference{Name: dbSecretName},
-									},
-								},
-							},
+							Env: snapshotBackupEnv(snapshot.Spec.BackupSecretRef),
 							SecurityContext: &corev1.SecurityContext{
 								AllowPrivilegeEscalation: boolPtr(false),
+								ReadOnlyRootFilesystem:   boolPtr(true),
 								Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{Name: "backup", MountPath: "/backup"},
+								{Name: "tmp", MountPath: "/tmp"},
 							},
 						},
 					},
@@ -287,15 +354,30 @@ func (r *HankoSnapshotReconciler) buildPGDumpJob(jobName, namespace, backupPVC, 
 							Name: "backup",
 							VolumeSource: corev1.VolumeSource{
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: backupPVC,
+									ClaimName: snapshot.Spec.BackupPVC,
 								},
 							},
 						},
+						{Name: "tmp", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 					},
 				},
 			},
 		},
 	}
+}
+
+func snapshotBackupEnv(secretName string) []corev1.EnvVar {
+	keys := []string{"PGHOST", "PGDATABASE", "PGUSER", "PGPASSWORD", "PGPORT", "PGSSLMODE"}
+	env := make([]corev1.EnvVar, 0, len(keys))
+	for i, key := range keys {
+		env = append(env, corev1.EnvVar{Name: key, ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
+				Key:                  key, Optional: boolPtr(i >= 4),
+			},
+		}})
+	}
+	return env
 }
 
 // isJobComplete returns true if the Job has succeeded.

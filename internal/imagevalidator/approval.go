@@ -26,6 +26,8 @@ const (
 	ThemeBuilder Purpose = "theme-builder"
 	// Keycloak covers managed Keycloak Deployments with credential access.
 	Keycloak Purpose = "keycloak"
+	// DatabaseBackup covers pg_dump Jobs with database credentials and backup PVC access.
+	DatabaseBackup Purpose = "database-backup"
 	// OperatorUpdate covers replacement of the running operator itself.
 	OperatorUpdate Purpose = "operator-update"
 	maxPolicyBytes         = 64 * 1024
@@ -88,7 +90,7 @@ func (v *Validator) VerifyImage(ctx context.Context, purpose Purpose, image stri
 	if err != nil {
 		return err
 	}
-	return v.verifyApproval(ctx, approval)
+	return v.verifyCurrentApproval(ctx, approval)
 }
 
 // VerifyOperatorImage requires a local release approval and live signature
@@ -98,6 +100,10 @@ func (v *Validator) VerifyOperatorImage(ctx context.Context, image, version stri
 	if err != nil || approval.ReleaseVersion != version {
 		return ErrVerificationDenied
 	}
+	return v.verifyCurrentApproval(ctx, approval)
+}
+
+func (v *Validator) verifyCurrentApproval(ctx context.Context, approval Approval) error {
 	trust, err := v.keyFingerprint(approval)
 	if err != nil {
 		return ErrVerificationDenied
@@ -106,13 +112,13 @@ func (v *Validator) VerifyOperatorImage(ctx context.Context, image, version stri
 		return err
 	}
 	// Registry verification can take time. Re-read local authority before the
-	// caller patches its Deployment, so revocation during verification wins.
-	current, err := v.approvedImage(OperatorUpdate, image)
+	// caller submits credentials to a workload, so revocation during verification wins.
+	current, err := v.approvedImage(approval.Purpose, approval.Image)
 	if err != nil || current != approval {
 		return ErrVerificationDenied
 	}
 	currentTrust, err := v.keyFingerprint(current)
-	if err != nil || currentTrust != trust {
+	if err != nil || currentTrust != trust || ctx.Err() != nil {
 		return ErrVerificationDenied
 	}
 	return nil
@@ -228,7 +234,7 @@ func validKeyedPurpose(approval Approval) bool {
 	if approval.Purpose == OperatorUpdate {
 		return releaseVersionPattern.MatchString(approval.ReleaseVersion)
 	}
-	return (approval.Purpose == ThemeBuilder || approval.Purpose == Keycloak) && approval.ReleaseVersion == ""
+	return (approval.Purpose == ThemeBuilder || approval.Purpose == Keycloak || approval.Purpose == DatabaseBackup) && approval.ReleaseVersion == ""
 }
 
 func publicKeyFile(path string) bool {

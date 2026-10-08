@@ -20,6 +20,7 @@ const approvedThemeImage = "registry.example/hanko/theme-builder@sha256:" + "aaa
 const previousThemeImage = "registry.example/hanko/theme-builder@sha256:" + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 const approvedKeycloakImage = "registry.example/hanko/keycloak@sha256:" + "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
 const approvedOperatorImage = "registry.example/hanko/operator@sha256:" + "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+const approvedBackupImage = "registry.example/hanko/pgdump@sha256:" + "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
 
 type fixtureSignatureVerifier struct{ err error }
 
@@ -51,6 +52,7 @@ func fixtureValidator(t *testing.T, verifier imagevalidator.SignatureVerifier) *
 		{Purpose: imagevalidator.ThemeBuilder, Image: previousThemeImage, Revision: strings.Repeat("2", 40), KeyFile: "publisher.pub"},
 		{Purpose: imagevalidator.Keycloak, Image: approvedKeycloakImage, Revision: strings.Repeat("3", 40), KeyFile: "publisher.pub"},
 		{Purpose: imagevalidator.OperatorUpdate, Image: approvedOperatorImage, Revision: strings.Repeat("4", 40), KeyFile: "publisher.pub", ReleaseVersion: "0.1.0"},
+		{Purpose: imagevalidator.DatabaseBackup, Image: approvedBackupImage, Revision: strings.Repeat("5", 40), KeyFile: "publisher.pub"},
 	}
 	data, err := json.Marshal(map[string]any{"version": 1, "approvals": approvals})
 	if err != nil {

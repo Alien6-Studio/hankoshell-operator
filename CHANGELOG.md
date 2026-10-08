@@ -44,6 +44,9 @@ Managed instances require an explicit serving TLS Secret and expose native
 HTTPS/8443. HTTP requires both process and instance acknowledgements in standard
 profile; enterprise rejects it. Optimized images must include root-context health
 endpoints; the separate HTTP/9000 health listener has no Service or pod ingress.
+Database snapshots require an explicitly approved and publisher-verified image
+digest plus a dedicated backup Secret; the Job receives only selected libpq keys.
+Backup images need their own security review and database recovery qualification.
 
 Install the reviewed source chart, or the published
 `oci://ghcr.io/alien6-studio/charts/hankoshell-operator` chart at version `0.1.0`
@@ -103,6 +106,14 @@ response targets and supported versions are in SECURITY.md.
 - Security policy, code of conduct and secure deployment/trust documentation.
 
 ### Security
+
+- Remove the mutable default database snapshot image and broad DB Secret import.
+  Require an explicit `backupImage` digest/source/publisher approval scoped to
+  `database-backup`, live signature verification and a separate `backupSecretRef`.
+  Recheck approval/key revocation after all workload signature checks. Harden
+  backup pods with read-only root, RuntimeDefault seccomp and no Kubernetes token;
+  reject foreign/legacy/altered Jobs instead of trusting their name or completion.
+  Qualify schema, real Kubernetes Job round-trip and Restricted pod admission.
 
 - Make metrics disabled by default across the binary and Helm listener, port,
   Service, discovery and ingress. Separate optional ServiceMonitor discovery,

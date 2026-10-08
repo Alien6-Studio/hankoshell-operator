@@ -271,7 +271,9 @@ func setupControllers(
 		ProtectedClientIDs: protectedClientIDs, ProtectedRealm: protectedRealm,
 		RequireHTTPS: hubPolicy != nil,
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoImport")
-	fatalIfError((&controller.HankoSnapshotReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoSnapshot")
+	fatalIfError((&controller.HankoSnapshotReconciler{
+		Client: mgr.GetClient(), Scheme: mgr.GetScheme(), ImageValidator: imgValidator,
+	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoSnapshot")
 	fatalIfError((&controller.HankoOperationReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoOperation")
 }
 

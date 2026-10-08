@@ -176,6 +176,10 @@ func TestKubernetesCompatibility(t *testing.T) {
 		}
 	})
 
+	t.Run("database-snapshot-execution-contract", func(t *testing.T) {
+		checkSnapshotBackupContract(t, ctx, admin, scheme)
+	})
+
 	t.Run("chart-and-restricted-admission", func(t *testing.T) {
 		deployment := installCompatibilityChart(t, ctx, admin, chart, version, nil)
 		checkRestrictedAdmission(t, ctx, admin, deployment)

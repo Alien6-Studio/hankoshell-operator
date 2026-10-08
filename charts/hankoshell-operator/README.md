@@ -43,6 +43,15 @@ egress destinations. Without an approval, the Deployment stays unchanged.
 Remote decommission commands must carry a valid, unexpired time window.
 See [remote command authorization](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md#hub-remote-commands).
 
+Database snapshot Jobs also require `imageVerification.policyConfigMap`, with an
+exact `database-backup` digest/source/publisher approval. Set snapshot
+`spec.backupImage` and a dedicated `spec.backupSecretRef`; there is no default
+PostgreSQL image or implicit reuse of the Keycloak database credential. Only
+selected PostgreSQL connection keys enter the Job. Review its separate image
+security evidence and configure workload-specific database networking/storage;
+the operator image scan does not cover this executable. See the
+[database snapshot contract](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md#database-snapshot-jobs).
+
 `leaderElect: true` remains the default. An explicit `false` now reaches the
 manager flag (previously omission left its default enabled); use it only with
 one active writer. This is not a multi-replica failover mode.

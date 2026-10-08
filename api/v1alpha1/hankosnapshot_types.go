@@ -24,21 +24,36 @@ type HankoSnapshot struct {
 }
 
 // HankoSnapshotSpec defines the desired state of a snapshot operation.
+// +kubebuilder:validation:XValidation:rule="!has(self.includeData) || !self.includeData || (has(self.backupPVC) && has(self.backupImage) && has(self.backupSecretRef))",message="includeData requires backupPVC, backupImage and backupSecretRef"
 type HankoSnapshotSpec struct {
 	// InstanceRef is the name of the HankoKeycloakInstance to snapshot.
 	// +kubebuilder:validation:Required
 	InstanceRef string `json:"instanceRef"`
 
 	// IncludeData triggers a pg_dump Job in addition to the config snapshot.
-	// Requires the instance to be in managed mode with a Database secret,
-	// and BackupPVC must be set to a PVC where the dump file will be written.
-	// The postgres:16-alpine job image is separate from the scanned operator image
-	// and is not covered by the operator's image-signature verification policy.
+	// Requires managed mode, BackupPVC, an approved signed BackupImage and
+	// a dedicated BackupSecretRef. No mutable or default image is used.
 	IncludeData bool `json:"includeData,omitempty"`
 
 	// BackupPVC is the name of the PersistentVolumeClaim where the pg_dump output
 	// is written. Required when includeData is true.
+	// +kubebuilder:validation:MinLength=1
 	BackupPVC string `json:"backupPVC,omitempty"`
+
+	// BackupImage is an immutable pg_dump image approved for database-backup
+	// in the administrator-owned image policy. Its publisher signature and signed
+	// source revision are verified before Job submission. It must run as UID/GID 70
+	// with a read-only root filesystem. This separate image is not scanned as part
+	// of the operator release; administrators must review its own security evidence.
+	// +kubebuilder:validation:Pattern=`^[^@\s]+@sha256:[a-f0-9]{64}$`
+	BackupImage string `json:"backupImage,omitempty"`
+
+	// BackupSecretRef is a dedicated same-namespace Secret with PGHOST,
+	// PGDATABASE, PGUSER and PGPASSWORD; PGPORT and PGSSLMODE are optional.
+	// Only these keys enter the Job. It must differ from the instance's
+	// administrative, managed database and serving TLS Secrets.
+	// +kubebuilder:validation:MinLength=1
+	BackupSecretRef string `json:"backupSecretRef,omitempty"`
 }
 
 // HankoSnapshotStatus describes the observed state of the snapshot.

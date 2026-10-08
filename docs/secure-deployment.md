@@ -656,15 +656,86 @@ rotation audit delivery. The chart's default Keycloak connection does not requir
 this CRD. Follow the [rotation guidance](keycloak-permissions.md#credential-rotation).
 Audit failure can report degradation after a secret has already changed.
 
-Snapshots serialize supported operator configuration into a ConfigMap. Optional
-database Jobs use `postgres:16-alpine`, installation-specific credentials and a
-backup PVC. This mutable job image is **not** part of the scanned operator OCI
-artifact and is not checked by its theme/managed-Keycloak image verification
-policy. Qualify and control that image separately before enabling database Jobs.
-The Job is not covered by the operator Deployment's Restricted-admission
-qualification; validate its pod against the actual namespace admission policy.
-Its environment must supply PostgreSQL `pg_dump` connection settings, not only
-Keycloak `KC_DB_*` variables; the controller does not translate those variables.
+### Database snapshot Jobs
+
+Snapshots serialize supported operator configuration into a ConfigMap without
+running a database workload by default. `spec.includeData: true` requires managed
+mode with a database reference and all three explicit backup settings:
+
+```yaml
+apiVersion: hanko.sh/v1alpha1
+kind: HankoSnapshot
+metadata:
+  name: keycloak-backup
+  namespace: auth
+spec:
+  instanceRef: keycloak
+  includeData: true
+  backupPVC: keycloak-backups
+  backupImage: registry.example.org/iam/pgdump@sha256:<reviewed-image-digest>
+  backupSecretRef: keycloak-backup-credentials
+```
+
+Replace the digest placeholder with the full reviewed SHA-256. There is no image
+default or tag fallback. Configure `imageVerification.policyConfigMap` with the
+publisher's public key and an exact approval in its `policy.json`, for example:
+
+```json
+{
+  "version": 1,
+  "approvals": [{
+    "purpose": "database-backup",
+    "image": "registry.example.org/iam/pgdump@sha256:<reviewed-image-digest>",
+    "revision": "<reviewed-source-commit>",
+    "key_file": "backup-publisher.pub"
+  }]
+}
+```
+
+The publisher must sign that digest with the configured key and the
+`hanko.git.revision` annotation. The operator verifies the signature live before
+creating the credential-bearing Job, then rechecks local approval/key revocation.
+Theme, managed-Keycloak and operator-update approvals cannot authorize backups.
+Missing approval, mutable/unapproved reference, missing key, failed verification
+or registry unavailability fails closed with `UntrustedBackupImage`. No Job is
+submitted on those paths. Existing Jobs must be controlled by this snapshot and
+match its image, command, credentials, volumes and security settings; even a
+completed Job is not accepted by name alone. Admission-injected extra containers
+or changed execution settings fail this check. An approval removal does not kill
+an already-running pod; suspend/delete it and revoke its DB credential during an
+incident. Kubernetes admission and administrator control remain necessary.
+
+Create the backup Secret outside committed manifests. It must differ from the
+instance's administrative, managed database and serving TLS Secrets. Grant its DB
+identity only the connection/read privileges needed to dump the intended database;
+the operator does not inspect or reduce PostgreSQL grants. The Job references only
+`PGHOST`, `PGDATABASE`, `PGUSER` and `PGPASSWORD` (required nonempty), plus optional
+`PGPORT` and `PGSSLMODE`. Other Secret keys are not imported. Keycloak `KC_DB_*`
+settings are not translated. This check separates Secret references, not database
+identities: administrators must provision separate, appropriately limited DB
+credentials. Restrict Secret and snapshot writes to trusted administrators.
+
+The reviewed image must provide `pg_dump` on PATH and run under UID/GID **70**
+with a read-only root filesystem; there is no root fallback. The Job drops all
+capabilities, forbids privilege escalation, uses `RuntimeDefault` seccomp and has
+no automatically mounted Kubernetes service-account token. Only the backup PVC
+and scratch `/tmp` are writable; filesystem group 70 must work with the selected
+CSI/storage driver. Required Kubernetes CI verifies the generated Job round-trip
+and its pod's Restricted admission, not execution on a production database.
+
+The backup image is separate from the scanned operator OCI artifact. Before
+approving it, verify its own vulnerability scan, source/provenance, publisher
+signature and supported PostgreSQL client/server versions. A valid signature
+does not prove an image is safe. Configure independent default-deny networking
+and narrow DB egress for the Job; the Helm operator policy is not a backup-pod
+network policy. Database transport depends on the selected libpq settings and
+image trust store; signature verification does not encrypt DB traffic. Set and
+qualify certificate-verifying database TLS in the installation.
+
+**Migration:** apply the updated CRD, configure these explicit fields and approval,
+and create a new snapshot. Old mutable Jobs are not adopted or silently replaced;
+inspect and stop them before enabling the new path. Previously terminal snapshots
+remain historical records, not retroactive evidence of verified execution.
 Portable backup/restore, consistency and recovery across database versions or
 cloud providers are not qualified. `HankoOperation.snapshotBefore` creates only
 a configuration snapshot and does not establish a database rollback point.

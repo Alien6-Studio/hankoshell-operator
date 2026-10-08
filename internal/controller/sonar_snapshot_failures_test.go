@@ -49,7 +49,7 @@ func (c snapshotFaultClient) Get(ctx context.Context, key client.ObjectKey, obje
 	case *batchv1.Job:
 		kind = "job"
 	}
-	if kind == c.failGet {
+	if c.failGet != "" && kind == c.failGet {
 		return errors.New("injected get failure")
 	}
 	return c.Client.Get(ctx, key, object, options...)
@@ -136,17 +136,17 @@ func TestSnapshotInfrastructureFailuresAreCheckpointed(t *testing.T) {
 	})
 
 	t.Run("job lookup", func(t *testing.T) {
-		snapshot := &hankoshv1alpha1.HankoSnapshot{ObjectMeta: metav1.ObjectMeta{Name: "job-lookup", Namespace: "test"}, Spec: hankoshv1alpha1.HankoSnapshotSpec{IncludeData: true, BackupPVC: "backups"}}
-		reconciler := &HankoSnapshotReconciler{Client: snapshotFaultClient{Client: controllerTestClient(scheme, snapshot), failGet: "job"}}
+		snapshot := snapshotDataFixture()
+		reconciler := &HankoSnapshotReconciler{Client: snapshotFaultClient{Client: controllerTestClient(scheme, snapshot, snapshotBackupSecret(snapshot)), failGet: "job"}, ImageValidator: approvedFixtureValidator(t)}
 		if _, handled := reconciler.reconcileSnapshotData(ctx, snapshot, instance, client.MergeFrom(snapshot.DeepCopy())); !handled || conditionReason(snapshot.Status.Conditions, "SnapshotReady") != "JobGetError" {
 			t.Fatalf("job lookup failure = %#v", snapshot.Status)
 		}
 	})
 
 	t.Run("job create", func(t *testing.T) {
-		snapshot := &hankoshv1alpha1.HankoSnapshot{ObjectMeta: metav1.ObjectMeta{Name: "job-create", Namespace: "test"}}
-		base := controllerTestClient(scheme, snapshot)
-		reconciler := &HankoSnapshotReconciler{Client: snapshotFaultClient{Client: base, failCreate: "job"}, Scheme: scheme}
+		snapshot := snapshotDataFixture()
+		base := controllerTestClient(scheme, snapshot, snapshotBackupSecret(snapshot))
+		reconciler := &HankoSnapshotReconciler{Client: snapshotFaultClient{Client: base, failCreate: "job"}, Scheme: scheme, ImageValidator: approvedFixtureValidator(t)}
 		result := reconciler.createSnapshotJob(ctx, snapshot, instance, client.MergeFrom(snapshot.DeepCopy()), "snapshot-job")
 		if !result.IsZero() || conditionReason(snapshot.Status.Conditions, "SnapshotReady") != "JobCreateError" {
 			t.Fatalf("job create failure result=%v status=%#v", result, snapshot.Status)
