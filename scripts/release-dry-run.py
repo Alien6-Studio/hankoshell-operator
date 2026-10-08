@@ -28,6 +28,7 @@ def load(name, filename):
 
 contract = load("release_contract", "release-contract.py")
 attest = load("attest_release", "attest-release.py")
+publication = load("release_system_test", "release-system-test.py")
 FIXTURE_REPOSITORY_ID = "8d452bd5-e2f7-47b6-94f1-c3b2ac7b4aac"
 
 
@@ -174,6 +175,10 @@ def rehearse(args):
                     raise ValueError("Tampered Attest delivery was accepted")
             finally:
                 payload.write_bytes(original)
+            publication.qualify(args.output, args.archive, args.evidence, image, args.revision,
+                                args.oras, args.helm, args.attest, {
+                "KEY_ID": key_id, "PUBLIC_KEY": public_key, "TSA_CERTIFICATE": tsa_cert.read_text(),
+            })
         if list(args.output.rglob("*.key")):
             raise ValueError("Private signing material leaked into rehearsal artifacts")
     report = {
@@ -185,21 +190,22 @@ def rehearse(args):
                    "cosign_local_signature_and_tamper": "pass", "attest_five_checks_and_tamper": "pass"},
         "artifacts": sorted(path.name for path in dist.iterdir()),
         "limitations": ["ephemeral local key/TSA and fixture Artifact Hub ID; not production trust",
-                        "no image registry signing, GitHub OIDC, registry promotion or Artifact Hub indexing"],
+                        "no production image signing, GitHub OIDC, GitHub API publication or Artifact Hub indexing",
+                        "publication/retry uses an isolated registry and GitHub storage fixture"],
     }
     (args.output / "dry-run.json").write_text(json.dumps(report, indent=2) + "\n")
-    print("Nonpublishable release rehearsal passed; no tag, registry write or GitHub Release created.")
+    print("Nonpublishable release rehearsal passed; no tag, public registry write or GitHub Release created.")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("archive", "evidence", "output", "helm", "cosign", "attest", "openssl"):
+    for name in ("archive", "evidence", "output", "helm", "cosign", "attest", "openssl", "oras"):
         parser.add_argument("--" + name, type=Path, required=True)
     for name in ("digest", "revision"):
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--version", default=contract.VERSION)
     args = parser.parse_args()
-    for name in ("archive", "evidence", "output", "helm", "cosign", "attest", "openssl"):
+    for name in ("archive", "evidence", "output", "helm", "cosign", "attest", "openssl", "oras"):
         setattr(args, name, getattr(args, name).resolve())
     rehearse(args)
 

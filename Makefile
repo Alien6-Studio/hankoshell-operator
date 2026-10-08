@@ -14,7 +14,7 @@ KUBERNETES_VERSION ?= 1.37.0
 KEYCLOAK_VERSION ?= 26.8.0
 RELEASE_VERSION := 0.1.0
 
-.PHONY: all check fmt-check generate manifests generated-check build vet test chart-test integration-test keycloak-integration-test lint arch vuln install-tools release-dry-run
+.PHONY: all check fmt-check generate manifests generated-check build vet test chart-test integration-test keycloak-integration-test lint arch vuln install-tools release-dry-run system-test
 all: check build
 check: fmt-check vet test chart-test
 
@@ -73,4 +73,10 @@ release-dry-run:
 	python3 scripts/release-dry-run.py --version $(RELEASE_VERSION) --revision "$(REVISION)" \
 		--digest "$(DIGEST)" --archive "$(OCI_ARCHIVE)" --evidence "$(OCI_EVIDENCE)" \
 		--output "$(DRY_RUN_OUTPUT)" --helm "$$(command -v helm)" \
-		--cosign "$(COSIGN)" --attest "$(ATTEST)" --openssl "$(OPENSSL)"
+		--cosign "$(COSIGN)" --attest "$(ATTEST)" --openssl "$(OPENSSL)" --oras "$(ORAS)"
+
+system-test:
+	python3 scripts/system-test.py --archive "$(OCI_ARCHIVE)" --evidence "$(OCI_EVIDENCE)" \
+		--digest "$(DIGEST)" --revision "$(REVISION)" --output "$(SYSTEM_OUTPUT)" \
+		--kind "$(KIND)" --kubectl "$(KUBECTL)" --helm "$$(command -v helm)" \
+		--oras "$(ORAS)" --openssl "$(OPENSSL)"

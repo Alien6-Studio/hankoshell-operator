@@ -279,6 +279,20 @@ class ImageEvidenceTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 oci.verify(root, revision, "0.1.0", digest)
 
+    def test_historical_evidence_verification_is_not_a_fresh_release_gate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            digest, revision = "sha256:" + "a" * 64, "1" * 40
+            summary = write_evidence(root, revision, "0.1.0", digest)
+            summary["scanned_at"] = "2020-01-01T00:00:00+00:00"
+            (root / oci.SUMMARY).write_text(json.dumps(summary))
+            oci.verify(root, revision, "0.1.0", digest, fresh=False)
+            with self.assertRaises(ValueError):
+                oci.verify(root, revision, "0.1.0", digest)
+            (root / "trivy-arm64.json").write_text("{}")
+            with self.assertRaises(ValueError):
+                oci.verify(root, revision, "0.1.0", digest, fresh=False)
+
 
 class ReleaseWorkflowSecurityTests(unittest.TestCase):
     def test_scanned_digest_is_the_only_release_image_source_and_promotion_follows_attest(self):
@@ -293,7 +307,7 @@ class ReleaseWorkflowSecurityTests(unittest.TestCase):
         self.assertEqual(ci[True]["workflow_call"]["outputs"]["oci_digest"]["value"], "${{ jobs.oci.outputs.digest }}")
         self.assertEqual(ci[True]["workflow_call"]["outputs"]["oci_artifact_id"]["value"], "${{ jobs.oci.outputs.artifact_id }}")
         self.assertEqual(gate[True]["workflow_call"]["outputs"]["digest"]["value"], "${{ jobs.image.outputs.digest }}")
-        self.assertEqual(gate["jobs"]["image"]["outputs"]["digest"], "${{ steps.image.outputs.digest }}")
+        self.assertEqual(gate["jobs"]["image"]["outputs"]["digest"], "${{ steps.selection.outputs.digest }}")
         self.assertEqual(gate["jobs"]["image"]["outputs"]["artifact_id"], "${{ steps.archive.outputs.artifact-id }}")
         image = next(step for step in gate["jobs"]["image"]["steps"] if step.get("id") == "image")
         self.assertEqual(image["with"]["platforms"], "linux/amd64,linux/arm64")
@@ -305,7 +319,7 @@ class ReleaseWorkflowSecurityTests(unittest.TestCase):
         scan_step = next(step for step in gate_steps if "oci-security.py scan" in step.get("run", ""))
         self.assertNotIn("if", scan_step)
         self.assertFalse(scan_step.get("continue-on-error", False))
-        self.assertEqual(scan_step["env"]["DIGEST"], "${{ steps.image.outputs.digest }}")
+        self.assertEqual(scan_step["env"]["DIGEST"], "${{ steps.selection.outputs.digest }}")
         self.assertIn('--digest "$DIGEST"', scan_step["run"])
         steps = release["jobs"]["publish"]["steps"]
         download = next(step for step in steps if "download-artifact" in step.get("uses", ""))
@@ -320,10 +334,19 @@ class ReleaseWorkflowSecurityTests(unittest.TestCase):
         scan = next(i for i, step in enumerate(steps) if "oci-security.py verify --archive" in step.get("run", ""))
         sign = next(i for i, step in enumerate(steps) if '/tmp/cosign sign --yes' in step.get("run", ""))
         attest = next(i for i, step in enumerate(steps) if 'scripts/attest-release.py --attest' in step.get("run", ""))
-        promote = next(i for i, step in enumerate(steps) if 'oras" tag' in step.get("run", ""))
+        promote = next(i for i, step in enumerate(steps) if 'scripts/release-publish.py promote' in step.get("run", ""))
+        revalidate = next(i for i, step in enumerate(steps) if 'scripts/release-publish.py verify-attest' in step.get("run", ""))
+        commit = next(i for i, step in enumerate(steps) if 'scripts/release-publish.py save' in step.get("run", ""))
         self.assertLess(scan, sign)
         self.assertLess(sign, attest)
-        self.assertLess(attest, promote)
+        self.assertLess(attest, revalidate)
+        self.assertLess(revalidate, commit)
+        self.assertLess(commit, promote)
+        for index in (revalidate, commit, promote):
+            self.assertNotIn("if", steps[index])
+            self.assertFalse(steps[index].get("continue-on-error", False))
+        for required in ('scripts/oci-security.py scan', '--digest "$DIGEST"', '/tmp/cosign verify ', '/tmp/cosign verify-blob '):
+            self.assertIn(required, steps[revalidate]["run"])
         self.assertIn('image.tar@$DIGEST', steps[scan]["run"])
         self.assertIn('--image "$IMAGE@$DIGEST"', steps[sign]["run"])
         self.assertIn('--image "$IMAGE@$DIGEST"', steps[attest]["run"])
@@ -334,8 +357,10 @@ class ReleaseWorkflowSecurityTests(unittest.TestCase):
             self.assertIn(filename, packaging)
         self.assertIn("shutil.copyfile(security.POLICY", packaging)
         self.assertIn('$IMAGE:staging-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT', steps[scan]["run"])
-        self.assertIn('"$IMAGE@$DIGEST" "$VERSION"', steps[promote]["run"])
-        self.assertIn('"$IMAGE:$VERSION")" = "$DIGEST"', steps[promote]["run"])
+        self.assertIn('--root "$RUNNER_TEMP/hankoshell-delivery"', steps[promote]["run"])
+        selector = next(step for step in steps if step.get("name") == "Select one immutable delivery")
+        self.assertEqual(selector["env"]["BUILT_DIGEST"], bound)
+        self.assertEqual(selector["env"]["RESTORED_DIGEST"], "${{ steps.checkpoint.outputs.digest }}")
         for workflow in (ci, gate, release):
             for job in workflow["jobs"].values():
                 self.assertFalse(job.get("continue-on-error", False))

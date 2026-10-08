@@ -73,8 +73,16 @@ Failed gates cannot publish a new release image tag or chart.
 
 After these gates, package promotion and GitHub draft creation are separate
 network operations, not an atomic transaction. A later publication failure may
-leave already verified OCI packages available. Maintainers must inspect those
-references before retrying. GitHub Release publication is a separate manual step.
+leave already verified OCI packages available. Before promotion, the workflow
+commits the complete verified delivery under a non-release
+`delivery-candidate-0.1.0` OCI reference. A retry resolves and restores that
+checkpoint by digest, rescans its exact AMD64/ARM64 archive under the current
+policy, verifies the existing Sigstore signatures and recomputes Attest evidence.
+The original signed scan remains historical evidence; it cannot replace the
+fresh scan required on every attempt. Matching versioned packages and draft
+assets are reused, while conflicts fail before publication writes. Actions
+concurrency serializes release runs; registry/GitHub administrators remain trusted
+writers. GitHub Release publication is a separate manual step.
 
 Release assets include `oci-security.json`, both complete `trivy-*.json` reports
 and the reviewed policy. Their hashes enter the signed checksums and Attest
@@ -87,7 +95,9 @@ alone proves absence of vulnerabilities, and Attest does not supervise the build
 
 The required release dry run packages the scanned image's digest and exercises
 local signatures and RFC 3161 timestamps with ephemeral fixture trust. It never
-publishes packages, tags or releases. It does not qualify production GitHub OIDC,
+publishes public packages, tags or releases. It exercises native ORAS/Helm
+publication in an isolated registry, including lost acknowledgements after every
+publication write; GitHub release storage is a fixture. It does not qualify production GitHub OIDC,
 the release signer/TSA configuration, registry access or Artifact Hub ownership.
 The Attest receipt public key is not a Helm OpenPGP chart-signing key.
 

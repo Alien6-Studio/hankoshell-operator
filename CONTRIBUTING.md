@@ -10,6 +10,9 @@ Run `python3 -m unittest discover -s scripts -p 'test_*.py'`, both real Keycloak
 versions and the three Kubernetes fixtures listed in CI. The final OCI scan
 and [nonpublishing release rehearsal](docs/secure-deployment.md#release-rehearsal-and-publication)
 are required CI checks; a source-only test run is not release qualification.
+The installed-system check combines the chart, scanned OCI image, real kind
+Kubernetes and HTTPS Keycloak. The release rehearsal also tests interrupted
+publication/retry against a disposable registry and a GitHub storage fixture.
 `make lint` installs and verifies golangci-lint in the ignored `.tools` directory.
 Behavior changes need meaningful regression tests. Changes to CRDs, provider
 ownership, deletion, adoption, or authentication need migration and rollback

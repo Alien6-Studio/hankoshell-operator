@@ -221,7 +221,7 @@ def scan(args):
             raise ValueError("Fixable HIGH/CRITICAL vulnerabilities block the OCI delivery; inspect the JSON reports")
 
 
-def verify(evidence, revision, version, digest, archive=None):
+def verify(evidence, revision, version, digest, archive=None, *, fresh=True):
     policy = read_policy()
     summary = json.loads((evidence / SUMMARY).read_text())
     if (summary.get("schema_version") != 1 or summary.get("verdict") != "pass" or summary.get("revision") != revision
@@ -231,7 +231,7 @@ def verify(evidence, revision, version, digest, archive=None):
         raise ValueError("OCI security evidence identity or policy mismatch")
     scanned = datetime.fromisoformat(summary["scanned_at"])
     now = datetime.now(timezone.utc)
-    if not now - timedelta(hours=24) <= scanned <= now + timedelta(minutes=5):
+    if scanned > now + timedelta(minutes=5) or (fresh and scanned < now - timedelta(hours=24)):
         raise ValueError("OCI scan must belong to a fresh delivery")
     records = image_manifests(archive, digest) if archive else None
     if archive and summary["archive_sha256"] != sha256(archive):

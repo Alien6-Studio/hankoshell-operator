@@ -130,6 +130,8 @@ The chart targets Kubernetes **1.35–1.37** on Linux nodes. Required CI checks
 qualify all 16 CRDs, server-side apply, namespace/credential RBAC boundaries and
 Restricted Pod Security admission against each minor version. Optional AppArmor
 and stable user namespaces extend the baseline when supported by the nodes.
+An installed-system test also runs the scanned image through Helm on Kubernetes
+1.37.0 with real HTTPS Keycloak 26.8.0, including drift recovery after restart.
 See the [compatibility and hardening matrix](docs/secure-deployment.md#kubernetes-compatibility-and-hardening).
 Published artifacts and evidence are listed in the
 [release history](https://github.com/Alien6-Studio/hankoshell-operator/releases).
@@ -330,10 +332,12 @@ before 1.0. See the [curated release
 overview](CHANGELOG.md#release-overview) for capabilities and qualification limits.
 
 The [release rehearsal](docs/secure-deployment.md#release-rehearsal-and-publication)
-is required CI and never publishes artifacts. Production delivery additionally
+is required CI and writes only to an isolated test registry. Production delivery additionally
 requires configured release trust, public registry access and an assigned
 Artifact Hub repository ID. OCI promotion and GitHub draft creation are separate
 operations; verified packages can exist before the GitHub Release is published.
+Retries restore the committed delivery, rescan its exact image and reuse matching
+packages and draft assets. Conflicting content stops publication.
 
 ## Development
 
@@ -364,6 +368,15 @@ ephemeral credentials and certificate trust, reconciles through the real Admin
 API, and removes only its own container. Startup failures fail the test. Both
 Keycloak versions are required in PR, weekly and release quality checks; the
 suite uses a fake Kubernetes client alongside the separate real Kubernetes matrix.
+
+`make system-test` installs the chart and scanned OCI image in a disposable kind
+1.37.0 cluster with HTTPS Keycloak 26.8.0. It exercises real controllers, Secrets,
+scoped RBAC, realm/application/role reconciliation, observation, restart/drift
+recovery and finalizer deletion. It requires Docker, checksum-pinned kind/kubectl,
+Helm 3.17.0, pinned ORAS and the fresh OCI archive/evidence from CI; see the
+[reproduction command](docs/secure-deployment.md#installed-system-test).
+The single-node/dev-file fixture does not qualify CNI policy enforcement, cloud
+providers, production databases, enterprise fleet integration or disaster recovery.
 
 [Contributing](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md) ·
 [Report a vulnerability](SECURITY.md) ·

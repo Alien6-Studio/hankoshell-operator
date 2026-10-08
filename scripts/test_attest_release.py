@@ -26,7 +26,7 @@ class QualificationGateTests(unittest.TestCase):
         aggregate = workflow["jobs"]["checks"]
         self.assertEqual(aggregate["name"], "Source and chart checks")
         self.assertEqual(aggregate["if"], "always()")
-        self.assertEqual(set(aggregate["needs"]), {"source", "kubernetes", "keycloak", "oci", "rehearsal"})
+        self.assertEqual(set(aggregate["needs"]), {"source", "kubernetes", "keycloak", "oci", "rehearsal", "system"})
         step = aggregate["steps"][0]
         dependencies = {f"${{{{ needs.{job}.result }}}}" for job in aggregate["needs"]}
         self.assertEqual(set(step["env"].values()), dependencies)

@@ -769,6 +769,45 @@ the database Secret reference without migrating data. Operation `dryRun` skips
 planned steps; it does not validate provider compatibility or recoverability.
 These operations are not a tested disaster-recovery workflow.
 
+## Installed system test
+
+Required CI installs the source chart and the exact scanned multi-architecture
+image graph on a disposable kind Kubernetes **1.37.0** node, with real HTTPS
+Keycloak **26.8.0** and an ephemeral private CA. The actual operator process uses
+the chart's namespaced service account; its Keycloak service account has only
+`manage-realm`, `manage-clients` and `manage-events` in the existing target realm.
+Bootstrap administration provisions the fixture and independently checks results.
+Normal reconciliation never uses the bootstrap credential.
+
+This exercises installation/startup under Restricted admission, namespace RBAC,
+readiness/write denial with a wrong Keycloak CA and recovery after trust repair,
+realm/application/role reconciliation, Secret storage, Observe preservation,
+drift recovery after a manager restart without duplicate clients or credential
+rotation, and managed finalizer deletion. Denied master/user/identity-provider
+administration and realm creation are asserted. Logs, events and CRDs are checked
+for credentials. The mirror registry binds only loopback and retains the original
+OCI digest; HTTP there is limited to disposable image transfer, while all
+Keycloak administrative traffic uses verified HTTPS.
+
+Reproduce with the fresh archive and evidence from the OCI security job:
+
+```sh
+python3 scripts/install-system-tools.py /tmp/hankoshell-system-tools
+GOBIN=/tmp/hankoshell-system-tools go install oras.land/oras/cmd/oras@v1.3.4
+make system-test REVISION="$reviewed_revision" DIGEST="$scanned_digest" \
+  OCI_ARCHIVE="$archive_path" OCI_EVIDENCE="$evidence_directory" \
+  SYSTEM_OUTPUT="$report_path" KIND=/tmp/hankoshell-system-tools/kind \
+  KUBECTL=/tmp/hankoshell-system-tools/kubectl ORAS=/tmp/hankoshell-system-tools/oras \
+  OPENSSL="$(command -v openssl)"
+```
+
+Use pinned Helm 3.17.0, OpenSSL 3, the Python requirements and a running Docker
+daemon. Only uniquely named test-owned clusters/containers are removed. The
+single-node/dev-file fixture does not qualify production database operations,
+CNI/CSI, cloud providers, browser login, enterprise fleet integration or recovery.
+kindnet does not enforce NetworkPolicy; the separate chart/API tests check its
+configuration, while installation-specific enforcement still needs qualification.
+
 ## Release rehearsal and publication
 
 0.1.0 is a normal SemVer release in initial development. The experimental
@@ -786,23 +825,30 @@ are checked. Native pinned cosign signs the checksum payload with an ephemeral
 local key; OpenSSL verifies the signature and rejects tampering. Native Continuum
 Attest signs and timestamps the delivery using an ephemeral Ed25519 identity and
 loopback RFC 3161 TSA. All five native checks and a tamper rejection must pass.
+Native ORAS and Helm then exercise checkpoint storage/restore and package
+promotion in an isolated registry. The test loses the acknowledgement after each
+publication write, resumes the delivery and checks that completed writes are not
+repeated. GitHub draft/asset storage is an in-memory fixture, not a production API
+test. Conflicting release assets must fail before any publication write.
 
 To reproduce with the **fresh archive/evidence from the OCI security job**:
 
 ```sh
 bash scripts/install-cosign.sh /tmp/hankoshell-rehearsal-tools/cosign
 bash scripts/install-attest.sh /tmp/hankoshell-rehearsal-tools/attest
+GOBIN=/tmp/hankoshell-rehearsal-tools go install oras.land/oras/cmd/oras@v1.3.4
 make release-dry-run REVISION="$reviewed_revision" DIGEST="$scanned_digest" \
   OCI_ARCHIVE="$archive_path" OCI_EVIDENCE="$evidence_directory" \
   DRY_RUN_OUTPUT="$fresh_output_directory" \
   COSIGN=/tmp/hankoshell-rehearsal-tools/cosign \
-  ATTEST=/tmp/hankoshell-rehearsal-tools/attest OPENSSL="$(command -v openssl)"
+  ATTEST=/tmp/hankoshell-rehearsal-tools/attest ORAS=/tmp/hankoshell-rehearsal-tools/oras \
+  OPENSSL="$(command -v openssl)"
 ```
 
 Use OpenSSL 3, pinned Helm 3.17.0 and the Python dependencies in
 `scripts/requirements.txt`. The report is explicitly `publishable: false`; its
 keys, TSA and Artifact Hub ID are fixtures. No private key is retained in its
-artifacts. It never pushes a registry reference, creates a tag/GitHub Release or
+artifacts. It writes only to its disposable loopback registry, never creates a tag/GitHub Release or
 changes Artifact Hub. The local signature proves payload binding, **not** GitHub
 OIDC/Fulcio/Rekor trust. Production image signatures remain keyless Sigstore with
 issuer `https://token.actions.githubusercontent.com` and exact certificate identity
@@ -819,10 +865,35 @@ or a chart signature. The named Attest key link is not Helm OpenPGP `.prov` sign
 Publication consumes the same scanned archive without rebuilding, stages it under
 a non-release reference, verifies real image/blob Sigstore signatures and strict
 Attest delivery evidence, then promotes the digest, chart and catalog metadata.
-Only after that does it create the GitHub draft. These network writes are not an
-atomic transaction: a later failure may leave already verified packages available.
-Inspect exact registry digests and existing drafts before retrying; do not rebuild
-or substitute a different digest to work around a failed gate.
+Before promotion it commits the archive, packaged chart, signatures, checksums
+and Attest evidence under `delivery-candidate-0.1.0`, an explicitly non-release
+OCI checkpoint. Every retry resolves that reference once, restores it by digest
+and reuses its exact bytes rather than rebuilding/repackaging them. A different
+source revision or conflicting candidate is rejected. Do not delete or retag the
+checkpoint to force a different delivery through.
+Release qualification restores that same archive before the OCI scan, installed
+system test and rehearsal, so a retry tests the committed image rather than a
+newly built substitute. Ordinary PR CI still builds and scans its own image.
+
+Every attempt performs a fresh Trivy scan of the committed AMD64/ARM64 archive
+under the current policy, re-verifies the existing image and checksum Sigstore
+signatures, and recomputes the original Attest receipt with the configured trusted
+signer/TSA. Historical signed scan reports retain their original timestamps and
+do not satisfy the fresh gate. If the candidate is now vulnerable or its trusted
+signer has changed, publication stops; an administrator must review the incident
+and prepare a separately reviewed version rather than overwrite this version.
+Current-attempt scan reports are retained separately as the Actions
+`release-revalidation-<run>-<attempt>` artifact, including failed verdicts. They
+do not replace the original signed release evidence.
+
+Only matching versioned image digests, chart bytes, catalog metadata and draft
+assets are reused. Missing writes are resumed; conflicting content fails during
+preflight, without overwriting it. Matching published releases are read-only.
+An interrupted upload that succeeded remotely is recognized on retry. GitHub
+draft creation remains after verified package promotion. These writes are not
+atomic: later failures may leave verified packages or a partial draft available.
+Actions concurrency serializes release workflows; other registry/release writers
+are trusted administrators and must not race this workflow.
 
 ## Upgrade and rollback
 

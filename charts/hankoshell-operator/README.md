@@ -11,6 +11,10 @@ real API-server/etcd fixtures to check CRDs, server-side apply, RBAC and Restric
 admission on each minor. Future minors and upstream alpha/beta/RC builds are rejected
 until qualified. Install the latest provider security patch; fixed CI fixtures
 do not certify nodes, CNI/CSI or cloud-provider behavior.
+Required CI additionally installs this chart with the scanned operator image on
+kind Kubernetes 1.37.0 and real HTTPS Keycloak 26.8.0, then tests reconciliation,
+restart recovery and deletion. kindnet does not enforce NetworkPolicy; this test
+does not establish production network or database qualification.
 
 `hardening.appArmor: true` requests `RuntimeDefault` on AppArmor-enabled nodes.
 `hardening.userNamespaces: true` sets `hostUsers: false` and requires Kubernetes

@@ -71,7 +71,7 @@ def validate_verdict(report, signer, receipt):
         raise ValueError("All five native Attest checks must pass")
 
 
-def delivery_files(dist, version, revision, image):
+def delivery_files(dist, version, revision, image, *, fresh_scan=True):
     expected = {f"hankoshell-operator-{version}.tgz", "image-digest.txt",
                 "source-revision.txt", "checksums.txt", "checksums.sigstore.json",
                 "artifacthub-repo.yml", PUBLIC_KEY_FILE, "oci-security.json",
@@ -94,7 +94,7 @@ def delivery_files(dist, version, revision, image):
         raise ValueError("Delivery artifact checksum mismatch")
     if files["oci-vulnerability-policy.json"].read_bytes() != oci_security.POLICY.read_bytes():
         raise ValueError("Delivered OCI vulnerability policy mismatch")
-    oci_security.verify(dist, revision, version, image.split("@")[1])
+    oci_security.verify(dist, revision, version, image.split("@")[1], fresh=fresh_scan)
     with tarfile.open(files[f"hankoshell-operator-{version}.tgz"]) as chart:
         values = yaml.safe_load(chart.extractfile("hankoshell-operator/values.yaml"))
         metadata = yaml.safe_load(chart.extractfile("hankoshell-operator/Chart.yaml"))

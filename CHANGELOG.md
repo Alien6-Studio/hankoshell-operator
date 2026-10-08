@@ -27,6 +27,10 @@ including reconciliation, least-privilege identities, denied operations and
 ownership/finalizers. Other Keycloak patches/major lines and Kubernetes minors
 are unqualified. This is not cloud, node, CNI/CSI, browser-login or production
 database qualification.
+An installed-system test combines Helm, the scanned operator OCI image, kind
+Kubernetes **1.37.0** and HTTPS Keycloak **26.8.0**, including manager restart,
+drift repair, namespace RBAC and finalizer deletion. Its single-node/dev-file
+fixture does not qualify NetworkPolicy enforcement or production recovery.
 
 Administrative transport requires verified HTTPS by default. Intentionally
 trusted HTTP requires an explicit standard-profile acknowledgement; enterprise
@@ -71,6 +75,12 @@ response targets and supported versions are in SECURITY.md.
 
 ### Added
 
+- Required installed-system qualification combining the chart, scanned OCI image,
+  real Kubernetes and HTTPS Keycloak with a target-realm service account.
+- Native OCI/Helm publication rehearsal with interruption after every external
+  publication write, checkpoint restore, content conflicts and read-only retries
+  against matching drafts/published releases; GitHub storage remains a fixture.
+
 - Shared release packaging contract and a required nonpublishing rehearsal using
   the exact scanned OCI archive, curated notes, checksums, local cosign signature
   and native signed/timestamped/recomputed Continuum Attest fixture evidence.
@@ -106,6 +116,11 @@ response targets and supported versions are in SECURITY.md.
 - Security policy, code of conduct and secure deployment/trust documentation.
 
 ### Security
+
+- Commit a verified delivery checkpoint before release promotion. Retries reuse
+  its exact image/chart/signatures/Attest bytes, rescan the committed image under
+  the current policy and verify native trust again. Reuse matching packages and
+  draft assets; fail on conflicting digests/content instead of overwriting.
 
 - Bound every Keycloak HTTP response in the reviewed permission gateway: 1 MiB
   Admin representations, 64 KiB tokens/client secrets and 8 KiB non-2xx responses.
