@@ -1,0 +1,38 @@
+{{- if .Values.meshPolicyAudit.enabled }}
+{{- $releaseNamespace := .Release.Namespace }}
+{{- $fullname := include "hanko-operator.fullname" . }}
+{{- $labels := include "hanko-operator.labels" . }}
+{{- range $namespace := .Values.meshPolicyAudit.egressNamespaces }}
+{{- if not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $namespace) }}{{ fail (printf "meshPolicyAudit.egressNamespaces contains invalid namespace %s" $namespace) }}{{ end }}
+{{- if ne $namespace $releaseNamespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $fullname }}-mesh-egress-reader
+  namespace: {{ $namespace }}
+  labels:
+    {{- $labels | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $fullname }}-mesh-egress-reader
+  namespace: {{ $namespace }}
+  labels:
+    {{- $labels | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $fullname }}-mesh-egress-reader
+subjects:
+  - kind: ServiceAccount
+    name: {{ $fullname }}
+    namespace: {{ $releaseNamespace }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,221 @@
+name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing immutable SemVer tag on reviewed main (for example v0.1.0)
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: operator-release
+  cancel-in-progress: false
+jobs:
+  eligibility:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag_object: ${{ steps.identity.outputs.tag_object }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Require public launch and exact release tag and source identities
+        id: identity
+        env:
+          TAG: ${{ inputs.tag }}
+          REF: ${{ github.ref }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 scripts/release-eligibility.py
+  quality:
+    needs: eligibility
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/ci.yml
+    with:
+      release: true
+  publish:
+    needs: [eligibility, quality]
+    environment: release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Recheck exact release identities before publication
+        env:
+          EXPECTED_TAG_OBJECT: ${{ needs.eligibility.outputs.tag_object }}
+          TAG: ${{ inputs.tag }}
+          REF: ${{ github.ref }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/release-eligibility.py
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.1'
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install metadata dependencies and pinned OCI publisher
+        run: |
+          python3 -m pip install -r scripts/requirements.txt
+          GOBIN="$RUNNER_TEMP/hankoshell-release-tools" go install oras.land/oras/cmd/oras@v1.3.4
+          curl -fLsS https://get.helm.sh/helm-v3.17.0-linux-amd64.tar.gz -o /tmp/helm.tgz
+          echo 'fb5d12662fde6eeff36ac4ccacbf3abed96b0ee2de07afdde4edb14e613aee24  /tmp/helm.tgz' | sha256sum -c -
+          tar -xzf /tmp/helm.tgz -C /tmp
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Validate release identity
+        env:
+          TAG: ${{ inputs.tag }}
+          HANKOSHELL_ATTEST_SIGNING_KEY: ${{ secrets.HANKOSHELL_ATTEST_SIGNING_KEY }}
+          HANKOSHELL_ATTEST_KEY_ID: ${{ vars.HANKOSHELL_ATTEST_KEY_ID }}
+          HANKOSHELL_ATTEST_PUBLIC_KEY: ${{ vars.HANKOSHELL_ATTEST_PUBLIC_KEY }}
+          HANKOSHELL_ATTEST_TSA_URL: ${{ vars.HANKOSHELL_ATTEST_TSA_URL }}
+          HANKOSHELL_ATTEST_TSA_CERTIFICATE: ${{ vars.HANKOSHELL_ATTEST_TSA_CERTIFICATE }}
+          HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID: ${{ vars.HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID }}
+        run: |
+          python3 scripts/attest-release.py --check-config
+          python3 scripts/release-metadata.py --check-config
+          version="${TAG#v}"
+          python3 scripts/release-contract.py check --version "$version"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo 'IMAGE=ghcr.io/alien6-studio/hankoshell-operator' >> "$GITHUB_ENV"
+      - name: Download the immutable scanned OCI artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ needs.quality.outputs.oci_artifact_id }}
+          path: ${{ runner.temp }}/hankoshell-scanned-oci
+          merge-multiple: true
+      - name: Restore the committed delivery for an interrupted retry
+        id: checkpoint
+        env:
+          CANDIDATE_DIGEST: ${{ needs.quality.outputs.release_candidate }}
+        run: |
+          python3 scripts/release-publish.py restore --root "$RUNNER_TEMP/hankoshell-delivery" \
+            --candidate-digest "$CANDIDATE_DIGEST" \
+            --version "$VERSION" --revision "$GITHUB_SHA" \
+            --oras "$RUNNER_TEMP/hankoshell-release-tools/oras" --helm /tmp/linux-amd64/helm
+      - name: Select one immutable delivery
+        env:
+          RESTORED: ${{ steps.checkpoint.outputs.restored }}
+          RESTORED_DIGEST: ${{ steps.checkpoint.outputs.digest }}
+          BUILT_DIGEST: ${{ needs.quality.outputs.oci_digest }}
+        run: |
+          if test "$RESTORED" = true; then
+            echo "DIGEST=$RESTORED_DIGEST" >> "$GITHUB_ENV"
+          else
+            mkdir -p "$RUNNER_TEMP/hankoshell-delivery"
+            cp "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" "$RUNNER_TEMP/hankoshell-delivery/image.tar"
+            echo "DIGEST=$BUILT_DIGEST" >> "$GITHUB_ENV"
+          fi
+      - name: Verify scan binding and upload a non-release staging reference
+        if: steps.checkpoint.outputs.restored != 'true'
+        run: |
+          python3 scripts/oci-security.py verify --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
+            --output "$RUNNER_TEMP/hankoshell-scanned-oci/evidence" \
+            --digest "$DIGEST" --revision "$GITHUB_SHA" --version "$VERSION"
+          "$RUNNER_TEMP/hankoshell-release-tools/oras" cp --from-oci-layout \
+            "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar@$DIGEST" \
+            "$IMAGE:staging-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          test "$("$RUNNER_TEMP/hankoshell-release-tools/oras" resolve "$IMAGE:staging-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT")" = "$DIGEST"
+      - name: Sign exact image and package the chart
+        if: steps.checkpoint.outputs.restored != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+          HANKOSHELL_ATTEST_PUBLIC_KEY: ${{ vars.HANKOSHELL_ATTEST_PUBLIC_KEY }}
+          HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID: ${{ vars.HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID }}
+        run: |
+          bash scripts/install-cosign.sh /tmp/cosign
+          /tmp/cosign sign --yes -a "hanko.git.revision=$GITHUB_SHA" "$IMAGE@$DIGEST"
+          /tmp/cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity "https://github.com/$GITHUB_WORKFLOW_REF" \
+            -a "hanko.git.revision=$GITHUB_SHA" "$IMAGE@$DIGEST"
+          python3 scripts/release-contract.py prepare --version "$VERSION" --image "$IMAGE@$DIGEST" \
+            --revision "$GITHUB_SHA" --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
+            --evidence "$RUNNER_TEMP/hankoshell-scanned-oci/evidence" \
+            --chart-output "$RUNNER_TEMP/hankoshell-release-chart/hankoshell-operator" --dist "$RUNNER_TEMP/hankoshell-delivery/dist" \
+            --helm /tmp/linux-amd64/helm
+          /tmp/cosign sign-blob --yes --bundle "$RUNNER_TEMP/hankoshell-delivery/dist/checksums.sigstore.json" "$RUNNER_TEMP/hankoshell-delivery/dist/checksums.txt"
+          /tmp/cosign verify-blob --bundle "$RUNNER_TEMP/hankoshell-delivery/dist/checksums.sigstore.json" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity "https://github.com/$GITHUB_WORKFLOW_REF" "$RUNNER_TEMP/hankoshell-delivery/dist/checksums.txt"
+      - name: Sign, timestamp and verify the delivery with Continuum Attest
+        if: steps.checkpoint.outputs.restored != 'true'
+        env:
+          HANKOSHELL_ATTEST_SIGNING_KEY: ${{ secrets.HANKOSHELL_ATTEST_SIGNING_KEY }}
+          HANKOSHELL_ATTEST_KEY_ID: ${{ vars.HANKOSHELL_ATTEST_KEY_ID }}
+          HANKOSHELL_ATTEST_PUBLIC_KEY: ${{ vars.HANKOSHELL_ATTEST_PUBLIC_KEY }}
+          HANKOSHELL_ATTEST_TSA_URL: ${{ vars.HANKOSHELL_ATTEST_TSA_URL }}
+          HANKOSHELL_ATTEST_TSA_CERTIFICATE: ${{ vars.HANKOSHELL_ATTEST_TSA_CERTIFICATE }}
+        run: |
+          bash scripts/install-attest.sh "$RUNNER_TEMP/hankoshell-attest/attest"
+          python3 scripts/attest-release.py --attest "$RUNNER_TEMP/hankoshell-attest/attest" \
+            --dist "$RUNNER_TEMP/hankoshell-delivery/dist" --workspace "$RUNNER_TEMP/hankoshell-attest-delivery" \
+            --output "$RUNNER_TEMP/hankoshell-delivery/release-evidence" --revision "$GITHUB_SHA" --version "$VERSION" \
+            --image "$IMAGE@$DIGEST" \
+            --run-url "https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+      - name: Remove temporary signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/hankoshell-attest-delivery/.attest/keys/"*.key
+      - name: Prepare the local checkpoint manifest
+        if: steps.checkpoint.outputs.restored != 'true'
+        run: |
+          python3 scripts/release-publish.py manifest --root "$RUNNER_TEMP/hankoshell-delivery" \
+            --image "$IMAGE@$DIGEST" --version "$VERSION" --revision "$GITHUB_SHA" \
+            --oras "$RUNNER_TEMP/hankoshell-release-tools/oras" --helm /tmp/linux-amd64/helm
+      - name: Revalidate the committed image and delivery on every attempt
+        env:
+          HANKOSHELL_ATTEST_KEY_ID: ${{ vars.HANKOSHELL_ATTEST_KEY_ID }}
+          HANKOSHELL_ATTEST_PUBLIC_KEY: ${{ vars.HANKOSHELL_ATTEST_PUBLIC_KEY }}
+          HANKOSHELL_ATTEST_TSA_CERTIFICATE: ${{ vars.HANKOSHELL_ATTEST_TSA_CERTIFICATE }}
+        run: |
+          bash scripts/install-cosign.sh /tmp/cosign
+          bash scripts/install-attest.sh "$RUNNER_TEMP/hankoshell-attest/attest"
+          python3 scripts/install-trivy.py "$RUNNER_TEMP/trivy"
+          python3 scripts/oci-security.py scan --archive "$RUNNER_TEMP/hankoshell-delivery/image.tar" \
+            --output "$RUNNER_TEMP/fresh-scan" --scanner "$RUNNER_TEMP/trivy" \
+            --digest "$DIGEST" --revision "$GITHUB_SHA" --version "$VERSION"
+          /tmp/cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity "https://github.com/$GITHUB_WORKFLOW_REF" \
+            -a "hanko.git.revision=$GITHUB_SHA" "$IMAGE@$DIGEST"
+          /tmp/cosign verify-blob --bundle "$RUNNER_TEMP/hankoshell-delivery/dist/checksums.sigstore.json" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity "https://github.com/$GITHUB_WORKFLOW_REF" \
+            "$RUNNER_TEMP/hankoshell-delivery/dist/checksums.txt"
+          python3 scripts/release-publish.py verify-attest --root "$RUNNER_TEMP/hankoshell-delivery" \
+            --version "$VERSION" --revision "$GITHUB_SHA" --attest "$RUNNER_TEMP/hankoshell-attest/attest" \
+            --oras "$RUNNER_TEMP/hankoshell-release-tools/oras" --helm /tmp/linux-amd64/helm
+      - name: Preserve current-attempt image revalidation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-revalidation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/fresh-scan
+          if-no-files-found: ignore
+          retention-days: 30
+      - name: Commit the verified delivery before promotion
+        run: |
+          python3 scripts/release-publish.py save --root "$RUNNER_TEMP/hankoshell-delivery" \
+            --image "$IMAGE@$DIGEST" --version "$VERSION" --revision "$GITHUB_SHA" \
+            --oras "$RUNNER_TEMP/hankoshell-release-tools/oras" --helm /tmp/linux-amd64/helm
+      - name: Resume publication without replacing existing content
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$GH_TOKEN" | /tmp/linux-amd64/helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          python3 scripts/release-publish.py promote --root "$RUNNER_TEMP/hankoshell-delivery" \
+            --version "$VERSION" --revision "$GITHUB_SHA" \
+            --oras "$RUNNER_TEMP/hankoshell-release-tools/oras" --helm /tmp/linux-amd64/helm

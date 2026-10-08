@@ -1,0 +1,113 @@
+name: OCI security
+on:
+  workflow_call:
+    inputs:
+      release:
+        type: boolean
+        default: false
+    outputs:
+      digest:
+        description: Scanned immutable multi-architecture image index
+        value: ${{ jobs.image.outputs.digest }}
+      artifact_id:
+        description: Immutable archive and scan-evidence artifact ID
+        value: ${{ jobs.image.outputs.artifact_id }}
+      candidate_digest:
+        description: Immutable committed delivery selected for a release retry
+        value: ${{ jobs.image.outputs.candidate_digest }}
+permissions:
+  contents: read
+jobs:
+  image:
+    name: Final OCI image security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      digest: ${{ steps.selection.outputs.digest }}
+      artifact_id: ${{ steps.archive.outputs.artifact-id }}
+      candidate_digest: ${{ steps.checkpoint.outputs.candidate_digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Prepare immutable artifact directory
+        run: mkdir -p "$RUNNER_TEMP/hankoshell-oci"
+      - name: Acquire checksum-pinned Trivy
+        run: python3 scripts/install-trivy.py "$RUNNER_TEMP/trivy"
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        if: inputs.release
+        with:
+          go-version: '1.27.1'
+      - name: Restore a committed release image before qualification
+        id: checkpoint
+        if: inputs.release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 -m pip install -r scripts/requirements.txt
+          GOBIN="$RUNNER_TEMP/retry-tools" go install oras.land/oras/cmd/oras@v1.3.4
+          printf '%s' "$GH_TOKEN" | "$RUNNER_TEMP/retry-tools/oras" login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          python3 scripts/release-publish.py restore --root "$RUNNER_TEMP/committed-delivery" \
+            --version 0.1.0 --revision "$GITHUB_SHA" \
+            --oras "$RUNNER_TEMP/retry-tools/oras" --helm /unused/helm
+          if test -f "$RUNNER_TEMP/committed-delivery/image.tar"; then
+            cp "$RUNNER_TEMP/committed-delivery/image.tar" "$RUNNER_TEMP/hankoshell-oci/image.tar"
+          fi
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        id: image
+        if: steps.checkpoint.outputs.restored != 'true'
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+          outputs: type=oci,dest=${{ runner.temp }}/hankoshell-oci/image.tar
+          build-args: VERSION=0.1.0
+          labels: |
+            org.opencontainers.image.source=https://github.com/Alien6-Studio/hankoshell-operator
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=Apache-2.0
+          provenance: mode=max
+          sbom: true
+      - name: Select the exact image for every downstream qualification
+        id: selection
+        env:
+          RESTORED: ${{ steps.checkpoint.outputs.restored }}
+          RESTORED_DIGEST: ${{ steps.checkpoint.outputs.digest }}
+          BUILT_DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          if test "$RESTORED" = true; then
+            echo "digest=$RESTORED_DIGEST" >> "$GITHUB_OUTPUT"
+          else
+            echo "digest=$BUILT_DIGEST" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Scan both immutable runtime platforms and enforce policy
+        env:
+          DIGEST: ${{ steps.selection.outputs.digest }}
+        run: |
+          python3 scripts/oci-security.py scan --archive "$RUNNER_TEMP/hankoshell-oci/image.tar" \
+            --scanner "$RUNNER_TEMP/trivy" --output "$RUNNER_TEMP/hankoshell-oci/evidence" \
+            --digest "$DIGEST" --revision "$GITHUB_SHA" --version 0.1.0
+      - name: Preserve scanner evidence even on policy failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: oci-scan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/hankoshell-oci/evidence
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Preserve the exact verified OCI archive and reports
+        id: archive
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: verified-oci-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/hankoshell-oci
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
