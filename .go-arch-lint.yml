@@ -111,6 +111,7 @@ deps:
     mayDependOn:
       - api_types
       - httpsecurity
+      - iamcontract
 
   # Organization position projector is a pure HTTP client of the hankoShell API.
   hankoapi:

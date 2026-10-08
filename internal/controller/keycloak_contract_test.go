@@ -134,7 +134,7 @@ func TestRealKeycloakIAMContract(t *testing.T) {
 			f.requireNoError(err)
 			caps, err := driver.Capabilities(ctx, m.Realm)
 			f.requireNoError(err)
-			p, err := authorization.Compile(i, r, authorization.KeycloakEvidence(caps), iamcontract.Preconditions{})
+			p, err := authorization.Compile(i, r, authorization.KeycloakEvidence(caps), iamcontract.Preconditions{ResourceUID: "authorization-contract-owner"})
 			f.requireNoError(err)
 			return p
 		}
@@ -198,13 +198,20 @@ func TestRealKeycloakIAMContract(t *testing.T) {
 				return nil
 			},
 			Foreign: func() error {
-				_, err := driver.Reconcile(ctx, plan, authorization.ManagedObjects{})
+				i := authorization.Normalize(model)
+				r, _ := authorization.Resolve(i, model)
+				caps, _ := driver.Capabilities(ctx, model.Realm)
+				foreignPlan, err := authorization.Compile(i, r, authorization.KeycloakEvidence(caps), iamcontract.Preconditions{ResourceUID: "foreign-owner"})
+				if err != nil {
+					return err
+				}
+				_, err = driver.Reconcile(ctx, foreignPlan, authorization.ManagedObjects{})
 				if !errors.Is(err, authorization.ErrOwnershipConflict) {
 					t.Fatal("foreign graph refusal differs")
 				}
 				return err
 			},
-			DeleteOwned: func() error { return driver.DeleteOwned(ctx, model, owned) },
+			DeleteOwned: func() error { return driver.DeleteOwned(ctx, model, owned, "authorization-contract-owner") },
 			VerifyDeleted: func() error {
 				base := "/admin/realms/managed/clients/" + owned.ResourceServerID + "/authz/resource-server/scope"
 				var scopes []map[string]any
@@ -226,4 +233,5 @@ func TestRealKeycloakIAMContract(t *testing.T) {
 		})
 		iamconformance.NoSecrets(t, []string{credential, f.adminToken}, plan, plan.Identity())
 	})
+	checkRealKeycloakEvidenceRecovery(t, f, kc, credential)
 }

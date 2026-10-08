@@ -45,7 +45,11 @@ func KeycloakEvidence() CapabilityEvidence {
 	return CapabilityEvidence{Supported: Capabilities{true, true, true}, Source: "adapter-and-real-qualification", Window: "26.7.5,26.8.0"}
 }
 
-type State struct{ Present, Owned, Drifted bool }
+type State struct {
+	Present, Owned, Drifted bool
+	Observation             iamcontract.Observation
+	Findings                []iamcontract.Finding
+}
 
 // Driver is role-domain-specific. AuthorityClosure returns names for local
 // authority validation; the adapter owns provider traversal and ID mapping.
@@ -64,6 +68,7 @@ type Plan struct {
 	preconditions iamcontract.Preconditions
 }
 
+func (p Plan) Evidence() CapabilityEvidence       { return p.evidence }
 func (p Plan) Identity() iamcontract.PlanIdentity { return p.identity }
 func (p Plan) MarshalJSON() ([]byte, error)       { return json.Marshal(p.identity) }
 func (p Plan) Validate(current Plan) error {
@@ -83,6 +88,11 @@ func Normalize(i Intent) Intent {
 	i.Composite = i.Composite || len(i.Composites) > 0
 	return i
 }
+
+func IntentIdentity(i Intent) iamcontract.Digest {
+	data, _ := json.Marshal(Normalize(i))
+	return iamcontract.Hash(iamcontract.Version, "roles", "intent", data)
+}
 func Compile(i Intent, r ResolvedReferences, e CapabilityEvidence, pre iamcontract.Preconditions) (Plan, error) {
 	i = Normalize(i)
 	r.Attributes = cloneAttributes(r.Attributes)
@@ -98,11 +108,13 @@ func Compile(i Intent, r ResolvedReferences, e CapabilityEvidence, pre iamcontra
 	// key order is canonical JSON. Nil/empty collections are equivalent.
 	required := Capabilities{RealmRoles: true, Composites: len(i.Composites) > 0 || i.Composite, NativeAttributes: len(r.Attributes) > 0}
 	pb, _ := json.Marshal(struct {
-		Intent   iamcontract.Digest
-		Backend  iamcontract.BackendKind
-		Required Capabilities
-		Resolved ResolvedReferences
-	}{id.Intent, id.Backend, required, r})
+		Intent     iamcontract.Digest
+		Backend    iamcontract.BackendKind
+		Required   Capabilities
+		Resolved   ResolvedReferences
+		References iamcontract.Digest
+		Authority  iamcontract.Digest
+	}{id.Intent, id.Backend, required, r, pre.References, pre.Authority})
 	id.Plan = iamcontract.Hash(iamcontract.Version, "roles", "plan", pb)
 	return Plan{identity: id, intent: i, resolved: r, evidence: e, preconditions: pre}, nil
 }

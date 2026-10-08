@@ -102,7 +102,7 @@ least-privilege and ownership controls and update permission tests for new calls
 ## Staged migration and standalone/projection contract
 
 1. Resource-server authorization and realm roles use internal domain plans now.
-2. #27 completes public evaluation/apply/observation evidence and stale status.
+2. #27 exposes bounded public evaluation/apply/observation evidence and stale status for those two migrated domains.
 3. #28 separates provider-ready organization state from optional API projection.
    Provider hierarchy, parent dependency and owned cleanup must work standalone;
    a configured failed projection must have a separate visible degraded outcome.

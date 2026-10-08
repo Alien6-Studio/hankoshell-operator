@@ -85,6 +85,7 @@ type ManagedReference struct {
 type State struct {
 	ProviderResourceServerID string
 	Drifted                  bool
+	Observation              iamcontract.Observation
 	Capabilities             Capabilities
 	ManagedObjects           ManagedObjects
 	Findings                 []Finding
@@ -98,7 +99,7 @@ type Driver interface {
 	Capabilities(context.Context, string) (Capabilities, error)
 	Observe(context.Context, Plan) (State, error)
 	Reconcile(context.Context, Plan, ManagedObjects) (State, error)
-	DeleteOwned(context.Context, Model, ManagedObjects) error
+	DeleteOwned(context.Context, Model, ManagedObjects, string) error
 }
 
 // ValidateCapabilities rejects unsupported desired state without mutation.
@@ -127,4 +128,28 @@ func ValidateCapabilities(model Model, capabilities Capabilities) error {
 		}
 	}
 	return nil
+}
+
+// BoundedManagedObjects refuses oversized operational evidence. Ownership must
+// never be silently truncated, since that would lose cleanup/retry boundaries.
+func BoundedManagedObjects(objects ManagedObjects) bool {
+	if len(objects.ResourceServerID) > 128 {
+		return false
+	}
+	for _, group := range []struct {
+		refs  []ManagedReference
+		limit int
+	}{{objects.Scopes, 64}, {objects.Resources, 64}, {objects.Policies, 256}, {objects.Permissions, 128}} {
+		if len(group.refs) > group.limit {
+			return false
+		}
+		seen := map[string]bool{}
+		for _, ref := range group.refs {
+			if ref.Name == "" || ref.ID == "" || len(ref.Name) > 512 || len(ref.ID) > 128 || seen[ref.Name] {
+				return false
+			}
+			seen[ref.Name] = true
+		}
+	}
+	return true
 }

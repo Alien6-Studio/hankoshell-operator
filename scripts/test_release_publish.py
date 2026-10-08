@@ -19,22 +19,38 @@ system = publish.contract.module("installed_system", "system-test.py")
 
 
 class ReleaseResumeTests(unittest.TestCase):
-    def test_installed_role_uses_existing_synced_contract_without_weakening_generation_checks(self):
+    def test_installed_iam_requires_applied_and_complete_readback_evidence(self):
         fixture = object.__new__(system.System)
-        value = {"metadata": {"generation": 2}, "status": {"phase": "Ready", "conditions": [
-            {"type": "Synced", "status": "True", "reason": "Reconciled"}]}}
+        digest = "sha256:" + "a" * 64
+        status = {"phase": "Ready", "contractVersion": "hanko.sh/iam-contract/v1alpha1", "backendKind": "keycloak",
+                  "observationComplete": True, "driftState": "InSync", "conditions": [
+                      {"type": "Synced", "status": "True", "reason": "Reconciled", "observedGeneration": 2}]}
+        for field in ("observedGeneration", "evaluatedGeneration", "appliedGeneration", "observationGeneration"):
+            status[field] = 2
+        for field in ("intentHash", "evaluatedPlanHash", "appliedPlanHash", "observedStateHash", "observationPlanHash"):
+            status[field] = digest
+        value = {"metadata": {"generation": 2}, "status": status}
         with patch.object(fixture, "get", return_value=value):
-            self.assertTrue(fixture.role_reconciled("role"))
-            self.assertFalse(fixture.ready("hankoapplication", "application"))
-            value["status"]["observedGeneration"] = 1
-            self.assertFalse(fixture.ready("hankoapplication", "application"))
-            value["status"]["observedGeneration"] = 2
-            self.assertTrue(fixture.ready("hankoapplication", "application"))
-            for status, reason in (("False", "Reconciled"), ("True", "Observed")):
-                value["status"]["conditions"][0].update(status=status, reason=reason)
-                self.assertFalse(fixture.role_reconciled("role"))
-            value["status"]["conditions"] = []
-            self.assertFalse(fixture.role_reconciled("role"))
+            for kind in ("hankorole", "hankoresourceserver"):
+                self.assertTrue(fixture.iam_reconciled(kind, "fixture"))
+                for field in ("observedGeneration", "evaluatedGeneration", "appliedGeneration", "observationGeneration"):
+                    status[field] = 1
+                    self.assertFalse(fixture.iam_reconciled(kind, "fixture"))
+                    status[field] = 2
+                for field, invalid in (("observationComplete", False), ("driftState", "Drifted"), ("appliedPlanHash", "raw-data")):
+                    original = status[field]
+                    status[field] = invalid
+                    self.assertFalse(fixture.iam_reconciled(kind, "fixture"))
+                    status[field] = original
+            self.assertTrue(fixture.ready("hankoapplication", "fixture"))
+            status["observedGeneration"] = 1
+            self.assertFalse(fixture.ready("hankoapplication", "fixture"))
+            status["observedGeneration"] = 2
+            for condition_status, reason in (("False", "Reconciled"), ("True", "Observed")):
+                status["conditions"][0].update(status=condition_status, reason=reason)
+                self.assertFalse(fixture.role_reconciled("fixture"))
+            status["conditions"] = []
+            self.assertFalse(fixture.role_reconciled("fixture"))
 
     def test_complete_nonempty_or_published_assets_are_never_deleted(self):
         github = publish.GitHub("synthetic-fixture-token")

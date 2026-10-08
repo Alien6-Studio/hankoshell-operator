@@ -23,6 +23,9 @@ func (r *contractReferenceReader) Get(ctx context.Context, key client.ObjectKey,
 	if err := r.Client.Get(ctx, key, obj, opts...); err != nil {
 		return err
 	}
+	if !obj.GetDeletionTimestamp().IsZero() {
+		return iamcontract.ErrRejected
+	}
 	r.references = append(r.references, referenceIdentity{obj.GetNamespace(), obj.GetName(), string(obj.GetUID()), obj.GetGeneration()})
 	return nil
 }

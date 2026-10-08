@@ -150,14 +150,67 @@ type HankoResourceServerStatus struct {
 	// +kubebuilder:validation:Enum=Pending;Reconciling;Ready;Error
 	Phase string `json:"phase,omitempty"`
 
+	// ObservedGeneration is the latest generation processed into this status,
+	// including failures; it does not mean successfully applied.
+	// +kubebuilder:validation:Minimum=0
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
-	// AppliedPlanHash is computed locally after successful Manage reconciliation.
+	// AppliedPlanHash identifies the latest Manage plan proven by acceptable
+	// bounded provider read-back, at AppliedGeneration.
 	// Observe and external annotations do not authorize an applied plan.
 	AppliedPlanHash string `json:"appliedPlanHash,omitempty"`
 
+	// EvaluatedGeneration is the latest generation whose execution semantics
+	// were fully evaluated or definitively refused. It does not prove application.
+	// +kubebuilder:validation:Minimum=0
+	EvaluatedGeneration int64 `json:"evaluatedGeneration,omitempty"`
+
+	// AppliedGeneration is the latest Manage generation proven by matching
+	// provider read-back. Observe clears applied evidence and cannot advance it.
+	// +kubebuilder:validation:Minimum=0
+	AppliedGeneration int64 `json:"appliedGeneration,omitempty"`
+
+	// ContractVersion identifies canonical evidence semantics, not an executable API.
+	// +kubebuilder:validation:MaxLength=64
+	ContractVersion string `json:"contractVersion,omitempty"`
+
+	// IntentHash identifies normalized portable semantics of EvaluatedGeneration.
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	IntentHash string `json:"intentHash,omitempty"`
+
+	// EvaluatedPlanHash identifies the locally compiled provider-bound plan.
+	// It is absent for rejected evaluation and is never execution authority.
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	EvaluatedPlanHash string `json:"evaluatedPlanHash,omitempty"`
+
+	// ObservedStateHash identifies safe normalized provider semantics, including
+	// observation coverage. It is neither an intent/plan identity nor a provider ID.
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	ObservedStateHash string `json:"observedStateHash,omitempty"`
+
+	// ObservationGeneration and ObservationPlanHash bind the latest successful
+	// bounded read to its evaluated input. They remain unchanged on read failure.
+	// +kubebuilder:validation:Minimum=0
+	ObservationGeneration int64 `json:"observationGeneration,omitempty"`
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	ObservationPlanHash string `json:"observationPlanHash,omitempty"`
+
+	// ObservationComplete distinguishes full supported-contract read-back from
+	// partial coverage. A partial observation can prove drift but never equality.
+	ObservationComplete bool `json:"observationComplete,omitempty"`
+
+	// DriftState is the comparison for ObservationPlanHash. Failure conditions
+	// describe the current attempt; an older observation is historical evidence.
+	// +kubebuilder:validation:Enum=Unknown;InSync;Drifted
+	DriftState string `json:"driftState,omitempty"`
+
+	// CapabilityEvidence names static adapter qualification, not runtime discovery.
+	CapabilityEvidence IAMCapabilityEvidence `json:"capabilityEvidence,omitempty"`
+
+	// +kubebuilder:validation:MaxLength=32
 	BackendKind string `json:"backendKind,omitempty"`
 
+	// +kubebuilder:validation:MaxLength=128
 	ProviderResourceServerID string `json:"providerResourceServerID,omitempty"`
 
 	Capabilities AuthorizationCapabilitySnapshot `json:"capabilities,omitempty"`
@@ -169,10 +222,12 @@ type HankoResourceServerStatus struct {
 	// +listMapKey=objectKind
 	// +listMapKey=objectName
 	// +listMapKey=code
+	// +kubebuilder:validation:MaxItems=32
 	Findings []AuthorizationFinding `json:"findings,omitempty"`
 
 	LastReconciled *metav1.Time `json:"lastReconciled,omitempty"`
 
+	// +kubebuilder:validation:MaxItems=8
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
@@ -192,33 +247,43 @@ type AuthorizationCapabilitySnapshot struct {
 type AuthorizationManagedObjects struct {
 	// +listType=map
 	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=64
 	Scopes []AuthorizationManagedReference `json:"scopes,omitempty"`
 	// +listType=map
 	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=64
 	Resources []AuthorizationManagedReference `json:"resources,omitempty"`
 	// +listType=map
 	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=256
 	Policies []AuthorizationManagedReference `json:"policies,omitempty"`
 	// +listType=map
 	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=128
 	Permissions []AuthorizationManagedReference `json:"permissions,omitempty"`
 }
 
 // AuthorizationManagedReference binds a portable name to one provider-generated ID.
 type AuthorizationManagedReference struct {
+	// +kubebuilder:validation:MaxLength=512
 	Name string `json:"name"`
-	ID   string `json:"id"`
+	// +kubebuilder:validation:MaxLength=128
+	ID string `json:"id"`
 }
 
 // AuthorizationFinding is a machine-readable portability or provider-native gap.
 type AuthorizationFinding struct {
 	// +kubebuilder:validation:Enum=lossless;lossy;unsupported
 	Classification string `json:"classification"`
-	ObjectKind     string `json:"objectKind"`
-	ObjectName     string `json:"objectName"`
-	Code           string `json:"code"`
-	Message        string `json:"message"`
-	ReadOnly       bool   `json:"readOnly,omitempty"`
+	// +kubebuilder:validation:MaxLength=64
+	ObjectKind string `json:"objectKind"`
+	// +kubebuilder:validation:MaxLength=255
+	ObjectName string `json:"objectName"`
+	// +kubebuilder:validation:MaxLength=64
+	Code string `json:"code"`
+	// +kubebuilder:validation:MaxLength=256
+	Message  string `json:"message"`
+	ReadOnly bool   `json:"readOnly,omitempty"`
 }
 
 // +kubebuilder:object:root=true

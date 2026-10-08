@@ -46,7 +46,8 @@ func (r *HankoRoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 		patch := client.MergeFrom(role.DeepCopy())
 		role.Status.Phase = "Error"
-		setCondition(&role.Status.Conditions, "Synced", metav1.ConditionFalse, "ReservedAuthorityRole", err.Error())
+		roleEvidence(&role.Status).process(role.Generation, isImported(role.Labels))
+		iamCondition(&role.Status.Conditions, role.Generation, "Synced", metav1.ConditionFalse, "ReservedAuthorityRole", err.Error())
 		if patchErr := r.Status().Patch(ctx, &role, patch); patchErr != nil {
 			return ctrl.Result{}, patchErr
 		}
@@ -63,11 +64,12 @@ func (r *HankoRoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 		patch := client.MergeFrom(role.DeepCopy())
 		role.Status.Phase = "Error"
+		roleEvidence(&role.Status).process(role.Generation, isImported(role.Labels))
 		reason := "AuthorityRoleLookupFailed"
 		if isReservedAuthorityRoleViolation(err) {
 			reason = "ReservedAuthorityRole"
 		}
-		setCondition(&role.Status.Conditions, "Synced", metav1.ConditionFalse, reason, err.Error())
+		iamCondition(&role.Status.Conditions, role.Generation, "Synced", metav1.ConditionFalse, reason, err.Error())
 		if patchErr := r.Status().Patch(ctx, &role, patch); patchErr != nil {
 			return ctrl.Result{}, patchErr
 		}
@@ -84,7 +86,7 @@ func (r *HankoRoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	plan, err := r.compileRolePlan(ctx, &role, driver)
 	if err != nil {
-		return r.roleError(ctx, &role, "PlanRejected", err)
+		return r.rolePlanError(ctx, &role, nil, "PlanRejected", err, nil)
 	}
 	if isImported(role.Labels) {
 		if controllerutil.ContainsFinalizer(&role, roleFinalizerName) {
@@ -93,41 +95,42 @@ func (r *HankoRoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				return ctrl.Result{}, err
 			}
 		}
-		if _, err := driver.Observe(ctx, plan); err != nil {
-			return r.roleError(ctx, &role, "ObserveFailed", err)
+		if err := r.validateRoleExecution(ctx, &role, driver, plan); err != nil {
+			return r.rolePlanError(ctx, &role, &plan, "StalePlan", err, nil)
 		}
-		return r.roleSuccess(ctx, &role, "Observed")
+		state, err := driver.Observe(ctx, plan)
+		if err != nil {
+			return r.rolePlanError(ctx, &role, &plan, "ObserveFailed", err, nil)
+		}
+		if err := r.validateRoleAuthority(ctx, &role, driver); err != nil {
+			return r.rolePlanError(ctx, &role, &plan, "ReservedAuthorityRole", err, &state)
+		}
+		return r.roleObservation(ctx, &role, plan, state, true)
 	}
 	if err := r.ensureRoleFinalizer(ctx, &role); err != nil {
 		return ctrl.Result{}, err
 	}
-	// Re-fetch source and relationships just before mutation. Concurrent changes
-	// require a fresh compile; Kubernetes status is not execution authority.
-	var current hankoshv1alpha1.HankoRole
-	if err := r.Get(ctx, client.ObjectKeyFromObject(&role), &current); err != nil {
-		return ctrl.Result{}, err
+	if err := r.validateRoleExecution(ctx, &role, driver, plan); err != nil {
+		return r.rolePlanError(ctx, &role, &plan, "StalePlan", err, nil)
 	}
-	next, err := r.compileRolePlan(ctx, &current, driver)
+	if err := r.validateRoleAuthority(ctx, &role, driver); err != nil {
+		return r.rolePlanError(ctx, &role, &plan, "AuthorityRoleLookupFailed", err, nil)
+	}
+	state, err := driver.Reconcile(ctx, plan)
 	if err != nil {
-		return r.roleError(ctx, &role, "PlanRejected", err)
-	}
-	if !current.DeletionTimestamp.IsZero() {
-		return ctrl.Result{}, iamcontract.ErrStale
-	}
-	if err := plan.Validate(next); err != nil {
-		return ctrl.Result{}, err
-	}
-	if err := r.validateRoleAuthority(ctx, &current, driver); err != nil {
-		return r.roleError(ctx, &role, "AuthorityRoleLookupFailed", err)
-	}
-	if _, err := driver.Reconcile(ctx, plan); err != nil {
 		reason := "SyncFailed"
 		if errors.Is(err, roles.ErrOwnershipConflict) {
 			reason = "OwnershipConflict"
 		}
-		return r.roleError(ctx, &role, reason, err)
+		return r.rolePlanError(ctx, &role, &plan, reason, err, &state)
 	}
-	return r.roleSuccess(ctx, &role, "Reconciled")
+	if err := r.validateRoleExecution(ctx, &role, driver, plan); err != nil {
+		return r.rolePlanError(ctx, &role, &plan, "StalePlan", err, &state)
+	}
+	if err := r.validateRoleAuthority(ctx, &role, driver); err != nil {
+		return r.rolePlanError(ctx, &role, &plan, "ReservedAuthorityRole", err, &state)
+	}
+	return r.roleObservation(ctx, &role, plan, state, false)
 }
 func (r *HankoRoleReconciler) roleDriver(role *hankoshv1alpha1.HankoRole) roles.Driver {
 	if r.DriverFactory != nil {
@@ -156,7 +159,11 @@ func (r *HankoRoleReconciler) compileRolePlan(ctx context.Context, role *hankosh
 	if isImported(role.Labels) {
 		mode = ModeObserve
 	}
-	return roles.Compile(intent, resolved, caps, executionPreconditions(role, reader.digest(), mode))
+	plan, err := roles.Compile(intent, resolved, caps, executionPreconditions(role, reader.digest(), mode))
+	if err != nil {
+		return plan, iamEvaluationRejected{cause: err, identity: iamcontract.PlanIdentity{Contract: iamcontract.Version, Backend: iamcontract.Keycloak, Intent: roles.IntentIdentity(intent)}, roleCaps: caps.Supported, findings: caps.Findings}
+	}
+	return plan, nil
 }
 func (r *HankoRoleReconciler) validateRoleAuthority(ctx context.Context, role *hankoshv1alpha1.HankoRole, driver roles.Driver) error {
 	if r.ProtectedRealm == "" || role.Spec.RealmRef != r.ProtectedRealm {
@@ -175,26 +182,93 @@ func (r *HankoRoleReconciler) validateRoleAuthority(ctx context.Context, role *h
 	}
 	return nil
 }
-func (r *HankoRoleReconciler) roleError(ctx context.Context, role *hankoshv1alpha1.HankoRole, reason string, err error) (ctrl.Result, error) {
+func (r *HankoRoleReconciler) validateRoleExecution(ctx context.Context, obj *hankoshv1alpha1.HankoRole, driver roles.Driver, plan roles.Plan) error {
+	var current hankoshv1alpha1.HankoRole
+	if err := r.Get(ctx, client.ObjectKeyFromObject(obj), &current); err != nil {
+		return err
+	}
+	if !current.DeletionTimestamp.IsZero() {
+		return iamcontract.ErrStale
+	}
+	next, err := r.compileRolePlan(ctx, &current, driver)
+	if err != nil {
+		return err
+	}
+	return plan.Validate(next)
+}
+func (r *HankoRoleReconciler) rolePlanError(ctx context.Context, obj *hankoshv1alpha1.HankoRole, plan *roles.Plan, reason string, err error, state *roles.State) (ctrl.Result, error) {
+	patch := client.MergeFrom(obj.DeepCopy())
+	e := roleEvidence(&obj.Status)
+	e.process(obj.Generation, isImported(obj.Labels))
+	if plan != nil {
+		e.evaluate(obj.Generation, plan.Identity())
+		obj.Status.Capabilities = roleCapabilityStatus(plan.Evidence().Supported)
+	}
+	var rejected iamEvaluationRejected
+	if errors.As(err, &rejected) {
+		e.evaluate(obj.Generation, rejected.identity)
+		obj.Status.Capabilities = roleCapabilityStatus(rejected.roleCaps)
+		findings := rejected.findings
+		if len(findings) == 0 {
+			findings = []iamcontract.Finding{{Classification: iamcontract.Unsupported, ObjectKind: "role", Code: "unsupported_semantics", Message: "desired semantics cannot be represented by the selected adapter"}}
+		}
+		obj.Status.Findings = findingsStatus(findings)
+	}
+	if state != nil {
+		e.observe(obj.Generation, plan.Identity(), state.Observation)
+		obj.Status.Findings = findingsStatus(state.Findings)
+	}
+	obj.Status.Phase = "Error"
+	iamCondition(&obj.Status.Conditions, obj.Generation, "ObservationSucceeded", metav1.ConditionUnknown, "NotProven", "current attempt has no proven provider observation")
+	if state != nil && iamcontract.ValidDigest(string(state.Observation.StateHash)) {
+		iamCondition(&obj.Status.Conditions, obj.Generation, "ObservationSucceeded", metav1.ConditionTrue, "Observed", "bounded provider observation succeeded")
+	}
 	err = iamcontract.SafeError(err)
-	patch := client.MergeFrom(role.DeepCopy())
-	role.Status.Phase = "Error"
-	setCondition(&role.Status.Conditions, "Synced", metav1.ConditionFalse, reason, err.Error())
-	if e := r.Status().Patch(ctx, role, patch); e != nil {
-		return ctrl.Result{}, e
+	iamCondition(&obj.Status.Conditions, obj.Generation, "Synced", metav1.ConditionFalse, iamFailureReason(err, reason), err.Error())
+	if patchErr := r.Status().Patch(ctx, obj, patch); patchErr != nil {
+		return ctrl.Result{}, patchErr
 	}
 	return ctrl.Result{RequeueAfter: requeueOnError}, err
 }
-func (r *HankoRoleReconciler) roleSuccess(ctx context.Context, role *hankoshv1alpha1.HankoRole, reason string) (ctrl.Result, error) {
-	patch := client.MergeFrom(role.DeepCopy())
+func (r *HankoRoleReconciler) roleObservation(ctx context.Context, obj *hankoshv1alpha1.HankoRole, plan roles.Plan, state roles.State, observe bool) (ctrl.Result, error) {
+	if !observe {
+		if err := observationError(state.Observation); err != nil {
+			return r.rolePlanError(ctx, obj, &plan, "ReadBackFailed", err, &state)
+		}
+		if !state.Present || !state.Owned {
+			return r.rolePlanError(ctx, obj, &plan, "OwnershipConflict", roles.ErrOwnershipConflict, &state)
+		}
+	}
+	patch := client.MergeFrom(obj.DeepCopy())
+	e := roleEvidence(&obj.Status)
+	e.process(obj.Generation, observe)
+	e.evaluate(obj.Generation, plan.Identity())
+	e.observe(obj.Generation, plan.Identity(), state.Observation)
+	if !observe {
+		e.apply(obj.Generation, plan.Identity())
+	}
+	obj.Status.Capabilities = roleCapabilityStatus(plan.Evidence().Supported)
+	obj.Status.Findings = findingsStatus(state.Findings)
+	obj.Status.Phase = "Ready"
+	if observationError(state.Observation) != nil {
+		obj.Status.Phase = "Error"
+	}
 	now := metav1.Now()
-	role.Status.Phase = "Ready"
-	role.Status.LastReconciled = &now
-	setCondition(&role.Status.Conditions, "Synced", metav1.ConditionTrue, reason, "realm role contract evaluated")
-	if err := r.Status().Patch(ctx, role, patch); err != nil {
+	obj.Status.LastReconciled = &now
+	reason, status, message := "Reconciled", metav1.ConditionTrue, "provider read-back matches the evaluated contract"
+	if observe {
+		reason, message = "Observed", "provider state observed without mutation"
+	}
+	if err := observationError(state.Observation); err != nil {
+		status = metav1.ConditionFalse
+		reason = iamFailureReason(err, "ObservationIncomplete")
+		message = "provider observation does not prove synchronized state"
+	}
+	iamCondition(&obj.Status.Conditions, obj.Generation, "Synced", status, reason, message)
+	iamCondition(&obj.Status.Conditions, obj.Generation, "ObservationSucceeded", metav1.ConditionTrue, "Observed", "bounded provider observation succeeded")
+	if err := r.Status().Patch(ctx, obj, patch); err != nil {
 		return ctrl.Result{}, err
 	}
-	log.FromContext(ctx).Info("HankoRole synced", "role", role.Spec.Name, "realm", role.Spec.RealmRef)
 	return ctrl.Result{RequeueAfter: requeueWithJitter()}, nil
 }
 
@@ -252,4 +326,8 @@ func (r *HankoRoleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoRole{}).
 		Complete(r)
+}
+
+func roleCapabilityStatus(c roles.Capabilities) hankoshv1alpha1.RoleCapabilitySnapshot {
+	return hankoshv1alpha1.RoleCapabilitySnapshot{RealmRoles: c.RealmRoles, Composites: c.Composites, NativeAttributes: c.NativeAttributes}
 }

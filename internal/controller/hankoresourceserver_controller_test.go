@@ -16,6 +16,7 @@ import (
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/authorization"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
 )
 
 type recordingAuthorizationDriver struct {
@@ -48,7 +49,7 @@ func (d *recordingAuthorizationDriver) Reconcile(_ context.Context, _ authorizat
 	return d.state, d.err
 }
 
-func (d *recordingAuthorizationDriver) DeleteOwned(_ context.Context, _ authorization.Model, owned authorization.ManagedObjects) error {
+func (d *recordingAuthorizationDriver) DeleteOwned(_ context.Context, _ authorization.Model, owned authorization.ManagedObjects, _ string) error {
 	d.deleted = append(d.deleted, owned)
 	return d.err
 }
@@ -90,7 +91,7 @@ func validResourceServerObjects(mode string) (*hankoshv1alpha1.HankoResourceServ
 		Spec:       hankoshv1alpha1.HankoRoleSpec{RealmRef: "acme", Name: "billing-reader"},
 	}
 	resourceServer := &hankoshv1alpha1.HankoResourceServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "billing", Namespace: "default"},
+		ObjectMeta: metav1.ObjectMeta{Name: "billing", Namespace: "default", UID: "resource-server-uid", Generation: 1},
 		Spec: hankoshv1alpha1.HankoResourceServerSpec{
 			RealmRef: "acme", Audience: "https://api.example/billing", ApplicationRef: "billing-api", Mode: mode,
 			Scopes:    []hankoshv1alpha1.AuthorizationScope{{Name: "invoices:read"}},
@@ -222,7 +223,7 @@ func TestResourceServerObserveNeverMutatesProvider(t *testing.T) {
 	resourceServer, objects := validResourceServerObjects(ModeObserve)
 	driver := &recordingAuthorizationDriver{
 		capabilities: supportedAuthorizationCapabilities(),
-		state: authorization.State{ProviderResourceServerID: "provider-id", Capabilities: supportedAuthorizationCapabilities(), Findings: []authorization.Finding{{
+		state: authorization.State{Observation: successfulIAMObservation(), ProviderResourceServerID: "provider-id", Capabilities: supportedAuthorizationCapabilities(), Findings: []authorization.Finding{{
 			Classification: "unsupported", ObjectKind: "policy", ObjectName: "native", Code: "provider_native_observation", ReadOnly: true,
 		}}},
 	}
@@ -261,7 +262,7 @@ func TestResourceServerUnsupportedCapabilitiesFailBeforeMutation(t *testing.T) {
 	}
 }
 
-func TestResourceServerDeletionWithoutRecordedOwnershipNeverCallsProvider(t *testing.T) {
+func TestResourceServerDeletionRecoversProviderJournalWithoutStatusOwnership(t *testing.T) {
 	resourceServer, objects := validResourceServerObjects(ModeManage)
 	resourceServer.Finalizers = []string{resourceServerFinalizerName}
 	resourceServer.DeletionTimestamp = &metav1.Time{Time: metav1.Now().Time}
@@ -271,7 +272,7 @@ func TestResourceServerDeletionWithoutRecordedOwnershipNeverCallsProvider(t *tes
 	if _, err := reconciler.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(resourceServer)}); err != nil {
 		t.Fatal(err)
 	}
-	if len(driver.deleted) != 0 || len(driver.reconcile) != 0 || driver.observeCalls != 0 {
+	if len(driver.deleted) != 1 || driver.deleted[0].ResourceServerID != "" || len(driver.reconcile) != 0 || driver.observeCalls != 0 {
 		t.Fatalf("provider calls observe=%d reconcile=%d delete=%d", driver.observeCalls, len(driver.reconcile), len(driver.deleted))
 	}
 }
@@ -299,7 +300,7 @@ func TestResourceServerPersistsOwnershipAndDriftCondition(t *testing.T) {
 	driver := &recordingAuthorizationDriver{
 		capabilities: supportedAuthorizationCapabilities(),
 		state: authorization.State{
-			ProviderResourceServerID: "provider-id", Capabilities: supportedAuthorizationCapabilities(),
+			Observation: successfulIAMObservation(), ProviderResourceServerID: "provider-id", Capabilities: supportedAuthorizationCapabilities(),
 			ManagedObjects: authorization.ManagedObjects{ResourceServerID: "provider-id", Scopes: []authorization.ManagedReference{{Name: "invoices:read", ID: "scope-id"}}},
 		},
 	}
@@ -378,4 +379,8 @@ func TestResourceServerRejectsChangedInputsBeforeMutation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func successfulIAMObservation() iamcontract.Observation {
+	return iamcontract.Observation{StateHash: iamcontract.Hash(iamcontract.Version, "fixture", "observation", []byte("read-back")), Complete: true}
 }

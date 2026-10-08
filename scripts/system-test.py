@@ -66,13 +66,20 @@ class System:
         return value.get("status", {}).get("phase") == "Ready" and value["status"].get("observedGeneration") == value["metadata"]["generation"]
 
     def role_reconciled(self, name):
-        # HankoRole currently has Synced/phase, not observedGeneration. Check
-        # that existing contract; #27 owns the future public apply evidence.
-        value = self.get("hankorole", name)
-        status = value.get("status", {})
-        return status.get("phase") == "Ready" and any(
-            condition.get("type") == "Synced" and condition.get("status") == "True"
-            and condition.get("reason") == "Reconciled" for condition in status.get("conditions", []))
+        return self.iam_reconciled("hankorole", name)
+
+    def iam_reconciled(self, kind, name):
+        value = self.get(kind, name)
+        status, generation = value.get("status", {}), value["metadata"]["generation"]
+        hashes = ("intentHash", "evaluatedPlanHash", "appliedPlanHash", "observedStateHash", "observationPlanHash")
+        return status.get("phase") == "Ready" and all(
+            status.get(field) == generation for field in ("observedGeneration", "evaluatedGeneration", "appliedGeneration", "observationGeneration")) and (
+            status.get("contractVersion") == "hanko.sh/iam-contract/v1alpha1" and status.get("backendKind") == "keycloak"
+            and status.get("observationComplete") is True and status.get("driftState") == "InSync"
+            and all(re.fullmatch(r"sha256:[a-f0-9]{64}", status.get(field, "")) for field in hashes)
+            and status["appliedPlanHash"] == status["evaluatedPlanHash"] == status["observationPlanHash"]
+            and any(condition.get("type") == "Synced" and condition.get("status") == "True"
+                    and condition.get("observedGeneration") == generation and condition.get("reason") == "Reconciled" for condition in status.get("conditions", [])))
 
     def api(self, method, path, data=None, token=None, expected=(200, 201, 204)):
         if token is None and self.token and time.monotonic() - self.token_at > 30:
@@ -294,6 +301,28 @@ class System:
         owner = self.get("hankorole", "contract-role")["metadata"]["uid"]
         if role.get("description") != "contract desired" or role.get("attributes", {}).get("hanko.sh/role-owner") != [owner]:
             raise ValueError("Installed IAM role contract or ownership differs")
+        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoApplication",
+                    "metadata": {"name": "contract-api", "namespace": "auth"},
+                    "spec": {"realmRef": "managed", "clientID": "system-contract-api", "type": "m2m"}})
+        wait("IAM backing application", lambda: self.ready("hankoapplication", "contract-api"))
+        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoResourceServer",
+                    "metadata": {"name": "contract-server", "namespace": "auth"},
+                    "spec": {"realmRef": "managed", "applicationRef": "contract-api", "audience": "urn:system-contract",
+                             "scopes": [{"name": "read", "description": "Read documents"}],
+                             "resources": [{"name": "document", "uris": ["/document"], "scopes": ["read"]}],
+                             "permissions": [{"name": "readers", "scopes": ["read"], "resources": ["document"],
+                                              "principals": [{"kind": "realm_role", "ref": "contract-role"}]}]}})
+        wait("IAM authorization applied/read-back evidence", lambda: self.iam_reconciled("hankoresourceserver", "contract-server"))
+        api = self.client("managed", "system-contract-api")
+        server_uid = self.get("hankoresourceserver", "contract-server")["metadata"]["uid"]
+        journal = json.loads(api.get("attributes", {}).get("hanko.sh/resource-server-ownership", "{}"))
+        if journal.get("ownerUID") != server_uid:
+            raise ValueError("Installed authorization ownership journal differs")
+        self.kubectl("delete", "hankoresourceserver", "contract-server", "-n", "auth", "--wait=true", "--timeout=120s")
+        scopes = self.api("GET", f'/admin/realms/managed/clients/{api["id"]}/authz/resource-server/scope')
+        if any(scope.get("name") == "read" for scope in scopes):
+            raise ValueError("Authorization finalizer left an owned scope behind")
+        self.kubectl("delete", "hankoapplication", "contract-api", "-n", "auth", "--wait=true", "--timeout=120s")
         self.kubectl("delete", "hankorole", "contract-role", "-n", "auth", "--wait=true", "--timeout=120s")
         if self.api("GET", "/admin/realms/managed/roles?search=system-contract-role"):
             raise ValueError("IAM contract role finalizer left the owned role behind")
@@ -365,7 +394,7 @@ def main():
                 "kubernetes": "1.37.0", "keycloak": "26.8.0", "result": "pass",
                 "checks": ["Helm installation and real pod startup under Restricted admission", "namespace RBAC and current-API event recording",
                            "verified private-CA HTTPS, wrong-CA readiness/write denial and trust repair", "scoped Keycloak identity and denied authority", "realm/client/roles/Secret reconciliation",
-                           "IAM role local compile/apply, UID ownership and finalizer cleanup",
+                           "IAM role and authorization evaluated/applied/read-back evidence, UID ownership and finalizer cleanup",
                            "drift recovery after manager restart without duplicate client or credential rotation", "managed finalizer and Observe preservation",
                            "no credentials in logs/events/CRDs"],
                 "limitations": ["single disposable kind node and Keycloak dev-file database",

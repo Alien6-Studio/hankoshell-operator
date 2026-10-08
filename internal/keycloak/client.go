@@ -698,6 +698,9 @@ func (c *Client) getRoleClosure(ctx context.Context, realm string, root RealmRol
 		if _, ok := seen[key]; ok {
 			continue
 		}
+		if len(seen) >= 512 {
+			return nil, errors.New("role closure exceeds observation budget")
+		}
 		seen[key] = struct{}{}
 		closure = append(closure, role)
 		if !role.Composite {
@@ -710,6 +713,9 @@ func (c *Client) getRoleClosure(ctx context.Context, realm string, root RealmRol
 		var children []RealmRole
 		if err := c.get(ctx, path+"/composites", &children); err != nil {
 			return nil, fmt.Errorf("list composites for role %q in %q: %w", role.Name, realm, err)
+		}
+		if len(stack)+len(children) > 1024 {
+			return nil, errors.New("role closure exceeds observation budget")
 		}
 		stack = append(stack, children...)
 	}
@@ -1179,6 +1185,7 @@ func (c *Client) DeleteApp(ctx context.Context, realm, clientID string) error {
 // keys from spec.Attributes so a client-authored attribute map cannot override
 // operator-managed settings.
 var reservedAppAttributeKeys = map[string]struct{}{
+	authorizationOwnerAttribute:    {},
 	"login_theme":                  {},
 	postLogoutRedirectURIAttribute: {},
 	hankoAppAttribute:              {},
@@ -1302,6 +1309,11 @@ func (c *Client) UpdateApp(ctx context.Context, realm string, spec CreateAppSpec
 	}
 
 	attributes := map[string]any{"login_theme": spec.Theme}
+	if current, ok := payload["attributes"].(map[string]any); ok {
+		if journal, exists := current[authorizationOwnerAttribute]; exists {
+			attributes[authorizationOwnerAttribute] = journal
+		}
+	}
 	if spec.Type == "m2m" {
 		attributes[hankoServiceAttribute] = "true"
 	} else {
@@ -1913,4 +1925,22 @@ func (c *Client) SyncRealmRoleIfOwned(ctx context.Context, realm string, role Re
 	role.ContainerID = existing.ContainerID
 	role.ClientRole = existing.ClientRole
 	return c.writeRealmRole(ctx, http.MethodPut, adminRealmsPath+realm+rolesSegment+url.PathEscape(role.Name), role, http.StatusNoContent)
+}
+
+// GetRealmRoleCompositeNames reads direct realm-role membership. Transitive
+// closure alone cannot prove that a declared direct relationship is present.
+func (c *Client) GetRealmRoleCompositeNames(ctx context.Context, realm, name string) ([]string, error) {
+	var children []RealmRole
+	path := adminRealmsPath + url.PathEscape(realm) + rolesSegment + url.PathEscape(name) + "/composites/realm"
+	if err := c.get(ctx, path, &children); err != nil {
+		return nil, err
+	}
+	if len(children) > 512 {
+		return nil, errors.New("role membership exceeds observation budget")
+	}
+	names := []string{}
+	for _, child := range children {
+		names = append(names, child.Name)
+	}
+	return semanticSet(names), nil
 }

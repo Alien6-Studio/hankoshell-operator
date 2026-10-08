@@ -34,6 +34,7 @@ enterprise fleet. Project website: **[hanko.sh](https://hanko.sh)**.
 [![Delivery](https://img.shields.io/badge/delivery-Continuum%20Attest-blue.svg)](#verified-delivery)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
+
 ## Why use it?
 
 - **Onboard applications with their identity configuration.** A new web app or
@@ -353,6 +354,12 @@ Retries restore the committed delivery, rescan its exact image and reuse matchin
 packages and draft assets. Conflicting content stops publication.
 
 ## Development
+
+Development on `main` targets 0.2; the immutable v0.1.0 source keeps its original contract.
+For `HankoRole` and `HankoResourceServer`, status distinguishes the evaluated
+intent/plan, the latest Manage application proven by provider read-back, and the
+latest provider observation with explicit drift/coverage. Observe never claims
+application. See [status semantics and migration](docs/architecture/iam-contract-engine.md#public-status-evidence).
 
 Use Go 1.27.1, Helm 3.17 or later, Python 3, and a C compiler for race tests.
 

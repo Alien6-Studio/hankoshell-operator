@@ -83,7 +83,7 @@ Resource-server authorization and realm roles now use a
 intent/resolution/capabilities/plans, versioned canonical identities and freshness
 checks. Keycloak capability evidence names the static mapping and qualification
 window. The external authorization-plan annotation is not execution evidence.
-Public applied/observation/stale status remains [#27](https://github.com/Alien6-Studio/hankoshell-operator/issues/27);
+Public evaluated/applied/observation evidence and stale status implement [#27](https://github.com/Alien6-Studio/hankoshell-operator/issues/27) for these two domains;
 organization projection separation remains [#28](https://github.com/Alien6-Studio/hankoshell-operator/issues/28).
 No second backend or general portability qualification is implied.
 

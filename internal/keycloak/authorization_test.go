@@ -26,8 +26,11 @@ type authorizationTestServer struct {
 	policies    map[string]authorizationPolicyRepresentation
 	permissions map[string]authorizationPermissionRepresentation
 
-	mutations   int
-	deleteOrder []string
+	mutations     int
+	deleteOrder   []string
+	attributes    map[string]any
+	failPath      string
+	ignoreDeletes bool
 }
 
 func newAuthorizationTestServer(t *testing.T) *authorizationTestServer {
@@ -35,7 +38,7 @@ func newAuthorizationTestServer(t *testing.T) *authorizationTestServer {
 	state := &authorizationTestServer{
 		scopes: map[string]authorizationScopeRepresentation{}, resources: map[string]authorizationResourceRepresentation{},
 		policies: map[string]authorizationPolicyRepresentation{}, permissions: map[string]authorizationPermissionRepresentation{},
-		serviceAccountEnabled: true,
+		serviceAccountEnabled: true, attributes: map[string]any{},
 	}
 	state.server = httptest.NewServer(state)
 	t.Cleanup(state.server.Close)
@@ -79,11 +82,13 @@ func (s *authorizationTestServer) ServeHTTP(w http.ResponseWriter, r *http.Reque
 				"id": "client-uuid", "clientId": "billing-api",
 				"authorizationServicesEnabled": s.enabled,
 				"serviceAccountsEnabled":       s.serviceAccountEnabled,
+				"attributes":                   s.attributes,
 			})
 		case http.MethodPut:
 			var body map[string]any
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			s.enabled, _ = body["authorizationServicesEnabled"].(bool)
+			s.attributes, _ = body["attributes"].(map[string]any)
 			s.mutations++
 			w.WriteHeader(http.StatusNoContent)
 		}
@@ -100,6 +105,10 @@ func (s *authorizationTestServer) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	path := strings.TrimPrefix(r.URL.Path, base)
+	if s.failPath == path {
+		http.Error(w, "fixture-secret-sentinel", http.StatusServiceUnavailable)
+		return
+	}
 	switch {
 	case strings.HasSuffix(path, "/associatedPolicies") && r.Method == http.MethodGet:
 		parts := strings.Split(strings.Trim(path, "/"), "/")
@@ -189,7 +198,9 @@ func (s *authorizationTestServer) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		s.permissions[id] = item
 		s.updated(w)
 	case r.Method == http.MethodDelete:
-		s.delete(path)
+		if !s.ignoreDeletes {
+			s.delete(path)
+		}
 		w.WriteHeader(http.StatusNoContent)
 	default:
 		http.Error(w, fmt.Sprintf("unexpected %s %s", r.Method, path), http.StatusNotFound)
