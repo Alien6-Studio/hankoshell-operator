@@ -59,6 +59,7 @@ var adminOperations = []AdminOperation{
 	{"authorization", "PUT,DELETE", "/admin/realms/{realm}/clients/{client}/authz/resource-server/scope/{object}", "manage-authorization or manage-clients"},
 	{"authorization", "GET,POST", "/admin/realms/{realm}/clients/{client}/authz/resource-server/resource", "view-authorization / manage-authorization or manage-clients"},
 	{"authorization", "PUT,DELETE", "/admin/realms/{realm}/clients/{client}/authz/resource-server/resource/{object}", "manage-authorization or manage-clients"},
+	{"authorization", "GET", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/{object}/associatedPolicies", "view-authorization or manage-authorization or manage-clients"},
 	{"authorization", "GET", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy", "view-authorization or manage-authorization or manage-clients"},
 	{"authorization", "GET,POST", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/role", "view-authorization / manage-authorization or manage-clients"},
 	{"authorization", "GET,POST", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/client", "view-authorization / manage-authorization or manage-clients"},

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -18,6 +19,7 @@ import (
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/authorization"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 )
 
@@ -72,21 +74,80 @@ func (r *HankoResourceServerReconciler) reconcileActiveResourceServer(ctx contex
 		}
 		return ctrl.Result{RequeueAfter: requeueImmediately}, nil
 	}
-	model, err := r.resolveAuthorizationModel(ctx, resourceServer)
+	plan, err := r.compileAuthorizationPlan(ctx, resourceServer, driver, mode)
 	if err != nil {
-		return ctrl.Result{RequeueAfter: requeueOnError}, r.statusError(ctx, resourceServer, "InvalidReferences", err)
-	}
-	capabilities, err := driver.Capabilities(ctx, model.Realm)
-	if err != nil {
-		return ctrl.Result{RequeueAfter: requeueOnError}, r.statusError(ctx, resourceServer, "CapabilityLookupFailed", err)
-	}
-	if err := authorization.ValidateCapabilities(model, capabilities); err != nil {
-		return ctrl.Result{}, r.statusCapabilityError(ctx, resourceServer, capabilities, err)
+		if errors.Is(err, authorization.ErrCapabilityUnsupported) {
+			caps, _ := driver.Capabilities(ctx, resourceServer.Spec.RealmRef)
+			return ctrl.Result{}, r.statusCapabilityError(ctx, resourceServer, caps, err)
+		}
+		return ctrl.Result{RequeueAfter: requeueOnError}, r.statusError(ctx, resourceServer, "PlanRejected", err)
 	}
 	if mode == ModeObserve {
-		return r.observeResourceServer(ctx, resourceServer, driver, model)
+		return r.observeResourceServer(ctx, resourceServer, driver, plan)
 	}
-	return r.manageResourceServer(ctx, resourceServer, driver, model)
+	return r.manageResourceServer(ctx, resourceServer, driver, plan)
+}
+
+func authorizationIntent(resourceServer *hankoshv1alpha1.HankoResourceServer) authorization.Intent {
+	s := resourceServer.Spec
+	model := authorization.Model{Name: resourceServer.Name, Realm: s.RealmRef, Audience: s.Audience, DisplayName: s.DisplayName, ApplicationRef: s.ApplicationRef}
+	for _, v := range s.Scopes {
+		model.Scopes = append(model.Scopes, authorization.Scope{Name: v.Name, Description: v.Description})
+	}
+	for _, v := range s.Resources {
+		model.Resources = append(model.Resources, authorization.Resource{Name: v.Name, DisplayName: v.DisplayName, URIs: v.URIs, Type: v.Type, Scopes: v.Scopes})
+	}
+	for _, v := range s.Permissions {
+		p := authorization.Permission{Name: v.Name, Resources: v.Resources, Scopes: v.Scopes}
+		for _, principal := range v.Principals {
+			p.Principals = append(p.Principals, authorization.Principal{Kind: principal.Kind, Ref: principal.Ref})
+		}
+		model.Permissions = append(model.Permissions, p)
+	}
+	return authorization.Normalize(model)
+}
+func (r *HankoResourceServerReconciler) compileAuthorizationPlan(ctx context.Context, obj *hankoshv1alpha1.HankoResourceServer, driver authorization.Driver, mode string) (authorization.Plan, error) {
+	reader := &contractReferenceReader{Client: r.Client}
+	resolver := *r
+	resolver.Client = reader
+	model, err := resolver.resolveAuthorizationModel(ctx, obj)
+	if err != nil {
+		return authorization.Plan{}, err
+	}
+	intent := authorizationIntent(obj)
+	resolved, err := authorization.Resolve(intent, model)
+	if err != nil {
+		return authorization.Plan{}, err
+	}
+	caps, err := driver.Capabilities(ctx, model.Realm)
+	if err != nil {
+		return authorization.Plan{}, iamcontract.SafeError(err)
+	}
+	pre := executionPreconditions(obj, reader.digest(), mode)
+	owned, _ := json.Marshal(managedObjectsFromStatus(obj.Status))
+	pre.Ownership = iamcontract.Hash(iamcontract.Version, "authorization", "ownership", owned)
+	return authorization.Compile(intent, resolved, authorization.KeycloakEvidence(caps), pre)
+}
+func (r *HankoResourceServerReconciler) validateAuthorizationExecution(ctx context.Context, obj *hankoshv1alpha1.HankoResourceServer, driver authorization.Driver, plan authorization.Plan) error {
+	var current hankoshv1alpha1.HankoResourceServer
+	if err := r.Get(ctx, client.ObjectKeyFromObject(obj), &current); err != nil {
+		return err
+	}
+	mode := current.Spec.Mode
+	if mode == "" {
+		mode = ModeManage
+	}
+	if isImported(current.Labels) {
+		mode = ModeObserve
+	}
+	if !current.DeletionTimestamp.IsZero() {
+		return iamcontract.ErrStale
+	}
+	next, err := r.compileAuthorizationPlan(ctx, &current, driver, mode)
+	if err != nil {
+		return err
+	}
+	return plan.Validate(next)
 }
 
 func (r *HankoResourceServerReconciler) reconcileResourceServerDeletion(ctx context.Context, resourceServer *hankoshv1alpha1.HankoResourceServer, driver authorization.Driver, mode string) (ctrl.Result, error) {
@@ -109,15 +170,18 @@ func (r *HankoResourceServerReconciler) reconcileResourceServerDeletion(ctx cont
 	return ctrl.Result{}, nil
 }
 
-func (r *HankoResourceServerReconciler) observeResourceServer(ctx context.Context, resourceServer *hankoshv1alpha1.HankoResourceServer, driver authorization.Driver, model authorization.Model) (ctrl.Result, error) {
-	state, err := driver.Observe(ctx, model)
-	if err != nil {
-		return ctrl.Result{RequeueAfter: requeueOnError}, r.statusError(ctx, resourceServer, "ObserveFailed", err)
+func (r *HankoResourceServerReconciler) observeResourceServer(ctx context.Context, resourceServer *hankoshv1alpha1.HankoResourceServer, driver authorization.Driver, plan authorization.Plan) (ctrl.Result, error) {
+	if err := r.validateAuthorizationExecution(ctx, resourceServer, driver, plan); err != nil {
+		return ctrl.Result{}, err
 	}
-	return r.statusSuccess(ctx, resourceServer, state, "Observed", "provider authorization state observed without mutation")
+	state, err := driver.Observe(ctx, plan)
+	if err != nil {
+		return ctrl.Result{RequeueAfter: requeueOnError}, r.statusError(ctx, resourceServer, "ObserveFailed", iamcontract.SafeError(err))
+	}
+	return r.statusSuccess(ctx, resourceServer, state, "", "Observed", "provider authorization state observed without mutation")
 }
 
-func (r *HankoResourceServerReconciler) manageResourceServer(ctx context.Context, resourceServer *hankoshv1alpha1.HankoResourceServer, driver authorization.Driver, model authorization.Model) (ctrl.Result, error) {
+func (r *HankoResourceServerReconciler) manageResourceServer(ctx context.Context, resourceServer *hankoshv1alpha1.HankoResourceServer, driver authorization.Driver, plan authorization.Plan) (ctrl.Result, error) {
 	// Persist the cleanup boundary only after every reference and capability
 	// check has succeeded, and immediately before the first provider mutation.
 	if !controllerutil.ContainsFinalizer(resourceServer, resourceServerFinalizerName) {
@@ -126,15 +190,18 @@ func (r *HankoResourceServerReconciler) manageResourceServer(ctx context.Context
 			return ctrl.Result{}, fmt.Errorf("add resource-server finalizer: %w", err)
 		}
 	}
-	state, err := driver.Reconcile(ctx, model, managedObjectsFromStatus(resourceServer.Status))
+	if err := r.validateAuthorizationExecution(ctx, resourceServer, driver, plan); err != nil {
+		return ctrl.Result{}, err
+	}
+	state, err := driver.Reconcile(ctx, plan, managedObjectsFromStatus(resourceServer.Status))
 	if err != nil {
 		reason := "ReconcileFailed"
 		if errors.Is(err, authorization.ErrOwnershipConflict) {
 			reason = "OwnershipConflict"
 		}
-		return ctrl.Result{RequeueAfter: requeueOnError}, r.statusError(ctx, resourceServer, reason, err)
+		return ctrl.Result{RequeueAfter: requeueOnError}, r.statusError(ctx, resourceServer, reason, iamcontract.SafeError(err))
 	}
-	return r.statusSuccess(ctx, resourceServer, state, "Reconciled", "authorization graph matches portable desired state")
+	return r.statusSuccess(ctx, resourceServer, state, string(plan.Identity().Plan), "Reconciled", "authorization graph matches portable desired state")
 }
 
 func (r *HankoResourceServerReconciler) driverFor(resourceServer *hankoshv1alpha1.HankoResourceServer) authorization.Driver {
@@ -362,7 +429,7 @@ func (r *HankoResourceServerReconciler) statusCapabilityError(ctx context.Contex
 	resourceServer.Status.ObservedGeneration = resourceServer.Generation
 	resourceServer.Status.Capabilities = capabilityStatus(capabilities)
 	resourceServer.Status.Findings = []hankoshv1alpha1.AuthorizationFinding{{
-		Classification: "unsupported", ObjectKind: "resource_server", ObjectName: resourceServer.Name,
+		Classification: string(iamcontract.Unsupported), ObjectKind: "resource_server", ObjectName: resourceServer.Name,
 		Code: "unsupported_capability", Message: reconcileErr.Error(),
 	}}
 	setCondition(&resourceServer.Status.Conditions, "CapabilitiesSatisfied", metav1.ConditionFalse, "UnsupportedCapability", reconcileErr.Error())
@@ -374,12 +441,12 @@ func (r *HankoResourceServerReconciler) statusCapabilityError(ctx context.Contex
 	return reconcileErr
 }
 
-func (r *HankoResourceServerReconciler) statusSuccess(ctx context.Context, resourceServer *hankoshv1alpha1.HankoResourceServer, state authorization.State, reason, message string) (ctrl.Result, error) {
+func (r *HankoResourceServerReconciler) statusSuccess(ctx context.Context, resourceServer *hankoshv1alpha1.HankoResourceServer, state authorization.State, planHash, reason, message string) (ctrl.Result, error) {
 	patch := client.MergeFrom(resourceServer.DeepCopy())
 	now := metav1.Now()
 	resourceServer.Status.Phase = "Ready"
 	resourceServer.Status.ObservedGeneration = resourceServer.Generation
-	resourceServer.Status.AppliedPlanHash = resourceServer.Annotations["hanko.sh/authorization-plan-hash"]
+	resourceServer.Status.AppliedPlanHash = planHash
 	resourceServer.Status.BackendKind = "keycloak"
 	resourceServer.Status.ProviderResourceServerID = state.ProviderResourceServerID
 	resourceServer.Status.Capabilities = capabilityStatus(state.Capabilities)
@@ -390,6 +457,12 @@ func (r *HankoResourceServerReconciler) statusSuccess(ctx context.Context, resou
 	resourceServer.Status.LastReconciled = &now
 	setCondition(&resourceServer.Status.Conditions, "CapabilitiesSatisfied", metav1.ConditionTrue, "Supported", "provider supports every requested authorization semantic")
 	setCondition(&resourceServer.Status.Conditions, "DriftFree", metav1.ConditionTrue, reason, message)
+	if reason == "Observed" {
+		setCondition(&resourceServer.Status.Conditions, "DriftFree", metav1.ConditionUnknown, "PartialObservation", "only scope and resource drift is evaluated in Observe mode")
+		if state.Drifted {
+			setCondition(&resourceServer.Status.Conditions, "DriftFree", metav1.ConditionFalse, "ObservedDrift", "observed scopes/resources differ from desired semantics")
+		}
+	}
 	setCondition(&resourceServer.Status.Conditions, "Synced", metav1.ConditionTrue, reason, message)
 	if err := r.Status().Patch(ctx, resourceServer, patch); err != nil {
 		return ctrl.Result{}, err
@@ -444,7 +517,7 @@ func findingsStatus(findings []authorization.Finding) []hankoshv1alpha1.Authoriz
 	result := make([]hankoshv1alpha1.AuthorizationFinding, 0, len(findings))
 	for _, finding := range findings {
 		result = append(result, hankoshv1alpha1.AuthorizationFinding{
-			Classification: finding.Classification, ObjectKind: finding.ObjectKind, ObjectName: finding.ObjectName,
+			Classification: string(finding.Classification), ObjectKind: finding.ObjectKind, ObjectName: finding.ObjectName,
 			Code: finding.Code, Message: finding.Message, ReadOnly: finding.ReadOnly,
 		})
 	}

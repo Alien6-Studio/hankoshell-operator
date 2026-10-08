@@ -67,6 +67,7 @@ type AuthorizationManagedReference struct {
 
 type AuthorizationState struct {
 	ResourceServerID string
+	Drifted          bool
 	ManagedObjects   AuthorizationManagedObjects
 	NativeObjects    []AuthorizationNativeObject
 }
@@ -162,6 +163,7 @@ func (c *Client) ObserveAuthorization(ctx context.Context, model AuthorizationMo
 	if err := c.get(ctx, base+authorizationPermissionPath, &permissions); err != nil {
 		return AuthorizationState{}, fmt.Errorf("observe authorization permissions: %w", err)
 	}
+	state.Drifted = authorizationGraphDrift(model, scopes, resources)
 	for _, scope := range scopes {
 		state.NativeObjects = append(state.NativeObjects, AuthorizationNativeObject{Kind: "scope", Name: scope.Name})
 	}
@@ -255,25 +257,29 @@ func (c *Client) DeleteAuthorizationOwned(ctx context.Context, model Authorizati
 		}
 		return err
 	}
+	if enabled, ok := representation["authorizationServicesEnabled"].(bool); ok && !enabled {
+		return nil
+	}
 	base := authorizationBase(model.Realm, resourceServerID)
+	foreignRemain := false
 	for _, collection := range []struct {
 		path string
 		refs []AuthorizationManagedReference
 	}{
-		{path: authorizationPermissionPath, refs: owned.Permissions},
-		{path: authorizationPolicyPath, refs: owned.Policies},
-		{path: authorizationResourcePath, refs: owned.Resources},
-		{path: authorizationScopePath, refs: owned.Scopes},
+		{authorizationPermissionPath, owned.Permissions}, {authorizationPolicyPath, owned.Policies}, {authorizationResourcePath, owned.Resources}, {authorizationScopePath, owned.Scopes},
 	} {
-		for _, ref := range collection.refs {
-			if ref.ID == "" {
-				continue
-			}
-			if err := c.authorizationDelete(ctx, base+collection.path+"/"+url.PathEscape(ref.ID)); err != nil && !IsNotFound(err) {
-				return err
-			}
+		foreign, err := c.deleteOwnedAuthorizationCollection(ctx, base+collection.path, collection.refs)
+		if err != nil {
+			return err
 		}
+		foreignRemain = foreignRemain || foreign
 	}
+	// Keycloak disabling Authorization Services deletes its entire graph. Never
+	// use that toggle to erase provider objects absent from the ownership set.
+	if foreignRemain {
+		return nil
+	}
+
 	representation["authorizationServicesEnabled"] = false
 	return c.putJSON(ctx, clientPath, representation)
 }
@@ -584,11 +590,24 @@ func (c *Client) loadAuthorizationPermissions(ctx context.Context, base string) 
 		byName[item.Name] = item
 	}
 	var current []authorizationPermissionRepresentation
-	if err := c.get(ctx, base+authorizationPermissionPath+authorizationScopePath, &current); err != nil {
+	if err := c.get(ctx, base+authorizationPermissionPath+authorizationScopePath+"?fields=*", &current); err != nil {
 		return nil, nil, err
 	}
 	for _, item := range current {
 		item.Type = "scope"
+		var associated []struct {
+			ID string `json:"id"`
+		}
+		if err := c.get(ctx, base+authorizationPolicyPath+"/"+url.PathEscape(item.ID)+"/associatedPolicies", &associated); err != nil {
+			return nil, nil, err
+		}
+		item.Policies = nil
+		for _, policy := range associated {
+			if policy.ID == "" {
+				return nil, nil, errors.New("keycloak associated policy ID missing")
+			}
+			item.Policies = append(item.Policies, policy.ID)
+		}
 		byID[item.ID], byName[item.Name] = item, item
 	}
 	return byID, byName, nil
@@ -801,4 +820,52 @@ func permissionEqual(got, want authorizationPermissionRepresentation) bool {
 		slices.Equal(sorted(got.Resources), sorted(want.Resources)) &&
 		slices.Equal(sorted(got.Scopes), sorted(want.Scopes)) &&
 		slices.Equal(sorted(got.Policies), sorted(want.Policies))
+}
+
+// authorizationGraphDrift observes the scope/resource subset without writes.
+// Full policy/principal observation is intentionally deferred to the next stage.
+func authorizationGraphDrift(model AuthorizationModel, scopes []authorizationScopeRepresentation, resources []authorizationResourceRepresentation) bool {
+	_, scopeNames := indexScopes(scopes)
+	ids := map[string]string{}
+	for _, want := range model.Scopes {
+		got, ok := scopeNames[want.Name]
+		if !ok || got.DisplayName != want.Description {
+			return true
+		}
+		ids[want.Name] = got.ID
+	}
+	index := indexAuthorizationResources(resources)
+	for _, want := range model.Resources {
+		got, ok := index.byName[want.Name]
+		if !ok || !resourceEqual(got, buildAuthorizationResource(want, ids)) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Client) deleteOwnedAuthorizationCollection(ctx context.Context, path string, refs []AuthorizationManagedReference) (bool, error) {
+	var current []struct {
+		ID         string `json:"id"`
+		ResourceID string `json:"_id"`
+	}
+	if err := c.get(ctx, path, &current); err != nil {
+		return false, err
+	}
+	ownedIDs := keepAuthorizationIDs(refs)
+	foreign := false
+	for _, object := range current {
+		id := object.ID
+		if id == "" {
+			id = object.ResourceID
+		}
+		if id == "" || !ownedIDs[id] {
+			foreign = true
+			continue
+		}
+		if err := c.authorizationDelete(ctx, path+"/"+url.PathEscape(id)); err != nil && !IsNotFound(err) {
+			return false, err
+		}
+	}
+	return foreign, nil
 }

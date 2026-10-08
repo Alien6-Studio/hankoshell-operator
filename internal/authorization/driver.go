@@ -6,6 +6,7 @@ package authorization
 import (
 	"context"
 	"errors"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
 )
 
 // ErrCapabilityUnsupported is returned before mutation when desired semantics
@@ -83,26 +84,20 @@ type ManagedReference struct {
 // State is the read-back provider observation after reconciliation.
 type State struct {
 	ProviderResourceServerID string
+	Drifted                  bool
 	Capabilities             Capabilities
 	ManagedObjects           ManagedObjects
 	Findings                 []Finding
 }
 
-type Finding struct {
-	Classification string
-	ObjectKind     string
-	ObjectName     string
-	Code           string
-	Message        string
-	ReadOnly       bool
-}
+type Finding = iamcontract.Finding
 
 // Driver is implemented once per provider. Reconcile must be idempotent and
 // DeleteOwned must ignore every provider object absent from owned.
 type Driver interface {
 	Capabilities(context.Context, string) (Capabilities, error)
-	Observe(context.Context, Model) (State, error)
-	Reconcile(context.Context, Model, ManagedObjects) (State, error)
+	Observe(context.Context, Plan) (State, error)
+	Reconcile(context.Context, Plan, ManagedObjects) (State, error)
 	DeleteOwned(context.Context, Model, ManagedObjects) error
 }
 
@@ -127,7 +122,7 @@ func ValidateCapabilities(model Model, capabilities Capabilities) error {
 				"service_account": capabilities.ServiceAccountPrincipals,
 			}[principal.Kind]
 			if !supported {
-				return errors.Join(ErrCapabilityUnsupported, errors.New(principal.Kind+" principals are required"))
+				return errors.Join(ErrCapabilityUnsupported, errors.New("principal semantics are unsupported"))
 			}
 		}
 	}

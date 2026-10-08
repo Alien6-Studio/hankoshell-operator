@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,25 +19,31 @@ import (
 )
 
 type recordingAuthorizationDriver struct {
-	capabilities  authorization.Capabilities
-	capabilityErr error
-	state         authorization.State
-	err           error
-	observeCalls  int
-	reconcile     []authorization.ManagedObjects
-	deleted       []authorization.ManagedObjects
+	capabilities   authorization.Capabilities
+	capabilityErr  error
+	capabilityHook func()
+	state          authorization.State
+	err            error
+	observeCalls   int
+	reconcile      []authorization.ManagedObjects
+	deleted        []authorization.ManagedObjects
 }
 
 func (d *recordingAuthorizationDriver) Capabilities(context.Context, string) (authorization.Capabilities, error) {
+	if d.capabilityHook != nil {
+		hook := d.capabilityHook
+		d.capabilityHook = nil
+		hook()
+	}
 	return d.capabilities, d.capabilityErr
 }
 
-func (d *recordingAuthorizationDriver) Observe(context.Context, authorization.Model) (authorization.State, error) {
+func (d *recordingAuthorizationDriver) Observe(context.Context, authorization.Plan) (authorization.State, error) {
 	d.observeCalls++
 	return d.state, d.err
 }
 
-func (d *recordingAuthorizationDriver) Reconcile(_ context.Context, _ authorization.Model, owned authorization.ManagedObjects) (authorization.State, error) {
+func (d *recordingAuthorizationDriver) Reconcile(_ context.Context, _ authorization.Plan, owned authorization.ManagedObjects) (authorization.State, error) {
 	d.reconcile = append(d.reconcile, owned)
 	return d.state, d.err
 }
@@ -312,7 +319,7 @@ func TestResourceServerPersistsOwnershipAndDriftCondition(t *testing.T) {
 	if err := backend.Get(context.Background(), request.NamespacedName, &got); err != nil {
 		t.Fatal(err)
 	}
-	if got.Status.Phase != "Ready" || got.Status.AppliedPlanHash != "plan-123" || got.Status.ProviderResourceServerID != "provider-id" || !conditionTrue(got.Status.Conditions, "DriftFree") {
+	if got.Status.Phase != "Ready" || !strings.HasPrefix(got.Status.AppliedPlanHash, "sha256:") || got.Status.AppliedPlanHash == "plan-123" || got.Status.ProviderResourceServerID != "provider-id" || !conditionTrue(got.Status.Conditions, "DriftFree") {
 		t.Fatalf("status = %+v", got.Status)
 	}
 }
@@ -324,4 +331,51 @@ func conditionTrue(conditions []metav1.Condition, conditionType string) bool {
 		}
 	}
 	return false
+}
+
+func TestResourceServerRejectsChangedInputsBeforeMutation(t *testing.T) {
+	for _, kind := range []string{"reference", "mode", "ownership", "generation"} {
+		t.Run(kind, func(t *testing.T) {
+			obj, objects := validResourceServerObjects(ModeManage)
+			backend := resourceServerClient(t, objects...)
+			d := &recordingAuthorizationDriver{capabilities: supportedAuthorizationCapabilities()}
+			d.capabilityHook = func() {
+				if kind == "reference" {
+					var app hankoshv1alpha1.HankoApplication
+					if err := backend.Get(context.Background(), client.ObjectKey{Namespace: obj.Namespace, Name: obj.Spec.ApplicationRef}, &app); err != nil {
+						t.Fatal(err)
+					}
+					app.Spec.ClientID = "changed-client"
+					if err := backend.Update(context.Background(), &app); err != nil {
+						t.Fatal(err)
+					}
+					return
+				}
+				var current hankoshv1alpha1.HankoResourceServer
+				if err := backend.Get(context.Background(), client.ObjectKeyFromObject(obj), &current); err != nil {
+					t.Fatal(err)
+				}
+				if kind == "ownership" {
+					current.Status.ProviderResourceServerID = "changed-owner"
+					if err := backend.Status().Update(context.Background(), &current); err != nil {
+						t.Fatal(err)
+					}
+					return
+				}
+				if kind == "mode" {
+					current.Spec.Mode = ModeObserve
+				} else {
+					current.Generation++
+				}
+				if err := backend.Update(context.Background(), &current); err != nil {
+					t.Fatal(err)
+				}
+			}
+			r := &HankoResourceServerReconciler{Client: backend, DriverFactory: func(string, map[string]string) authorization.Driver { return d }}
+			_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(obj)})
+			if err == nil || len(d.reconcile) > 0 {
+				t.Fatal("changed input executed stale plan")
+			}
+		})
+	}
 }

@@ -18,6 +18,18 @@ import (
 
 func newRoleFakeClient(t *testing.T, objs ...client.Object) client.Client {
 	t.Helper()
+	realms := map[string]bool{}
+	for _, obj := range objs {
+		if role, ok := obj.(*hankoshv1alpha1.HankoRole); ok {
+			if role.UID == "" {
+				role.UID = types.UID("fixture-" + role.Name)
+			}
+			if !realms[role.Spec.RealmRef] {
+				realms[role.Spec.RealmRef] = true
+				objs = append(objs, &hankoshv1alpha1.HankoRealm{ObjectMeta: metav1.ObjectMeta{Name: role.Spec.RealmRef, Namespace: role.Namespace}})
+			}
+		}
+	}
 	return fake.NewClientBuilder().
 		WithScheme(newScheme(t)).
 		WithObjects(objs...).

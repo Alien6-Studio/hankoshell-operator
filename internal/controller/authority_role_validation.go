@@ -177,30 +177,6 @@ func validateOrganizationEffectiveAuthorityRoles(ctx context.Context, org *hanko
 		fmt.Sprintf("HankoOrganization %q", org.Name), references)
 }
 
-func validateStandaloneEffectiveAuthorityRoles(ctx context.Context, role *hankoshv1alpha1.HankoRole, protectedRealm string, kc *keycloak.Client) error {
-	if strings.TrimSpace(role.Spec.RealmRef) != strings.TrimSpace(protectedRealm) || strings.TrimSpace(protectedRealm) == "" {
-		return nil
-	}
-	closure, err := kc.GetRealmRoleClosure(ctx, role.Spec.RealmRef, role.Spec.Name)
-	if err != nil && !keycloak.IsNotFound(err) {
-		return fmt.Errorf("verify existing HankoRole %q: %w", role.Name, err)
-	}
-	if err == nil {
-		for index, effective := range closure {
-			if index > 0 && isReservedAuthorityRole(effective.Name) {
-				return reservedAuthorityRoleError(protectedRealm, role.Spec.RealmRef,
-					fmt.Sprintf("existing HankoRole %q composite", role.Name), effective.Name)
-			}
-		}
-	}
-	references := make([]authorityRoleReference, 0, len(role.Spec.Composites))
-	for _, composite := range role.Spec.Composites {
-		references = append(references, realmAuthorityRoleReference(composite))
-	}
-	return validateEffectiveAuthorityRoleReferences(ctx, kc, protectedRealm, role.Spec.RealmRef,
-		fmt.Sprintf("HankoRole %q composite", role.Name), references)
-}
-
 func validateRealmEffectiveAuthorityRoles(ctx context.Context, realm *hankoshv1alpha1.HankoRealm, protectedRealm string, kc *keycloak.Client) error {
 	if strings.TrimSpace(realm.Name) != strings.TrimSpace(protectedRealm) || strings.TrimSpace(protectedRealm) == "" {
 		return nil

@@ -16,6 +16,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -256,6 +257,30 @@ func TestKubernetesCompatibility(t *testing.T) {
 	}
 	t.Run("server-side-apply-and-status", func(t *testing.T) {
 		checkRealmApplyAndStatus(t, ctx, operator)
+	})
+	t.Run("namespaced-event-recording", func(t *testing.T) {
+		event := &eventsv1.Event{
+			ObjectMeta: metav1.ObjectMeta{Name: "contract-synced", Namespace: "auth"},
+			EventTime:  metav1.NowMicro(), Action: "Reconcile", Reason: "Synced", Type: "Normal",
+			ReportingController: "hanko.sh/qualification", ReportingInstance: "operator",
+			Regarding: corev1.ObjectReference{APIVersion: "hanko.sh/v1alpha1", Kind: "HankoRole", Namespace: "auth", Name: "contract-role"},
+			Note:      "local contract reconciled",
+		}
+		if err := operator.Create(ctx, event); err != nil {
+			t.Fatalf("record namespaced event: %v", err)
+		}
+		patch := client.MergeFrom(event.DeepCopy())
+		event.Series = &eventsv1.EventSeries{Count: 2, LastObservedTime: metav1.NowMicro()}
+		if err := operator.Patch(ctx, event, patch); err != nil {
+			t.Fatalf("patch namespaced event: %v", err)
+		}
+		foreign := event.DeepCopy()
+		foreign.Namespace, foreign.ResourceVersion = "other", ""
+		for _, err := range []error{operator.Create(ctx, foreign), operator.Delete(ctx, event), operator.List(ctx, &eventsv1.EventList{}, client.InNamespace("auth"))} {
+			if !apierrors.IsForbidden(err) {
+				t.Errorf("expected event RBAC denial, got %v", err)
+			}
+		}
 	})
 	t.Run("namespace-and-credential-boundaries", func(t *testing.T) {
 		for _, namespace := range []string{"auth", "other"} {

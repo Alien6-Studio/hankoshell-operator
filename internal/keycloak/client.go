@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -1890,4 +1891,26 @@ func (c *Client) fetchToken(ctx context.Context) (string, error) {
 	result := c.token
 	c.mu.Unlock()
 	return result, nil
+}
+
+var ErrRoleOwnershipConflict = errors.New("keycloak realm role ownership conflict")
+
+// SyncRealmRoleIfOwned retains the native representation but refuses implicit
+// adoption. A POST collision is an error; a later retry rechecks ownership.
+func (c *Client) SyncRealmRoleIfOwned(ctx context.Context, realm string, role RealmRole, ownerKey, owner string) error {
+	existing, err := c.GetRealmRole(ctx, realm, role.Name)
+	if IsNotFound(err) {
+		return c.writeRealmRole(ctx, http.MethodPost, adminRealmsPath+realm+rolesPath, role, http.StatusCreated)
+	}
+	if err != nil {
+		return err
+	}
+	values := existing.Attributes[ownerKey]
+	if len(values) != 1 || values[0] != owner {
+		return ErrRoleOwnershipConflict
+	}
+	role.ID = existing.ID
+	role.ContainerID = existing.ContainerID
+	role.ClientRole = existing.ClientRole
+	return c.writeRealmRole(ctx, http.MethodPut, adminRealmsPath+realm+rolesSegment+url.PathEscape(role.Name), role, http.StatusNoContent)
 }

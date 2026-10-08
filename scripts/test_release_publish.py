@@ -15,9 +15,27 @@ spec = importlib.util.spec_from_file_location("release_publish", Path(__file__).
 publish = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(publish)
 installer = publish.contract.module("system_tools", "install-system-tools.py")
+system = publish.contract.module("installed_system", "system-test.py")
 
 
 class ReleaseResumeTests(unittest.TestCase):
+    def test_installed_role_uses_existing_synced_contract_without_weakening_generation_checks(self):
+        fixture = object.__new__(system.System)
+        value = {"metadata": {"generation": 2}, "status": {"phase": "Ready", "conditions": [
+            {"type": "Synced", "status": "True", "reason": "Reconciled"}]}}
+        with patch.object(fixture, "get", return_value=value):
+            self.assertTrue(fixture.role_reconciled("role"))
+            self.assertFalse(fixture.ready("hankoapplication", "application"))
+            value["status"]["observedGeneration"] = 1
+            self.assertFalse(fixture.ready("hankoapplication", "application"))
+            value["status"]["observedGeneration"] = 2
+            self.assertTrue(fixture.ready("hankoapplication", "application"))
+            for status, reason in (("False", "Reconciled"), ("True", "Observed")):
+                value["status"]["conditions"][0].update(status=status, reason=reason)
+                self.assertFalse(fixture.role_reconciled("role"))
+            value["status"]["conditions"] = []
+            self.assertFalse(fixture.role_reconciled("role"))
+
     def test_complete_nonempty_or_published_assets_are_never_deleted(self):
         github = publish.GitHub("synthetic-fixture-token")
         for draft, state, size in ((False, "starter", 0), (True, "uploaded", 0), (True, "uploaded", 100), (True, "starter", 1)):
