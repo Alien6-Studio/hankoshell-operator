@@ -1,0 +1,57 @@
+{{- if and .Values.hub.enabled .Values.transportDecommission.release }}
+{{- $transport := .Values.transportDecommission }}
+{{- $namespace := required "transportDecommission.namespace is required when transportDecommission.release is set" $transport.namespace }}
+{{- $roleName := printf "%s-transport-decommission" (include "hanko-operator.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- $writerName := printf "%s-mesh-policy" (include "hanko-operator.fullname" .) | trunc 63 | trimSuffix "-" }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $roleName }}
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "hanko-operator.labels" . | nindent 4 }}
+rules:
+  # The transport VPN DaemonSet (US-65). Get is required to plan the teardown
+  # receipt before Hub confirmation, delete for the teardown itself.
+  - apiGroups: ["apps"]
+    resources: ["daemonsets"]
+    resourceNames:
+      - {{ printf "%s-continuum-vpn" $transport.release }}
+    verbs: ["get", "delete"]
+  # Helm bookkeeping Secrets of the transport release carry generated
+  # versioned names, so this rule cannot be resourceName-pinned. The
+  # dedicated transport namespace bounds the reach instead; listing selects
+  # only owner=helm Secrets labeled with the transport release name.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "delete"]
+  {{- if .Values.meshPolicyAudit.enabled }}
+  # Mesh policy projection surface removed together with the transport.
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames:
+      - {{ .Values.meshPolicyAudit.configMapName }}
+    verbs: ["get", "delete"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    resourceNames:
+      - {{ $writerName }}
+    verbs: ["get", "delete"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $roleName }}
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "hanko-operator.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $roleName }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "hanko-operator.fullname" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

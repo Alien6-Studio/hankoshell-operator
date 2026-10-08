@@ -1,0 +1,145 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "hanko-operator.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hanko-operator.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["hanko.sh"]
+    resources:
+      - hankorealms
+      - hankoiamprofiles
+      - hankoissuers
+      - hankoapplications
+      - hankoroles
+      - hankoorganizations
+      - hankoserviceaccounts
+      - hankothemes
+      - hankotenants
+      - hankokeycloakinstances
+      - hankoimports
+      - hankooperations
+      - hankosnapshots
+      - hankoresourceservers
+      - hankomeshservices
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["hanko.sh"]
+    resources:
+      - hankorealms/status
+      - hankoiamprofiles/status
+      - hankoissuers/status
+      - hankoapplications/status
+      - hankoroles/status
+      - hankoorganizations/status
+      - hankoserviceaccounts/status
+      - hankothemes/status
+      - hankotenants/status
+      - hankokeycloakinstances/status
+      - hankoimports/status
+      - hankooperations/status
+      - hankosnapshots/status
+      - hankoresourceservers/status
+      - hankomeshservices/status
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["hanko.sh"]
+    resources:
+      - hankorealms/finalizers
+      - hankoapplications/finalizers
+      - hankoroles/finalizers
+      - hankoorganizations/finalizers
+      - hankoserviceaccounts/finalizers
+      - hankothemes/finalizers
+      - hankotenants/finalizers
+      - hankokeycloakinstances/finalizers
+      - hankosnapshots/finalizers
+      - hankooperations/finalizers
+      - hankoresourceservers/finalizers
+    verbs: ["update"]
+  # Legacy email resources are read only except for invalidating obsolete status.
+  - apiGroups: ["hanko.sh"]
+    resources: ["hankoemailproviders"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["hanko.sh"]
+    resources: ["hankoemailproviders/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    # Secret reads bypass the controller-runtime cache. list/watch would copy
+    # every credential in the namespace into the operator process.
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["serviceaccounts", "pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    # A managed instance scaled down to one replica must remove its stale PDB.
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Hub-driven decommission: every extra verb below is pinned by resourceName
+  # to the exact release-owned objects the operator removes when Hub asks it
+  # to uninstall itself. The Hub credential Secret is deliberately absent.
+  {{- if .Values.networkPolicy.cilium.enabled }}
+  - apiGroups: ["cilium.io"]
+    resources: ["ciliumnetworkpolicies"]
+    resourceNames: ["{{ include "hanko-operator.fullname" . }}"]
+    verbs: ["get", "delete"]
+  {{- end }}
+  - apiGroups: [""]
+    resources: ["services"]
+    resourceNames: ["{{ include "hanko-operator.fullname" . }}-metrics"]
+    verbs: ["delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    resourceNames:
+      - {{ include "hanko-operator.fullname" . }}
+      - {{ include "hanko-operator.fullname" . }}-theme-jobs
+    verbs: ["delete"]
+  - apiGroups: ["monitoring.coreos.com"]
+    resources: ["servicemonitors"]
+    resourceNames: ["{{ include "hanko-operator.fullname" . }}"]
+    verbs: ["get", "delete"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames:
+      - {{ .Values.hub.caSecret | default "hanko-hub-tls" }}
+      - hanko-hub-enroll
+    verbs: ["delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["{{ include "hanko-operator.fullname" . }}"]
+    verbs: ["delete"]
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    resourceNames: ["{{ include "hanko-operator.fullname" . }}"]
+    verbs: ["patch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    resourceNames: ["{{ include "hanko-operator.fullname" . }}"]
+    verbs: ["get", "patch"]

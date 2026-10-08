@@ -1,0 +1,273 @@
+# Base name for Kubernetes resources.
+nameOverride: hanko-operator
+
+# standard remains independently deployable. enterprise requires Continuum,
+# an exact private Hub relay, a digest-pinned image and HTTPS integrations.
+# It does not promote the optional workload-policy audit path to enforcement.
+profile: standard
+
+# Optional node-dependent protections. Baseline non-root, RuntimeDefault seccomp,
+# dropped capabilities and read-only filesystem remain mandatory in every mode.
+hardening:
+  # Requires AppArmor enabled on every eligible Linux node.
+  appArmor: false
+  # Uses hostUsers: false; requires Kubernetes >=1.36, Linux >=6.3, idmap-capable
+  # filesystems and a compatible CRI/OCI runtime on every eligible node.
+  userNamespaces: false
+
+image:
+  repository: ghcr.io/alien6-studio/hankoshell-operator
+  tag: ""
+  digest: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# Administrator-owned public policy and publisher keys (ADR-047). An empty
+# policy denies new theme Jobs and managed Keycloak Deployment updates.
+# No signing key or platform credential is exposed to the verifier.
+imageVerification:
+  policyConfigMap: ""
+  credentialsSecret: ""
+  # Exact public /32 or /128 registry/storage/Sigstore destinations on HTTPS.
+  # Resolve and review these during release; no broad egress is enabled here.
+  egressCIDRs: []
+
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+# Set enabled to false on spoke clusters that only sync Hub bundles and run
+# no co-located Keycloak: the operator then starts in HANKO_SPOKE_MODE and
+# skips the Keycloak readiness check.
+keycloak:
+  enabled: true
+  # Replace with the actual HTTPS endpoint; public CAs need no caSecret.
+  url: https://keycloak.auth.svc:8443
+  # Explicit compatibility escape hatch for intentionally trusted HTTP only.
+  # Exposes administrative credentials and traffic; enterprise rejects HTTP.
+  allowInsecureHTTP: false
+  credentialsSecret: keycloak-ops-credentials
+  # Optional existing Secret for a private HTTPS CA; never disables TLS checks.
+  caSecret: ""
+  caKey: ca.crt
+
+# Must match hanko-api.controlPlane. The operator refuses to let a
+# HankoServiceAccount in the control-plane authority realm adopt, rotate or
+# delete any authorized OIDC client; homonymous clients in tenant realms remain
+# valid.
+controlPlane:
+  authorizedClients:
+    - hanko-dashboard
+  fleetAuthorityRealm: hanko
+
+# Projects HankoOrganization CRDs into the hankoShell API position model consumed
+# by hankoShell and product-side ADK clients. The referenced Secret contains a
+# dedicated API token and is never rendered into Helm values.
+organizationProjection:
+  enabled: false
+  apiURL: http://hanko-api.auth.svc:80
+  # Include the actual Service and target ports; use TLS ports in enterprise.
+  apiPorts: [80, 8080]
+  tokenSecret: hanko-operator-organization-api
+  tokenKey: token
+  # Workload labels of the hankoShell API pods, used to open the exact egress rule
+  # in the operator NetworkPolicy when projection is enabled.
+  apiSelector:
+    app: hanko-api
+
+# hankoShell Hub access for HankoTenant reconciliation. When enabled with a
+# private CA, the operator appends that CA to a dedicated synchronization
+# client. Public enrollment and other integrations keep the system trust store.
+hub:
+  enabled: false
+  # Set true when the Hub endpoint serves a publicly trusted certificate:
+  # the operator then relies on the system CA roots and no CA Secret is
+  # mounted (caSecret/caKey/ca are ignored).
+  publicCA: false
+  caSecret: hanko-hub-tls
+  caKey: tls.crt
+  selector:
+    app: hanko-hub
+  port: 9090
+  # Self-enrollment (US-54): when enrollToken is set the chart creates a
+  # single-use enrollment Secret and a HankoTenant CR. On first reconcile the
+  # operator exchanges the token against endpoint for a bounded credential
+  # stored and automatically rotated in tokenSecret. After enrollment,
+  # remove enrollToken from Helm values and retain tenantID: the chart keeps
+  # managing the HankoTenant without retaining the consumed bootstrap secret.
+  endpoint: ""
+  # Optional public bootstrap-only endpoint. Enrollment uses this URL while
+  # bundle/status synchronization keeps using endpoint over Continuum.
+  # Defaults to endpoint for backward compatibility.
+  enrollmentEndpoint: ""
+  # Legacy public synchronization allowlist, used only without Continuum.
+  # Keep exact /32s; the Continuum path supersedes this after migration.
+  externalCIDRs: []
+  externalPort: 443
+  enrollToken: ""
+  # Optional human-readable name for NEW enrollments (1-80 characters).
+  # Allowed: Unicode letters/numbers, spaces, dots, underscores and hyphens.
+  # Does not rename an existing identity. kube-system Namespace UID is read
+  # automatically with a dedicated GET permission; it is not user-configurable.
+  # Upgrade Hub first: older Hubs reject identity metadata without consuming
+  # the enrollment token. The operator never retries without that metadata.
+  clusterName: ""
+  tenantName: hanko-tenant
+  tenantID: ""
+  isolationMode: realm
+  # Required by mesh registrations in realm isolation mode. Keeping the
+  # authoritative realm binding on HankoTenant prevents workload reports from
+  # claiming an unrelated hankoShell API link namespace.
+  realmRef: ""
+  # Existing tenants may use a credential Secret created before Helm adoption.
+  # The Secret must contain hub_token, tenant_id, cluster_id and expires_at.
+  tokenSecret: hanko-hub-token
+  # PEM CA bundle for the Hub endpoint; when set the chart creates caSecret
+  # with it (for spoke clusters that do not already hold the Hub CA).
+  ca: ""
+
+# Optional Continuum node transport. The operator pod never receives a
+# Continuum container or NET_ADMIN: the cluster-wide Continuum DaemonSet owns
+# the WireGuard interface and routes this exact relay VIP.
+continuum:
+  enabled: false
+  # Stable gateway relay identity. The chart adds this exact name/address to
+  # /etc/hosts so Hub TLS can use a DNS SAN without depending on cluster DNS.
+  hubAddress: ""
+  hubHostname: ""
+  hubPort: 9443
+  # Optional exact Kubernetes identity of a cluster-local Continuum relay.
+  # Supplying both the Service IP above and this selector makes the policy
+  # correct whether the CNI evaluates egress before or after Service DNAT.
+  gateway:
+    namespace: ""
+    selector: {}
+  bootstrap:
+    # Exact public Hub ingress IPs, required only during self-enrollment.
+    cidrs: []
+    port: 443
+
+# US-65: identity of the spoke-local Continuum transport Helm release removed
+# as the final act of a Hub-commanded decommission, after the Hub has
+# confirmed the teardown receipt over the still-alive link. Fail-closed: a
+# continuum tenant refuses decommission (DecommissionBlocked) until release
+# and namespace are set. The namespace must be dedicated to the transport;
+# Helm bookkeeping Secret names are generated, so Secret deletion cannot be
+# resourceName-pinned and is bounded by the namespace instead.
+transportDecommission:
+  namespace: ""
+  release: ""
+  # Additional exact Secret names removed with the transport (mesh projection
+  # verifier material lives next to the DaemonSet, outside Helm bookkeeping).
+  secrets:
+    - hanko-mesh-policy-verifier
+
+# Optional signed-policy projection consumed by the Continuum DaemonSet. A
+# distinct targetNamespace creates one pre-provisioned ConfigMap plus an exact
+# resourceNames-scoped writer Role; the operator never gains broad access to
+# the Continuum namespace. This is an audit/fail-closed validation path only.
+meshPolicyAudit:
+  enabled: false
+  configMapName: hanko-mesh-policy
+  targetNamespace: ""
+  # Additional exact namespaces from which directional mesh registrations may
+  # reference reviewed egress Services. Each receives services/get only.
+  egressNamespaces: []
+
+# Deprecated compatibility switches. Messaging and vault access belong to the
+# platform API. Enabling either legacy integration is rejected by the chart.
+azureKeyVault:
+  enabled: false
+
+# Supervision summary attached to Hub heartbeats (#314). When enabled, the
+# operator also fetches the alert digest and audit chain head from the local
+# hankoShell API supervision endpoint and delivers ADR-021 credential-rotation audit
+# receipts; the static machine token lives in a Kubernetes Secret and must
+# match HANKO_SUPERVISION_TOKEN on hanko-api.
+# When disabled, only operator-native Keycloak instance health is reported and
+# a due credential rotation remains Degraded until audit delivery is enabled.
+supervision:
+  enabled: false
+  apiURL: ""
+  apiPorts: [80, 8080]
+  tokenSecret: hanko-supervision-token
+  tokenKey: token
+  # Pod labels of the local hankoShell API; scopes the egress NetworkPolicy rule.
+  apiSelector:
+    app: hanko-api
+
+env:
+  HANKO_LOG_DEV: "false"
+  HANKO_KEYCLOAK_DEPLOYMENT: keycloak
+  # ADR-021: maximum age of the Keycloak operator service-account credential.
+  # HankoKeycloakInstance attempts admin-client rotation at this age, including
+  # external instances. There is no disable flag; see keycloak-permissions.md.
+  HANKO_KC_SA_MAX_AGE: "90d"
+
+# Keep enabled for shared reconciliation. False is explicit and is suitable only
+# when the administrator ensures that a single operator replica writes state.
+leaderElect: true
+
+metrics:
+  # Global switch: false disables the listener (bind address "0"), metrics
+  # container port, Service, scrape annotations and metrics ingress.
+  enabled: false
+  serviceMonitor:
+    # Effective only when metrics.enabled; then requires Prometheus Operator API.
+    # When false, enabled metrics advertise pod scraping via annotations.
+    enabled: false
+    # Match your Prometheus serviceMonitorSelector (for example release: stack).
+    # Existing chart identity labels cannot be overridden.
+    labels: {}
+  networkPolicy:
+    # Both selectors are required whenever metrics and NetworkPolicy are on,
+    # even without ServiceMonitor. Only nonempty exact matchLabels are accepted.
+    # Namespace labels must include kubernetes.io/metadata.name for one namespace.
+    namespaceSelector: {}
+    podSelector: {}
+
+networkPolicy:
+  enabled: true
+  # Calico can evaluate NetworkPolicy before or after Service DNAT. The
+  # ClusterIP stays here; ready post-DNAT endpoints are injected as exact /32s
+  # by your deployment tooling during every deployment.
+  kubernetesAPIServiceCIDRs: []
+  # Supply your actual Kubernetes API Service IP as an exact /32 or /128.
+  kubernetesAPIEndpointCIDRs: []
+  # Managed API endpoints may use 443 instead of 6443. Set the actual port(s).
+  kubernetesAPIEndpointPorts: [443, 6443]
+  dnsNamespace: kube-system
+  dnsSelector:
+    k8s-app: kube-dns
+  # Optional exact /32 or /128 addresses of a node-local DNS cache.
+  dnsCIDRs: []
+  # Empty namespace means this release namespace; labels select pods after DNAT.
+  keycloakNamespace: ""
+  # Set selector to null for an external-only endpoint (Helm merges empty maps).
+  keycloakSelector:
+    app: keycloak
+  # Include both Service and target ports if the CNI can enforce before DNAT.
+  keycloakPorts: [8443]
+  # Existing external Keycloak endpoints, including private VPC addresses.
+  keycloakExternalCIDRs: []
+  keycloakExternalPorts: [443]
+  # Optional additive Cilium policy. Requires an installed namespaced CNP API
+  # and, for fqdnEgress, an enabled DNS proxy. Managed Cilium offerings vary.
+  # It does not install Cilium or grant BPF/NET_ADMIN privileges to the operator.
+  cilium:
+    enabled: false
+    kubernetesAPI: true
+    # Exact names only, each with explicitly reviewed TCP ports, for example:
+    # - matchName: keycloak.example.com
+    #   ports: [443]
+    fqdnEgress: []
+  # Deprecated: email egress is configured on the platform API instead.
+  externalEmailEgress:
+    enabled: false
