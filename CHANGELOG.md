@@ -154,7 +154,8 @@ response targets and supported versions are in SECURITY.md.
   ingress policy with the HTTPS administrative transport contract. Validate TLS
   configuration before infrastructure changes; refuse implicit HTTP and mismatched
   serving certificates. Use optimized startup with the read-only image filesystem.
-
+  Advertise the validated AdminRef endpoint to API discovery without a scheme
+  downgrade or a hostname change.
 - Require independent local release approval and publisher verification before
   Hub self-updates, including already-pinned images; reject stale Deployment
   patches after concurrent administrator changes.

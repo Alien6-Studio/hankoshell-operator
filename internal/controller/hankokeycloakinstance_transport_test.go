@@ -127,6 +127,9 @@ func TestManagedTransportContract(t *testing.T) {
 				return
 			}
 			port, listener := int32(8443), "https"
+			if services.Items[0].Annotations["hanko.sh/endpoint-template"] != string(admin.Data["HANKO_KEYCLOAK_URL"]) {
+				t.Fatal("discovery downgraded or changed the certificate hostname")
+			}
 			if name == "http-explicit" {
 				port, listener = 8080, "http"
 			}

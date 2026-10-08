@@ -467,19 +467,21 @@ func (r *HankoKeycloakInstanceReconciler) ensureDeployment(ctx context.Context, 
 // ensureService creates or updates the ClusterIP Service for the Keycloak Deployment.
 func (r *HankoKeycloakInstanceReconciler) ensureService(ctx context.Context, ki *hankoshv1alpha1.HankoKeycloakInstance) error {
 	log := log.FromContext(ctx)
-	transport, err := managedListener(ki, r.RequireHTTPS)
+	transport, err := r.managedServerTransport(ctx, ki)
 	if err != nil {
 		return err
 	}
 
 	labels := map[string]string{"app": ki.Name}
+	annotations := maps.Clone(autodiscoverAnnotations)
+	annotations["hanko.sh/endpoint-template"] = transport.endpoint
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        ki.Name,
 			Namespace:   ki.Namespace,
 			Labels:      autodiscoverLabels,
-			Annotations: autodiscoverAnnotations,
+			Annotations: annotations,
 		},
 	}
 
@@ -521,7 +523,7 @@ func (r *HankoKeycloakInstanceReconciler) ensureService(ctx context.Context, ki 
 		existing.Annotations = map[string]string{}
 	}
 	maps.Copy(existing.Labels, autodiscoverLabels)
-	maps.Copy(existing.Annotations, autodiscoverAnnotations)
+	maps.Copy(existing.Annotations, annotations)
 	existing.Spec.Selector = labels
 	existing.Spec.Ports = []corev1.ServicePort{
 		{

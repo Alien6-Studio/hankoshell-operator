@@ -287,6 +287,10 @@ variable cannot turn the IAM HTTP listener back on. See Keycloak's
 [serving certificate configuration](https://www.keycloak.org/server/enabletls).
 
 The managed Deployment, ClusterIP Service and IAM ingress rules use TCP/8443.
+The Service's `hanko.sh/endpoint-template` announces the validated AdminRef URL
+to API discovery, preserving HTTPS and the certificate hostname rather than
+falling back to an inferred HTTP Service URL. Configure private CA trust in the
+API separately when it connects to that endpoint.
 Standard permits TLS 1.2/1.3; enterprise permits only TLS 1.3. Default ingress
 peers remain the selected API/operator pods in the instance namespace and the
 selected Traefik pods in `kube-system`. Configure the operator's Helm egress

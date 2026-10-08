@@ -19,9 +19,10 @@ import (
 const managedTLSMount = "/opt/keycloak/conf/hanko-tls"
 
 type managedTransport struct {
-	port int32
-	name string
-	args []string
+	port     int32
+	name     string
+	args     []string
+	endpoint string
 }
 
 func managedListener(ki *hanko.HankoKeycloakInstance, requireHTTPS bool) (managedTransport, error) {
@@ -83,6 +84,7 @@ func (r *HankoKeycloakInstanceReconciler) managedServerTransport(ctx context.Con
 	}
 	transport.args = append(transport.args, "--hostname="+parsed.Scheme+"://"+parsed.Host,
 		"--http-management-scheme=http", "--http-management-port=9000")
+	transport.endpoint = endpoint
 	return transport, nil
 }
 

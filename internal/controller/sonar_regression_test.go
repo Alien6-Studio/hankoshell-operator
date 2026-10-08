@@ -323,7 +323,7 @@ func TestManagedServiceAutodiscoverMetadataIsReconciled(t *testing.T) {
 			Ports:    []corev1.ServicePort{{Name: "legacy", Port: 80}},
 		},
 	}
-	k8sClient := controllerTestClient(scheme, instance, service)
+	k8sClient := controllerTestClient(scheme, append([]client.Object{instance, service}, managedTestSecrets(t, instance)...)...)
 	reconciler := &HankoKeycloakInstanceReconciler{Client: k8sClient, Scheme: scheme}
 
 	if err := reconciler.ensureService(ctx, instance); err != nil {
@@ -335,6 +335,9 @@ func TestManagedServiceAutodiscoverMetadataIsReconciled(t *testing.T) {
 	}
 	if actual.Labels["hanko.sh/managed"] != "true" || actual.Annotations["hanko.sh/kind"] != "keycloak" {
 		t.Fatalf("autodiscover metadata not reconciled: labels=%v annotations=%v", actual.Labels, actual.Annotations)
+	}
+	if actual.Annotations["hanko.sh/endpoint-template"] != "https://localhost:8443" {
+		t.Fatal("managed discovery lost the verified endpoint")
 	}
 	if actual.Spec.Selector["app"] != instance.Name || len(actual.Spec.Ports) != 1 || actual.Spec.Ports[0].Port != 8443 {
 		t.Fatalf("managed service routing not reconciled: %#v", actual.Spec)
