@@ -310,7 +310,7 @@ func (c *Client) mapperRequest(ctx context.Context, method, mapperPath string, p
 		return nil, nil, err
 	}
 	defer resp.Body.Close()
-	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	responseBody, err := io.ReadAll(resp.Body) // do returned a complete bounded buffer.
 	if err != nil {
 		return nil, nil, err
 	}

@@ -1515,7 +1515,11 @@ func (c *Client) RotateClientSecret(ctx context.Context, realm, clientID string)
 	var secret struct {
 		Value string `json:"value"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&secret); err != nil {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", ErrResponseRead
+	}
+	if err := json.Unmarshal(body, &secret); err != nil {
 		return "", fmt.Errorf("decode rotated secret: %w", err)
 	}
 	return secret.Value, nil
@@ -1866,7 +1870,11 @@ func (c *Client) fetchToken(ctx context.Context) (string, error) {
 		AccessToken string `json:"access_token"`
 		ExpiresIn   int    `json:"expires_in"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&tok); err != nil {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", ErrResponseRead
+	}
+	if err := json.Unmarshal(body, &tok); err != nil {
 		return "", fmt.Errorf("decode token response: %w", err)
 	}
 	if tok.AccessToken == "" {

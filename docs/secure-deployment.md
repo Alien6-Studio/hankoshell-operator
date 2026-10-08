@@ -191,6 +191,26 @@ it does not change trust for other integrations. Invalid or missing configured
 CA data fails rather than falling back. Redirects are refused. There is no
 `insecureSkipVerify` or equivalent option.
 
+Every Keycloak HTTP response passes through the same bounded reader before
+client methods see it, including token acquisition, credential rotation,
+authorization, mappers, groups, organizations and write acknowledgements.
+The per-response budgets are **1 MiB** for Admin representations, **64 KiB** for
+tokens/client secrets and **8 KiB** for non-2xx responses, in both profiles.
+They apply to decompressed bytes; missing or understated `Content-Length` cannot
+bypass them. The reader detects overflow with one extra byte, closes the original
+stream and rejects incomplete reads instead of accepting a valid JSON prefix.
+Tokens and rotated secrets also require a complete JSON document, without trailing
+data. No partial token is cached or partial representation returned.
+
+Oversize responses report `ErrResponseTooLarge` with their HTTP status and byte
+budget; broken streams report `ErrResponseRead` without response contents.
+Large installations must fit these budgets on each requested page/representation;
+there is no silent truncation, automatic limit relaxation or new pagination of
+otherwise unpaged APIs. The existing ten-second HTTP timeout remains in effect.
+These limits bound individual network reads, not the whole reconciliation's
+memory or object count. A response read failure cannot undo a provider write
+already accepted by Keycloak; verify provider state before manual retry.
+
 URLs must be HTTP(S) origins with a DNS/IPv4 host or bracketed IPv6 literal and
 an optional unescaped context path such as `/auth`. Userinfo (even username-only),
 queries, fragments (including empty delimiters), malformed/out-of-range ports,

@@ -108,28 +108,45 @@ func matchAdminPath(pattern, path string) bool {
 }
 
 func (c *Client) do(req *http.Request) (*http.Response, error) {
+	limit, err := c.responseBudget(req)
+	if err != nil {
+		return nil, err
+	}
+	response, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	// Callers receive only a complete bounded buffer, never the network stream.
+	// Validate even bodies ignored by success/Location handlers before returning.
+	return boundedKeycloakResponse(response, limit)
+}
+
+func (c *Client) responseBudget(req *http.Request) (int64, error) {
 	if c.endpointError != nil {
-		return nil, c.endpointError
+		return 0, c.endpointError
 	}
 	if err := ValidateEndpoint(c.baseURL, c.allowInsecureHTTP); err != nil {
-		return nil, err
+		return 0, err
 	}
 	base, err := url.Parse(c.baseURL)
 	if err != nil {
-		return nil, fmt.Errorf("invalid Keycloak base URL: %w", err)
+		return 0, fmt.Errorf("invalid Keycloak base URL: %w", err)
 	}
 	prefix := strings.TrimRight(base.EscapedPath(), "/")
 	path, found := strings.CutPrefix(req.URL.EscapedPath(), prefix)
 	if !found || req.URL.Scheme != base.Scheme || req.URL.Host != base.Host || req.URL.User != nil {
-		return nil, fmt.Errorf("keycloak operation outside configured endpoint")
+		return 0, fmt.Errorf("keycloak operation outside configured endpoint")
 	}
 	if req.Method == http.MethodPost && path == "/realms/master/protocol/openid-connect/token" {
-		return c.httpClient.Do(req)
+		return maxKeycloakCredentialResponseBytes, nil
 	}
 	for _, operation := range adminOperations {
 		if matchAdminPath(operation.Path, path) && strings.Contains(","+operation.Methods+",", ","+req.Method+",") {
-			return c.httpClient.Do(req)
+			if operation.Capability == "credentials" {
+				return maxKeycloakCredentialResponseBytes, nil
+			}
+			return maxKeycloakAdminResponseBytes, nil
 		}
 	}
-	return nil, fmt.Errorf("unclassified Keycloak operation: %s %s; update the permission contract", req.Method, path)
+	return 0, fmt.Errorf("unclassified Keycloak operation: %s %s; update the permission contract", req.Method, path)
 }

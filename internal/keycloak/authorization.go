@@ -646,9 +646,9 @@ func (c *Client) authorizationCreate(ctx context.Context, path string, payload a
 	if location == "" {
 		// Keycloak authorization APIs return the created representation rather
 		// than Location on supported versions. Both resource ID spellings occur.
-		body, err := io.ReadAll(io.LimitReader(response.Body, (1<<20)+1))
-		if err != nil || len(body) > 1<<20 {
-			return "", fmt.Errorf("keycloak authorization create response unreadable or oversized")
+		body, err := io.ReadAll(response.Body) // do returned a complete bounded buffer.
+		if err != nil {
+			return "", ErrResponseRead
 		}
 		var created struct {
 			ID         string `json:"id"`

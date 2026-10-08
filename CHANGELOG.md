@@ -107,6 +107,13 @@ response targets and supported versions are in SECURITY.md.
 
 ### Security
 
+- Bound every Keycloak HTTP response in the reviewed permission gateway: 1 MiB
+  Admin representations, 64 KiB tokens/client secrets and 8 KiB non-2xx responses.
+  Check actual decompressed bytes, close network bodies, reject overflow and
+  incomplete streams before exposing data or accepting write acknowledgements.
+  Require complete token/rotated-secret JSON; test every reviewed route/method,
+  exact boundaries, inaccurate length headers, gzip expansion and broken streams.
+
 - Remove the mutable default database snapshot image and broad DB Secret import.
   Require an explicit `backupImage` digest/source/publisher approval scoped to
   `database-backup`, live signature verification and a separate `backupSecretRef`.
