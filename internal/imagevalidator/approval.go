@@ -17,14 +17,16 @@ import (
 	"github.com/distribution/reference"
 )
 
-// Purpose separates theme execution from managed identity-provider execution.
+// Purpose separates workload execution from operator replacement.
 type Purpose string
 
 const (
 	// ThemeBuilder covers build, prune and deletion Jobs with theme PVC access.
 	ThemeBuilder Purpose = "theme-builder"
 	// Keycloak covers managed Keycloak Deployments with credential access.
-	Keycloak       Purpose = "keycloak"
+	Keycloak Purpose = "keycloak"
+	// OperatorUpdate covers replacement of the running operator itself.
+	OperatorUpdate Purpose = "operator-update"
 	maxPolicyBytes         = 64 * 1024
 )
 
@@ -33,10 +35,21 @@ const (
 var ErrVerificationDenied = errors.New("imagevalidator: signed immutable workload image approval required")
 
 var revisionPattern = regexp.MustCompile(`^([a-f0-9]{40}|[a-f0-9]{64})$`)
+var releaseVersionPattern = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
+
+const (
+	releaseIdentityPrefix = "https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v"
+	releaseOIDCIssuer     = "https://token.actions.githubusercontent.com"
+)
 
 // SignatureVerifier checks the digest and signed source revision with a public key.
 type SignatureVerifier interface {
 	Verify(context.Context, string, string, string) error
+}
+
+// KeylessSignatureVerifier verifies an exact certificate identity and issuer.
+type KeylessSignatureVerifier interface {
+	VerifyKeyless(context.Context, string, string, string, string) error
 }
 
 // Approval binds a release-reviewed immutable image to its purpose and publisher.
@@ -45,7 +58,11 @@ type Approval struct {
 	Purpose  Purpose `json:"purpose"`
 	Image    string  `json:"image"`
 	Revision string  `json:"revision"`
-	KeyFile  string  `json:"key_file"`
+	KeyFile  string  `json:"key_file,omitempty"`
+	// ReleaseVersion binds an operator approval to the Hub's requested version.
+	ReleaseVersion        string `json:"release_version,omitempty"`
+	CertificateIdentity   string `json:"certificate_identity,omitempty"`
+	CertificateOIDCIssuer string `json:"certificate_oidc_issuer,omitempty"`
 }
 
 type approvalPolicy struct {
@@ -63,12 +80,45 @@ func NewWithPolicy(policyFile string, verifier SignatureVerifier) *Validator {
 // VerifyImage requires an exact digest approval and a valid publisher signature.
 // Identity-only validators and nil validators cannot authorize execution.
 func (v *Validator) VerifyImage(ctx context.Context, purpose Purpose, image string) error {
+	if purpose == OperatorUpdate {
+		return ErrVerificationDenied // Operator updates also require a release-version binding.
+	}
 	approval, err := v.approvedImage(purpose, image)
 	if err != nil {
 		return err
 	}
+	return v.verifyApproval(ctx, approval)
+}
+
+// VerifyOperatorImage requires a local release approval and live signature
+// verification. Hub cannot supply or modify the approval or its trust anchors.
+func (v *Validator) VerifyOperatorImage(ctx context.Context, image, version string) error {
+	approval, err := v.approvedImage(OperatorUpdate, image)
+	if err != nil || approval.ReleaseVersion != version {
+		return ErrVerificationDenied
+	}
+	if err := v.verifyApproval(ctx, approval); err != nil {
+		return err
+	}
+	// Registry verification can take time. Re-read local authority before the
+	// caller patches its Deployment, so revocation during verification wins.
+	current, err := v.approvedImage(OperatorUpdate, image)
+	if err != nil || current != approval {
+		return ErrVerificationDenied
+	}
+	return nil
+}
+
+func (v *Validator) verifyApproval(ctx context.Context, approval Approval) error {
+	if approval.KeyFile == "" {
+		verifier, ok := v.verifier.(KeylessSignatureVerifier)
+		if !ok || verifier.VerifyKeyless(ctx, approval.Image, approval.CertificateIdentity, approval.CertificateOIDCIssuer, approval.Revision) != nil {
+			return ErrVerificationDenied
+		}
+		return nil
+	}
 	key := filepath.Join(filepath.Dir(v.policyFile), approval.KeyFile)
-	if v.verifier.Verify(ctx, image, key, approval.Revision) != nil {
+	if v.verifier.Verify(ctx, approval.Image, key, approval.Revision) != nil {
 		return ErrVerificationDenied
 	}
 	return nil
@@ -92,7 +142,7 @@ func (v *Validator) approvedImage(purpose Purpose, image string) (Approval, erro
 	for _, approval := range policy.Approvals {
 		if approval.Purpose == purpose && approval.Image == image {
 			key := filepath.Join(filepath.Dir(v.policyFile), approval.KeyFile)
-			if !publicKeyFile(key) {
+			if approval.KeyFile != "" && !publicKeyFile(key) {
 				return Approval{}, ErrVerificationDenied
 			}
 			return approval, nil
@@ -139,10 +189,26 @@ func readPolicy(path string) (approvalPolicy, error) {
 }
 
 func validApproval(approval Approval) bool {
-	return (approval.Purpose == ThemeBuilder || approval.Purpose == Keycloak) &&
+	if approval.Purpose == OperatorUpdate && approval.KeyFile == "" {
+		return immutableImage(approval.Image) && revisionPattern.MatchString(approval.Revision) &&
+			releaseVersionPattern.MatchString(approval.ReleaseVersion) &&
+			approval.CertificateIdentity == releaseIdentityPrefix+approval.ReleaseVersion &&
+			approval.CertificateOIDCIssuer == releaseOIDCIssuer
+	}
+	return validKeyedPurpose(approval) &&
 		immutableImage(approval.Image) && revisionPattern.MatchString(approval.Revision) &&
 		approval.KeyFile != "" && filepath.Base(approval.KeyFile) == approval.KeyFile &&
 		!strings.ContainsAny(approval.KeyFile, `/\\`) && strings.HasSuffix(approval.KeyFile, ".pub")
+}
+
+func validKeyedPurpose(approval Approval) bool {
+	if approval.CertificateIdentity != "" || approval.CertificateOIDCIssuer != "" {
+		return false
+	}
+	if approval.Purpose == OperatorUpdate {
+		return releaseVersionPattern.MatchString(approval.ReleaseVersion)
+	}
+	return (approval.Purpose == ThemeBuilder || approval.Purpose == Keycloak) && approval.ReleaseVersion == ""
 }
 
 func publicKeyFile(path string) bool {

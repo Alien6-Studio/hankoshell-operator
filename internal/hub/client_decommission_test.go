@@ -11,6 +11,18 @@ import (
 	"time"
 )
 
+func TestDecommissionAuthorizationWindow(t *testing.T) {
+	now := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
+	command := &DecommissionCommand{RequestedAt: now.Add(-time.Hour), Deadline: now}
+	if err := command.Validate(now); !errors.Is(err, ErrDecommissionExpired) {
+		t.Fatalf("deadline is exclusive: %v", err)
+	}
+	command.Deadline = now.Add(time.Second)
+	if err := command.Validate(now); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestReportStatusDeliversDecommissionCommand(t *testing.T) {
 	requestedAt := time.Date(2026, 9, 9, 10, 0, 0, 0, time.UTC)
 	deadline := requestedAt.Add(24 * time.Hour)

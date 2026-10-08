@@ -30,6 +30,19 @@ optional; standalone Keycloak reconciliation does not depend on them. See the
 [qualification limits](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md#keycloak-compatibility)
 and project website [hanko.sh](https://hanko.sh).
 
+Instance `spec.hardenMasterRealm` and `spec.rotateAdminCredentials` default to
+`false`, including in managed mode. Set them explicitly only when the operator
+owns those tasks and has the documented master permissions. Referencing an adopted
+Service does not authorize changes to it; use `spec.adopted.publishDiscovery: true`
+to publish its discovery metadata.
+
+Hub-directed self-updates also require an exact `operator-update` approval in
+the administrator-owned `hanko-image-policy` ConfigMap and a verified image
+signature. Configure `imageVerification.policyConfigMap` and exact verifier
+egress destinations. Without an approval, the Deployment stays unchanged.
+Remote decommission commands must carry a valid, unexpired time window.
+See [remote command authorization](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md#hub-remote-commands).
+
 `leaderElect: true` remains the default. An explicit `false` now reaches the
 manager flag (previously omission left its default enabled); use it only with
 one active writer. This is not a multi-replica failover mode.

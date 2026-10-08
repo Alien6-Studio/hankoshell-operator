@@ -91,6 +91,53 @@ func TestKubernetesCompatibility(t *testing.T) {
 		}
 	}
 
+	t.Run("instance-administrative-capability-contract", func(t *testing.T) {
+		instance := &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoKeycloakInstance",
+			"metadata": map[string]any{"name": "capability-defaults", "namespace": "auth"},
+			"spec": map[string]any{"mode": "adopted", "adminRef": map[string]any{"name": "existing-admin"},
+				"adopted": map[string]any{"deploymentRef": "existing-keycloak", "serviceRef": "existing-keycloak"}},
+		}}
+		if err := admin.Create(ctx, instance); err != nil {
+			t.Fatal(err)
+		}
+		paths := [][]string{{"spec", "hardenMasterRealm"}, {"spec", "rotateAdminCredentials"}, {"spec", "adopted", "publishDiscovery"}}
+		for index, path := range paths {
+			value, found, err := unstructured.NestedBool(instance.Object, path...)
+			if err != nil || !found || value {
+				t.Fatalf("optional authority is not disabled by default at %v", path)
+			}
+			bad := &unstructured.Unstructured{Object: map[string]any{
+				"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoKeycloakInstance",
+				"metadata": map[string]any{"name": []string{"bad-hardening", "bad-rotation", "bad-discovery"}[index], "namespace": "auth"},
+			}}
+			bad.Object["spec"] = instance.DeepCopy().Object["spec"]
+			if err := unstructured.SetNestedField(bad.Object, "true", path...); err != nil {
+				t.Fatal(err)
+			}
+			if err := admin.Create(ctx, bad); !apierrors.IsInvalid(err) {
+				t.Fatalf("nonboolean authority admitted at %v: %v", path, err)
+			}
+		}
+		for _, path := range paths {
+			if err := unstructured.SetNestedField(instance.Object, true, path...); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := admin.Update(ctx, instance); err != nil {
+			t.Fatal(err)
+		}
+		if err := admin.Get(ctx, client.ObjectKeyFromObject(instance), instance); err != nil {
+			t.Fatal(err)
+		}
+		for _, path := range paths {
+			value, found, err := unstructured.NestedBool(instance.Object, path...)
+			if err != nil || !found || !value {
+				t.Fatalf("explicit authority not preserved at %v", path)
+			}
+		}
+	})
+
 	t.Run("chart-and-restricted-admission", func(t *testing.T) {
 		deployment := installCompatibilityChart(t, ctx, admin, chart, version, nil)
 		checkRestrictedAdmission(t, ctx, admin, deployment)

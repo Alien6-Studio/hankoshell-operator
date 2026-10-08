@@ -348,8 +348,9 @@ func TestAdoptedServiceAutodiscoverMetadataPreservesRouting(t *testing.T) {
 		Spec: hankoshv1alpha1.HankoKeycloakInstanceSpec{
 			Mode: "adopted",
 			Adopted: &hankoshv1alpha1.AdoptedKeycloakSpec{
-				DeploymentRef: "external-keycloak",
-				ServiceRef:    "external-keycloak",
+				DeploymentRef:    "external-keycloak",
+				ServiceRef:       "external-keycloak",
+				PublishDiscovery: true,
 			},
 		},
 	}

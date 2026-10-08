@@ -75,6 +75,16 @@ func (r *HankoKeycloakInstanceReconciler) reconcileServiceAccountCredential(
 	if err := r.Get(ctx, key, &secret); err != nil {
 		return r.rotationFailure(ctx, instance, statusPatch, "AdminSecretUnavailable", err)
 	}
+	if !instance.Spec.RotateAdminCredentials {
+		instance.Status.NextCredentialRotation = nil
+		if len(secret.Data[pendingClientSecretKey]) != 0 {
+			return r.rotationFailure(ctx, instance, statusPatch, "RotationNotRequested",
+				fmt.Errorf("AdminRef has a pending rotation; resolve it manually or enable spec.rotateAdminCredentials"))
+		}
+		setCondition(&instance.Status.Conditions, credentialRotationCondition, metav1.ConditionTrue,
+			"ExternallyManaged", "AdminRef credential rotation is administrator-managed")
+		return ctrl.Result{}, false, nil
+	}
 	now := r.rotationNow()
 	if pending := secret.Data[pendingClientSecretKey]; len(pending) != 0 {
 		return r.resumeServiceAccountRotation(ctx, instance, &secret, activeClient, statusPatch, now)

@@ -88,13 +88,26 @@ spec:
                     description: DeploymentRef is the name of the existing Keycloak
                       Deployment in the same namespace.
                     type: string
+                  publishDiscovery:
+                    default: false
+                    description: |-
+                      PublishDiscovery authorizes adding hankoShell discovery labels and annotations
+                      to ServiceRef. Referencing an adopted Service alone never authorizes a patch.
+                    type: boolean
                   serviceRef:
-                    description: ServiceRef is the name of the existing Keycloak Service
-                      (optional, used for status).
+                    description: |-
+                      ServiceRef names an existing Keycloak Service for optional discovery metadata.
+                      The reference alone does not grant ownership or authorize updates.
                     type: string
                 required:
                 - deploymentRef
                 type: object
+              hardenMasterRealm:
+                default: false
+                description: |-
+                  HardenMasterRealm explicitly authorizes changes to the master realm security
+                  baseline. Disabled by default in every mode; requires master manage-realm.
+                type: boolean
               managed:
                 description: |-
                   Managed holds the desired state for an operator-provisioned Keycloak Deployment.
@@ -202,6 +215,14 @@ spec:
                 - adopted
                 - external
                 type: string
+              rotateAdminCredentials:
+                default: false
+                description: |-
+                  RotateAdminCredentials authorizes rotation of the AdminRef service-account
+                  secret in master. Disabled by default; otherwise HANKO_KC_SA_MAX_AGE sets
+                  its maximum age. Requires master manage-clients. This does not control
+                  application or HankoServiceAccount credential rotation.
+                type: boolean
               tlsCARef:
                 description: |-
                   TLSCARef is the name of a Secret containing a "ca.crt" key with the PEM-encoded
@@ -299,7 +320,9 @@ spec:
                 format: date-time
                 type: string
               nextCredentialRotation:
-                description: NextCredentialRotation is the deadline derived from HANKO_KC_SA_MAX_AGE.
+                description: |-
+                  NextCredentialRotation is set only when spec.rotateAdminCredentials is enabled,
+                  using the deadline derived from HANKO_KC_SA_MAX_AGE.
                 format: date-time
                 type: string
               phase:

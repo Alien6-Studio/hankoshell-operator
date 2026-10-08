@@ -42,6 +42,18 @@ type HankoKeycloakInstanceSpec struct {
 	// HTTPS always verifies certificates; without this Secret it uses system CAs.
 	TLSCARef string `json:"tlsCARef,omitempty"`
 
+	// HardenMasterRealm explicitly authorizes changes to the master realm security
+	// baseline. Disabled by default in every mode; requires master manage-realm.
+	// +kubebuilder:default=false
+	HardenMasterRealm bool `json:"hardenMasterRealm,omitempty"`
+
+	// RotateAdminCredentials authorizes rotation of the AdminRef service-account
+	// secret in master. Disabled by default; otherwise HANKO_KC_SA_MAX_AGE sets
+	// its maximum age. Requires master manage-clients. This does not control
+	// application or HankoServiceAccount credential rotation.
+	// +kubebuilder:default=false
+	RotateAdminCredentials bool `json:"rotateAdminCredentials,omitempty"`
+
 	// Managed holds the desired state for an operator-provisioned Keycloak Deployment.
 	// Required when mode=managed.
 	Managed *ManagedKeycloakSpec `json:"managed,omitempty"`
@@ -80,8 +92,14 @@ type AdoptedKeycloakSpec struct {
 	// +kubebuilder:validation:Required
 	DeploymentRef string `json:"deploymentRef"`
 
-	// ServiceRef is the name of the existing Keycloak Service (optional, used for status).
+	// ServiceRef names an existing Keycloak Service for optional discovery metadata.
+	// The reference alone does not grant ownership or authorize updates.
 	ServiceRef string `json:"serviceRef,omitempty"`
+
+	// PublishDiscovery authorizes adding hankoShell discovery labels and annotations
+	// to ServiceRef. Referencing an adopted Service alone never authorizes a patch.
+	// +kubebuilder:default=false
+	PublishDiscovery bool `json:"publishDiscovery,omitempty"`
 }
 
 // HankoKeycloakInstanceStatus describes the observed state of the Keycloak instance.
@@ -110,7 +128,8 @@ type HankoKeycloakInstanceStatus struct {
 	// credential was promoted after successful Keycloak verification.
 	LastCredentialRotation *metav1.Time `json:"lastCredentialRotation,omitempty"`
 
-	// NextCredentialRotation is the deadline derived from HANKO_KC_SA_MAX_AGE.
+	// NextCredentialRotation is set only when spec.rotateAdminCredentials is enabled,
+	// using the deadline derived from HANKO_KC_SA_MAX_AGE.
 	NextCredentialRotation *metav1.Time `json:"nextCredentialRotation,omitempty"`
 
 	// Conditions holds standard Kubernetes condition objects.

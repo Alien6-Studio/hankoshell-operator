@@ -1527,7 +1527,7 @@ func joinURIs(uris []string) string {
 
 // HardenMasterRealm applies a fixed security baseline to the Keycloak master realm.
 // The master realm controls all admin API access and must never be left at defaults.
-// This is idempotent and called on every HankoKeycloakInstance reconcile cycle.
+// Instance reconciliation calls this only with spec.hardenMasterRealm enabled.
 func (c *Client) HardenMasterRealm(ctx context.Context) error {
 	tok, err := c.bearerToken(ctx)
 	if err != nil {

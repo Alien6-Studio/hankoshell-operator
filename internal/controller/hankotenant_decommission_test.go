@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -60,7 +61,54 @@ func decommissionReleaseObjects(tenant *hankoshv1alpha1.HankoTenant) []client.Ob
 }
 
 func decommissionCommand() *hub.DecommissionCommand {
-	return &hub.DecommissionCommand{RequestedAt: metav1.Now().Time, Deadline: metav1.Now().Time}
+	now := time.Now()
+	return &hub.DecommissionCommand{RequestedAt: now, Deadline: now.Add(time.Hour)}
+}
+
+type commandDeadlineReader struct {
+	client.Reader
+	t        *testing.T
+	deadline time.Time
+	reads    int
+}
+
+func (r *commandDeadlineReader) Get(ctx context.Context, key client.ObjectKey, object client.Object, options ...client.GetOption) error {
+	r.reads++
+	deadline, ok := ctx.Deadline()
+	if !ok || !deadline.Equal(r.deadline) {
+		r.t.Errorf("command deadline was not propagated: %v (%t)", deadline, ok)
+	}
+	return r.Reader.Get(ctx, key, object, options...)
+}
+
+func TestExecuteDecommissionRejectsExpiredAndMalformedCommands(t *testing.T) {
+	now := time.Now()
+	cases := map[string]*hub.DecommissionCommand{
+		"nil":              nil,
+		"missing deadline": {RequestedAt: now.Add(-time.Hour)},
+		"missing request":  {Deadline: now.Add(time.Hour)},
+		"future request":   {RequestedAt: now.Add(time.Hour), Deadline: now.Add(2 * time.Hour)},
+		"reversed window":  {RequestedAt: now.Add(-time.Hour), Deadline: now.Add(-2 * time.Hour)},
+		"expired":          {RequestedAt: now.Add(-2 * time.Hour), Deadline: now.Add(-time.Hour)},
+	}
+	for name, command := range cases {
+		t.Run(name, func(t *testing.T) {
+			tenant := decommissionTestTenant("")
+			kube := controllerTestClient(decommissionTestScheme(t), decommissionReleaseObjects(tenant)...)
+			r := &HankoTenantReconciler{Client: kube, ClusterIdentityReader: kube, Decommission: &decommission.Config{ReleaseName: decommissionTestRelease}}
+			result, err := r.executeDecommission(context.Background(), tenant, client.MergeFrom(tenant.DeepCopy()), nil, command)
+			reason := "DecommissionInvalid"
+			if name == "expired" {
+				reason = "DecommissionExpired"
+			}
+			assertDecommissionRefused(t, r, kube, tenant, result, err, reason)
+			for _, object := range decommissionReleaseObjects(tenant)[1:] {
+				if err := kube.Get(context.Background(), client.ObjectKeyFromObject(object), object); err != nil {
+					t.Fatalf("refusal removed %T: %v", object, err)
+				}
+			}
+		})
+	}
 }
 
 func TestExecuteDecommissionRunsEngineAndConfirms(t *testing.T) {
@@ -75,12 +123,14 @@ func TestExecuteDecommissionRunsEngineAndConfirms(t *testing.T) {
 
 	tenant := decommissionTestTenant("")
 	kube := controllerTestClient(decommissionTestScheme(t), decommissionReleaseObjects(tenant)...)
+	command := decommissionCommand()
+	reader := &commandDeadlineReader{Reader: kube, t: t, deadline: command.Deadline}
 	reconciler := &HankoTenantReconciler{
-		Client: kube, ClusterIdentityReader: kube,
+		Client: kube, ClusterIdentityReader: reader,
 		Decommission: &decommission.Config{ReleaseName: decommissionTestRelease, CASecretNames: []string{"hanko-hub-tls"}},
 	}
 	patch := client.MergeFrom(tenant.DeepCopy())
-	result, err := reconciler.executeDecommission(context.Background(), tenant, patch, hub.New(server.URL, "tenant-1", "token"), decommissionCommand())
+	result, err := reconciler.executeDecommission(context.Background(), tenant, patch, hub.New(server.URL, "tenant-1", "token"), command)
 	if err != nil {
 		t.Fatalf("execute decommission: %v", err)
 	}
@@ -89,6 +139,9 @@ func TestExecuteDecommissionRunsEngineAndConfirms(t *testing.T) {
 	}
 	if !confirmed {
 		t.Fatal("inventory was not confirmed to hub")
+	}
+	if reader.reads == 0 {
+		t.Fatal("bounded execution context was not observed")
 	}
 	ctx := context.Background()
 	var deployment appsv1.Deployment

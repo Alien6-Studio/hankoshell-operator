@@ -236,6 +236,12 @@ which responsibilities hankoShell owns:
 Use one management writer per provider object. Theme rollout integrations are
 Deployment-based; provider workload ownership and IAM ownership are separate.
 
+Instance reconciliation probes Keycloak without changing `master` or rotating
+`AdminRef` credentials by default. Enable `spec.hardenMasterRealm` or
+`spec.rotateAdminCredentials` only when assigning those responsibilities to the
+operator. An adopted Service is labelled for platform discovery only with
+`spec.adopted.publishDiscovery: true`. See the [permission model](docs/keycloak-permissions.md).
+
 ## Platform integrations
 
 The Keycloak workflow above can run on its own. The hankoShell API and Hub are
@@ -257,6 +263,10 @@ Hub bundles use a token-derived HMAC. Every holder of that token can produce
 the same authenticator; there is no independent bundle publisher signature.
 The [trust model](docs/secure-deployment.md#hub-bundle-authentication) explains
 the distinction from Ed25519 mesh policies and signed release evidence.
+
+Hub self-updates require an independently approved release and verified image
+signature. Remote decommission commands expire at their deadline. See
+[remote command authorization](docs/secure-deployment.md#hub-remote-commands).
 
 Platform messaging and vault credentials belong to the hankoShell API.
 `HankoEmailProvider` is retained for upgrades; its controller clears old

@@ -49,3 +49,26 @@ func TestCosignCancellationDeniesExecution(t *testing.T) {
 		t.Fatal("cancelled verifier blocked")
 	}
 }
+
+func TestCosignKeylessPinsExactIdentityIssuerRevisionAndDigest(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "ambient-secret")
+	t.Setenv("SIGSTORE_ROOT_FILE", "/attacker/root")
+	binary := filepath.Join(t.TempDir(), "cosign")
+	script := `#!/bin/sh
+test "$#" -eq 8 || exit 2
+test "$1" = verify && test "$2" = --certificate-identity || exit 3
+test "$3" = https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.1.0 || exit 4
+test "$4" = --certificate-oidc-issuer && test "$5" = https://token.actions.githubusercontent.com || exit 5
+test "$6" = -a && test "$7" = hanko.git.revision=1111111111111111111111111111111111111111 || exit 6
+test "$8" = registry.example/hanko/theme-builder@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa || exit 7
+test -z "${GITHUB_TOKEN:-}${SIGSTORE_ROOT_FILE:-}" || exit 8
+`
+	// #nosec G306 -- Owner-only executable fixture in the test's private directory.
+	if err := os.WriteFile(binary, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	v := &CosignVerifier{Binary: binary}
+	if err := v.VerifyKeyless(context.Background(), approvedImage, releaseIdentityPrefix+"0.1.0", releaseOIDCIssuer, "1111111111111111111111111111111111111111"); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -1,8 +1,9 @@
 // Package selfupdate converges this operator's own Deployment on the
 // digest-pinned agent release commanded by Hub. The repository of the running
 // container image is always preserved and only its digest is swapped, so a
-// compromised or misconfigured Hub can never redirect the operator to another
-// registry. The kubelet then replaces the running pod; the new binary reports
+// Hub cannot redirect the operator to another registry. A local release policy
+// and publisher signature authorize the digest before any patch. The kubelet
+// then replaces the running pod; the new binary reports
 // the commanded version on its first heartbeat, which clears the command.
 package selfupdate
 
@@ -41,23 +42,39 @@ var digestPattern = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
 
 // Engine patches the operator's own Deployment to the commanded digest.
 type Engine struct {
-	Writer client.Client
-	Reader client.Reader
-	Config Config
+	Writer   client.Client
+	Reader   client.Reader
+	Config   Config
+	Verifier ReleaseVerifier
+}
+
+// ReleaseVerifier authorizes an exact image/version through independent local trust.
+type ReleaseVerifier interface {
+	VerifyOperatorImage(context.Context, string, string) error
+}
+
+func (e *Engine) validateRequest(command *hub.AgentUpdateCommand) error {
+	if err := e.Config.Validate(); err != nil {
+		return err
+	}
+	if e.Reader == nil || e.Writer == nil {
+		return errors.New("agent update requires a configured deployment reader and writer")
+	}
+	if command == nil || strings.TrimSpace(command.Version) == "" {
+		return errors.New("agent update command carries no release version")
+	}
+	if !digestPattern.MatchString(command.Digest) {
+		return errors.New("agent update requires a sha256 content digest")
+	}
+	return nil
 }
 
 // Run pins the configured container to its current repository at the
 // commanded digest and returns the resulting image reference. It is
 // idempotent: a Deployment already pinned to that digest is left untouched.
 func (e *Engine) Run(ctx context.Context, command *hub.AgentUpdateCommand) (string, error) {
-	if err := e.Config.Validate(); err != nil {
+	if err := e.validateRequest(command); err != nil {
 		return "", err
-	}
-	if command == nil || strings.TrimSpace(command.Version) == "" {
-		return "", errors.New("agent update command carries no release version")
-	}
-	if !digestPattern.MatchString(command.Digest) {
-		return "", fmt.Errorf("agent update digest %q is not a sha256 content digest", command.Digest)
 	}
 
 	var deployment appsv1.Deployment
@@ -79,10 +96,16 @@ func (e *Engine) Run(ctx context.Context, command *hub.AgentUpdateCommand) (stri
 	}
 
 	image := repository(containers[index].Image) + "@" + command.Digest
+	if e.Verifier == nil || e.Verifier.VerifyOperatorImage(ctx, image, command.Version) != nil {
+		return "", errors.New("agent update requires a locally approved release and verified publisher signature")
+	}
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	if containers[index].Image == image {
 		return image, nil
 	}
-	patch := client.MergeFrom(deployment.DeepCopy())
+	patch := client.MergeFromWithOptions(deployment.DeepCopy(), client.MergeFromWithOptimisticLock{})
 	deployment.Spec.Template.Spec.Containers[index].Image = image
 	if err := e.Writer.Patch(ctx, &deployment, patch); err != nil {
 		return "", fmt.Errorf("pin operator image to %s: %w", image, err)

@@ -77,8 +77,8 @@ roles already authorize the corresponding reads; redundant `view-*` and
 | Read-only import and realm/application/role/service-account/IdP observation | `view-realm`, `view-clients`, `view-identity-providers` for requested inventory | Each observed target realm | Alternative read-only profile |
 | Read-only group observation / authorization observation | Add `view-users` / `view-authorization` to appropriate read profile | Target realm | Separate optional read surfaces |
 | Create new realms | Master realm role `create-realm`; native scoped creator grants, described below | Server-wide realm creation; authority over newly created realms | Yes; excluded from common profile |
-| Harden master security policy | `manage-realm` of **`master-realm`** | Master security policy | Yes; not recommended for an ordinary realm controller |
-| Automatic rotation of the operator's own master client credential | `manage-clients` of **`master-realm`** | All master clients | Yes; prefer administrator-controlled rotation |
+| Harden master security policy | `manage-realm` of **`master-realm`** | Master security policy | Only with `spec.hardenMasterRealm: true` |
+| Automatic rotation of the operator's own master client credential | `manage-clients` of **`master-realm`** | All master clients | Only with `spec.rotateAdminCredentials: true`; prefer administrator-controlled rotation |
 
 The operator does not provision user passwords, user membership or invitations,
 perform user impersonation, manage SMTP delivery, or manage administrative role
@@ -101,9 +101,12 @@ read boundary, or separately qualify a finer administration policy; do not assum
 a `view-*` role excludes secrets. Import/Observe still omits credentials from CRDs,
 logs, events and Kubernetes Secrets on both versions.
 
-`MasterRealmHardened=False` reports the denied optional hardening attempt; ordinary
-instance probes and target reconciliation still work. Administrators must enforce
-master's security baseline independently when that permission is withheld.
+Instance reconciliation does not attempt master hardening or administrative
+credential rotation unless the spec enables them, in every provider mode.
+`MasterRealmHardened=False` with reason `NotRequested` means the administrator
+owns that baseline. Requested hardening must succeed before the instance becomes
+Ready; denied authority leaves it Degraded. Extra roles on the service account
+do not enable either operation.
 
 ## Minimal profile for an existing Keycloak
 
@@ -181,18 +184,27 @@ credential, retire the previous secret, and audit the transition without logging
 secret values or tokens. Exercise failure/recovery in a non-production realm.
 
 Application and `HankoServiceAccount` credential rotation needs only target
-`manage-clients`. A `HankoKeycloakInstance` also attempts automatic rotation of
-its administrative client after `HANKO_KC_SA_MAX_AGE` (90 days by default),
-including in external mode. That operation needs master `manage-clients` when
-the credential client is in master; this is broader authority than application
-rotation. There is no disable flag for this instance lifecycle behavior.
-The chart's default connection does not require an instance resource.
-For externally managed credentials, rotate before that deadline and update the
-Secret's `hanko.sh/sa-rotated-at` annotation after successful synchronization.
-Do not grant master authority merely to suppress a failed rotation.
+`manage-clients`. Instance `AdminRef` credentials are externally managed by
+default. `spec.rotateAdminCredentials: true` enables automatic rotation of the
+master service-client secret after `HANKO_KC_SA_MAX_AGE` (90 days by default).
+This requires master `manage-clients` and the configured metadata audit endpoint;
+it is broader authority than application rotation. The chart's default
+connection does not require an instance resource.
+Only automatic rotation uses the Secret's `hanko.sh/sa-rotated-at` clock.
+Disabling it clears the status schedule and stops provider/Secret writes.
+If a pending credential exists, reconciliation reports `RotationNotRequested`:
+resolve the pending transaction manually or explicitly re-enable rotation.
+It does not discard, promote or replay the pending credential without permission.
+Administrators using external rotation must enforce their own credential-age policy.
 Rotation can update the provider and Secret before audit delivery succeeds;
 an audit failure reports a degraded state, not a rollback of the secret change.
 Secret rotation alone does not guarantee revocation of already issued bearer tokens.
+
+**Migration:** instances previously attempted these operations automatically.
+Apply the new CRD before upgrading and enable the corresponding spec fields only
+where the operator should own them. Keep both disabled for ordinary existing
+Keycloak installations. Adopting a Kubernetes Service also needs
+`spec.adopted.publishDiscovery: true` before its discovery metadata is patched.
 
 ## Revocation and incident response
 

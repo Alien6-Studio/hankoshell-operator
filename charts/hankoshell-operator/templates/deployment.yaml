@@ -207,8 +207,8 @@ spec:
             - name: HANKO_DECOMMISSION_DISPOSABLE_SECRETS
               value: {{ printf "%s,hanko-hub-enroll" .Values.hub.caSecret | quote }}
             # Identity of this operator's own Deployment for the Hub-commanded
-            # digest-pinned self-update. The image repository is preserved by
-            # the operator itself; Hub only ever supplies a digest.
+            # self-update. The local image policy and publisher verification
+            # must authorize the requested release before any patch.
             - name: HANKO_AGENT_UPDATE_DEPLOYMENT
               value: {{ include "hanko-operator.fullname" . | quote }}
             - name: HANKO_AGENT_UPDATE_CONTAINER

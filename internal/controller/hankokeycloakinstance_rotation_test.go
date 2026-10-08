@@ -90,7 +90,7 @@ func rotationObjects(serverURL, activeSecret, rotatedAt string) (*hankoshv1alpha
 	instance := &hankoshv1alpha1.HankoKeycloakInstance{
 		ObjectMeta: metav1.ObjectMeta{Name: "keycloak", Namespace: "auth"},
 		Spec: hankoshv1alpha1.HankoKeycloakInstanceSpec{
-			Mode: "external", AdminRef: corev1.LocalObjectReference{Name: "keycloak-admin"},
+			Mode: "external", AdminRef: corev1.LocalObjectReference{Name: "keycloak-admin"}, RotateAdminCredentials: true,
 		},
 	}
 	secret := &corev1.Secret{

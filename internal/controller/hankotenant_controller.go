@@ -32,6 +32,7 @@ import (
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/decommission"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/hub"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/imagevalidator"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/selfupdate"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/supervision"
@@ -85,7 +86,8 @@ type HankoTenantReconciler struct {
 	// AgentUpdate identifies this operator's own Deployment for the
 	// Hub-commanded digest-pinned self-update. Nil keeps the command pending
 	// on Hub and the operator untouched.
-	AgentUpdate *selfupdate.Config
+	AgentUpdate    *selfupdate.Config
+	ImageValidator *imagevalidator.Validator
 
 	// degradedMu guards degradedDetail.
 	degradedMu sync.Mutex
@@ -330,6 +332,13 @@ func (r *HankoTenantReconciler) executeDecommission(
 	command *hub.DecommissionCommand,
 ) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
+	if err := command.Validate(time.Now()); err != nil {
+		reason := "DecommissionInvalid"
+		if errors.Is(err, hub.ErrDecommissionExpired) {
+			reason = "DecommissionExpired"
+		}
+		return r.setError(ctx, hubClient, tenant, patch, reason, err)
+	}
 	logger.Info("hub requested cluster decommission",
 		"tenant", tenant.Name, "requestedAt", command.RequestedAt, "deadline", command.Deadline)
 
@@ -367,7 +376,9 @@ func (r *HankoTenantReconciler) executeDecommission(
 		Config:  config,
 		Confirm: hubClient.ConfirmDecommission,
 	}
-	removed, err := engine.Run(ctx)
+	runCtx, cancel := context.WithDeadline(ctx, command.Deadline)
+	defer cancel()
+	removed, err := engine.Run(runCtx)
 	if errors.Is(err, decommission.ErrAfterConfirmation) {
 		// The receipt is recorded and the credential surrendered: Hub cannot
 		// re-deliver the command, so the residue is logged once for the

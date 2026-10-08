@@ -417,9 +417,9 @@ type StatusAck struct {
 }
 
 // AgentUpdateCommand asks the operator to restart itself on the reference
-// agent release. The digest pins the exact image content: the operator keeps
-// its own image repository and only swaps the digest, so Hub can never
-// redirect it to another registry.
+// agent release. The operator preserves its current image repository and requires
+// a locally approved digest/version/source revision and publisher signature.
+// The command itself is not an image trust anchor.
 type AgentUpdateCommand struct {
 	Version string `json:"version"`
 	Digest  string `json:"digest"`
@@ -430,6 +430,23 @@ type AgentUpdateCommand struct {
 type DecommissionCommand struct {
 	RequestedAt time.Time `json:"requestedAt"`
 	Deadline    time.Time `json:"deadline"`
+}
+
+var (
+	ErrDecommissionExpired        = errors.New("hub decommission command has expired")
+	ErrInvalidDecommissionCommand = errors.New("hub decommission command has invalid timestamps")
+)
+
+// Validate requires a current, bounded authorization window before any cleanup.
+func (c *DecommissionCommand) Validate(now time.Time) error {
+	if c == nil || c.RequestedAt.IsZero() || c.Deadline.IsZero() ||
+		c.RequestedAt.After(now) || !c.Deadline.After(c.RequestedAt) {
+		return ErrInvalidDecommissionCommand
+	}
+	if !now.Before(c.Deadline) {
+		return ErrDecommissionExpired
+	}
+	return nil
 }
 
 // ErrDecommissionUnauthorized reports that Hub no longer accepts this

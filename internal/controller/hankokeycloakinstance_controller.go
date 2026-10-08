@@ -89,7 +89,14 @@ func (r *HankoKeycloakInstanceReconciler) Reconcile(ctx context.Context, req ctr
 	if handled {
 		return ctrl.Result{RequeueAfter: requeueOnError}, nil
 	}
-	r.hardenKeycloakInstance(ctx, &instance, kc)
+	setCondition(&instance.Status.Conditions, "AdminAPIReachable", metav1.ConditionTrue, "ProbeSucceeded", "Keycloak Admin API is reachable")
+	if err := r.hardenKeycloakInstance(ctx, &instance, kc); err != nil {
+		instance.Status.Phase = "Degraded"
+		if patchErr := r.Status().Patch(ctx, &instance, patch); patchErr != nil {
+			return ctrl.Result{}, patchErr
+		}
+		return ctrl.Result{RequeueAfter: requeueOnError}, nil
+	}
 	return r.completeKeycloakInstance(ctx, &instance, kc, patch, version, len(realms))
 }
 
@@ -154,9 +161,15 @@ func (r *HankoKeycloakInstanceReconciler) reconcileAdoptedInstance(ctx context.C
 	if err != nil {
 		return ctrl.Result{RequeueAfter: requeueOnError}, true, fmt.Errorf("get adopted deployment %q: %w", name, err)
 	}
-	if instance.Spec.Adopted.ServiceRef != "" {
+	if instance.Spec.Adopted.PublishDiscovery {
+		if instance.Spec.Adopted.ServiceRef == "" {
+			r.setInstanceFailure(ctx, instance, patch, "Error", "MissingDiscoveryService", "publishDiscovery requires spec.adopted.serviceRef", "patch status after missing discovery Service")
+			return ctrl.Result{RequeueAfter: requeueOnError}, true, nil
+		}
 		if err := r.labelAdoptedService(ctx, instance); err != nil {
 			log.FromContext(ctx).Error(err, "failed to label adopted Keycloak Service for autodiscover")
+			r.setInstanceFailure(ctx, instance, patch, "Degraded", "DiscoveryError", err.Error(), "patch status after discovery error")
+			return ctrl.Result{RequeueAfter: requeueOnError}, true, nil
 		}
 	}
 	return ctrl.Result{}, false, nil
@@ -166,6 +179,9 @@ func (r *HankoKeycloakInstanceReconciler) reconcileAdoptedInstance(ctx context.C
 // admin-owned Service referenced by spec.adopted.serviceRef, without touching its
 // selector or ports — unlike ensureService, the operator does not own this Service.
 func (r *HankoKeycloakInstanceReconciler) labelAdoptedService(ctx context.Context, instance *hankoshv1alpha1.HankoKeycloakInstance) error {
+	if instance.Spec.Adopted == nil || !instance.Spec.Adopted.PublishDiscovery {
+		return nil
+	}
 	var svc corev1.Service
 	name := instance.Spec.Adopted.ServiceRef
 	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: instance.Namespace}, &svc); err != nil {
@@ -202,13 +218,18 @@ func (r *HankoKeycloakInstanceReconciler) probeKeycloakInstance(ctx context.Cont
 	return version, realms, false
 }
 
-func (r *HankoKeycloakInstanceReconciler) hardenKeycloakInstance(ctx context.Context, instance *hankoshv1alpha1.HankoKeycloakInstance, kc *keycloak.Client) {
+func (r *HankoKeycloakInstanceReconciler) hardenKeycloakInstance(ctx context.Context, instance *hankoshv1alpha1.HankoKeycloakInstance, kc *keycloak.Client) error {
+	if !instance.Spec.HardenMasterRealm {
+		setCondition(&instance.Status.Conditions, "MasterRealmHardened", metav1.ConditionFalse, "NotRequested", "Master realm hardening is administrator-managed")
+		return nil
+	}
 	if err := kc.HardenMasterRealm(ctx); err != nil {
-		log.FromContext(ctx).Error(err, "failed to harden master realm (non-fatal)")
+		log.FromContext(ctx).Error(err, "failed to harden master realm")
 		setCondition(&instance.Status.Conditions, "MasterRealmHardened", metav1.ConditionFalse, "HardenFailed", err.Error())
-		return
+		return err
 	}
 	setCondition(&instance.Status.Conditions, "MasterRealmHardened", metav1.ConditionTrue, "Hardened", "master realm security baseline applied")
+	return nil
 }
 
 func (r *HankoKeycloakInstanceReconciler) ensureManagedInstancePolicies(ctx context.Context, instance *hankoshv1alpha1.HankoKeycloakInstance) error {

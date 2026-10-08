@@ -89,6 +89,82 @@ must be reduced before rollout; the client does not silently truncate them.
 
 ## Configure an installation
 
+### Hub remote commands
+
+Hub can propose an operator update through a heartbeat response. Before changing
+its Deployment, the operator requires a local `operator-update` approval matching
+the exact image digest, release version and source revision, then verifies the
+publisher signature with the pinned runtime cosign. It preserves its current
+image repository. Missing approval, revoked approval, failed verification or a
+concurrent Deployment change prevents the patch. Already-pinned images are checked
+again; a version string alone does not authorize an update.
+The Hub reference version must match the reviewed SemVer release, such as `0.1.0`.
+
+Configure `imageVerification.policyConfigMap: hanko-image-policy`, the independent
+[admission policy](../config/security/operator-image-policy-admission.yaml) and
+exact `imageVerification.egressCIDRs` for registry and Sigstore access. Keep policy
+administration outside the operator account and Hub's credentials.
+
+Before adding an approval, verify the delivery's scan evidence, Sigstore signatures
+and Continuum Attest receipt against independently trusted keys and TSA. Confirm
+that its image digest and source revision match the approval. Runtime verification
+checks the image signature; it does not fetch or verify the Attest receipt itself.
+The local approval records the administrator's reviewed delivery decision.
+
+For official releases, `policy.json` in that ConfigMap can contain the following
+approval. Replace the digest and source placeholders with the reviewed values:
+
+```json
+{
+  "version": 1,
+  "approvals": [{
+    "purpose": "operator-update",
+    "image": "ghcr.io/alien6-studio/hankoshell-operator@sha256:<verified-digest>",
+    "revision": "<full-source-revision>",
+    "release_version": "0.1.0",
+    "certificate_identity": "https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.1.0",
+    "certificate_oidc_issuer": "https://token.actions.githubusercontent.com"
+  }]
+}
+```
+
+Only the exact official release workflow/tag identity and GitHub issuer are
+accepted for keyless operator approvals; certificate and transparency checks stay
+enabled. A separately signed mirror can instead use `key_file` for a mounted
+public `.pub` key, omitting both certificate fields. It still needs the exact
+version, digest and source revision. Remove old approvals to withdraw update or
+rollback authorization. Protect the policy independently of Helm and Hub access.
+
+Remote decommission requires nonzero `requestedAt` and `deadline`, with
+`requestedAt <= now < deadline` and `requestedAt < deadline`. Missing, future,
+reversed or expired windows are rejected before cleanup. Keep operator and Hub
+clocks synchronized. The deadline also bounds execution: no new cleanup mutation
+or confirmation starts after expiry. The operator reports failures through its
+regular heartbeat; a new command needs a new valid authorization window.
+
+Cleanup is not transactional. A deletion accepted before expiry can finish later,
+and Kubernetes garbage collection cannot be cancelled by this deadline. If expiry
+interrupts cleanup after Hub confirmation, the operator logs remaining resources
+for manual removal; the surrendered credential cannot re-authorize another run.
+
+### Instance administrative ownership
+
+`HankoKeycloakInstance` probes its provider without changing master security
+settings or its administrative credential by default, in all three modes.
+Set `spec.hardenMasterRealm: true` or `spec.rotateAdminCredentials: true` only
+when assigning those tasks to the operator, with the permissions described in the
+[Keycloak permission model](keycloak-permissions.md). Without rotation enabled,
+the administrator owns credential age, rotation and revocation.
+
+Managed mode authorizes provisioning the declared workload. Adopted mode observes
+the referenced Deployment; `spec.adopted.publishDiscovery: true` separately
+authorizes discovery labels/annotations on its referenced Service. Extra account
+permissions do not turn these optional writes on. Apply the new CRD before
+upgrading and explicitly enable the operations an existing instance should retain.
+Reserve instance spec and AdminRef changes for provider administrators. These
+flags express requested operations; they do not reduce the roles on a supplied
+Keycloak credential or replace Kubernetes access controls.
+
 ### Keycloak administrative transport
 
 Administrative service-account credentials, bearer tokens and Keycloak Admin
@@ -366,7 +442,7 @@ and provider, and that unauthorized ingress/egress is denied. Test the actual
 CNI, DNS and API endpoint routing on each target cluster; Kubernetes and Cilium
 allow policies are additive when other policies select the same pods.
 
-If theme Jobs or managed provider image updates are enabled, pre-provision
+If theme Jobs, managed provider image updates or Hub self-updates are enabled, pre-provision
 the image-policy ConfigMap and install the independent
 [admission policy](../config/security/operator-image-policy-admission.yaml).
 It initially binds the `auth` namespace; adapt and review that binding for
@@ -491,13 +567,12 @@ Role needs namespace-wide Secret `get/list/delete`, because Helm versions have
 generated Secret names. Label selection in controller code is not an RBAC
 restriction; use a dedicated transport namespace with no unrelated Secrets.
 
-`HankoKeycloakInstance` attempts administrative-client secret rotation after
-`HANKO_KC_SA_MAX_AGE` (90 days by default), even in external mode. It has no disable
-flag and needs broader master authority when its credential client lives in
-master. The chart's default Keycloak connection does not require this CRD. Follow
-the [rotation guidance](keycloak-permissions.md#credential-rotation), and do not
-grant broad master access solely to hide failed rotation. Audit failure can
-report degradation after a secret has already changed.
+Instance administrative rotation is disabled unless
+`spec.rotateAdminCredentials: true`; `HANKO_KC_SA_MAX_AGE` (90 days by default)
+then controls its schedule. This needs master client authority and configured
+rotation audit delivery. The chart's default Keycloak connection does not require
+this CRD. Follow the [rotation guidance](keycloak-permissions.md#credential-rotation).
+Audit failure can report degradation after a secret has already changed.
 
 Snapshots serialize supported operator configuration into a ConfigMap. Optional
 database Jobs use `postgres:16-alpine`, installation-specific credentials and a

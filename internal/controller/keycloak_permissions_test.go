@@ -275,6 +275,7 @@ func TestRealKeycloakPermissionProfiles(t *testing.T) {
 	})
 
 	f.run("optional master authority is isolated", func(t *testing.T) {
+		verifyRealInstanceCapabilityBoundary(f)
 		hardener, hardenerCredential := f.serviceClient("master-hardener")
 		f.grantClientRoles("master-hardener", "master", []string{"manage-realm"})
 		f.requireNoError(hardener.HardenMasterRealm(ctx))

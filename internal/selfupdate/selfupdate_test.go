@@ -2,6 +2,7 @@ package selfupdate
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -11,12 +12,25 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/Alien6-Studio/hankoshell-operator/internal/hub"
 )
 
 const testDigest = "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+
+type releaseVerifier struct {
+	calls          int
+	image, version string
+	err            error
+}
+
+func (v *releaseVerifier) VerifyOperatorImage(_ context.Context, image, version string) error {
+	v.calls++
+	v.image, v.version = image, version
+	return v.err
+}
 
 func testScheme(t *testing.T) *runtime.Scheme {
 	t.Helper()
@@ -49,9 +63,58 @@ func engineFor(t *testing.T, deployment *appsv1.Deployment) *Engine {
 	}
 	kube := builder.Build()
 	return &Engine{
-		Writer: kube,
-		Reader: kube,
-		Config: Config{Namespace: "auth", DeploymentName: "hanko-operator", ContainerName: "manager"},
+		Writer:   kube,
+		Reader:   kube,
+		Config:   Config{Namespace: "auth", DeploymentName: "hanko-operator", ContainerName: "manager"},
+		Verifier: &releaseVerifier{},
+	}
+}
+
+func TestRunRequiresVerificationEvenWhenAlreadyPinned(t *testing.T) {
+	image := "registry.example/operator@" + testDigest
+	for _, verifier := range []ReleaseVerifier{nil, &releaseVerifier{err: errors.New("untrusted credential=hidden")}} {
+		engine := engineFor(t, operatorDeployment(image))
+		engine.Verifier = verifier
+		if _, err := engine.Run(context.Background(), &hub.AgentUpdateCommand{Version: "0.1.0", Digest: testDigest}); err == nil || strings.Contains(err.Error(), "hidden") {
+			t.Fatalf("verification did not fail closed/redact: %v", err)
+		}
+		if managerImage(t, engine) != image {
+			t.Fatal("denied update changed the deployment")
+		}
+	}
+	engine := engineFor(t, operatorDeployment("registry.example/operator:old"))
+	verifier := &releaseVerifier{}
+	engine.Verifier = verifier
+	if _, err := engine.Run(context.Background(), &hub.AgentUpdateCommand{Version: "0.1.0", Digest: testDigest}); err != nil {
+		t.Fatal(err)
+	}
+	if verifier.calls != 1 || verifier.image != image || verifier.version != "0.1.0" {
+		t.Fatalf("lost release binding: %+v", verifier)
+	}
+}
+
+type conflictingWriter struct{ client.Client }
+
+func (w conflictingWriter) Patch(ctx context.Context, object client.Object, patch client.Patch, options ...client.PatchOption) error {
+	var current appsv1.Deployment
+	if err := w.Get(ctx, client.ObjectKeyFromObject(object), &current); err != nil {
+		return err
+	}
+	current.Spec.Template.Spec.Containers[1].Image = "registry.example/operator:admin-change"
+	if err := w.Update(ctx, &current); err != nil {
+		return err
+	}
+	return w.Client.Patch(ctx, object, patch, options...)
+}
+
+func TestRunDoesNotOverwriteConcurrentAdministratorChange(t *testing.T) {
+	engine := engineFor(t, operatorDeployment("registry.example/operator:old"))
+	engine.Writer = conflictingWriter{engine.Writer}
+	if _, err := engine.Run(context.Background(), &hub.AgentUpdateCommand{Version: "0.1.0", Digest: testDigest}); err == nil {
+		t.Fatal("stale update overwrote an administrator change")
+	}
+	if managerImage(t, engine) != "registry.example/operator:admin-change" {
+		t.Fatal("concurrent change was lost")
 	}
 }
 

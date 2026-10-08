@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -113,6 +114,69 @@ func testConfig() Config {
 		TenantName:           testTenant,
 		CASecretNames:        []string{"hanko-hub-tls", "hanko-hub-enroll", "", testCredential},
 		CredentialSecretName: testCredential,
+	}
+}
+
+type cancelAfterDelete struct {
+	client.Writer
+	cancel  context.CancelFunc
+	deletes int
+}
+
+func (w *cancelAfterDelete) Delete(ctx context.Context, object client.Object, options ...client.DeleteOption) error {
+	err := w.Writer.Delete(ctx, object, options...)
+	w.deletes++
+	w.cancel()
+	return err
+}
+
+func TestDeadlineStopsCleanupBeforeConfirmation(t *testing.T) {
+	for _, expired := range []bool{true, false} {
+		t.Run(map[bool]string{true: "expired before cleanup", false: "cancelled during cleanup"}[expired], func(t *testing.T) {
+			kube := fake.NewClientBuilder().WithScheme(testScheme(t)).WithObjects(releaseObjects()...).Build()
+			var ctx context.Context
+			var cancel context.CancelFunc
+			if expired {
+				ctx, cancel = context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+			} else {
+				ctx, cancel = context.WithCancel(context.Background())
+			}
+			defer cancel()
+			writer := &cancelAfterDelete{Writer: kube, cancel: cancel}
+			confirmed := false
+			engine := &Engine{Writer: writer, Reader: kube, Config: testConfig(), Confirm: func(context.Context, map[string]int) error { confirmed = true; return nil }}
+			if _, err := engine.Run(ctx); err == nil {
+				t.Fatal("expired execution succeeded")
+			}
+			if confirmed {
+				t.Fatal("expired command was confirmed")
+			}
+			wantDeletes := 1
+			if expired {
+				wantDeletes = 0
+			}
+			if writer.deletes != wantDeletes {
+				t.Fatalf("cleanup continued after expiry: %d deletes", writer.deletes)
+			}
+			var deployment appsv1.Deployment
+			if err := kube.Get(context.Background(), types.NamespacedName{Namespace: testNamespace, Name: testRelease}, &deployment); err != nil {
+				t.Fatalf("expired command deleted operator: %v", err)
+			}
+		})
+	}
+}
+
+func TestExpiryAfterConfirmationReportsResidueWithoutFurtherDeletion(t *testing.T) {
+	kube := fake.NewClientBuilder().WithScheme(testScheme(t)).WithObjects(releaseObjects()...).Build()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	engine := &Engine{Writer: kube, Reader: kube, Config: testConfig(), Confirm: func(context.Context, map[string]int) error { cancel(); return nil }}
+	if _, err := engine.Run(ctx); !errors.Is(err, ErrAfterConfirmation) || !errors.Is(err, context.Canceled) {
+		t.Fatalf("post-confirmation residue not reported: %v", err)
+	}
+	var deployment appsv1.Deployment
+	if err := kube.Get(context.Background(), types.NamespacedName{Namespace: testNamespace, Name: testRelease}, &deployment); err != nil {
+		t.Fatalf("expired execution deleted operator: %v", err)
 	}
 }
 

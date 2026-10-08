@@ -24,7 +24,8 @@ image:
 imagePullSecrets: []
 
 # Administrator-owned public policy and publisher keys (ADR-047). An empty
-# policy denies new theme Jobs and managed Keycloak Deployment updates.
+# policy denies new theme Jobs, managed Keycloak Deployment updates and Hub
+# self-updates. Operator updates require an exact operator-update approval.
 # No signing key or platform credential is exposed to the verifier.
 imageVerification:
   policyConfigMap: ""
@@ -206,9 +207,8 @@ supervision:
 env:
   HANKO_LOG_DEV: "false"
   HANKO_KEYCLOAK_DEPLOYMENT: keycloak
-  # ADR-021: maximum age of the Keycloak operator service-account credential.
-  # HankoKeycloakInstance attempts admin-client rotation at this age, including
-  # external instances. There is no disable flag; see keycloak-permissions.md.
+  # Maximum age when instance spec.rotateAdminCredentials is explicitly enabled.
+  # Otherwise the administrator manages AdminRef credential age and rotation.
   HANKO_KC_SA_MAX_AGE: "90d"
 
 # Keep enabled for shared reconciliation. False is explicit and is suitable only

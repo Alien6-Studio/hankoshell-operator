@@ -18,14 +18,24 @@ type CosignVerifier struct {
 // binds the signed source annotation to the release approval. Failure details
 // are intentionally discarded rather than recorded in CR status or logs.
 func (v *CosignVerifier) Verify(ctx context.Context, image, keyFile, revision string) error {
+	return v.run(ctx, "verify", "--key", keyFile, "-a", "hanko.git.revision="+revision, image)
+}
+
+// VerifyKeyless keeps certificate-chain and transparency verification enabled.
+// Exact identity/issuer and source revision come from the administrator's policy.
+func (v *CosignVerifier) VerifyKeyless(ctx context.Context, image, identity, issuer, revision string) error {
+	return v.run(ctx, "verify", "--certificate-identity", identity,
+		"--certificate-oidc-issuer", issuer, "-a", "hanko.git.revision="+revision, image)
+}
+
+func (v *CosignVerifier) run(ctx context.Context, args ...string) error {
 	if v == nil || v.Binary == "" {
 		return ErrVerificationDenied
 	}
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	// #nosec G204 -- No shell; runtime-pinned binary and validated policy arguments.
-	cmd := exec.CommandContext(ctx, v.Binary, "verify", "--key", keyFile,
-		"-a", "hanko.git.revision="+revision, image)
+	cmd := exec.CommandContext(ctx, v.Binary, args...)
 	cmd.Env = []string{"HOME=/tmp", "XDG_CACHE_HOME=/tmp/.cache", "PATH=/usr/bin:/bin", "TMPDIR=/tmp"}
 	if v.DockerConfig != "" {
 		cmd.Env = append(cmd.Env, "DOCKER_CONFIG="+v.DockerConfig)

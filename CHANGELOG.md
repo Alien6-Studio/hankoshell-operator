@@ -36,6 +36,10 @@ default-deny networking. Credentials stay in referenced Secrets. Metrics are
 disabled by default; enabled metrics use plaintext HTTP with constrained ingress.
 Hub bundles use token-derived HMAC, not an independent publisher signature.
 Mesh policy projection is audit-only, not workload enforcement.
+Hub self-updates require a local digest/version/source approval and verified
+publisher signature. Decommission authorization expires at its deadline.
+Instance master hardening, administrative credential rotation and adopted
+Service discovery writes require explicit spec opt-ins.
 
 Install the reviewed source chart, or the published
 `oci://ghcr.io/alien6-studio/charts/hankoshell-operator` chart at version `0.1.0`
@@ -141,6 +145,15 @@ response targets and supported versions are in SECURITY.md.
 - Install and verify the pinned golangci-lint v2.14.0 independently of the PATH.
 
 ### Fixed
+
+- Require independent local release approval and publisher verification before
+  Hub self-updates, including already-pinned images; reject stale Deployment
+  patches after concurrent administrator changes.
+- Reject expired/malformed decommission commands and stop further cleanup or
+  confirmation when their execution deadline is reached.
+- Limit instance administrative writes to explicitly requested master hardening,
+  AdminRef rotation and adopted Service discovery. Existing resources default
+  to external administration; requested hardening failures cannot report Ready.
 
 - Accept bounded native authorization creation representations when Keycloak
   omits Location, and the successful 201 response to authorization updates.

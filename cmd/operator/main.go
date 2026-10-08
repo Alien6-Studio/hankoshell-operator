@@ -252,6 +252,7 @@ func setupControllers(
 		MeshPolicyProjectionClient:   meshPolicyClient,
 		Decommission:                 decommissionConfig(watchNamespace),
 		AgentUpdate:                  agentUpdateConfig(watchNamespace),
+		ImageValidator:               imgValidator,
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoTenant")
 	serviceAccountMaxAge, err := controller.ParseServiceAccountMaxAge(os.Getenv("HANKO_KC_SA_MAX_AGE"))
 	fatalIfError(err, "invalid Keycloak service-account rotation configuration")

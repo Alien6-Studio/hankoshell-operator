@@ -130,6 +130,9 @@ type Engine struct {
 // confirmed to Hub. When it returns without error the operator Deployment
 // deletion has been accepted and this process is about to be terminated.
 func (e *Engine) Run(ctx context.Context) (map[string]int, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if err := e.Config.Validate(); err != nil {
 		return nil, err
 	}
@@ -224,6 +227,9 @@ func (e *Engine) planLinkTeardown(ctx context.Context, removed map[string]int) (
 func (e *Engine) removeLink(ctx context.Context, targets []client.Object) error {
 	var errs []error
 	for _, object := range targets {
+		if err := ctx.Err(); err != nil {
+			return errors.Join(append(errs, err)...)
+		}
 		if err := e.Writer.Delete(ctx, object); err != nil && !apierrors.IsNotFound(err) && !meta.IsNoMatchError(err) {
 			errs = append(errs, fmt.Errorf("delete %T %s/%s: %w", object, object.GetNamespace(), object.GetName(), err))
 		}
@@ -283,6 +289,9 @@ func (e *Engine) removeClusterSurface(ctx context.Context) (map[string]int, erro
 }
 
 func (e *Engine) confirmWithHub(ctx context.Context, removed map[string]int) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	// A clone keeps the confirmed inventory immutable while removeSelf keeps
 	// counting into the caller's map.
 	err := e.Confirm(ctx, maps.Clone(removed))
@@ -349,6 +358,9 @@ func (e *Engine) removeSelf(ctx context.Context, removed map[string]int) error {
 			return err
 		}
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err := e.Writer.Delete(ctx, &anchor); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("delete cluster identity reader: %w", err)
 	}
@@ -356,6 +368,9 @@ func (e *Engine) removeSelf(ctx context.Context, removed map[string]int) error {
 }
 
 func (e *Engine) deleteDeployment(ctx context.Context, deployment *appsv1.Deployment) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err := e.Writer.Delete(ctx, deployment); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("delete operator deployment: %w", err)
 	}
@@ -367,6 +382,9 @@ func (e *Engine) deleteDeployment(ctx context.Context, deployment *appsv1.Deploy
 // cannot list. Helm-installed objects carry no owner, so replacing the list
 // is exact.
 func (e *Engine) adopt(ctx context.Context, object client.Object, owner metav1.OwnerReference) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	payload, err := json.Marshal(map[string]any{"metadata": map[string]any{"ownerReferences": []metav1.OwnerReference{owner}}})
 	if err != nil {
 		return fmt.Errorf("marshal ownership patch: %w", err)
@@ -379,6 +397,9 @@ func (e *Engine) adopt(ctx context.Context, object client.Object, owner metav1.O
 }
 
 func (e *Engine) delete(ctx context.Context, object client.Object, removed map[string]int, kind string, options ...client.DeleteOption) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	err := e.Writer.Delete(ctx, object, options...)
 	if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 		// Absent resources (already removed, or a CRD such as ServiceMonitor
