@@ -890,6 +890,11 @@ Only matching versioned image digests, chart bytes, catalog metadata and draft
 assets are reused. Missing writes are resumed; conflicting content fails during
 preflight, without overwriting it. Matching published releases are read-only.
 An interrupted upload that succeeded remotely is recognized on retry. GitHub
+can also leave an empty `starter` asset after an upstream upload failure. Only
+that zero-byte placeholder, under an expected filename in a matching draft, is
+deleted and retried; complete or nonempty conflicting assets are never replaced.
+See [GitHub's upload failure contract](https://docs.github.com/en/rest/releases/assets#upload-a-release-asset).
+GitHub
 draft creation remains after verified package promotion. These writes are not
 atomic: later failures may leave verified packages or a partial draft available.
 Actions concurrency serializes release workflows; other registry/release writers

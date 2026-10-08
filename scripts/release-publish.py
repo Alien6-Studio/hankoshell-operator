@@ -266,7 +266,7 @@ class GitHub:
             body = response.read(budget + 1)
         if len(body) > budget:
             raise ValueError("GitHub API response exceeds the size budget")
-        return body if headers["Accept"] == "application/octet-stream" else json.loads(body)
+        return body if headers["Accept"] == "application/octet-stream" else json.loads(body) if body else None
 
     def release(self, tag):
         return self.request("GET", f"/repos/{REPOSITORY}/releases/tags/{tag}")
@@ -295,6 +295,11 @@ class GitHub:
         from urllib.parse import quote
         url = release["upload_url"].split("{")[0] + "?name=" + quote(path.name)
         self.request("POST", url, path.read_bytes(), "application/octet-stream")
+
+    def delete_incomplete(self, release, asset):
+        if not release["draft"] or asset.get("state") != "starter" or asset.get("size") != 0:
+            raise ValueError("Only an empty failed-upload placeholder in a draft may be deleted")
+        self.request("DELETE", f'/repos/{REPOSITORY}/releases/assets/{asset["id"]}')
 
 
 def matching_file(registry, reference, expected):
@@ -327,13 +332,19 @@ def promote(registry, github, root, *, image_repository=IMAGE, chart_repository=
     metadata_exists = matching_file(registry, metadata_tag, dist / "artifacthub-repo.yml")
     release = github.release(tag)
     existing_assets = {}
+    incomplete_assets = {}
     if release:
         if (release["tag_name"] != tag or release["target_commitish"] != record["revision"] or release["name"] != f"hankoShell Operator {tag}"
                 or release["body"] != contract.notes(version) or release["prerelease"]):
             raise ValueError("Existing release metadata differs")
         for asset in github.assets(release):
-            if asset["name"] not in files or asset["name"] in existing_assets:
+            if asset["name"] not in files or asset["name"] in existing_assets or asset["name"] in incomplete_assets:
                 raise ValueError("Unexpected release asset")
+            if release["draft"] and asset.get("state") == "starter" and asset.get("size") == 0:
+                incomplete_assets[asset["name"]] = asset
+                continue
+            if asset.get("state") != "uploaded" or asset.get("size") != files[asset["name"]].stat().st_size:
+                raise ValueError("Existing release asset is incomplete or has a conflicting size")
             if hashlib.sha256(github.asset(asset)).hexdigest() != contract.security.sha256(files[asset["name"]]):
                 raise ValueError("Existing release asset differs")
             existing_assets[asset["name"]] = asset
@@ -358,6 +369,11 @@ def promote(registry, github, root, *, image_repository=IMAGE, chart_repository=
     if release is None:
         release = github.create(tag, record["revision"], contract.notes(version))
     for name, path in sorted(files.items()):
+        if name in incomplete_assets:
+            # GitHub documents this empty starter state after a failed upload.
+            # No complete asset is ever deleted or clobbered. A lost DELETE
+            # acknowledgement is recovered by absence on the next preflight.
+            github.delete_incomplete(release, incomplete_assets[name])
         if name not in existing_assets:
             github.upload(release, path)
     # Read back all assets; a lost acknowledgement is recoverable on retry.

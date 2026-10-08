@@ -22,6 +22,7 @@ REGISTRY_IMAGE = "registry:3.0.0@sha256:6c5666b861f3505b116bb9aa9b25175e71210414
 class Releases:
     def __init__(self, interrupted_after=None):
         self.current, self.stored = None, {}
+        self.pending, self.partial_asset = {}, None
         self.writes, self.interrupted_after = 0, interrupted_after
 
     def wrote(self):
@@ -33,7 +34,7 @@ class Releases:
         return copy.deepcopy(self.current)
 
     def assets(self, _release):
-        return [{"id": name, "name": name} for name in self.stored]
+        return [{"id": name, "name": name, "state": "uploaded", "size": len(data)} for name, data in self.stored.items()] + list(self.pending.values())
 
     def asset(self, asset):
         return self.stored[asset["name"]]
@@ -47,9 +48,20 @@ class Releases:
         return copy.deepcopy(self.current)
 
     def upload(self, _release, path):
-        if path.name in self.stored:
+        if path.name in self.stored or path.name in self.pending:
             raise AssertionError("Release asset was uploaded twice")
+        if path.name == self.partial_asset:
+            self.partial_asset = None
+            self.pending[path.name] = {"id": path.name, "name": path.name, "state": "starter", "size": 0}
+            self.wrote()
+            raise ConnectionError("Fixture failed upload left an empty starter asset")
         self.stored[path.name] = path.read_bytes()
+        self.wrote()
+
+    def delete_incomplete(self, release, asset):
+        if not release["draft"] or asset["state"] != "starter" or asset["size"] != 0:
+            raise AssertionError("Attempted deletion of a complete or published asset")
+        del self.pending[asset["name"]]
         self.wrote()
 
 
@@ -132,6 +144,32 @@ def qualify(output, archive, evidence, image, revision, oras, helm, attest, conf
                 publish.promote(transport, releases, restored, **args)
                 if releases.writes != writes:
                     raise ValueError("Retry mutated a published release")
+            # GitHub 502 may leave a zero-byte starter row. Exercise both the
+            # failed upload and a lost acknowledgement after safe placeholder
+            # deletion, then prove recovery and subsequent read-only retry.
+            for filename in ("checksums.sigstore.json", "hankoshell-operator-attest.tar.gz"):
+                releases = Releases()
+                releases.partial_asset = filename
+                transport = InterruptedRegistry(registry, releases)
+                try:
+                    publish.promote(transport, releases, restored, **args)
+                except ConnectionError:
+                    pass
+                else:
+                    raise ValueError("Incomplete upload was not exercised")
+                releases.interrupted_after = releases.writes + 1
+                try:
+                    publish.promote(transport, releases, restored, **args)
+                except ConnectionError:
+                    pass
+                else:
+                    raise ValueError("Interrupted placeholder deletion was not exercised")
+                releases.interrupted_after = None
+                publish.promote(transport, releases, restored, **args)
+                writes = releases.writes
+                publish.promote(transport, releases, restored, **args)
+                if releases.pending or releases.writes != writes:
+                    raise ValueError("Incomplete upload recovery was not idempotent")
             # Conflicting existing asset must fail before any registry/GitHub write.
             releases.current["draft"] = True
             releases.stored["image-digest.txt"] = b"tampered\n"
@@ -176,6 +214,7 @@ def qualify(output, archive, evidence, image, revision, oras, helm, attest, conf
             "publishable": False, "image": image, "revision": revision,
             "native_registry_and_helm": "pass", "checkpoint_restore_and_attest_recompute": "pass",
             "lost_acknowledgement_points": count, "idempotent_retries": "pass", "conflict_rejection": "pass",
+            "empty_starter_upload_and_interrupted_deletion_recovery": "pass",
             "limitations": ["loopback OCI fixture; no public registry or Artifact Hub indexing",
                             "GitHub release/asset storage fixture; no production API or OIDC qualification"],
         }, indent=2) + "\n")

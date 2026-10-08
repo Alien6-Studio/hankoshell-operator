@@ -121,6 +121,8 @@ response targets and supported versions are in SECURITY.md.
   its exact image/chart/signatures/Attest bytes, rescan the committed image under
   the current policy and verify native trust again. Reuse matching packages and
   draft assets; fail on conflicting digests/content instead of overwriting.
+  Recover only expected zero-byte failed-upload placeholders in matching drafts;
+  never delete or replace complete/nonempty assets or mutate published releases.
 
 - Bound every Keycloak HTTP response in the reviewed permission gateway: 1 MiB
   Admin representations, 64 KiB tokens/client secrets and 8 KiB non-2xx responses.

@@ -18,6 +18,16 @@ installer = publish.contract.module("system_tools", "install-system-tools.py")
 
 
 class ReleaseResumeTests(unittest.TestCase):
+    def test_complete_nonempty_or_published_assets_are_never_deleted(self):
+        github = publish.GitHub("synthetic-fixture-token")
+        for draft, state, size in ((False, "starter", 0), (True, "uploaded", 0), (True, "uploaded", 100), (True, "starter", 1)):
+            with patch.object(github, "request") as request, self.assertRaises(ValueError):
+                github.delete_incomplete({"draft": draft}, {"id": 1, "state": state, "size": size})
+            request.assert_not_called()
+        with patch.object(github, "request") as request:
+            github.delete_incomplete({"draft": True}, {"id": 1, "state": "starter", "size": 0})
+            request.assert_called_once_with("DELETE", "/repos/Alien6-Studio/hankoshell-operator/releases/assets/1")
+
     def test_github_token_is_never_sent_to_an_arbitrary_upload_endpoint(self):
         github = publish.GitHub("synthetic-fixture-token")
         for endpoint in ("https://evil.example/upload", "https://user@uploads.github.com/upload", "https://uploads.github.com:444/upload"):
