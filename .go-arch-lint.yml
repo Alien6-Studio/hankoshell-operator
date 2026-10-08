@@ -1,0 +1,111 @@
+# go-arch-lint v3 — repository root (module: github.com/Alien6-Studio/hankoshell-operator)
+# Rules derived from ADR-009 and ADR-010.
+# Run: go-arch-lint check  (from repository root/)
+version: 3
+workdir: .
+
+allow:
+  depOnAnyVendor: true
+
+excludeFiles:
+  - ".+_test\\.go"
+
+components:
+  cmd:
+    in: "/cmd/operator"
+  controller:
+    in: "/internal/controller"
+  keycloak:
+    in: "/internal/keycloak"
+  httpsecurity:
+    in: "/internal/httpsecurity"
+  authorization:
+    in: "/internal/authorization"
+  hub:
+    in: "/internal/hub"
+  api_types:
+    in: "/api/v1alpha1"
+  imagevalidator:
+    in: "/internal/imagevalidator"
+  supervision:
+    in: "/internal/supervision"
+  hankoapi:
+    in: "/internal/hankoapi"
+  decommission:
+    in: "/internal/decommission"
+  selfupdate:
+    in: "/internal/selfupdate"
+  version:
+    in: "/internal/version"
+
+deps:
+  # cmd/ wires everything — no restriction.
+  cmd:
+    anyProjectDeps: true
+
+  # ADR-009: Reconcilers may use the Keycloak client, Hub client, CRD types,
+  # and the image validator (ADR-017).
+  controller:
+    mayDependOn:
+      - keycloak
+      - authorization
+      - hub
+      - api_types
+      - imagevalidator
+      - supervision
+      - hankoapi
+      - decommission
+      - selfupdate
+      - version
+
+  # ADR-009: Keycloak client is a pure HTTP client — no upstream project deps.
+  keycloak:
+    anyVendorDeps: true
+    mayDependOn:
+      - httpsecurity
+
+  httpsecurity:
+    anyVendorDeps: true
+
+  # ADR-029: Provider-neutral authorization drivers may adapt provider clients.
+  authorization:
+    mayDependOn:
+      - keycloak
+
+  # ADR-010: Hub client carries the bounded supervision DTO in heartbeats.
+  hub:
+    mayDependOn:
+      - supervision
+
+  # ADR-009/010: CRD type definitions have no runtime project dependencies.
+  api_types:
+    anyVendorDeps: true
+
+  # ADR-017: imagevalidator is a standalone policy package — no project deps.
+  imagevalidator:
+    anyVendorDeps: true
+
+  # Supervision reads operator CRDs and exposes a bounded transport DTO.
+  supervision:
+    mayDependOn:
+      - api_types
+      - httpsecurity
+
+  # Organization position projector is a pure HTTP client of the hankoShell API.
+  hankoapi:
+    anyVendorDeps: true
+    mayDependOn:
+      - httpsecurity
+
+  # ADR-010: decommission and self-update flows report through the Hub client.
+  decommission:
+    mayDependOn:
+      - hub
+
+  selfupdate:
+    mayDependOn:
+      - hub
+
+  # Build/version metadata is a standalone leaf package.
+  version:
+    anyVendorDeps: true

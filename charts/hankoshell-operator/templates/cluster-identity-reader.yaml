@@ -1,0 +1,37 @@
+# Initial enrollment identifies this Kubernetes cluster by this Namespace UID.
+# The operator uses an uncached reader: list/watch and other Namespaces are not needed.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "hanko-operator.fullname" . }}-cluster-identity-reader
+  labels:
+    {{- include "hanko-operator.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    resourceNames: ["kube-system"]
+    verbs: ["get"]
+  # Hub-driven decommission: adopt the release's cluster-scoped RBAC under a
+  # single anchor so one garbage-collected delete removes the whole group.
+  # Rules stay identical during adoption, so no privilege escalation is needed.
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles", "clusterrolebindings"]
+    resourceNames:
+      - {{ include "hanko-operator.fullname" . }}-cluster-identity-reader
+      - {{ include "hanko-operator.fullname" . }}-node-reader
+    verbs: ["get", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "hanko-operator.fullname" . }}-cluster-identity-reader
+  labels:
+    {{- include "hanko-operator.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "hanko-operator.fullname" . }}-cluster-identity-reader
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "hanko-operator.fullname" . }}
+    namespace: {{ .Release.Namespace }}
