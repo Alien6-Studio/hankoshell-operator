@@ -64,8 +64,11 @@ purposes; none guarantees absence of vulnerabilities.
 
 **0.1.0 is a normal SemVer release in initial development, not a prerelease.**
 The `hanko.sh/v1alpha1` APIs are experimental and may change across minor versions
-before 1.0. Portable backup/restore is not qualified; snapshots, clones and
-database-reference switches are not a tested disaster-recovery path. Rolling back
+before 1.0. `HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are
+experimental; their completion, interruption/retry and recovery are unqualified
+and reserved for subsequent 0.1.x qualification. Portable backup/restore is not
+qualified; snapshots, clones and database-reference switches are not a tested
+disaster-recovery path. Rolling back
 the operator does not undo provider deletion, credential rotation or CRD changes.
 Deployment-specific image admission, database recovery and enterprise integration
 require administrator qualification. Report vulnerabilities privately through

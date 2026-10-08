@@ -1,11 +1,12 @@
 # hankoShell Operator
 
-Declarative Keycloak IAM configuration from Kubernetes.
+Application IAM contracts for Kubernetes, reconciled to Keycloak.
 
-hankoShell Operator turns your application's identity requirements into Keycloak
-configuration: its login client, redirect URLs, roles, token claims and machine
-credentials. Declare the desired configuration in Kubernetes, review it in Git,
-and let the operator keep the fields it manages in sync with Keycloak.
+hankoShell Operator turns application identity, authentication and authorization
+requirements into continuously reconciled Keycloak configuration: login clients,
+redirect URLs, roles, token claims and machine credentials. Declare the desired
+configuration in Kubernetes, review it in Git, and let the operator keep the
+fields it manages in sync with Keycloak.
 Keycloak is the first and currently only supported IAM backend.
 
 Platform teams can reuse authentication policies across realms, connect upstream
@@ -94,6 +95,9 @@ Snapshot database Jobs require a locally approved, publisher-verified image dige
 and a dedicated backup credential Secret. PostgreSQL/PVC configuration and
 portable backup/restore remain installation-specific and unqualified; see the
 [backup execution contract](docs/secure-deployment.md#database-snapshot-jobs).
+`HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are experimental in
+0.1.0: completion, interruption/retry and recovery are not qualified. See the
+[lifecycle qualification limits](docs/secure-deployment.md#lifecycle-operation-qualification).
 
 </details>
 
