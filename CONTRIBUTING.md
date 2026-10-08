@@ -24,5 +24,11 @@ SemVer prerelease. The `v1alpha1` APIs remain experimental and may change across
 minor versions before 1.0. Keep chart, release metadata and curated changelog
 notes consistent with that distinction.
 
+Changes use short-lived PR branches and protected squash merges, signed by GitHub.
+The initial root may be unsigned. Release tags may be lightweight or annotated;
+Git signatures are not delivery prerequisites. After `v0.1.0` is created, never
+rewrite its source history or move/delete the tag. The release workflow requires
+full qualification, Sigstore artifact signatures and Continuum Attest verification.
+
 Contributions are licensed under Apache-2.0. Maintainers review changes before
 merge. Report security issues using [SECURITY.md](SECURITY.md).

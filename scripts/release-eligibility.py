@@ -23,11 +23,12 @@ def require(condition, message):
 
 
 def verify(repository, tag, revision, ref, api, git, expected_tag_object=None):
-    """Only GitHub API responses provide signature verification evidence.
+    """Bind a protected release ref to the exact source qualified by CI.
 
     Callbacks allow adversarial tests without credentials or publication. Local
-    Git checks bind the checkout and protected-main ancestry; they cannot replace
-    GitHub verification. Re-read the ref to detect movement during eligibility.
+    Git checks bind the checkout and protected-main ancestry. Git signatures are
+    not a delivery prerequisite; Sigstore and Attest authenticate the artifacts
+    separately. Re-read the ref to detect movement during eligibility.
     """
     require(re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository), "Invalid repository identity")
     require(len(tag) <= 256 and SEMVER.fullmatch(tag), "Invalid SemVer release tag")
@@ -39,28 +40,27 @@ def verify(repository, tag, revision, ref, api, git, expected_tag_object=None):
             "Private vulnerability reporting must be enabled")
     commit = api(base + "/commits/" + revision)
     require(commit.get("sha") == revision, "GitHub returned a different release commit")
-    require(commit.get("commit", {}).get("verification", {}).get("verified") is True,
-            "Release commit must be GitHub verified")
     path = base + "/git/ref/tags/" + quote(tag, safe="")
     tag_ref = api(path)
     require(tag_ref.get("ref") == ref, "GitHub returned a conflicting tag ref")
     obj = tag_ref.get("object", {})
-    require(obj.get("type") == "tag" and SHA.fullmatch(obj.get("sha", "")),
-            "Release tag must be annotated, not lightweight")
+    require(obj.get("type") in ("commit", "tag") and SHA.fullmatch(obj.get("sha", "")),
+            "Release ref must identify a commit or annotated tag")
     if expected_tag_object is not None:
         require(obj["sha"] == expected_tag_object, "Release tag changed after eligibility")
-    annotated = api(base + "/git/tags/" + obj["sha"])
-    require(annotated.get("sha") == obj["sha"] and annotated.get("tag") == tag,
-            "GitHub returned a conflicting tag object")
-    target = annotated.get("object", {})
+    if obj["type"] == "tag":
+        annotated = api(base + "/git/tags/" + obj["sha"])
+        require(annotated.get("sha") == obj["sha"] and annotated.get("tag") == tag,
+                "GitHub returned a conflicting tag object")
+        target = annotated.get("object", {})
+    else:
+        target = obj
     require(target.get("type") == "commit" and target.get("sha") == revision,
-            "Annotated tag must target the exact release commit")
-    require(annotated.get("verification", {}).get("verified") is True,
-            "Annotated release tag must be GitHub verified")
+            "Release tag must target the exact release commit")
     require(git("rev-parse", ref).strip() == obj["sha"],
-            "Local tag object conflicts with the verified GitHub tag")
+            "Local tag object conflicts with the GitHub tag")
     require(git("rev-parse", ref + "^{commit}").strip() == revision,
-            "Local tag conflicts with the verified GitHub tag")
+            "Local tag conflicts with the GitHub tag")
     git("merge-base", "--is-ancestor", revision, "origin/main")
     current = api(path)
     require(current.get("ref") == ref and current.get("object", {}) == obj,

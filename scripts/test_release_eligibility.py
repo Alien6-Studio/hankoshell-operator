@@ -1,6 +1,8 @@
 import copy
 import importlib.util
 from pathlib import Path
+import subprocess
+import tempfile
 import unittest
 
 
@@ -56,33 +58,67 @@ class ReleaseEligibilityTests(unittest.TestCase):
         arguments.update(kwargs)
         return eligibility.verify(**arguments)
 
-    def test_verified_annotated_tag_binds_exact_source_and_protected_main(self):
+    def test_annotated_tag_binds_exact_source_and_protected_main(self):
         self.assertEqual(self.verify(expected_tag_object=self.tag_object), {
             "revision": self.revision, "tag": self.tag, "tag_object": self.tag_object})
         self.assertEqual(self.api_calls.count(self.ref_path), 2)
         self.assertIn(("merge-base", "--is-ancestor", self.revision, "origin/main"), self.git_calls)
 
-    def test_lightweight_tag_is_rejected(self):
+    def test_lightweight_tag_binds_unsigned_root_and_protected_main(self):
+        self.tag_object = self.revision
         self.responses[self.ref_path]["object"] = {"type": "commit", "sha": self.revision}
-        with self.assertRaisesRegex(ValueError, "annotated"):
-            self.verify()
+        self.responses[self.commit_path]["commit"]["verification"] = {"verified": False, "reason": "unsigned"}
+        self.assertEqual(self.verify(expected_tag_object=self.revision), {
+            "revision": self.revision, "tag": self.tag, "tag_object": self.revision})
+        self.assertNotIn(self.object_path, self.api_calls)
+        self.assertEqual(self.api_calls.count(self.ref_path), 2)
+        self.assertIn(("merge-base", "--is-ancestor", self.revision, "origin/main"), self.git_calls)
 
-    def test_unsigned_tag_and_unverified_commit_are_rejected(self):
+    def test_git_signatures_are_optional_for_commit_and_annotated_tag(self):
         for path, nested in ((self.object_path, False), (self.commit_path, True)):
-            for verification in (False, None, "true", 1):
+            for verification in (False, None, True):
                 with self.subTest(path=path, verification=verification):
                     document = self.responses[path]["commit"] if nested else self.responses[path]
-                    document["verification"]["verified"] = verification
-                    with self.assertRaisesRegex(ValueError, "GitHub verified"):
-                        self.verify()
-            document["verification"]["verified"] = True
+                    document["verification"] = {"verified": verification}
+                    self.verify()
+            del document["verification"]
+            self.verify()
 
-    def test_verified_tag_with_wrong_target_or_nested_tag_is_rejected(self):
+    def test_tag_with_wrong_target_or_nested_tag_is_rejected(self):
         for target in ({"type": "commit", "sha": "c" * 40},
                        {"type": "tag", "sha": self.revision}):
             self.responses[self.object_path]["object"] = target
             with self.assertRaisesRegex(ValueError, "exact release commit"):
                 self.verify()
+        self.responses[self.ref_path]["object"] = {"type": "commit", "sha": "c" * 40}
+        with self.assertRaisesRegex(ValueError, "exact release commit"):
+            self.verify()
+
+    def test_non_commit_or_tag_ref_and_malformed_identity_are_rejected(self):
+        for obj in ({"type": "tree", "sha": self.revision},
+                    {"type": "blob", "sha": self.revision},
+                    {"type": "commit", "sha": "invalid"}, {}):
+            self.responses[self.ref_path]["object"] = obj
+            with self.subTest(obj=obj), self.assertRaisesRegex(ValueError, "commit or annotated tag"):
+                self.verify()
+
+    def test_real_unsigned_root_and_lightweight_tag_resolve_to_same_commit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            def git(*args):
+                return subprocess.check_output(["git", "-C", directory, *args], text=True)
+            git("init", "--quiet", "--initial-branch=main")
+            git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+                "-c", "commit.gpgsign=false", "commit", "--quiet", "--allow-empty", "-m", "Initial commit")
+            revision = git("rev-parse", "HEAD").strip()
+            git("update-ref", "refs/remotes/origin/main", revision)
+            git("tag", "--no-sign", self.tag, revision)
+            self.assertEqual(git("rev-list", "--count", "HEAD").strip(), "1")
+            self.assertEqual(git("cat-file", "-t", self.ref).strip(), "commit")
+            self.responses[self.base + "/commits/" + revision] = {
+                "sha": revision, "commit": {"verification": {"verified": False, "reason": "unsigned"}}}
+            self.responses[self.ref_path]["object"] = {"type": "commit", "sha": revision}
+            self.assertEqual(self.verify(revision=revision, git=git, expected_tag_object=revision), {
+                "revision": revision, "tag": self.tag, "tag_object": revision})
 
     def test_missing_ancestry_fails_closed(self):
         def off_main(*args):
