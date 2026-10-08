@@ -208,8 +208,12 @@ env:
   HANKO_LOG_DEV: "false"
   HANKO_KEYCLOAK_DEPLOYMENT: keycloak
   # ADR-021: maximum age of the Keycloak operator service-account credential.
+  # HankoKeycloakInstance attempts admin-client rotation at this age, including
+  # external instances. There is no disable flag; see keycloak-permissions.md.
   HANKO_KC_SA_MAX_AGE: "90d"
 
+# Keep enabled for shared reconciliation. False is explicit and is suitable only
+# when the administrator ensures that a single operator replica writes state.
 leaderElect: true
 
 metrics:

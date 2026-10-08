@@ -474,6 +474,107 @@ The profile does not issue workload certificates, enable mTLS on every
 integration, or promote mesh-policy auditing to enforcement. Admission of
 Attest-approved operator images is a separate administrator-owned control.
 
+## Privileged lifecycle behavior and limits
+
+The default Role permits reconciliation and workload Jobs in the release namespace,
+including access to Secrets there. The watch namespace is a trust boundary:
+do not allow hostile tenants to create operator CRDs or credentials in it.
+The default cluster-scoped readers permit node `get` and named `kube-system`
+Namespace `get` for identity discovery. Hub decommission also permits `get`,
+`patch` and `delete` on the release's two named reader ClusterRoles/bindings.
+They do not confer general cluster administration.
+
+Optional mesh audit reads Services (`get`) in configured egress namespaces and
+writes its protected projection in the chosen transport namespace. Optional
+transport decommission can delete the named VPN DaemonSet. Its Helm bookkeeping
+Role needs namespace-wide Secret `get/list/delete`, because Helm versions have
+generated Secret names. Label selection in controller code is not an RBAC
+restriction; use a dedicated transport namespace with no unrelated Secrets.
+
+`HankoKeycloakInstance` attempts administrative-client secret rotation after
+`HANKO_KC_SA_MAX_AGE` (90 days by default), even in external mode. It has no disable
+flag and needs broader master authority when its credential client lives in
+master. The chart's default Keycloak connection does not require this CRD. Follow
+the [rotation guidance](keycloak-permissions.md#credential-rotation), and do not
+grant broad master access solely to hide failed rotation. Audit failure can
+report degradation after a secret has already changed.
+
+Snapshots serialize supported operator configuration into a ConfigMap. Optional
+database Jobs use `postgres:16-alpine`, installation-specific credentials and a
+backup PVC. This mutable job image is **not** part of the scanned operator OCI
+artifact and is not checked by its theme/managed-Keycloak image verification
+policy. Qualify and control that image separately before enabling database Jobs.
+The Job is not covered by the operator Deployment's Restricted-admission
+qualification; validate its pod against the actual namespace admission policy.
+Its environment must supply PostgreSQL `pg_dump` connection settings, not only
+Keycloak `KC_DB_*` variables; the controller does not translate those variables.
+Portable backup/restore, consistency and recovery across database versions or
+cloud providers are not qualified. `HankoOperation.snapshotBefore` creates only
+a configuration snapshot and does not establish a database rollback point.
+
+`Clone` creates an external instance alias reusing the source administrative
+connection and imports supported configuration; it does not provision a new
+database. `clone.includeData` has no effect in 0.1.0. A target namespace outside
+the release namespace is outside the default watch/RBAC scope. `DBSwitch` changes
+the database Secret reference without migrating data. Operation `dryRun` skips
+planned steps; it does not validate provider compatibility or recoverability.
+These operations are not a tested disaster-recovery workflow.
+
+## Release rehearsal and publication
+
+0.1.0 is a normal SemVer release in initial development. The experimental
+`hanko.sh/v1alpha1` APIs may change across minor releases before 1.0. Artifact Hub
+uses `prerelease: false`; the workflow creates a normal GitHub **draft**, with
+curated notes extracted from the tracked CHANGELOG release overview. Publication
+of that draft remains a separate manual action. The tag must already exist on
+protected main; the workflow does not create tags.
+
+Required CI builds one AMD64/ARM64 OCI archive with BuildKit SBOM/provenance,
+scans its exact manifests, and passes that immutable artifact ID to the release
+rehearsal. The rehearsal shares packaging code with publication: chart metadata,
+generated CRDs, digest-pinned values, curated notes, artifact names and checksums
+are checked. Native pinned cosign signs the checksum payload with an ephemeral
+local key; OpenSSL verifies the signature and rejects tampering. Native Continuum
+Attest signs and timestamps the delivery using an ephemeral Ed25519 identity and
+loopback RFC 3161 TSA. All five native checks and a tamper rejection must pass.
+
+To reproduce with the **fresh archive/evidence from the OCI security job**:
+
+```sh
+bash scripts/install-cosign.sh /tmp/hankoshell-rehearsal-tools/cosign
+bash scripts/install-attest.sh /tmp/hankoshell-rehearsal-tools/attest
+make release-dry-run REVISION="$reviewed_revision" DIGEST="$scanned_digest" \
+  OCI_ARCHIVE="$archive_path" OCI_EVIDENCE="$evidence_directory" \
+  DRY_RUN_OUTPUT="$fresh_output_directory" \
+  COSIGN=/tmp/hankoshell-rehearsal-tools/cosign \
+  ATTEST=/tmp/hankoshell-rehearsal-tools/attest OPENSSL="$(command -v openssl)"
+```
+
+Use OpenSSL 3, pinned Helm 3.17.0 and the Python dependencies in
+`scripts/requirements.txt`. The report is explicitly `publishable: false`; its
+keys, TSA and Artifact Hub ID are fixtures. No private key is retained in its
+artifacts. It never pushes a registry reference, creates a tag/GitHub Release or
+changes Artifact Hub. The local signature proves payload binding, **not** GitHub
+OIDC/Fulcio/Rekor trust. Production image signatures remain keyless Sigstore with
+issuer `https://token.actions.githubusercontent.com` and exact certificate identity
+`https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.1.0`.
+
+Before publication, maintainers must configure the real Attest signing secret,
+trusted public key/ID, RFC 3161 endpoint and pinned TSA certificate in the
+reviewed `release` environment, register the OCI chart in Artifact Hub and set
+its assigned repository UUID, and verify public registry access. See the README
+release configuration. The rehearsal does not qualify these external settings.
+Artifact Hub Verified Publisher establishes ownership, not vulnerability absence
+or a chart signature. The named Attest key link is not Helm OpenPGP `.prov` signing.
+
+Publication consumes the same scanned archive without rebuilding, stages it under
+a non-release reference, verifies real image/blob Sigstore signatures and strict
+Attest delivery evidence, then promotes the digest, chart and catalog metadata.
+Only after that does it create the GitHub draft. These network writes are not an
+atomic transaction: a later failure may leave already verified packages available.
+Inspect exact registry digests and existing drafts before retrying; do not rebuild
+or substitute a different digest to work around a failed gate.
+
 ## Upgrade and rollback
 
 Clusters below 1.35 must be upgraded and qualified before installing this chart;

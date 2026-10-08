@@ -36,7 +36,10 @@ class ReleaseMetadataTests(unittest.TestCase):
         annotations = chart["annotations"]
         self.assertEqual(yaml.safe_load(annotations["artifacthub.io/images"])[0]["image"], self.image)
         self.assertEqual(annotations["artifacthub.io/prerelease"], "true" if "-" in self.version else "false")
-        self.assertEqual(yaml.safe_load(annotations["artifacthub.io/signKey"])["url"],
+        self.assertNotIn("artifacthub.io/signKey", annotations)
+        key_link = next(link for link in yaml.safe_load(annotations["artifacthub.io/links"])
+                        if link["name"] == "Attest delivery verification key")
+        self.assertEqual(key_link["url"],
                          f"{metadata.REPOSITORY}/releases/download/v{self.version}/{metadata.PUBLIC_KEY_FILE}")
         self.assertEqual(yaml.safe_load((self.dist / "artifacthub-repo.yml").read_text()),
                          {"repositoryID": self.repository_id})

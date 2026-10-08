@@ -26,11 +26,11 @@ class QualificationGateTests(unittest.TestCase):
         aggregate = workflow["jobs"]["checks"]
         self.assertEqual(aggregate["name"], "Source and chart checks")
         self.assertEqual(aggregate["if"], "always()")
-        self.assertEqual(set(aggregate["needs"]), {"source", "kubernetes", "keycloak", "oci"})
+        self.assertEqual(set(aggregate["needs"]), {"source", "kubernetes", "keycloak", "oci", "rehearsal"})
         step = aggregate["steps"][0]
         dependencies = {f"${{{{ needs.{job}.result }}}}" for job in aggregate["needs"]}
         self.assertEqual(set(step["env"].values()), dependencies)
-        for results in itertools.product(("success", "failure", "cancelled", "skipped"), repeat=4):
+        for results in itertools.product(("success", "failure", "cancelled", "skipped"), repeat=len(aggregate["needs"])):
             with self.subTest(results=results):
                 environment = dict(os.environ, **dict(zip(step["env"], results)))
                 result = subprocess.run(["bash", "-c", step["run"]], env=environment,
@@ -118,8 +118,9 @@ class DeliveryArtifactTests(unittest.TestCase):
         (self.dist / "artifacthub-repo.yml").write_text("repositoryID: 8d452bd5-e2f7-47b6-94f1-c3b2ac7b4aac\n")
         (self.dist / release.PUBLIC_KEY_FILE).write_text(release.public_key_pem("b" * 64))
         (self.dist / "checksums.sigstore.json").write_text(json.dumps({"fixture": True}))
+        (self.dist / "release-notes.md").write_text(release.contract.notes(self.version))
         names = [self.chart.name, "image-digest.txt", "source-revision.txt", "artifacthub-repo.yml", release.PUBLIC_KEY_FILE,
-                 "oci-security.json", "trivy-amd64.json", "trivy-arm64.json", "oci-vulnerability-policy.json"]
+                 "oci-security.json", "trivy-amd64.json", "trivy-arm64.json", "oci-vulnerability-policy.json", "release-notes.md"]
         (self.dist / "checksums.txt").write_text("".join(
             hashlib.sha256((self.dist / name).read_bytes()).hexdigest() + "  " + name + "\n"
             for name in names))
@@ -128,10 +129,10 @@ class DeliveryArtifactTests(unittest.TestCase):
         return release.delivery_files(self.dist, self.version, self.revision, self.image)
 
     def test_exact_delivery_is_accepted(self):
-        self.assertEqual(len(self.check()), 11)
+        self.assertEqual(len(self.check()), 12)
 
     def test_modified_publisher_metadata_or_public_key_is_refused(self):
-        for name in ("artifacthub-repo.yml", release.PUBLIC_KEY_FILE):
+        for name in ("artifacthub-repo.yml", release.PUBLIC_KEY_FILE, "release-notes.md"):
             path = self.dist / name
             original = path.read_bytes()
             path.write_bytes(b"changed after signing")

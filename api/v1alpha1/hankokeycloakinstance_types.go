@@ -39,7 +39,7 @@ type HankoKeycloakInstanceSpec struct {
 
 	// TLSCARef is the name of a Secret containing a "ca.crt" key with the PEM-encoded
 	// CA bundle used to verify the Keycloak Admin API TLS certificate.
-	// When set, all Admin API connections enforce TLS certificate verification.
+	// HTTPS always verifies certificates; without this Secret it uses system CAs.
 	TLSCARef string `json:"tlsCARef,omitempty"`
 
 	// Managed holds the desired state for an operator-provisioned Keycloak Deployment.
@@ -90,7 +90,8 @@ type HankoKeycloakInstanceStatus struct {
 	// +kubebuilder:validation:Enum=Pending;Probing;Ready;Degraded;Error
 	Phase string `json:"phase,omitempty"`
 
-	// KeycloakVersion is the version discovered from the Admin API.
+	// KeycloakVersion is discovered from the Admin API when permissions allow;
+	// it can be empty for a restricted administrative identity.
 	KeycloakVersion string `json:"keycloakVersion,omitempty"`
 
 	// AdminAPIURL is the base URL used to reach the Keycloak Admin API.

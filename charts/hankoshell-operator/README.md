@@ -1,13 +1,14 @@
 # hankoShell Operator chart
 
-Helm chart for the hankoShell Kubernetes operator. The `0.x` series is in initial
-development; public APIs may change between minor versions. It retains all 16
+Helm chart for the hankoShell Kubernetes operator. Version 0.1.0 is a normal SemVer
+release in initial development, not a beta or prerelease. Public APIs may change
+between minor versions. It retains all 16 experimental
 `hanko.sh/v1alpha1` CRDs and registers all existing controllers; optional
 integration flags do not define an IAM-only controller profile.
 
 Kubernetes **1.35–1.37** and Linux nodes are the qualification window. CI uses
 real API-server/etcd fixtures to check CRDs, server-side apply, RBAC and Restricted
-admission on each minor. Future minors and upstream prereleases are rejected
+admission on each minor. Future minors and upstream alpha/beta/RC builds are rejected
 until qualified. Install the latest provider security patch; fixed CI fixtures
 do not certify nodes, CNI/CSI or cloud-provider behavior.
 
@@ -22,6 +23,23 @@ Provision a **[dedicated Keycloak service account using the tested permission mo
 The existing-realm profile needs target `manage-realm`, `manage-clients` and
 `manage-events`; optional capabilities have additional or inherited authority.
 Keep secrets outside committed values and review native realm-creation grants.
+
+Real HTTPS Admin API v1 qualification covers Keycloak **26.8.0 and 26.7.5** only.
+Other patches and major lines are unqualified. Hub/Continuum integrations are
+optional; standalone Keycloak reconciliation does not depend on them. See the
+[qualification limits](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md#keycloak-compatibility)
+and project website [hanko.sh](https://hanko.sh).
+
+`leaderElect: true` remains the default. An explicit `false` now reaches the
+manager flag (previously omission left its default enabled); use it only with
+one active writer. This is not a multi-replica failover mode.
+
+Release packaging pins the exact scanned image digest and includes curated notes,
+checksums and verified delivery evidence. The named Attest verification-key link
+is for receipt verification, not Helm OpenPGP `.prov` signing. Artifact Hub Verified
+Publisher identifies repository ownership, not an image-security endorsement.
+The [nonpublishing rehearsal](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md#release-rehearsal-and-publication)
+uses fixture trust and cannot qualify production publication credentials.
 
 `keycloak.url` defaults to `https://keycloak.auth.svc:8443`; replace it with the
 actual administrative endpoint and its certificate hostname. An enabled

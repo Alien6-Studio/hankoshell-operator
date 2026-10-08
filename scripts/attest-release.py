@@ -20,6 +20,9 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("oci_security", ROOT / "scripts/oci-security.py")
 oci_security = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(oci_security)
+spec = importlib.util.spec_from_file_location("release_contract", ROOT / "scripts/release-contract.py")
+contract = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(contract)
 
 CHECKS = {"schema", "consistency", "signature", "timestamp", "recompute"}
 PUBLIC_KEY_FILE = "hankoshell-operator-attest-public-key.pem"
@@ -72,12 +75,14 @@ def delivery_files(dist, version, revision, image):
     expected = {f"hankoshell-operator-{version}.tgz", "image-digest.txt",
                 "source-revision.txt", "checksums.txt", "checksums.sigstore.json",
                 "artifacthub-repo.yml", PUBLIC_KEY_FILE, "oci-security.json",
-                "trivy-amd64.json", "trivy-arm64.json", "oci-vulnerability-policy.json"}
+                "trivy-amd64.json", "trivy-arm64.json", "oci-vulnerability-policy.json", "release-notes.md"}
     files = {path.name: path for path in dist.iterdir()}
     if set(files) != expected or any(path.is_symlink() or not path.is_file() for path in files.values()):
         raise ValueError("Expected only the exact operator release artifacts")
     if files["image-digest.txt"].read_text().strip() != image or files["source-revision.txt"].read_text().strip() != revision:
         raise ValueError("Delivery image/source identity mismatch")
+    if files["release-notes.md"].read_text() != contract.notes(version):
+        raise ValueError("Delivery must include the reviewed curated release notes")
     covered = expected - {"checksums.txt", "checksums.sigstore.json"}
     recorded = {}
     for line in files["checksums.txt"].read_text().splitlines():

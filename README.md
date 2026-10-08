@@ -1,6 +1,6 @@
 # hankoShell Operator
 
-Manage Keycloak alongside the applications that depend on it.
+Declarative Keycloak IAM configuration from Kubernetes.
 
 hankoShell Operator turns your application's identity requirements into Keycloak
 configuration: its login client, redirect URLs, roles, token claims and machine
@@ -10,8 +10,14 @@ and let the operator keep the fields it manages in sync with Keycloak.
 Platform teams can reuse authentication policies across realms, connect upstream
 identity providers and rotate client secrets. Application teams can keep their
 login and access configuration with their deployment manifests. It works with
-an existing Keycloak instance, including one managed by the official Keycloak
-operator, and can also provision a Keycloak Deployment.
+an existing Keycloak instance within the [qualified version window](docs/secure-deployment.md#keycloak-compatibility),
+including one managed by the official Keycloak operator, and can also provision
+a Keycloak Deployment. Reconciliation updates only the supported fields and
+resources under the operator's ownership.
+
+The standalone Keycloak use case needs neither hankoShell Hub nor Continuum.
+Those optional integrations connect the operator to the wider platform and
+enterprise fleet. Project website: **[hanko.sh](https://hanko.sh)**.
 
 **[What it manages](#what-it-manages-in-keycloak)** · [First application](#declare-your-first-realm) ·
 [Deployment](#deployment) ·
@@ -20,7 +26,7 @@ operator, and can also provision a Keycloak Deployment.
 [Changes](CHANGELOG.md)
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml)
-[![Release preparation](https://img.shields.io/badge/release-0.1.0%20in%20preparation-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.1.0%20initial%20development-blue.svg)](#release-maturity)
 [![Go](https://img.shields.io/badge/go-1.27.1-00ADD8.svg)](go.mod)
 [![Kubernetes](https://img.shields.io/badge/kubernetes-1.35%E2%80%931.37-326CE5.svg)](docs/secure-deployment.md#kubernetes-compatibility-and-hardening)
 [![Delivery](https://img.shields.io/badge/delivery-Continuum%20Attest-blue.svg)](#verified-delivery)
@@ -123,11 +129,8 @@ qualify all 16 CRDs, server-side apply, namespace/credential RBAC boundaries and
 Restricted Pod Security admission against each minor version. Optional AppArmor
 and stable user namespaces extend the baseline when supported by the nodes.
 See the [compatibility and hardening matrix](docs/secure-deployment.md#kubernetes-compatibility-and-hardening).
-The first **0.1.0**
-release is being prepared; published artifacts and evidence will appear in the
+Published artifacts and evidence are listed in the
 [release history](https://github.com/Alien6-Studio/hankoshell-operator/releases).
-The `0.x` series is in initial development, and public APIs may change between
-minor versions before `1.0.0`.
 
 Start with the [chart configuration](charts/hankoshell-operator/README.md) and
 the [secure deployment steps](docs/secure-deployment.md#configure-an-installation).
@@ -295,11 +298,27 @@ the OCI tag `artifacthub.io`. Verified Publisher is granted by Artifact Hub
 after matching that ID during indexing. Security reports use GitHub private
 vulnerability reporting. Configure public artifact access before launching the release.
 
-`artifacthub.io/signKey` links the Ed25519 public key for the Attest receipt.
-The release also provides a keyless Sigstore bundle; these are separate from
-Helm's OpenPGP `.prov` verification.
+The chart's named Attest verification-key link identifies the Ed25519 key for
+the delivery receipt. The release also provides a keyless Sigstore bundle.
+Neither is a Helm OpenPGP `.prov` signature; the chart does not advertise a
+Helm signing key through `artifacthub.io/signKey`.
 
 </details>
+
+## Release maturity
+
+**0.1.0 is a normal SemVer release in initial development**, without a prerelease
+suffix. Artifact Hub marks it `prerelease: false`; the release workflow creates
+a normal GitHub draft for separate manual publication. This is not a stability
+or production-certification claim. The `hanko.sh/v1alpha1` APIs are experimental
+and may change across minor releases before 1.0. See the [curated release
+overview](CHANGELOG.md#release-overview) for capabilities and qualification limits.
+
+The [release rehearsal](docs/secure-deployment.md#release-rehearsal-and-publication)
+is required CI and never publishes artifacts. Production delivery additionally
+requires configured release trust, public registry access and an assigned
+Artifact Hub repository ID. OCI promotion and GitHub draft creation are separate
+operations; verified packages can exist before the GitHub Release is published.
 
 ## Development
 

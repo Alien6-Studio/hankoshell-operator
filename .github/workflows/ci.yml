@@ -108,9 +108,53 @@ jobs:
           make lint LINT_BUILD_TAGS=keycloak_integration
   oci:
     uses: ./.github/workflows/oci-security.yml
+  rehearsal:
+    name: Release contract dry run
+    needs: [source, oci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.1'
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ needs.oci.outputs.artifact_id }}
+          path: ${{ runner.temp }}/hankoshell-scanned-oci
+          merge-multiple: true
+      - name: Install verified release rehearsal tools
+        run: |
+          python3 -m pip install -r scripts/requirements.txt
+          curl -fLsS https://get.helm.sh/helm-v3.17.0-linux-amd64.tar.gz -o /tmp/helm.tgz
+          echo 'fb5d12662fde6eeff36ac4ccacbf3abed96b0ee2de07afdde4edb14e613aee24  /tmp/helm.tgz' | sha256sum -c -
+          tar -xzf /tmp/helm.tgz -C /tmp
+          bash scripts/install-cosign.sh "$RUNNER_TEMP/rehearsal-tools/cosign"
+          bash scripts/install-attest.sh "$RUNNER_TEMP/rehearsal-tools/attest"
+      - name: Rehearse the exact scanned delivery without publication
+        env:
+          DIGEST: ${{ needs.oci.outputs.digest }}
+        run: |
+          python3 scripts/release-dry-run.py --version 0.1.0 --revision "$GITHUB_SHA" --digest "$DIGEST" \
+            --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
+            --evidence "$RUNNER_TEMP/hankoshell-scanned-oci/evidence" \
+            --output "$RUNNER_TEMP/hankoshell-release-dry-run" --helm /tmp/linux-amd64/helm \
+            --cosign "$RUNNER_TEMP/rehearsal-tools/cosign" --attest "$RUNNER_TEMP/rehearsal-tools/attest" \
+            --openssl /usr/bin/openssl
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: NONPUBLISHABLE-release-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/hankoshell-release-dry-run
+          if-no-files-found: error
+          retention-days: 14
   checks:
     name: Source and chart checks
-    needs: [source, kubernetes, keycloak, oci]
+    needs: [source, kubernetes, keycloak, oci, rehearsal]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -120,4 +164,5 @@ jobs:
           KUBERNETES_RESULT: ${{ needs.kubernetes.result }}
           KEYCLOAK_RESULT: ${{ needs.keycloak.result }}
           OCI_RESULT: ${{ needs.oci.result }}
-        run: test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$OCI_RESULT" = success
+          REHEARSAL_RESULT: ${{ needs.rehearsal.result }}
+        run: test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success

@@ -48,9 +48,12 @@ def prepare(version, image, chart_output, dist, repository_id, public_key):
         "name": "hankoshell-operator", "image": image,
         "platforms": ["linux/amd64", "linux/arm64"],
     }], sort_keys=False)
-    annotations["artifacthub.io/signKey"] = yaml.safe_dump({
-        "url": f"{REPOSITORY}/releases/download/v{version}/{PUBLIC_KEY_FILE}",
-    }, sort_keys=False)
+    annotations.pop("artifacthub.io/signKey", None)
+    links = yaml.safe_load(annotations.get("artifacthub.io/links", "[]"))
+    links = [link for link in links if link["name"] != "Attest delivery verification key"]
+    links.insert(0, {"name": "Attest delivery verification key",
+                     "url": f"{REPOSITORY}/releases/download/v{version}/{PUBLIC_KEY_FILE}"})
+    annotations["artifacthub.io/links"] = yaml.safe_dump(links, sort_keys=False)
     shutil.copytree(source, chart_output)
     (chart_output / "Chart.yaml").write_text(yaml.safe_dump(chart, sort_keys=False))
     values_path = chart_output / "values.yaml"

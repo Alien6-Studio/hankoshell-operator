@@ -11,9 +11,10 @@ import (
 // +kubebuilder:printcolumn:name="Instance",type=string,JSONPath=".spec.instanceRef"
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=".metadata.creationTimestamp"
 
-// HankoSnapshot is a point-in-time backup of a Keycloak instance.
+// HankoSnapshot records supported operator configuration for a Keycloak instance.
 // It stores the operator CRD config in a ConfigMap and optionally
 // triggers a pg_dump Job for the database.
+// Portable backup/restore and database consistency are not qualified by 0.1.0.
 type HankoSnapshot struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -31,6 +32,8 @@ type HankoSnapshotSpec struct {
 	// IncludeData triggers a pg_dump Job in addition to the config snapshot.
 	// Requires the instance to be in managed mode with a Database secret,
 	// and BackupPVC must be set to a PVC where the dump file will be written.
+	// The postgres:16-alpine job image is separate from the scanned operator image
+	// and is not covered by the operator's image-signature verification policy.
 	IncludeData bool `json:"includeData,omitempty"`
 
 	// BackupPVC is the name of the PersistentVolumeClaim where the pg_dump output
