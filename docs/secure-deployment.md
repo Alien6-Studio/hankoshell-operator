@@ -700,8 +700,9 @@ Missing approval, mutable/unapproved reference, missing key, failed verification
 or registry unavailability fails closed with `UntrustedBackupImage`. No Job is
 submitted on those paths. Existing Jobs must be controlled by this snapshot and
 match its image, command, credentials, volumes and security settings; even a
-completed Job is not accepted by name alone. Admission-injected extra containers
-or changed execution settings fail this check. An approval removal does not kill
+completed Job is not accepted by name alone. Changes to the recorded Job template,
+including extra containers or altered execution settings, fail this check.
+An approval removal does not kill
 an already-running pod; suspend/delete it and revoke its DB credential during an
 incident. Kubernetes admission and administrator control remain necessary.
 
