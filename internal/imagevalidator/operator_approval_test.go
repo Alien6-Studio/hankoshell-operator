@@ -25,8 +25,13 @@ func TestPublisherKeyReplacementDuringVerificationDeniesUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	root, err := os.OpenRoot(filepath.Dir(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
 	verifier := changingKeyVerifier{change: func() {
-		if err := os.WriteFile(filepath.Join(filepath.Dir(path), approval.KeyFile), replacement, 0600); err != nil {
+		if err := root.WriteFile("publisher.pub", replacement, 0600); err != nil {
 			t.Fatal(err)
 		}
 	}}
