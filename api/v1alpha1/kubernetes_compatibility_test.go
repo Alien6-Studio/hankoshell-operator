@@ -138,6 +138,44 @@ func TestKubernetesCompatibility(t *testing.T) {
 		}
 	})
 
+	t.Run("managed-instance-transport-schema", func(t *testing.T) {
+		instance := &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoKeycloakInstance",
+			"metadata": map[string]any{"name": "managed-transport", "namespace": "auth"},
+			"spec":     map[string]any{"mode": "managed", "adminRef": map[string]any{"name": "admin"}},
+		}}
+		if err := admin.Create(ctx, instance); !apierrors.IsInvalid(err) {
+			t.Fatalf("managed without managed spec admitted: %v", err)
+		}
+		managed := map[string]any{"image": "registry.example/keycloak@sha256:" + strings.Repeat("a", 64), "database": map[string]any{"name": "db"}}
+		if err := unstructured.SetNestedMap(instance.Object, managed, "spec", "managed"); err != nil {
+			t.Fatal(err)
+		}
+		if err := admin.Create(ctx, instance); !apierrors.IsInvalid(err) {
+			t.Fatalf("managed without serving TLS or opt-in admitted: %v", err)
+		}
+		if err := unstructured.SetNestedField(instance.Object, "serving-tls", "spec", "managed", "tlsSecretRef"); err != nil {
+			t.Fatal(err)
+		}
+		if err := admin.Create(ctx, instance); err != nil {
+			t.Fatal(err)
+		}
+		allow, found, err := unstructured.NestedBool(instance.Object, "spec", "managed", "allowInsecureHTTP")
+		if err != nil || !found || allow {
+			t.Fatal("managed transport does not default to HTTPS")
+		}
+		if err := unstructured.SetNestedField(instance.Object, true, "spec", "managed", "allowInsecureHTTP"); err != nil {
+			t.Fatal(err)
+		}
+		if err := admin.Update(ctx, instance); !apierrors.IsInvalid(err) {
+			t.Fatalf("ambiguous HTTP/TLS listener admitted: %v", err)
+		}
+		unstructured.RemoveNestedField(instance.Object, "spec", "managed", "tlsSecretRef")
+		if err := admin.Update(ctx, instance); err != nil {
+			t.Fatal(err)
+		}
+	})
+
 	t.Run("chart-and-restricted-admission", func(t *testing.T) {
 		deployment := installCompatibilityChart(t, ctx, admin, chart, version, nil)
 		checkRestrictedAdmission(t, ctx, admin, deployment)

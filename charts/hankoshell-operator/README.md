@@ -76,6 +76,15 @@ credentials, bearer tokens and Admin API traffic to parties on the network path,
 and provides no server authentication. NetworkPolicy does not encrypt traffic.
 See the [transport migration guide](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md#keycloak-administrative-transport).
 
+For `HankoKeycloakInstance` in managed mode, `spec.managed.tlsSecretRef` supplies
+a same-namespace `kubernetes.io/tls` serving Secret. The Deployment, Service and
+ingress policy use HTTPS/8443; `spec.tlsCARef` is separate client-side CA trust.
+Supply an optimized image built for its database with health enabled. The health
+listener stays on HTTP/9000 with no Service or pod ingress; it carries no IAM
+credentials. Managed HTTP requires both `spec.managed.allowInsecureHTTP: true`
+and `keycloak.allowInsecureHTTP: true` in standard profile, without a serving TLS
+Secret. Enterprise refuses it. See the [managed contract](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md#managed-keycloak-transport).
+
 Configure an exact image digest, existing Keycloak Secret, dedicated watch
 namespace, authority realm and protected clients. Supply your Kubernetes API
 Service/endpoint addresses to the NetworkPolicy; API egress is closed by

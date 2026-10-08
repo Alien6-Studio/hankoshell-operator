@@ -49,7 +49,7 @@ func TestManagedKeycloakLookalikeImageCreatesNoDeployment(t *testing.T) {
 			scheme := controllerTestScheme(t)
 			instance := managedTestInstance("test", "managed")
 			instance.Spec.Managed.Image = image
-			kube := controllerTestClient(scheme, instance)
+			kube := controllerTestClient(scheme, append([]client.Object{instance}, managedTestSecrets(t, instance)...)...)
 			reconciler := &HankoKeycloakInstanceReconciler{Client: kube, Scheme: scheme,
 				ImageValidator: approvedFixtureValidator(t)}
 			_, handled, err := reconciler.reconcileInstanceMode(ctx, instance, client.MergeFrom(instance.DeepCopy()))

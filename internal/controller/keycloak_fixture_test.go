@@ -42,6 +42,8 @@ type keycloakFixture struct {
 	t          *testing.T
 	version    string
 	baseURL    string
+	healthURL  string
+	plainURL   string
 	ca         []byte
 	http       *http.Client
 	adminToken string
@@ -106,6 +108,10 @@ func (f *keycloakFixture) redact(data []byte) string {
 }
 
 func newKeycloakFixture(t *testing.T) *keycloakFixture {
+	return newKeycloakFixtureWithManagedTransport(t, false)
+}
+
+func newKeycloakFixtureWithManagedTransport(t *testing.T, managed bool) *keycloakFixture {
 	t.Helper()
 	version := os.Getenv("KEYCLOAK_VERSION")
 	if version == "" {
@@ -133,6 +139,13 @@ func newKeycloakFixture(t *testing.T) *keycloakFixture {
 			t.Fatal(err)
 		}
 	}
+	serverArgs := []string{"start", "--db=dev-file", "--http-enabled=false", "--hostname-strict=false",
+		"--https-certificate-file=/fixture-tls/tls.crt", "--https-certificate-key-file=/fixture-tls/tls.key", "--https-protocols=TLSv1.3"}
+	mountPath := "/fixture-tls"
+	if managed {
+		serverArgs, mountPath = managedFixtureTemplate(t, image, cert, key)
+		image = f.buildManagedFixture(image)
+	}
 	name := "hankoshell-keycloak-test-" + fixtureSecret(t)[:12]
 	// Register cleanup before startup: even a timed-out docker run may have
 	// created the container. Never prune or touch developer-owned containers.
@@ -140,21 +153,29 @@ func newKeycloakFixture(t *testing.T) *keycloakFixture {
 		if t.Failed() {
 			output, _ := f.docker(10*time.Second, nil, "logs", "--tail", "100", name)
 			t.Logf("Keycloak %s diagnostics (redacted):\n%s", version, f.redact(output))
+			output, _ = f.docker(10*time.Second, nil, "inspect", "--format", "{{.State.Status}} {{.State.ExitCode}} {{.State.Error}} {{json .Config.Cmd}}", name)
+			t.Logf("Keycloak fixture state: %s", f.redact(output))
 		}
 		output, err := f.docker(15*time.Second, nil, "rm", "--force", name)
 		if err != nil && !strings.Contains(string(output), "No such container") {
 			t.Errorf("fixture cleanup failed: %s", f.redact(output))
 		}
 	})
-	output, err := f.docker(3*time.Minute, []string{"KC_BOOTSTRAP_ADMIN_PASSWORD=" + password},
+	dockerArgs := []string{
 		"run", "--detach", "--name", name, "--memory", "2g", "--pids-limit", "512",
 		"--cap-drop", "ALL", "--security-opt", "no-new-privileges:true",
 		"--publish", "127.0.0.1::8443", "--env", "KC_BOOTSTRAP_ADMIN_USERNAME=fixture-admin",
 		"--env", "KC_BOOTSTRAP_ADMIN_PASSWORD",
-		"--volume", directory+":/fixture-tls:ro", image,
-		"start", "--db=dev-file", "--http-enabled=false", "--hostname-strict=false",
-		"--https-certificate-file=/fixture-tls/tls.crt", "--https-certificate-key-file=/fixture-tls/tls.key",
-		"--https-protocols=TLSv1.3")
+		"--volume", directory + ":" + mountPath + ":ro"}
+	if managed {
+		dockerArgs = append(dockerArgs, "--read-only", "--tmpfs", "/tmp:rw,nosuid,nodev",
+			"--tmpfs", "/opt/keycloak/data:rw,uid=1000,gid=1000,mode=0770",
+			"--publish", "127.0.0.1::9000", "--publish", "127.0.0.1::8080",
+			"--env", "KC_DB=dev-file", "--env", "KC_HTTP_ENABLED=true") // CLI must defeat a conflicting Secret env.
+	}
+	dockerArgs = append(dockerArgs, image)
+	dockerArgs = append(dockerArgs, serverArgs...)
+	output, err := f.docker(3*time.Minute, []string{"KC_BOOTSTRAP_ADMIN_PASSWORD=" + password}, dockerArgs...)
 	if err != nil {
 		t.Fatalf("Keycloak fixture startup failed (Docker is required): %s", f.redact(output))
 	}
@@ -171,6 +192,10 @@ func newKeycloakFixture(t *testing.T) *keycloakFixture {
 		t.Fatal("invalid Docker fixture port")
 	}
 	f.baseURL = "https://localhost:" + port
+	if managed {
+		f.healthURL = f.fixturePortURL(name, "9000/tcp")
+		f.plainURL = f.fixturePortURL(name, "8080/tcp")
+	}
 	roots := x509.NewCertPool()
 	roots.AppendCertsFromPEM(cert)
 	f.http = &http.Client{Timeout: 5 * time.Second, Transport: &http.Transport{

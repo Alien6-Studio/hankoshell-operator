@@ -40,6 +40,10 @@ Hub self-updates require a local digest/version/source approval and verified
 publisher signature. Decommission authorization expires at its deadline.
 Instance master hardening, administrative credential rotation and adopted
 Service discovery writes require explicit spec opt-ins.
+Managed instances require an explicit serving TLS Secret and expose native
+HTTPS/8443. HTTP requires both process and instance acknowledgements in standard
+profile; enterprise rejects it. Optimized images must include root-context health
+endpoints; the separate HTTP/9000 health listener has no Service or pod ingress.
 
 Install the reviewed source chart, or the published
 `oci://ghcr.io/alien6-studio/charts/hankoshell-operator` chart at version `0.1.0`
@@ -145,6 +149,11 @@ response targets and supported versions are in SECURITY.md.
 - Install and verify the pinned golangci-lint v2.14.0 independently of the PATH.
 
 ### Fixed
+
+- Align managed Keycloak listener, serving certificate, Service, probes and
+  ingress policy with the HTTPS administrative transport contract. Validate TLS
+  configuration before infrastructure changes; refuse implicit HTTP and mismatched
+  serving certificates. Use optimized startup with the read-only image filesystem.
 
 - Require independent local release approval and publisher verification before
   Hub self-updates, including already-pinned images; reject stale Deployment

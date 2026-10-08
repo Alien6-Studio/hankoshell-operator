@@ -113,6 +113,13 @@ spec:
                   Managed holds the desired state for an operator-provisioned Keycloak Deployment.
                   Required when mode=managed.
                 properties:
+                  allowInsecureHTTP:
+                    default: false
+                    description: |-
+                      AllowInsecureHTTP explicitly selects a plaintext listener on 8080 instead
+                      of HTTPS. Also requires the operator's process-wide HTTP acknowledgement.
+                      Mutually exclusive with TLSSecretRef and always refused in enterprise.
+                    type: boolean
                   database:
                     description: |-
                       Database points to a Secret with DB connection env vars
@@ -130,7 +137,9 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   image:
-                    description: Image is the Keycloak container image.
+                    description: |-
+                      Image is a digest-approved signed optimized Keycloak image, built for the
+                      declared database with health enabled and root IAM/management context paths.
                     type: string
                   replicas:
                     default: 1
@@ -203,10 +212,22 @@ spec:
                     description: ThemePVC is the PersistentVolumeClaim name for Keycloak
                       theme JARs.
                     type: string
+                  tlsSecretRef:
+                    description: |-
+                      TLSSecretRef names a same-namespace kubernetes.io/tls Secret with tls.crt
+                      and tls.key for the native HTTPS listener on 8443. Required by default.
+                      Client trust is configured separately through spec.tlsCARef or system CAs.
+                    minLength: 1
+                    type: string
                 required:
                 - database
                 - image
                 type: object
+                x-kubernetes-validations:
+                - message: managed requires tlsSecretRef unless allowInsecureHTTP
+                    is explicitly true; these settings are mutually exclusive
+                  rule: '(has(self.allowInsecureHTTP) && self.allowInsecureHTTP) ?
+                    !has(self.tlsSecretRef) : has(self.tlsSecretRef)'
               mode:
                 default: external
                 description: Mode determines what the operator owns.
@@ -233,6 +254,9 @@ spec:
             - adminRef
             - mode
             type: object
+            x-kubernetes-validations:
+            - message: mode managed requires spec.managed
+              rule: self.mode != 'managed' || has(self.managed)
           status:
             description: HankoKeycloakInstanceStatus describes the observed state
               of the Keycloak instance.

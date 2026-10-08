@@ -230,11 +230,16 @@ which responsibilities hankoShell owns:
 | Mode | Behavior |
 | --- | --- |
 | `external` | Reconcile IAM through an existing provider's Admin API; its workloads remain with their current owner. |
-| `managed` | Provision a Keycloak Deployment using the declared image and database Secret. |
+| `managed` | Provision a Keycloak Deployment using the declared optimized image, database Secret and serving TLS Secret; expose HTTPS/8443. |
 | `adopted` | Reference an existing Kubernetes Deployment for supported operational integrations. |
 
 Use one management writer per provider object. Theme rollout integrations are
 Deployment-based; provider workload ownership and IAM ownership are separate.
+
+Managed HTTPS requires `spec.managed.tlsSecretRef`, containing the server
+certificate/key. `spec.tlsCARef` separately configures client trust for a private
+CA. The image must be built for its database with health checks enabled.
+See [managed transport and migration](docs/secure-deployment.md#managed-keycloak-transport).
 
 Instance reconciliation probes Keycloak without changing `master` or rotating
 `AdminRef` credentials by default. Enable `spec.hardenMasterRealm` or

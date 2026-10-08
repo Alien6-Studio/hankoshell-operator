@@ -27,6 +27,7 @@ type HankoKeycloakInstance struct {
 }
 
 // HankoKeycloakInstanceSpec defines the desired state of a Keycloak instance.
+// +kubebuilder:validation:XValidation:rule="self.mode != 'managed' || has(self.managed)",message="mode managed requires spec.managed"
 type HankoKeycloakInstanceSpec struct {
 	// Mode determines what the operator owns.
 	// +kubebuilder:validation:Enum=managed;adopted;external
@@ -64,8 +65,22 @@ type HankoKeycloakInstanceSpec struct {
 }
 
 // ManagedKeycloakSpec defines the desired state for an operator-provisioned Keycloak Deployment.
+// +kubebuilder:validation:XValidation:rule="(has(self.allowInsecureHTTP) && self.allowInsecureHTTP) ? !has(self.tlsSecretRef) : has(self.tlsSecretRef)",message="managed requires tlsSecretRef unless allowInsecureHTTP is explicitly true; these settings are mutually exclusive"
 type ManagedKeycloakSpec struct {
-	// Image is the Keycloak container image.
+	// TLSSecretRef names a same-namespace kubernetes.io/tls Secret with tls.crt
+	// and tls.key for the native HTTPS listener on 8443. Required by default.
+	// Client trust is configured separately through spec.tlsCARef or system CAs.
+	// +kubebuilder:validation:MinLength=1
+	TLSSecretRef string `json:"tlsSecretRef,omitempty"`
+
+	// AllowInsecureHTTP explicitly selects a plaintext listener on 8080 instead
+	// of HTTPS. Also requires the operator's process-wide HTTP acknowledgement.
+	// Mutually exclusive with TLSSecretRef and always refused in enterprise.
+	// +kubebuilder:default=false
+	AllowInsecureHTTP bool `json:"allowInsecureHTTP,omitempty"`
+
+	// Image is a digest-approved signed optimized Keycloak image, built for the
+	// declared database with health enabled and root IAM/management context paths.
 	// +kubebuilder:validation:Required
 	Image string `json:"image"`
 

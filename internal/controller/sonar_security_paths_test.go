@@ -211,7 +211,7 @@ func TestKeycloakInstanceFailuresAreReportedWithoutUnsafeFallback(t *testing.T) 
 
 	t.Run("untrusted managed image", func(t *testing.T) {
 		instance := managedTestInstance("test", "managed")
-		k8sClient := controllerTestClient(scheme, instance)
+		k8sClient := controllerTestClient(scheme, append([]client.Object{instance}, managedTestSecrets(t, instance)...)...)
 		reconciler := &HankoKeycloakInstanceReconciler{
 			Client: k8sClient, Scheme: scheme, ImageValidator: imagevalidator.NewWithPrefixes("registry.example.com/"),
 		}

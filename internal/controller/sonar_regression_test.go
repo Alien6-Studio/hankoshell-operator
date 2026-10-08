@@ -57,7 +57,8 @@ func managedTestInstance(namespace, name string) *hankoshv1alpha1.HankoKeycloakI
 			Mode:     "managed",
 			AdminRef: corev1.LocalObjectReference{Name: "admin"},
 			Managed: &hankoshv1alpha1.ManagedKeycloakSpec{
-				Image: approvedKeycloakImage, Replicas: &replicas,
+				TLSSecretRef: "serving-tls",
+				Image:        approvedKeycloakImage, Replicas: &replicas,
 				Database: corev1.LocalObjectReference{Name: "database"}, ThemePVC: "themes",
 			},
 		},
@@ -273,7 +274,7 @@ func TestManagedInstanceInfrastructureIsHardened(t *testing.T) {
 	ctx := context.Background()
 	scheme := controllerTestScheme(t)
 	instance := managedTestInstance("test", "keycloak")
-	k8sClient := controllerTestClient(scheme, instance)
+	k8sClient := controllerTestClient(scheme, append([]client.Object{instance}, managedTestSecrets(t, instance)...)...)
 	reconciler := &HankoKeycloakInstanceReconciler{Client: k8sClient, Scheme: scheme, ImageValidator: approvedFixtureValidator(t)}
 	patch := client.MergeFrom(instance.DeepCopy())
 	if _, handled, err := reconciler.reconcileManagedInstance(ctx, instance, patch); err != nil || handled {
@@ -335,7 +336,7 @@ func TestManagedServiceAutodiscoverMetadataIsReconciled(t *testing.T) {
 	if actual.Labels["hanko.sh/managed"] != "true" || actual.Annotations["hanko.sh/kind"] != "keycloak" {
 		t.Fatalf("autodiscover metadata not reconciled: labels=%v annotations=%v", actual.Labels, actual.Annotations)
 	}
-	if actual.Spec.Selector["app"] != instance.Name || len(actual.Spec.Ports) != 1 || actual.Spec.Ports[0].Port != 8080 {
+	if actual.Spec.Selector["app"] != instance.Name || len(actual.Spec.Ports) != 1 || actual.Spec.Ports[0].Port != 8443 {
 		t.Fatalf("managed service routing not reconciled: %#v", actual.Spec)
 	}
 }

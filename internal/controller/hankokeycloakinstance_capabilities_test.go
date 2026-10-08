@@ -45,6 +45,8 @@ func TestInstanceUsesOnlyExplicitlyRequestedCapabilities(t *testing.T) {
 			deployment := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Namespace: instance.Namespace, Name: "adopted-deployment"}}
 			if mode == "managed" {
 				instance.Spec.Managed = managedTestInstance(instance.Namespace, instance.Name).Spec.Managed
+				instance.Spec.Managed.TLSSecretRef = ""
+				instance.Spec.Managed.AllowInsecureHTTP = true
 			}
 			if mode == "adopted" {
 				instance.Spec.Adopted = &hanko.AdoptedKeycloakSpec{DeploymentRef: deployment.Name, ServiceRef: service.Name}

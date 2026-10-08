@@ -120,6 +120,12 @@ func (r *HankoKeycloakInstanceReconciler) reconcileInstanceMode(ctx context.Cont
 }
 
 func (r *HankoKeycloakInstanceReconciler) reconcileManagedInstance(ctx context.Context, instance *hankoshv1alpha1.HankoKeycloakInstance, patch client.Patch) (ctrl.Result, bool, error) {
+	if _, err := r.managedServerTransport(ctx, instance); err != nil {
+		setCondition(&instance.Status.Conditions, "ManagedTransportConfigured", metav1.ConditionFalse, "TransportError", err.Error())
+		r.setInstanceFailure(ctx, instance, patch, "Error", "TransportError", err.Error(), "patch status after managed transport error")
+		return ctrl.Result{RequeueAfter: requeueOnError}, true, nil
+	}
+	setCondition(&instance.Status.Conditions, "ManagedTransportConfigured", metav1.ConditionTrue, "Configured", "Managed listener and serving certificate match the AdminRef endpoint")
 	// Install isolation before creating or updating pods. A failed policy write
 	// must never be followed by a rollout or a Ready status.
 	if err := r.ensureManagedInstancePolicies(ctx, instance); err != nil {
@@ -274,6 +280,10 @@ func (r *HankoKeycloakInstanceReconciler) ensureDeployment(ctx context.Context, 
 	if err := r.ImageValidator.VerifyImage(ctx, imagevalidator.Keycloak, managed.Image); err != nil {
 		return err
 	}
+	transport, err := r.managedServerTransport(ctx, ki)
+	if err != nil {
+		return err
+	}
 
 	replicas := int32(1)
 	if managed.Replicas != nil {
@@ -287,7 +297,7 @@ func (r *HankoKeycloakInstanceReconciler) ensureDeployment(ctx context.Context, 
 	container := corev1.Container{
 		Name:  "keycloak",
 		Image: managed.Image,
-		Args:  []string{"start"},
+		Args:  append([]string{"start", "--optimized"}, transport.args...),
 		EnvFrom: []corev1.EnvFromSource{
 			{
 				SecretRef: &corev1.SecretEnvSource{
@@ -301,7 +311,7 @@ func (r *HankoKeycloakInstanceReconciler) ensureDeployment(ctx context.Context, 
 			},
 		},
 		Ports: []corev1.ContainerPort{
-			{Name: "http", ContainerPort: 8080, Protocol: corev1.ProtocolTCP},
+			{Name: transport.name, ContainerPort: transport.port, Protocol: corev1.ProtocolTCP},
 			{Name: "management", ContainerPort: 9000, Protocol: corev1.ProtocolTCP},
 		},
 		ReadinessProbe: &corev1.Probe{
@@ -345,6 +355,14 @@ func (r *HankoKeycloakInstanceReconciler) ensureDeployment(ctx context.Context, 
 		{Name: "tmp", MountPath: "/tmp"},
 		{Name: "kc-data", MountPath: "/opt/keycloak/data"},
 	}
+	if managed.TLSSecretRef != "" {
+		mode := int32(0440)
+		volumes = append(volumes, corev1.Volume{Name: "serving-tls", VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{SecretName: managed.TLSSecretRef, DefaultMode: &mode,
+				Items: []corev1.KeyToPath{{Key: corev1.TLSCertKey, Path: "tls.crt"}, {Key: corev1.TLSPrivateKeyKey, Path: "tls.key"}}},
+		}})
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: "serving-tls", MountPath: managedTLSMount, ReadOnly: true})
+	}
 
 	if managed.ThemePVC != "" {
 		volumes = append(volumes, corev1.Volume{
@@ -375,12 +393,13 @@ func (r *HankoKeycloakInstanceReconciler) ensureDeployment(ctx context.Context, 
 	}
 
 	var existing appsv1.Deployment
-	err := r.Get(ctx, types.NamespacedName{Name: ki.Name, Namespace: ki.Namespace}, &existing)
+	err = r.Get(ctx, types.NamespacedName{Name: ki.Name, Namespace: ki.Namespace}, &existing)
 	if errors.IsNotFound(err) {
 		podSpec := corev1.PodSpec{
 			SecurityContext: &corev1.PodSecurityContext{
 				RunAsNonRoot: &trueVal,
 				RunAsUser:    &runAsUser,
+				FSGroup:      &runAsUser,
 				SeccompProfile: &corev1.SeccompProfile{
 					Type: corev1.SeccompProfileTypeRuntimeDefault,
 				},
@@ -423,6 +442,7 @@ func (r *HankoKeycloakInstanceReconciler) ensureDeployment(ctx context.Context, 
 	existing.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{
 		RunAsNonRoot: &trueVal,
 		RunAsUser:    &runAsUser,
+		FSGroup:      &runAsUser,
 		SeccompProfile: &corev1.SeccompProfile{
 			Type: corev1.SeccompProfileTypeRuntimeDefault,
 		},
@@ -447,6 +467,10 @@ func (r *HankoKeycloakInstanceReconciler) ensureDeployment(ctx context.Context, 
 // ensureService creates or updates the ClusterIP Service for the Keycloak Deployment.
 func (r *HankoKeycloakInstanceReconciler) ensureService(ctx context.Context, ki *hankoshv1alpha1.HankoKeycloakInstance) error {
 	log := log.FromContext(ctx)
+	transport, err := managedListener(ki, r.RequireHTTPS)
+	if err != nil {
+		return err
+	}
 
 	labels := map[string]string{"app": ki.Name}
 
@@ -464,15 +488,15 @@ func (r *HankoKeycloakInstanceReconciler) ensureService(ctx context.Context, ki 
 	}
 
 	var existing corev1.Service
-	err := r.Get(ctx, types.NamespacedName{Name: ki.Name, Namespace: ki.Namespace}, &existing)
+	err = r.Get(ctx, types.NamespacedName{Name: ki.Name, Namespace: ki.Namespace}, &existing)
 	if errors.IsNotFound(err) {
 		svc.Spec = corev1.ServiceSpec{
 			Selector: labels,
 			Ports: []corev1.ServicePort{
 				{
-					Name:       "http",
-					Port:       8080,
-					TargetPort: intstr.FromInt32(8080),
+					Name:       transport.name,
+					Port:       transport.port,
+					TargetPort: intstr.FromInt32(transport.port),
 					Protocol:   corev1.ProtocolTCP,
 				},
 			},
@@ -501,9 +525,9 @@ func (r *HankoKeycloakInstanceReconciler) ensureService(ctx context.Context, ki 
 	existing.Spec.Selector = labels
 	existing.Spec.Ports = []corev1.ServicePort{
 		{
-			Name:       "http",
-			Port:       8080,
-			TargetPort: intstr.FromInt32(8080),
+			Name:       transport.name,
+			Port:       transport.port,
+			TargetPort: intstr.FromInt32(transport.port),
 			Protocol:   corev1.ProtocolTCP,
 		},
 	}
@@ -519,6 +543,10 @@ func (r *HankoKeycloakInstanceReconciler) ensureService(ctx context.Context, ki 
 // label selector, which may differ from the hardcoded "app: keycloak" in the static manifest.
 func (r *HankoKeycloakInstanceReconciler) ensureNetworkPolicy(ctx context.Context, ki *hankoshv1alpha1.HankoKeycloakInstance) error {
 	log := log.FromContext(ctx)
+	transport, err := managedListener(ki, r.RequireHTTPS)
+	if err != nil {
+		return err
+	}
 	labels := map[string]string{"app": ki.Name}
 	tcpProto := corev1.ProtocolTCP
 
@@ -542,7 +570,7 @@ func (r *HankoKeycloakInstanceReconciler) ensureNetworkPolicy(ctx context.Contex
 					{PodSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "hanko-api"}}},
 					{PodSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "hanko-operator"}}},
 				},
-				Ports: []networkingv1.NetworkPolicyPort{{Protocol: &tcpProto, Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 8080}}},
+				Ports: []networkingv1.NetworkPolicyPort{{Protocol: &tcpProto, Port: &intstr.IntOrString{Type: intstr.Int, IntVal: transport.port}}},
 			},
 			{
 				// Traefik (kube-system) — admin console, IP allowlist enforced at ingress level
@@ -550,14 +578,7 @@ func (r *HankoKeycloakInstanceReconciler) ensureNetworkPolicy(ctx context.Contex
 					NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"kubernetes.io/metadata.name": "kube-system"}},
 					PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/name": "traefik"}},
 				}},
-				Ports: []networkingv1.NetworkPolicyPort{{Protocol: &tcpProto, Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 8080}}},
-			},
-			{
-				// Management port (health/ready, metrics) — auth namespace only
-				From: []networkingv1.NetworkPolicyPeer{{
-					NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"kubernetes.io/metadata.name": ki.Namespace}},
-				}},
-				Ports: []networkingv1.NetworkPolicyPort{{Protocol: &tcpProto, Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 9000}}},
+				Ports: []networkingv1.NetworkPolicyPort{{Protocol: &tcpProto, Port: &intstr.IntOrString{Type: intstr.Int, IntVal: transport.port}}},
 			},
 		},
 	}

@@ -56,7 +56,7 @@ func TestManagedInstanceRefusesRolloutWhenInfrastructurePoliciesFail(t *testing.
 				ctx := context.Background()
 				scheme := controllerTestScheme(t)
 				instance := managedTestInstance("test", "keycloak")
-				kube := controllerTestClient(scheme, instance)
+				kube := controllerTestClient(scheme, append([]client.Object{instance}, managedTestSecrets(t, instance)...)...)
 				reconciler := &HankoKeycloakInstanceReconciler{Client: kube, Scheme: scheme, ImageValidator: approvedFixtureValidator(t)}
 				var original appsv1.Deployment
 				if operation == "patch" {
@@ -100,7 +100,7 @@ func TestManagedInstanceScaleDownRemovesStaleDisruptionBudget(t *testing.T) {
 	ctx := context.Background()
 	scheme := controllerTestScheme(t)
 	instance := managedTestInstance("test", "keycloak")
-	kube := controllerTestClient(scheme, instance)
+	kube := controllerTestClient(scheme, append([]client.Object{instance}, managedTestSecrets(t, instance)...)...)
 	reconciler := &HankoKeycloakInstanceReconciler{Client: kube, Scheme: scheme, ImageValidator: approvedFixtureValidator(t)}
 	if _, handled, err := reconciler.reconcileManagedInstance(ctx, instance, client.MergeFrom(instance.DeepCopy())); err != nil || handled {
 		t.Fatalf("initial multi-replica instance: handled=%v err=%v", handled, err)

@@ -237,6 +237,85 @@ allowance and still requires HTTPS. Remove the exception after migration.
 Keep existing authentication and least-privilege controls: transport encryption
 does not reduce the service account's granted administrative authority.
 
+### Managed Keycloak transport
+
+`HankoKeycloakInstance` with `spec.mode: managed` provisions a native HTTPS
+listener. Set `spec.managed.tlsSecretRef` to a **separate same-namespace
+`kubernetes.io/tls` Secret** with `tls.crt` and `tls.key`. It is mounted read-only;
+the key is not imported as an environment variable. A missing Secret, invalid or
+mismatched key pair, expired/not-yet-valid certificate or certificate that does
+not cover the AdminRef endpoint hostname blocks infrastructure changes.
+The operator does not issue certificates. Provision and renew them through your
+certificate manager and keep serving certificates and client trust in agreement.
+
+The AdminRef `HANKO_KEYCLOAK_URL` must be HTTPS and match the certificate hostname.
+For direct Service access, use `https://<instance>.<namespace>.svc:8443` with that
+DNS name in the certificate SAN. Public CA trust needs no `spec.tlsCARef`; a
+private CA needs a separate Secret with `ca.crt` referenced by `spec.tlsCARef`.
+The serving Secret and client CA Secret have different purposes. The client
+still verifies the full certificate chain and hostname on every connection.
+
+```yaml
+apiVersion: hanko.sh/v1alpha1
+kind: HankoKeycloakInstance
+metadata:
+  name: keycloak
+  namespace: auth
+spec:
+  mode: managed
+  adminRef:
+    name: keycloak-ops-credentials
+  tlsCARef: keycloak-client-ca # Omit for a publicly trusted serving certificate.
+  managed:
+    image: registry.example/keycloak@sha256:<reviewed-digest>
+    database:
+      name: keycloak-database
+    tlsSecretRef: keycloak-serving-tls
+```
+
+Supply a digest-approved, signed **optimized** Keycloak image built with
+`KC_HEALTH_ENABLED=true`, `KC_HTTP_RELATIVE_PATH=/`,
+`KC_HTTP_MANAGEMENT_RELATIVE_PATH=/` and the database provider matching the
+database Secret. The operator uses `start --optimized`: runtime augmentation
+cannot write to the read-only image filesystem. Managed endpoints use the root
+context path; a non-root AdminRef path is rejected. Other modes still support
+the documented context paths. These are Keycloak build-time settings, so changing
+them requires rebuilding and approving the image. Listener, TLS protocol and
+hostname are explicit runtime arguments; a conflicting Secret environment
+variable cannot turn the IAM HTTP listener back on. See Keycloak's
+[optimized container build](https://www.keycloak.org/server/containers) and
+[serving certificate configuration](https://www.keycloak.org/server/enabletls).
+
+The managed Deployment, ClusterIP Service and IAM ingress rules use TCP/8443.
+Standard permits TLS 1.2/1.3; enterprise permits only TLS 1.3. Default ingress
+peers remain the selected API/operator pods in the instance namespace and the
+selected Traefik pods in `kube-system`. Configure the operator's Helm egress
+namespace, pod selector and port to match this instance. A cross-namespace
+operator or a different proxy requires an administrator-owned narrow ingress
+rule; no cluster-wide ingress is added automatically.
+
+Readiness/liveness use HTTP `/health/ready` and `/health/live` on the separate
+management listener, TCP/9000. This listener has no Service and no allowed pod
+ingress in the generated policy; kubelet probes are node traffic. It carries
+health details, not the IAM/Admin API or administrative credentials. NetworkPolicy
+requires an enforcing CNI and does not restrict the hosting node. Validate node
+probes and networking in the installation. A TLS-terminating ingress does not
+replace native Keycloak HTTPS; configure and verify its backend TLS separately.
+
+**Migration:** update the CRD and managed configuration together. An old HTTP-only
+managed declaration does not silently acquire a certificate or change its URL.
+Configure the serving Secret, HTTPS AdminRef URL and client CA trust, then align
+the ingress/backend and Helm egress ports. Invalid transport leaves existing
+workloads untouched and reports `TransportError`. Switching ports can interrupt
+traffic until those dependent configurations are updated.
+
+For an intentionally trusted HTTP installation, standard requires **both**
+`spec.managed.allowInsecureHTTP: true` and the process-wide
+`keycloak.allowInsecureHTTP: true`, with an HTTP AdminRef URL and no
+`spec.managed.tlsSecretRef` or `spec.tlsCARef`. Deployment, Service and IAM ingress
+then use TCP/8080. This has the same plaintext credential/traffic exposure as the
+administrative HTTP exception above. Enterprise refuses this combination.
+
 ### Keycloak compatibility
 
 hankoShell Operator **0.1.0 is qualified against Keycloak 26.8.0 and 26.7.5**
@@ -278,9 +357,9 @@ Follow the **[tested Keycloak permission model](keycloak-permissions.md)** when
 provisioning credentials. The operator no longer creates master proxy clients or
 self-grants administrative roles. Anyone authorized to write managed CRDs can
 exercise its provider authority; do not treat these objects as safe for mutually
-hostile tenants. Master hardening remains an attempted optional operation, reported
-in `MasterRealmHardened`; without master `manage-realm`, administrators enforce
-that baseline independently. Keycloak 26.7.5 allows `view-clients` to read secrets;
+hostile tenants. Master hardening requires `spec.hardenMasterRealm: true` and
+master `manage-realm`; a requested operation must succeed before Ready. Without
+that opt-in, administrators enforce the baseline independently. Keycloak 26.7.5 allows `view-clients` to read secrets;
 26.8.0 rejects that read without `manage-clients`. Import/Observe omits those
 credentials on both. Target-scoped master credentials do not receive the
 server version on either qualified version, so `status.keycloakVersion` can be empty.
@@ -299,8 +378,7 @@ mode and a fake Kubernetes client. It does not qualify PostgreSQL, clustering,
 browser login/MFA challenges, actual upstream federation, Admin API v2, custom
 providers/themes, end-user resource-server authorization decisions, managed/adopted instance
 rollouts, backups/restores, or cloud/CNI/storage behavior. Those surfaces require
-installation acceptance tests. No API schema, chart/app version or provider
-migration is changed by this qualification; no runtime version rejection is added.
+installation acceptance tests. No runtime version rejection is added.
 The application discovery probe still uses system CA trust: this suite's private
 test CA intentionally leaves its `Operational` condition false without bypassing
 certificate verification.
