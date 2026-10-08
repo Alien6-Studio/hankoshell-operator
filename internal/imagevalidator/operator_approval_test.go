@@ -3,9 +3,37 @@ package imagevalidator
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
+
+type changingKeyVerifier struct{ change func() }
+
+func (v changingKeyVerifier) Verify(context.Context, string, string, string) error {
+	v.change()
+	return nil
+}
+
+func TestPublisherKeyReplacementDuringVerificationDeniesUpdate(t *testing.T) {
+	path, approval := policyFixture(t)
+	approval.Purpose, approval.ReleaseVersion = OperatorUpdate, "0.1.0"
+	writeApprovalPolicy(t, path, approval)
+	otherPath, otherApproval := policyFixture(t)
+	replacement, err := os.ReadFile(filepath.Join(filepath.Dir(otherPath), otherApproval.KeyFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifier := changingKeyVerifier{change: func() {
+		if err := os.WriteFile(filepath.Join(filepath.Dir(path), approval.KeyFile), replacement, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}}
+	if err := NewWithPolicy(path, verifier).VerifyOperatorImage(context.Background(), approval.Image, "0.1.0"); err != ErrVerificationDenied {
+		t.Fatalf("replaced publisher key remained authorized: %v", err)
+	}
+}
 
 type keylessVerifier struct {
 	recordingVerifier

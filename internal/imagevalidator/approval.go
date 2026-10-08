@@ -3,6 +3,7 @@ package imagevalidator
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
@@ -97,6 +98,10 @@ func (v *Validator) VerifyOperatorImage(ctx context.Context, image, version stri
 	if err != nil || approval.ReleaseVersion != version {
 		return ErrVerificationDenied
 	}
+	trust, err := v.keyFingerprint(approval)
+	if err != nil {
+		return ErrVerificationDenied
+	}
 	if err := v.verifyApproval(ctx, approval); err != nil {
 		return err
 	}
@@ -106,7 +111,22 @@ func (v *Validator) VerifyOperatorImage(ctx context.Context, image, version stri
 	if err != nil || current != approval {
 		return ErrVerificationDenied
 	}
+	currentTrust, err := v.keyFingerprint(current)
+	if err != nil || currentTrust != trust {
+		return ErrVerificationDenied
+	}
 	return nil
+}
+
+func (v *Validator) keyFingerprint(approval Approval) ([sha256.Size]byte, error) {
+	if approval.KeyFile == "" {
+		return [sha256.Size]byte{}, nil
+	}
+	key, err := readBoundedFile(filepath.Join(filepath.Dir(v.policyFile), approval.KeyFile), 16*1024)
+	if err != nil {
+		return [sha256.Size]byte{}, err
+	}
+	return sha256.Sum256(key), nil
 }
 
 func (v *Validator) verifyApproval(ctx context.Context, approval Approval) error {
