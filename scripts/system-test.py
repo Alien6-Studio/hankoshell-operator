@@ -65,6 +65,15 @@ class System:
         value = self.get(kind, name)
         return value.get("status", {}).get("phase") == "Ready" and value["status"].get("observedGeneration") == value["metadata"]["generation"]
 
+    def role_reconciled(self, name):
+        # HankoRole currently has Synced/phase, not observedGeneration. Check
+        # that existing contract; #27 owns the future public apply evidence.
+        value = self.get("hankorole", name)
+        status = value.get("status", {})
+        return status.get("phase") == "Ready" and any(
+            condition.get("type") == "Synced" and condition.get("status") == "True"
+            and condition.get("reason") == "Reconciled" for condition in status.get("conditions", []))
+
     def api(self, method, path, data=None, token=None, expected=(200, 201, 204)):
         if token is None and self.token and time.monotonic() - self.token_at > 30:
             self.token = self.access_token({"client_id": "admin-cli", "grant_type": "password", "username": "fixture-admin", "password": self.password})
@@ -272,11 +281,15 @@ class System:
         wait("realm reconciliation", lambda: self.ready("hankorealm", "managed"))
         wait("application reconciliation", lambda: self.ready("hankoapplication", "app"))
         wait("observation", lambda: self.ready("hankoapplication", "observe"))
+        app_uid = self.get("hankoapplication", "app")["metadata"]["uid"]
+        wait("namespaced current-API event recording", lambda: any(
+            event.get("reason") == "ClientCreated" and event.get("regarding", {}).get("uid") == app_uid
+            for event in json.loads(self.kubectl("get", "events.events.k8s.io", "-n", "auth", "-o", "json"))["items"]))
         # Exercise the domain compiler/adapter through the installed manager.
         self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoRole",
                     "metadata": {"name": "contract-role", "namespace": "auth"},
                     "spec": {"realmRef": "managed", "name": "system-contract-role", "description": "contract desired"}})
-        wait("IAM contract role reconciliation", lambda: self.ready("hankorole", "contract-role"))
+        wait("IAM contract role reconciliation", lambda: self.role_reconciled("contract-role"))
         role = self.api("GET", "/admin/realms/managed/roles/system-contract-role")
         owner = self.get("hankorole", "contract-role")["metadata"]["uid"]
         if role.get("description") != "contract desired" or role.get("attributes", {}).get("hanko.sh/role-owner") != [owner]:
@@ -350,8 +363,9 @@ def main():
             system.reconcile()
             args.output.write_text(json.dumps({"version": "0.1.0", "revision": args.revision, "image_digest": args.digest,
                 "kubernetes": "1.37.0", "keycloak": "26.8.0", "result": "pass",
-                "checks": ["Helm installation and real pod startup under Restricted admission", "namespace RBAC",
+                "checks": ["Helm installation and real pod startup under Restricted admission", "namespace RBAC and current-API event recording",
                            "verified private-CA HTTPS, wrong-CA readiness/write denial and trust repair", "scoped Keycloak identity and denied authority", "realm/client/roles/Secret reconciliation",
+                           "IAM role local compile/apply, UID ownership and finalizer cleanup",
                            "drift recovery after manager restart without duplicate client or credential rotation", "managed finalizer and Observe preservation",
                            "no credentials in logs/events/CRDs"],
                 "limitations": ["single disposable kind node and Keycloak dev-file database",

@@ -96,7 +96,8 @@ rules:
     resources: ["poddisruptionbudgets"]
     # A managed instance scaled down to one replica must remove its stale PDB.
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  - apiGroups: [""]
+  # client-go's recorder writes the current Events API as well as legacy Events.
+  - apiGroups: ["", "events.k8s.io"]
     resources: ["events"]
     verbs: ["create", "patch"]
   - apiGroups: ["coordination.k8s.io"]

@@ -13,6 +13,8 @@
   Keycloak fixtures. Early unmarked roles require administrator-reviewed adoption.
 - Bound domain error/evidence rendering, compare full permission bindings without
   expanding grants, preserve foreign objects during authorization cleanup, and document portable/native API boundaries.
+- Qualify installed role contracts against their current Synced status and permit
+  namespaced current-API Event recording with only create/patch authority.
 
 
 ## 0.1.0 — Unreleased
