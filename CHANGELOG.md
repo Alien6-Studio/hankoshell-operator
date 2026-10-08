@@ -57,6 +57,8 @@ Install the reviewed source chart, or the published
 when available, following the [secure deployment guide](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md)
 and [permission model](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/keycloak-permissions.md).
 Published chart values select the scanned multi-architecture image digest.
+Publication requires a GitHub-verified source commit on protected main and an
+annotated, GitHub-verified signed tag targeting that exact commit.
 Source govulncheck and final-image scans (including embedded cosign) are additive;
 fixable HIGH/CRITICAL findings block delivery. BuildKit SBOM/provenance, Sigstore
 signatures and signed/timestamped Continuum Attest delivery bindings have distinct
@@ -65,9 +67,9 @@ purposes; none guarantees absence of vulnerabilities.
 **0.1.0 is a normal SemVer release in initial development, not a prerelease.**
 The `hanko.sh/v1alpha1` APIs are experimental and may change across minor versions
 before 1.0. `HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are
-experimental; their completion, interruption/retry and recovery are unqualified
-and reserved for subsequent 0.1.x qualification. Portable backup/restore is not
-qualified; snapshots, clones and database-reference switches are not a tested
+experimental; their completion, interruption/retry and recovery are unqualified.
+Future qualification has no scheduled release version. Portable backup/restore
+is not qualified; snapshots, clones and database-reference switches are not a tested
 disaster-recovery path. Rolling back
 the operator does not undo provider deletion, credential rotation or CRD changes.
 Deployment-specific image admission, database recovery and enterprise integration
@@ -77,6 +79,10 @@ response targets and supported versions are in SECURITY.md.
 <!-- release-notes:end -->
 
 ### Added
+
+- Release eligibility requires a GitHub-verified source commit and an annotated,
+  GitHub-verified signed tag bound to that exact commit on protected main; moved
+  or conflicting tags fail closed.
 
 - Required installed-system qualification combining the chart, scanned OCI image,
   real Kubernetes and HTTPS Keycloak with a target-realm service account.

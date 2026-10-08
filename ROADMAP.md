@@ -48,6 +48,8 @@ The **0.1.0 source is in initial development and remains unreleased**. It target
 a normal SemVer release, not a prerelease suffix. The 16 `hanko.sh/v1alpha1` APIs
 are experimental and may change across minor versions before 1.0. This roadmap
 describes proposed work, not additional current support or scheduled delivery.
+The current focus is to **finish and publish 0.1.0**. The 0.2 IAM Contract Engine
+is the next development milestone after that first publication.
 
 The current foundation already includes:
 
@@ -70,10 +72,11 @@ The current foundation already includes:
 
 `HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are experimental
 and unqualified in 0.1.0. Their interruption/retry, child ownership and completion
-qualification remains in [0.1.x maintenance issue #20](https://github.com/Alien6-Studio/hankoshell-operator/issues/20),
+qualification remains in [lifecycle backlog issue #20](https://github.com/Alien6-Studio/hankoshell-operator/issues/20),
 not a prerequisite for the first core IAM delivery. They do not provide a tested
 database migration or disaster-recovery path; see the
 [lifecycle limits](docs/secure-deployment.md#lifecycle-operation-qualification).
+No future release version is assigned to that qualification yet.
 
 The current Keycloak authorization adapter declares a static capability set.
 The resource server's applied-plan hash comes from an annotation; it is not yet
@@ -104,7 +107,7 @@ will be refined through RFCs and real use; they are not promises of provider par
 
 | Milestone | Next outcome, building on current functionality | Completion evidence |
 | --- | --- | --- |
-| [0.1.x — Trusted Keycloak Foundation](https://github.com/Alien6-Studio/hankoshell-operator/milestone/1) | Stabilize core IAM qualification and trusted delivery; verify first-publication trust. Qualify experimental lifecycle workflows in a subsequent maintenance release. | Passing core gates and independently verified production delivery prerequisites. Lifecycle support expands only with failure/restart evidence. |
+| [0.1.0 — Trusted Keycloak Foundation](https://github.com/Alien6-Studio/hankoshell-operator/milestone/1) | Complete trusted first publication of the reviewed IAM core. Experimental lifecycle qualification remains separate, without a scheduled version. | Passing core gates and independently verified production delivery prerequisites. |
 | [0.2.0 — IAM Contract Engine](https://github.com/Alien6-Studio/hankoshell-operator/milestone/2) | Extend resource-server capabilities/ownership and IAM-profile hashing into locally validated plans, observations, portability findings and internal Keycloak adapters. Separate optional projection readiness. | Deterministic identity, stale/unsupported-plan rejection, adapter conformance and standalone reconciliation. No second provider. |
 | [0.3.0 — Application Identity](https://github.com/Alien6-Studio/hankoshell-operator/milestone/3) | Mature existing OIDC applications into protocol-aware runtime contracts; design and qualify SAML and explicit workload bindings. | Usable metadata/credential references, migration tests and real protocol qualification. |
 | [0.4.0 — Organizational Authorization](https://github.com/Alien6-Studio/hankoshell-operator/milestone/4) | Represent, reconcile and explain organizational entitlement models: subject × organization × resource × action. Reuse organizations, roles and resource servers; decide through RFC whether composition or a dedicated resource is needed. | Explicit and inherited grant fixtures, explainable effective authorization, conflict findings and an accepted API/composition design. |
@@ -149,7 +152,8 @@ Promoting all current `v1alpha1` resources is not the goal.
 
 Bring concrete application authentication, authorization, adoption and workload
 identity scenarios to the [roadmap issues](https://github.com/Alien6-Studio/hankoshell-operator/issues?q=is%3Aissue%20is%3Aopen%20label%3Aroadmap).
-The immediate design window is 0.2, with selected 0.3 RFCs. Later milestone
+The immediate focus is the trusted first publication of 0.1.0. The existing 0.2
+RFCs and selected 0.3 RFCs prepare subsequent development; later milestone
 descriptions carry direction until their design window opens.
 
 Start with the RFCs for [provider capabilities and plans](https://github.com/Alien6-Studio/hankoshell-operator/issues/22),

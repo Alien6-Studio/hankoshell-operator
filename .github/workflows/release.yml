@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing reviewed SemVer tag (for example v0.1.0)
+        description: Existing GitHub-verified signed annotated SemVer tag (for example v0.1.0)
         required: true
         type: string
 permissions:
@@ -14,28 +14,21 @@ concurrency:
 jobs:
   eligibility:
     runs-on: ubuntu-24.04
+    outputs:
+      tag_object: ${{ steps.identity.outputs.tag_object }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Require public launch and an existing reviewed tag
+      - name: Require public launch and verified commit and annotated tag identities
+        id: identity
         env:
-          PRIVATE: ${{ github.event.repository.private }}
           TAG: ${{ inputs.tag }}
           REF: ${{ github.ref }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          test "$PRIVATE" = false || { echo 'Publication requires a public repository.'; exit 1; }
-          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
-          test "$REF" = "refs/tags/$TAG" || { echo 'Run this workflow from the reviewed tag itself.'; exit 1; }
-          test "$(git rev-parse "$TAG^{commit}")" = "$GITHUB_SHA"
-          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || {
-            echo 'The release commit must belong to protected main.'; exit 1;
-          }
-          test "$(gh api "repos/$GITHUB_REPOSITORY/private-vulnerability-reporting" --jq '.enabled')" = true || {
-            echo 'Enable GitHub private vulnerability reporting before releasing.'; exit 1;
-          }
+          python3 scripts/release-eligibility.py
   quality:
     needs: eligibility
     permissions:
@@ -45,7 +38,7 @@ jobs:
     with:
       release: true
   publish:
-    needs: quality
+    needs: [eligibility, quality]
     environment: release
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -57,6 +50,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
+      - name: Recheck verified release identities before publication
+        env:
+          EXPECTED_TAG_OBJECT: ${{ needs.eligibility.outputs.tag_object }}
+          TAG: ${{ inputs.tag }}
+          REF: ${{ github.ref }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/release-eligibility.py
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.27.1'

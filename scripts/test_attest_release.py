@@ -44,7 +44,7 @@ class QualificationGateTests(unittest.TestCase):
         self.assertEqual(ci["jobs"]["keycloak"]["strategy"]["matrix"]["version"], ["26.8.0", "26.7.5"])
         self.assertFalse(ci["jobs"]["keycloak"].get("continue-on-error", False))
         self.assertEqual(delivery["jobs"]["quality"]["uses"], "./.github/workflows/ci.yml")
-        self.assertEqual(delivery["jobs"]["publish"]["needs"], "quality")
+        self.assertEqual(delivery["jobs"]["publish"]["needs"], ["eligibility", "quality"])
 
 
 class AttestVerdictTests(unittest.TestCase):

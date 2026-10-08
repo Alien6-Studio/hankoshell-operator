@@ -767,8 +767,8 @@ a configuration snapshot and does not establish a database rollback point.
 and unqualified in 0.1.0. Existing unit tests exercise step transitions, but do
 not qualify durable completion, interruption/retry, child ownership or recovery
 on real installations. Qualification is tracked in
-[issue #20](https://github.com/Alien6-Studio/hankoshell-operator/issues/20) for a
-subsequent 0.1.x maintenance release. These workflows are available, but are
+[issue #20](https://github.com/Alien6-Studio/hankoshell-operator/issues/20), with no
+future release version scheduled. These workflows are available, but are
 outside the first release's qualified core IAM contract.
 
 `Upgrade` changes the managed instance image; it does not establish provider or
@@ -827,7 +827,11 @@ configuration, while installation-specific enforcement still needs qualification
 uses `prerelease: false`; the workflow creates a normal GitHub **draft**, with
 curated notes extracted from the tracked CHANGELOG release overview. Publication
 of that draft remains a separate manual action. The tag must already exist on
-protected main; the workflow does not create tags.
+protected main; the workflow does not create tags. Eligibility requires GitHub
+verification of the exact source commit and an annotated signed tag targeting
+that commit. Lightweight, unsigned/unverified, conflicting or moved tags are
+rejected. The identities are checked again immediately before publication work;
+ancestry and a Signed-off-by trailer alone do not establish signature identity.
 
 Required CI builds one AMD64/ARM64 OCI archive with BuildKit SBOM/provenance,
 scans its exact manifests, and passes that immutable artifact ID to the release

@@ -291,8 +291,10 @@ implemented. Existing installations should follow the
 
 ## Verified delivery
 
-The release workflow builds Linux AMD64/ARM64 images and the Helm chart from a
-reviewed SemVer tag. CI scans the final OCI image, including embedded `cosign`,
+The release workflow requires a GitHub-verified source commit on protected main
+and an annotated, GitHub-verified signed SemVer tag pointing to that exact commit.
+It builds Linux AMD64/ARM64 images and the Helm chart from that source.
+CI scans the final OCI image, including embedded `cosign`,
 on both architectures with checksum-pinned Trivy. The [OCI vulnerability policy](SECURITY.md#final-oci-image-vulnerability-gate)
 blocks fixable HIGH/CRITICAL findings, with only scoped temporary HIGH exceptions.
 The same scanned archive/digest is copied, signed and selected by the packaged
