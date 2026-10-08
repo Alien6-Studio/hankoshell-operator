@@ -53,7 +53,16 @@ class ReleaseContractTests(unittest.TestCase):
         self.assertIn('"draft": True, "prerelease": False', publisher)
         self.assertNotIn("--generate-notes", publisher)
         eligibility = "\n".join(step.get("run", "") for step in release["eligibility"]["steps"])
-        self.assertIn('git merge-base --is-ancestor "$GITHUB_SHA" origin/main', eligibility)
+        self.assertIn('python3 scripts/release-eligibility.py', eligibility)
+        self.assertEqual(release["quality"]["needs"], "eligibility")
+        recheck = next(i for i, step in enumerate(steps)
+                       if "scripts/release-eligibility.py" in step.get("run", ""))
+        registry_login = next(i for i, step in enumerate(steps) if "docker/login-action@" in step.get("uses", ""))
+        self.assertLess(recheck, registry_login)
+        self.assertEqual(steps[recheck]["env"]["EXPECTED_TAG_OBJECT"],
+                         "${{ needs.eligibility.outputs.tag_object }}")
+        self.assertEqual(release["eligibility"]["outputs"]["tag_object"],
+                         "${{ steps.identity.outputs.tag_object }}")
 
     def test_actions_are_immutable_checkouts_do_not_persist_and_writes_are_scoped(self):
         for path in (contract.ROOT / ".github/workflows").glob("*.yml"):

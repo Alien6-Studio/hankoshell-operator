@@ -71,6 +71,13 @@ is assigned only after scan, source/compatibility CI, signature verification,
 packaging/checksum verification and strict Continuum Attest delivery verification.
 Failed gates cannot publish a new release image tag or chart.
 
+Release eligibility requires GitHub verification of both the exact source commit
+and its annotated signed SemVer tag. The tag must target that commit, which must
+belong to protected main. Lightweight, unverified, moved or conflicting tags are
+rejected before quality work and checked again before publication. Tag deletion
+and rewriting are blocked by the release-tag ruleset; those rules do not replace
+cryptographic verification.
+
 After these gates, package promotion and GitHub draft creation are separate
 network operations, not an atomic transaction. A later publication failure may
 leave already verified OCI packages available. Before promotion, the workflow

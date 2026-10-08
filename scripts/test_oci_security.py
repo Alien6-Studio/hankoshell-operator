@@ -302,7 +302,7 @@ class ReleaseWorkflowSecurityTests(unittest.TestCase):
         self.assertEqual(ci["jobs"]["oci"]["uses"], "./.github/workflows/oci-security.yml")
         self.assertIn("oci", ci["jobs"]["checks"]["needs"])
         self.assertEqual(release["jobs"]["quality"]["uses"], "./.github/workflows/ci.yml")
-        self.assertEqual(release["jobs"]["publish"]["needs"], "quality")
+        self.assertEqual(release["jobs"]["publish"]["needs"], ["eligibility", "quality"])
         self.assertNotIn("if", release["jobs"]["publish"])
         self.assertEqual(ci[True]["workflow_call"]["outputs"]["oci_digest"]["value"], "${{ jobs.oci.outputs.digest }}")
         self.assertEqual(ci[True]["workflow_call"]["outputs"]["oci_artifact_id"]["value"], "${{ jobs.oci.outputs.artifact_id }}")
