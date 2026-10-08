@@ -3,6 +3,7 @@ package authorization
 import (
 	"context"
 	"errors"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
 
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 )
@@ -24,36 +25,49 @@ func (*KeycloakDriver) Capabilities(context.Context, string) (Capabilities, erro
 	}, nil
 }
 
-func (d *KeycloakDriver) Observe(ctx context.Context, model Model) (State, error) {
-	state, err := d.client.ObserveAuthorization(ctx, toKeycloakModel(model))
-	if err != nil {
+func (d *KeycloakDriver) Observe(ctx context.Context, plan Plan) (State, error) {
+	if err := plan.Validate(plan); err != nil {
 		return State{}, err
 	}
+	model := plan.resolved.model
+	state, err := d.client.ObserveAuthorization(ctx, toKeycloakModel(model))
+	if err != nil {
+		return State{}, iamcontract.SafeError(err)
+	}
 	capabilities, _ := d.Capabilities(ctx, model.Realm)
-	result := State{ProviderResourceServerID: state.ResourceServerID, Capabilities: capabilities}
+	result := State{ProviderResourceServerID: state.ResourceServerID, Capabilities: capabilities, Drifted: state.Drifted}
+	seen := map[string]bool{}
 	for _, object := range state.NativeObjects {
-		result.Findings = append(result.Findings, Finding{
-			Classification: "unsupported", ObjectKind: object.Kind, ObjectName: object.Name,
+		if seen[object.Kind] {
+			continue
+		}
+		seen[object.Kind] = true
+		result.Findings = append(result.Findings, iamcontract.Bound(Finding{
+			Classification: iamcontract.Unsupported, ObjectKind: object.Kind,
 			Code: "provider_native_observation", Message: "provider object is visible but not managed in Observe mode", ReadOnly: true,
-		})
+		}))
 	}
 	return result, nil
 }
 
-func (d *KeycloakDriver) Reconcile(ctx context.Context, model Model, owned ManagedObjects) (State, error) {
-	capabilities, err := d.Capabilities(ctx, model.Realm)
-	if err != nil {
+func (d *KeycloakDriver) Reconcile(ctx context.Context, plan Plan, owned ManagedObjects) (State, error) {
+	if err := plan.Validate(plan); err != nil {
 		return State{}, err
 	}
+	model := plan.resolved.model
+	capabilities, err := d.Capabilities(ctx, model.Realm)
+	if err != nil {
+		return State{}, iamcontract.SafeError(err)
+	}
 	if err := ValidateCapabilities(model, capabilities); err != nil {
-		return State{}, err
+		return State{}, iamcontract.SafeError(err)
 	}
 	state, err := d.client.ReconcileAuthorization(ctx, toKeycloakModel(model), toKeycloakManaged(owned))
 	if err != nil {
 		if errors.Is(err, keycloak.ErrAuthorizationOwnershipConflict) {
-			return State{}, errors.Join(ErrOwnershipConflict, err)
+			return State{}, errors.Join(ErrOwnershipConflict, iamcontract.SafeError(err))
 		}
-		return State{}, err
+		return State{}, iamcontract.SafeError(err)
 	}
 	return State{
 		ProviderResourceServerID: state.ResourceServerID,
@@ -63,7 +77,7 @@ func (d *KeycloakDriver) Reconcile(ctx context.Context, model Model, owned Manag
 }
 
 func (d *KeycloakDriver) DeleteOwned(ctx context.Context, model Model, owned ManagedObjects) error {
-	return d.client.DeleteAuthorizationOwned(ctx, toKeycloakModel(model), owned.ResourceServerID, toKeycloakManaged(owned))
+	return iamcontract.SafeError(d.client.DeleteAuthorizationOwned(ctx, toKeycloakModel(model), owned.ResourceServerID, toKeycloakManaged(owned)))
 }
 
 func toKeycloakModel(model Model) keycloak.AuthorizationModel {

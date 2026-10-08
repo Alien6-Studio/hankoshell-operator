@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.0 — Unreleased
+
+- Introduce versioned internal IAM intent, resolved references, capability evidence
+  and locally compiled execution plans for resource-server authorization and realm roles.
+- Separate canonical intent and provider-plan identities; reject stale local inputs
+  and unsupported/lossy desired semantics before provider mutation.
+- Replace the untrusted authorization-plan annotation with a locally computed
+  successful Manage identity; keep Observe evidence read-only.
+- Require explicit UID ownership for HankoRole management/deletion, preserve native
+  metadata and additive composites, and qualify both adapters with shared real
+  Keycloak fixtures. Early unmarked roles require administrator-reviewed adoption.
+- Bound domain error/evidence rendering, compare full permission bindings without
+  expanding grants, preserve foreign objects during authorization cleanup, and document portable/native API boundaries.
+
+
 ## 0.1.0 — Unreleased
 
 First standalone hankoShell Operator distribution, licensed under Apache-2.0.

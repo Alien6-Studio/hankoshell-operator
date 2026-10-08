@@ -322,6 +322,7 @@ using the dedicated client's credentials.
 | authorization | PUT,DELETE | `/admin/realms/{realm}/clients/{client}/authz/resource-server/scope/{object}` | manage-authorization or manage-clients |
 | authorization | GET,POST | `/admin/realms/{realm}/clients/{client}/authz/resource-server/resource` | view-authorization / manage-authorization or manage-clients |
 | authorization | PUT,DELETE | `/admin/realms/{realm}/clients/{client}/authz/resource-server/resource/{object}` | manage-authorization or manage-clients |
+| authorization | GET | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/{object}/associatedPolicies` | view-authorization or manage-authorization or manage-clients |
 | authorization | GET | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy` | view-authorization or manage-authorization or manage-clients |
 | authorization | GET,POST | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/role` | view-authorization / manage-authorization or manage-clients |
 | authorization | GET,POST | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/client` | view-authorization / manage-authorization or manage-clients |
@@ -333,3 +334,12 @@ using the dedicated client's credentials.
 | authorization | PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/scope/{object}` | manage-authorization or manage-clients |
 | authorization | DELETE | `/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/{object}` | manage-authorization or manage-clients |
 <!-- admin-operation-contract:end -->
+
+
+The 0.2 adapter qualification reads scope permissions with `fields=*` on the
+existing collection route, and reads their associated policy IDs through the
+explicitly inventoried `GET .../policy/{object}/associatedPolicies`. These are
+bounded read operations under the existing target permissions. Real tests prove
+common-profile success, read-only success and unprivileged HTTP 403; no new
+administrative role is granted. They are needed for semantic idempotence because
+Keycloak's default permission lists omit these relationships.

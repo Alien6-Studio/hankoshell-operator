@@ -272,6 +272,18 @@ class System:
         wait("realm reconciliation", lambda: self.ready("hankorealm", "managed"))
         wait("application reconciliation", lambda: self.ready("hankoapplication", "app"))
         wait("observation", lambda: self.ready("hankoapplication", "observe"))
+        # Exercise the domain compiler/adapter through the installed manager.
+        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoRole",
+                    "metadata": {"name": "contract-role", "namespace": "auth"},
+                    "spec": {"realmRef": "managed", "name": "system-contract-role", "description": "contract desired"}})
+        wait("IAM contract role reconciliation", lambda: self.ready("hankorole", "contract-role"))
+        role = self.api("GET", "/admin/realms/managed/roles/system-contract-role")
+        owner = self.get("hankorole", "contract-role")["metadata"]["uid"]
+        if role.get("description") != "contract desired" or role.get("attributes", {}).get("hanko.sh/role-owner") != [owner]:
+            raise ValueError("Installed IAM role contract or ownership differs")
+        self.kubectl("delete", "hankorole", "contract-role", "-n", "auth", "--wait=true", "--timeout=120s")
+        if self.api("GET", "/admin/realms/managed/roles?search=system-contract-role"):
+            raise ValueError("IAM contract role finalizer left the owned role behind")
         app = self.client("managed", "system-app")
         if app["redirectUris"] != ["https://app.example/callback"] or len(self.api("GET", f'/admin/realms/managed/clients/{app["id"]}/roles?search=access')) != 1:
             raise ValueError("Provider application/roles differ")

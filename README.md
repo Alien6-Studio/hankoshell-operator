@@ -25,7 +25,7 @@ enterprise fleet. Project website: **[hanko.sh](https://hanko.sh)**.
 [Deployment](#deployment) ·
 [Secure deployment and trust model](docs/secure-deployment.md) ·
 [Keycloak permissions](docs/keycloak-permissions.md) ·
-[Changes](CHANGELOG.md) · **[Roadmap](ROADMAP.md)**
+[Changes](CHANGELOG.md) · **[Roadmap](ROADMAP.md)** · [IAM contract architecture](docs/architecture/iam-contract-engine.md)
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/badge/version-0.1.0%20initial%20development-blue.svg)](#release-maturity)
@@ -71,6 +71,10 @@ objects and reports their status in Kubernetes.
 | Roles and API permissions | Realm and client roles, composite realm roles, and resource-server scopes, resources and permissions for role or workload principals. |
 | Machine credentials | Service-account clients, confidential client secrets, scheduled or requested rotation, and explicitly authorized application Secret projections. |
 | Existing configuration | Import reports and supported realm, client, service-account and identity-provider configuration; observe existing objects before taking ownership. |
+
+`HankoRole` management and deletion require the CR UID ownership marker in
+Keycloak. Existing unmarked roles require administrator-reviewed adoption; see
+[role ownership and migration](docs/architecture/iam-contract-engine.md#local-authority-freshness-and-ownership).
 
 Use one writer for each managed Keycloak object. Observation mode does not
 modify provider objects or read their client secrets; management mode owns their

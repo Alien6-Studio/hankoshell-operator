@@ -101,6 +101,14 @@ func (s *authorizationTestServer) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	}
 	path := strings.TrimPrefix(r.URL.Path, base)
 	switch {
+	case strings.HasSuffix(path, "/associatedPolicies") && r.Method == http.MethodGet:
+		parts := strings.Split(strings.Trim(path, "/"), "/")
+		permission := s.permissions[parts[1]]
+		result := make([]map[string]string, 0, len(permission.Policies))
+		for _, id := range permission.Policies {
+			result = append(result, map[string]string{"id": id})
+		}
+		writeAuthorizationJSON(w, result)
 	case path == "/scope" && r.Method == http.MethodGet:
 		writeAuthorizationJSON(w, sortedMapValues(s.scopes))
 	case path == "/resource" && r.Method == http.MethodGet:
@@ -364,7 +372,7 @@ func TestAuthorizationDeleteUsesOnlyRecordedOwnership(t *testing.T) {
 	}
 	provider.mu.Lock()
 	defer provider.mu.Unlock()
-	if provider.enabled || len(provider.permissions) != 0 || len(provider.policies) != 0 || len(provider.resources) != 0 {
+	if !provider.enabled || len(provider.permissions) != 0 || len(provider.policies) != 0 || len(provider.resources) != 0 {
 		t.Fatalf("provider state remains enabled=%v permissions=%d policies=%d resources=%d", provider.enabled, len(provider.permissions), len(provider.policies), len(provider.resources))
 	}
 	if len(provider.scopes) != 1 || provider.scopes["native-scope"].Name != "provider-native" {
@@ -419,5 +427,28 @@ func TestAuthorizationRejectsMissingPrincipalsBeforePermissionCreation(t *testin
 		if permissionCount != 0 {
 			t.Fatalf("missing principal created %d permission(s)", permissionCount)
 		}
+	}
+}
+
+func TestAuthorizationDeleteWithoutForeignObjectsDisablesOnlyOnce(t *testing.T) {
+	provider := newAuthorizationTestServer(t)
+	kc := provider.client()
+	model := authorizationTestModel()
+	state, err := kc.ReconcileAuthorization(context.Background(), model, AuthorizationManagedObjects{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := kc.DeleteAuthorizationOwned(context.Background(), model, state.ResourceServerID, state.ManagedObjects); err != nil {
+		t.Fatal(err)
+	}
+	if provider.enabled {
+		t.Fatal("empty owned graph remained enabled")
+	}
+	count := provider.mutationCount()
+	if err := kc.DeleteAuthorizationOwned(context.Background(), model, state.ResourceServerID, state.ManagedObjects); err != nil {
+		t.Fatal(err)
+	}
+	if provider.mutationCount() != count {
+		t.Fatal("repeated cleanup mutated disabled graph")
 	}
 }

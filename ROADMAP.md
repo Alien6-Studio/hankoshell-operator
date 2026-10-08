@@ -44,12 +44,12 @@ ownership remain separate.
 
 ## Current status
 
-The **0.1.0 source is in initial development and remains unreleased**. It targets
-a normal SemVer release, not a prerelease suffix. The 16 `hanko.sh/v1alpha1` APIs
-are experimental and may change across minor versions before 1.0. This roadmap
-describes proposed work, not additional current support or scheduled delivery.
-The current focus is to **finish and publish 0.1.0**. The 0.2 IAM Contract Engine
-is the next development milestone after that first publication.
+The **v0.1.0 source and signed tag are frozen and immutable**. Public artifact
+publication remains pending in [#21](https://github.com/Alien6-Studio/hankoshell-operator/issues/21);
+no 0.1.0 artifacts are claimed published. Active code development has moved to
+**0.2.0 — IAM Contract Engine**, through normal protected PR history.
+The 16 `hanko.sh/v1alpha1` APIs remain experimental before 1.0. Future milestones
+are proposed scope, not additional current support or scheduled delivery.
 
 The current foundation already includes:
 
@@ -78,11 +78,14 @@ database migration or disaster-recovery path; see the
 [lifecycle limits](docs/secure-deployment.md#lifecycle-operation-qualification).
 No future release version is assigned to that qualification yet.
 
-The current Keycloak authorization adapter declares a static capability set.
-The resource server's applied-plan hash comes from an annotation; it is not yet
-a locally compiled, verified plan identity. Existing findings have the
-`lossless`/`lossy`/`unsupported` schema, without establishing general provider
-portability. These are foundations for 0.2, not a completed contract engine.
+Resource-server authorization and realm roles now use a
+[local IAM contract foundation](docs/architecture/iam-contract-engine.md): explicit
+intent/resolution/capabilities/plans, versioned canonical identities and freshness
+checks. Keycloak capability evidence names the static mapping and qualification
+window. The external authorization-plan annotation is not execution evidence.
+Public applied/observation/stale status remains [#27](https://github.com/Alien6-Studio/hankoshell-operator/issues/27);
+organization projection separation remains [#28](https://github.com/Alien6-Studio/hankoshell-operator/issues/28).
+No second backend or general portability qualification is implied.
 
 Hub bundles currently use token-derived **HMAC**, without independent publisher
 authentication. Ed25519 mesh policy projection is **audit-only**. Cryptographically
@@ -152,8 +155,9 @@ Promoting all current `v1alpha1` resources is not the goal.
 
 Bring concrete application authentication, authorization, adoption and workload
 identity scenarios to the [roadmap issues](https://github.com/Alien6-Studio/hankoshell-operator/issues?q=is%3Aissue%20is%3Aopen%20label%3Aroadmap).
-The immediate focus is the trusted first publication of 0.1.0. The existing 0.2
-RFCs and selected 0.3 RFCs prepare subsequent development; later milestone
+The immediate code focus is the 0.2 IAM Contract Engine; 0.1 publication trust
+is tracked independently in #21. The resolved 0.2 architecture and selected 0.3
+RFCs guide subsequent development; later milestone
 descriptions carry direction until their design window opens.
 
 Start with the RFCs for [provider capabilities and plans](https://github.com/Alien6-Studio/hankoshell-operator/issues/22),

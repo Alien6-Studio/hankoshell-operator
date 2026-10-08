@@ -152,8 +152,8 @@ type HankoResourceServerStatus struct {
 
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
-	// AppliedPlanHash is copied from the API-owned plan annotation only after
-	// the corresponding generation has reconciled successfully.
+	// AppliedPlanHash is computed locally after successful Manage reconciliation.
+	// Observe and external annotations do not authorize an applied plan.
 	AppliedPlanHash string `json:"appliedPlanHash,omitempty"`
 
 	BackendKind string `json:"backendKind,omitempty"`

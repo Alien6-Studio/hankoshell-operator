@@ -19,6 +19,12 @@ components:
     in: "/internal/keycloak"
   httpsecurity:
     in: "/internal/httpsecurity"
+  iamconformance:
+    in: "/internal/iamconformance"
+  iamcontract:
+    in: "/internal/iamcontract"
+  roles:
+    in: "/internal/roles"
   authorization:
     in: "/internal/authorization"
   hub:
@@ -49,6 +55,8 @@ deps:
     mayDependOn:
       - keycloak
       - authorization
+      - roles
+      - iamcontract
       - hub
       - api_types
       - imagevalidator
@@ -68,9 +76,22 @@ deps:
     anyVendorDeps: true
 
   # ADR-029: Provider-neutral authorization drivers may adapt provider clients.
+  iamconformance:
+    mayDependOn:
+      - iamcontract
+
+  iamcontract:
+    anyVendorDeps: true
+
+  roles:
+    mayDependOn:
+      - keycloak
+      - iamcontract
+
   authorization:
     mayDependOn:
       - keycloak
+      - iamcontract
 
   # ADR-010: Hub client carries the bounded supervision DTO in heartbeats.
   hub:
