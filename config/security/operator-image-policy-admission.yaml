@@ -1,0 +1,34 @@
+# Platform administrators install this before enabling workload image policy.
+# Protect the public trust root independently of CR creation and operator RBAC.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: hanko-image-policy-owner
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE", "DELETE"]
+        resources: ["configmaps"]
+        scope: Namespaced
+  matchConditions:
+    - name: workload-trust-policy
+      expression: >-
+        request.namespace == 'auth' &&
+        ((object != null && object.metadata.name == 'hanko-image-policy') ||
+         (oldObject != null && oldObject.metadata.name == 'hanko-image-policy'))
+  validations:
+    - expression: >-
+        authorizer.group('').resource('configmaps').namespace('kube-system')
+          .name('hanko-image-policy-authority').check('update').allowed()
+      message: Only platform image policy administrators may change workload trust roots.
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: hanko-image-policy-owner
+spec:
+  policyName: hanko-image-policy-owner
+  validationActions: [Deny]
