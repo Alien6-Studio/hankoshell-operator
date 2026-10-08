@@ -12,6 +12,8 @@ The direction is a provider-neutral IAM contract with explicit provider
 capabilities and plans. Deep Keycloak configuration remains part of the product:
 portable concepts and provider-native extensions have different contracts, and
 neither should silently change the other's semantics.
+The portable Hanko IAM model and Keycloak implementation depth evolve together;
+provider abstraction must not postpone useful Keycloak capabilities.
 
 The target architecture is:
 
@@ -66,6 +68,13 @@ The current foundation already includes:
   `HankoIssuer`, `HankoTenant` and `HankoMeshService` platform integrations,
   enrollment, credential rotation, supervision and guarded operator updates.
 
+`HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are experimental
+and unqualified in 0.1.0. Their interruption/retry, child ownership and completion
+qualification remains in [0.1.x maintenance issue #20](https://github.com/Alien6-Studio/hankoshell-operator/issues/20),
+not a prerequisite for the first core IAM delivery. They do not provide a tested
+database migration or disaster-recovery path; see the
+[lifecycle limits](docs/secure-deployment.md#lifecycle-operation-qualification).
+
 The current Keycloak authorization adapter declares a static capability set.
 The resource server's applied-plan hash comes from an annotation; it is not yet
 a locally compiled, verified plan identity. Existing findings have the
@@ -73,8 +82,9 @@ a locally compiled, verified plan identity. Existing findings have the
 portability. These are foundations for 0.2, not a completed contract engine.
 
 Hub bundles currently use token-derived **HMAC**, without independent publisher
-authentication. Ed25519 mesh policy projection is **audit-only**. Independently
-signed IAM plans are future work, distinct from transport security and the
+authentication. Ed25519 mesh policy projection is **audit-only**. Cryptographically
+verifiable, versioned and replay-resistant IAM plans remain future work; their
+mechanism requires an RFC. These are distinct from transport security and the
 existing signed release evidence.
 
 Source, real-provider, Kubernetes, installed-system and exact-image delivery
@@ -94,15 +104,15 @@ will be refined through RFCs and real use; they are not promises of provider par
 
 | Milestone | Next outcome, building on current functionality | Completion evidence |
 | --- | --- | --- |
-| [0.1.x — Trusted Keycloak Foundation](https://github.com/Alien6-Studio/hankoshell-operator/milestone/1) | Stabilize existing qualification, lifecycle safeguards and trusted delivery; finish remaining operation-recovery and first-publication qualification. | Passing gates, tested failure/restart behavior and independently verified production delivery prerequisites. |
+| [0.1.x — Trusted Keycloak Foundation](https://github.com/Alien6-Studio/hankoshell-operator/milestone/1) | Stabilize core IAM qualification and trusted delivery; verify first-publication trust. Qualify experimental lifecycle workflows in a subsequent maintenance release. | Passing core gates and independently verified production delivery prerequisites. Lifecycle support expands only with failure/restart evidence. |
 | [0.2.0 — IAM Contract Engine](https://github.com/Alien6-Studio/hankoshell-operator/milestone/2) | Extend resource-server capabilities/ownership and IAM-profile hashing into locally validated plans, observations, portability findings and internal Keycloak adapters. Separate optional projection readiness. | Deterministic identity, stale/unsupported-plan rejection, adapter conformance and standalone reconciliation. No second provider. |
 | [0.3.0 — Application Identity](https://github.com/Alien6-Studio/hankoshell-operator/milestone/3) | Mature existing OIDC applications into protocol-aware runtime contracts; design and qualify SAML and explicit workload bindings. | Usable metadata/credential references, migration tests and real protocol qualification. |
-| [0.4.0 — Organizational Authorization](https://github.com/Alien6-Studio/hankoshell-operator/milestone/4) | Explain effective access across existing organizations, roles and resource servers. Evaluate an entitlement matrix only if composition cannot represent real needs. | Inheritance/conflict fixtures, explainable decisions and an accepted design for any new resource. |
-| [0.5.0 — Adopt Existing Keycloak](https://github.com/Alien6-Studio/hankoshell-operator/milestone/5) | Extend import/Observe into discover → observe → plan → diff → adopt → manage, with coverage findings and deeper typed Keycloak configuration. | Selective adoption, no secret export, preservation of foreign objects and native-feature qualification. |
+| [0.4.0 — Organizational Authorization](https://github.com/Alien6-Studio/hankoshell-operator/milestone/4) | Represent, reconcile and explain organizational entitlement models: subject × organization × resource × action. Reuse organizations, roles and resource servers; decide through RFC whether composition or a dedicated resource is needed. | Explicit and inherited grant fixtures, explainable effective authorization, conflict findings and an accepted API/composition design. |
+| [0.5.0 — Adopt Existing Keycloak](https://github.com/Alien6-Studio/hankoshell-operator/milestone/5) | Consolidate Keycloak configurator coverage into discover → observe → plan → diff → adopt → manage, with typed native findings. Deep Keycloak development continues across milestones. | Selective adoption, no secret export, preservation of foreign objects and native-feature qualification. |
 | [0.6.0 — Workload Identity](https://github.com/Alien6-Studio/hankoshell-operator/milestone/6) | Extend service-account clients and mesh identity resolution with qualified Kubernetes identity federation, short-lived authentication and explicit secret fallback. | Real audience/issuer/binding denials; IAM identity remains separate from transport registration. |
 | [0.7.0 — Delegation & Agent Identity](https://github.com/Alien6-Studio/hankoshell-operator/milestone/7) | Extend the same principal model with standards-based delegation, token exchange and constrained agent/workload authority. | Depth, audience, lifetime, revocation and capability-intersection tests; no separate agent IAM stack. |
 | [0.8.0 — Provider Portability Preview](https://github.com/Alien6-Studio/hankoshell-operator/milestone/8) | Prove representative identical intent with a second experimental adapter while retaining deep Keycloak features. Provider selection remains open. | Shared conformance and explicit lossless/lossy/unsupported differences; no full-parity claim. |
-| [0.9.0 — Fleet Reconciliation](https://github.com/Alien6-Studio/hankoshell-operator/milestone/9) | Build on enrollment, supervision and lifecycle guards with independently signed desired-state plans, capability-aware rollout and bounded fleet evidence. | Partial rollout, replay/revocation, disconnection and reconnect tests under local authority; versioned external integration contracts. |
+| [0.9.0 — Fleet Reconciliation](https://github.com/Alien6-Studio/hankoshell-operator/milestone/9) | Build on enrollment, supervision and lifecycle guards with cryptographically verifiable, versioned and replay-resistant desired-state plans, capability-aware rollout and bounded fleet evidence. The verification mechanism remains an RFC decision. | Tamper/replay rejection, capability validation, partial rollout, disconnection and safe reconnect under local authority; versioned external integration contracts. |
 | [1.0.0 — Stable Hanko IAM Contract](https://github.com/Alien6-Studio/hankoshell-operator/milestone/10) | Stabilize the proven portable IAM core, with explicit native boundaries, conversions and compatibility guarantees. | Accepted API graduation review, conversion/migration tests and public conformance fixtures. Operational/platform resources may remain alpha. |
 
 For 1.0, likely review candidates are realm/identity domain, IAM profile,
@@ -124,6 +134,10 @@ Promoting all current `v1alpha1` resources is not the goal.
   never silently weaken intent to fit an adapter.
 - **Deep Keycloak support:** provider-native extensions remain available behind
   clear validation, permission and qualification contracts.
+- **Keycloak capability evolves continuously:** abstraction must never freeze or
+  reduce Keycloak coverage. Each milestone may deepen the adapter for real IAM
+  needs: SAML in 0.3, authorization mappings in 0.4, adoption coverage in 0.5 and
+  workload federation in 0.6 are part of that direction.
 - **Standalone OSS usefulness:** IAM reconciliation remains useful without Hub,
   the platform API or Continuum; optional projection has its own status.
 - **Complementary operators:** keep Keycloak runtime lifecycle separate from IAM

@@ -761,8 +761,20 @@ Portable backup/restore, consistency and recovery across database versions or
 cloud providers are not qualified. `HankoOperation.snapshotBefore` creates only
 a configuration snapshot and does not establish a database rollback point.
 
-`Clone` creates an external instance alias reusing the source administrative
-connection and imports supported configuration; it does not provision a new
+## Lifecycle operation qualification
+
+`HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are experimental
+and unqualified in 0.1.0. Existing unit tests exercise step transitions, but do
+not qualify durable completion, interruption/retry, child ownership or recovery
+on real installations. Qualification is tracked in
+[issue #20](https://github.com/Alien6-Studio/hankoshell-operator/issues/20) for a
+subsequent 0.1.x maintenance release. These workflows are available, but are
+outside the first release's qualified core IAM contract.
+
+`Upgrade` changes the managed instance image; it does not establish provider or
+database upgrade compatibility. `Clone` creates an external instance alias
+reusing the source administrative connection and imports supported configuration;
+it does not provision a new
 database. `clone.includeData` has no effect in 0.1.0. A target namespace outside
 the release namespace is outside the default watch/RBAC scope. `DBSwitch` changes
 the database Secret reference without migrating data. Operation `dryRun` skips
