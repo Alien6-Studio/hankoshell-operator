@@ -2,6 +2,7 @@ package authorization
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
 
@@ -30,12 +31,12 @@ func (d *KeycloakDriver) Observe(ctx context.Context, plan Plan) (State, error) 
 		return State{}, err
 	}
 	model := plan.resolved.model
-	state, err := d.client.ObserveAuthorization(ctx, toKeycloakModel(model))
+	state, err := d.client.ObserveAuthorization(ctx, modelForPlan(plan))
 	if err != nil {
-		return State{}, iamcontract.SafeError(err)
+		return State{}, boundedAuthorizationError(err)
 	}
 	capabilities, _ := d.Capabilities(ctx, model.Realm)
-	result := State{ProviderResourceServerID: state.ResourceServerID, Capabilities: capabilities, Drifted: state.Drifted}
+	result := observationState(state, capabilities)
 	seen := map[string]bool{}
 	for _, object := range state.NativeObjects {
 		if seen[object.Kind] {
@@ -44,9 +45,10 @@ func (d *KeycloakDriver) Observe(ctx context.Context, plan Plan) (State, error) 
 		seen[object.Kind] = true
 		result.Findings = append(result.Findings, iamcontract.Bound(Finding{
 			Classification: iamcontract.Unsupported, ObjectKind: object.Kind,
-			Code: "provider_native_observation", Message: "provider object is visible but not managed in Observe mode", ReadOnly: true,
+			Code: "provider_native_observation", Message: "provider object is visible but outside managed desired state", ReadOnly: true,
 		}))
 	}
+	result.Findings = iamcontract.Findings(result.Findings)
 	return result, nil
 }
 
@@ -55,6 +57,9 @@ func (d *KeycloakDriver) Reconcile(ctx context.Context, plan Plan, owned Managed
 		return State{}, err
 	}
 	model := plan.resolved.model
+	if plan.preconditions.ResourceUID == "" {
+		return State{}, iamcontract.ErrRejected
+	}
 	capabilities, err := d.Capabilities(ctx, model.Realm)
 	if err != nil {
 		return State{}, iamcontract.SafeError(err)
@@ -62,22 +67,39 @@ func (d *KeycloakDriver) Reconcile(ctx context.Context, plan Plan, owned Managed
 	if err := ValidateCapabilities(model, capabilities); err != nil {
 		return State{}, iamcontract.SafeError(err)
 	}
-	state, err := d.client.ReconcileAuthorization(ctx, toKeycloakModel(model), toKeycloakManaged(owned))
+	state, err := d.client.ReconcileAuthorization(ctx, modelForPlan(plan), toKeycloakManaged(owned))
 	if err != nil {
-		if errors.Is(err, keycloak.ErrAuthorizationOwnershipConflict) {
-			return State{}, errors.Join(ErrOwnershipConflict, iamcontract.SafeError(err))
+		if errors.Is(err, keycloak.ErrAuthorizationReadBack) {
+			return State{ProviderResourceServerID: state.ResourceServerID, ManagedObjects: fromKeycloakManaged(state.ManagedObjects)}, errors.Join(iamcontract.ErrDrift, iamcontract.SafeError(err))
 		}
-		return State{}, iamcontract.SafeError(err)
+		if errors.Is(err, keycloak.ErrAuthorizationOwnershipConflict) {
+			return State{ProviderResourceServerID: state.ResourceServerID, ManagedObjects: fromKeycloakManaged(state.ManagedObjects)}, errors.Join(ErrOwnershipConflict, iamcontract.SafeError(err))
+		}
+		return State{ProviderResourceServerID: state.ResourceServerID, ManagedObjects: fromKeycloakManaged(state.ManagedObjects)}, boundedAuthorizationError(err)
 	}
-	return State{
-		ProviderResourceServerID: state.ResourceServerID,
-		Capabilities:             capabilities,
-		ManagedObjects:           fromKeycloakManaged(state.ManagedObjects),
-	}, nil
+	result, err := d.Observe(ctx, plan)
+	result.ProviderResourceServerID = state.ResourceServerID
+	result.ManagedObjects = fromKeycloakManaged(state.ManagedObjects)
+	if err != nil {
+		return result, err
+	}
+	return result, nil
 }
 
-func (d *KeycloakDriver) DeleteOwned(ctx context.Context, model Model, owned ManagedObjects) error {
-	return iamcontract.SafeError(d.client.DeleteAuthorizationOwned(ctx, toKeycloakModel(model), owned.ResourceServerID, toKeycloakManaged(owned)))
+func (d *KeycloakDriver) DeleteOwned(ctx context.Context, model Model, owned ManagedObjects, ownerUID string) error {
+	if ownerUID == "" {
+		return iamcontract.ErrRejected
+	}
+	native := toKeycloakModel(model)
+	native.OwnerUID = ownerUID
+	return boundedAuthorizationError(d.client.DeleteAuthorizationOwned(ctx, native, owned.ResourceServerID, toKeycloakManaged(owned)))
+}
+
+func boundedAuthorizationError(err error) error {
+	if errors.Is(err, keycloak.ErrAuthorizationReadLimit) {
+		return errors.Join(iamcontract.ErrObservationIncomplete, iamcontract.SafeError(err))
+	}
+	return iamcontract.SafeError(err)
 }
 
 func toKeycloakModel(model Model) keycloak.AuthorizationModel {
@@ -135,6 +157,20 @@ func fromKeycloakRefs(refs []keycloak.AuthorizationManagedReference) []ManagedRe
 	result := make([]ManagedReference, 0, len(refs))
 	for _, ref := range refs {
 		result = append(result, ManagedReference{Name: ref.Name, ID: ref.ID})
+	}
+	return result
+}
+
+func modelForPlan(plan Plan) keycloak.AuthorizationModel {
+	model := toKeycloakModel(plan.resolved.model)
+	model.OwnerUID = plan.preconditions.ResourceUID
+	return model
+}
+func observationState(state keycloak.AuthorizationState, caps Capabilities) State {
+	data, _ := json.Marshal(state.Observation)
+	result := State{ProviderResourceServerID: state.ResourceServerID, Capabilities: caps, Drifted: state.Drifted, Observation: iamcontract.Observation{StateHash: iamcontract.Hash(iamcontract.Version, "authorization", "observation", data), Complete: state.Observation.Complete, Drifted: state.Drifted}}
+	if !state.Observation.Complete {
+		result.Findings = []Finding{{Classification: iamcontract.Unsupported, ObjectKind: "resource_server", Code: "incomplete_observation", Message: "one or more provider bindings cannot be completely identified", ReadOnly: true}}
 	}
 	return result
 }

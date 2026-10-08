@@ -3,7 +3,6 @@ package roles
 import (
 	"context"
 	"errors"
-	"maps"
 	"slices"
 
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
@@ -44,22 +43,32 @@ func (d *KeycloakDriver) Observe(ctx context.Context, p Plan) (State, error) {
 	}
 	got, err := d.client.GetRealmRole(ctx, p.resolved.Realm, p.intent.Name)
 	if keycloak.IsNotFound(err) {
-		return State{}, nil
+		return observeRole(nil, p, nil, nil, false), nil
 	}
 	if err != nil {
 		return State{}, iamcontract.SafeError(err)
 	}
-	want := desired(p)
-	state := State{Present: true, Owned: owned(got, p), Drifted: got.Description != want.Description || got.Composite != want.Composite || !maps.EqualFunc(cloneAttributes(got.Attributes), want.Attributes, slices.Equal[[]string])}
-	if len(p.intent.Composites) > 0 {
-		closure, err := d.AuthorityClosure(ctx, p.resolved.Realm, p.intent.Name)
-		if err != nil {
-			return State{}, err
-		}
-		for _, c := range p.intent.Composites {
-			state.Drifted = state.Drifted || !slices.Contains(closure, c)
+	nativeClosure, err := d.client.GetRealmRoleClosure(ctx, p.resolved.Realm, p.intent.Name)
+	if err != nil {
+		return State{}, iamcontract.SafeError(err)
+	}
+	closure := []string{}
+	clientComposite := false
+	for _, role := range nativeClosure {
+		if role.ClientRole {
+			clientComposite = true
+		} else {
+			closure = append(closure, role.Name)
 		}
 	}
+	direct := []string{}
+	if got.Composite {
+		direct, err = d.client.GetRealmRoleCompositeNames(ctx, p.resolved.Realm, p.intent.Name)
+		if err != nil {
+			return State{}, iamcontract.SafeError(err)
+		}
+	}
+	state := observeRole(got, p, direct, closure, clientComposite)
 	return state, nil
 }
 func (d *KeycloakDriver) Reconcile(ctx context.Context, p Plan) (State, error) {

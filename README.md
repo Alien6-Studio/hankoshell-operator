@@ -29,10 +29,11 @@ enterprise fleet. Project website: **[hanko.sh](https://hanko.sh)**.
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/badge/version-0.1.0%20initial%20development-blue.svg)](#release-maturity)
-[![Go](https://img.shields.io/badge/go-1.27.1-00ADD8.svg)](go.mod)
+[![Go](https://img.shields.io/badge/go-1.27.2-00ADD8.svg)](go.mod)
 [![Kubernetes](https://img.shields.io/badge/kubernetes-1.35%E2%80%931.37-326CE5.svg)](docs/secure-deployment.md#kubernetes-compatibility-and-hardening)
 [![Delivery](https://img.shields.io/badge/delivery-Continuum%20Attest-blue.svg)](#verified-delivery)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 
 ## Why use it?
 
@@ -354,7 +355,13 @@ packages and draft assets. Conflicting content stops publication.
 
 ## Development
 
-Use Go 1.27.1, Helm 3.17 or later, Python 3, and a C compiler for race tests.
+Development on `main` targets 0.2; the immutable v0.1.0 source keeps its original contract.
+For `HankoRole` and `HankoResourceServer`, status distinguishes the evaluated
+intent/plan, the latest Manage application proven by provider read-back, and the
+latest provider observation with explicit drift/coverage. Observe never claims
+application. See [status semantics and migration](docs/architecture/iam-contract-engine.md#public-status-evidence).
+
+Use Go 1.27.2, Helm 3.17 or later, Python 3, and a C compiler for race tests.
 
 ```sh
 python3 -m pip install -r scripts/requirements.txt

@@ -31,7 +31,7 @@ installer = load("install_trivy", "install-trivy.py")
 def report(config):
     results = [{"Target": "fixture (debian 13)", "Class": "os-pkgs", "Type": "debian", "Packages": [{"Name": "base-files", "Version": "13"}]}]
     for target in ("hankoshell-operator", "usr/local/bin/cosign"):
-        packages = [{"Name": "stdlib", "Version": "v1.27.1"}]
+        packages = [{"Name": "stdlib", "Version": "v1.27.2"}]
         if target.endswith("cosign"):
             packages.append({"Name": "github.com/sigstore/cosign/v3", "Version": "v3.1.3"})
         results.append({"Target": target, "Class": "lang-pkgs", "Type": "gobinary", "Packages": packages, "Vulnerabilities": []})

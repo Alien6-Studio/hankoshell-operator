@@ -18,6 +18,8 @@ type recordingRoleDriver struct {
 	caps                 roles.CapabilityEvidence
 	writes, observations int
 	hook                 func()
+	state                *roles.State
+	err                  error
 }
 
 func (d *recordingRoleDriver) Capabilities(context.Context) (roles.CapabilityEvidence, error) {
@@ -30,11 +32,17 @@ func (d *recordingRoleDriver) Capabilities(context.Context) (roles.CapabilityEvi
 }
 func (d *recordingRoleDriver) Observe(context.Context, roles.Plan) (roles.State, error) {
 	d.observations++
-	return roles.State{Present: true}, nil
+	if d.state != nil {
+		return *d.state, d.err
+	}
+	return roles.State{Present: true, Owned: true, Observation: successfulIAMObservation()}, nil
 }
 func (d *recordingRoleDriver) Reconcile(context.Context, roles.Plan) (roles.State, error) {
 	d.writes++
-	return roles.State{}, nil
+	if d.state != nil {
+		return *d.state, d.err
+	}
+	return roles.State{Present: true, Owned: true, Observation: successfulIAMObservation()}, nil
 }
 func (d *recordingRoleDriver) DeleteOwned(context.Context, roles.Plan) error { d.writes++; return nil }
 func (*recordingRoleDriver) AuthorityClosure(context.Context, string, string) ([]string, error) {
@@ -43,7 +51,7 @@ func (*recordingRoleDriver) AuthorityClosure(context.Context, string, string) ([
 func TestRoleControllerContractRefusalObserveAndFreshness(t *testing.T) {
 	for _, mode := range []string{"unsupported", "observe", "stale-reference", "native-conflict"} {
 		t.Run(mode, func(t *testing.T) {
-			role := &api.HankoRole{ObjectMeta: metav1.ObjectMeta{Name: "editor", Namespace: "default", UID: "role-uid"}, Spec: api.HankoRoleSpec{RealmRef: "realm", Name: "editor"}}
+			role := &api.HankoRole{ObjectMeta: metav1.ObjectMeta{Name: "editor", Namespace: "default", UID: "role-uid", Generation: 1}, Spec: api.HankoRoleSpec{RealmRef: "realm", Name: "editor"}}
 			realm := &api.HankoRealm{ObjectMeta: metav1.ObjectMeta{Name: "realm", Namespace: "default", UID: "realm-uid"}}
 			d := &recordingRoleDriver{caps: roles.KeycloakEvidence()}
 			if mode == "unsupported" {

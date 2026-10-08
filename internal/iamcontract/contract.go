@@ -6,7 +6,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"regexp"
+	"slices"
 	"strconv"
+	"strings"
 )
 
 type ContractVersion string
@@ -45,6 +48,59 @@ type Finding struct {
 	Message        string
 	ReadOnly       bool
 }
+
+const MaxFindings = 32
+
+// Findings normalizes a public summary, never a provider payload. Callers must
+// supply locally authored messages; overflow is visible rather than silent.
+func Findings(values []Finding) []Finding {
+	result := make([]Finding, 0, len(values))
+	for _, value := range values {
+		result = append(result, Bound(value))
+	}
+	slices.SortFunc(result, func(a, b Finding) int {
+		if n := strings.Compare(findingKey(a), findingKey(b)); n != 0 {
+			return n
+		}
+		if a.ReadOnly != b.ReadOnly {
+			if a.ReadOnly {
+				return 1
+			}
+			return -1
+		}
+		return strings.Compare(a.Message, b.Message)
+	})
+	result = slices.CompactFunc(result, func(a, b Finding) bool { return findingKey(a) == findingKey(b) })
+	slices.SortFunc(result, func(a, b Finding) int {
+		if n := findingPriority(a) - findingPriority(b); n != 0 {
+			return n
+		}
+		return strings.Compare(findingKey(a), findingKey(b))
+	})
+	if len(result) > MaxFindings {
+		result = append(result[:MaxFindings-1], Finding{Classification: Unsupported, ObjectKind: "observation", Code: "finding_budget_exceeded", Message: "additional findings omitted from bounded evidence", ReadOnly: true})
+	}
+	return result
+}
+
+func findingKey(f Finding) string {
+	return string(f.Classification) + "\x00" + f.ObjectKind + "\x00" + f.ObjectName + "\x00" + f.Code
+}
+
+// Observation contains identity/coverage only; canonical provider semantics stay
+// private to each domain. Missing read-back is never a synchronized observation.
+type Observation struct {
+	StateHash Digest
+	Complete  bool
+	Drifted   bool
+}
+
+var digestPattern = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
+
+func ValidDigest(value string) bool { return digestPattern.MatchString(value) }
+
+var ErrObservationIncomplete = errors.New("IAM provider observation is incomplete")
+var ErrDrift = errors.New("IAM provider read-back differs from the evaluated plan")
 
 // Bound budgets machine-readable findings; messages must be locally authored.
 func Bound(f Finding) Finding {
@@ -102,4 +158,17 @@ func SafeError(err error) error {
 		return nil
 	}
 	return providerError{cause: err}
+}
+
+func findingPriority(f Finding) int {
+	if f.ReadOnly {
+		return 3
+	}
+	if f.Classification == Unsupported {
+		return 0
+	}
+	if f.Classification == Lossy {
+		return 1
+	}
+	return 2
 }

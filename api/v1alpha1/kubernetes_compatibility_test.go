@@ -92,6 +92,8 @@ func TestKubernetesCompatibility(t *testing.T) {
 		}
 	}
 
+	t.Run("IAM evidence status schema", func(t *testing.T) { checkIAMStatusEvidence(t, ctx, admin) })
+
 	t.Run("instance-administrative-capability-contract", func(t *testing.T) {
 		instance := &unstructured.Unstructured{Object: map[string]any{
 			"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoKeycloakInstance",

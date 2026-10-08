@@ -2,6 +2,9 @@
 
 ## 0.2.0 — Unreleased
 
+- Build the operator and embedded cosign with Go 1.27.2 and patched HTTP/2
+  dependencies; retain the source and exact-image vulnerability gates.
+
 - Introduce versioned internal IAM intent, resolved references, capability evidence
   and locally compiled execution plans for resource-server authorization and realm roles.
 - Separate canonical intent and provider-plan identities; reject stale local inputs
@@ -15,6 +18,18 @@
   expanding grants, preserve foreign objects during authorization cleanup, and document portable/native API boundaries.
 - Qualify installed role contracts against their current Synced status and permit
   namespaced current-API Event recording with only create/patch authority.
+
+- Expose bounded intent/evaluated/applied/observation evidence for HankoRole and
+  HankoResourceServer; distinguish successful reads, drift, incomplete coverage and stale plans.
+- Require acceptable provider read-back before advancing applied generation/hash;
+  recover lost status writes through UID ownership and bounded authorization checkpoints.
+- Observe the complete supported authorization graph and direct additive realm-role
+  membership; preserve read-only native findings without exporting provider data.
+- Read every bounded Keycloak authorization collection page before comparison or
+  cleanup; reject incomplete reads and preserve native objects beyond the default first page.
+- Add a deterministic bounded IAM reporting DTO; defer live Hub transport pending
+  receiving-schema qualification. Existing enabled unmarked resource servers require
+  administrator-reviewed migration before management.
 
 
 ## 0.1.0 — Unreleased

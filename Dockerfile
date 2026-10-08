@@ -1,5 +1,5 @@
 ARG BUILDPLATFORM
-FROM --platform=$BUILDPLATFORM golang:1.27.1-alpine3.23@sha256:0908ac9b9319e09d7c238aabe914e0395c51d63c4e3d0ae8c554fda9158a5769 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.2-alpine3.23@sha256:2ac5c2a64f1f970b5120fe21c6a5e3d9190b196a9ead95797564738ecd07a8a2 AS builder
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -13,7 +13,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build -
     -ldflags "-X github.com/Alien6-Studio/hankoshell-operator/internal/version.Agent=${VERSION}" \
     -o /hankoshell-operator ./cmd/operator
 
-FROM --platform=$BUILDPLATFORM golang:1.27.1-alpine3.23@sha256:0908ac9b9319e09d7c238aabe914e0395c51d63c4e3d0ae8c554fda9158a5769 AS cosign
+FROM --platform=$BUILDPLATFORM golang:1.27.2-alpine3.23@sha256:2ac5c2a64f1f970b5120fe21c6a5e3d9190b196a9ead95797564738ecd07a8a2 AS cosign
 ARG TARGETOS
 ARG TARGETARCH
 ENV GOTOOLCHAIN=local
@@ -24,8 +24,8 @@ WORKDIR /cosign-source
 # module, so Go buildinfo retains cosign v3.1.3 for image vulnerability matching.
 RUN go mod init hankoshell.local/cosign-build \
     && go get github.com/sigstore/cosign/v3/cmd/cosign@v3.1.3 \
-    && go get golang.org/x/crypto@v0.56.0 golang.org/x/mod@v0.40.0 \
-        golang.org/x/text@v0.41.0 google.golang.org/grpc@v1.83.2 \
+    && go get golang.org/x/crypto@v0.57.0 golang.org/x/mod@v0.41.0 \
+        golang.org/x/net@v0.60.0 golang.org/x/text@v0.42.0 google.golang.org/grpc@v1.83.2 \
     && CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build -trimpath \
         -ldflags '-s -w -X sigs.k8s.io/release-utils/version.gitVersion=v3.1.3' \
         -o /cosign github.com/sigstore/cosign/v3/cmd/cosign

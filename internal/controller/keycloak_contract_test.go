@@ -7,7 +7,10 @@ import (
 	"errors"
 	"net/http"
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/Alien6-Studio/hankoshell-operator/internal/authorization"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamconformance"
@@ -20,6 +23,9 @@ import (
 func TestRealKeycloakIAMContract(t *testing.T) {
 	f := newKeycloakFixture(t)
 	ctx := context.Background()
+	// Verify fixture renewal through the real token endpoint without increasing
+	// token lifetimes or retrying denied administrative requests.
+	f.adminToken, f.adminAt = "expired-bootstrap-fixture", time.Now().Add(-time.Minute)
 	kc, credential := f.serviceClient("contract-operator")
 	f.grantClientRoles("contract-operator", "managed", []string{"manage-realm", "manage-clients", "manage-events"})
 	observer, observerSecret := f.serviceClient("contract-observer")
@@ -134,7 +140,7 @@ func TestRealKeycloakIAMContract(t *testing.T) {
 			f.requireNoError(err)
 			caps, err := driver.Capabilities(ctx, m.Realm)
 			f.requireNoError(err)
-			p, err := authorization.Compile(i, r, authorization.KeycloakEvidence(caps), iamcontract.Preconditions{})
+			p, err := authorization.Compile(i, r, authorization.KeycloakEvidence(caps), iamcontract.Preconditions{ResourceUID: "authorization-contract-owner"})
 			f.requireNoError(err)
 			return p
 		}
@@ -175,6 +181,9 @@ func TestRealKeycloakIAMContract(t *testing.T) {
 					}
 				}
 				f.admin(http.MethodPost, base, map[string]any{"name": "contract-foreign-scope"}, nil)
+				for i := range 100 {
+					f.admin(http.MethodPost, base, map[string]any{"name": "000-contract-native-" + strconv.Itoa(i)}, nil)
+				}
 				scope["displayName"] = "drift"
 				f.admin(http.MethodPut, base+"/"+scope["id"].(string), scope, nil)
 				observation, err := driver.Observe(ctx, plan)
@@ -189,7 +198,7 @@ func TestRealKeycloakIAMContract(t *testing.T) {
 					return err
 				}
 				owned = state.ManagedObjects
-				f.admin(http.MethodGet, base, nil, &scopes)
+				f.admin(http.MethodGet, base+"?first=0&max=1000", nil, &scopes)
 				for _, v := range scopes {
 					if v["name"] == "read" && v["displayName"] != "desired" {
 						return errors.New("authorization drift not repaired")
@@ -198,19 +207,30 @@ func TestRealKeycloakIAMContract(t *testing.T) {
 				return nil
 			},
 			Foreign: func() error {
-				_, err := driver.Reconcile(ctx, plan, authorization.ManagedObjects{})
+				i := authorization.Normalize(model)
+				r, _ := authorization.Resolve(i, model)
+				caps, _ := driver.Capabilities(ctx, model.Realm)
+				foreignPlan, err := authorization.Compile(i, r, authorization.KeycloakEvidence(caps), iamcontract.Preconditions{ResourceUID: "foreign-owner"})
+				if err != nil {
+					return err
+				}
+				_, err = driver.Reconcile(ctx, foreignPlan, authorization.ManagedObjects{})
 				if !errors.Is(err, authorization.ErrOwnershipConflict) {
 					t.Fatal("foreign graph refusal differs")
 				}
 				return err
 			},
-			DeleteOwned: func() error { return driver.DeleteOwned(ctx, model, owned) },
+			DeleteOwned: func() error { return driver.DeleteOwned(ctx, model, owned, "authorization-contract-owner") },
 			VerifyDeleted: func() error {
 				base := "/admin/realms/managed/clients/" + owned.ResourceServerID + "/authz/resource-server/scope"
 				var scopes []map[string]any
-				f.admin(http.MethodGet, base, nil, &scopes)
+				f.admin(http.MethodGet, base+"?first=0&max=1000", nil, &scopes)
 				foreign := false
+				nativeCount := 0
 				for _, v := range scopes {
+					if name, ok := v["name"].(string); ok && strings.HasPrefix(name, "000-contract-native-") {
+						nativeCount++
+					}
 					if v["name"] == "contract-foreign-scope" {
 						foreign = true
 					}
@@ -218,7 +238,7 @@ func TestRealKeycloakIAMContract(t *testing.T) {
 						return errors.New("owned scope still present")
 					}
 				}
-				if !foreign {
+				if !foreign || nativeCount != 100 {
 					return errors.New("foreign scope removed")
 				}
 				return nil
@@ -226,4 +246,5 @@ func TestRealKeycloakIAMContract(t *testing.T) {
 		})
 		iamconformance.NoSecrets(t, []string{credential, f.adminToken}, plan, plan.Identity())
 	})
+	checkRealKeycloakEvidenceRecovery(t, f, kc, credential)
 }

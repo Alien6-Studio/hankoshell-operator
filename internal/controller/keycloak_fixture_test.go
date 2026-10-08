@@ -47,6 +47,8 @@ type keycloakFixture struct {
 	ca         []byte
 	http       *http.Client
 	adminToken string
+	adminForm  url.Values
+	adminAt    time.Time
 	secrets    []string
 	kc         *keycloak.Client
 	credential string
@@ -218,7 +220,8 @@ func newKeycloakFixtureWithManagedTransport(t *testing.T, managed bool) *keycloa
 	}
 	// Password grant exists only in this disposable bootstrap fixture. Production
 	// reconcilers below authenticate exclusively with client_credentials.
-	f.adminToken = f.token(url.Values{"client_id": {"admin-cli"}, "grant_type": {"password"}, "username": {"fixture-admin"}, "password": {password}})
+	f.adminForm = url.Values{"client_id": {"admin-cli"}, "grant_type": {"password"}, "username": {"fixture-admin"}, "password": {password}}
+	f.refreshBootstrapToken()
 	f.admin(http.MethodPost, "/admin/realms", map[string]any{"realm": "managed", "enabled": true}, nil)
 	f.kc, f.credential = f.serviceClient("fixture-operator")
 	f.grantClientRoles("fixture-operator", "managed", []string{"manage-realm", "manage-clients", "manage-events", "manage-users", "manage-identity-providers"})
@@ -245,8 +248,18 @@ func (f *keycloakFixture) token(form url.Values) string {
 	return payload.AccessToken
 }
 
+func (f *keycloakFixture) refreshBootstrapToken() {
+	f.adminToken = f.token(f.adminForm)
+	f.adminAt = time.Now()
+}
+
 func (f *keycloakFixture) admin(method, path string, payload, target any) int {
 	f.t.Helper()
+	// Longer graph fixtures keep Keycloak's normal token lifetime. Renew only
+	// this bootstrap identity; operator/observer grants and denials are unchanged.
+	if time.Since(f.adminAt) > 30*time.Second {
+		f.refreshBootstrapToken()
+	}
 	data, err := json.Marshal(payload)
 	if err != nil {
 		f.t.Fatal(err)

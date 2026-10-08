@@ -2,6 +2,9 @@ package iamcontract
 
 import (
 	"errors"
+	"fmt"
+	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -35,5 +38,22 @@ func TestProviderErrorDoesNotRenderRemoteCredentials(t *testing.T) {
 	err := SafeError(cause)
 	if !errors.Is(err, cause) || strings.Contains(err.Error(), sentinel) || len(err.Error()) > 256 {
 		t.Fatal("unsafe provider error")
+	}
+}
+
+func TestFindingsOverflowRetainsRefusalAndIsOrderIndependent(t *testing.T) {
+	findings := []Finding{}
+	for i := range 100 {
+		findings = append(findings, Finding{Classification: Lossless, ObjectKind: "role", Code: fmt.Sprintf("known-%03d", i), Message: strings.Repeat("m", 1000)})
+	}
+	findings = append(findings, Finding{Classification: Lossy, ObjectKind: "role", Code: "desired_loss", Message: "desired mapping cannot be lossless"})
+	a := Findings(findings)
+	slices.Reverse(findings)
+	b := Findings(findings)
+	if !reflect.DeepEqual(a, b) || len(a) != MaxFindings || a[0].Classification != Lossy || a[len(a)-1].Code != "finding_budget_exceeded" {
+		t.Fatal("bounded summary hid rejection or depended on order")
+	}
+	if !errors.Is(Accept(findings), ErrRejected) {
+		t.Fatal("overflow allowed desired loss")
 	}
 }

@@ -14,9 +14,12 @@ import (
 	"strings"
 )
 
+var ErrAuthorizationReadBack = errors.New("keycloak authorization read-back still contains retired owned objects")
+
 var ErrAuthorizationOwnershipConflict = errors.New("keycloak authorization object is not owned by Hanko")
 
 type AuthorizationModel struct {
+	OwnerUID       string
 	Name           string
 	Realm          string
 	Audience       string
@@ -53,16 +56,16 @@ type AuthorizationPrincipal struct {
 }
 
 type AuthorizationManagedObjects struct {
-	ResourceServerID string
-	Scopes           []AuthorizationManagedReference
-	Resources        []AuthorizationManagedReference
-	Policies         []AuthorizationManagedReference
-	Permissions      []AuthorizationManagedReference
+	ResourceServerID string                          `json:"resourceServerID"`
+	Scopes           []AuthorizationManagedReference `json:"scopes,omitempty"`
+	Resources        []AuthorizationManagedReference `json:"resources,omitempty"`
+	Policies         []AuthorizationManagedReference `json:"policies,omitempty"`
+	Permissions      []AuthorizationManagedReference `json:"permissions,omitempty"`
 }
 
 type AuthorizationManagedReference struct {
-	Name string
-	ID   string
+	Name string `json:"name"`
+	ID   string `json:"id"`
 }
 
 type AuthorizationState struct {
@@ -70,6 +73,7 @@ type AuthorizationState struct {
 	Drifted          bool
 	ManagedObjects   AuthorizationManagedObjects
 	NativeObjects    []AuthorizationNativeObject
+	Observation      AuthorizationObservation
 }
 
 type AuthorizationNativeObject struct {
@@ -142,40 +146,21 @@ func (c *Client) ObserveAuthorization(ctx context.Context, model AuthorizationMo
 	if err != nil {
 		return AuthorizationState{}, err
 	}
-	state := AuthorizationState{ResourceServerID: clientID}
+	state := AuthorizationState{ResourceServerID: clientID, Drifted: true, Observation: AuthorizationObservation{Complete: true}}
 	if !enabled {
 		return state, nil
 	}
 	base := authorizationBase(model.Realm, clientID)
-	var scopes []authorizationScopeRepresentation
-	if err := c.get(ctx, base+authorizationScopePath, &scopes); err != nil {
-		return AuthorizationState{}, fmt.Errorf("observe authorization scopes: %w", err)
+	owned, _, err := c.readAuthorizationOwnership(ctx, model, clientID)
+	if err != nil {
+		return AuthorizationState{}, err
 	}
-	var resources []authorizationResourceRepresentation
-	if err := c.get(ctx, base+authorizationResourcePath, &resources); err != nil {
-		return AuthorizationState{}, fmt.Errorf("observe authorization resources: %w", err)
+	state.Drifted = false
+	state.Observation = AuthorizationObservation{Enabled: true, Complete: true}
+	if err := c.observeAuthorizationGraph(ctx, model, &state, owned, base); err != nil {
+		return AuthorizationState{}, err
 	}
-	var policies []authorizationPolicyRepresentation
-	if err := c.get(ctx, base+authorizationPolicyPath, &policies); err != nil {
-		return AuthorizationState{}, fmt.Errorf("observe authorization policies: %w", err)
-	}
-	var permissions []authorizationPermissionRepresentation
-	if err := c.get(ctx, base+authorizationPermissionPath, &permissions); err != nil {
-		return AuthorizationState{}, fmt.Errorf("observe authorization permissions: %w", err)
-	}
-	state.Drifted = authorizationGraphDrift(model, scopes, resources)
-	for _, scope := range scopes {
-		state.NativeObjects = append(state.NativeObjects, AuthorizationNativeObject{Kind: "scope", Name: scope.Name})
-	}
-	for _, resource := range resources {
-		state.NativeObjects = append(state.NativeObjects, AuthorizationNativeObject{Kind: "resource", Name: resource.Name})
-	}
-	for _, policy := range policies {
-		state.NativeObjects = append(state.NativeObjects, AuthorizationNativeObject{Kind: "policy", Name: policy.Name})
-	}
-	for _, permission := range permissions {
-		state.NativeObjects = append(state.NativeObjects, AuthorizationNativeObject{Kind: "permission", Name: permission.Name})
-	}
+
 	return state, nil
 }
 
@@ -195,6 +180,29 @@ func (c *Client) ReconcileAuthorization(ctx context.Context, model Authorization
 	if owned.ResourceServerID != "" && owned.ResourceServerID != clientID {
 		return AuthorizationState{}, fmt.Errorf("%w: backing application changed", ErrAuthorizationOwnershipConflict)
 	}
+	if model.OwnerUID != "" {
+		journal, found, err := c.readAuthorizationOwnership(ctx, model, clientID)
+		if err != nil {
+			return AuthorizationState{}, err
+		}
+		if found {
+			owned = journal
+		} else {
+			if enabled {
+				return AuthorizationState{}, ErrAuthorizationOwnershipConflict
+			}
+			owned.ResourceServerID = clientID
+			if err := authorizationOwnershipBudget(model, owned); err != nil {
+				return AuthorizationState{}, err
+			}
+			if err := c.saveAuthorizationOwnership(ctx, model, owned); err != nil {
+				return AuthorizationState{}, err
+			}
+		}
+	}
+	if err := authorizationOwnershipBudget(model, owned); err != nil {
+		return AuthorizationState{}, err
+	}
 	if !enabled {
 		if err := c.setAuthorizationEnabled(ctx, model.Realm, clientID, true); err != nil {
 			return AuthorizationState{}, err
@@ -203,22 +211,25 @@ func (c *Client) ReconcileAuthorization(ctx context.Context, model Authorization
 		return AuthorizationState{}, fmt.Errorf("%w: authorization is already enabled for application %q", ErrAuthorizationOwnershipConflict, model.ApplicationRef)
 	}
 
+	progress := owned
+	progress.ResourceServerID = clientID
+	checkpoint := c.authorizationProgress(ctx, model, &progress)
 	base := authorizationBase(model.Realm, clientID)
-	scopeRefs, scopeIDs, err := c.reconcileAuthorizationScopes(ctx, base, model.Scopes, owned.Scopes)
+	scopeRefs, scopeIDs, err := c.reconcileAuthorizationScopes(ctx, base, model.Scopes, owned.Scopes, checkpoint)
 	if err != nil {
-		return AuthorizationState{}, err
+		return AuthorizationState{ResourceServerID: clientID, ManagedObjects: progress}, err
 	}
-	resourceRefs, resourceIDs, err := c.reconcileAuthorizationResources(ctx, base, model.Resources, scopeIDs, owned.Resources)
+	resourceRefs, resourceIDs, err := c.reconcileAuthorizationResources(ctx, base, model.Resources, scopeIDs, owned.Resources, checkpoint)
 	if err != nil {
-		return AuthorizationState{}, err
+		return AuthorizationState{ResourceServerID: clientID, ManagedObjects: progress}, err
 	}
-	policyRefs, policiesByPermission, err := c.reconcileAuthorizationPolicies(ctx, base, model, owned.Policies)
+	policyRefs, policiesByPermission, err := c.reconcileAuthorizationPolicies(ctx, base, model, owned.Policies, checkpoint)
 	if err != nil {
-		return AuthorizationState{}, err
+		return AuthorizationState{ResourceServerID: clientID, ManagedObjects: progress}, err
 	}
-	permissionRefs, err := c.reconcileAuthorizationPermissions(ctx, base, model.Permissions, scopeIDs, resourceIDs, policiesByPermission, owned.Permissions)
+	permissionRefs, err := c.reconcileAuthorizationPermissions(ctx, base, model.Permissions, scopeIDs, resourceIDs, policiesByPermission, owned.Permissions, checkpoint)
 	if err != nil {
-		return AuthorizationState{}, err
+		return AuthorizationState{ResourceServerID: clientID, ManagedObjects: progress}, err
 	}
 	for _, stale := range []struct {
 		collection string
@@ -231,21 +242,27 @@ func (c *Client) ReconcileAuthorization(ctx context.Context, model Authorization
 		{collection: base + authorizationScopePath, owned: owned.Scopes, keep: scopeRefs},
 	} {
 		if err := c.deleteStaleAuthorizationRefs(ctx, stale.collection, stale.owned, keepAuthorizationIDs(stale.keep)); err != nil {
-			return AuthorizationState{}, err
+			return AuthorizationState{ResourceServerID: clientID, ManagedObjects: progress}, err
 		}
 	}
 
-	return AuthorizationState{
-		ResourceServerID: clientID,
-		ManagedObjects: AuthorizationManagedObjects{
-			ResourceServerID: clientID, Scopes: scopeRefs, Resources: resourceRefs, Policies: policyRefs, Permissions: permissionRefs,
-		},
-	}, nil
+	result := AuthorizationState{ResourceServerID: clientID, ManagedObjects: AuthorizationManagedObjects{ResourceServerID: clientID, Scopes: scopeRefs, Resources: resourceRefs, Policies: policyRefs, Permissions: permissionRefs}}
+	if err := c.saveAuthorizationOwnership(ctx, model, result.ManagedObjects); err != nil {
+		return result, err
+	}
+	return result, nil
 }
 
 // DeleteAuthorizationOwned removes only status-owned objects, in reverse
 // dependency order, and disables authorization only on the recorded backing client.
 func (c *Client) DeleteAuthorizationOwned(ctx context.Context, model AuthorizationModel, resourceServerID string, owned AuthorizationManagedObjects) error {
+	resourceServerID, owned, err := c.authorizationDeletionOwnership(ctx, model, resourceServerID, owned)
+	if err != nil {
+		return err
+	}
+	if resourceServerID == "" {
+		return nil
+	}
 	if resourceServerID == "" || owned.ResourceServerID != resourceServerID {
 		return fmt.Errorf("%w: resource server ID is not owned", ErrAuthorizationOwnershipConflict)
 	}
@@ -258,7 +275,7 @@ func (c *Client) DeleteAuthorizationOwned(ctx context.Context, model Authorizati
 		return err
 	}
 	if enabled, ok := representation["authorizationServicesEnabled"].(bool); ok && !enabled {
-		return nil
+		return c.clearAuthorizationOwnership(ctx, model, resourceServerID)
 	}
 	base := authorizationBase(model.Realm, resourceServerID)
 	foreignRemain := false
@@ -277,10 +294,15 @@ func (c *Client) DeleteAuthorizationOwned(ctx context.Context, model Authorizati
 	// Keycloak disabling Authorization Services deletes its entire graph. Never
 	// use that toggle to erase provider objects absent from the ownership set.
 	if foreignRemain {
-		return nil
+		return c.clearAuthorizationOwnership(ctx, model, resourceServerID)
 	}
 
 	representation["authorizationServicesEnabled"] = false
+	if model.OwnerUID != "" {
+		if attrs, ok := representation["attributes"].(map[string]any); ok {
+			attrs[authorizationOwnerAttribute] = nil
+		}
+	}
 	return c.putJSON(ctx, clientPath, representation)
 }
 
@@ -318,9 +340,9 @@ func (c *Client) setAuthorizationEnabled(ctx context.Context, realm, clientID st
 	return c.putJSON(ctx, path, representation)
 }
 
-func (c *Client) reconcileAuthorizationScopes(ctx context.Context, base string, desired []AuthorizationScope, owned []AuthorizationManagedReference) ([]AuthorizationManagedReference, map[string]string, error) {
+func (c *Client) reconcileAuthorizationScopes(ctx context.Context, base string, desired []AuthorizationScope, owned []AuthorizationManagedReference, checkpoint authorizationCheckpoint) ([]AuthorizationManagedReference, map[string]string, error) {
 	var current []authorizationScopeRepresentation
-	if err := c.get(ctx, base+authorizationScopePath, &current); err != nil {
+	if err := readAuthorizationCollection(ctx, c, base+authorizationScopePath, &current); err != nil {
 		return nil, nil, err
 	}
 	currentByID, currentByName := indexScopes(current)
@@ -331,6 +353,9 @@ func (c *Client) reconcileAuthorizationScopes(ctx context.Context, base string, 
 		want := authorizationScopeRepresentation{Name: scope.Name, DisplayName: scope.Description}
 		ref, err := c.ensureAuthorizationScope(ctx, base, want, ownedByName[scope.Name], currentByID, currentByName)
 		if err != nil {
+			return nil, nil, err
+		}
+		if err := checkpoint("scope", ref); err != nil {
 			return nil, nil, err
 		}
 		refs = append(refs, ref)
@@ -367,9 +392,9 @@ func (c *Client) ensureAuthorizationScope(ctx context.Context, base string, want
 	return AuthorizationManagedReference{Name: want.Name, ID: owned.ID}, nil
 }
 
-func (c *Client) reconcileAuthorizationResources(ctx context.Context, base string, desired []AuthorizationResource, scopeIDs map[string]string, owned []AuthorizationManagedReference) ([]AuthorizationManagedReference, map[string]string, error) {
+func (c *Client) reconcileAuthorizationResources(ctx context.Context, base string, desired []AuthorizationResource, scopeIDs map[string]string, owned []AuthorizationManagedReference, checkpoint authorizationCheckpoint) ([]AuthorizationManagedReference, map[string]string, error) {
 	var current []authorizationResourceRepresentation
-	if err := c.get(ctx, base+authorizationResourcePath, &current); err != nil {
+	if err := readAuthorizationCollection(ctx, c, base+authorizationResourcePath, &current); err != nil {
 		return nil, nil, err
 	}
 	index := indexAuthorizationResources(current)
@@ -380,6 +405,9 @@ func (c *Client) reconcileAuthorizationResources(ctx context.Context, base strin
 		want := buildAuthorizationResource(resource, scopeIDs)
 		ref, err := c.ensureAuthorizationResource(ctx, base, want, ownedByName[resource.Name], index)
 		if err != nil {
+			return nil, nil, err
+		}
+		if err := checkpoint("resource", ref); err != nil {
 			return nil, nil, err
 		}
 		refs = append(refs, ref)
@@ -436,7 +464,7 @@ func (c *Client) ensureAuthorizationResource(ctx context.Context, base string, w
 	return AuthorizationManagedReference{Name: want.Name, ID: owned.ID}, nil
 }
 
-func (c *Client) reconcileAuthorizationPolicies(ctx context.Context, base string, model AuthorizationModel, owned []AuthorizationManagedReference) ([]AuthorizationManagedReference, map[string][]string, error) {
+func (c *Client) reconcileAuthorizationPolicies(ctx context.Context, base string, model AuthorizationModel, owned []AuthorizationManagedReference, checkpoint authorizationCheckpoint) ([]AuthorizationManagedReference, map[string][]string, error) {
 	index, err := c.loadAuthorizationPolicies(ctx, base)
 	if err != nil {
 		return nil, nil, err
@@ -455,6 +483,9 @@ func (c *Client) reconcileAuthorizationPolicies(ctx context.Context, base string
 			if err != nil {
 				return nil, nil, err
 			}
+			if err := checkpoint("policy", ref); err != nil {
+				return nil, nil, err
+			}
 			refs = append(refs, ref)
 			byPermission[permission.Name] = append(byPermission[permission.Name], ref.ID)
 		}
@@ -464,7 +495,7 @@ func (c *Client) reconcileAuthorizationPolicies(ctx context.Context, base string
 
 func (c *Client) loadAuthorizationPolicies(ctx context.Context, base string) (authorizationPolicyIndex, error) {
 	var allPolicies []authorizationPolicyRepresentation
-	if err := c.get(ctx, base+authorizationPolicyPath, &allPolicies); err != nil {
+	if err := readAuthorizationCollection(ctx, c, base+authorizationPolicyPath, &allPolicies); err != nil {
 		return authorizationPolicyIndex{}, err
 	}
 	index := authorizationPolicyIndex{
@@ -473,12 +504,13 @@ func (c *Client) loadAuthorizationPolicies(ctx context.Context, base string) (au
 	}
 	for _, item := range allPolicies {
 		index.byName[item.Name] = item
+		index.byID[item.ID] = item
 	}
 	// Generic representations omit type-specific bindings; typed reads are
 	// required for semantic drift comparison.
 	for _, policyType := range []string{"role", "client"} {
 		var typed []authorizationPolicyRepresentation
-		if err := c.get(ctx, base+authorizationPolicyPath+"/"+policyType, &typed); err != nil {
+		if err := readAuthorizationCollection(ctx, c, base+authorizationPolicyPath+"/"+policyType, &typed); err != nil {
 			return authorizationPolicyIndex{}, err
 		}
 		for _, item := range typed {
@@ -561,7 +593,7 @@ func (c *Client) ensureAuthorizationPolicy(ctx context.Context, base string, des
 	return AuthorizationManagedReference{Name: desired.logical, ID: owned.ID}, nil
 }
 
-func (c *Client) reconcileAuthorizationPermissions(ctx context.Context, base string, desired []AuthorizationPermission, scopeIDs, resourceIDs map[string]string, policyIDs map[string][]string, owned []AuthorizationManagedReference) ([]AuthorizationManagedReference, error) {
+func (c *Client) reconcileAuthorizationPermissions(ctx context.Context, base string, desired []AuthorizationPermission, scopeIDs, resourceIDs map[string]string, policyIDs map[string][]string, owned []AuthorizationManagedReference, checkpoint authorizationCheckpoint) ([]AuthorizationManagedReference, error) {
 	byID, byName, err := c.loadAuthorizationPermissions(ctx, base)
 	if err != nil {
 		return nil, err
@@ -574,6 +606,9 @@ func (c *Client) reconcileAuthorizationPermissions(ctx context.Context, base str
 		if err != nil {
 			return nil, err
 		}
+		if err := checkpoint("permission", ref); err != nil {
+			return nil, err
+		}
 		refs = append(refs, ref)
 	}
 	return refs, nil
@@ -581,7 +616,7 @@ func (c *Client) reconcileAuthorizationPermissions(ctx context.Context, base str
 
 func (c *Client) loadAuthorizationPermissions(ctx context.Context, base string) (map[string]authorizationPermissionRepresentation, map[string]authorizationPermissionRepresentation, error) {
 	var allPermissions []authorizationPermissionRepresentation
-	if err := c.get(ctx, base+authorizationPermissionPath, &allPermissions); err != nil {
+	if err := readAuthorizationCollection(ctx, c, base+authorizationPermissionPath, &allPermissions); err != nil {
 		return nil, nil, err
 	}
 	byID := make(map[string]authorizationPermissionRepresentation, len(allPermissions))
@@ -590,7 +625,7 @@ func (c *Client) loadAuthorizationPermissions(ctx context.Context, base string) 
 		byName[item.Name] = item
 	}
 	var current []authorizationPermissionRepresentation
-	if err := c.get(ctx, base+authorizationPermissionPath+authorizationScopePath+"?fields=*", &current); err != nil {
+	if err := readAuthorizationCollection(ctx, c, base+authorizationPermissionPath+authorizationScopePath+"?fields=*", &current); err != nil {
 		return nil, nil, err
 	}
 	for _, item := range current {
@@ -614,7 +649,7 @@ func (c *Client) loadAuthorizationPermissions(ctx context.Context, base string) 
 }
 
 func buildAuthorizationPermission(permission AuthorizationPermission, scopeIDs, resourceIDs map[string]string, policyIDs map[string][]string) authorizationPermissionRepresentation {
-	want := authorizationPermissionRepresentation{Name: permission.Name, Logic: "POSITIVE", DecisionStrategy: "AFFIRMATIVE"}
+	want := authorizationPermissionRepresentation{Name: permission.Name, Type: "scope", Logic: "POSITIVE", DecisionStrategy: "AFFIRMATIVE"}
 	for _, name := range permission.Scopes {
 		want.Scopes = append(want.Scopes, scopeIDs[name])
 	}
@@ -737,6 +772,7 @@ func (c *Client) authorizationRequest(ctx context.Context, method, path string, 
 }
 
 func (c *Client) deleteStaleAuthorizationRefs(ctx context.Context, collection string, owned []AuthorizationManagedReference, keep map[string]bool) error {
+	deleted := map[string]bool{}
 	for _, ref := range owned {
 		if ref.ID == "" || keep[ref.ID] {
 			continue
@@ -744,8 +780,9 @@ func (c *Client) deleteStaleAuthorizationRefs(ctx context.Context, collection st
 		if err := c.authorizationDelete(ctx, collection+"/"+url.PathEscape(ref.ID)); err != nil && !IsNotFound(err) {
 			return err
 		}
+		deleted[ref.ID] = true
 	}
-	return nil
+	return c.authorizationDeletedRefsReadBack(ctx, collection, deleted)
 }
 
 func refsByName(refs []AuthorizationManagedReference) map[string]AuthorizationManagedReference {
@@ -780,7 +817,7 @@ func managedPolicyName(modelName, logical string) string {
 func sorted(values []string) []string {
 	result := append([]string(nil), values...)
 	sort.Strings(result)
-	return result
+	return slices.Compact(result)
 }
 
 func resourceEqual(got, want authorizationResourceRepresentation) bool {
@@ -797,7 +834,7 @@ func resourceEqual(got, want authorizationResourceRepresentation) bool {
 }
 
 func policyEqual(got, want authorizationPolicyRepresentation, kind string) bool {
-	if got.Name != want.Name || (got.Logic != "" && got.Logic != want.Logic) || (got.DecisionStrategy != "" && got.DecisionStrategy != want.DecisionStrategy) {
+	if (got.Type != "" && got.Type != kind) || got.Name != want.Name || normalizedLogic(got.Logic) != want.Logic || got.DecisionStrategy != want.DecisionStrategy {
 		return false
 	}
 	if kind == "client" {
@@ -805,43 +842,21 @@ func policyEqual(got, want authorizationPolicyRepresentation, kind string) bool 
 	}
 	gotRoles, wantRoles := make([]string, 0, len(got.Roles)), make([]string, 0, len(want.Roles))
 	for _, role := range got.Roles {
-		gotRoles = append(gotRoles, role.ID)
+		gotRoles = append(gotRoles, fmt.Sprintf("%s/%t", role.ID, role.Required))
 	}
 	for _, role := range want.Roles {
-		wantRoles = append(wantRoles, role.ID)
+		wantRoles = append(wantRoles, fmt.Sprintf("%s/%t", role.ID, role.Required))
 	}
 	return slices.Equal(sorted(gotRoles), sorted(wantRoles))
 }
 
 func permissionEqual(got, want authorizationPermissionRepresentation) bool {
-	return got.Name == want.Name &&
-		(got.Logic == "" || got.Logic == want.Logic) &&
-		(got.DecisionStrategy == "" || got.DecisionStrategy == want.DecisionStrategy) &&
+	return got.Type == "scope" && got.Name == want.Name &&
+		(normalizedLogic(got.Logic) == want.Logic) &&
+		(got.DecisionStrategy == want.DecisionStrategy) &&
 		slices.Equal(sorted(got.Resources), sorted(want.Resources)) &&
 		slices.Equal(sorted(got.Scopes), sorted(want.Scopes)) &&
 		slices.Equal(sorted(got.Policies), sorted(want.Policies))
-}
-
-// authorizationGraphDrift observes the scope/resource subset without writes.
-// Full policy/principal observation is intentionally deferred to the next stage.
-func authorizationGraphDrift(model AuthorizationModel, scopes []authorizationScopeRepresentation, resources []authorizationResourceRepresentation) bool {
-	_, scopeNames := indexScopes(scopes)
-	ids := map[string]string{}
-	for _, want := range model.Scopes {
-		got, ok := scopeNames[want.Name]
-		if !ok || got.DisplayName != want.Description {
-			return true
-		}
-		ids[want.Name] = got.ID
-	}
-	index := indexAuthorizationResources(resources)
-	for _, want := range model.Resources {
-		got, ok := index.byName[want.Name]
-		if !ok || !resourceEqual(got, buildAuthorizationResource(want, ids)) {
-			return true
-		}
-	}
-	return false
 }
 
 func (c *Client) deleteOwnedAuthorizationCollection(ctx context.Context, path string, refs []AuthorizationManagedReference) (bool, error) {
@@ -849,11 +864,12 @@ func (c *Client) deleteOwnedAuthorizationCollection(ctx context.Context, path st
 		ID         string `json:"id"`
 		ResourceID string `json:"_id"`
 	}
-	if err := c.get(ctx, path, &current); err != nil {
+	if err := readAuthorizationCollection(ctx, c, path, &current); err != nil {
 		return false, err
 	}
 	ownedIDs := keepAuthorizationIDs(refs)
 	foreign := false
+	deleted := map[string]bool{}
 	for _, object := range current {
 		id := object.ID
 		if id == "" {
@@ -866,6 +882,64 @@ func (c *Client) deleteOwnedAuthorizationCollection(ctx context.Context, path st
 		if err := c.authorizationDelete(ctx, path+"/"+url.PathEscape(id)); err != nil && !IsNotFound(err) {
 			return false, err
 		}
+		deleted[id] = true
+	}
+	if err := c.authorizationDeletedRefsReadBack(ctx, path, deleted); err != nil {
+		return false, err
 	}
 	return foreign, nil
+}
+
+func (c *Client) authorizationDeletionOwnership(ctx context.Context, model AuthorizationModel, clientID string, owned AuthorizationManagedObjects) (string, AuthorizationManagedObjects, error) {
+	if model.OwnerUID == "" {
+		return clientID, owned, nil
+	}
+	if clientID == "" {
+		var err error
+		clientID, err = c.resolveClientUUID(ctx, model.Realm, model.ApplicationRef)
+		if err != nil || clientID == "" {
+			return "", owned, err
+		}
+	}
+	journal, found, err := c.readAuthorizationOwnership(ctx, model, clientID)
+	if IsNotFound(err) {
+		return "", owned, nil
+	}
+	if err != nil {
+		return "", owned, err
+	}
+	if found {
+		return clientID, journal, nil
+	}
+	// Missing marker never authorizes deletion from public status. A read-only
+	// absence check makes an already completed deletion idempotent.
+	if owned.ResourceServerID != "" {
+		absent, err := c.authorizationOwnedAbsent(ctx, model, clientID, owned)
+		if err != nil {
+			return "", owned, err
+		}
+		if !absent {
+			return "", owned, ErrAuthorizationOwnershipConflict
+		}
+	}
+	return "", owned, nil
+}
+
+func (c *Client) authorizationDeletedRefsReadBack(ctx context.Context, path string, deleted map[string]bool) error {
+	if len(deleted) == 0 {
+		return nil
+	}
+	var current []struct {
+		ID         string `json:"id"`
+		ResourceID string `json:"_id"`
+	}
+	if err := readAuthorizationCollection(ctx, c, path, &current); err != nil {
+		return err
+	}
+	for _, object := range current {
+		if deleted[object.ID] || deleted[object.ResourceID] {
+			return ErrAuthorizationReadBack
+		}
+	}
+	return nil
 }

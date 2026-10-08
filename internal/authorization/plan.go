@@ -15,6 +15,11 @@ type ResolvedReferences struct{ model Model }
 
 func Normalize(model Model) Intent { return Intent{model: canonicalModel(model)} }
 
+func (i Intent) Identity() iamcontract.Digest {
+	data, _ := json.Marshal(i.model)
+	return iamcontract.Hash(iamcontract.Version, "authorization", "intent", data)
+}
+
 // Resolve only permits relationship substitution, not a change in semantics.
 func Resolve(intent Intent, model Model) (ResolvedReferences, error) {
 	if !sameGraph(intent.model, model) {
@@ -65,6 +70,7 @@ type Plan struct {
 	required      Capabilities
 }
 
+func (p Plan) Evidence() CapabilityEvidence       { return p.evidence }
 func (p Plan) Identity() iamcontract.PlanIdentity { return p.identity }
 func (p Plan) MarshalJSON() ([]byte, error)       { return json.Marshal(p.identity) }
 func (p Plan) Validate(current Plan) error {
@@ -96,11 +102,13 @@ func Compile(intent Intent, resolved ResolvedReferences, evidence CapabilityEvid
 	ib, _ := json.Marshal(intent.model)
 	identity := iamcontract.PlanIdentity{Contract: iamcontract.Version, Backend: iamcontract.Keycloak, Intent: iamcontract.Hash(iamcontract.Version, "authorization", "intent", ib)}
 	pb, _ := json.Marshal(struct {
-		Intent   iamcontract.Digest
-		Backend  iamcontract.BackendKind
-		Required Capabilities
-		Resolved Model
-	}{identity.Intent, identity.Backend, required, resolved.model})
+		Intent     iamcontract.Digest
+		Backend    iamcontract.BackendKind
+		Required   Capabilities
+		Resolved   Model
+		References iamcontract.Digest
+		Authority  iamcontract.Digest
+	}{identity.Intent, identity.Backend, required, resolved.model, pre.References, pre.Authority})
 	identity.Plan = iamcontract.Hash(iamcontract.Version, "authorization", "plan", pb)
 	return Plan{identity: identity, intent: intent, resolved: resolved, evidence: evidence, preconditions: pre, required: required}, nil
 }
