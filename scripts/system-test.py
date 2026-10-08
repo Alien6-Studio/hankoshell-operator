@@ -116,11 +116,15 @@ class System:
     def authorization_cleaned(self, client_id):
         # This fixture has no unowned authorization objects. Complete cleanup
         # disables Authorization Services; Keycloak then returns 404 for the
-        # resource server rather than an empty scopes collection.
+        # resource server rather than an empty scopes collection, and may omit
+        # the disabled boolean from the client representation.
         client = self.client("managed", "system-contract-api")
-        if (client["id"] != client_id or client.get("authorizationServicesEnabled") is not False
-                or "hanko.sh/resource-server-ownership" in client.get("attributes", {})):
-            raise ValueError("Authorization finalizer did not preserve the client and retire its ownership")
+        if client["id"] != client_id:
+            raise ValueError("Authorization finalizer replaced the backing client")
+        if client.get("authorizationServicesEnabled", False) is not False:
+            raise ValueError("Authorization finalizer left Authorization Services enabled")
+        if "hanko.sh/resource-server-ownership" in client.get("attributes", {}):
+            raise ValueError("Authorization finalizer left the ownership journal behind")
         self.api("GET", f'/admin/realms/managed/clients/{client_id}/authz/resource-server', expected=(404,))
 
     def create_cluster(self):

@@ -26,6 +26,11 @@ class ReleaseResumeTests(unittest.TestCase):
             fixture.authorization_cleaned("fixture-id")
             api.assert_called_once_with("GET", "/admin/realms/managed/clients/fixture-id/authz/resource-server", expected=(404,))
             api.reset_mock()
+            del client["authorizationServicesEnabled"]
+            fixture.authorization_cleaned("fixture-id")
+            api.assert_called_once_with("GET", "/admin/realms/managed/clients/fixture-id/authz/resource-server", expected=(404,))
+            client["authorizationServicesEnabled"] = False
+            api.reset_mock()
             for field, invalid in (("id", "replacement"), ("authorizationServicesEnabled", True),
                                    ("authorizationServicesEnabled", None),
                                    ("attributes", {"hanko.sh/resource-server-ownership": "{}"})):

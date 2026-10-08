@@ -101,6 +101,26 @@ func checkRealKeycloakEvidenceRecovery(t *testing.T, f *keycloakFixture, kc *key
 				t.Fatal("proof lacks matching read-back")
 			}
 			iamconformance.NoSecrets(t, []string{credential, f.adminToken}, obj)
+			if domain == "authorization" {
+				checkRealAuthorizationEvidenceCleanup(t, f, ctx, k8s, reconciler, obj.(*api.HankoResourceServer))
+			}
 		})
 	}
+}
+
+func checkRealAuthorizationEvidenceCleanup(t *testing.T, f *keycloakFixture, ctx context.Context, k8s client.Client, reconciler fixtureReconciler, obj *api.HankoResourceServer) {
+	t.Helper()
+	providerID := obj.Status.ProviderResourceServerID
+	f.requireNoError(k8s.Delete(ctx, obj))
+	_, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(obj)})
+	f.requireNoError(err)
+	actual := f.client("managed", "evidence-api")
+	enabled, present := actual["authorizationServicesEnabled"]
+	attributes, _ := actual["attributes"].(map[string]any)
+	_, marked := attributes["hanko.sh/resource-server-ownership"]
+	t.Logf("retired authorization: enabled field present=%t, explicitly false=%t, ownership present=%t", present, enabled == false, marked)
+	if actual["id"] != providerID || (present && enabled != false) || marked {
+		t.Fatal("authorization cleanup did not preserve the client and retire ownership")
+	}
+	fixtureEqual(t, "retired authorization server is absent", f.admin(http.MethodGet, "/admin/realms/managed/clients/"+providerID+"/authz/resource-server", nil, nil), http.StatusNotFound)
 }
