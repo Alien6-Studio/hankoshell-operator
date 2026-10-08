@@ -69,6 +69,8 @@ def prepare(version, image, revision, archive, evidence, chart_output, dist, hel
     if not re.fullmatch(re.escape(metadata.IMAGE) + r"@sha256:[0-9a-f]{64}", image):
         raise ValueError("Expected the scanned image's immutable identity")
     security.verify(evidence, revision, version, image.split("@")[1], archive)
+    if subprocess.check_output([str(helm), "version", "--template", "{{.Version}}"], text=True, timeout=30) != "v3.17.0":
+        raise ValueError("Release packaging requires the reviewed Helm 3.17.0")
     if dist.exists() or chart_output.exists():
         raise ValueError("Delivery output must be fresh")
     metadata.prepare(version, image, chart_output, dist, repository_id, public_key)

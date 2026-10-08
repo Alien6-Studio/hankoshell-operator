@@ -83,6 +83,12 @@ class ReleaseContractTests(unittest.TestCase):
         for pin in pins:
             self.assertIn(pin, installer)
 
+    def test_packaging_dependencies_require_committed_archive_hashes(self):
+        requirements = (contract.ROOT / "scripts/requirements.txt").read_text()
+        self.assertIn("--require-hashes", requirements)
+        self.assertIn("PyYAML==6.0.2", requirements)
+        self.assertTrue(re.findall(r"--hash=sha256:[0-9a-f]{64}", requirements))
+
     def test_leader_election_boolean_reaches_the_manager(self):
         chart = contract.ROOT / "charts/hankoshell-operator"
         for value in ("true", "false"):
