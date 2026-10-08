@@ -10,7 +10,7 @@ keywords:
   - keycloak
   - operator
   - identity
-home: https://github.com/Alien6-Studio/hankoshell-operator
+home: https://hanko.sh
 icon: https://raw.githubusercontent.com/Alien6-Studio/hankoshell-operator/v0.1.0/charts/hankoshell-operator/icon.svg
 sources:
   - https://github.com/Alien6-Studio/hankoshell-operator
@@ -38,9 +38,9 @@ annotations:
       platforms:
         - linux/amd64
         - linux/arm64
-  artifacthub.io/signKey: |
-    url: https://github.com/Alien6-Studio/hankoshell-operator/releases/download/v0.1.0/hankoshell-operator-attest-public-key.pem
   artifacthub.io/links: |
+    - name: Attest delivery verification key
+      url: https://github.com/Alien6-Studio/hankoshell-operator/releases/download/v0.1.0/hankoshell-operator-attest-public-key.pem
     - name: Source
       url: https://github.com/Alien6-Studio/hankoshell-operator
     - name: Security policy

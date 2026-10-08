@@ -12,8 +12,9 @@ GOVULNCHECK_VERSION := v1.8.0
 CHART := charts/hankoshell-operator
 KUBERNETES_VERSION ?= 1.37.0
 KEYCLOAK_VERSION ?= 26.8.0
+RELEASE_VERSION := 0.1.0
 
-.PHONY: all check fmt-check generate manifests generated-check build vet test chart-test integration-test keycloak-integration-test lint arch vuln install-tools
+.PHONY: all check fmt-check generate manifests generated-check build vet test chart-test integration-test keycloak-integration-test lint arch vuln install-tools release-dry-run
 all: check build
 check: fmt-check vet test chart-test
 
@@ -65,3 +66,11 @@ install-tools: $(GOLANGCI_LINT)
 	go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
 	go install github.com/fe3dback/go-arch-lint@$(GO_ARCH_LINT_VERSION)
 	go install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
+
+# Inputs must be the archive, digest and fresh evidence from the OCI security job.
+# COSIGN/ATTEST/OPENSSL are paths to the pinned tools and OpenSSL 3.
+release-dry-run:
+	python3 scripts/release-dry-run.py --version $(RELEASE_VERSION) --revision "$(REVISION)" \
+		--digest "$(DIGEST)" --archive "$(OCI_ARCHIVE)" --evidence "$(OCI_EVIDENCE)" \
+		--output "$(DRY_RUN_OUTPUT)" --helm "$$(command -v helm)" \
+		--cosign "$(COSIGN)" --attest "$(ATTEST)" --openssl "$(OPENSSL)"

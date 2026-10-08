@@ -1,5 +1,6 @@
 {{- include "hanko-operator.validateProfile" . }}
 {{- include "hanko-operator.validateMetrics" . }}
+{{- if not (kindIs "bool" .Values.leaderElect) }}{{ fail "leaderElect must be a boolean" }}{{ end }}
 {{- if regexMatch "-(alpha|beta|rc)([.-]|$)" .Capabilities.KubeVersion.Version }}
 {{- fail "Kubernetes alpha, beta and release-candidate versions are incompatible with this chart's qualification policy" }}
 {{- end }}
@@ -124,9 +125,7 @@ spec:
             - --health-probe-bind-address=:8081
             - --metrics-bind-address={{ ternary ":8080" "0" .Values.metrics.enabled }}
             - --watch-namespace={{ .Release.Namespace }}
-            {{- if .Values.leaderElect }}
-            - --leader-elect
-            {{- end }}
+            - --leader-elect={{ .Values.leaderElect }}
           ports:
             {{- if .Values.metrics.enabled }}
             - name: metrics

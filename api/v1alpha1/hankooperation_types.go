@@ -27,9 +27,10 @@ type HankoOperationType string
 const (
 	// OperationUpgrade upgrades the Keycloak container image.
 	OperationUpgrade HankoOperationType = "Upgrade"
-	// OperationClone clones a Keycloak instance into a new HankoKeycloakInstance.
+	// OperationClone creates an external instance alias using the source connection
+	// and imports supported configuration; it does not copy a database.
 	OperationClone HankoOperationType = "Clone"
-	// OperationDBSwitch switches the backing database of a Keycloak instance.
+	// OperationDBSwitch changes the database Secret reference without data migration.
 	OperationDBSwitch HankoOperationType = "DBSwitch"
 )
 
@@ -45,7 +46,7 @@ type HankoOperationSpec struct {
 	InstanceRef string `json:"instanceRef"`
 
 	// SnapshotBefore controls whether a HankoSnapshot is created before the operation.
-	// Defaults to true — always recommended.
+	// This is configuration-only, not a database backup. Defaults to true.
 	// +kubebuilder:default=true
 	SnapshotBefore *bool `json:"snapshotBefore,omitempty"`
 
@@ -58,7 +59,8 @@ type HankoOperationSpec struct {
 	// DBSwitch holds parameters for the DBSwitch operation.
 	DBSwitch *DBSwitchSpec `json:"dbSwitch,omitempty"`
 
-	// DryRun validates the operation without applying any changes.
+	// DryRun skips planned steps without applying them; it does not validate
+	// provider compatibility, database migration or recoverability.
 	DryRun bool `json:"dryRun,omitempty"`
 }
 
@@ -78,7 +80,7 @@ type CloneSpec struct {
 	// TargetNamespace is the namespace for the clone. Defaults to the source namespace.
 	TargetNamespace string `json:"targetNamespace,omitempty"`
 
-	// IncludeData triggers a data snapshot (pg_dump) for the clone.
+	// IncludeData is retained for API compatibility but has no effect in 0.1.0.
 	IncludeData bool `json:"includeData,omitempty"`
 }
 

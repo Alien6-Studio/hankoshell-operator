@@ -32,9 +32,10 @@ spec:
     schema:
       openAPIV3Schema:
         description: |-
-          HankoSnapshot is a point-in-time backup of a Keycloak instance.
+          HankoSnapshot records supported operator configuration for a Keycloak instance.
           It stores the operator CRD config in a ConfigMap and optionally
           triggers a pg_dump Job for the database.
+          Portable backup/restore and database consistency are not qualified by 0.1.0.
         properties:
           apiVersion:
             description: |-
@@ -67,6 +68,8 @@ spec:
                   IncludeData triggers a pg_dump Job in addition to the config snapshot.
                   Requires the instance to be in managed mode with a Database secret,
                   and BackupPVC must be set to a PVC where the dump file will be written.
+                  The postgres:16-alpine job image is separate from the scanned operator image
+                  and is not covered by the operator's image-signature verification policy.
                 type: boolean
               instanceRef:
                 description: InstanceRef is the name of the HankoKeycloakInstance

@@ -327,8 +327,12 @@ class ReleaseWorkflowSecurityTests(unittest.TestCase):
         self.assertIn('image.tar@$DIGEST', steps[scan]["run"])
         self.assertIn('--image "$IMAGE@$DIGEST"', steps[sign]["run"])
         self.assertIn('--image "$IMAGE@$DIGEST"', steps[attest]["run"])
-        for filename in ("oci-security.json", "trivy-amd64.json", "trivy-arm64.json", "oci-vulnerability-policy.json"):
-            self.assertIn(filename, steps[sign]["run"])
+        self.assertIn("scripts/release-contract.py prepare", steps[sign]["run"])
+        self.assertIn('--evidence "$RUNNER_TEMP/hankoshell-scanned-oci/evidence"', steps[sign]["run"])
+        packaging = (Path(__file__).parents[1] / "scripts/release-contract.py").read_text()
+        for filename in ("oci-security.json", "trivy-amd64.json", "trivy-arm64.json"):
+            self.assertIn(filename, packaging)
+        self.assertIn("shutil.copyfile(security.POLICY", packaging)
         self.assertIn('$IMAGE:staging-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT', steps[scan]["run"])
         self.assertIn('"$IMAGE@$DIGEST" "$VERSION"', steps[promote]["run"])
         self.assertIn('"$IMAGE:$VERSION")" = "$DIGEST"', steps[promote]["run"])

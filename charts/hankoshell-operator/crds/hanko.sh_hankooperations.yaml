@@ -61,8 +61,8 @@ spec:
                 description: Clone holds parameters for the Clone operation.
                 properties:
                   includeData:
-                    description: IncludeData triggers a data snapshot (pg_dump) for
-                      the clone.
+                    description: IncludeData is retained for API compatibility but
+                      has no effect in 0.1.0.
                     type: boolean
                   targetName:
                     description: TargetName is the name for the new HankoKeycloakInstance.
@@ -86,7 +86,9 @@ spec:
                 - newDatabaseSecretRef
                 type: object
               dryRun:
-                description: DryRun validates the operation without applying any changes.
+                description: |-
+                  DryRun skips planned steps without applying them; it does not validate
+                  provider compatibility, database migration or recoverability.
                 type: boolean
               instanceRef:
                 description: InstanceRef is the name of the HankoKeycloakInstance
@@ -96,7 +98,7 @@ spec:
                 default: true
                 description: |-
                   SnapshotBefore controls whether a HankoSnapshot is created before the operation.
-                  Defaults to true — always recommended.
+                  This is configuration-only, not a database backup. Defaults to true.
                 type: boolean
               type:
                 description: Type is the operation to perform.

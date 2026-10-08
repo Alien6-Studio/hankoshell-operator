@@ -41,9 +41,11 @@ role scopes. Effective token roles are the intersection of user mappings and
 client scopes, including composites and inherited group roles.
 
 Provision the credential through your secret manager into an existing Kubernetes
-Secret. The keys are `HANKO_KEYCLOAK_URL`, `HANKO_KC_CLIENT_ID` and
-`HANKO_KC_CLIENT_SECRET`. Reference it with `keycloak.credentialsSecret`, or
-`HankoKeycloakInstance.spec.adminRef`; reference a CA Secret separately when needed.
+Secret. For the chart's default connection, set `keycloak.url` and reference
+`keycloak.credentialsSecret` with keys `client-id` and `client-secret`.
+An instance `spec.adminRef` (or tenant connection Secret) instead uses
+`HANKO_KEYCLOAK_URL`, `HANKO_KC_CLIENT_ID` and `HANKO_KC_CLIENT_SECRET`.
+Reference a CA Secret separately when needed.
 No client secret belongs in a CRD, Helm values committed to Git, or a sample manifest.
 
 The operator checks pre-provisioned access. It **does not create master proxy
@@ -179,9 +181,17 @@ credential, retire the previous secret, and audit the transition without logging
 secret values or tokens. Exercise failure/recovery in a non-production realm.
 
 Application and `HankoServiceAccount` credential rotation needs only target
-`manage-clients`. The optional `HankoKeycloakInstance` automatic rotation acts on
-the operator's master client and needs master `manage-clients`; it has greater
-impact and should not be enabled to satisfy application rotation requirements.
+`manage-clients`. A `HankoKeycloakInstance` also attempts automatic rotation of
+its administrative client after `HANKO_KC_SA_MAX_AGE` (90 days by default),
+including in external mode. That operation needs master `manage-clients` when
+the credential client is in master; this is broader authority than application
+rotation. There is no disable flag for this instance lifecycle behavior.
+The chart's default connection does not require an instance resource.
+For externally managed credentials, rotate before that deadline and update the
+Secret's `hanko.sh/sa-rotated-at` annotation after successful synchronization.
+Do not grant master authority merely to suppress a failed rotation.
+Rotation can update the provider and Secret before audit delivery succeeds;
+an audit failure reports a degraded state, not a rollback of the secret change.
 Secret rotation alone does not guarantee revocation of already issued bearer tokens.
 
 ## Revocation and incident response

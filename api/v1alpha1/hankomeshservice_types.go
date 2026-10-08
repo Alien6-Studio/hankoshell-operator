@@ -54,15 +54,14 @@ type HankoMeshServiceSpec struct {
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`
 	WorkloadServiceAccountRef string `json:"workloadServiceAccountRef"`
 
-	// EnforcementMode makes source and destination activation independent.
-	// auditOnly keeps the immutable registration visible to Hanko but omits it
-	// from the signed Continuum enforcement policy. The empty value preserves
-	// the original Bidirectional behavior.
+	// EnforcementMode declares directional registration intent for downstream policy.
+	// The operator only audits/projects policy; it does not enforce workload traffic.
+	// The empty value preserves the original bidirectional registration intent.
 	// +kubebuilder:validation:Enum=bidirectional;ingressOnly;egressOnly;auditOnly
 	// +optional
 	EnforcementMode string `json:"enforcementMode,omitempty"`
 
-	// Ports is the non-empty set of exact Service ports protected by Continuum.
+	// Ports is the non-empty set of exact Service ports registered for downstream policy.
 	// +listType=map
 	// +listMapKey=protocol
 	// +listMapKey=port

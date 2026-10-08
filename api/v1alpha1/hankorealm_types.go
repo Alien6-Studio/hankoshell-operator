@@ -229,7 +229,9 @@ type RealmSecurityProfile struct {
 	SessionIdleTimeout string `json:"sessionIdleTimeout,omitempty"`
 
 	// SSLRequired controls TLS enforcement on the Keycloak realm.
-	// "external" (default) enforces TLS for non-localhost connections.
+	// "external" (default) uses Keycloak's external-client TLS requirement,
+	// including its local/private-address exceptions. This does not configure
+	// the operator's administrative transport.
 	// +kubebuilder:validation:Enum=none;external;all
 	// +kubebuilder:default=external
 	SSLRequired string `json:"sslRequired,omitempty"`

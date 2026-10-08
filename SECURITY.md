@@ -15,9 +15,10 @@ provider security patch within it; an end-of-life or provider-extended version
 does not receive additional project qualification. See the
 [Kubernetes compatibility and hardening matrix](docs/secure-deployment.md#kubernetes-compatibility-and-hardening).
 
-The project is in initial development; public APIs may change between minor
-versions before `1.0.0`. Reports against `main` are welcome, but use a tagged
-release for deployments.
+Version 0.1.0 is a normal SemVer release in initial development, not a beta or
+prerelease. The `v1alpha1` APIs are experimental and may change between minor
+versions before `1.0.0`. Reports against `main` are welcome; deploy reviewed
+tagged releases when available.
 
 ## Final OCI image vulnerability gate
 
@@ -70,6 +71,11 @@ is assigned only after scan, source/compatibility CI, signature verification,
 packaging/checksum verification and strict Continuum Attest delivery verification.
 Failed gates cannot publish a new release image tag or chart.
 
+After these gates, package promotion and GitHub draft creation are separate
+network operations, not an atomic transaction. A later publication failure may
+leave already verified OCI packages available. Maintainers must inspect those
+references before retrying. GitHub Release publication is a separate manual step.
+
 Release assets include `oci-security.json`, both complete `trivy-*.json` reports
 and the reviewed policy. Their hashes enter the signed checksums and Attest
 receipt. The delivered chart selects the same `image@sha256` in its default
@@ -78,6 +84,12 @@ report is a database-based evaluation of detected inventory; provenance records
 producer build claims; a signature authenticates content under a signing identity;
 Continuum Attest signs/timestamps/recomputes the delivery bindings. None of those
 alone proves absence of vulnerabilities, and Attest does not supervise the build.
+
+The required release dry run packages the scanned image's digest and exercises
+local signatures and RFC 3161 timestamps with ephemeral fixture trust. It never
+publishes packages, tags or releases. It does not qualify production GitHub OIDC,
+the release signer/TSA configuration, registry access or Artifact Hub ownership.
+The Attest receipt public key is not a Helm OpenPGP chart-signing key.
 
 ## Report a vulnerability
 

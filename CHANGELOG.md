@@ -6,7 +6,73 @@ First standalone hankoShell Operator distribution, extracted from the platform
 under Apache-2.0. This entry describes the prepared source; no public artifact
 or target-cluster qualification is implied by the version number.
 
+<!-- release-notes:start -->
+### Release overview
+
+hankoShell Operator 0.1.0 reconciles declarative Keycloak IAM configuration from
+Kubernetes. Application login clients, redirect URLs, token claims, roles and
+machine identities can be reviewed alongside deployment manifests. Reconciliation
+updates the supported fields/resources under the operator's ownership; observation
+and import allow administrators to review existing configuration before adoption.
+Hub, hankoShell API and Continuum fleet integrations are optional for this use case.
+Project: https://hanko.sh.
+
+Capabilities include realms, reusable IAM/MFA policies, application and client
+roles, identity providers/mappers, resource-server configuration, service accounts
+and client-secret rotation. Keycloak still performs login, token issuance and
+authentication email delivery. The operator is not a general user-provisioning tool.
+
+Qualification covers Linux Kubernetes **1.35–1.37**, using API-server/etcd fixtures
+**1.35.0, 1.36.2 and 1.37.0** for all 16 CRDs, server-side apply, RBAC and Restricted
+admission. Real HTTPS Keycloak Admin API v1 tests cover **26.8.0 and 26.7.5**,
+including reconciliation, least-privilege identities, denied operations and
+ownership/finalizers. Other Keycloak patches/major lines and Kubernetes minors
+are unqualified. This is not cloud, node, CNI/CSI, browser-login or production
+database qualification.
+
+Administrative transport requires verified HTTPS by default. Intentionally
+trusted HTTP requires an explicit standard-profile acknowledgement; enterprise
+remains HTTPS-only. Use a dedicated credential with the documented target-realm
+permissions, namespace-scoped RBAC, non-root Restricted pod settings and explicit
+default-deny networking. Credentials stay in referenced Secrets. Metrics are
+disabled by default; enabled metrics use plaintext HTTP with constrained ingress.
+Hub bundles use token-derived HMAC, not an independent publisher signature.
+Mesh policy projection is audit-only, not workload enforcement.
+
+Install the reviewed source chart, or the published
+`oci://ghcr.io/alien6-studio/charts/hankoshell-operator` chart at version `0.1.0`
+when available, following the [secure deployment guide](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md)
+and [permission model](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/keycloak-permissions.md).
+Published chart values select the scanned multi-architecture image digest.
+Source govulncheck and final-image scans (including embedded cosign) are additive;
+fixable HIGH/CRITICAL findings block delivery. BuildKit SBOM/provenance, Sigstore
+signatures and signed/timestamped Continuum Attest delivery bindings have distinct
+purposes; none guarantees absence of vulnerabilities.
+
+**0.1.0 is a normal SemVer release in initial development, not a prerelease.**
+The `hanko.sh/v1alpha1` APIs are experimental and may change across minor versions
+before 1.0. Portable backup/restore is not qualified; snapshots, clones and
+database-reference switches are not a tested disaster-recovery path. Rolling back
+the operator does not undo provider deletion, credential rotation or CRD changes.
+Deployment-specific image admission, database recovery and enterprise integration
+require administrator qualification. Report vulnerabilities privately through
+[GitHub security advisories](https://github.com/Alien6-Studio/hankoshell-operator/security/advisories/new);
+response targets and supported versions are in SECURITY.md.
+<!-- release-notes:end -->
+
 ### Added
+
+- Shared release packaging contract and a required nonpublishing rehearsal using
+  the exact scanned OCI archive, curated notes, checksums, local cosign signature
+  and native signed/timestamped/recomputed Continuum Attest fixture evidence.
+  Production signer/TSA, GitHub OIDC, registry publication and Artifact Hub
+  ownership remain separate launch requirements.
+- Align documentation, CRD descriptions and catalog metadata with normal 0.1.0
+  initial-development releases and experimental v1alpha1 APIs. Explain lifecycle
+  and privileged-operation limits; replace the misleading Helm signKey annotation
+  with an explicitly named Attest delivery verification-key link.
+- Honor the existing `leaderElect: false` chart setting by passing an explicit
+  boolean manager flag; default election remains enabled. Reject non-boolean values.
 
 - Tested Keycloak administrative permission contract for existing realms, optional
   features and read-only import/observation, with required positive and denied
