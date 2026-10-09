@@ -456,7 +456,10 @@ class System:
         fields = {"grant_type": "client_credentials", "client_id": doc["clientID"], "client_secret": credential}
         # HTTPS response acceptance and issuer/audience are asserted here. Full
         # JWT/JWKS signature verification lives in both real-Keycloak flow suites.
-        with urlopen(Request(self.endpoint + "/realms/managed/protocol/openid-connect/token", data=urlencode(fields).encode()), context=self.http, timeout=10) as response:
+        # Port forwarding changes the socket address; preserve the workload-facing
+        # Host so Keycloak issues the same issuer advertised inside Kubernetes.
+        with urlopen(Request(self.endpoint + "/realms/managed/protocol/openid-connect/token", data=urlencode(fields).encode(),
+                             headers={"Host": "keycloak.auth.svc:8443"}), context=self.http, timeout=10) as response:
             data = response.read(65_537)
         if len(data) > 65_536:
             raise ValueError("Runtime token response too large")
