@@ -161,8 +161,8 @@ class System:
         if version != "v1.37.0":
             raise ValueError("Unexpected system Kubernetes version")
 
-    def secret(self, name, values):
-        return {"apiVersion": "v1", "kind": "Secret", "metadata": {"name": name, "namespace": "auth"},
+    def secret(self, name, values, namespace="auth"):
+        return {"apiVersion": "v1", "kind": "Secret", "metadata": {"name": name, "namespace": namespace},
                 "data": {key: base64.b64encode(value.encode()).decode() for key, value in values.items()}}
 
     def keycloak(self):
@@ -262,6 +262,94 @@ class System:
             if result != expected:
                 raise ValueError("Operator Kubernetes namespace boundary differs")
 
+    def standalone_organizations(self):
+        # Isolate the existing optional group/organization profile. The common
+        # operator's user/IdP denial checks and credentials remain unchanged.
+        realm, namespace = "organization-target", "org-auth"
+        credential = secrets.token_hex(32)
+        self.sensitive.append(credential)
+        self.api("POST", "/admin/realms", {"realm": realm, "enabled": True})
+        self.api("POST", f"/admin/realms/{realm}/roles", {"name": "reader"})
+        self.api("POST", f"/admin/realms/{realm}/clients", {"clientId": "organization-app", "enabled": True, "publicClient": True})
+        app = self.client(realm, "organization-app")
+        self.api("POST", f'/admin/realms/{realm}/clients/{app["id"]}/roles', {"name": "access"})
+        self.api("POST", "/admin/realms/master/clients", {
+            "clientId": "organization-operator", "secret": credential, "protocol": "openid-connect",
+            "enabled": True, "publicClient": False, "serviceAccountsEnabled": True,
+            "standardFlowEnabled": False, "directAccessGrantsEnabled": False, "fullScopeAllowed": False})
+        identity, proxy = self.client("master", "organization-operator"), self.client("master", realm + "-realm")
+        user = self.api("GET", f'/admin/realms/master/clients/{identity["id"]}/service-account-user')
+        roles = [self.api("GET", f'/admin/realms/master/clients/{proxy["id"]}/roles/{name}')
+                 for name in ("manage-realm", "manage-clients", "manage-users")]
+        self.api("POST", f'/admin/realms/master/users/{user["id"]}/role-mappings/clients/{proxy["id"]}', roles)
+        self.api("POST", f'/admin/realms/master/clients/{identity["id"]}/scope-mappings/clients/{proxy["id"]}', roles)
+        constrained = self.access_token({"client_id": "organization-operator", "client_secret": credential, "grant_type": "client_credentials"})
+        for path in ("/admin/realms/master/clients", "/admin/realms/managed/clients",
+                     f"/admin/realms/{realm}/identity-provider/instances"):
+            self.api("GET", path, token=constrained, expected=(403,))
+        self.api("POST", "/admin/realms", {"realm": "organization-denied"}, token=constrained, expected=(403,))
+        self.apply({"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": namespace, "labels": {
+            "pod-security.kubernetes.io/enforce": "restricted", "pod-security.kubernetes.io/enforce-version": "v1.37"}}},
+            self.secret("operator-credentials", {"client-id": "organization-operator", "client-secret": credential}, namespace),
+            self.secret("operator-ca", {"ca.crt": (self.private / "tls.crt").read_text()}, namespace))
+        values = yaml.safe_load((self.private / "values.yaml").read_text())
+        values["fullnameOverride"] = "organization-operator"
+        values["networkPolicy"]["keycloakNamespace"] = "auth"
+        # Do not override organizationProjection: qualify the chart default.
+        config = self.private / "organization-values.yaml"
+        config.write_text(yaml.safe_dump(values))
+        run([self.args.helm, "install", "organizations", ROOT / "charts/hankoshell-operator", "--namespace", namespace,
+             "--kubeconfig", self.config, "--values", config, "--wait", "--timeout", "180s"])
+        pod = json.loads(self.kubectl("get", "pods", "-n", namespace, "-l", "app.kubernetes.io/instance=organizations", "-o", "json"))["items"][0]
+        container = pod["spec"]["containers"][0]
+        env = {entry["name"]: entry for entry in container["env"]}
+        if (container["image"] != self.registry + "/hankoshell-operator@" + self.args.digest
+                or env["HANKO_ORGANIZATION_PROJECTION_ENABLED"].get("value") != "false"
+                or "HANKO_API_URL" in env or "HANKO_API_TOKEN" in env):
+            raise ValueError("Installed standalone projection/image contract differs")
+
+        def organization_ready(name):
+            value = self.get("hankoorganization", name, namespace)
+            status, generation = value.get("status", {}), value["metadata"]["generation"]
+            conditions = {condition["type"]: condition for condition in status.get("conditions", [])}
+            return (status.get("phase") == "Ready" and status.get("observedGeneration") == generation
+                    and status.get("groupID") and not status.get("positionID")
+                    and all(conditions.get(kind, {}).get("status") == outcome
+                            and conditions[kind].get("reason") == reason
+                            and conditions[kind].get("observedGeneration") == generation
+                            for kind, outcome, reason in (("Synced", "True", "Reconciled"), ("Projection", "Unknown", "Disabled"))))
+
+        for name, parent in (("root", ""), ("child", "root")):
+            desired = {"realmRef": realm, "name": name, "roles": ["reader"],
+                       "clientRoles": [{"client": "organization-app", "roles": ["access"]}]}
+            if parent:
+                desired["parentRef"] = parent
+            else:
+                desired.update({"slug": "system-organization", "domains": ["company.invalid"]})
+            self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoOrganization",
+                        "metadata": {"name": name, "namespace": namespace}, "spec": desired})
+        for name in ("root", "child"):
+            wait("installed standalone organization " + name, lambda name=name: organization_ready(name))
+        objects = [self.get("hankoorganization", name, namespace) for name in ("root", "child")]
+        for value, path in zip(objects, ("/root", "/root/child")):
+            group_id = value["status"]["groupID"]
+            group = self.api("GET", f"/admin/realms/{realm}/groups/{group_id}")
+            if group["path"] != path or group.get("attributes", {}).get("hanko.sh/organization-uid") != [value["metadata"]["uid"]]:
+                raise ValueError("Installed provider hierarchy/UID ownership differs")
+            realm_roles = self.api("GET", f"/admin/realms/{realm}/groups/{group_id}/role-mappings/realm")
+            client_roles = self.api("GET", f'/admin/realms/{realm}/groups/{group_id}/role-mappings/clients/{app["id"]}')
+            if {role["name"] for role in realm_roles} != {"reader"} or {role["name"] for role in client_roles} != {"access"}:
+                raise ValueError("Installed organization role bindings differ")
+        native_id = objects[0]["status"]["orgID"]
+        native = self.api("GET", f"/admin/realms/{realm}/organizations/{native_id}")
+        if (native["alias"] != "system-organization" or native.get("attributes", {}).get("hanko.sh/organization-uid") != [objects[0]["metadata"]["uid"]]
+                or {domain["name"] for domain in native.get("domains", [])} != {"company.invalid"}):
+            raise ValueError("Installed root Organization alias/domains/UID differs")
+        for value in reversed(objects):
+            self.kubectl("delete", "hankoorganization", value["metadata"]["name"], "-n", namespace, "--wait=true", "--timeout=120s")
+            self.api("GET", f'/admin/realms/{realm}/groups/{value["status"]["groupID"]}', expected=(404,))
+        self.api("GET", f"/admin/realms/{realm}/organizations/{native_id}", expected=(404,))
+
     def reject_wrong_ca(self):
         wrong_cert, wrong_key = self.private / "wrong-ca.crt", self.private / "wrong-ca.key"
         run([self.args.openssl, "req", "-new", "-x509", "-newkey", "rsa:2048", "-nodes", "-sha256",
@@ -360,11 +448,14 @@ class System:
             raise ValueError("Finalizer left the managed client behind")
         self.kubectl("delete", "hankoapplication", "observe", "-n", "auth", "--wait=true", "--timeout=30s")
         self.client("managed", "unmanaged")
+        self.standalone_organizations()
         # Verify logs, events and every stored CRD, never exposing Secret values.
-        data = self.kubectl("logs", "deployment/system-operator", "-n", "auth") + self.kubectl("get", "events", "-n", "auth", "-o", "json")
-        for crd in json.loads(self.kubectl("get", "crds", "-o", "json"))["items"]:
-            if crd["spec"]["group"] == "hanko.sh":
-                data += self.kubectl("get", crd["metadata"]["name"], "-n", "auth", "-o", "json")
+        data = ""
+        for namespace, deployment in (("auth", "system-operator"), ("org-auth", "organization-operator")):
+            data += self.kubectl("logs", "deployment/" + deployment, "-n", namespace) + self.kubectl("get", "events", "-n", namespace, "-o", "json")
+            for crd in json.loads(self.kubectl("get", "crds", "-o", "json"))["items"]:
+                if crd["spec"]["group"] == "hanko.sh":
+                    data += self.kubectl("get", crd["metadata"]["name"], "-n", namespace, "-o", "json")
         if any(value in data for value in self.sensitive) or re.search(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", data):
             raise ValueError("Credential detected in system logs/events/CRDs (withheld)")
 
@@ -391,7 +482,7 @@ def main():
     for name in ("digest", "revision"):
         parser.add_argument("--" + name, required=True)
     args = parser.parse_args()
-    publication.publish.contract.security.verify(args.evidence, args.revision, "0.1.0", args.digest, args.archive)
+    publication.publish.contract.security.verify(args.evidence, args.revision, "0.2.0", args.digest, args.archive)
     with tempfile.TemporaryDirectory(prefix="hankoshell-system-private-") as temp:
         system = System(args, Path(temp))
         try:
@@ -402,13 +493,16 @@ def main():
             system.install()
             print("System: scanned operator installed through Helm", flush=True)
             system.reconcile()
-            args.output.write_text(json.dumps({"version": "0.1.0", "revision": args.revision, "image_digest": args.digest,
+            args.output.write_text(json.dumps({"version": "0.2.0", "revision": args.revision, "image_digest": args.digest,
                 "kubernetes": "1.37.0", "keycloak": "26.8.0", "result": "pass",
                 "checks": ["Helm installation and real pod startup under Restricted admission", "namespace RBAC and current-API event recording",
                            "verified private-CA HTTPS, wrong-CA readiness/write denial and trust repair", "scoped Keycloak identity and denied authority", "realm/client/roles/Secret reconciliation",
                            "IAM role and authorization evaluated/applied/read-back evidence, UID ownership and finalizer cleanup",
+                           "standalone root/child organization, native alias/domains, role bindings, Synced=True and Projection=Unknown/Disabled, no API URL/token/PositionID and child-first finalizer cleanup",
                            "drift recovery after manager restart without duplicate client or credential rotation", "managed finalizer and Observe preservation",
                            "no credentials in logs/events/CRDs"],
+                "organization_permissions": {"scope": "organization-target only", "roles": ["manage-realm", "manage-clients", "manage-users"],
+                                             "denied": ["master administration", "managed realm administration", "realm creation", "identity providers"]},
                 "limitations": ["single disposable kind node and Keycloak dev-file database",
                                 "kindnet does not enforce NetworkPolicy; CNI, CSI/cloud, enterprise fleet and DB recovery unqualified"]}, indent=2) + "\n")
             print("System qualification passed", flush=True)

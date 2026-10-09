@@ -47,7 +47,7 @@ var adminOperations = []AdminOperation{
 	{"groups", "GET", "/admin/realms/{realm}/group-by-path/{path...}", "view-users or manage-users"},
 	{"groups", "POST", "/admin/realms/{realm}/groups", "manage-users"},
 	{"groups", "GET,PUT,DELETE", "/admin/realms/{realm}/groups/{group}", "view-users / manage-users"},
-	{"groups", "POST", "/admin/realms/{realm}/groups/{group}/children", "manage-users"},
+	{"groups", "GET,POST", "/admin/realms/{realm}/groups/{group}/children", "view-users / manage-users"},
 	{"group-roles", "GET", "/admin/realms/{realm}/groups/{group}/role-mappings", "view-users"},
 	{"group-roles", "GET,POST", "/admin/realms/{realm}/groups/{group}/role-mappings/realm", "view-users / manage-users and permission to map the realm role"},
 	{"group-roles", "GET,POST", "/admin/realms/{realm}/groups/{group}/role-mappings/clients/{client}", "view-users / manage-users and permission to map the client role"},

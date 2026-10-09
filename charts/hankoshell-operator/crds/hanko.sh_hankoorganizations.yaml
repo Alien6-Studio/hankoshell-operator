@@ -152,11 +152,14 @@ spec:
                 && !r.startsWith(''HANKO_PLATFORM_'') && !r.startsWith(''HANKO_FLEET_'')
                 && !r.startsWith(''HANKO_CLUSTER_''))'
           status:
-            description: HankoOrganizationStatus describes the observed state of the
-              organization.
+            description: |-
+              HankoOrganizationStatus separates Keycloak Synced readiness from the optional
+              platform Projection. Ready standalone organizations do not need a PositionID.
             properties:
               conditions:
-                description: Conditions holds standard Kubernetes condition objects.
+                description: |-
+                  Conditions separates provider Synced from optional platform Projection.
+                  Disabled projection is Unknown/Disabled, not a synchronization failure.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -224,7 +227,9 @@ spec:
                 format: date-time
                 type: string
               observedGeneration:
-                description: ObservedGeneration is the spec generation last reconciled.
+                description: |-
+                  ObservedGeneration is the latest generation processed into status, including
+                  provider or projection failures; it is not proof of successful application.
                 format: int64
                 type: integer
               orgID:
@@ -233,7 +238,10 @@ spec:
                   Empty on internal nodes, which are groups only.
                 type: string
               phase:
-                description: Phase summarises the reconciliation state.
+                description: |-
+                  Phase is Ready when Keycloak is synchronized and projection is disabled or
+                  healthy. Configured projection failures are Error; parent projection waits
+                  are Pending even when provider Synced is True.
                 enum:
                 - Pending
                 - Reconciling
@@ -243,7 +251,8 @@ spec:
               positionID:
                 description: |-
                   PositionID is the hankoShell API position projected for hankoShell and ADK
-                  consumers. A Ready organization always has both GroupID and PositionID.
+                  consumers. It is optional, last-known platform metadata and never provider
+                  authority. Disabling projection retains it without making API calls.
                 type: string
             type: object
         type: object

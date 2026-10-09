@@ -188,11 +188,11 @@ write/read roles and denied to an unprivileged service account. No role grant ex
 The exact-image installed-system suite also reconciles a HankoRole through the
 running manager and checks the ownership marker, description and finalizer cleanup.
 All existing Kubernetes, provider, OCI, supply-chain and release rehearsal gates
-remain mandatory. Chart/app release metadata stays **0.1.0**: introducing a new
-development version convention is separate work; the immutable v0.1.0 tag keeps
-its original source/workflow. Development changes are recorded under 0.2 Unreleased.
+remain mandatory. Current chart/app metadata is **0.2.0** after completion of the IAM Contract
+Engine milestone. The immutable v0.1.0 tag keeps its original source/workflow;
+source completion does not imply production publication.
 
-Next: [#28](https://github.com/Alien6-Studio/hankoshell-operator/issues/28) addresses
+[#28](https://github.com/Alien6-Studio/hankoshell-operator/issues/28) completes
 standalone organization readiness versus configured optional projection. Provider
 parity is not assumed; realm/application migration remains staged according to the
 [field boundaries](provider-boundaries.md).

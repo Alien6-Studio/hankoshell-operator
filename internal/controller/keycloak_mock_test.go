@@ -295,6 +295,14 @@ func (m *mockKeycloak) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 
 	case r.Method == http.MethodDelete && reOrganizationByID.MatchString(path):
+		parts := reOrganizationByID.FindStringSubmatch(path)
+		remaining := []keycloak.Organization{}
+		for _, native := range m.organizations[parts[1]] {
+			if native.ID != parts[2] {
+				remaining = append(remaining, native)
+			}
+		}
+		m.organizations[parts[1]] = remaining
 		m.counts["deleteOrganization"]++
 		w.WriteHeader(http.StatusNoContent)
 
@@ -362,11 +370,34 @@ func (m *mockKeycloak) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusNotFound)
 
+	case r.Method == http.MethodGet && reGroupChildren.MatchString(path):
+		parts := reGroupChildren.FindStringSubmatch(path)
+		children := []keycloak.Group{}
+		for _, parent := range m.groupsByPath {
+			if parent.ID == parts[2] {
+				for _, child := range m.groupsByPath {
+					if strings.HasPrefix(child.Path, parent.Path+"/") && !strings.Contains(strings.TrimPrefix(child.Path, parent.Path+"/"), "/") {
+						children = append(children, child)
+					}
+				}
+			}
+		}
+		if len(children) > 1 {
+			children = children[:1]
+		}
+		writeJSON(w, children)
+
 	case r.Method == http.MethodPost && (reGroupsCollection.MatchString(path) || reGroupChildren.MatchString(path)):
 		m.counts["createGroup"]++
 		w.WriteHeader(http.StatusCreated)
 
 	case r.Method == http.MethodDelete && reGroupByID.MatchString(path):
+		parts := reGroupByID.FindStringSubmatch(path)
+		for key, group := range m.groupsByPath {
+			if strings.HasPrefix(key, parts[1]+"|") && group.ID == parts[2] {
+				delete(m.groupsByPath, key)
+			}
+		}
 		m.counts["deleteGroup"]++
 		w.WriteHeader(http.StatusNoContent)
 

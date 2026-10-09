@@ -1,6 +1,6 @@
 # Keycloak administrative permissions
 
-This is the permission contract for **hankoShell Operator 0.1.0**, verified against
+This is the permission contract for **hankoShell Operator 0.2.0**, verified against
 real Keycloak **26.8.0 and 26.7.5** over verified HTTPS with `client_credentials`.
 It covers the Admin REST API used by the operator. Kubernetes permissions and
 Hub/Continuum credentials are separate; see [secure deployment](secure-deployment.md).
@@ -20,7 +20,7 @@ powers of the minimum built-in-role profile. Use separate realms and identities
 when those powers cross a trust boundary. A fine-grained administration policy
 might reduce individual resource scope, but is **not qualified by this contract**.
 
-In 0.1.0 the credential client authenticates in **master**. Target-realm authority
+In 0.2.0 the credential client authenticates in **master**. Target-realm authority
 is granted through Keycloak's native **`<target-realm>-realm` client in master**.
 These client roles administer that target; they are not master administrative
 roles. Do not substitute master `admin` or the `master-realm` client roles.
@@ -51,7 +51,7 @@ No client secret belongs in a CRD, Helm values committed to Git, or a sample man
 The operator checks pre-provisioned access. It **does not create master proxy
 clients, administrative roles or role grants**, and a 403 is not repaired by
 self-elevation. Keycloak creates/removes its native proxy as part of realm lifecycle.
-Upgrading from an earlier preparation of 0.1.0 does not revoke existing excessive
+Upgrading from 0.1.0 does not revoke existing excessive
 grants automatically: an administrator must review and remove them.
 
 ## Permission and capability matrix
@@ -310,7 +310,7 @@ using the dedicated client's credentials.
 | groups | GET | `/admin/realms/{realm}/group-by-path/{path...}` | view-users or manage-users |
 | groups | POST | `/admin/realms/{realm}/groups` | manage-users |
 | groups | GET,PUT,DELETE | `/admin/realms/{realm}/groups/{group}` | view-users / manage-users |
-| groups | POST | `/admin/realms/{realm}/groups/{group}/children` | manage-users |
+| groups | GET,POST | `/admin/realms/{realm}/groups/{group}/children` | view-users / manage-users |
 | group-roles | GET | `/admin/realms/{realm}/groups/{group}/role-mappings` | view-users |
 | group-roles | GET,POST | `/admin/realms/{realm}/groups/{group}/role-mappings/realm` | view-users / manage-users and permission to map the realm role |
 | group-roles | GET,POST | `/admin/realms/{realm}/groups/{group}/role-mappings/clients/{client}` | view-users / manage-users and permission to map the client role |

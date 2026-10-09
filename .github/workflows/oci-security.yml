@@ -55,7 +55,7 @@ jobs:
           GOBIN="$RUNNER_TEMP/retry-tools" go install oras.land/oras/cmd/oras@v1.3.4
           printf '%s' "$GH_TOKEN" | "$RUNNER_TEMP/retry-tools/oras" login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           python3 scripts/release-publish.py restore --root "$RUNNER_TEMP/committed-delivery" \
-            --version 0.1.0 --revision "$GITHUB_SHA" \
+            --version 0.2.0 --revision "$GITHUB_SHA" \
             --oras "$RUNNER_TEMP/retry-tools/oras" --helm /unused/helm
           if test -f "$RUNNER_TEMP/committed-delivery/image.tar"; then
             cp "$RUNNER_TEMP/committed-delivery/image.tar" "$RUNNER_TEMP/hankoshell-oci/image.tar"
@@ -68,7 +68,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: false
           outputs: type=oci,dest=${{ runner.temp }}/hankoshell-oci/image.tar
-          build-args: VERSION=0.1.0
+          build-args: VERSION=0.2.0
           labels: |
             org.opencontainers.image.source=https://github.com/Alien6-Studio/hankoshell-operator
             org.opencontainers.image.revision=${{ github.sha }}
@@ -93,7 +93,7 @@ jobs:
         run: |
           python3 scripts/oci-security.py scan --archive "$RUNNER_TEMP/hankoshell-oci/image.tar" \
             --scanner "$RUNNER_TEMP/trivy" --output "$RUNNER_TEMP/hankoshell-oci/evidence" \
-            --digest "$DIGEST" --revision "$GITHUB_SHA" --version 0.1.0
+            --digest "$DIGEST" --revision "$GITHUB_SHA" --version 0.2.0
       - name: Preserve scanner evidence even on policy failure
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

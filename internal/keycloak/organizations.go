@@ -77,7 +77,11 @@ type OrganizationSpec struct {
 // GetOrganizationByAlias returns the organization with the exact alias, or nil
 // when absent. It never searches by mutable name or domain.
 func (c *Client) GetOrganizationByAlias(ctx context.Context, realm, alias string) (*Organization, error) {
-	return c.findOrganizationByAlias(ctx, realm, alias)
+	existing, err := c.findOrganizationByAlias(ctx, realm, alias)
+	if err != nil || existing == nil {
+		return existing, err
+	}
+	return c.GetOrganization(ctx, realm, existing.ID)
 }
 
 // GetOrganization returns one organization by its immutable Keycloak UUID.
@@ -154,6 +158,12 @@ func (c *Client) EnsureOrganization(ctx context.Context, realm string, spec Orga
 	existing, err := c.findOrganizationByAlias(ctx, realm, spec.Alias)
 	if err != nil {
 		return "", err
+	}
+	if existing != nil && spec.RequireOwnership {
+		existing, err = c.GetOrganization(ctx, realm, existing.ID)
+		if err != nil {
+			return "", err
+		}
 	}
 	if existing != nil && spec.RequireOwnership && !OrganizationMatchesOwnership(existing, spec.OwnershipAttributes, spec.LegacyOwnedID) {
 		return "", fmt.Errorf("%w: existing organization %q in realm %q is not owned by this HankoOrganization", ErrOrganizationOwnershipConflict, spec.Alias, realm)

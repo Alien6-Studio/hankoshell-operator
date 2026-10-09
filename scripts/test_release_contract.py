@@ -27,13 +27,27 @@ class ReleaseContractTests(unittest.TestCase):
                             "backup/restore", "security/advisories/new", "oci://", "https://hanko.sh"):
             self.assertIn(requirement, notes)
         with self.assertRaises(ValueError):
-            contract.check("0.1.0-beta.1")
+            contract.check("0.2.0-beta.1")
 
     def test_note_drift_or_missing_markers_cannot_be_published(self):
         with patch.object(Path, "read_text", return_value="no curated release notes"), self.assertRaises(ValueError):
             contract.notes()
         with self.assertRaises(ValueError):
             contract.notes("99.0.0")
+
+    def test_active_image_scan_and_rehearsal_versions_match_chart_contract(self):
+        makefile = (contract.ROOT / "Makefile").read_text()
+        self.assertEqual(re.search(r"^RELEASE_VERSION := (.+)$", makefile, re.M)[1], contract.VERSION)
+        for name in ("oci-security.yml", "ci.yml"):
+            jobs = yaml.safe_load((contract.ROOT / ".github/workflows" / name).read_text())["jobs"]
+            versions = []
+            for job in jobs.values():
+                for step in job.get("steps", []):
+                    versions += re.findall(r"--version (\d+\.\d+\.\d+)", step.get("run", ""))
+                    if "build-args" in step.get("with", {}):
+                        versions += re.findall(r"VERSION=(\d+\.\d+\.\d+)", step["with"]["build-args"])
+            self.assertTrue(versions, name)
+            self.assertEqual(set(versions), {contract.VERSION}, name)
 
     def test_release_and_rehearsal_use_the_same_packaging_and_immutable_image(self):
         workflows = contract.ROOT / ".github/workflows"
