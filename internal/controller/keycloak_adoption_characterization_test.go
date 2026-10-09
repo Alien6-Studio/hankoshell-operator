@@ -442,6 +442,7 @@ func TestRealKeycloakAdoptionCharacterization(t *testing.T) {
 	})
 
 	f.run("realm identity and owner metadata do not make realm deletion safe", func(t *testing.T) {
+		writer, _ := adoptionScopedWriter(f, "realm-owner-writer", "manage-realm")
 		before := reader.read(base)
 		if before["id"] == "" || before["id"] == nil {
 			t.Fatal("realm has no stable ID")
@@ -465,7 +466,7 @@ func TestRealKeycloakAdoptionCharacterization(t *testing.T) {
 		f.admin(http.MethodPost, "/admin/realms", map[string]any{"realm": "adoption-delete-boundary", "enabled": true}, nil)
 		f.admin(http.MethodPost, "/admin/realms/adoption-delete-boundary/clients", map[string]any{"clientId": "foreign-child"}, nil)
 		child := f.client("adoption-delete-boundary", "foreign-child")
-		f.grantClientRoles(writer.name, "adoption-delete-boundary", []string{"manage-realm", "view-clients"})
+		f.grantClientRoles(writer.name, "adoption-delete-boundary", []string{"manage-realm"})
 		fixtureEqual(t, "realm deletion primitive", writer.request(http.MethodDelete, "/admin/realms/adoption-delete-boundary", nil, nil), http.StatusNoContent)
 		fixtureEqual(t, "realm deletion cascades unrelated client", f.admin(http.MethodGet, "/admin/realms/adoption-delete-boundary/clients/"+child["id"].(string), nil, nil), http.StatusNotFound)
 	})
@@ -566,7 +567,7 @@ func TestRealKeycloakAdoptionCharacterization(t *testing.T) {
 		r := &controller.HankoImportReconciler{Client: kube, Scheme: newScheme(t), Pool: keycloak.NewPool(proxy)}
 		fixtureReconcile(f, ctx, r, operation)
 		fixtureGet(f, ctx, kube, operation)
-		if operation.Status.Phase != "Done" {
+		if operation.Status.Phase != "Done" || !applicationHasCondition(operation.Status.Conditions, "ImportReady", metav1.ConditionTrue, "PartialFailure") {
 			for _, c := range operation.Status.Conditions {
 				t.Logf("Import condition %s / %s", c.Type, c.Reason)
 			}
@@ -575,8 +576,11 @@ func TestRealKeycloakAdoptionCharacterization(t *testing.T) {
 		}
 		var apps api.HankoApplicationList
 		f.requireNoError(kube.List(ctx, &apps, client.InNamespace(operation.Namespace)))
+		if len(apps.Items) == 0 {
+			t.Fatal("application inventory not exercised")
+		}
 		for _, app := range apps.Items {
-			if app.Spec.Mode != "Observe" || app.Spec.Protocol == "saml" {
+			if app.Spec.Mode != "Observe" || app.Spec.Protocol == "saml" || app.Labels["hanko.sh/imported-by"] != operation.Name {
 				t.Fatal("import unexpectedly manages or imports SAML")
 			}
 		}
@@ -586,6 +590,15 @@ func TestRealKeycloakAdoptionCharacterization(t *testing.T) {
 		var accounts api.HankoServiceAccountList
 		f.requireNoError(kube.List(ctx, &realms, client.InNamespace(operation.Namespace)))
 		f.requireNoError(kube.List(ctx, &accounts, client.InNamespace(operation.Namespace)))
+		if len(realms.Items) != 1 || len(accounts.Items) == 0 {
+			t.Fatal("realm/service-account inventory not exercised")
+		}
+		for _, realm := range realms.Items {
+			fixtureEqual(t, "realm retains read-only import latch", realm.Labels["hanko.sh/imported-by"], operation.Name)
+		}
+		for _, account := range accounts.Items {
+			fixtureEqual(t, "service account retains read-only import latch", account.Labels["hanko.sh/imported-by"], operation.Name)
+		}
 		f.requireNoCredentials("imported realm/broker inventory", fixtureJSON(t, realms))
 		f.requireNoCredentials("imported account inventory", fixtureJSON(t, accounts))
 		for _, route := range routes() {
@@ -593,13 +606,21 @@ func TestRealKeycloakAdoptionCharacterization(t *testing.T) {
 				t.Fatal("inventory attempted forbidden route")
 			}
 		}
-		gap := false
+		gaps := 0
 		for _, finding := range operation.Status.Findings {
-			gap = gap || finding.Code == "application_protocol_import_unsupported"
+			if finding.Code == "application_protocol_import_unsupported" {
+				gaps++
+			}
 		}
-		if !gap {
+		if gaps == 0 {
 			t.Fatal("SAML discovery gap was hidden")
 		}
+		fixtureEqual(t, "only unsupported SAML clients skipped", operation.Status.Skipped.Applications, gaps)
+		fixtureEqual(t, "every supported client imported", operation.Status.Applied.Applications, operation.Status.Discovered.Applications-gaps)
+		fixtureEqual(t, "application manifests match applied count", len(apps.Items), operation.Status.Applied.Applications)
+		fixtureEqual(t, "realm manifest matches applied count", len(realms.Items), operation.Status.Applied.Realms)
+		fixtureEqual(t, "every service account imported", operation.Status.Applied.ServiceAccounts, operation.Status.Discovered.ServiceAccounts)
+		fixtureEqual(t, "account manifests match applied count", len(accounts.Items), operation.Status.Applied.ServiceAccounts)
 		if !strings.Contains(strings.Join(routes(), "\n"), "/identity-provider/instances") {
 			t.Fatal("broker inventory not exercised")
 		}

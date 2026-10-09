@@ -75,7 +75,10 @@ Sources: [import](../../internal/controller/hankoimport_controller.go),
 
 HankoImport is one-shot: Done/Failed is terminal. It generates Observe inventory,
 skips built-in/protected clients and already governed client identities, and never
-calls provider mutation/credential routes. Its current broker sanitization is a
+calls provider mutation/credential routes. With SAML clients present, it records
+unsupported findings and finishes Done with ImportReady/PartialFailure, while
+supported OIDC inventory is still created. Done alone does not mean full coverage.
+Its current broker sanitization is a
 **key-suffix heuristic**, not a complete arbitrary-native credential classifier.
 Unknown opaque configuration therefore cannot become an approvable general
 candidate. #47 replaces broad inferred config coverage with typed, reviewed
