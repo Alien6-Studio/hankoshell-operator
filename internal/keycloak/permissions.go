@@ -35,7 +35,7 @@ var adminOperations = []AdminOperation{
 	{"credentials", "GET", "/admin/realms/{realm}/clients/{client}/client-secret", "26.8.0: manage-clients; 26.7.5: view-clients also exposes secrets"},
 	{"credentials", "POST", "/admin/realms/{realm}/clients/{client}/client-secret", "manage-clients"},
 	{"client-roles", "GET,POST", "/admin/realms/{realm}/clients/{client}/roles", "view-clients / manage-clients"},
-	{"client-roles", "GET,DELETE", "/admin/realms/{realm}/clients/{client}/roles/{role}", "view-clients / manage-clients"},
+	{"client-roles", "GET,PUT,DELETE", "/admin/realms/{realm}/clients/{client}/roles/{role}", "view-clients / manage-clients"},
 	{"client-roles", "GET", "/admin/realms/{realm}/clients/{client}/roles/{role}/composites", "view-clients"},
 	{"client-scopes", "GET,POST,DELETE", "/admin/realms/{realm}/clients/{client}/scope-mappings/realm", "view-clients / manage-clients and permission to map the realm role"},
 	{"protocol-mappers", "GET,POST", "/admin/realms/{realm}/clients/{client}/protocol-mappers/models", "view-clients / manage-clients"},
@@ -138,8 +138,15 @@ func (c *Client) responseBudget(req *http.Request) (int64, error) {
 	if !found || req.URL.Scheme != base.Scheme || req.URL.Host != base.Host || req.URL.User != nil {
 		return 0, fmt.Errorf("keycloak operation outside configured endpoint")
 	}
-	if req.Method == http.MethodPost && path == "/realms/master/protocol/openid-connect/token" {
+	if isBootstrapTokenRequest(req.Method, path) {
 		return maxKeycloakCredentialResponseBytes, nil
+	}
+	// Public protocol documents: no administrative authority and no token.
+	if isPublicProtocolDocument(req.Method, path) {
+		if req.Header.Get(authorizationHeader) != "" {
+			return 0, fmt.Errorf("protocol metadata must not carry administrative credentials")
+		}
+		return maxKeycloakAdminResponseBytes, nil
 	}
 	for _, operation := range adminOperations {
 		if matchAdminPath(operation.Path, path) && strings.Contains(","+operation.Methods+",", ","+req.Method+",") {
@@ -150,4 +157,12 @@ func (c *Client) responseBudget(req *http.Request) (int64, error) {
 		}
 	}
 	return 0, fmt.Errorf("unclassified Keycloak operation: %s %s; update the permission contract", req.Method, path)
+}
+
+func isPublicProtocolDocument(method, path string) bool {
+	return method == http.MethodGet && (matchAdminPath("/realms/{realm}/.well-known/openid-configuration", path) || matchAdminPath("/realms/{realm}/protocol/saml/descriptor", path))
+}
+
+func isBootstrapTokenRequest(method, path string) bool {
+	return method == http.MethodPost && path == "/realms/master/protocol/openid-connect/token"
 }

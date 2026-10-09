@@ -1,0 +1,16 @@
+# From signed v0.2.0 README.md; preserved without spec.protocol.
+apiVersion: hanko.sh/v1alpha1
+kind: HankoApplication
+metadata:
+  name: customer-portal
+  namespace: auth
+spec:
+  realmRef: example
+  clientID: customer-portal
+  type: spa
+  redirectURIs:
+    - https://portal.example.com/callback
+  postLogoutRedirectURIs:
+    - https://portal.example.com/
+  realmRoleScopes:
+    - viewer

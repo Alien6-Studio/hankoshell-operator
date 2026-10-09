@@ -50,6 +50,15 @@ type HankoImportSpec struct {
 
 // HankoImportStatus describes the observed state of the import operation.
 type HankoImportStatus struct {
+	// Findings reports protocol inventory that cannot be imported safely.
+	// No incompatible OIDC manifest is generated for a SAML/unknown client.
+	// +listType=map
+	// +listMapKey=classification
+	// +listMapKey=objectKind
+	// +listMapKey=objectName
+	// +listMapKey=code
+	// +kubebuilder:validation:MaxItems=32
+	Findings []AuthorizationFinding `json:"findings,omitempty"`
 	// Phase: Pending | Scanning | Applying | Done | Failed
 	// +kubebuilder:validation:Enum=Pending;Scanning;Applying;Done;Failed
 	Phase string `json:"phase,omitempty"`

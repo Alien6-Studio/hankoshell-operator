@@ -31,6 +31,38 @@ func getImport(t *testing.T, c client.Client, name string) *hankoshv1alpha1.Hank
 	return &hi
 }
 
+func TestHankoImportReportsUnsupportedApplicationProtocols(t *testing.T) {
+	for _, dryRun := range []bool{true, false} {
+		t.Run(fmt.Sprintf("dryRun=%t", dryRun), func(t *testing.T) {
+			kc := newMockKeycloak(t)
+			kc.realms = []keycloak.Realm{{ID: "realm", RealmName: "realm", Enabled: true}}
+			kc.appsByRealm["realm"] = []keycloak.App{{ClientID: "saml-client", Protocol: "saml"}, {ClientID: "unknown-client", Protocol: "unknown"}}
+			importer := &hankoshv1alpha1.HankoImport{ObjectMeta: metav1.ObjectMeta{Name: "protocol-import", Namespace: "default"}, Spec: hankoshv1alpha1.HankoImportSpec{SourceRef: "instance", DryRun: dryRun}}
+			kube := newFakeClient(t, importer)
+			_, err := newImportReconciler(kube, kc.client()).Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(importer)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var apps hankoshv1alpha1.HankoApplicationList
+			if err := kube.List(context.Background(), &apps); err != nil {
+				t.Fatal(err)
+			}
+			if len(apps.Items) != 0 {
+				t.Fatal("unsupported protocol generated OIDC manifest")
+			}
+			got := getImport(t, kube, importer.Name)
+			if len(got.Status.Findings) != 2 {
+				t.Fatal("unsupported protocol was omitted without evidence")
+			}
+			for _, finding := range got.Status.Findings {
+				if finding.Code != "application_protocol_import_unsupported" || !finding.ReadOnly {
+					t.Fatal("unbounded/ambiguous protocol finding")
+				}
+			}
+		})
+	}
+}
+
 // (a) A client already governed by an explicit HankoApplication (any Kubernetes name)
 // must be skipped on import — no duplicate object is created.
 func TestHankoImport_SkipsAlreadyDeclaredClient(t *testing.T) {

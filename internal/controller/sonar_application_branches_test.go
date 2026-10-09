@@ -308,6 +308,8 @@ func TestManagedApplicationDeletionRemovesProviderClientBeforeFinalizer(t *testi
 			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "token", "expires_in": 300})
 		case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/acme/clients":
 			_ = json.NewEncoder(w).Encode([]map[string]string{{"id": "portal-uuid", "clientId": "portal"}})
+		case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/acme/clients/portal-uuid":
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": "portal-uuid", "clientId": "portal", "protocol": "openid-connect", "attributes": map[string]string{"hanko.sh/application-owner": "fixture-test-portal"}})
 		case request.Method == http.MethodDelete && request.URL.Path == "/admin/realms/acme/clients/portal-uuid":
 			deleted = true
 			w.WriteHeader(http.StatusNoContent)
@@ -335,6 +337,14 @@ func TestManagedApplicationDeletionCleansOnlyRecordedMappers(t *testing.T) {
 	deleted := map[string]bool{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		switch {
+		case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/acme/identity-provider/instances/entra/mappers":
+			_ = json.NewEncoder(w).Encode([]keycloak.IdentityProviderMapper{{ID: "idp-uuid", Config: map[string]string{"hanko.sh/application-owner": "application-uid"}}, {ID: "foreign-idp", Config: map[string]string{"hanko.sh/application-owner": "foreign-uid"}}})
+		case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/acme/clients/client-uuid/protocol-mappers/models":
+			_ = json.NewEncoder(w).Encode([]keycloak.ProtocolMapper{{ID: "claim-uuid", Config: map[string]string{"hanko.sh/application-owner": "application-uid"}}, {ID: "foreign-claim", Config: map[string]string{"hanko.sh/application-owner": "foreign-uid"}}})
+		case request.Method == http.MethodDelete && strings.Contains(request.URL.Path, "foreign-"):
+			t.Error("forged status authorized foreign mapper deletion")
+			w.WriteHeader(http.StatusNoContent)
+
 		case request.Method == http.MethodPost && request.URL.Path == "/realms/master/protocol/openid-connect/token":
 			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "token", "expires_in": 300})
 		case request.Method == http.MethodDelete && request.URL.Path == "/admin/realms/acme/identity-provider/instances/entra/mappers/idp-uuid":
@@ -351,14 +361,17 @@ func TestManagedApplicationDeletionCleansOnlyRecordedMappers(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 	application := &hankoshv1alpha1.HankoApplication{
-		Spec: hankoshv1alpha1.HankoApplicationSpec{RealmRef: "acme", ClientID: "web"},
+		ObjectMeta: metav1.ObjectMeta{UID: "application-uid"},
+		Spec:       hankoshv1alpha1.HankoApplicationSpec{RealmRef: "acme", ClientID: "web"},
 		Status: hankoshv1alpha1.HankoApplicationStatus{
 			ManagedIdentityMappings: []hankoshv1alpha1.ManagedIdentityMappingReference{
 				{Name: "department", IdentityProvider: "entra", KeycloakID: "idp-uuid"},
+				{Name: "forged", IdentityProvider: "entra", KeycloakID: "foreign-idp"},
 				{Name: "not-created", IdentityProvider: "entra"},
 			},
 			ManagedTokenClaims: []hankoshv1alpha1.ManagedTokenClaimReference{
 				{Name: "tenant", KeycloakID: "claim-uuid"},
+				{Name: "forged", KeycloakID: "foreign-claim"},
 				{Name: "not-created"},
 			},
 		},
@@ -461,6 +474,9 @@ func TestApplicationStaleTokenCleanupFailureRetainsOwnership(t *testing.T) {
 func TestApplicationProviderMapperFailuresRetainCleanupOwnership(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		switch {
+		case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/acme/identity-provider/instances/entra/mappers":
+			_ = json.NewEncoder(w).Encode([]keycloak.IdentityProviderMapper{{ID: "stale-idp", Config: map[string]string{"hanko.sh/application-owner": "application-uid"}}})
+
 		case request.Method == http.MethodPost && request.URL.Path == "/realms/master/protocol/openid-connect/token":
 			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "token", "expires_in": 300})
 		case request.Method == http.MethodDelete && request.URL.Path == "/admin/realms/acme/identity-provider/instances/entra/mappers/stale-idp":
@@ -476,7 +492,7 @@ func TestApplicationProviderMapperFailuresRetainCleanupOwnership(t *testing.T) {
 	t.Cleanup(server.Close)
 	kc := keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP())
 	application := &hankoshv1alpha1.HankoApplication{
-		ObjectMeta: metav1.ObjectMeta{Generation: 5},
+		ObjectMeta: metav1.ObjectMeta{Generation: 5, UID: "application-uid"},
 		Spec:       hankoshv1alpha1.HankoApplicationSpec{RealmRef: "acme"},
 		Status: hankoshv1alpha1.HankoApplicationStatus{ManagedIdentityMappings: []hankoshv1alpha1.ManagedIdentityMappingReference{{
 			Name: "stale", IdentityProvider: "entra", KeycloakID: "stale-idp",

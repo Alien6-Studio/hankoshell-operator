@@ -2,14 +2,17 @@
 
 This implementation resolves [RFC #22](https://github.com/Alien6-Studio/hankoshell-operator/issues/22)
 and the execution boundary of [RFC #23](https://github.com/Alien6-Studio/hankoshell-operator/issues/23).
-It is implemented for `HankoResourceServer` and `HankoRole`. Keycloak remains the
-only backend. Public evidence implements [#27](https://github.com/Alien6-Studio/hankoshell-operator/issues/27) for these two domains; other controllers retain their current implementation.
+It was qualified at the 0.2 boundary for `HankoResourceServer` and `HankoRole`.
+The 0.3 development source extends this pattern to `HankoApplication`; see the
+[application domain contract](application-identity.md). Keycloak remains the only
+backend. Public evidence implements [#27](https://github.com/Alien6-Studio/hankoshell-operator/issues/27),
+with matching application semantics in #24; other controllers retain their implementation.
 
 ## Vocabulary and lifecycle
 
 | State | Responsibility | Representation |
 | --- | --- | --- |
-| Normalized portable intent | Domain compiler defines explicit semantics and defaults, with logical resource relationships. | `authorization.Intent`, `roles.Intent` |
+| Normalized portable intent | Domain compiler defines explicit semantics and defaults, with logical resource relationships. | `authorization.Intent`, `roles.Intent`, `applications.Intent` |
 | Resolved references | Operator resolves namespace-local Hanko relationships, validates scope and local authority; adapters receive realm/role names and client identifiers. | Domain `ResolvedReferences` |
 | Capability evidence | Adapter declares domain semantics and the qualification source/window. Runtime discovery cannot demand additional privileges. | Domain `CapabilityEvidence` |
 | Executable provider plan | Local compiler binds intent, resolved semantics and required capabilities; execution checks freshness. | Domain `Plan` |

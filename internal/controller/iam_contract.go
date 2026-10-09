@@ -16,11 +16,16 @@ type referenceIdentity struct {
 }
 type contractReferenceReader struct {
 	client.Client
+	Reader     client.Reader
 	references []referenceIdentity
 }
 
 func (r *contractReferenceReader) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
-	if err := r.Client.Get(ctx, key, obj, opts...); err != nil {
+	reader := client.Reader(r.Client)
+	if r.Reader != nil {
+		reader = r.Reader
+	}
+	if err := reader.Get(ctx, key, obj, opts...); err != nil {
 		return err
 	}
 	if !obj.GetDeletionTimestamp().IsZero() {

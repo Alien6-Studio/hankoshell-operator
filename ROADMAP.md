@@ -44,15 +44,16 @@ ownership remain separate.
 
 ## Current status
 
-The **v0.1.0 source and signed tag are frozen and immutable**. Public artifact
-publication remains pending in [#21](https://github.com/Alien6-Studio/hankoshell-operator/issues/21);
-no public artifacts are claimed published. The **0.2.0 — IAM Contract Engine**
-source implementation is complete through normal protected PR history: #22, #23,
-#26, #27 and #28. Its signed source tag follows qualification of the exact
-merged commit. The next design window is **0.3.0 — Application Identity**; this
-completion introduces none of that milestone's application bindings or SAML work.
-The 16 `hanko.sh/v1alpha1` APIs remain experimental before 1.0. Future milestones
-are proposed scope, not additional current support or scheduled delivery.
+The **v0.1.0 and v0.2.0 sources and signed tags are frozen and immutable**.
+Publication work remains independent in [#21](https://github.com/Alien6-Studio/hankoshell-operator/issues/21);
+no public artifacts are claimed published. Milestone **0.2.0 — IAM Contract Engine**
+is complete and closed. Active development is **0.3.0 — Application Identity**.
+[#24](https://github.com/Alien6-Studio/hankoshell-operator/issues/24) is resolved by
+the [qualified OIDC/SAML application contract](docs/architecture/application-identity.md).
+[#25](https://github.com/Alien6-Studio/hankoshell-operator/issues/25) is next and
+remains open; the milestone is not complete. Chart/app/release packaging remains
+0.2.0. The 16 `hanko.sh/v1alpha1` APIs remain experimental before 1.0. Later
+milestones are proposed scope, not additional current support or scheduled delivery.
 
 The current foundation already includes:
 
@@ -60,7 +61,8 @@ The current foundation already includes:
   event and broker-trust configuration, including effective-policy hashes.
 - `HankoApplication`, `HankoRole` and `HankoServiceAccount`: OIDC SPA/web/M2M
   clients, realm/client/composite roles, typed claims and broker mappings,
-  confidential-client rotation and authorized Secret projections.
+  confidential-client rotation and authorized Secret projections; qualified SAML
+  POST applications with signed assertions/responses and exact ACS destinations.
 - `HankoResourceServer`: scopes, resources and allow-only permissions for role,
   application and service-account principals, capability status and owned IDs.
 - `HankoOrganization`: nested groups, realm/client-role mappings and native
@@ -87,8 +89,9 @@ Resource-server authorization and realm roles now use a
 intent/resolution/capabilities/plans, versioned canonical identities and freshness
 checks. Keycloak capability evidence names the static mapping and qualification
 window. The external authorization-plan annotation is not execution evidence.
-Public evaluated/applied/observation evidence and stale status implement [#27](https://github.com/Alien6-Studio/hankoshell-operator/issues/27) for these two domains;
-organization projection separation remains [#28](https://github.com/Alien6-Studio/hankoshell-operator/issues/28).
+Public evaluated/applied/observation evidence and stale status implement #27 for
+roles/authorization and extend to applications in #24. Standalone organization
+projection separation completed #28.
 No second backend or general portability qualification is implied.
 
 Hub bundles currently use token-derived **HMAC**, without independent publisher
@@ -159,8 +162,8 @@ Promoting all current `v1alpha1` resources is not the goal.
 
 Bring concrete application authentication, authorization, adoption and workload
 identity scenarios to the [roadmap issues](https://github.com/Alien6-Studio/hankoshell-operator/issues?q=is%3Aissue%20is%3Aopen%20label%3Aroadmap).
-The immediate code focus is the 0.2 IAM Contract Engine; 0.1 publication trust
-is tracked independently in #21. The resolved 0.2 architecture and selected 0.3
+The immediate code focus is #25 runtime Application Identity bindings; production
+publication trust is tracked independently in #21. The resolved 0.2 architecture and selected 0.3
 RFCs guide subsequent development; later milestone
 descriptions carry direction until their design window opens.
 

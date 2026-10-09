@@ -35,6 +35,13 @@ func controllerTestScheme(t *testing.T) *runtime.Scheme {
 }
 
 func controllerTestClient(scheme *runtime.Scheme, objects ...client.Object) client.Client {
+	for _, object := range objects {
+		_, app := object.(*hankoshv1alpha1.HankoApplication)
+		_, account := object.(*hankoshv1alpha1.HankoServiceAccount)
+		if (app || account) && object.GetUID() == "" {
+			object.SetUID(types.UID("fixture-" + object.GetNamespace() + "-" + object.GetName()))
+		}
+	}
 	return fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(
 			&hankoshv1alpha1.HankoApplication{},

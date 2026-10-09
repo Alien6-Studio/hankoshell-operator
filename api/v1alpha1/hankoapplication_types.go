@@ -13,7 +13,7 @@ import (
 // +kubebuilder:printcolumn:name="ClientID",type=string,JSONPath=".spec.clientID"
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=".metadata.creationTimestamp"
 
-// HankoApplication represents an OIDC application registered in a Keycloak realm.
+// HankoApplication represents an OIDC or qualified SAML application in a realm.
 type HankoApplication struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -22,10 +22,13 @@ type HankoApplication struct {
 	Status HankoApplicationStatus `json:"status,omitempty"`
 }
 
-// HankoApplicationSpec defines the desired state of an OIDC application.
-// +kubebuilder:validation:XValidation:rule="!has(self.clientSecretProjections) || self.type == 'web' || self.type == 'm2m'",message="clientSecretProjections require a confidential web or m2m client"
+// HankoApplicationSpec defines the desired application identity.
+// +kubebuilder:validation:XValidation:rule="!has(self.clientSecretProjections) || size(self.clientSecretProjections) == 0 || (has(self.type) && (self.type == 'web' || self.type == 'm2m'))",message="clientSecretProjections require a confidential web or m2m client"
 // +kubebuilder:validation:XValidation:rule="!has(self.clientSecretProjections) || !has(self.mode) || self.mode != 'Observe'",message="clientSecretProjections require Manage mode"
 // +kubebuilder:validation:XValidation:rule="self.clientID.trim() != 'account' && self.clientID.trim() != 'account-console' && self.clientID.trim() != 'admin-cli' && self.clientID.trim() != 'broker' && self.clientID.trim() != 'realm-management' && self.clientID.trim() != 'security-admin-console'",message="built-in Keycloak clients cannot be managed as HankoApplication"
+// +kubebuilder:validation:XValidation:rule="(!has(self.protocol) || self.protocol == 'oidc') ? !has(self.saml) : has(self.saml)",message="saml configuration is required only for protocol saml"
+// +kubebuilder:validation:XValidation:rule="!has(self.protocol) || self.protocol != 'saml' || (!has(self.type) && (!has(self.redirectURIs) || size(self.redirectURIs) == 0) && (!has(self.postLogoutRedirectURIs) || size(self.postLogoutRedirectURIs) == 0) && (!has(self.tokenClaims) || size(self.tokenClaims) == 0) && (!has(self.identityMappings) || size(self.identityMappings) == 0) && !has(self.realmRoleScopes) && !has(self.secretRotationPolicy) && (!has(self.clientSecretProjections) || size(self.clientSecretProjections) == 0))",message="SAML rejects OIDC types, callbacks, claims, mappings, scopes, rotation and secret projections"
+// +kubebuilder:validation:XValidation:rule="!has(self.attributes) || self.attributes.all(k, !k.matches('(?i)^(saml|hanko[.]).*') && !k.matches('(?i)^(protocol|login_theme|post[.]logout[.]redirect[.]uris)$') && !k.matches('(?i).*(private|password|secret|credential|access_token|bearer).*'))",message="native attributes cannot override protocol, SAML, ownership or managed theme/logout settings"
 type HankoApplicationSpec struct {
 	// RealmRef references the HankoRealm this application belongs to.
 	// +kubebuilder:validation:Required
@@ -34,6 +37,15 @@ type HankoApplicationSpec struct {
 	// ClientID is the Keycloak client identifier.
 	// +kubebuilder:validation:Required
 	ClientID string `json:"clientID"`
+
+	// Protocol defaults to OIDC for existing manifests. An owned client cannot
+	// change protocol without administrator-reviewed deletion and recreation.
+	// +kubebuilder:validation:Enum=oidc;saml
+	// +kubebuilder:default=oidc
+	Protocol string `json:"protocol,omitempty"`
+
+	// SAML is the bounded SP-initiated contract. ClientID is the SP entity ID.
+	SAML *ApplicationSAML `json:"saml,omitempty"`
 
 	// Type is the application type.
 	// +kubebuilder:validation:Enum=spa;web;m2m
@@ -77,6 +89,7 @@ type HankoApplicationSpec struct {
 	// key). The full map is the desired state and replaces unmanaged keys set
 	// directly in Keycloak on every reconcile. Keys reserved by the operator for
 	// other spec fields (login_theme, post.logout.redirect.uris) are rejected.
+	// +kubebuilder:validation:MaxProperties=64
 	Attributes map[string]string `json:"attributes,omitempty"`
 
 	// Mode controls the operator's write authority over the underlying Keycloak client.
@@ -249,13 +262,79 @@ type ApplicationTokenClaim struct {
 
 // HankoApplicationStatus describes the observed state of the application.
 type HankoApplicationStatus struct {
+	// Protocol is the actual protocol detected by a successful provider read.
+	// A mismatch is reported; this field never authorizes protocol conversion.
+	// +kubebuilder:validation:Enum=oidc;saml;unsupported
+	Protocol string `json:"protocol,omitempty"`
+
+	// EvaluatedGeneration is the latest generation whose execution semantics
+	// were fully evaluated or definitively refused. It does not prove application.
+	// +kubebuilder:validation:Minimum=0
+	EvaluatedGeneration int64 `json:"evaluatedGeneration,omitempty"`
+
+	// AppliedGeneration is the latest Manage generation proven by matching
+	// provider read-back. Observe clears applied evidence and cannot advance it.
+	// +kubebuilder:validation:Minimum=0
+	AppliedGeneration int64 `json:"appliedGeneration,omitempty"`
+
+	// ContractVersion identifies canonical evidence semantics, not an executable API.
+	// +kubebuilder:validation:MaxLength=64
+	ContractVersion string `json:"contractVersion,omitempty"`
+
+	// IntentHash identifies normalized portable semantics of EvaluatedGeneration.
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	IntentHash string `json:"intentHash,omitempty"`
+
+	// EvaluatedPlanHash identifies the locally compiled provider-bound plan.
+	// It is absent for rejected evaluation and is never execution authority.
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	EvaluatedPlanHash string `json:"evaluatedPlanHash,omitempty"`
+
+	// ObservedStateHash identifies safe normalized provider semantics, including
+	// observation coverage. It is neither an intent/plan identity nor a provider ID.
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	ObservedStateHash string `json:"observedStateHash,omitempty"`
+
+	// ObservationGeneration and ObservationPlanHash bind the latest successful
+	// bounded read to its evaluated input. They remain unchanged on read failure.
+	// +kubebuilder:validation:Minimum=0
+	ObservationGeneration int64 `json:"observationGeneration,omitempty"`
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	ObservationPlanHash string `json:"observationPlanHash,omitempty"`
+
+	// ObservationComplete distinguishes full supported-contract read-back from
+	// partial coverage. A partial observation can prove drift but never equality.
+	ObservationComplete bool `json:"observationComplete,omitempty"`
+
+	// DriftState is the comparison for ObservationPlanHash. Failure conditions
+	// describe the current attempt; an older observation is historical evidence.
+	// +kubebuilder:validation:Enum=Unknown;InSync;Drifted
+	DriftState string `json:"driftState,omitempty"`
+
+	// CapabilityEvidence names static adapter qualification, not runtime discovery.
+	CapabilityEvidence IAMCapabilityEvidence `json:"capabilityEvidence,omitempty"`
+
+	// AppliedPlanHash identifies the latest Manage plan proven by matching read-back.
+	// Observe clears applied evidence and cannot claim provider application.
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	AppliedPlanHash string `json:"appliedPlanHash,omitempty"`
+	// +kubebuilder:validation:MaxLength=32
+	BackendKind  string                        `json:"backendKind,omitempty"`
+	Capabilities ApplicationCapabilitySnapshot `json:"capabilities,omitempty"`
+	// +listType=map
+	// +listMapKey=classification
+	// +listMapKey=objectKind
+	// +listMapKey=objectName
+	// +listMapKey=code
+	// +kubebuilder:validation:MaxItems=32
+	Findings []AuthorizationFinding `json:"findings,omitempty"`
+
 	// Phase summarises the reconciliation state.
 	// +kubebuilder:validation:Enum=Pending;Reconciling;Ready;Error;Conflict
 	Phase string `json:"phase,omitempty"`
 
-	// ObservedGeneration is the latest metadata.generation fully evaluated by
-	// the reconciler. Deployment automation uses it with Phase=Ready to avoid
-	// accepting stale status from an earlier application specification.
+	// ObservedGeneration is the latest metadata.generation processed into status.
+	// AppliedGeneration separately proves successful execution and read-back.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// ClientSecret references the K8s Secret holding the OIDC client secret.
@@ -264,6 +343,9 @@ type HankoApplicationStatus struct {
 
 	// OIDCEndpoints holds the Keycloak OIDC endpoint URLs for this application.
 	OIDCEndpoints *OIDCEndpoints `json:"oidcEndpoints,omitempty"`
+
+	// SAMLEndpoints is absent for OIDC applications. No full XML is stored.
+	SAMLEndpoints *SAMLEndpoints `json:"samlEndpoints,omitempty"`
 
 	// LastReconciled is the timestamp of the last successful reconciliation.
 	LastReconciled *metav1.Time `json:"lastReconciled,omitempty"`
