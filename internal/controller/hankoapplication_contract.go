@@ -9,6 +9,7 @@ import (
 	"time"
 
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/applicationbinding"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/applications"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
@@ -184,6 +185,10 @@ func (r *HankoApplicationReconciler) validateOwnedApplicationExecution(ctx conte
 	return nil
 }
 func applicationFailureReason(err error) string {
+	var runtimeFailure *applicationbinding.Failure
+	if errors.As(err, &runtimeFailure) {
+		return runtimeFailure.Reason
+	}
 	switch {
 	case errors.Is(err, applications.ErrProtocolChange):
 		return "ProtocolChangeRequiresRecreation"
@@ -196,6 +201,7 @@ func applicationFailureReason(err error) string {
 	}
 }
 func (r *HankoApplicationReconciler) applicationContractError(ctx context.Context, app *api.HankoApplication, patch client.Patch, plan *applications.Plan, state *applications.State, err error) (ctrl.Result, error) {
+	markRuntimePending(app, "ApplicationNotReady")
 	app.Status.OIDCEndpoints, app.Status.SAMLEndpoints = nil, nil
 	if effectiveMode(app) == ModeObserve {
 		app.Status.ClientSecret = nil
@@ -257,7 +263,12 @@ func (r *HankoApplicationReconciler) reconcileApplicationContract(ctx context.Co
 		if err = r.validateApplicationExecution(ctx, app, kc, plan); err != nil {
 			return r.applicationContractError(ctx, app, patch, &plan, nil, err)
 		}
-		state, err = driver.Ensure(ctx, plan)
+		// Independently observe on every attempt. A runtime delivery retry must
+		// not repeat provider/client/mapper writes when supported state is current.
+		state, err = driver.Observe(ctx, plan)
+		if err == nil && !applicationStateCurrent(state, app) {
+			state, err = driver.Ensure(ctx, plan)
+		}
 		if err == nil && state.Created && r.Recorder != nil {
 			r.Recorder.Eventf(app, nil, corev1.EventTypeNormal, "ClientCreated", "Reconcile", "%s", "owned application client created")
 		}
@@ -280,18 +291,21 @@ func (r *HankoApplicationReconciler) reconcileApplicationContract(ctx context.Co
 		if err = r.validateOwnedApplicationExecution(ctx, app, kc, plan); err != nil {
 			return r.applicationContractError(ctx, app, patch, &plan, &state, err)
 		}
-		if err = r.reconcileRoles(ctx, app, kc); err != nil {
-			return r.applicationContractError(ctx, app, patch, &plan, &state, iamcontract.SafeError(err))
-		}
-		if applications.Protocol(app.Spec.Protocol) == "oidc" {
-			if err = r.reconcileRealmRoleScopes(ctx, app, kc); err != nil {
+		if state.Created || !applicationStateCurrent(state, app) {
+			if err = r.reconcileApplicationChildren(ctx, app, kc); err != nil {
 				return r.applicationContractError(ctx, app, patch, &plan, &state, iamcontract.SafeError(err))
 			}
+		} else if applicationMapperCleanupPending(app) {
 			if err = r.reconcileApplicationMappings(ctx, app, kc); err != nil {
 				return r.applicationContractError(ctx, app, patch, &plan, &state, iamcontract.SafeError(err))
 			}
+		}
+		if applications.Protocol(app.Spec.Protocol) == "oidc" {
 			if err = r.validateOwnedApplicationExecution(ctx, app, kc, plan); err != nil {
 				return r.applicationContractError(ctx, app, patch, &plan, &state, err)
+			}
+			if state.Created && app.Status.LastRotated == nil && app.Spec.Type != "spa" {
+				app.Status.LastRotated = &metav1.Time{Time: time.Now()}
 			}
 			if err = r.ensureSecret(ctx, app, kc); err != nil {
 				return r.applicationContractError(ctx, app, patch, &plan, &state, iamcontract.SafeError(err))
@@ -338,10 +352,36 @@ func (r *HankoApplicationReconciler) reconcileApplicationContract(ctx context.Co
 	}
 	iamCondition(&app.Status.Conditions, app.Generation, "Synced", metav1.ConditionTrue, reason, message)
 	r.applicationProtocolStatus(ctx, app, driver, plan)
+	if observe {
+		markRuntimePending(app, "NotConfigured")
+	} else if len(app.Spec.RuntimeBindings) != 0 {
+		markRuntimePending(app, "OutputPending")
+		app.Status.Phase = "Pending"
+	}
 	if err := r.Status().Patch(ctx, app, patch); err != nil {
 		return ctrl.Result{}, err
 	}
+	if !observe {
+		return r.reconcileRuntimeBindings(ctx, app, kc, plan, driver)
+	}
 	return ctrl.Result{RequeueAfter: requeueWithJitter()}, nil
+}
+
+func applicationStateCurrent(state applications.State, app *api.HankoApplication) bool {
+	return state.Present && state.Owned && state.Protocol == applications.Protocol(app.Spec.Protocol) && state.Observation.Complete && !state.Observation.Drifted
+}
+
+func (r *HankoApplicationReconciler) reconcileApplicationChildren(ctx context.Context, app *api.HankoApplication, kc *keycloak.Client) error {
+	if err := r.reconcileRoles(ctx, app, kc); err != nil {
+		return err
+	}
+	if applications.Protocol(app.Spec.Protocol) != "oidc" {
+		return nil
+	}
+	if err := r.reconcileRealmRoleScopes(ctx, app, kc); err != nil {
+		return err
+	}
+	return r.reconcileApplicationMappings(ctx, app, kc)
 }
 func (r *HankoApplicationReconciler) applicationProtocolStatus(ctx context.Context, app *api.HankoApplication, driver applications.Driver, plan applications.Plan) {
 	metadata, err := driver.Metadata(ctx, plan)
@@ -372,6 +412,9 @@ func applicationDeletionPlan(app *api.HankoApplication) (applications.Plan, erro
 }
 
 func validateApplicationProtocol(app *api.HankoApplication) error {
+	if err := applicationbinding.Validate(app); err != nil {
+		return err
+	}
 	_, err := applications.Compile(applicationIntent(app.Spec), applications.ResolvedReferences{Realm: app.Spec.RealmRef, Owner: string(app.UID), Attributes: app.Spec.Attributes}, applications.KeycloakEvidence(), iamcontract.Preconditions{})
 	return err
 }

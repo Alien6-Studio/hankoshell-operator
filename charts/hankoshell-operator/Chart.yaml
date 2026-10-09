@@ -2,8 +2,8 @@ apiVersion: v2
 name: hankoshell-operator
 description: Declarative IAM reconciliation for Keycloak and hankoShell platform integrations
 type: application
-version: 0.2.0
-appVersion: "0.2.0"
+version: 0.3.0
+appVersion: "0.3.0"
 kubeVersion: ">=1.35.0-0 <1.38.0-0"
 keywords:
   - oidc
@@ -11,7 +11,7 @@ keywords:
   - operator
   - identity
 home: https://hanko.sh
-icon: https://raw.githubusercontent.com/Alien6-Studio/hankoshell-operator/v0.2.0/charts/hankoshell-operator/icon.svg
+icon: https://raw.githubusercontent.com/Alien6-Studio/hankoshell-operator/v0.3.0/charts/hankoshell-operator/icon.svg
 sources:
   - https://github.com/Alien6-Studio/hankoshell-operator
 maintainers:
@@ -25,20 +25,20 @@ annotations:
   artifacthub.io/prerelease: "false"
   artifacthub.io/changes: |
     - kind: added
-      description: Expose bounded IAM intent, plan, applied read-back, provider observation and drift evidence for roles and authorization resource servers.
-    - kind: fixed
-      description: Make organization Keycloak readiness independent of optional API position projection, with explicit configuration and separate cleanup.
-    - kind: security
-      description: Preserve local freshness and ownership authority, bounded complete provider reads and exact-image vulnerability and supply-chain gates.
+      description: Qualify protocol-aware OIDC/SAML application identity and explicit UID-bound legacy adoption.
+    - kind: added
+      description: Deliver versioned runtime ConfigMap metadata and optional OIDC credentials with workload UID consent, revision and cleanup.
+    - kind: changed
+      description: Complete Application Identity source metadata at 0.3.0; public distribution remains pending.
   artifacthub.io/images: |
     - name: hankoshell-operator
-      image: ghcr.io/alien6-studio/hankoshell-operator:0.2.0
+      image: ghcr.io/alien6-studio/hankoshell-operator:0.3.0
       platforms:
         - linux/amd64
         - linux/arm64
   artifacthub.io/links: |
     - name: Attest delivery verification key
-      url: https://github.com/Alien6-Studio/hankoshell-operator/releases/download/v0.2.0/hankoshell-operator-attest-public-key.pem
+      url: https://github.com/Alien6-Studio/hankoshell-operator/releases/download/v0.3.0/hankoshell-operator-attest-public-key.pem
     - name: Source
       url: https://github.com/Alien6-Studio/hankoshell-operator
     - name: Security policy

@@ -1,8 +1,9 @@
 # Application identity: OIDC and SAML
 
-This resolves [RFC #24](https://github.com/Alien6-Studio/hankoshell-operator/issues/24)
-in the **0.3.0 — Unreleased** source development. The signed v0.2.0 boundary is
-unchanged; chart/app/release packaging stays 0.2.0 until milestone 0.3 completes.
+The **0.3.0 Application Identity** source contract resolves
+[RFC #24](https://github.com/Alien6-Studio/hankoshell-operator/issues/24) for protocols
+and [RFC #25](https://github.com/Alien6-Studio/hankoshell-operator/issues/25) for runtime
+bindings. The signed v0.2.0 source remains immutable. Public artifacts are pending.
 The `hanko.sh/v1alpha1` API is experimental. A future graduated API may group OIDC
 fields differently. Keycloak is the only implemented backend.
 
@@ -225,3 +226,287 @@ ConfigMap delivery or live Hub application plan is introduced here.
 Provider references: [Keycloak SAML administration](https://www.keycloak.org/docs/latest/server_admin/index.html#_saml_clients),
 [qualified 26.8.0 SAML attributes](https://github.com/keycloak/keycloak/blob/26.8.0/services/src/main/java/org/keycloak/protocol/saml/SamlConfigAttributes.java),
 [XMLDSig test library](https://github.com/russellhaering/goxmldsig).
+
+## Runtime Bindings
+
+[RFC #25](https://github.com/Alien6-Studio/hankoshell-operator/issues/25) is resolved
+by typed `HankoApplication.spec.runtimeBindings`, a map-list keyed by `name` with
+at most 32 entries. There is no binding CRD: the application already owns provider
+identity, evidence and lifecycle. A separate resource would duplicate that authority.
+`internal/applicationbinding` handles delivery without Keycloak dependencies.
+
+A binding names a workload namespace, ServiceAccount and existing ConfigMap;
+confidential OIDC web/M2M clients may also name an existing Secret. Manage mode
+is required. SPA and SAML bindings are metadata-only. Observe bindings are rejected
+before provider interaction or credential reads. Imported applications cannot use
+bindings to bypass Observe or the explicit provider adoption contract.
+
+```yaml
+# OIDC SPA: metadata only
+apiVersion: hanko.sh/v1alpha1
+kind: HankoApplication
+metadata: {name: portal, namespace: auth}
+spec:
+  realmRef: example
+  clientID: portal
+  type: spa
+  redirectURIs: [https://portal.example.test/callback]
+  runtimeBindings:
+    - name: portal
+      workload: {namespace: payments, serviceAccountRef: portal}
+      publicMetadata: {configMapRef: portal-identity}
+---
+# OIDC M2M: metadata and credentials
+apiVersion: hanko.sh/v1alpha1
+kind: HankoApplication
+metadata: {name: payment-api, namespace: auth}
+spec:
+  realmRef: example
+  clientID: payment-api
+  type: m2m
+  runtimeBindings:
+    - name: api-worker
+      workload: {namespace: payments, serviceAccountRef: payment-api}
+      publicMetadata: {configMapRef: payment-api-identity}
+      credentials: {secretRef: payment-api-identity}
+---
+# SAML: qualified metadata only
+apiVersion: hanko.sh/v1alpha1
+kind: HankoApplication
+metadata: {name: saml-portal, namespace: auth}
+spec:
+  realmRef: example
+  protocol: saml
+  clientID: https://sp.example.test/entity
+  saml:
+    assertionConsumerServices: [https://sp.example.test/acs]
+  runtimeBindings:
+    - name: portal
+      workload: {namespace: payments, serviceAccountRef: saml-portal}
+      publicMetadata: {configMapRef: saml-portal-identity}
+```
+
+### Workload and target consent
+
+The workload owner provisions the ServiceAccount and output objects. The operator
+never creates or deletes a cross-namespace ConfigMap/Secret. Before delivery it
+re-reads the ServiceAccount through a direct client and requires a nonempty UID.
+Deleting and recreating that account invalidates existing target consent, even
+when its name is unchanged. Reported status cannot authorize a write.
+
+Both the application request and target markers are mandatory. The target label
+`hanko.sh/runtime-target` must be `metadata` for a ConfigMap or `credentials` for
+a Secret. Each target must have all six authorization annotations below. Empty
+UIDs are rejected; legacy projection compatibility does not apply. Replace the
+synthetic UIDs with the actual current values obtained after creation:
+
+```sh
+kubectl get hankoapplication payment-api -n auth -o jsonpath='{.metadata.uid}'
+kubectl get serviceaccount payment-api -n payments -o jsonpath='{.metadata.uid}'
+```
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: payments
+  name: payment-api-identity
+  labels: {hanko.sh/runtime-target: metadata}
+  annotations:
+    hanko.sh/runtime-application-namespace: auth
+    hanko.sh/runtime-application-name: payment-api
+    hanko.sh/runtime-application-uid: 11111111-1111-4111-8111-111111111111
+    hanko.sh/runtime-binding-name: api-worker
+    hanko.sh/runtime-service-account: payment-api
+    hanko.sh/runtime-service-account-uid: 22222222-2222-4222-8222-222222222222
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  namespace: payments
+  name: payment-api-identity
+  labels: {hanko.sh/runtime-target: credentials}
+  annotations:
+    hanko.sh/runtime-application-namespace: auth
+    hanko.sh/runtime-application-name: payment-api
+    hanko.sh/runtime-application-uid: 11111111-1111-4111-8111-111111111111
+    hanko.sh/runtime-binding-name: api-worker
+    hanko.sh/runtime-service-account: payment-api
+    hanko.sh/runtime-service-account-uid: 22222222-2222-4222-8222-222222222222
+# No credential values in this manifest.
+type: Opaque
+```
+
+The target namespace separately grants a resource-name-limited Role to the
+operator's ServiceAccount. These are direct requests: no target cache, list,
+watch, create, delete or workload mutation permission is needed. Metadata-only
+bindings omit the Secret rule. Replace the operator subject with the installed
+chart's ServiceAccount name and namespace.
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: payment-identity-delivery, namespace: payments}
+rules:
+  - apiGroups: [""]
+    resources: [serviceaccounts]
+    resourceNames: [payment-api]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [payment-api-identity]
+    verbs: [get, patch]
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: [payment-api-identity]
+    verbs: [get, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: payment-identity-delivery, namespace: payments}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: payment-identity-delivery
+subjects:
+  - kind: ServiceAccount
+    name: hankoshell-operator
+    namespace: auth
+```
+
+UID checks prevent accidental transfers; they do not protect against a principal
+allowed to rewrite both the application and target consent. Kubernetes RBAC and
+namespace ownership remain the trust boundary. Target authorization does not
+prove ownership of a Keycloak client. A recreated application, including a
+reviewed OIDC↔SAML conversion, has a new UID and needs fresh target authorization.
+
+### Versioned metadata and credentials
+
+The primary contract is one deterministic, map-free JSON document under ConfigMap
+`data.identity.json`, bounded to 16 KiB. Schema version:
+`hanko.sh/application-runtime/v1alpha1`. Only the protocol-specific object is emitted.
+The following synthetic OIDC document illustrates the field shape; its digests
+are placeholders, not installable evidence:
+
+```json
+{
+  "schemaVersion": "hanko.sh/application-runtime/v1alpha1",
+  "protocol": "oidc",
+  "clientID": "payment-api",
+  "workload": {"namespace": "payments", "serviceAccountRef": "payment-api"},
+  "serviceAccountUID": "22222222-2222-4222-8222-222222222222",
+  "oidc": {
+    "issuer": "https://idp.example.test/realms/example",
+    "authorization": "https://idp.example.test/realms/example/protocol/openid-connect/auth",
+    "token": "https://idp.example.test/realms/example/protocol/openid-connect/token",
+    "jwks": "https://idp.example.test/realms/example/protocol/openid-connect/certs",
+    "userInfo": "https://idp.example.test/realms/example/protocol/openid-connect/userinfo"
+  },
+  "credentials": {"secretRef": "payment-api-identity", "key": "client_secret"},
+  "source": {
+    "namespace": "auth", "name": "payment-api", "generation": 1,
+    "contractVersion": "hanko.sh/iam-contract/v1alpha1",
+    "intentHash": "sha256:<64 hex characters>",
+    "appliedPlanHash": "sha256:<64 hex characters>"
+  },
+  "bindingRevision": "sha256:<64 hex characters>"
+}
+```
+
+For SAML, `saml` replaces `oidc` and contains `issuer`, `sso`, `metadata` (descriptor
+URL) and `nameIDFormat`. `clientID` is the SP entity URI. There is no XML dump,
+provider UUID, administrative endpoint or credential. This adds no SLO, signed SP
+request, encryption, artifact/ECP or IdP-initiated login support.
+
+Credentials come from the existing controller-owned canonical application Secret,
+not a second provider lifecycle. Only target `data.client_secret` is managed.
+Unrelated ConfigMap/Secret keys and annotations are preserved. Immutable targets
+that need a content change are rejected. Duplicate ConfigMap/Secret writers,
+canonical-source targets and overlap with legacy `clientSecretProjections` are
+rejected by the controller before provider interaction. The bounded map-list
+names, mode and protocol rules are also enforced by admission.
+
+Legacy `clientSecretProjections` remain a credential-only compatibility feature;
+they are neither converted to runtime bindings nor bound to a ServiceAccount UID.
+A runtime binding supplies a workload identity anchor, public metadata and optional
+credentials. No extra Keycloak permission is required.
+
+### Proven state, revision and recovery
+
+Output advances only after the current generation is evaluated/applied in Manage
+mode, complete synchronized provider read-back and matching plan identities.
+Before execution the controller independently revalidates local authority and
+provider state; persisted status is evidence only. Provider drift or temporary
+unavailability retains last-known outputs and marks delivery pending/stale.
+
+`bindingRevision` changes with public metadata, proven generation/plan, workload
+UID, target UIDs or canonical credential Secret UID/resourceVersion. It never
+hashes credential bytes. Even a harmless canonical Secret metadata edit can change
+the revision. `metadataHash` hashes the public versioned document only.
+Rotation updates the canonical Secret, credential outputs and ConfigMap revision;
+all requested outputs must carry that revision before the binding is Ready.
+
+Outputs carry bounded managed annotations: `hanko.sh/runtime-schema`,
+`hanko.sh/runtime-source-uid`, `hanko.sh/runtime-delivered-binding`,
+`hanko.sh/runtime-source-generation`, `hanko.sh/runtime-applied-plan-hash`,
+`hanko.sh/runtime-binding-revision` and `hanko.sh/runtime-metadata-hash`.
+The operator preserves the separate owner-supplied authorization markers.
+
+All binding targets are prevalidated before writes. Each patch then rechecks
+current consent/identity and uses a resourceVersion precondition. ConfigMap and
+Secret patches are **not atomic**: metadata can advance while a Secret write fails.
+Consumers should accept a new configuration only when both outputs carry the
+same revision and per-binding Ready is True. Delivery retries read actual target
+content; partial writes, lost acknowledgements and status loss converge without
+another provider client/mapper write or credential rotation when provider state
+is current. A non-secret journal of target references and UIDs on the application
+is persisted before delivery so cleanup survives output-status loss.
+
+`status.runtimeBindings` has at most 32 entries: name, namespace, ServiceAccount
+name/UID, target names, source generation/applied hash, metadata hash, revision
+and one Ready condition with a message bounded to 256 characters. Top-level
+`RuntimeBindings` is Unknown/NotConfigured without bindings, True/Reconciled when
+all are current, or False with a stable reason. Provider `Synced` is preserved;
+provider success plus broken delivery results in `Synced=True`,
+`RuntimeBindings=False`, `Phase=Error`.
+
+| Failure | Action |
+| --- | --- |
+| ApplicationNotReady / StaleSource | Restore provider/dependency readiness; last outputs remain |
+| WorkloadChanged | Review replacement ServiceAccount and explicitly reauthorize every target with its current UID |
+| TargetNotAuthorized / TargetUnavailable | Provision/review the exact existing targets and owner markers; status cannot approve replacements |
+| OutputFailed / OutputConflict / TargetImmutable | Repair target access/content constraints; retry keeps the intended revision |
+| CleanupConflict | Administrator reviews revoked consent or replaced/missing workload identity and manually removes stale managed fields if reauthorization is inappropriate |
+
+Removing a binding or deleting its application clears only managed keys and
+managed delivery annotations, leaving output objects and unrelated data intact.
+Cleanup independently rechecks current consent, delivered application UID, target
+UID and workload UID. Revoked authorization blocks cleanup and retains the
+application finalizer until the owner resolves it; this deliberately favors owner
+consent over deleting a foreign credential. Existing output consumers must also
+be decommissioned by their owner. Canonical credential/provider deletion follows
+the existing application lifecycle. Remove bindings and finish cleanup in Manage
+mode before changing the application to Observe. A retained delivery journal in
+Observe reports CleanupConflict and performs no output writes, including deletion.
+
+### Consumption and qualification boundary
+
+Workloads mount the ConfigMap/Secret through ordinary Kubernetes volumes or read
+objects through their own authorized API client. The standard change signal is
+`hanko.sh/runtime-binding-revision`, also present in JSON and application status.
+No SDK, Deployment/StatefulSet/Pod mutation or automatic restart is performed.
+Mounted files update according to Kubernetes volume behavior; environment values
+and `subPath` mounts need consumer-managed reload/restart. Periodic reconciliation
+repairs target drift; the operator does not watch target namespaces.
+
+The ServiceAccount UID is an authorization anchor, **not workload federation**.
+Projected ServiceAccount JWT login, SPIFFE, token exchange and short-lived workload
+identity are deferred to 0.6. There is no HankoMeshService coupling, live Hub
+binding execution or Continuum change.
+
+Qualification combines deterministic/adversarial/retry unit tests, real Kubernetes
+1.35.0/1.36.2/1.37.0 target storage and exact RBAC denials, real HTTPS Keycloak
+26.7.5/26.8.0 SPA/web/M2M/SAML and projected-credential token flows using only
+`manage-clients`, and the scanned-image installed-system M2M/SAML/rotation/cleanup
+fixture on Kubernetes 1.37.0 plus Keycloak 26.8.0. These are test environments;
+no cloud, portable backup/restore or production fleet qualification is implied.

@@ -1,4 +1,4 @@
-"""Check the reviewed 0.2.0 contract and package one already scanned OCI delivery."""
+"""Check the reviewed 0.3.0 contract and package one already scanned OCI delivery."""
 
 import argparse
 import hashlib
@@ -11,7 +11,7 @@ import subprocess
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 
 def module(name, filename):
@@ -39,9 +39,9 @@ def notes(version=VERSION):
 def check(version=VERSION):
     chart = yaml.safe_load((ROOT / "charts/hankoshell-operator/Chart.yaml").read_text())
     if version != VERSION or chart["version"] != version or chart["appVersion"] != version:
-        raise ValueError("Source, chart and requested release versions must remain 0.2.0")
+        raise ValueError("Source, chart and requested release versions must remain 0.3.0")
     if chart["annotations"]["artifacthub.io/prerelease"] != "false":
-        raise ValueError("0.2.0 is a normal initial-development SemVer release")
+        raise ValueError("0.3.0 is a normal initial-development SemVer release")
     if "artifacthub.io/signKey" in chart["annotations"]:
         raise ValueError("The Attest receipt key is not a Helm chart signing key")
     ci = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())["jobs"]

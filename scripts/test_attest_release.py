@@ -96,7 +96,7 @@ class DeliveryArtifactTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.dist = Path(self.temp.name)
-        self.version = "0.2.0"
+        self.version = "0.3.0"
         self.revision = "1" * 40
         self.image = "ghcr.io/alien6-studio/hankoshell-operator@sha256:" + "a" * 64
         self.chart = self.dist / f"hankoshell-operator-{self.version}.tgz"
@@ -154,7 +154,7 @@ class DeliveryArtifactTests(unittest.TestCase):
 
     def test_chart_cannot_select_another_digest_or_tag_even_with_matching_checksums(self):
         original = self.chart.read_bytes()
-        for field, value in (("digest", "sha256:" + "f" * 64), ("tag", "0.2.0"),
+        for field, value in (("digest", "sha256:" + "f" * 64), ("tag", "0.3.0"),
                              ("repository", "ghcr.io/another/operator")):
             self.chart.write_bytes(original)
             with tarfile.open(self.chart) as archive:

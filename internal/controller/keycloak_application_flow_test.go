@@ -127,6 +127,7 @@ func TestRealKeycloakApplicationProtocolsAndFlows(t *testing.T) {
 		t.Fatalf("Keycloak accepted unregistered ACS: HTTP %d", status)
 	}
 	qualifyOIDCFlows(f, ctx, kube, ar, username, password)
+	qualifyRuntimeBindings(f, operator)
 	qualifyApplicationLifecycle(f, ctx, kube, ar, saml)
 	qualifyForeignApplications(f, ctx, kube, ar)
 	qualifyOIDCRecreation(f, ctx, kube, ar)

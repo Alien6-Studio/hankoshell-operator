@@ -255,10 +255,11 @@ func TestKubernetesCompatibility(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	operator, err := client.New(user.Config(), client.Options{Scheme: scheme})
+	operator, err := client.NewWithWatch(user.Config(), client.Options{Scheme: scheme})
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Run("runtime bindings and exact cross-namespace RBAC", func(t *testing.T) { checkRuntimeBindings(t, ctx, admin, operator) })
 	t.Run("server-side-apply-and-status", func(t *testing.T) {
 		checkRealmApplyAndStatus(t, ctx, operator)
 	})

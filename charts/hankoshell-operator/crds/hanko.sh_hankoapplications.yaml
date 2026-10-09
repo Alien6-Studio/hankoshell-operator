@@ -260,6 +260,71 @@ spec:
                   - name
                   type: object
                 type: array
+              runtimeBindings:
+                description: |-
+                  RuntimeBindings delivers proven application metadata and optional OIDC
+                  credentials to preauthorized, pre-existing workload targets. Manage only.
+                items:
+                  description: ApplicationRuntimeBinding identifies pre-existing workload-owned
+                    outputs.
+                  properties:
+                    credentials:
+                      description: ApplicationRuntimeCredentialTarget selects the
+                        optional client_secret output.
+                      properties:
+                        secretRef:
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - secretRef
+                      type: object
+                    name:
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    publicMetadata:
+                      description: ApplicationRuntimeMetadataTarget selects the identity.json
+                        ConfigMap.
+                      properties:
+                        configMapRef:
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - configMapRef
+                      type: object
+                    workload:
+                      description: ApplicationRuntimeWorkload is an authorization
+                        anchor, not workload federation.
+                      properties:
+                        namespace:
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                        serviceAccountRef:
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - namespace
+                      - serviceAccountRef
+                      type: object
+                  required:
+                  - name
+                  - publicMetadata
+                  - workload
+                  type: object
+                maxItems: 32
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               saml:
                 description: SAML is the bounded SP-initiated contract. ClientID is
                   the SP entity ID.
@@ -442,6 +507,13 @@ spec:
             - realmRef
             type: object
             x-kubernetes-validations:
+            - message: runtimeBindings require Manage mode
+              rule: '!has(self.runtimeBindings) || size(self.runtimeBindings) == 0
+                || !has(self.mode) || self.mode == ''Manage'''
+            - message: runtime credentials require confidential OIDC web or m2m clients
+              rule: '!has(self.runtimeBindings) || self.runtimeBindings.all(b, !has(b.credentials)
+                || ((!has(self.protocol) || self.protocol == ''oidc'') && (!has(self.type)
+                || self.type == ''web'' || self.type == ''m2m'')))'
             - message: clientSecretProjections require a confidential web or m2m client
               rule: '!has(self.clientSecretProjections) || size(self.clientSecretProjections)
                 == 0 || (has(self.type) && (self.type == ''web'' || self.type == ''m2m''))'
@@ -961,6 +1033,120 @@ spec:
                 - saml
                 - unsupported
                 type: string
+              runtimeBindings:
+                description: RuntimeBindings records bounded delivery evidence, never
+                  write authority.
+                items:
+                  description: ApplicationRuntimeBindingStatus contains public delivery
+                    evidence only.
+                  properties:
+                    bindingRevision:
+                      pattern: ^sha256:[a-f0-9]{64}$
+                      type: string
+                    conditions:
+                      items:
+                        description: Condition contains details for one aspect of
+                          the current state of this API Resource.
+                        properties:
+                          lastTransitionTime:
+                            description: |-
+                              lastTransitionTime is the last time the condition transitioned from one status to another.
+                              This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                            format: date-time
+                            type: string
+                          message:
+                            description: |-
+                              message is a human readable message indicating details about the transition.
+                              This may be an empty string.
+                            maxLength: 32768
+                            type: string
+                          observedGeneration:
+                            description: |-
+                              observedGeneration represents the .metadata.generation that the condition was set based upon.
+                              For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                              with respect to the current state of the instance.
+                            format: int64
+                            minimum: 0
+                            type: integer
+                          reason:
+                            description: |-
+                              reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                              Producers of specific condition types may define expected values and meanings for this field,
+                              and whether the values are considered a guaranteed API.
+                              The value should be a CamelCase string.
+                              This field may not be empty.
+                            maxLength: 1024
+                            minLength: 1
+                            pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                            type: string
+                          status:
+                            description: status of the condition, one of True, False,
+                              Unknown.
+                            enum:
+                            - "True"
+                            - "False"
+                            - Unknown
+                            type: string
+                          type:
+                            description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                            maxLength: 316
+                            pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                            type: string
+                        required:
+                        - lastTransitionTime
+                        - message
+                        - reason
+                        - status
+                        - type
+                        type: object
+                      maxItems: 1
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
+                    configMapRef:
+                      maxLength: 253
+                      type: string
+                    metadataHash:
+                      pattern: ^sha256:[a-f0-9]{64}$
+                      type: string
+                    name:
+                      maxLength: 63
+                      type: string
+                    namespace:
+                      maxLength: 63
+                      type: string
+                    secretRef:
+                      maxLength: 253
+                      type: string
+                    serviceAccountRef:
+                      maxLength: 253
+                      type: string
+                    serviceAccountUID:
+                      maxLength: 128
+                      type: string
+                    sourceAppliedPlanHash:
+                      pattern: ^sha256:[a-f0-9]{64}$
+                      type: string
+                    sourceGeneration:
+                      format: int64
+                      minimum: 0
+                      type: integer
+                  required:
+                  - configMapRef
+                  - name
+                  - namespace
+                  - serviceAccountRef
+                  type: object
+                  x-kubernetes-validations:
+                  - message: runtime delivery conditions must be bounded Ready evidence
+                    rule: '!has(self.conditions) || self.conditions.all(c, size(c.message)
+                      <= 256 && c.type == ''Ready'')'
+                maxItems: 32
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               samlEndpoints:
                 description: SAMLEndpoints is absent for OIDC applications. No full
                   XML is stored.

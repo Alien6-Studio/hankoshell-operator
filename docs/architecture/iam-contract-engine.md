@@ -3,7 +3,7 @@
 This implementation resolves [RFC #22](https://github.com/Alien6-Studio/hankoshell-operator/issues/22)
 and the execution boundary of [RFC #23](https://github.com/Alien6-Studio/hankoshell-operator/issues/23).
 It was qualified at the 0.2 boundary for `HankoResourceServer` and `HankoRole`.
-The 0.3 development source extends this pattern to `HankoApplication`; see the
+Application Identity 0.3.0 extends this pattern to `HankoApplication`; see the
 [application domain contract](application-identity.md). Keycloak remains the only
 backend. Public evidence implements [#27](https://github.com/Alien6-Studio/hankoshell-operator/issues/27),
 with matching application semantics in #24; other controllers retain their implementation.
@@ -191,8 +191,8 @@ write/read roles and denied to an unprivileged service account. No role grant ex
 The exact-image installed-system suite also reconciles a HankoRole through the
 running manager and checks the ownership marker, description and finalizer cleanup.
 All existing Kubernetes, provider, OCI, supply-chain and release rehearsal gates
-remain mandatory. Current chart/app metadata is **0.2.0** after completion of the IAM Contract
-Engine milestone. The immutable v0.1.0 tag keeps its original source/workflow;
+remain mandatory. The IAM Contract Engine was completed at the immutable v0.2.0 source boundary.
+Current chart/app metadata is **0.3.0**, completing Application Identity. The immutable v0.1.0 tag keeps its original source/workflow;
 source completion does not imply production publication.
 
 [#28](https://github.com/Alien6-Studio/hankoshell-operator/issues/28) completes

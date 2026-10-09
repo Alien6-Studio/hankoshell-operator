@@ -273,7 +273,13 @@ func (m *mockKeycloak) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			status = http.StatusOK
 		}
 		m.counts["discovery"]++
-		w.WriteHeader(status)
+		if status != http.StatusOK {
+			w.WriteHeader(status)
+			return
+		}
+		issuer := m.server.URL + strings.TrimSuffix(path, "/.well-known/openid-configuration")
+		prefix := issuer + "/protocol/openid-connect"
+		writeJSON(w, map[string]any{"issuer": issuer, "authorization_endpoint": prefix + "/auth", "token_endpoint": prefix + "/token", "jwks_uri": prefix + "/certs", "userinfo_endpoint": prefix + "/userinfo"})
 
 	case path == "/admin/realms" && r.Method == http.MethodGet:
 		m.counts["listRealms"]++

@@ -1,6 +1,6 @@
 # Keycloak administrative permissions
 
-This is the permission contract for **hankoShell Operator 0.2.0**, verified against
+This is the permission contract for **hankoShell Operator 0.3.0**, verified against
 real Keycloak **26.8.0 and 26.7.5** over verified HTTPS with `client_credentials`.
 It covers the Admin REST API used by the operator. Kubernetes permissions and
 Hub/Continuum credentials are separate; see [secure deployment](secure-deployment.md).
@@ -20,7 +20,7 @@ powers of the minimum built-in-role profile. Use separate realms and identities
 when those powers cross a trust boundary. A fine-grained administration policy
 might reduce individual resource scope, but is **not qualified by this contract**.
 
-In 0.2.0 the credential client authenticates in **master**. Target-realm authority
+In 0.3.0 the credential client authenticates in **master**. Target-realm authority
 is granted through Keycloak's native **`<target-realm>-realm` client in master**.
 These client roles administer that target; they are not master administrative
 roles. Do not substitute master `admin` or the `master-realm` client roles.
@@ -53,6 +53,12 @@ clients, administrative roles or role grants**, and a 403 is not repaired by
 self-elevation. Keycloak creates/removes its native proxy as part of realm lifecycle.
 Upgrading from 0.1.0 does not revoke existing excessive
 grants automatically: an administrator must review and remove them.
+
+Runtime bindings add **no Keycloak roles**. They deliver already proven application
+metadata and existing canonical credentials through separately authorized Kubernetes
+targets. Protocol/runtime tests use only target-realm `manage-clients`; realm
+reconciliation and declared realm roles retain their existing additional grants.
+See [runtime target RBAC and consent](architecture/application-identity.md#runtime-bindings).
 
 ## Permission and capability matrix
 
@@ -129,7 +135,7 @@ can trigger realm-wide logout: grant `manage-users` when that transition is used
 or have an administrator perform the transition and session revocation first.
 Never silently skip a denied security action to obtain a green reconciliation.
 
-## Application protocols in the 0.3 development source
+## Application protocols in 0.3.0
 
 OIDC and the bounded SAML application/client-role contract use target-realm
 `manage-clients` only; real protocol/lifecycle tests omit realm, event, user,

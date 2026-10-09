@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/applicationbinding"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/applications"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 )
@@ -82,6 +83,8 @@ type HankoApplicationReconciler struct {
 	// mutations involving a logically shared Keycloak client.
 	OwnershipReader        client.Reader
 	SecretProjectionClient client.Client
+	// RuntimeClient is an uncached client with namespace-scoped target RBAC.
+	RuntimeClient client.Client
 	// ProtectedClientIDs are control-plane clients in ProtectedRealm. They may
 	// be owned by one deterministic HankoApplication, but never by a
 	// HankoServiceAccount.
@@ -100,6 +103,14 @@ func (r *HankoApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	kc := kcForObject(r.Pool, app.Namespace, app.Labels)
 	mode := effectiveMode(&app)
+	if mode == ModeObserve && app.Annotations[applicationbinding.JournalAnnotation] != "" {
+		return r.runtimeCleanupFailure(ctx, &app, &applicationbinding.Failure{Reason: "CleanupConflict"})
+	}
+	if !app.DeletionTimestamp.IsZero() && mode == ModeManage && app.Annotations[applicationbinding.JournalAnnotation] != "" {
+		if err := r.cleanupRuntimeApplication(ctx, &app); err != nil {
+			return r.runtimeCleanupFailure(ctx, &app, err)
+		}
+	}
 	if app.DeletionTimestamp.IsZero() {
 		if err := validateApplicationProtocol(&app); err != nil {
 			return r.applicationContractError(ctx, &app, client.MergeFrom(app.DeepCopy()), nil, nil, err)
@@ -133,6 +144,7 @@ func (r *HankoApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			}
 			app.Status.Phase = "Error"
 			app.Status.ObservedGeneration = app.Generation
+			markRuntimePending(&app, "ApplicationNotReady")
 			setCondition(&app.Status.Conditions, "Synced", metav1.ConditionFalse, "AuthorityRoleLookupFailed", err.Error())
 			if patchErr := r.Status().Patch(ctx, &app, patch); patchErr != nil {
 				return ctrl.Result{}, patchErr
@@ -141,7 +153,7 @@ func (r *HankoApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 		reason, ownershipConflict, err := r.applicationOwnershipConflict(ctx, &app, kc)
 		if err != nil {
-			return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("check application client ownership for %q: %w", app.Spec.ClientID, err)
+			return r.applicationContractError(ctx, &app, patch, nil, nil, err)
 		}
 		if ownershipConflict != "" {
 			if !app.DeletionTimestamp.IsZero() {
@@ -244,6 +256,7 @@ func (r *HankoApplicationReconciler) reconcileManagedApplication(ctx context.Con
 		app.Status.Phase = "Error"
 		app.Status.ObservedGeneration = app.Generation
 		app.Status.ManagedTokenClaims = invalidClaims
+		markRuntimePending(app, "ApplicationNotReady")
 		setCondition(&app.Status.Conditions, "Mappings", metav1.ConditionFalse, "Invalid", err.Error())
 		_ = r.Status().Patch(ctx, app, patch)
 		return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("validate token claims for %q: %w", app.Spec.ClientID, err)
@@ -257,11 +270,13 @@ func (r *HankoApplicationReconciler) reconcileManagedApplication(ctx context.Con
 	if err != nil {
 		app.Status.Phase = "Error"
 		app.Status.ObservedGeneration = app.Generation
+		markRuntimePending(app, "ApplicationNotReady")
 		setCondition(&app.Status.Conditions, "ThemeReady", metav1.ConditionFalse, "ThemeLookupFailed", err.Error())
 		_ = r.Status().Patch(ctx, app, patch)
 		return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("check theme readiness: %w", err)
 	}
 	if !themeReady {
+		markRuntimePending(app, "ApplicationNotReady")
 		if err := r.Status().Patch(ctx, app, patch); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -395,6 +410,7 @@ func (r *HankoApplicationReconciler) releaseConflictingApplication(ctx context.C
 }
 
 func (r *HankoApplicationReconciler) recordApplicationConflict(ctx context.Context, app *hankoshv1alpha1.HankoApplication, patch client.Patch, reason, message string) (ctrl.Result, error) {
+	markRuntimePending(app, "ApplicationNotReady")
 	app.Status.Phase = "Conflict"
 	app.Status.ObservedGeneration = app.Generation
 	setCondition(&app.Status.Conditions, "Synced", metav1.ConditionFalse, "Conflict", message)
@@ -430,13 +446,15 @@ func (r *HankoApplicationReconciler) ensureSecret(ctx context.Context, app *hank
 		return nil // public/SAML client — no secret
 	}
 	var s corev1.Secret
-	err := r.Get(ctx, types.NamespacedName{Name: secretName(app.Spec.ClientID), Namespace: app.Namespace}, &s)
+	err := r.applicationCredentialReader().Get(ctx, types.NamespacedName{Name: secretName(app.Spec.ClientID), Namespace: app.Namespace}, &s)
 	if err == nil {
+		recoverApplicationRotationCheckpoint(app, &s)
 		current := string(s.Data["client_secret"])
 		if current == "" {
 			current = s.StringData["client_secret"]
 		}
 		if current != "" {
+			setApplicationCredentialReference(app)
 			return r.reconcileSecretProjections(ctx, app, current)
 		}
 	}
@@ -452,12 +470,7 @@ func (r *HankoApplicationReconciler) ensureSecret(ctx context.Context, app *hank
 	if err := r.upsertSecret(ctx, app, current); err != nil {
 		return err
 	}
-	app.Status.ClientSecret = &hankoshv1alpha1.SecretReference{
-		SecretRef: corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{Name: secretName(app.Spec.ClientID)},
-			Key:                  "client_secret",
-		},
-	}
+	setApplicationCredentialReference(app)
 	return nil
 }
 
@@ -479,6 +492,9 @@ func (r *HankoApplicationReconciler) maybeRotateApplicationSecret(ctx context.Co
 	if err != nil {
 		return fmt.Errorf("rotate secret for %q: %w", app.Spec.ClientID, err)
 	}
+	// Persist the non-secret rotation checkpoint with the canonical credential.
+	// A later runtime/status failure must not repeat this provider rotation.
+	app.Status.LastRotated = now
 	if err := r.upsertSecret(ctx, app, secret); err != nil {
 		return err
 	}
@@ -1129,16 +1145,17 @@ func boolOrDefault(value *bool, fallback bool) bool {
 func (r *HankoApplicationReconciler) upsertSecret(ctx context.Context, app *hankoshv1alpha1.HankoApplication, secret string) error {
 	name := secretName(app.Spec.ClientID)
 	s := &corev1.Secret{}
-	err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: app.Namespace}, s)
+	err := r.applicationCredentialReader().Get(ctx, types.NamespacedName{Name: name, Namespace: app.Namespace}, s)
 	if client.IgnoreNotFound(err) != nil {
 		return err
 	}
 	if err != nil {
 		s = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: app.Namespace,
-				Labels:    map[string]string{"app.kubernetes.io/managed-by": "hanko-operator"},
+				Name:        name,
+				Namespace:   app.Namespace,
+				Labels:      map[string]string{"app.kubernetes.io/managed-by": "hanko-operator"},
+				Annotations: applicationRotationCheckpoint(app),
 			},
 			StringData: map[string]string{"client_secret": secret},
 		}
@@ -1151,6 +1168,12 @@ func (r *HankoApplicationReconciler) upsertSecret(ctx context.Context, app *hank
 		return r.reconcileSecretProjections(ctx, app, secret)
 	}
 	p := client.MergeFrom(s.DeepCopy())
+	if s.Annotations == nil {
+		s.Annotations = map[string]string{}
+	}
+	for key, value := range applicationRotationCheckpoint(app) {
+		s.Annotations[key] = value
+	}
 	s.StringData = map[string]string{"client_secret": secret}
 	if err := r.Patch(ctx, s, p); err != nil {
 		return err
