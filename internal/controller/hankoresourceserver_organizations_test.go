@@ -14,6 +14,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 )
 
 type organizationTestDriver struct {
@@ -215,6 +216,29 @@ func TestOrganizationWatchExcludesOtherNamespacesAndNonConsumers(t *testing.T) {
 	requests := r.organizationRequests(context.Background(), organizationNode("new-child", "europe", "/europe/new-child"))
 	if len(requests) != 1 || requests[0].NamespacedName != client.ObjectKeyFromObject(rs) {
 		t.Fatal("organization watch escaped namespace/explicit-principal boundary")
+	}
+}
+
+func TestResourceServerWatchFiltersOnlyStatusEchoes(t *testing.T) {
+	old := &api.HankoResourceServer{ObjectMeta: metav1.ObjectMeta{Generation: 1}}
+	for _, test := range []struct {
+		name   string
+		wake   bool
+		change func(*api.HankoResourceServer)
+	}{
+		{"status", false, func(o *api.HankoResourceServer) { o.Status.ObservedGeneration = 1 }},
+		{"spec generation", true, func(o *api.HankoResourceServer) { o.Generation++ }},
+		{"manual request", true, func(o *api.HankoResourceServer) { o.Annotations = map[string]string{reconcileRequestAnnotation: "new"} }},
+		{"credential authority", true, func(o *api.HankoResourceServer) { o.Labels = map[string]string{"hanko.sh/tenant": "new"} }},
+		{"deletion", true, func(o *api.HankoResourceServer) { now := metav1.Now(); o.DeletionTimestamp = &now }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			next := old.DeepCopy()
+			test.change(next)
+			if resourceServerAuthorityChanged().Update(event.UpdateEvent{ObjectOld: old, ObjectNew: next}) != test.wake {
+				t.Fatal("ResourceServer event authority contract differs")
+			}
+		})
 	}
 }
 

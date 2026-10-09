@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"slices"
 	"strings"
 	"unicode"
@@ -12,7 +13,9 @@ import (
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -21,6 +24,20 @@ const (
 	maxOrganizationDepth       = 32
 	organizationPrincipalIndex = "hanko.sh/resource-server-organization-principals"
 )
+
+// Status writes must not masquerade as dependency watch events. Preserve
+// immediate spec/manual-request, credential-label and finalizer deletion wakes.
+func resourceServerAuthorityChanged() predicate.Predicate {
+	return predicate.Or(generationOrReconcileRequestChanged(), predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if e.ObjectOld == nil || e.ObjectNew == nil {
+				return false
+			}
+			return !maps.Equal(e.ObjectOld.GetLabels(), e.ObjectNew.GetLabels()) ||
+				e.ObjectOld.GetDeletionTimestamp().IsZero() != e.ObjectNew.GetDeletionTimestamp().IsZero()
+		},
+	})
+}
 
 type organizationGrantResolver struct {
 	reader           client.Reader

@@ -167,6 +167,7 @@ func checkOrganizationDependencyWatch(t *testing.T, ctx context.Context, c clien
 	case <-time.After(15 * time.Second):
 		t.Fatal("initial organizational plan not applied")
 	}
+	checkOrganizationWatchIdle(t, driver.plans)
 	createOrg("watch-france", "watch-europe", "/watch-europe/watch-france")
 	deadline := time.NewTimer(15 * time.Second)
 	defer deadline.Stop()
@@ -182,6 +183,24 @@ func checkOrganizationDependencyWatch(t *testing.T, ctx context.Context, c clien
 			return
 		case <-deadline.C:
 			t.Fatal("new previously unknown descendant did not requeue/recompile")
+		}
+	}
+}
+
+func checkOrganizationWatchIdle(t *testing.T, plans <-chan iamcontract.PlanIdentity) {
+	t.Helper()
+	quiet := time.NewTimer(500 * time.Millisecond)
+	defer quiet.Stop()
+	deadline := time.NewTimer(5 * time.Second)
+	defer deadline.Stop()
+	for {
+		select {
+		case <-plans:
+			quiet.Reset(500 * time.Millisecond)
+		case <-quiet.C:
+			return
+		case <-deadline.C:
+			t.Fatal("ResourceServer status updates caused a self-reconciliation loop")
 		}
 	}
 }
