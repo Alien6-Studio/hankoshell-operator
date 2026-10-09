@@ -263,9 +263,13 @@ not eliminate external administrator races. Provider administrators are trusted
 for markers and must serialize ownership/configuration edits during acquisition.
 No linearizable multi-object transition is claimed. Concurrent changes visible
 at checkpoints fail closed; stronger conflict guarantees require a qualified
-provider primitive, not another status flag. Fault-injected acknowledgement and
-status recovery of the future executor remain #48/#49 acceptance requirements;
-the RFC probes only primitive read-back/no-op/partial-state behavior.
+provider primitive, not another status flag. The RFC drops a successful owner PUT
+acknowledgement at a trusted HTTPS relay: the caller sees failure, fresh reads
+prove the preserved remote marker, and blind acquisition retry is refused without
+a second PUT. Existing approved SAML migration also recovers from an injected
+Kubernetes status-patch failure without another Admin write. These prove the
+primitive and legacy paths; fault recovery for the future common executor and
+aggregate receipts still remains #48/#49 acceptance work.
 
 Ownership does not automatically justify deletion: deleting a group cascades
 children and deleting a realm cascades foreign contents. Shared authorization
@@ -341,6 +345,7 @@ credential/mapper/role preservation and protocol recreation rules.
 | --- | --- |
 | SPA/web/M2M/SAML client owner-only operation | Stable UUID/protocol/non-secret fields, native attributes, role/mapper IDs; known confidential credentials still authenticate; wrong owner cannot delete |
 | Existing qualified SAML approval | Unmarked client requires exact UUID/complete observation; material change invalidates approval; fresh approval preserves UUID and protocol. Native request-signing defaults are outside this positive fixture |
+| Interrupted ownership evidence | Successful owner PUT with lost acknowledgement stays observable; blind acquisition retry performs no second PUT. Existing approved SAML migration recovers Ready after failed status patch without another Admin write |
 | Realm role attribute marker | Stable UUID/description/native attributes and direct/effective composite graph; no-op read-back; deleting root preserves composite child roles |
 | Existing group + nested child + mappings | Marker-only PUT preserves hierarchy/mappings; deleting group cascades child, so foreign child cleanup is unsafe |
 | Root native Organization | Attribute marker/UUID/alias/domains round-trip; inventory denial after group checkpoint leaves partial state; retry no-op; native Organization deletion preserves separate structural group |

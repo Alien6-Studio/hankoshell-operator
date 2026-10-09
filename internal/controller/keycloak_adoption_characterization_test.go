@@ -20,10 +20,12 @@ import (
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/applications"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/controller"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/iamconformance"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/organization"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/roles"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -169,6 +171,49 @@ func newAdoptionInventoryProxy(t *testing.T, f *keycloakFixture, name, secret st
 	}
 }
 
+func newAdoptionLostAckProxy(t *testing.T, f *keycloakFixture, name, secret, path string) (*keycloak.Client, func() int) {
+	t.Helper()
+	upstream, err := url.Parse(f.baseURL)
+	f.requireNoError(err)
+	var mu sync.Mutex
+	committed := 0
+	proxy := &httputil.ReverseProxy{
+		Rewrite:   func(r *httputil.ProxyRequest) { r.SetURL(upstream); r.Out.Host = upstream.Host },
+		Transport: f.http.Transport,
+		ModifyResponse: func(r *http.Response) error {
+			if r.Request.Method == http.MethodPut && r.StatusCode == http.StatusNoContent {
+				mu.Lock()
+				committed++
+				mu.Unlock()
+				// Keycloak committed the write, but the caller receives no success
+				// acknowledgement. Do not disclose upstream bodies or headers.
+				return io.ErrUnexpectedEOF
+			}
+			return nil
+		},
+		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, _ error) {
+			http.Error(w, "fixture acknowledgement unavailable", http.StatusBadGateway)
+		},
+	}
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if (r.URL.Path == path && (r.Method == http.MethodGet || r.Method == http.MethodPut)) || (r.URL.Path == "/realms/master/protocol/openid-connect/token" && r.Method == http.MethodPost) {
+			proxy.ServeHTTP(w, r)
+			return
+		}
+		http.Error(w, "fixture route not allowed", http.StatusForbidden)
+	}))
+	t.Cleanup(server.Close)
+	ca := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw})
+	kc, err := keycloak.NewWithTLS(server.URL, name, secret, ca)
+	f.requireNoError(err)
+	f.requireNoError(kc.RequireHTTPS())
+	return kc, func() int {
+		mu.Lock()
+		defer mu.Unlock()
+		return committed
+	}
+}
+
 func TestRealKeycloakAdoptionCharacterization(t *testing.T) {
 	f := newKeycloakFixture(t)
 	_, readSecret := f.serviceClient("adoption-reader")
@@ -242,6 +287,30 @@ func TestRealKeycloakAdoptionCharacterization(t *testing.T) {
 		}
 	})
 
+	f.run("owner write remains provable after lost acknowledgement", func(t *testing.T) {
+		writer, writerKC := adoptionScopedWriter(f, "lost-ack-writer", "manage-clients")
+		f.admin(http.MethodPost, base+"/clients", map[string]any{"clientId": "lost-ack-client", "protocol": "openid-connect", "enabled": true, "publicClient": true, "attributes": map[string]string{"native.future.option": "keep"}}, nil)
+		expected, err := writerKC.GetApplication(ctx, "managed", "lost-ack-client")
+		f.requireNoError(err)
+		path := base + "/clients/" + expected.ID
+		before := adoptionClone(t, reader.read(path))
+		flaky, committed := newAdoptionLostAckProxy(t, f, writer.name, writer.secret, path)
+		if err := flaky.MarkApplicationOwner(ctx, "managed", *expected, applications.OwnerAttribute, "lost-ack-owner"); err == nil {
+			t.Fatal("lost ownership acknowledgement appeared successful")
+		}
+		fixtureEqual(t, "owner write committed exactly once", committed(), 1)
+		after := adoptionClone(t, reader.read(path))
+		fixtureEqual(t, "fresh read proves owner after ambiguous write", after["attributes"].(map[string]any)[applications.OwnerAttribute], "lost-ack-owner")
+		delete(after["attributes"].(map[string]any), applications.OwnerAttribute)
+		fixtureEqual(t, "lost acknowledgement preserves native state", after, before)
+		// No local adoption status was retained. The remote marker is evidence;
+		// blindly retrying the unmarked precondition must not acquire it again.
+		if err := flaky.MarkApplicationOwner(ctx, "managed", *expected, applications.OwnerAttribute, "lost-ack-owner"); err == nil {
+			t.Fatal("blind owner acquisition retry accepted")
+		}
+		fixtureEqual(t, "retry performs no second owner PUT", committed(), 1)
+	})
+
 	f.run("realm role owner-only preserves direct and effective composites", func(t *testing.T) {
 		writer, writerKC := adoptionScopedWriter(f, "role-owner-writer", "manage-realm")
 		for _, name := range []string{"existing-leaf", "existing-middle", "existing-root"} {
@@ -299,7 +368,26 @@ func TestRealKeycloakAdoptionCharacterization(t *testing.T) {
 		fixtureEqual(t, "stale approval did not acquire owner", f.client("managed", entity)["attributes"].(map[string]any)[applications.OwnerAttribute], nil)
 		app.Annotations[applications.MigrationObservationAnnotation] = app.Status.ObservedStateHash
 		f.requireNoError(kube.Update(ctx, app))
-		fixtureReconcile(f, ctx, r, app)
+		f.admin(http.MethodPut, base+"/events/config", map[string]any{"adminEventsEnabled": true, "adminEventsDetailsEnabled": false}, nil)
+		fault := &failEvidenceStatusClient{Client: kube, fail: true}
+		r.Client = fault
+		if _, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(app)}); err == nil {
+			t.Fatal("migration status failure was ignored")
+		}
+		fixtureGet(f, ctx, kube, app)
+		if app.Status.Phase == "Ready" {
+			t.Fatal("failed migration status patch stored Ready")
+		}
+		fixtureEqual(t, "provider owner survives status failure", reader.read(base + "/clients/" + before["id"].(string))["attributes"].(map[string]any)[applications.OwnerAttribute], string(app.UID))
+		writes := func() int {
+			var events []map[string]any
+			f.admin(http.MethodGet, base+"/admin-events?max=1000", nil, &events)
+			return len(events)
+		}
+		iamconformance.NoMutation(t, writes, func() error {
+			_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(app)})
+			return err
+		})
 		fixtureGet(f, ctx, kube, app)
 		if app.Status.Phase != "Ready" || app.Status.Protocol != "saml" {
 			t.Fatal("fresh exact SAML migration failed")
