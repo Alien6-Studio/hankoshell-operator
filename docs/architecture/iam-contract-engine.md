@@ -8,6 +8,11 @@ Application Identity 0.3.0 extends this pattern to `HankoApplication`; see the
 backend. Public evidence implements [#27](https://github.com/Alien6-Studio/hankoshell-operator/issues/27),
 with matching application semantics in #24; other controllers retain their implementation.
 
+The [0.4 organizational authorization design](organizational-authorization.md)
+defines the next extension of this engine. Its real Keycloak characterization
+is committed; organization principals and bounded explanation are implementation
+backlog, with no public API or production adapter change in the RFC phase.
+
 ## Vocabulary and lifecycle
 
 | State | Responsibility | Representation |

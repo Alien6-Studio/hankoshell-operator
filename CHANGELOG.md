@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.0 — Unreleased
+
+- Accept the organizational authorization design: extend HankoResourceServer with
+  an organization principal and explicit descendant semantics, preserving role
+  composition without adding a CRD. Implementation remains in #41; bounded
+  policy explanation/provenance remains in #42.
+- Characterize real group-policy CRUD, UMA decisions, hierarchy changes, native
+  Organization separation and least-privilege profiles on HTTPS Keycloak
+  26.7.5/26.8.0. Fresh group ownership reads require explicit view-users authority;
+  the standard profile is unchanged. No 0.4 public API or reconciler is added.
+- Keep current packaging at 0.3.0 and all signed source tags immutable.
+
 ## 0.3.0 — Unreleased
 
 - Add protocol-aware HankoApplication intent, sealed local plans, Keycloak adapter
