@@ -127,6 +127,16 @@ func (r *HankoApplicationReconciler) runtimeCleanupFailure(ctx context.Context, 
 	return ctrl.Result{RequeueAfter: requeueOnError}, err
 }
 
+func (r *HankoApplicationReconciler) applicationCredentialReader() client.Reader {
+	if r.OwnershipReader != nil {
+		return r.OwnershipReader
+	}
+	return r.Client
+}
+func setApplicationCredentialReference(app *api.HankoApplication) {
+	app.Status.ClientSecret = &api.SecretReference{SecretRef: corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: secretName(app.Spec.ClientID)}, Key: "client_secret"}}
+}
+
 const applicationRotationCheckpointAnnotation = "hanko.sh/client-secret-rotated-at"
 
 func applicationRotationCheckpoint(app *api.HankoApplication) map[string]string {

@@ -446,7 +446,7 @@ func (r *HankoApplicationReconciler) ensureSecret(ctx context.Context, app *hank
 		return nil // public/SAML client — no secret
 	}
 	var s corev1.Secret
-	err := r.Get(ctx, types.NamespacedName{Name: secretName(app.Spec.ClientID), Namespace: app.Namespace}, &s)
+	err := r.applicationCredentialReader().Get(ctx, types.NamespacedName{Name: secretName(app.Spec.ClientID), Namespace: app.Namespace}, &s)
 	if err == nil {
 		recoverApplicationRotationCheckpoint(app, &s)
 		current := string(s.Data["client_secret"])
@@ -454,6 +454,7 @@ func (r *HankoApplicationReconciler) ensureSecret(ctx context.Context, app *hank
 			current = s.StringData["client_secret"]
 		}
 		if current != "" {
+			setApplicationCredentialReference(app)
 			return r.reconcileSecretProjections(ctx, app, current)
 		}
 	}
@@ -469,12 +470,7 @@ func (r *HankoApplicationReconciler) ensureSecret(ctx context.Context, app *hank
 	if err := r.upsertSecret(ctx, app, current); err != nil {
 		return err
 	}
-	app.Status.ClientSecret = &hankoshv1alpha1.SecretReference{
-		SecretRef: corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{Name: secretName(app.Spec.ClientID)},
-			Key:                  "client_secret",
-		},
-	}
+	setApplicationCredentialReference(app)
 	return nil
 }
 
@@ -1149,7 +1145,7 @@ func boolOrDefault(value *bool, fallback bool) bool {
 func (r *HankoApplicationReconciler) upsertSecret(ctx context.Context, app *hankoshv1alpha1.HankoApplication, secret string) error {
 	name := secretName(app.Spec.ClientID)
 	s := &corev1.Secret{}
-	err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: app.Namespace}, s)
+	err := r.applicationCredentialReader().Get(ctx, types.NamespacedName{Name: name, Namespace: app.Namespace}, s)
 	if client.IgnoreNotFound(err) != nil {
 		return err
 	}

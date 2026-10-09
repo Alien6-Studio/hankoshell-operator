@@ -156,6 +156,10 @@ func TestRuntimeBindingRetryDoesNotRepeatProviderWrites(t *testing.T) {
 			if err := kube.Update(ctx, actual); err != nil {
 				t.Fatal(err)
 			}
+			var cachedBeforeRotation corev1.Secret
+			if err := base.Get(ctx, client.ObjectKey{Namespace: app.Namespace, Name: "hanko-app-" + app.Spec.ClientID}, &cachedBeforeRotation); err != nil {
+				t.Fatal(err)
+			}
 			lost := true
 			rotating := interceptor.NewClient(kube, interceptor.Funcs{SubResourcePatch: func(ctx context.Context, c client.Client, sub string, obj client.Object, p client.Patch, opts ...client.SubResourcePatchOption) error {
 				if sub == "status" && lost {
@@ -170,6 +174,15 @@ func TestRuntimeBindingRetryDoesNotRepeatProviderWrites(t *testing.T) {
 			if _, err := ar.Reconcile(ctx, req); err == nil {
 				t.Fatal("rotation status loss not exercised")
 			}
+			// Simulate an informer still serving the old canonical credential;
+			// the uncached authority reader must recover the persisted checkpoint.
+			ar.Client = interceptor.NewClient(rotating, interceptor.Funcs{Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				if s, ok := obj.(*corev1.Secret); ok && key == client.ObjectKeyFromObject(&cachedBeforeRotation) {
+					*s = *cachedBeforeRotation.DeepCopy()
+					return nil
+				}
+				return c.Get(ctx, key, obj, opts...)
+			}})
 			writes = providerWrites(kc)
 			if writes["rotateSecret"] != 1 {
 				t.Fatal("rotation not exercised")
