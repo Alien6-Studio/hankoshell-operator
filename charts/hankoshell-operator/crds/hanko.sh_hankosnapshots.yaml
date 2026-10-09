@@ -35,7 +35,7 @@ spec:
           HankoSnapshot records supported operator configuration for a Keycloak instance.
           It stores the operator CRD config in a ConfigMap and optionally
           triggers a pg_dump Job for the database.
-          Portable backup/restore and database consistency are not qualified by 0.1.0.
+          Portable backup/restore and database consistency are not qualified by 0.2.0.
         properties:
           apiVersion:
             description: |-

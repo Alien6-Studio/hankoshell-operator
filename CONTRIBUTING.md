@@ -19,7 +19,7 @@ ownership, deletion, adoption, or authentication need migration and rollback
 instructions. Use synthetic fixtures and keep credentials and tenant data out
 of the repository.
 
-Version 0.1.0 is a normal SemVer release in initial development, not a beta or
+Version 0.2.0 is a normal SemVer release in initial development, not a beta or
 SemVer prerelease. The `v1alpha1` APIs remain experimental and may change across
 minor versions before 1.0. Keep chart, release metadata and curated changelog
 notes consistent with that distinction.
@@ -27,8 +27,9 @@ notes consistent with that distinction.
 Changes use short-lived PR branches and protected squash merges, signed by GitHub.
 The initial root must be signed and GitHub Verified. Publication requires a
 GitHub-verified source commit and a GitHub-verified signed annotated SemVer tag
-bound to that exact commit on protected main. After `v0.1.0` is finalized, never
-rewrite its source history or move/delete the tag. Full qualification, Sigstore
+bound to that exact commit on protected main. The immutable `v0.1.0` baseline
+and every finalized signed tag must remain fixed; never rewrite published
+source history or move/delete those tags. Full qualification, Sigstore
 artifact signatures and Continuum Attest verification remain required.
 
 Contributions are licensed under Apache-2.0. Maintainers review changes before

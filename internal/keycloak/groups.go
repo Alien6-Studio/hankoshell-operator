@@ -426,3 +426,14 @@ func idFromLocation(location string) string {
 	}
 	return location[strings.LastIndex(location, "/")+1:]
 }
+
+// HasGroupChildren checks authoritative child presence before recursive deletion.
+// One bounded result suffices: the operator never cascades over descendants.
+func (c *Client) HasGroupChildren(ctx context.Context, realm, groupID string) (bool, error) {
+	var children []Group
+	path := adminRealmsPath + realm + groupsSegment + url.PathEscape(groupID) + childrenSegment + "?first=0&max=1&briefRepresentation=true"
+	if err := c.get(ctx, path, &children); err != nil {
+		return false, err
+	}
+	return len(children) > 0, nil
+}

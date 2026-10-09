@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -55,6 +56,9 @@ func NewPositionClient(rawURL, adminToken string, httpClient *http.Client) (*Pos
 
 // RequireHTTPS secures the enterprise projector before it is used.
 func (c *PositionClient) RequireHTTPS() error {
+	if c == nil {
+		return ErrProjectorUnavailable
+	}
 	secured, err := httpsecurity.RequireHTTPS(c.httpClient, c.baseURL)
 	if err != nil {
 		return err
@@ -67,6 +71,9 @@ func (c *PositionClient) RequireHTTPS() error {
 // creates it, then replaces its writable state. This makes CRD reconciliation
 // idempotent across operator restarts and adoption of pre-existing UI data.
 func (c *PositionClient) EnsurePosition(ctx context.Context, realm string, spec PositionSpec) (string, error) {
+	if c == nil {
+		return "", ErrProjectorUnavailable
+	}
 	positions, err := c.list(ctx, realm)
 	if err != nil {
 		return "", err
@@ -100,6 +107,9 @@ func (c *PositionClient) EnsurePosition(ctx context.Context, realm string, spec 
 // DeletePosition removes a previously projected position. A missing position
 // is already converged and therefore succeeds.
 func (c *PositionClient) DeletePosition(ctx context.Context, realm, positionID string) error {
+	if c == nil {
+		return ErrProjectorUnavailable
+	}
 	if positionID == "" {
 		return nil
 	}
@@ -136,7 +146,7 @@ func (c *PositionClient) request(ctx context.Context, method, path string, body,
 	}
 	response, err := c.httpClient.Do(request)
 	if err != nil {
-		return fmt.Errorf("call Hanko position projection API: %w", err)
+		return errors.New("organization projection request failed")
 	}
 	defer func() { _ = response.Body.Close() }()
 	if !hasStatus(expected, response.StatusCode) {
@@ -145,8 +155,12 @@ func (c *PositionClient) request(ctx context.Context, method, path string, body,
 	if output == nil || response.StatusCode == http.StatusNoContent || response.StatusCode == http.StatusNotFound {
 		return nil
 	}
-	if err := json.NewDecoder(io.LimitReader(response.Body, maxResponseBytes)).Decode(output); err != nil {
-		return fmt.Errorf("decode Hanko position projection: %w", err)
+	raw, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
+	if err != nil || len(raw) > maxResponseBytes {
+		return errors.New("organization projection response exceeds its read budget or is unavailable")
+	}
+	if err := json.Unmarshal(raw, output); err != nil {
+		return errors.New("invalid organization projection response")
 	}
 	return nil
 }
@@ -156,7 +170,7 @@ func normalizeURL(raw string) (string, error) {
 	if err != nil || !parsed.IsAbs() || parsed.Host == "" || parsed.Opaque != "" {
 		return "", fmt.Errorf("HANKO_API_URL must be absolute")
 	}
-	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if parsed.User != nil || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" || strings.Contains(raw, "#") {
 		return "", fmt.Errorf("HANKO_API_URL must not contain credentials, query parameters or a fragment")
 	}
 	secure := parsed.Scheme == "https"

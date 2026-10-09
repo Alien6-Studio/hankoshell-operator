@@ -3,8 +3,10 @@ package hankoapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -42,6 +44,64 @@ func TestEnsurePositionCreatesThenAdoptsByGroup(t *testing.T) {
 	second, err := client.EnsurePosition(context.Background(), "shared", spec)
 	if err != nil || second != first || patches != 1 {
 		t.Fatalf("second EnsurePosition() = %q, %v, patches=%d", second, err, patches)
+	}
+}
+
+func TestPositionResponseBudgetAndCredentialRedaction(t *testing.T) {
+	for _, body := range []string{
+		`{"positions": []}` + strings.Repeat(" ", maxResponseBytes),
+		`{"positions": []} {"extra": "sentinel-projection-token"}`,
+		`{"positions": "sentinel-projection-token"}`,
+	} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(body))
+		}))
+		c, err := NewPositionClient(server.URL, "sentinel-projection-token", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = c.EnsurePosition(context.Background(), "realm", PositionSpec{GroupID: "group"})
+		server.Close()
+		if err == nil || strings.Contains(err.Error(), "sentinel-projection-token") {
+			t.Fatal("unsafe response accepted or credential disclosed", err)
+		}
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(strings.Repeat("sentinel-projection-token", maxResponseBytes)))
+	}))
+	defer server.Close()
+	c, err := NewPositionClient(server.URL, "sentinel-projection-token", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = c.EnsurePosition(context.Background(), "realm", PositionSpec{GroupID: "group"})
+	if err == nil || strings.Contains(err.Error(), "sentinel-projection-token") {
+		t.Fatal("HTTP failure disclosed response body", err)
+	}
+}
+
+func TestPositionDeletionAlreadyAbsentAndUnavailable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Error("unexpected request")
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+	c, err := NewPositionClient(server.URL, "token", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.DeletePosition(context.Background(), "realm", "missing"); err != nil {
+		t.Fatal(err)
+	}
+	var unavailable *PositionClient
+	if err := unavailable.DeletePosition(context.Background(), "realm", "missing"); !errors.Is(err, ErrProjectorUnavailable) {
+		t.Fatal(err)
+	}
+	if _, err := unavailable.EnsurePosition(context.Background(), "realm", PositionSpec{}); !errors.Is(err, ErrProjectorUnavailable) {
+		t.Fatal(err)
 	}
 }
 

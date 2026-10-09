@@ -1,7 +1,7 @@
 # hankoShell Operator chart
 
 Helm chart for declarative Keycloak IAM configuration with hankoShell Operator.
-Version 0.1.0 is a normal SemVer release in initial development.
+Version 0.2.0 is a normal SemVer release in initial development.
 The chart installs 16 experimental `hanko.sh/v1alpha1` CRDs. These APIs may change
 between minor versions. All controllers are registered; integration flags
 configure their connections to optional services.
@@ -232,3 +232,14 @@ Read the [source README](https://github.com/Alien6-Studio/hankoshell-operator#de
 and [secure deployment guide](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md)
 with its Hub bundle trust model, plus the [security policy](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/SECURITY.md).
 This chart includes the Apache-2.0 license and project notice.
+
+## Organization projection
+
+`organizationProjection.enabled=false` is the standalone default. The chart
+always passes the explicit boolean to the process, mounts no API token/URL and
+opens no projection egress when disabled. Organizations can be Ready without a
+PositionID. Enabled projection requires a URL, token Secret/key and exact network
+destination/ports; enterprise keeps verified HTTPS mandatory. Configured API
+failures preserve provider Synced=True while Phase is Error (or Pending for a
+parent projection dependency). See [configuration, status and migration](../../docs/secure-deployment.md#organization-provider-readiness-and-optional-projection),
+including residual position cleanup after disabling projection.

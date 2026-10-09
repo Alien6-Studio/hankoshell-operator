@@ -98,7 +98,7 @@ publisher signature with the pinned runtime cosign. It preserves its current
 image repository. Missing approval, revoked approval, failed verification or a
 concurrent Deployment change prevents the patch. Already-pinned images are checked
 again; a version string alone does not authorize an update.
-The Hub reference version must match the reviewed SemVer release, such as `0.1.0`.
+The Hub reference version must match the reviewed SemVer release, such as `0.2.0`.
 
 Configure `imageVerification.policyConfigMap: hanko-image-policy`, the independent
 [admission policy](../config/security/operator-image-policy-admission.yaml) and
@@ -121,8 +121,8 @@ approval. Replace the digest and source placeholders with the reviewed values:
     "purpose": "operator-update",
     "image": "ghcr.io/alien6-studio/hankoshell-operator@sha256:<verified-digest>",
     "revision": "<full-source-revision>",
-    "release_version": "0.1.0",
-    "certificate_identity": "https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.1.0",
+    "release_version": "0.2.0",
+    "certificate_identity": "https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.2.0",
     "certificate_oidc_issuer": "https://token.actions.githubusercontent.com"
   }]
 }
@@ -342,7 +342,7 @@ administrative HTTP exception above. Enterprise refuses this combination.
 
 ### Keycloak compatibility
 
-hankoShell Operator **0.1.0 is qualified against Keycloak 26.8.0 and 26.7.5**
+hankoShell Operator **0.2.0 is qualified against Keycloak 26.8.0 and 26.7.5**
 using the HTTPS Admin API v1 and service-account `client_credentials` flow.
 The official images are pinned by immutable multi-architecture index digests
 in the [qualification fixture](../internal/controller/keycloak_fixture_test.go).
@@ -350,7 +350,7 @@ Both versions run in required PR/release CI and weekly CI; the aggregate require
 check fails on either matrix failure or startup failure. Qualification is a
 compatibility contract, not a recommendation to retain a vulnerable patch.
 
-| Version | 0.1.0 qualification |
+| Version | 0.2.0 qualification |
 | --- | --- |
 | 26.8.0, 26.7.5 | Qualified by the real Admin API suite |
 | Other 26.x patches | May work; unqualified until the same suite passes |
@@ -409,7 +409,7 @@ certificate verification.
 
 ### Kubernetes compatibility and hardening
 
-The operator and chart keep their own SemVer (`0.1.0`); they do not share the
+The operator and chart keep their own SemVer (`0.2.0`); they do not share the
 cluster's version number. Kubernetes libraries are upgraded together:
 `k8s.io/{api,apimachinery,client-go,apiextensions-apiserver}` **v0.37.1** and
 `controller-runtime` **v0.25.2**, following its
@@ -764,7 +764,7 @@ a configuration snapshot and does not establish a database rollback point.
 ## Lifecycle operation qualification
 
 `HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are experimental
-and unqualified in 0.1.0. Existing unit tests exercise step transitions, but do
+and unqualified in 0.2.0. Existing unit tests exercise step transitions, but do
 not qualify durable completion, interruption/retry, child ownership or recovery
 on real installations. Qualification is tracked in
 [issue #20](https://github.com/Alien6-Studio/hankoshell-operator/issues/20), with no
@@ -775,7 +775,7 @@ outside the first release's qualified core IAM contract.
 database upgrade compatibility. `Clone` creates an external instance alias
 reusing the source administrative connection and imports supported configuration;
 it does not provision a new
-database. `clone.includeData` has no effect in 0.1.0. A target namespace outside
+database. `clone.includeData` has no effect in 0.2.0. A target namespace outside
 the release namespace is outside the default watch/RBAC scope. `DBSwitch` changes
 the database Secret reference without migrating data. Operation `dryRun` skips
 planned steps; it does not validate provider compatibility or recoverability.
@@ -822,7 +822,7 @@ configuration, while installation-specific enforcement still needs qualification
 
 ## Release rehearsal and publication
 
-0.1.0 is a normal SemVer release in initial development. The experimental
+0.2.0 is a normal SemVer release in initial development. The experimental
 `hanko.sh/v1alpha1` APIs may change across minor releases before 1.0. Artifact Hub
 uses `prerelease: false`; the workflow creates a normal GitHub **draft**, with
 curated notes extracted from the tracked CHANGELOG release overview. Publication
@@ -836,7 +836,8 @@ using Git metadata responses limited to 1 MiB, without fetching the commit diff.
 The initial root must be signed and GitHub Verified; subsequent changes use
 protected, GitHub-signed squash merges. Signed-off-by trailers are not signatures.
 Delivered artifacts require separate Sigstore signatures and Continuum Attest
-verification. Once `v0.1.0` is finalized, its source history and tag are immutable.
+verification. The v0.1.0 baseline is immutable. Every finalized source tag, including v0.2.0,
+remains fixed; publication is a separate reviewed operation.
 
 Required CI builds one AMD64/ARM64 OCI archive with BuildKit SBOM/provenance,
 scans its exact manifests, and passes that immutable artifact ID to the release
@@ -873,7 +874,7 @@ artifacts. It writes only to its disposable loopback registry, never creates a t
 changes Artifact Hub. The local signature proves payload binding, **not** GitHub
 OIDC/Fulcio/Rekor trust. Production image signatures remain keyless Sigstore with
 issuer `https://token.actions.githubusercontent.com` and exact certificate identity
-`https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.1.0`.
+`https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.2.0`.
 
 Before publication, maintainers must configure the real Attest signing secret,
 trusted public key/ID, RFC 3161 endpoint and pinned TSA certificate in the
@@ -887,7 +888,7 @@ Publication consumes the same scanned archive without rebuilding, stages it unde
 a non-release reference, verifies real image/blob Sigstore signatures and strict
 Attest delivery evidence, then promotes the digest, chart and catalog metadata.
 Before promotion it commits the archive, packaged chart, signatures, checksums
-and Attest evidence under `delivery-candidate-0.1.0`, an explicitly non-release
+and Attest evidence under `delivery-candidate-0.2.0`, an explicitly non-release
 OCI checkpoint. Every retry resolves that reference once, restores it by digest
 and reuses its exact bytes rather than rebuilding/repackaging them. A different
 source revision or conflicting candidate is rejected. Do not delete or retag the
@@ -949,3 +950,71 @@ separate responsibilities.
 Validate configuration and data restoration before enabling snapshot data
 Jobs. PostgreSQL/PVC backup behavior remains installation-specific; this
 release does not qualify portable backup/restore across cloud providers.
+
+
+## Organization provider readiness and optional projection
+
+`HankoOrganization` manages Keycloak groups, additive realm/client-role mappings,
+and native tenant-root Organizations with domains and configured IdP links.
+Standalone reconciliation needs no hankoShell API: `Phase=Ready`, `Synced=True`,
+and `Projection=Unknown` with reason `Disabled`. `PositionID` is optional,
+last-known platform metadata and never authorizes provider adoption or deletion.
+
+Projection is installation-wide. Helm always renders
+`HANKO_ORGANIZATION_PROJECTION_ENABLED` from `organizationProjection.enabled`.
+Disabled mode mounts no API token, emits no API URL and opens no projection
+network egress. Enabled mode requires `organizationProjection.apiURL`, the
+existing token Secret/key and explicit API destination/ports. Enterprise requires
+verified HTTPS even if the API is unavailable. Standard mode retains the existing
+HTTPS or cluster-local HTTP endpoint policy; administrative API tokens and traffic
+remain sensitive, so prefer HTTPS.
+
+For direct deployments, set the environment switch to the literal `true` or
+`false`. True requires `HANKO_API_URL` and `HANKO_API_TOKEN`, supplied through a
+Secret. False requires removing both values; leftover credentials/URL or an
+invalid boolean fail startup. If the switch is absent, a nonempty legacy API URL
+with a token temporarily enables projection and emits a bounded migration notice.
+No URL and no token disables projection. Credentials in URLs are rejected.
+
+| Outcome | Phase | Synced | Projection |
+| --- | --- | --- | --- |
+| Provider ready, projection disabled | Ready | True / Reconciled | Unknown / Disabled |
+| Provider and configured projection ready | Ready | True / Reconciled | True / Reconciled |
+| API call fails | Error | True / Reconciled | False / ProjectionFailed |
+| Enabled projector unavailable | Error | True / Reconciled | False / ProjectorUnavailable |
+| Parent provider not ready | Pending | False / ParentPending | Unknown / ProviderPending |
+| Provider ready, parent projection pending | Pending | True / Reconciled | False / ParentProjectionPending |
+| Provider fails | Error | False / provider failure reason | Unknown / ProviderPending, or Disabled |
+
+Children require a current provider-synchronized parent group ID/path in the same
+realm, not a parent Phase or PositionID. Projection separately requires a current
+successful parent Projection condition and PositionID. A parent's API failure
+therefore cannot block child Keycloak convergence. Provider IDs and successful
+Synced evidence are persisted even when the API subsequently fails. Repeated
+projection retries read the owned provider state without rewriting matching state.
+`observedGeneration` identifies the latest processed status, including failures.
+
+Disabling an existing projection retains PositionID without API writes. On
+subsequent deletion the operator verifies UID ownership, removes owned Keycloak
+state and proves absence, then removes its finalizer without API access. A bounded
+warning Event/log reports that external position cleanup requires administrator
+review; it contains no token, endpoint or PositionID. Administrators must review
+and remove any residual platform position separately.
+
+With projection enabled, provider cleanup still happens first. A failed Position
+deletion leaves `Synced=True/Deleted`, `Projection=False/ProjectionFailed`, Phase
+Error and the finalizer for retry. Missing API positions are idempotent success.
+Provider objects already proven absent are read but not deleted again or recreated.
+A failed Kubernetes status/finalizer write is retried; Keycloak and Kubernetes are
+not transactional. Provider IDs remain last-known cleanup metadata until deletion.
+
+Objects created by the operator retain their UID markers. Unmarked groups/native
+Organizations previously adopted solely by path or alias require administrator
+review; status or PositionID alone cannot authorize adoption/deletion. Existing
+reserved authority-role, protected-realm and effective-closure checks remain active.
+Organization separation adds no Keycloak permission. A bounded child-presence
+read under existing group authority prevents recursive deletion of descendants;
+clean child organizations first and review/remove foreign children separately. Use the
+existing organization/group profile in [the permission contract](keycloak-permissions.md).
+The group API's `manage-users` role also grants target-realm user authority; this
+Keycloak limitation is unchanged and should be isolated to the intended realm.

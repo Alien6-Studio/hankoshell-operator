@@ -69,6 +69,9 @@ controlPlane:
     - hanko-dashboard
   fleetAuthorityRealm: hanko
 
+# Optional installation-wide projection, independent of Keycloak IAM readiness.
+# Always renders HANKO_ORGANIZATION_PROJECTION_ENABLED=true/false. Disabled mode
+# mounts no API token and opens no projection egress.
 # Projects HankoOrganization CRDs into the hankoShell API position model consumed
 # by hankoShell and product-side ADK clients. The referenced Secret contains a
 # dedicated API token and is never rendered into Helm values.

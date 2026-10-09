@@ -2,8 +2,81 @@
 
 ## 0.2.0 — Unreleased
 
+<!-- release-notes:start -->
+### Release overview
+
+hankoShell Operator 0.2.0 reconciles declarative Keycloak IAM configuration from
+Kubernetes. Application identity configuration lives beside deployment manifests;
+Hub, hankoShell API and Continuum integrations remain optional. Project: https://hanko.sh.
+
+The IAM Contract Engine introduces locally compiled intent/provider-plan identities,
+capability refusals, bounded provider observations and explicit drift for
+HankoRole and HankoResourceServer. Applied generation/hash advance only after
+successful Manage execution and acceptable read-back. Observe performs no writes
+and cannot claim application. Status and connected DTOs are evidence, not authority;
+there is no public Plan CRD or executable remote plan.
+
+HankoOrganization reconciles nested Keycloak groups, realm/client-role mappings
+and tenant-root native Organizations, domains and configured IdP links without
+requiring a platform PositionID. Synced reports provider state. Projection reports
+disabled, successful or failed optional API integration. Children converge in
+Keycloak while parent projection is unavailable. Cleanup verifies owned provider
+absence before configured API cleanup; disabled projection makes no API calls.
+
+Qualification covers Kubernetes 1.35–1.37 with API-server/etcd fixtures 1.35.0,
+1.36.2 and 1.37.0, real HTTPS Keycloak 26.7.5/26.8.0, and an installed Helm/operator
+system on kind 1.37.0 plus HTTPS Keycloak 26.8.0. Other versions, browser login,
+CNI/CSI/cloud enforcement, enterprise fleets and production database recovery are
+unqualified. Snapshot and lifecycle APIs remain experimental and unqualified.
+
+The 16 v1alpha1 APIs remain experimental. 0.2.0 is normal SemVer in
+initial development, not a prerelease. Use verified HTTPS, a dedicated service account,
+referenced Secrets, namespace RBAC, Restricted pods and explicit default-deny
+networking. Source govulncheck and exact AMD64/ARM64 image scans are additive;
+both operator and embedded cosign use patched Go/HTTP dependencies. Release
+publication retains exact-image binding, Sigstore and Continuum Attest gates.
+Hub synchronization authenticates bundle integrity with token-derived HMAC,
+not an independent publisher signature. Enterprise transport requirements do
+not qualify fleet operation. Snapshot backup/restore is not qualified as a
+portable recovery mechanism.
+
+For source installation, use charts/hankoshell-operator with an explicitly
+configured Keycloak HTTPS URL, referenced credential Secret and an immutable
+reviewed operator image. Production trust and public packages remain pending in
+#21; the source tag does not claim a published chart, image or GitHub Release.
+The future chart publication path is
+oci://ghcr.io/alien6-studio/charts/hankoshell-operator, gated by reviewed delivery
+evidence; it is not currently an installation source.
+
+Migration: Helm renders organization projection explicitly. Direct installations
+should set HANKO_ORGANIZATION_PROJECTION_ENABLED=true/false; legacy URL-only
+configuration is temporarily supported with a migration notice. Explicit false
+requires removing URL/token configuration. Disabling projection retains the
+last-known PositionID; external residual cleanup belongs to the administrator.
+Groups and native Organizations require matching ownership markers; unmarked
+objects previously adopted by path/alias need administrator-reviewed migration.
+Provider calls are multi-call/nontransactional and do not provide exactly-once
+or portable rollback guarantees. Live IAM Hub evidence transport remains deferred.
+
+Report vulnerabilities privately at
+https://github.com/Alien6-Studio/hankoshell-operator/security/advisories/new;
+see SECURITY.md for supported versions and response times.
+See docs/secure-deployment.md and docs/keycloak-permissions.md for deployment,
+permissions and migration limits.
+<!-- release-notes:end -->
+
+
 - Build the operator and embedded cosign with Go 1.27.2 and patched HTTP/2
   dependencies; retain the source and exact-image vulnerability gates.
+
+- Make standalone organization provider readiness independent of optional API projection.
+- Add explicit projection configuration, separate Synced/Projection conditions and
+  independent provider/Position parent resolution, preserving last-known PositionID.
+- Verify owned provider cleanup before optional API cleanup; projection-disabled
+  deletion warns about residual external positions without calling the API.
+- Document direct-installation migration and qualify standalone hierarchy, connected
+  failures and idempotent retries against real Kubernetes and HTTPS Keycloak.
+- Align current chart, image and release/rehearsal metadata to 0.2.0.
 
 - Introduce versioned internal IAM intent, resolved references, capability evidence
   and locally compiled execution plans for resource-server authorization and realm roles.
@@ -32,11 +105,10 @@
   administrator-reviewed migration before management.
 
 
-## 0.1.0 — Unreleased
+## 0.1.0 — Source frozen; publication pending
 
 First standalone hankoShell Operator distribution, licensed under Apache-2.0.
 
-<!-- release-notes:start -->
 ### Release overview
 
 hankoShell Operator 0.1.0 reconciles declarative Keycloak IAM configuration from
@@ -109,7 +181,6 @@ Deployment-specific image admission, database recovery and enterprise integratio
 require administrator qualification. Report vulnerabilities privately through
 [GitHub security advisories](https://github.com/Alien6-Studio/hankoshell-operator/security/advisories/new);
 response targets and supported versions are in SECURITY.md.
-<!-- release-notes:end -->
 
 ### Added
 

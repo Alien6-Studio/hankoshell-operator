@@ -12,7 +12,7 @@ GOVULNCHECK_VERSION := v1.8.0
 CHART := charts/hankoshell-operator
 KUBERNETES_VERSION ?= 1.37.0
 KEYCLOAK_VERSION ?= 26.8.0
-RELEASE_VERSION := 0.1.0
+RELEASE_VERSION := 0.2.0
 
 .PHONY: all check fmt-check generate manifests generated-check build vet test chart-test integration-test keycloak-integration-test lint arch vuln install-tools release-dry-run system-test
 all: check build
@@ -43,6 +43,7 @@ chart-test:
 	bash $(CHART)/tests/network-policy.sh
 	python3 $(CHART)/tests/keycloak-transport.py
 	python3 $(CHART)/tests/observability.py
+	python3 $(CHART)/tests/organization-projection.py
 	python3 $(CHART)/tests/kubernetes-compatibility.py
 integration-test:
 	@assets="$$(bash scripts/install-envtest.sh $(KUBERNETES_VERSION))" && \

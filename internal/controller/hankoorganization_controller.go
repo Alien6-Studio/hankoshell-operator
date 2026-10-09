@@ -8,7 +8,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,7 +29,7 @@ const (
 var (
 	errOrganizationGroupOwnership = errors.New("organization group ownership conflict")
 	errRootOrganizationOwnership  = errors.New("root organization ownership conflict")
-	errProjectorUnavailable       = errors.New("hanko organization API projector is not configured")
+	errProjectorUnavailable       = hankoapi.ErrProjectorUnavailable
 )
 
 // HankoOrganizationReconciler reconciles HankoOrganization objects into
@@ -48,7 +47,8 @@ type HankoOrganizationReconciler struct {
 	Recorder       events.EventRecorder
 	// Positions projects the reconciled Keycloak group into the hankoShell API model
 	// consumed by hankoShell and product-side ADK clients.
-	Positions interface {
+	ProjectionMode hankoapi.ProjectionMode
+	Positions      interface {
 		EnsurePosition(context.Context, string, hankoapi.PositionSpec) (string, error)
 		DeletePosition(context.Context, string, string) error
 	}
@@ -67,7 +67,7 @@ func (r *HankoOrganizationReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		org.Status.Phase = "Error"
 		org.Status.ObservedGeneration = org.Generation
 		setCondition(&org.Status.Conditions, "Synced", metav1.ConditionFalse, "ReservedAuthorityRole", err.Error())
-		if patchErr := r.Status().Patch(ctx, &org, patch); patchErr != nil {
+		if patchErr := r.patchOrganizationStatus(ctx, &org, patch); patchErr != nil {
 			return ctrl.Result{}, patchErr
 		}
 		return ctrl.Result{RequeueAfter: requeueWithJitter()}, nil
@@ -89,7 +89,7 @@ func (r *HankoOrganizationReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			reason = "ReservedAuthorityRole"
 		}
 		setCondition(&org.Status.Conditions, "Synced", metav1.ConditionFalse, reason, err.Error())
-		if patchErr := r.Status().Patch(ctx, &org, patch); patchErr != nil {
+		if patchErr := r.patchOrganizationStatus(ctx, &org, patch); patchErr != nil {
 			return ctrl.Result{}, patchErr
 		}
 		if isReservedAuthorityRoleViolation(err) {
@@ -100,6 +100,12 @@ func (r *HankoOrganizationReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	// ── Deletion path ─────────────────────────────────────────────────────────
 	if !org.DeletionTimestamp.IsZero() {
+		if err := r.discoverOrganizationDeletionReferences(ctx, &org, kc); err != nil {
+			if isOrganizationProviderSecurityViolation(err) {
+				return r.releaseInvalidOrganization(ctx, &org, "provider ownership conflict")
+			}
+			return ctrl.Result{RequeueAfter: requeueOnError}, err
+		}
 		if err := r.validateOrganizationResourcesBeforeDeletion(ctx, &org, kc); err != nil {
 			if isOrganizationProviderSecurityViolation(err) {
 				return r.releaseInvalidOrganization(ctx, &org, err.Error())
@@ -116,6 +122,8 @@ func (r *HankoOrganizationReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	patch := client.MergeFrom(org.DeepCopy())
 	now := metav1.Now()
+	org.Status.ObservedGeneration = org.Generation
+	r.initializeProjectionCondition(&org)
 
 	// ── Reject domains on internal nodes ──────────────────────────────────────
 	// Isolation (alias + domains) is a property of the root alone; an internal
@@ -124,16 +132,20 @@ func (r *HankoOrganizationReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	if org.Spec.ParentRef != "" && (len(org.Spec.Domains) > 0 || org.Spec.IdentityProvider != "") {
 		org.Status.Phase = "Error"
 		setCondition(&org.Status.Conditions, "Synced", metav1.ConditionFalse, "InvalidSpec", "domains and identityProvider are only valid on a root organization (empty parentRef)")
-		_ = r.Status().Patch(ctx, &org, patch)
+		if patchErr := r.patchOrganizationStatus(ctx, &org, patch); patchErr != nil {
+			return ctrl.Result{}, patchErr
+		}
 		return ctrl.Result{}, nil
 	}
 
 	// ── Resolve parent group (multi-level hierarchy) ──────────────────────────
-	parentID, parentPath, parentPositionID, err := r.resolveParent(ctx, &org)
+	parentID, parentPath, err := r.resolveProviderParent(ctx, &org)
 	if err != nil {
 		org.Status.Phase = "Pending"
 		setCondition(&org.Status.Conditions, "Synced", metav1.ConditionFalse, "ParentPending", err.Error())
-		_ = r.Status().Patch(ctx, &org, patch)
+		if patchErr := r.patchOrganizationStatus(ctx, &org, patch); patchErr != nil {
+			return ctrl.Result{}, patchErr
+		}
 		return ctrl.Result{RequeueAfter: requeueOnError}, nil
 	}
 
@@ -150,8 +162,7 @@ func (r *HankoOrganizationReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		ParentPath:          parentPath,
 		Attributes:          attributes,
 		OwnershipAttributes: ownershipAttributes,
-		LegacyOwnedID:       org.Status.GroupID,
-		RequireOwnership:    protectedGroup,
+		RequireOwnership:    true,
 	}
 	if protectedGroup {
 		if org.Spec.ParentRef == "" {
@@ -179,15 +190,22 @@ func (r *HankoOrganizationReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		}
 		org.Status.Phase = "Error"
 		setCondition(&org.Status.Conditions, "Synced", metav1.ConditionFalse, "GroupFailed", err.Error())
-		_ = r.Status().Patch(ctx, &org, patch)
+		if patchErr := r.patchOrganizationStatus(ctx, &org, patch); patchErr != nil {
+			return ctrl.Result{}, patchErr
+		}
 		return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("ensure group %q: %w", org.Spec.Name, err)
 	}
+
+	org.Status.GroupID = groupID
+	org.Status.GroupPath = organizationGroupPath(spec.ParentPath, org.Spec.Name)
 
 	// ── Map realm roles onto the group ────────────────────────────────────────
 	if err := kc.AssignRealmRolesToGroup(ctx, org.Spec.RealmRef, groupID, org.Spec.Roles); err != nil {
 		org.Status.Phase = "Error"
 		setCondition(&org.Status.Conditions, "Synced", metav1.ConditionFalse, "RolesFailed", err.Error())
-		_ = r.Status().Patch(ctx, &org, patch)
+		if patchErr := r.patchOrganizationStatus(ctx, &org, patch); patchErr != nil {
+			return ctrl.Result{}, patchErr
+		}
 		return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("map roles to group %q: %w", org.Spec.Name, err)
 	}
 
@@ -196,7 +214,9 @@ func (r *HankoOrganizationReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		if err := kc.AssignClientRolesToGroup(ctx, org.Spec.RealmRef, groupID, cr.Client, cr.Roles); err != nil {
 			org.Status.Phase = "Error"
 			setCondition(&org.Status.Conditions, "Synced", metav1.ConditionFalse, "ClientRolesFailed", err.Error())
-			_ = r.Status().Patch(ctx, &org, patch)
+			if patchErr := r.patchOrganizationStatus(ctx, &org, patch); patchErr != nil {
+				return ctrl.Result{}, patchErr
+			}
 			return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("map client roles of %q to group %q: %w", cr.Client, org.Spec.Name, err)
 		}
 	}
@@ -208,58 +228,56 @@ func (r *HankoOrganizationReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	orgID := org.Status.OrgID
 	if org.Spec.ParentRef == "" {
 		orgID, err = r.reconcileRootOrganization(ctx, &org, kc)
+		org.Status.OrgID = orgID
 		if err != nil {
 			if errors.Is(err, keycloak.ErrOrganizationOwnershipConflict) {
 				return r.recordOrganizationProviderSecurityError(ctx, &org, patch, fmt.Errorf("%w: %v", errRootOrganizationOwnership, err))
 			}
 			org.Status.Phase = "Error"
-			setCondition(&org.Status.Conditions, "Organization", metav1.ConditionFalse, "OrganizationFailed", err.Error())
-			_ = r.Status().Patch(ctx, &org, patch)
+			setCondition(&org.Status.Conditions, "Organization", metav1.ConditionFalse, "OrganizationFailed", "Keycloak organization reconciliation failed")
+			setCondition(&org.Status.Conditions, "Synced", metav1.ConditionFalse, "OrganizationFailed", "Keycloak organization reconciliation failed")
+			if patchErr := r.patchOrganizationStatus(ctx, &org, patch); patchErr != nil {
+				return ctrl.Result{}, patchErr
+			}
 			return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("reconcile root organization %q: %w", org.Spec.Name, err)
 		}
 		setCondition(&org.Status.Conditions, "Organization", metav1.ConditionTrue, "Reconciled", "tenant root present as Keycloak organization")
 	}
 
-	// ── Project the same node into Hanko's organization API ───────────────────
-	// hankoShell reads positions, not Keycloak groups. Treating the group-only
-	// state as Ready caused a split-brain where the CRD was green but the UI was
-	// empty. A missing projector now fails closed and remains observable.
-	if r.Positions == nil {
-		org.Status.Phase = "Error"
-		// Keycloak reconciliation already succeeded above; rewrite Synced so a
-		// failure message from an earlier incident cannot survive as stale
-		// evidence next to the real cause carried by Projection.
-		setCondition(&org.Status.Conditions, "Synced", metav1.ConditionTrue, "Reconciled", "organization group present in Keycloak")
-		setCondition(&org.Status.Conditions, "Projection", metav1.ConditionFalse, "ProjectorUnavailable", "Hanko organization API projector is not configured")
-		_ = r.Status().Patch(ctx, &org, patch)
-		log.FromContext(ctx).Error(errProjectorUnavailable, "organization projection failing closed", "org", org.Spec.Name, "realm", org.Spec.RealmRef)
-		return ctrl.Result{RequeueAfter: requeueOnError}, nil
+	// Provider success is recorded independently of the optional API call.
+	org.Status.OrgID = orgID
+	org.Status.LastReconciled = &now
+	setCondition(&org.Status.Conditions, "Synced", metav1.ConditionTrue, "Reconciled", "organization provider state reconciled")
+	if r.ProjectionMode == hankoapi.ProjectionDisabled {
+		org.Status.Phase = "Ready"
+		return r.finishOrganization(ctx, &org, patch, requeueWithJitter())
+	}
+	if r.ProjectionMode != hankoapi.ProjectionEnabled || r.Positions == nil {
+		return r.projectionFailure(ctx, &org, patch, "ProjectorUnavailable")
+	}
+	parentPositionID, err := r.resolveProjectionParent(ctx, &org)
+	if err != nil {
+		org.Status.Phase = "Pending"
+		setCondition(&org.Status.Conditions, "Projection", metav1.ConditionFalse, "ParentProjectionPending", "parent platform projection is not ready")
+		return r.finishOrganization(ctx, &org, patch, requeueOnError)
 	}
 	positionID, err := r.Positions.EnsurePosition(ctx, org.Spec.RealmRef, hankoapi.PositionSpec{
 		Title: org.Spec.Name, ParentID: parentPositionID, GroupID: groupID, RoleIDs: org.Spec.Roles,
 	})
 	if err != nil {
-		org.Status.Phase = "Error"
-		setCondition(&org.Status.Conditions, "Projection", metav1.ConditionFalse, "ProjectionFailed", err.Error())
-		_ = r.Status().Patch(ctx, &org, patch)
-		return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("project organization position %q: %w", org.Spec.Name, err)
+		reason := "ProjectionFailed"
+		if errors.Is(err, errProjectorUnavailable) {
+			reason = "ProjectorUnavailable"
+		}
+		return r.projectionFailure(ctx, &org, patch, reason)
 	}
-
-	org.Status.Phase = "Ready"
-	org.Status.OrgID = orgID
-	org.Status.GroupID = groupID
-	org.Status.GroupPath = organizationGroupPath(spec.ParentPath, org.Spec.Name)
+	if positionID == "" {
+		return r.projectionFailure(ctx, &org, patch, "ProjectionFailed")
+	}
 	org.Status.PositionID = positionID
-	org.Status.ObservedGeneration = org.Generation
-	org.Status.LastReconciled = &now
-	setCondition(&org.Status.Conditions, "Synced", metav1.ConditionTrue, "Reconciled", "organization group present in Keycloak")
-	setCondition(&org.Status.Conditions, "Projection", metav1.ConditionTrue, "Reconciled", "organization position present in hankoShell API")
-
-	if err := r.Status().Patch(ctx, &org, patch); err != nil {
-		return ctrl.Result{}, err
-	}
-	log.FromContext(ctx).Info("HankoOrganization synced", "org", org.Spec.Name, "realm", org.Spec.RealmRef, "group", groupID)
-	return ctrl.Result{RequeueAfter: requeueWithJitter()}, nil
+	org.Status.Phase = "Ready"
+	setCondition(&org.Status.Conditions, "Projection", metav1.ConditionTrue, "Reconciled", "organization platform projection reconciled")
+	return r.finishOrganization(ctx, &org, patch, requeueWithJitter())
 }
 
 func (r *HankoOrganizationReconciler) releaseInvalidOrganization(ctx context.Context, org *hankoshv1alpha1.HankoOrganization, message string) (ctrl.Result, error) {
@@ -319,17 +337,19 @@ func validateExistingOrganizationGroupAuthority(ctx context.Context, org *hankos
 }
 
 func (r *HankoOrganizationReconciler) validateOrganizationResourcesBeforeDeletion(ctx context.Context, org *hankoshv1alpha1.HankoOrganization, kc *keycloak.Client) error {
-	if strings.TrimSpace(r.ProtectedRealm) == "" || strings.TrimSpace(org.Spec.RealmRef) != strings.TrimSpace(r.ProtectedRealm) {
-		return nil
-	}
 	if org.Status.GroupID != "" {
 		group, err := kc.GetGroup(ctx, org.Spec.RealmRef, org.Status.GroupID)
 		if err != nil {
 			if !keycloak.IsNotFound(err) {
 				return err
 			}
-		} else if err := validateExistingOrganizationGroupAuthority(ctx, org, r.ProtectedRealm, kc, group); err != nil {
-			return err
+		} else {
+			if !keycloak.GroupMatchesOwnership(group, organizationGroupOwnershipAttributes(org), "") {
+				return errOrganizationGroupOwnership
+			}
+			if err := validateExistingOrganizationGroupAuthority(ctx, org, r.ProtectedRealm, kc, group); err != nil {
+				return err
+			}
 		}
 	}
 	if org.Status.OrgID != "" {
@@ -340,7 +360,7 @@ func (r *HankoOrganizationReconciler) validateOrganizationResourcesBeforeDeletio
 			}
 			return err
 		}
-		if !keycloak.OrganizationMatchesOwnership(organization, organizationGroupOwnershipAttributes(org), org.Status.OrgID) {
+		if !keycloak.OrganizationMatchesOwnership(organization, organizationGroupOwnershipAttributes(org), "") {
 			return fmt.Errorf("%w: Keycloak organization %q in fleet authority realm %q is not owned by HankoOrganization %s/%s", errRootOrganizationOwnership, organization.ID, org.Spec.RealmRef, org.Namespace, org.Name)
 		}
 	}
@@ -359,7 +379,7 @@ func (r *HankoOrganizationReconciler) recordOrganizationProviderSecurityError(ct
 		reason = "ReservedAuthorityRole"
 	}
 	setCondition(&org.Status.Conditions, "Synced", metav1.ConditionFalse, reason, err.Error())
-	if patchErr := r.Status().Patch(ctx, org, patch); patchErr != nil {
+	if patchErr := r.patchOrganizationStatus(ctx, org, patch); patchErr != nil {
 		return ctrl.Result{}, patchErr
 	}
 	if isOrganizationProviderSecurityViolation(err) {
@@ -382,61 +402,15 @@ func (r *HankoOrganizationReconciler) reconcileRootOrganization(ctx context.Cont
 		Domains:             org.Spec.Domains,
 		Attributes:          organizationGroupOwnershipAttributes(org),
 		OwnershipAttributes: organizationGroupOwnershipAttributes(org),
-		LegacyOwnedID:       org.Status.OrgID,
-		RequireOwnership:    strings.TrimSpace(r.ProtectedRealm) != "" && strings.TrimSpace(org.Spec.RealmRef) == strings.TrimSpace(r.ProtectedRealm),
+		RequireOwnership:    true,
 	})
 	if err != nil {
 		return "", err
 	}
 	if err := kc.EnsureOrganizationIdentityProvider(ctx, org.Spec.RealmRef, orgID, org.Spec.IdentityProvider); err != nil {
-		return "", fmt.Errorf("link identity provider %q: %w", org.Spec.IdentityProvider, err)
+		return orgID, fmt.Errorf("link identity provider %q: %w", org.Spec.IdentityProvider, err)
 	}
 	return orgID, nil
-}
-
-// resolveParent returns the Keycloak group ID and path of the parent
-// organization. For a top-level organization it returns empty strings. An
-// error signals the parent is not yet reconciled and the caller should requeue.
-func (r *HankoOrganizationReconciler) resolveParent(ctx context.Context, org *hankoshv1alpha1.HankoOrganization) (string, string, string, error) {
-	if org.Spec.ParentRef == "" {
-		return "", "", "", nil
-	}
-	var parent hankoshv1alpha1.HankoOrganization
-	key := types.NamespacedName{Namespace: org.Namespace, Name: org.Spec.ParentRef}
-	if err := r.Get(ctx, key, &parent); err != nil {
-		return "", "", "", fmt.Errorf("parent organization %q not found: %w", org.Spec.ParentRef, err)
-	}
-	if parent.Status.GroupID == "" || parent.Status.GroupPath == "" || parent.Status.PositionID == "" {
-		return "", "", "", fmt.Errorf("parent organization %q not ready", org.Spec.ParentRef)
-	}
-	return parent.Status.GroupID, parent.Status.GroupPath, parent.Status.PositionID, nil
-}
-
-func (r *HankoOrganizationReconciler) reconcileOrgDeletion(ctx context.Context, org *hankoshv1alpha1.HankoOrganization, kc *keycloak.Client) (ctrl.Result, error) {
-	if !controllerutil.ContainsFinalizer(org, orgFinalizerName) {
-		return ctrl.Result{}, nil
-	}
-	if r.Positions != nil && org.Status.PositionID != "" {
-		if err := r.Positions.DeletePosition(ctx, org.Spec.RealmRef, org.Status.PositionID); err != nil {
-			return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("delete organization position %q: %w", org.Spec.Name, err)
-		}
-	}
-	if org.Status.GroupID != "" {
-		if err := kc.DeleteGroup(ctx, org.Spec.RealmRef, org.Status.GroupID); err != nil {
-			return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("delete group %q: %w", org.Spec.Name, err)
-		}
-	}
-	if org.Status.OrgID != "" {
-		if err := kc.DeleteOrganization(ctx, org.Spec.RealmRef, org.Status.OrgID); err != nil {
-			return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("delete organization %q: %w", org.Spec.Name, err)
-		}
-	}
-	controllerutil.RemoveFinalizer(org, orgFinalizerName)
-	if err := r.Update(ctx, org); err != nil {
-		return ctrl.Result{}, fmt.Errorf("remove organization finalizer: %w", err)
-	}
-	log.FromContext(ctx).Info("organization group deleted", "org", org.Spec.Name)
-	return ctrl.Result{}, nil
 }
 
 func (r *HankoOrganizationReconciler) ensureOrgFinalizer(ctx context.Context, org *hankoshv1alpha1.HankoOrganization) error {

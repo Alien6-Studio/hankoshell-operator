@@ -46,8 +46,11 @@ ownership remain separate.
 
 The **v0.1.0 source and signed tag are frozen and immutable**. Public artifact
 publication remains pending in [#21](https://github.com/Alien6-Studio/hankoshell-operator/issues/21);
-no 0.1.0 artifacts are claimed published. Active code development has moved to
-**0.2.0 — IAM Contract Engine**, through normal protected PR history.
+no public artifacts are claimed published. The **0.2.0 — IAM Contract Engine**
+source implementation is complete through normal protected PR history: #22, #23,
+#26, #27 and #28. Its signed source tag follows qualification of the exact
+merged commit. The next design window is **0.3.0 — Application Identity**; this
+completion introduces none of that milestone's application bindings or SAML work.
 The 16 `hanko.sh/v1alpha1` APIs remain experimental before 1.0. Future milestones
 are proposed scope, not additional current support or scheduled delivery.
 
@@ -61,8 +64,9 @@ The current foundation already includes:
 - `HankoResourceServer`: scopes, resources and allow-only permissions for role,
   application and service-account principals, capability status and owned IDs.
 - `HankoOrganization`: nested groups, realm/client-role mappings and native
-  Keycloak Organizations at roots. Its current `Ready` state also requires
-  hankoShell API position projection; separating that dependency is 0.2 work.
+  Keycloak Organizations at roots. Standalone `Ready` requires only provider
+  synchronization; configured platform projection has its own condition and
+  dependency ordering. Provider cleanup precedes optional projection cleanup.
 - `HankoImport` and Observe/Manage ownership: supported configuration discovery,
   observation resources and controlled reconciliation. Complete native import
   coverage and a reviewable adoption plan remain future work.
@@ -71,7 +75,7 @@ The current foundation already includes:
   enrollment, credential rotation, supervision and guarded operator updates.
 
 `HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are experimental
-and unqualified in 0.1.0. Their interruption/retry, child ownership and completion
+and unqualified in 0.2.0. Their interruption/retry, child ownership and completion
 qualification remains in [lifecycle backlog issue #20](https://github.com/Alien6-Studio/hankoshell-operator/issues/20),
 not a prerequisite for the first core IAM delivery. They do not provide a tested
 database migration or disaster-recovery path; see the

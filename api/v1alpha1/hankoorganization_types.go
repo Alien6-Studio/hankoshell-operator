@@ -88,9 +88,12 @@ type OrganizationClientRoles struct {
 	Roles []string `json:"roles"`
 }
 
-// HankoOrganizationStatus describes the observed state of the organization.
+// HankoOrganizationStatus separates Keycloak Synced readiness from the optional
+// platform Projection. Ready standalone organizations do not need a PositionID.
 type HankoOrganizationStatus struct {
-	// Phase summarises the reconciliation state.
+	// Phase is Ready when Keycloak is synchronized and projection is disabled or
+	// healthy. Configured projection failures are Error; parent projection waits
+	// are Pending even when provider Synced is True.
 	// +kubebuilder:validation:Enum=Pending;Reconciling;Ready;Error
 	Phase string `json:"phase,omitempty"`
 
@@ -101,20 +104,23 @@ type HankoOrganizationStatus struct {
 	GroupPath string `json:"groupPath,omitempty"`
 
 	// PositionID is the hankoShell API position projected for hankoShell and ADK
-	// consumers. A Ready organization always has both GroupID and PositionID.
+	// consumers. It is optional, last-known platform metadata and never provider
+	// authority. Disabling projection retains it without making API calls.
 	PositionID string `json:"positionID,omitempty"`
 
 	// OrgID is the Keycloak Organization UUID reconciled for a tenant root.
 	// Empty on internal nodes, which are groups only.
 	OrgID string `json:"orgID,omitempty"`
 
-	// ObservedGeneration is the spec generation last reconciled.
+	// ObservedGeneration is the latest generation processed into status, including
+	// provider or projection failures; it is not proof of successful application.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// LastReconciled is the timestamp of the last successful reconciliation.
 	LastReconciled *metav1.Time `json:"lastReconciled,omitempty"`
 
-	// Conditions holds standard Kubernetes condition objects.
+	// Conditions separates provider Synced from optional platform Projection.
+	// Disabled projection is Unknown/Disabled, not a synchronization failure.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 

@@ -22,7 +22,7 @@ class ReleaseEligibilityTests(unittest.TestCase):
         self.repository = "Alien6-Studio/hankoshell-operator"
         self.revision = "a" * 40
         self.tag_object = "b" * 40
-        self.tag = "v0.1.0"
+        self.tag = "v0.2.0"
         self.ref = "refs/tags/" + self.tag
         self.base = "repos/" + self.repository
         self.ref_path = self.base + "/git/ref/tags/" + self.tag
@@ -192,8 +192,8 @@ class ReleaseEligibilityTests(unittest.TestCase):
     def test_conflicting_api_objects_are_rejected(self):
         for path, field, conflicting in (
             (self.commit_path, "sha", "c" * 40),
-            (self.ref_path, "ref", "refs/tags/v0.2.0"),
-            (self.object_path, "tag", "v0.2.0"),
+            (self.ref_path, "ref", "refs/tags/v0.3.0"),
+            (self.object_path, "tag", "v0.3.0"),
             (self.object_path, "sha", "c" * 40),
         ):
             original = self.responses[path][field]

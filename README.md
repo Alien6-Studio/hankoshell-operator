@@ -28,7 +28,7 @@ enterprise fleet. Project website: **[hanko.sh](https://hanko.sh)**.
 [Changes](CHANGELOG.md) · **[Roadmap](ROADMAP.md)** · [IAM contract architecture](docs/architecture/iam-contract-engine.md)
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-0.1.0%20initial%20development-blue.svg)](#release-maturity)
+[![Version](https://img.shields.io/badge/version-0.2.0%20initial%20development-blue.svg)](#release-maturity)
 [![Go](https://img.shields.io/badge/go-1.27.2-00ADD8.svg)](go.mod)
 [![Kubernetes](https://img.shields.io/badge/kubernetes-1.35%E2%80%931.37-326CE5.svg)](docs/secure-deployment.md#kubernetes-compatibility-and-hardening)
 [![Delivery](https://img.shields.io/badge/delivery-Continuum%20Attest-blue.svg)](#verified-delivery)
@@ -101,7 +101,7 @@ and a dedicated backup credential Secret. PostgreSQL/PVC configuration and
 portable backup/restore remain installation-specific and unqualified; see the
 [backup execution contract](docs/secure-deployment.md#database-snapshot-jobs).
 `HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are experimental in
-0.1.0: completion, interruption/retry and recovery are not qualified. See the
+0.2.0: completion, interruption/retry and recovery are not qualified. See the
 [lifecycle qualification limits](docs/secure-deployment.md#lifecycle-operation-qualification).
 
 </details>
@@ -127,12 +127,12 @@ See the **[Keycloak permission model](docs/keycloak-permissions.md)** before
 provisioning credentials: it specifies optional feature roles, read-only import,
 forbidden authority and the broader native grants attached to realm creation.
 
-hankoShell Operator **0.1.0 is qualified against Keycloak 26.8.0 and 26.7.5**
+hankoShell Operator **0.2.0 is qualified against Keycloak 26.8.0 and 26.7.5**
 through its real HTTPS Admin API v1. Required CI exercises realm/client lifecycles,
 IAM/MFA settings, roles, identity-provider configuration, secret rotation,
 drift recovery, ownership, finalizers and read-only import. Other 26.x patches
 may work but are unqualified; older and future major lines are outside the
-0.1.0 support contract pending qualification. This does not qualify browser login,
+0.2.0 support contract pending qualification. This does not qualify browser login,
 external identity-provider handshakes or production database/cluster operations.
 See the [Keycloak compatibility contract](docs/secure-deployment.md#keycloak-compatibility).
 
@@ -296,7 +296,7 @@ implemented. Existing installations should follow the
 
 ## Verified delivery
 
-0.1.0 publication requires a GitHub-verified source commit and a GitHub-verified
+0.2.0 publication requires a GitHub-verified source commit and a GitHub-verified
 signed annotated SemVer tag bound to that exact commit on protected main.
 The workflow rejects unverified signatures, lightweight tags and conflicting or
 moved references, and checks these identities again before publication.
@@ -340,7 +340,7 @@ Helm signing key through `artifacthub.io/signKey`.
 
 ## Release maturity
 
-**0.1.0 is a normal SemVer release in initial development.**
+**0.2.0 is a normal SemVer release in initial development.**
 The `hanko.sh/v1alpha1` APIs are experimental and may change across minor releases
 before 1.0. See the [curated release
 overview](CHANGELOG.md#release-overview) for capabilities and qualification limits.
@@ -353,9 +353,16 @@ operations; verified packages can exist before the GitHub Release is published.
 Retries restore the committed delivery, rescan its exact image and reuse matching
 packages and draft assets. Conflicting content stops publication.
 
+HankoOrganization can be Ready without the hankoShell API. `Synced` reports
+Keycloak convergence; `Projection` separately reports the optional configured
+API integration. A projection outage preserves provider success and does not
+block child Keycloak groups. See [organization configuration and migration](docs/secure-deployment.md#organization-provider-readiness-and-optional-projection).
+
 ## Development
 
-Development on `main` targets 0.2; the immutable v0.1.0 source keeps its original contract.
+The 0.2 IAM Contract Engine source is complete. Public package publication
+remains pending in [#21](https://github.com/Alien6-Studio/hankoshell-operator/issues/21);
+the immutable v0.1.0 source retains its historical contract.
 For `HankoRole` and `HankoResourceServer`, status distinguishes the evaluated
 intent/plan, the latest Manage application proven by provider read-back, and the
 latest provider observation with explicit drift/coverage. Observe never claims

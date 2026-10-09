@@ -34,27 +34,31 @@ func TestDeriveSlug(t *testing.T) {
 	}
 }
 
-func TestResolveParentRequiresBothProjections(t *testing.T) {
-	parent := &hankoshv1alpha1.HankoOrganization{
-		ObjectMeta: metav1.ObjectMeta{Name: "root", Namespace: "auth"},
-		Status: hankoshv1alpha1.HankoOrganizationStatus{
-			GroupID: "group-root", GroupPath: "/Root",
-		},
+func TestOrganizationParentSeparatesProviderAndProjection(t *testing.T) {
+	parent := &hankoshv1alpha1.HankoOrganization{ObjectMeta: metav1.ObjectMeta{Name: "root", Namespace: "auth", Generation: 2}, Spec: hankoshv1alpha1.HankoOrganizationSpec{RealmRef: "realm"}, Status: hankoshv1alpha1.HankoOrganizationStatus{GroupID: "group-root", GroupPath: "/Root", Phase: "Error", Conditions: []metav1.Condition{{Type: "Synced", Status: metav1.ConditionTrue, ObservedGeneration: 2}}}}
+	child := &hankoshv1alpha1.HankoOrganization{ObjectMeta: metav1.ObjectMeta{Name: "child", Namespace: "auth"}, Spec: hankoshv1alpha1.HankoOrganizationSpec{RealmRef: "realm", ParentRef: "root"}}
+	r := &HankoOrganizationReconciler{Client: controllerTestClient(controllerTestScheme(t), parent)}
+	id, path, err := r.resolveProviderParent(context.Background(), child)
+	if err != nil || id != "group-root" || path != "/Root" {
+		t.Fatal("provider hierarchy depended on projection", err)
 	}
-	child := &hankoshv1alpha1.HankoOrganization{
-		ObjectMeta: metav1.ObjectMeta{Name: "child", Namespace: "auth"},
-		Spec:       hankoshv1alpha1.HankoOrganizationSpec{ParentRef: "root"},
+	if _, err := r.resolveProjectionParent(context.Background(), child); err == nil {
+		t.Fatal("missing projection accepted")
 	}
-	reconciler := &HankoOrganizationReconciler{Client: controllerTestClient(controllerTestScheme(t), parent)}
-	if _, _, _, err := reconciler.resolveParent(context.Background(), child); err == nil {
-		t.Fatal("expected a group-only parent to remain pending")
+	parent.Status.PositionID = "legacy-position"
+	r.Client = controllerTestClient(controllerTestScheme(t), parent)
+	if _, err := r.resolveProjectionParent(context.Background(), child); err == nil {
+		t.Fatal("last-known projection identity accepted as current readiness")
 	}
-
-	parent.Status.PositionID = "pos_root"
-	reconciler = &HankoOrganizationReconciler{Client: controllerTestClient(controllerTestScheme(t), parent)}
-	groupID, groupPath, positionID, err := reconciler.resolveParent(context.Background(), child)
-	if err != nil || groupID != "group-root" || groupPath != "/Root" || positionID != "pos_root" {
-		t.Fatalf("resolveParent() = %q, %q, %q, %v", groupID, groupPath, positionID, err)
+	parent.Status.Conditions = append(parent.Status.Conditions, metav1.Condition{Type: "Projection", Status: metav1.ConditionTrue, ObservedGeneration: 2})
+	r.Client = controllerTestClient(controllerTestScheme(t), parent)
+	if id, err := r.resolveProjectionParent(context.Background(), child); err != nil || id != "legacy-position" {
+		t.Fatal("ready projection rejected", err)
+	}
+	parent.Generation = 3
+	r.Client = controllerTestClient(controllerTestScheme(t), parent)
+	if _, _, err := r.resolveProviderParent(context.Background(), child); err == nil {
+		t.Fatal("stale parent provider evidence accepted")
 	}
 }
 

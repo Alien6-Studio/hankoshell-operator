@@ -62,6 +62,8 @@ func spokeMode() bool {
 
 func main() {
 	config := parseRuntimeConfig()
+	projection, err := newPositionProjector()
+	fatalIfError(err, "invalid organization projection configuration")
 	hubPolicy, err := enterprisePolicyFromEnv()
 	fatalIfError(err, "invalid operator security profile")
 	var kc *keycloak.Client
@@ -78,9 +80,8 @@ func main() {
 		fatalIfError(kc.RequireHTTPS(), "enterprise Keycloak transport is invalid")
 	}
 	pool := keycloak.NewPool(kc)
-	positions := newPositionProjector()
-	if hubPolicy != nil && positions != nil {
-		fatalIfError(positions.RequireHTTPS(), "enterprise organization transport is invalid")
+	if hubPolicy != nil && projection.Mode == hankoapi.ProjectionEnabled {
+		fatalIfError(projection.Client.RequireHTTPS(), "enterprise organization transport is invalid")
 	}
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), managerOptions(
 		config.metricsAddr,
@@ -101,7 +102,7 @@ func main() {
 		meshPolicyClient, err = client.New(mgr.GetConfig(), client.Options{Scheme: mgr.GetScheme()})
 		fatalIfError(err, "unable to initialise cross-namespace mesh policy projection client")
 	}
-	setupControllers(mgr, pool, positions, config.watchNamespace, hubHTTPClient, meshPolicyClient, meshPolicyNamespace, hubPolicy)
+	setupControllers(mgr, pool, projection, config.watchNamespace, hubHTTPClient, meshPolicyClient, meshPolicyNamespace, hubPolicy)
 	setupHealthChecks(mgr, kc)
 
 	ctrl.Log.Info("starting hanko-operator", "watchNamespace", config.watchNamespace)
@@ -127,14 +128,24 @@ func parseRuntimeConfig() runtimeConfig {
 	return config
 }
 
-func newPositionProjector() *hankoapi.PositionClient {
-	apiURL := strings.TrimSpace(os.Getenv("HANKO_API_URL"))
-	if apiURL == "" {
-		return nil
+type organizationProjectionRuntime struct {
+	Mode   hankoapi.ProjectionMode
+	Client *hankoapi.PositionClient
+}
+
+func newPositionProjector() (organizationProjectionRuntime, error) {
+	value, present := os.LookupEnv("HANKO_ORGANIZATION_PROJECTION_ENABLED")
+	apiURL, token := os.Getenv("HANKO_API_URL"), os.Getenv("HANKO_API_TOKEN")
+	mode, legacy, err := hankoapi.NormalizeProjectionMode(value, present, apiURL, token)
+	configuration := organizationProjectionRuntime{Mode: mode}
+	if err != nil || mode == hankoapi.ProjectionDisabled {
+		return configuration, err
 	}
-	client, err := hankoapi.NewPositionClient(apiURL, os.Getenv("HANKO_API_TOKEN"), nil)
-	fatalIfError(err, "unable to initialise Hanko organization projector")
-	return client
+	configuration.Client, err = hankoapi.NewPositionClient(apiURL, token, nil)
+	if err == nil && legacy {
+		ctrl.Log.Info("legacy organization projection configuration; set HANKO_ORGANIZATION_PROJECTION_ENABLED=true explicitly")
+	}
+	return configuration, err
 }
 
 func keycloakDeploymentName() string {
@@ -182,7 +193,7 @@ func supervisionCollector(mgr ctrl.Manager, watchNamespace string) *supervision.
 func setupControllers(
 	mgr ctrl.Manager,
 	pool *keycloak.Pool,
-	positions *hankoapi.PositionClient,
+	projection organizationProjectionRuntime,
 	watchNamespace string,
 	hubHTTPClient *http.Client,
 	meshPolicyClient client.Client,
@@ -213,12 +224,11 @@ func setupControllers(
 		Recorder: mgr.GetEventRecorder(operatorRecorderName), ProtectedClientIDs: protectedClientIDs, ProtectedRealm: protectedRealm,
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoServiceAccount")
 	fatalIfError((&controller.HankoRoleReconciler{Client: mgr.GetClient(), ProtectedRealm: protectedRealm, Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName)}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoRole")
-	organizationReconciler := &controller.HankoOrganizationReconciler{Client: mgr.GetClient(), ProtectedRealm: protectedRealm, Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName)}
-	// Assign only a live projector: storing a nil *PositionClient in the
-	// interface field would defeat the reconciler's nil check (typed nil) and
-	// panic instead of failing closed with ProjectorUnavailable.
-	if positions != nil {
-		organizationReconciler.Positions = positions
+	organizationReconciler := &controller.HankoOrganizationReconciler{Client: mgr.GetClient(), ProtectedRealm: protectedRealm, Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName), ProjectionMode: projection.Mode}
+	// Keep an unavailable client visibly nil; the installation mode remains
+	// independent and enabled reconciliation reports ProjectorUnavailable.
+	if projection.Client != nil {
+		organizationReconciler.Positions = projection.Client
 	}
 	fatalIfError(organizationReconciler.SetupWithManager(mgr), controllerSetupError, "controller", "HankoOrganization")
 	fatalIfError((&controller.HankoResourceServerReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName)}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoResourceServer")
