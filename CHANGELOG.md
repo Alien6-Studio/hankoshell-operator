@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.0 — Unreleased
+
+- Accept the existing-Keycloak adoption architecture: HankoImport remains
+  discovery/Observe orchestration; target-local one-shot metadata approval will
+  bind exact provider identity, complete semantic observation and a reviewed
+  typed diff. Ownership-only acquisition and separate Manage are future work.
+- Characterize owner-marker/journal preservation and destructive lifecycle
+  boundaries on real HTTPS Keycloak 26.7.5/26.8.0. Retain arbitrary existing realm
+  and opaque broker lifecycle as Observe-only; preserve legacy application
+  UUID/observation migration syntax. No production adoption API is added.
+- Create the discovery/diff, leaf ownership and aggregate/native qualification
+  backlog. Current packaging remains 0.4.0; no 0.5 source tag or publication.
+
 ## 0.4.0 — Unreleased
 
 - Accept the organizational authorization design: extend HankoResourceServer with

@@ -44,14 +44,23 @@ ownership remain separate.
 
 ## Current status
 
-The **v0.1.0, v0.2.0 and v0.3.0 sources and signed tags are frozen and immutable**.
+The **v0.1.0, v0.2.0, v0.3.0 and v0.4.0 sources and signed tags are frozen and immutable**.
 Publication work remains independent in [#21](https://github.com/Alien6-Studio/hankoshell-operator/issues/21);
 no public artifacts are claimed published. Milestone **0.2.0 — IAM Contract Engine**
 is complete and closed. **0.3.0 — Application Identity** is complete and closed,
 including the protocol and runtime delivery contract. **0.4.0 — Organizational
-Authorization** completes organization grants and bounded structural provenance
+Authorization** is complete and closed, with organization grants and bounded structural provenance
 under the [accepted contract](docs/architecture/organizational-authorization.md),
-implemented by #41 and #42. Production publication remains independent in #21.
+implemented by #41 and #42. Active development is **0.5.0 — Adopt Existing
+Keycloak**, starting with the [accepted adoption contract](docs/architecture/existing-keycloak-adoption.md)
+and [RFC #46](https://github.com/Alien6-Studio/hankoshell-operator/issues/46).
+[#47](https://github.com/Alien6-Studio/hankoshell-operator/issues/47),
+[#48](https://github.com/Alien6-Studio/hankoshell-operator/issues/48) and
+[#49](https://github.com/Alien6-Studio/hankoshell-operator/issues/49) implement discovery/diff,
+explicit ownership and aggregate/native qualification in that order. Current
+HankoImport/Observe remains the available inventory behavior until those changes
+land; general adoption is not implemented by the RFC. Production publication
+remains independent in #21.
 [#24](https://github.com/Alien6-Studio/hankoshell-operator/issues/24) is resolved by
 the [qualified OIDC/SAML application contract](docs/architecture/application-identity.md).
 [#25](https://github.com/Alien6-Studio/hankoshell-operator/issues/25) defines
@@ -168,7 +177,7 @@ Promoting all current `v1alpha1` resources is not the goal.
 
 Bring concrete application authentication, authorization, adoption and workload
 identity scenarios to the [roadmap issues](https://github.com/Alien6-Studio/hankoshell-operator/issues?q=is%3Aissue%20is%3Aopen%20label%3Aroadmap).
-The next development milestone is 0.5.0 — Adopt Existing Keycloak; production
+The active development milestone is 0.5.0 — Adopt Existing Keycloak; production
 publication trust is tracked independently in #21. The resolved 0.2 architecture and selected 0.3
 RFCs guide subsequent development; later milestone
 descriptions carry direction until their design window opens.
