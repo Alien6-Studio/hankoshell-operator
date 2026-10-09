@@ -66,7 +66,8 @@ type Permission struct {
 type Principal struct {
 	Kind               string
 	Ref                string
-	IncludeDescendants bool `json:",omitempty"`
+	PortableRef        string `json:",omitempty"`
+	IncludeDescendants bool   `json:",omitempty"`
 	// Organization is private execution evidence; Normalize removes it from intent.
 	Organization *ResolvedOrganizationPrincipal `json:",omitempty"`
 }
@@ -114,6 +115,8 @@ type State struct {
 	Observation              iamcontract.Observation
 	Capabilities             Capabilities
 	ManagedObjects           ManagedObjects
+	Structure                *StructuralObservation
+	RealmRoleIDs             map[string]string `json:"-"`
 	Findings                 []Finding
 }
 

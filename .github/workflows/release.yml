@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing GitHub-verified signed annotated SemVer tag on verified main (for example v0.3.0)
+        description: Existing GitHub-verified signed annotated SemVer tag on verified main (for example v0.4.0)
         required: true
         type: string
 permissions:

@@ -1,7 +1,7 @@
 # hankoShell Operator chart
 
 Helm chart for declarative Keycloak IAM configuration with hankoShell Operator.
-Version 0.3.0 is a normal SemVer release in initial development.
+Version 0.4.0 is a normal SemVer release in initial development.
 The source includes the [OIDC/SAML application contract](../../docs/architecture/application-identity.md),
 including explicit migration approval for existing unmarked clients and
 [UID-bound runtime bindings](../../docs/architecture/application-identity.md#runtime-bindings).
@@ -35,7 +35,7 @@ The existing-realm profile needs target `manage-realm`, `manage-clients` and
 `manage-events`; optional capabilities have additional or inherited authority.
 Keep secrets outside committed values and review native realm-creation grants.
 
-Organization principals in the unreleased 0.4 source require explicitly
+Organization principals in 0.4.0 require explicitly
 provisioned target `view-users` in addition to `manage-clients`; that read role
 also exposes realm users. No chart flag grants this authority. See the
 [organization-grant contract](../../docs/keycloak-permissions.md#organization-principals-04-unreleased)
@@ -256,3 +256,9 @@ destination/ports; enterprise keeps verified HTTPS mandatory. Configured API
 failures preserve provider Synced=True while Phase is Error (or Pending for a
 parent projection dependency). See [configuration, status and migration](../../docs/secure-deployment.md#organization-provider-readiness-and-optional-projection),
 including residual position cleanup after disabling projection.
+
+ResourceServer status can explain bounded structural organization/role grants
+without exposing users. Enable the externally provisioned optional read profile
+for role provenance; it is independent of authorization synchronization. See
+[structural provenance](../../docs/architecture/organizational-authorization.md#bounded-effective-explanation)
+and [read permissions](../../docs/keycloak-permissions.md#optional-structural-role-provenance-reads).

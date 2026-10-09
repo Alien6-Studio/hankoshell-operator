@@ -37,6 +37,8 @@ func (d *KeycloakDriver) Observe(ctx context.Context, plan Plan) (State, error) 
 	}
 	capabilities, _ := d.Capabilities(ctx, model.Realm)
 	result := observationState(state, capabilities)
+	result.Structure = structuralObservation(state)
+	result.RealmRoleIDs = state.RealmRoleIDs
 	seen := map[string]bool{}
 	for _, object := range state.NativeObjects {
 		if seen[object.Kind] {
@@ -171,6 +173,21 @@ func observationState(state keycloak.AuthorizationState, caps Capabilities) Stat
 	result := State{ProviderResourceServerID: state.ResourceServerID, Capabilities: caps, Drifted: state.Drifted, Observation: iamcontract.Observation{StateHash: iamcontract.Hash(iamcontract.Version, "authorization", "observation", data), Complete: state.Observation.Complete, Drifted: state.Drifted}}
 	if !state.Observation.Complete {
 		result.Findings = []Finding{{Classification: iamcontract.Unsupported, ObjectKind: "resource_server", Code: "incomplete_observation", Message: "one or more provider bindings cannot be completely identified", ReadOnly: true}}
+	}
+	return result
+}
+
+func structuralObservation(state keycloak.AuthorizationState) *StructuralObservation {
+	o := state.Observation
+	result := &StructuralObservation{Enabled: o.Enabled, Complete: o.Complete, Native: len(state.NativeObjects) > 0}
+	for _, r := range o.Resources {
+		result.Resources = append(result.Resources, ObservedResource{Name: r.Name, Present: r.Present, Scopes: r.Scopes, UnknownScopes: r.UnknownScopes})
+	}
+	for _, p := range o.Policies {
+		result.Policies = append(result.Policies, ObservedPolicy{Name: p.Name, Type: p.Type, Logic: p.Logic, DecisionStrategy: p.DecisionStrategy, Present: p.Present, Owned: p.Owned, Principals: p.Principals, UnknownPrincipals: p.UnknownPrincipals, GroupsClaimConfigured: p.GroupsClaimConfigured})
+	}
+	for _, p := range o.Permissions {
+		result.Permissions = append(result.Permissions, ObservedPermission{Name: p.Name, Type: p.Type, Logic: p.Logic, DecisionStrategy: p.DecisionStrategy, Present: p.Present, Owned: p.Owned, Resources: p.Resources, Scopes: p.Scopes, Policies: p.Policies, UnknownBindings: p.UnknownBindings})
 	}
 	return result
 }

@@ -88,7 +88,6 @@ func (c *Client) observeAuthorizationGraph(ctx context.Context, model Authorizat
 		return err
 	}
 	observeAuthorizationPermissions(model, state, owned, permissions, semanticScopes, semanticResources, semanticPolicies, wantScopeIDs, wantResourceIDs, wantPolicyIDs)
-	o := &state.Observation
 	// Summaries reveal kind only, never arbitrary provider-native names/data.
 	if len(scopes) > len(model.Scopes) {
 		state.NativeObjects = append(state.NativeObjects, AuthorizationNativeObject{Kind: "scope"})
@@ -96,7 +95,7 @@ func (c *Client) observeAuthorizationGraph(ctx context.Context, model Authorizat
 	if len(resources) > len(model.Resources) {
 		state.NativeObjects = append(state.NativeObjects, AuthorizationNativeObject{Kind: "resource"})
 	}
-	if len(policies.byID) > len(o.Policies) {
+	if hasNativeAuthorizationPolicy(policies, permissions, semanticPolicies, owned) {
 		state.NativeObjects = append(state.NativeObjects, AuthorizationNativeObject{Kind: "policy"})
 	}
 	if len(permissions) > len(model.Permissions) {
@@ -111,7 +110,7 @@ func normalizedLogic(value string) string {
 	}
 	return value
 }
-func (c *Client) authorizationPrincipalNames(ctx context.Context, model AuthorizationModel) (map[string]string, error) {
+func (c *Client) authorizationPrincipalNames(ctx context.Context, model AuthorizationModel, roleIDs map[string]string) (map[string]string, error) {
 	names := map[string]string{}
 	for _, permission := range model.Permissions {
 		for _, principal := range permission.Principals {
@@ -122,6 +121,7 @@ func (c *Client) authorizationPrincipalNames(ctx context.Context, model Authoriz
 					return nil, err
 				}
 				names[role.ID] = "realm_role/" + principal.Ref
+				roleIDs[principal.Ref] = role.ID
 			case "organization":
 				for _, g := range principal.Groups {
 					names[g.ID] = "organization/" + observedOrganizationGroupRef(principal, g.ID)
@@ -184,7 +184,8 @@ func (c *Client) observeAuthorizationPolicies(ctx context.Context, model Authori
 	o := &state.Observation
 	semanticPolicies := map[string]string{}
 	wantPolicyIDs := map[string][]string{}
-	principalNames, err := c.authorizationPrincipalNames(ctx, model)
+	state.RealmRoleIDs = map[string]string{}
+	principalNames, err := c.authorizationPrincipalNames(ctx, model, state.RealmRoleIDs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -247,4 +248,20 @@ func observePolicyPrincipals(got authorizationPolicyRepresentation, principalNam
 			item.UnknownPrincipals++
 		}
 	}
+}
+
+// Keycloak's generic policy collection also contains scope permissions. An
+// independently observed journal-owned permission is not a native policy gap.
+func hasNativeAuthorizationPolicy(policies authorizationPolicyIndex, permissions map[string]authorizationPermissionRepresentation, known map[string]string, owned AuthorizationManagedObjects) bool {
+	for id, policy := range policies.byID {
+		if _, ok := known[id]; ok {
+			continue
+		}
+		permission, ok := permissions[policy.Name]
+		if ok && policy.Type == "scope" && permission.ID == id && ownsObservation(owned.Permissions, policy.Name, id) {
+			continue
+		}
+		return true
+	}
+	return false
 }

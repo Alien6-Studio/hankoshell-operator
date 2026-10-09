@@ -62,7 +62,7 @@ spec:
                 properties:
                   includeData:
                     description: IncludeData is retained for API compatibility but
-                      has no effect in 0.3.0.
+                      has no effect in 0.4.0.
                     type: boolean
                   targetName:
                     description: TargetName is the name for the new HankoKeycloakInstance.

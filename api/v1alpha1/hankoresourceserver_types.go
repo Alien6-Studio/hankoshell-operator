@@ -219,6 +219,9 @@ type HankoResourceServerStatus struct {
 	// +kubebuilder:validation:MaxLength=128
 	ProviderResourceServerID string `json:"providerResourceServerID,omitempty"`
 
+	// AuthorizationExplanation is structural provider evidence, never a per-user decision or execution authority.
+	AuthorizationExplanation *AuthorizationExplanation `json:"authorizationExplanation,omitempty"`
+
 	Capabilities AuthorizationCapabilitySnapshot `json:"capabilities,omitempty"`
 
 	ManagedObjects AuthorizationManagedObjects `json:"managedObjects,omitempty"`
