@@ -57,6 +57,7 @@ func TestRealKeycloakPermissionProfiles(t *testing.T) {
 	ctx := context.Background()
 	baseline := []string{"manage-realm", "manage-clients", "manage-events"}
 	kc, secret := f.serviceClient("minimal")
+	_, noRoleSecret := f.serviceClient("no-role")
 	f.grantClientRoles("minimal", "managed", baseline)
 	_, err := kc.ServerVersion(ctx)
 	f.requireNoError(err)
@@ -102,6 +103,10 @@ func TestRealKeycloakPermissionProfiles(t *testing.T) {
 	})
 
 	f.run("protocol mappers and role scopes", func(t *testing.T) {
+		f.requireNoError(kc.EnsureClientRole(ctx, "managed", "minimal-app", "application-role", "Initial"))
+		f.requireNoError(kc.EnsureClientRole(ctx, "managed", "minimal-app", "application-role", "Updated"))
+		provider := f.client("managed", "minimal-app")
+		fixtureEqual(t, "no-role client-role update denied", f.identityStatus("no-role", noRoleSecret, http.MethodPut, "/admin/realms/managed/clients/"+provider["id"].(string)+"/roles/application-role", map[string]any{"description": "denied"}), http.StatusForbidden)
 		mapper := keycloak.ProtocolMapper{Name: "department", Protocol: "openid-connect", ProtocolMapper: "oidc-usermodel-attribute-mapper", Config: map[string]string{"user.attribute": "department", "claim.name": "department", "jsonType.label": "String"}}
 		created, err := kc.EnsureClientProtocolMapper(ctx, "managed", "minimal-app", mapper)
 		f.requireNoError(err)

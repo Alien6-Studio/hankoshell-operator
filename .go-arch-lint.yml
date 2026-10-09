@@ -25,6 +25,8 @@ components:
     in: "/internal/iamcontract"
   roles:
     in: "/internal/roles"
+  applications:
+    in: "/internal/applications"
   authorization:
     in: "/internal/authorization"
   hub:
@@ -56,6 +58,7 @@ deps:
       - keycloak
       - authorization
       - roles
+      - applications
       - iamcontract
       - hub
       - api_types
@@ -84,6 +87,11 @@ deps:
     anyVendorDeps: true
 
   roles:
+    mayDependOn:
+      - keycloak
+      - iamcontract
+
+  applications:
     mayDependOn:
       - keycloak
       - iamcontract

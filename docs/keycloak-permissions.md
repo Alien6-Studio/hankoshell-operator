@@ -129,6 +129,24 @@ can trigger realm-wide logout: grant `manage-users` when that transition is used
 or have an administrator perform the transition and session revocation first.
 Never silently skip a denied security action to obtain a green reconciliation.
 
+## Application protocols in the 0.3 development source
+
+OIDC and the bounded SAML application/client-role contract use target-realm
+`manage-clients` only; real protocol/lifecycle tests omit realm, event, user,
+broker and global administrator grants. The newly inventoried client-role PUT
+repairs descriptions under that same role and is denied to a no-role identity.
+Declared realm-role scope writes additionally need `manage-realm`; the v0.2
+manifest migration fixture verifies this profile. `view-realm` alone does not
+permit those scope writes on the qualified versions. Optional inbound broker
+mappers still need `manage-identity-providers`.
+
+Public OIDC discovery and SAML metadata GETs need no Admin API role. They use the
+configured verified CA transport, bounded gateway and no administrative bearer
+header. SAML does not need private realm signing-key retrieval, per-application
+client-secret access, user provisioning or impersonation authority. Bootstrap
+setup of the disposable login user remains outside operator semantics. See the
+[application contract and approved legacy migration](architecture/application-identity.md).
+
 ## Optional authority and new realm creation
 
 Add only the optional capability roles from the matrix. Read-only imports should
@@ -298,7 +316,7 @@ using the dedicated client's credentials.
 | credentials | GET | `/admin/realms/{realm}/clients/{client}/client-secret` | 26.8.0: manage-clients; 26.7.5: view-clients also exposes secrets |
 | credentials | POST | `/admin/realms/{realm}/clients/{client}/client-secret` | manage-clients |
 | client-roles | GET,POST | `/admin/realms/{realm}/clients/{client}/roles` | view-clients / manage-clients |
-| client-roles | GET,DELETE | `/admin/realms/{realm}/clients/{client}/roles/{role}` | view-clients / manage-clients |
+| client-roles | GET,PUT,DELETE | `/admin/realms/{realm}/clients/{client}/roles/{role}` | view-clients / manage-clients |
 | client-roles | GET | `/admin/realms/{realm}/clients/{client}/roles/{role}/composites` | view-clients |
 | client-scopes | GET,POST,DELETE | `/admin/realms/{realm}/clients/{client}/scope-mappings/realm` | view-clients / manage-clients and permission to map the realm role |
 | protocol-mappers | GET,POST | `/admin/realms/{realm}/clients/{client}/protocol-mappers/models` | view-clients / manage-clients |

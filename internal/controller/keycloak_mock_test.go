@@ -10,6 +10,8 @@ import (
 	"sync"
 	"testing"
 
+	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/controller"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 )
 
@@ -53,7 +55,8 @@ type mockKeycloak struct {
 
 	realms          []keycloak.Realm
 	appsByRealm     map[string][]keycloak.App
-	clientUUID      map[string]string // "realm|clientID" -> uuid
+	clientUUID      map[string]string         // "realm|clientID" -> uuid
+	clientState     map[string]map[string]any // complete non-secret client representation
 	idpsByRealm     map[string][]keycloak.IdentityProvider
 	idpMappers      map[string][]keycloak.IdentityProviderMapper
 	protocolMappers map[string][]keycloak.ProtocolMapper
@@ -83,6 +86,7 @@ func newMockKeycloak(t *testing.T) *mockKeycloak {
 		t:                t,
 		appsByRealm:      map[string][]keycloak.App{},
 		clientUUID:       map[string]string{},
+		clientState:      map[string]map[string]any{},
 		idpsByRealm:      map[string][]keycloak.IdentityProvider{},
 		idpMappers:       map[string][]keycloak.IdentityProviderMapper{},
 		protocolMappers:  map[string][]keycloak.ProtocolMapper{},
@@ -139,6 +143,23 @@ func (m *mockKeycloak) addClient(realm, clientID, uuid string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.clientUUID[realm+"|"+clientID] = uuid
+	m.clientState[realm+"|"+uuid] = map[string]any{"id": uuid, "clientId": clientID, "protocol": "openid-connect", "enabled": true, "attributes": map[string]any{}}
+}
+
+// ownApplication explicitly provisions an already UID-owned client for existing
+// Manage regression tests. Foreign-client tests deliberately do not call it.
+func (m *mockKeycloak) ownApplication(app *hankoshv1alpha1.HankoApplication) {
+	if app.Spec.Mode == controller.ExportModeObserve || app.Labels["hanko.sh/imported-by"] != "" {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	id := m.clientUUID[app.Spec.RealmRef+"|"+app.Spec.ClientID]
+	if id == "" {
+		return
+	}
+	attrs := m.clientState[app.Spec.RealmRef+"|"+id]["attributes"].(map[string]any)
+	attrs["hanko.sh/application-owner"] = string(app.UID)
 }
 
 func (m *mockKeycloak) addRealm(realm keycloak.Realm) {
@@ -427,14 +448,47 @@ func (m *mockKeycloak) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	case r.Method == http.MethodPost && reClientsCollection.MatchString(path):
 		m.counts["create"]++
+		var payload map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			m.t.Fatal(err)
+		}
+		realm := reRealmFromClients.FindStringSubmatch(path)[1]
+		clientID := payload["clientId"].(string)
+		if m.clientUUID[realm+"|"+clientID] != "" {
+			w.WriteHeader(http.StatusConflict)
+			return
+		}
+		id := "uuid-" + clientID
+		payload["id"] = id
+		m.clientUUID[realm+"|"+clientID] = id
+		m.clientState[realm+"|"+id] = payload
 		w.WriteHeader(http.StatusCreated)
 
 	case r.Method == http.MethodGet && reClientRoles.MatchString(path):
 		m.counts["listRoles"]++
-		writeJSON(w, []map[string]string{})
+		parts := strings.Split(path, "/")
+		roles := []keycloak.ClientRole{}
+		for _, role := range m.clientRoles[parts[3]+"|"+parts[5]] {
+			roles = append(roles, keycloak.ClientRole{Name: role.Name, Description: role.Description})
+		}
+		writeJSON(w, roles)
 
 	case r.Method == http.MethodPost && reClientRoles.MatchString(path):
 		m.counts["createRole"]++
+		parts := strings.Split(path, "/")
+		var role keycloak.RealmRole
+		if err := json.NewDecoder(r.Body).Decode(&role); err != nil {
+			m.t.Fatal(err)
+		}
+		key := parts[3] + "|" + parts[5]
+		if m.clientRoles[key] == nil {
+			m.clientRoles[key] = map[string]keycloak.RealmRole{}
+		}
+		if _, ok := m.clientRoles[key][role.Name]; ok {
+			w.WriteHeader(http.StatusConflict)
+			return
+		}
+		m.clientRoles[key][role.Name] = role
 		w.WriteHeader(http.StatusCreated)
 
 	case r.Method == http.MethodGet && reClientRoleComposites.MatchString(path):
@@ -458,13 +512,22 @@ func (m *mockKeycloak) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	case r.Method == http.MethodGet && reClientByID.MatchString(path):
 		m.counts["getClient"]++
-		writeJSON(w, map[string]any{
-			"id": path[strings.LastIndex(path, "/")+1:], "enabled": true,
-			"authorizationServicesEnabled": false,
-		})
+		parts := strings.Split(path, "/")
+		state := m.clientState[parts[3]+"|"+parts[5]]
+		if state == nil {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		writeJSON(w, state)
 
 	case r.Method == http.MethodPut && reClientByID.MatchString(path):
 		m.counts["update"]++
+		parts := strings.Split(path, "/")
+		var state map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&state); err != nil {
+			m.t.Fatal(err)
+		}
+		m.clientState[parts[3]+"|"+parts[5]] = state
 		w.WriteHeader(http.StatusNoContent)
 
 	case r.Method == http.MethodDelete && reClientByID.MatchString(path):

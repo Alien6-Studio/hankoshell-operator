@@ -25,6 +25,7 @@ enterprise fleet. Project website: **[hanko.sh](https://hanko.sh)**.
 [Deployment](#deployment) ·
 [Secure deployment and trust model](docs/secure-deployment.md) ·
 [Keycloak permissions](docs/keycloak-permissions.md) ·
+[OIDC/SAML application model and migration](docs/architecture/application-identity.md) ·
 [Changes](CHANGELOG.md) · **[Roadmap](ROADMAP.md)** · [IAM contract architecture](docs/architecture/iam-contract-engine.md)
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml)
@@ -65,13 +66,23 @@ objects and reports their status in Kubernetes.
 | Keycloak configuration | What you can declare |
 | --- | --- |
 | Realms and login experience | Realm display name, public frontend URL, login theme and realm roles. |
-| Application clients | SPA, web and machine clients; login/logout redirect URLs, client roles, realm-role scopes and client attributes. |
+| Application clients | OIDC SPA, web and machine clients; callbacks, roles, claims and credentials. The 0.3 development source adds a bounded SAML POST/signing/ACS contract. |
 | Authentication policies | Reusable MFA, password, session, brute-force, email-verification and authentication-event settings. |
 | Identity brokering | Upstream identity providers and their Keycloak mappers, with provider credentials referenced from Secrets. Application mappings can turn upstream OIDC claims into roles or user attributes. |
 | Token contents | Client-specific claims from user attributes or fixed values, with control over the declared realm roles included in application tokens. |
 | Roles and API permissions | Realm and client roles, composite realm roles, and resource-server scopes, resources and permissions for role or workload principals. |
 | Machine credentials | Service-account clients, confidential client secrets, scheduled or requested rotation, and explicitly authorized application Secret projections. |
 | Existing configuration | Import reports and supported realm, client, service-account and identity-provider configuration; observe existing objects before taking ownership. |
+
+`HankoApplication.spec.protocol` defaults to `oidc`, retaining existing OIDC
+field paths. The 0.3 development source also supports a qualified SAML subset:
+exact HTTPS ACS destinations, signed responses/assertions, four NameID formats,
+client roles and public IdP metadata in status. See the
+[application contract](docs/architecture/application-identity.md) for fields,
+qualification and unsupported features. Existing 0.2 clients without a UID marker
+require reviewed UUID + observation approval; protocol conversion requires
+reviewed deletion/recreation. Chart/release packaging remains 0.2.0 until the 0.3
+milestone completes; no 0.3 release is published.
 
 `HankoRole` management and deletion require the CR UID ownership marker in
 Keycloak. Existing unmarked roles require administrator-reviewed adoption; see
@@ -132,8 +143,11 @@ through its real HTTPS Admin API v1. Required CI exercises realm/client lifecycl
 IAM/MFA settings, roles, identity-provider configuration, secret rotation,
 drift recovery, ownership, finalizers and read-only import. Other 26.x patches
 may work but are unqualified; older and future major lines are outside the
-0.2.0 support contract pending qualification. This does not qualify browser login,
-external identity-provider handshakes or production database/cluster operations.
+0.2.0 support contract pending qualification. The 0.3 development source additionally qualifies OIDC browser/PKCE, M2M and
+signed SAML POST application flows on these same versions; see the
+[protocol evidence and limits](docs/architecture/application-identity.md#protocol-and-xml-security-qualification).
+External identity-provider handshakes and production database/cluster operations
+remain unqualified.
 See the [Keycloak compatibility contract](docs/secure-deployment.md#keycloak-compatibility).
 
 The chart targets Kubernetes **1.35–1.37** on Linux nodes. Required CI checks

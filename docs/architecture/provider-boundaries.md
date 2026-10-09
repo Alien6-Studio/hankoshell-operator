@@ -31,6 +31,7 @@ Secret references are D operational inputs; their values are excluded from contr
 | HankoRole | composite, composites | B additive realm-role composition |
 | HankoRole | attributes | C Keycloak metadata lists; ownership key is operator-reserved |
 | HankoApplication | realmRef, clientID, type, redirectURIs, postLogoutRedirectURIs | A OIDC application intent; B concrete flow/logout support |
+| HankoApplication | protocol, saml (assertionConsumerServices, requireSignedAssertions, nameIDFormat) | A application/SP identity and requirements; B qualified POST/signature/NameID mapping |
 | HankoApplication | roles (name, description), realmRoleScopes | A role definitions/bindings; B token scope behavior |
 | HankoApplication | theme, attributes | C login theme/client native attributes |
 | HankoApplication | mode, secretRotationPolicy, clientSecretProjections (namespace, name) | D authority/credential lifecycle/projection |
@@ -85,7 +86,8 @@ contradict or weaken portable security semantics.** Native PKCE attributes canno
 disable a portable PKCE requirement; broker/native authentication settings cannot
 weaken required MFA/signature validation; native token settings cannot contradict
 a portable audience requirement. Those application/profile mappings retain their
-existing security validations; their full contract migration belongs to later work.
+existing security validations; applications now use their dedicated qualified domain adapter; profile migration
+remains later work.
 
 In the migrated role domain, native attributes cannot set `hanko.sh/role-owner`
 or credential-shaped keys. The compiler refuses the conflict before any provider
@@ -101,18 +103,16 @@ least-privilege and ownership controls and update permission tests for new calls
 
 ## Staged migration and standalone/projection contract
 
-1. Resource-server authorization and realm roles use internal domain plans now.
-2. #27 exposes bounded public evaluation/apply/observation evidence and stale status for those two migrated domains.
-3. #28 separates provider-ready organization state from optional API projection.
-   Provider hierarchy, parent dependency and owned cleanup must work standalone;
-   a configured failed projection must have a separate visible degraded outcome.
-   Current behavior still requires the projector/PositionID, including parent and
-   deletion paths. This foundation does not pretend that separation is implemented.
-4. Application identity has its own 0.3 design window. Preserve all current OIDC,
-   client-role, claim, broker-mapper, credential and Observe behavior until a
-   qualified, opt-in, round-trip-preserving migration is designed.
-5. Realm policy/brokers and operational resources migrate selectively, without
-   a blanket generic engine rewrite. Native controls remain first-class Keycloak
+1. Resource-server authorization and realm roles use internal domain plans; #27
+   completed their bounded public evidence and stale-status contract.
+2. #28 completed provider-ready standalone organization state, separate optional
+   API projection status and provider-first cleanup.
+3. #24 adds the [application identity domain](application-identity.md), preserving
+   existing OIDC fields and qualifying SAML POST identity/signatures/ACS. Native
+   SAML/security/ownership attributes are reserved; migration requires reviewed
+   UUID + observation approval. #25 runtime bindings remain next.
+4. Realm policy/brokers and operational resources migrate selectively, without a
+   blanket generic engine rewrite. Native controls remain first-class Keycloak
    functionality; operational APIs may remain alpha beyond the stable IAM core.
 
 Hub and Continuum remain optional external integrations; this boundary does not

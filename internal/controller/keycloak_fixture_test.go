@@ -64,7 +64,7 @@ func fixtureSecret(t *testing.T) string {
 	return hex.EncodeToString(value)
 }
 
-func fixtureTLS(t *testing.T) ([]byte, []byte) {
+func fixtureTLS(t *testing.T, publicIP ...bool) ([]byte, []byte) {
 	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -77,6 +77,9 @@ func fixtureTLS(t *testing.T) ([]byte, []byte) {
 		IsCA:     true, BasicConstraintsValid: true,
 		KeyUsage:    x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+	if len(publicIP) == 1 && publicIP[0] {
+		cert.IPAddresses = []net.IP{net.ParseIP("127.0.0.1")}
 	}
 	der, err := x509.CreateCertificate(rand.Reader, cert, cert, &key.PublicKey, key)
 	if err != nil {
@@ -114,6 +117,10 @@ func newKeycloakFixture(t *testing.T) *keycloakFixture {
 }
 
 func newKeycloakFixtureWithManagedTransport(t *testing.T, managed bool) *keycloakFixture {
+	return newKeycloakFixtureWithTransport(t, managed, false)
+}
+
+func newKeycloakFixtureWithTransport(t *testing.T, managed, publicIP bool) *keycloakFixture {
 	t.Helper()
 	version := os.Getenv("KEYCLOAK_VERSION")
 	if version == "" {
@@ -126,7 +133,7 @@ func newKeycloakFixtureWithManagedTransport(t *testing.T, managed bool) *keycloa
 	f := &keycloakFixture{t: t, version: version}
 	password := fixtureSecret(t)
 	f.secrets = append(f.secrets, password)
-	cert, key := fixtureTLS(t)
+	cert, key := fixtureTLS(t, publicIP)
 	f.ca = cert
 	directory := t.TempDir()
 	if err := os.Chmod(directory, 0755); err != nil {

@@ -46,6 +46,13 @@ func realmClientIndexer(obj client.Object) []string {
 
 func newFakeClient(t *testing.T, objs ...client.Object) client.Client {
 	t.Helper()
+	for _, object := range objs {
+		_, app := object.(*hankoshv1alpha1.HankoApplication)
+		_, account := object.(*hankoshv1alpha1.HankoServiceAccount)
+		if (app || account) && object.GetUID() == "" {
+			object.SetUID(types.UID("fixture-" + object.GetNamespace() + "-" + object.GetName()))
+		}
+	}
 	return fake.NewClientBuilder().
 		WithScheme(newScheme(t)).
 		WithIndex(&hankoshv1alpha1.HankoApplication{}, controller.RealmClientIndexKey, realmClientIndexer).
@@ -112,6 +119,7 @@ func TestReconcile_Observe_NoMutatingKeycloakCalls(t *testing.T) {
 	}
 
 	c := newFakeClient(t, app)
+	kc.ownApplication(app)
 	r := newReconciler(t, c, kc.client())
 
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: "imported-app", Namespace: "default"}})
@@ -177,6 +185,7 @@ func TestReconcile_ManageRotatesConfidentialSecretDeclaratively(t *testing.T) {
 		},
 	}}
 	c := newFakeClient(t, app, secret, projected)
+	kc.ownApplication(app)
 	r := newReconciler(t, c, kc.client())
 
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: app.Name, Namespace: app.Namespace}})
@@ -236,6 +245,7 @@ func TestReconcile_ObserveDeletion_NoDeleteApp(t *testing.T) {
 	}
 
 	c := newFakeClient(t, app)
+	kc.ownApplication(app)
 	r := newReconciler(t, c, kc.client())
 
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: "legacy-imported-app", Namespace: "default"}})
@@ -326,6 +336,7 @@ func TestReconcile_ReservedApplicationClientsNeverReachKeycloak(t *testing.T) {
 				},
 			}
 			c := newFakeClient(t, app)
+			kc.ownApplication(app)
 			r := newReconciler(t, c, kc.client())
 
 			if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(app)}); err != nil {
@@ -357,6 +368,7 @@ func TestReconcile_ControlPlaneClientHomonymOutsideAuthorityRealmIsManageable(t 
 		},
 	}
 	c := newFakeClient(t, app)
+	kc.ownApplication(app)
 	r := newReconciler(t, c, kc.client())
 	r.ProtectedRealm = "alien6"
 	r.ProtectedClientIDs = []string{"hanko-dashboard"}
@@ -419,6 +431,7 @@ func TestReconcile_ApplicationCrossKindOwnershipAndAuthorityBoundary(t *testing.
 				},
 			}
 			c := newFakeClient(t, account, app)
+			kc.ownApplication(app)
 			r := newReconciler(t, c, kc.client())
 			r.ProtectedRealm = tt.protectedRealm
 			r.ProtectedClientIDs = tt.protectedIDs
@@ -484,6 +497,7 @@ func TestReconcile_ConflictingApplicationDeletionNeverDeletesSharedClient(t *tes
 				Spec: hankoshv1alpha1.HankoApplicationSpec{RealmRef: "acme", ClientID: "shared-client", Type: "spa", Mode: controller.ExportModeManage},
 			}
 			c := newFakeClient(t, tt.other, app)
+			kc.ownApplication(app)
 			r := newReconciler(t, c, kc.client())
 
 			if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(app)}); err != nil {
@@ -505,6 +519,7 @@ func TestReconcile_ApplicationOwnershipLookupFailsClosed(t *testing.T) {
 		Spec:       hankoshv1alpha1.HankoApplicationSpec{RealmRef: "acme", ClientID: "client", Type: "spa", Mode: controller.ExportModeManage},
 	}
 	c := newFakeClient(t, app)
+	kc.ownApplication(app)
 	r := newReconciler(t, c, kc.client())
 	r.OwnershipReader = failingOwnershipReader{}
 
@@ -539,6 +554,7 @@ func TestReconcile_Manage_CreatesClient(t *testing.T) {
 	}
 
 	c := newFakeClient(t, app)
+	kc.ownApplication(app)
 	r := newReconciler(t, c, kc.client())
 
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: "new-app", Namespace: "default"}})
@@ -576,6 +592,7 @@ func TestReconcile_Discovery403_NotOperational(t *testing.T) {
 	}
 
 	c := newFakeClient(t, app)
+	kc.ownApplication(app)
 	r := newReconciler(t, c, kc.client())
 
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: "app-403", Namespace: "default"}})
@@ -633,6 +650,7 @@ func TestReconcile_Manage_ReconcilesIdentityMappingsAndTokenClaims(t *testing.T)
 		},
 	}
 	c := newFakeClient(t, app)
+	kc.ownApplication(app)
 	r := newReconciler(t, c, kc.client())
 
 	request := ctrl.Request{NamespacedName: types.NamespacedName{Name: "trunx", Namespace: "default"}}
@@ -649,13 +667,13 @@ func TestReconcile_Manage_ReconcilesIdentityMappingsAndTokenClaims(t *testing.T)
 
 	idpMappers := kc.identityMappers("alien6", "entra")
 	assertIdentityMapper(t, idpMappers, "platform-admins", "oidc-role-idp-mapper", map[string]string{
-		"syncMode": "FORCE", "claim": "groups", "claim.value": "entra-admin-group", "role": "A6_TRUNX_PLATFORM",
+		"syncMode": "FORCE", "claim": "groups", "claim.value": "entra-admin-group", "role": "A6_TRUNX_PLATFORM", "hanko.sh/application-owner": string(app.UID),
 	})
 	assertIdentityMapper(t, idpMappers, "developers", "oidc-role-idp-mapper", map[string]string{
-		"syncMode": "FORCE", "claim": "groups", "claim.value": "entra-developer-group", "role": "trunx.developer",
+		"syncMode": "FORCE", "claim": "groups", "claim.value": "entra-developer-group", "role": "trunx.developer", "hanko.sh/application-owner": string(app.UID),
 	})
 	assertIdentityMapper(t, idpMappers, "department", "oidc-user-attribute-idp-mapper", map[string]string{
-		"syncMode": "FORCE", "claim": "department", "user.attribute": "department",
+		"syncMode": "FORCE", "claim": "department", "user.attribute": "department", "hanko.sh/application-owner": string(app.UID),
 	})
 
 	protocolMappers := kc.clientProtocolMappers("alien6", "client-uuid")
@@ -737,6 +755,7 @@ func TestReconcile_Manage_RejectsReservedTokenClaimAtOperatorBoundary(t *testing
 				},
 			}
 			c := newFakeClient(t, app)
+			kc.ownApplication(app)
 			r := newReconciler(t, c, kc.client())
 			_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: app.Name, Namespace: app.Namespace}})
 			if err == nil || !strings.Contains(err.Error(), "reserved claim") {
@@ -776,6 +795,7 @@ func TestReconcile_Manage_RemovesMappingsDeletedFromSpec(t *testing.T) {
 		},
 	}
 	c := newFakeClient(t, app)
+	kc.ownApplication(app)
 	r := newReconciler(t, c, kc.client())
 	request := ctrl.Request{NamespacedName: types.NamespacedName{Name: "trunx-cleanup", Namespace: "default"}}
 	if _, err := r.Reconcile(context.Background(), request); err != nil {
@@ -805,7 +825,7 @@ func TestReconcile_Manage_RemovesMappingsDeletedFromSpec(t *testing.T) {
 	}
 }
 
-func TestReconcile_Observe_WithMappingSpecMakesNoMapperCalls(t *testing.T) {
+func TestReconcile_Observe_ReadsMappingsWithoutMutation(t *testing.T) {
 	kc := newMockKeycloak(t)
 	kc.addClient("alien6", "observed", "client-uuid")
 	app := &hankoshv1alpha1.HankoApplication{
@@ -825,11 +845,12 @@ func TestReconcile_Observe_WithMappingSpecMakesNoMapperCalls(t *testing.T) {
 		},
 	}
 	c := newFakeClient(t, app)
+	kc.ownApplication(app)
 	r := newReconciler(t, c, kc.client())
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: "observed-mappings", Namespace: "default"}}); err != nil {
 		t.Fatalf("Reconcile: %v", err)
 	}
-	for _, counter := range []string{"listIDPMappers", "createIDPMapper", "updateIDPMapper", "deleteIDPMapper", "listProtocolMappers", "createProtocolMapper", "updateProtocolMapper", "deleteProtocolMapper"} {
+	for _, counter := range []string{"createIDPMapper", "updateIDPMapper", "deleteIDPMapper", "createProtocolMapper", "updateProtocolMapper", "deleteProtocolMapper", "getSecret", "rotateSecret"} {
 		if got := kc.count(counter); got != 0 {
 			t.Errorf("%s calls in Observe mode: got %d, want 0", counter, got)
 		}
@@ -858,6 +879,7 @@ func TestReconcile_Manage_ExplicitKeycloakNameAdoptsExistingMapper(t *testing.T)
 		},
 	}
 	c := newFakeClient(t, app)
+	kc.ownApplication(app)
 	r := newReconciler(t, c, kc.client())
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: "trunx-adopt", Namespace: "default"}}); err != nil {
 		t.Fatalf("Reconcile: %v", err)
@@ -865,8 +887,8 @@ func TestReconcile_Manage_ExplicitKeycloakNameAdoptsExistingMapper(t *testing.T)
 	if got := kc.count("createIDPMapper"); got != 0 {
 		t.Errorf("create calls while adopting: got %d, want 0", got)
 	}
-	if got := kc.count("updateIDPMapper"); got != 0 {
-		t.Errorf("update calls without drift: got %d, want 0", got)
+	if got := kc.count("updateIDPMapper"); got != 1 {
+		t.Errorf("ownership marker update calls: got %d, want 1", got)
 	}
 	got := getApp(t, c, "trunx-adopt")
 	if len(got.Status.ManagedIdentityMappings) != 1 || got.Status.ManagedIdentityMappings[0].KeycloakID != "existing-mapper" {
@@ -879,8 +901,8 @@ func TestReconcile_Manage_ExplicitKeycloakNameAdoptsExistingMapper(t *testing.T)
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: "trunx-adopt", Namespace: "default"}}); err != nil {
 		t.Fatalf("drift Reconcile: %v", err)
 	}
-	if got := kc.count("updateIDPMapper"); got != 1 {
-		t.Errorf("updates after drift: got %d, want 1", got)
+	if got := kc.count("updateIDPMapper"); got != 2 {
+		t.Errorf("updates after drift: got %d, want 2", got)
 	}
 	if got := kc.identityMappers("alien6", "entra")[0].Config["claim.value"]; got != "admin-group" {
 		t.Errorf("claim.value after drift correction: got %q, want admin-group", got)
@@ -947,6 +969,7 @@ func TestReconcile_Manage_RealmIdentityMapperOwnerMakesNoKeycloakCalls(t *testin
 	}
 	kc := newMockKeycloak(t)
 	c := newFakeClient(t, realm, app)
+	kc.ownApplication(app)
 	r := newReconciler(t, c, kc.client())
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: app.Name, Namespace: app.Namespace}}); err != nil {
 		t.Fatalf("Reconcile: %v", err)
@@ -990,6 +1013,7 @@ func TestReconcile_Manage_PersistsPartialMapperProgressOnLaterFailure(t *testing
 		},
 	}
 	c := newFakeClient(t, app)
+	kc.ownApplication(app)
 	r := newReconciler(t, c, kc.client())
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: "partial-mappers", Namespace: "default"}})
 	if err == nil {
@@ -1028,6 +1052,7 @@ func TestReconcile_Manage_WaitsForManagedTheme(t *testing.T) {
 		},
 	}
 	c := newFakeClient(t, app, theme)
+	kc.ownApplication(app)
 	r := newReconciler(t, c, kc.client())
 
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: app.Name, Namespace: app.Namespace}})
@@ -1061,6 +1086,7 @@ func TestReconcile_Manage_AssignsReadyManagedTheme(t *testing.T) {
 		},
 	}
 	c := newFakeClient(t, app, theme)
+	kc.ownApplication(app)
 	r := newReconciler(t, c, kc.client())
 
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: app.Name, Namespace: app.Namespace}})
@@ -1088,6 +1114,7 @@ func TestReconcile_Manage_AllowsExplicitExternalThemeDuringMigration(t *testing.
 		},
 	}
 	c := newFakeClient(t, app)
+	kc.ownApplication(app)
 	r := newReconciler(t, c, kc.client())
 
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: app.Name, Namespace: app.Namespace}})

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.3.0 — Unreleased
+
+- Add protocol-aware HankoApplication intent, sealed local plans, Keycloak adapter
+  and bounded evaluation/apply/observation evidence using the IAM contract engine.
+- Preserve the omitted-protocol OIDC default and existing flat OIDC fields. Add a
+  qualified SAML POST subset: entity identity, exact HTTPS ACS, signed response
+  and assertion, bounded NameID formats, shared client roles and metadata URLs.
+- Bind application and mapper ownership to Kubernetes UID. Existing unmarked 0.2
+  clients require reviewed exact UUID + observation approval; no automatic
+  adoption or in-place protocol conversion. Preserve credentials and object IDs
+  during unchanged approved OIDC migration.
+- Qualify real OIDC browser/PKCE/M2M and SAML signature/security flows on Keycloak
+  26.7.5/26.8.0, protocol admission/status on Kubernetes 1.35.0/1.36.2/1.37.0, and
+  installed OIDC/SAML lifecycles in the scanned-image system fixture.
+- Keep runtime identity bindings (#25), SLO, signed SP requests, encryption and
+  SAML attribute statements deferred. Version packaging remains 0.2.0 until the
+  Application Identity milestone is complete.
+
 ## 0.2.0 — Unreleased
 
 <!-- release-notes:start -->

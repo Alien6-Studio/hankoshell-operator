@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -23,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/applications"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 )
 
@@ -60,6 +60,7 @@ var structuredReservedTokenClaims = []string{
 }
 
 type tokenClaimOwner struct {
+	uid        string
 	namespace  string
 	name       string
 	generation int64
@@ -99,6 +100,11 @@ func (r *HankoApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	kc := kcForObject(r.Pool, app.Namespace, app.Labels)
 	mode := effectiveMode(&app)
+	if app.DeletionTimestamp.IsZero() {
+		if err := validateApplicationProtocol(&app); err != nil {
+			return r.applicationContractError(ctx, &app, client.MergeFrom(app.DeepCopy()), nil, nil, err)
+		}
+	}
 	protectedApplication := isProtectedControlPlaneApplication(r.ProtectedRealm, r.ProtectedClientIDs, &app)
 	if protectedApplication && !app.DeletionTimestamp.IsZero() {
 		return r.releaseProtectedApplication(ctx, &app)
@@ -261,32 +267,7 @@ func (r *HankoApplicationReconciler) reconcileManagedApplication(ctx context.Con
 		}
 		return ctrl.Result{RequeueAfter: themeRequeue}, nil
 	}
-	rotationPolicy, err := effectiveSecretRotationPolicy(ctx, r.Client, app.Namespace, app.Spec.RealmRef, app.Spec.SecretRotationPolicy)
-	if err != nil {
-		return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("resolve client secret rotation policy: %w", err)
-	}
-	// Realm defaults apply only to confidential clients. An explicit policy on
-	// a SPA remains an error so unsafe intent is visible to the operator.
-	if app.Spec.Type == "spa" && app.Spec.SecretRotationPolicy == nil {
-		rotationPolicy = nil
-	}
-
-	// ── Check Keycloak presence ───────────────────────────────────────────────
-	found, err := kc.ClientExists(ctx, app.Spec.RealmRef, app.Spec.ClientID)
-	if err != nil {
-		app.Status.Phase = "Error"
-		app.Status.ObservedGeneration = app.Generation
-		setCondition(&app.Status.Conditions, "Synced", metav1.ConditionFalse, "KeycloakError", err.Error())
-		_ = r.Status().Patch(ctx, app, patch)
-		return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("check client existence: %w", err)
-	}
-
-	now := metav1.Now()
-
-	if found {
-		return r.reconcileExistingApplication(ctx, app, kc, rotationPolicy, &now, patch)
-	}
-	return r.createApplication(ctx, app, kc, rotationPolicy, &now, patch)
+	return r.reconcileApplicationContract(ctx, app, kc, patch, false)
 }
 
 func (r *HankoApplicationReconciler) reconcileApplicationDeletion(ctx context.Context, app *hankoshv1alpha1.HankoApplication, kc *keycloak.Client, mode string) (ctrl.Result, error) {
@@ -295,6 +276,18 @@ func (r *HankoApplicationReconciler) reconcileApplicationDeletion(ctx context.Co
 	}
 	logger := log.FromContext(ctx)
 	if mode == ModeManage {
+		plan, err := applicationDeletionPlan(app)
+		if err != nil {
+			return ctrl.Result{RequeueAfter: requeueOnError}, err
+		}
+		driver := applications.NewKeycloakDriver(kc)
+		state, err := driver.CheckOwned(ctx, plan)
+		if err != nil {
+			return ctrl.Result{RequeueAfter: requeueOnError}, err
+		}
+		if state.Present && !state.Owned {
+			return r.releaseConflictingApplication(ctx, app, "provider UID ownership does not authorize deletion")
+		}
 		if err := r.cleanupSecretProjections(ctx, app); err != nil {
 			return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("delete client secret projections: %w", err)
 		}
@@ -302,7 +295,7 @@ func (r *HankoApplicationReconciler) reconcileApplicationDeletion(ctx context.Co
 			return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("delete application mappers: %w", err)
 		}
 		logger.Info("deleting Keycloak client", "clientID", app.Spec.ClientID)
-		if err := kc.DeleteApp(ctx, app.Spec.RealmRef, app.Spec.ClientID); err != nil {
+		if err := driver.DeleteOwned(ctx, plan); err != nil {
 			return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("delete client %q from keycloak: %w", app.Spec.ClientID, err)
 		}
 	} else {
@@ -413,90 +406,6 @@ func (r *HankoApplicationReconciler) recordApplicationConflict(ctx context.Conte
 	return ctrl.Result{RequeueAfter: requeueWithJitter()}, nil
 }
 
-func applicationKeycloakSpec(app *hankoshv1alpha1.HankoApplication) keycloak.CreateAppSpec {
-	return keycloak.CreateAppSpec{
-		ClientID: app.Spec.ClientID, Name: app.Spec.ClientID, Type: app.Spec.Type,
-		RedirectURIs: app.Spec.RedirectURIs, PostLogoutRedirectURIs: app.Spec.PostLogoutRedirectURIs,
-		Theme: app.Spec.Theme, Attributes: app.Spec.Attributes,
-	}
-}
-
-func (r *HankoApplicationReconciler) reconcileExistingApplication(ctx context.Context, app *hankoshv1alpha1.HankoApplication, kc *keycloak.Client, rotationPolicy *hankoshv1alpha1.SecretRotationPolicy, now *metav1.Time, patch client.Patch) (ctrl.Result, error) {
-	if err := kc.UpdateApp(ctx, app.Spec.RealmRef, applicationKeycloakSpec(app)); err != nil {
-		return r.applicationReconcileError(ctx, app, patch, "Synced", "UpdateFailed", fmt.Errorf("update client %q: %w", app.Spec.ClientID, err))
-	}
-	if err := r.reconcileRoles(ctx, app, kc); err != nil {
-		return r.applicationReconcileError(ctx, app, patch, "Synced", "RoleError", err)
-	}
-	if err := r.reconcileRealmRoleScopes(ctx, app, kc); err != nil {
-		return r.applicationReconcileError(ctx, app, patch, "RoleScopes", "ScopeMappingError", err)
-	}
-	if err := r.reconcileApplicationMappings(ctx, app, kc); err != nil {
-		return r.applicationReconcileError(ctx, app, patch, "Mappings", "MappingError", err)
-	}
-	if err := r.ensureSecret(ctx, app, kc); err != nil {
-		return r.applicationReconcileError(ctx, app, patch, "Synced", "SecretDrift", err)
-	}
-	if err := r.maybeRotateApplicationSecret(ctx, app, rotationPolicy, now, kc); err != nil {
-		return r.applicationReconcileError(ctx, app, patch, "SecretRotation", "RotationFailed", err)
-	}
-	return r.applicationReady(ctx, app, kc, now, patch, "Exists", "client present in Keycloak")
-}
-
-func (r *HankoApplicationReconciler) createApplication(ctx context.Context, app *hankoshv1alpha1.HankoApplication, kc *keycloak.Client, rotationPolicy *hankoshv1alpha1.SecretRotationPolicy, now *metav1.Time, patch client.Patch) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-	logger.Info("creating Keycloak client", "clientID", app.Spec.ClientID)
-	secret, err := kc.CreateApp(ctx, app.Spec.RealmRef, applicationKeycloakSpec(app))
-	if err != nil {
-		return r.applicationReconcileError(ctx, app, patch, "Synced", "CreateFailed", fmt.Errorf("create client %q: %w", app.Spec.ClientID, err))
-	}
-	if secret != "" {
-		if err := r.upsertSecret(ctx, app, secret); err != nil {
-			return r.applicationReconcileError(ctx, app, patch, "SecretProjections", "ProjectionFailed", err)
-		}
-		setApplicationSecretStatus(app, now, rotationPolicy)
-	}
-	if err := r.reconcileRoles(ctx, app, kc); err != nil {
-		return r.applicationReconcileError(ctx, app, patch, "Synced", "RoleError", err)
-	}
-	if err := r.reconcileRealmRoleScopes(ctx, app, kc); err != nil {
-		return r.applicationReconcileError(ctx, app, patch, "RoleScopes", "ScopeMappingError", err)
-	}
-	if err := r.reconcileApplicationMappings(ctx, app, kc); err != nil {
-		return r.applicationReconcileError(ctx, app, patch, "Mappings", "MappingError", err)
-	}
-	result, err := r.applicationReady(ctx, app, kc, now, patch, "Created", "client created by operator")
-	if err != nil {
-		return result, err
-	}
-	if r.Recorder != nil {
-		r.Recorder.Eventf(app, nil, corev1.EventTypeNormal, "ClientCreated", "Reconcile", "%s", fmt.Sprintf("Keycloak client %q created in realm %q", app.Spec.ClientID, app.Spec.RealmRef))
-	}
-	logger.Info("Keycloak client created", "clientID", app.Spec.ClientID)
-	return result, nil
-}
-
-func (r *HankoApplicationReconciler) applicationReconcileError(ctx context.Context, app *hankoshv1alpha1.HankoApplication, patch client.Patch, condition, reason string, err error) (ctrl.Result, error) {
-	app.Status.Phase = "Error"
-	app.Status.ObservedGeneration = app.Generation
-	setCondition(&app.Status.Conditions, condition, metav1.ConditionFalse, reason, err.Error())
-	_ = r.Status().Patch(ctx, app, patch)
-	return ctrl.Result{RequeueAfter: requeueOnError}, err
-}
-
-func (r *HankoApplicationReconciler) applicationReady(ctx context.Context, app *hankoshv1alpha1.HankoApplication, kc *keycloak.Client, now *metav1.Time, patch client.Patch, reason, message string) (ctrl.Result, error) {
-	app.Status.Phase = "Ready"
-	app.Status.ObservedGeneration = app.Generation
-	app.Status.OIDCEndpoints = oidcEndpoints(kc, app.Spec.RealmRef)
-	app.Status.LastReconciled = now
-	setCondition(&app.Status.Conditions, "Synced", metav1.ConditionTrue, reason, message)
-	r.setOperationalCondition(app, app.Status.OIDCEndpoints)
-	if err := r.Status().Patch(ctx, app, patch); err != nil {
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{RequeueAfter: requeueWithJitter()}, nil
-}
-
 func setApplicationSecretStatus(app *hankoshv1alpha1.HankoApplication, rotatedAt *metav1.Time, policy *hankoshv1alpha1.SecretRotationPolicy) {
 	app.Status.ClientSecret = &hankoshv1alpha1.SecretReference{SecretRef: corev1.SecretKeySelector{
 		LocalObjectReference: corev1.LocalObjectReference{Name: secretName(app.Spec.ClientID)}, Key: "client_secret",
@@ -517,8 +426,8 @@ func setApplicationNextRotation(app *hankoshv1alpha1.HankoApplication, policy *h
 // ensureSecret verifies the K8s Secret exists for confidential clients and recovers
 // it from Keycloak if it was deleted while the Keycloak client still exists.
 func (r *HankoApplicationReconciler) ensureSecret(ctx context.Context, app *hankoshv1alpha1.HankoApplication, kc *keycloak.Client) error {
-	if app.Spec.Type == "spa" {
-		return nil // public client — no secret
+	if app.Spec.Type == "spa" || isSAMLApplication(app) {
+		return nil // public/SAML client — no secret
 	}
 	var s corev1.Secret
 	err := r.Get(ctx, types.NamespacedName{Name: secretName(app.Spec.ClientID), Namespace: app.Namespace}, &s)
@@ -594,40 +503,6 @@ func applicationRotationDue(app *hankoshv1alpha1.HankoApplication, policy *hanko
 		return true
 	}
 	return now.After(app.Status.LastRotated.AddDate(0, 0, policy.IntervalDays))
-}
-
-// probeOIDC does a quick GET on the OIDC discovery endpoint and reports whether it is
-// reachable and returns HTTP 200 — any other status (e.g. 403 behind a network policy,
-// 404, 5xx) is NOT operational, even though the condition still gets a descriptive message.
-func (r *HankoApplicationReconciler) probeOIDC(ep *hankoshv1alpha1.OIDCEndpoints) (bool, string) {
-	if ep == nil {
-		return false, "no OIDC endpoints configured"
-	}
-	discovery := ep.Issuer + "/.well-known/openid-configuration"
-	c := &http.Client{Timeout: 2 * time.Second}
-	resp, err := c.Get(discovery)
-	if err != nil {
-		return false, fmt.Sprintf("OIDC discovery unreachable: %v", err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode == http.StatusOK {
-		return true, fmt.Sprintf("OIDC discovery reachable at %s", discovery)
-	}
-	return false, fmt.Sprintf("OIDC discovery returned %d at %s", resp.StatusCode, discovery)
-}
-
-// setOperationalCondition probes the OIDC discovery endpoint and sets the Operational
-// condition accordingly. A non-200 discovery response (e.g. 403 from a network policy
-// misconfiguration) must never be reported as Operational=True.
-func (r *HankoApplicationReconciler) setOperationalCondition(app *hankoshv1alpha1.HankoApplication, ep *hankoshv1alpha1.OIDCEndpoints) {
-	ok, msg := r.probeOIDC(ep)
-	status := metav1.ConditionFalse
-	reason := "Unreachable"
-	if ok {
-		status = metav1.ConditionTrue
-		reason = "Reachable"
-	}
-	setCondition(&app.Status.Conditions, "Operational", status, reason, msg)
 }
 
 // findIdentityMappingConflict prevents two Manage objects (applications or the
@@ -739,43 +614,7 @@ func (r *HankoApplicationReconciler) reconcileThemeReadiness(ctx context.Context
 // reporting. It never calls CreateApp, UpdateApp, DeleteApp, role mutations, or any
 // secret-retrieving Keycloak API — Observe must not learn or store the client secret.
 func (r *HankoApplicationReconciler) reconcileObserve(ctx context.Context, app *hankoshv1alpha1.HankoApplication, kc *keycloak.Client, patch client.Patch) (ctrl.Result, error) {
-	log := log.FromContext(ctx)
-
-	found, err := kc.ClientExists(ctx, app.Spec.RealmRef, app.Spec.ClientID)
-	if err != nil {
-		app.Status.Phase = "Error"
-		app.Status.ObservedGeneration = app.Generation
-		setCondition(&app.Status.Conditions, "Synced", metav1.ConditionFalse, "KeycloakError", err.Error())
-		_ = r.Status().Patch(ctx, app, patch)
-		return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("observe: check client existence: %w", err)
-	}
-
-	now := metav1.Now()
-
-	if !found {
-		app.Status.Phase = "Error"
-		app.Status.ObservedGeneration = app.Generation
-		setCondition(&app.Status.Conditions, "Synced", metav1.ConditionFalse, "NotFound",
-			"observed client does not exist in Keycloak")
-		if err := r.Status().Patch(ctx, app, patch); err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{RequeueAfter: requeueWithJitter()}, nil
-	}
-
-	app.Status.Phase = "Ready"
-	app.Status.ObservedGeneration = app.Generation
-	app.Status.OIDCEndpoints = oidcEndpoints(kc, app.Spec.RealmRef)
-	app.Status.LastReconciled = &now
-	setCondition(&app.Status.Conditions, "Synced", metav1.ConditionTrue, "Observed",
-		"client observed in Keycloak — Observe mode performs no writes")
-	r.setOperationalCondition(app, app.Status.OIDCEndpoints)
-
-	if err := r.Status().Patch(ctx, app, patch); err != nil {
-		return ctrl.Result{}, err
-	}
-	log.Info("HankoApplication observed", "clientID", app.Spec.ClientID)
-	return ctrl.Result{RequeueAfter: requeueWithJitter()}, nil
+	return r.reconcileApplicationContract(ctx, app, kc, patch, true)
 }
 
 // reconcileRoles ensures the Keycloak client roles match spec.Roles.
@@ -786,7 +625,7 @@ func (r *HankoApplicationReconciler) reconcileRoles(ctx context.Context, app *ha
 		desired[role.Name] = role.Description
 	}
 	for name, desc := range desired {
-		if err := kc.CreateClientRole(ctx, app.Spec.RealmRef, app.Spec.ClientID, name, desc); err != nil {
+		if err := kc.EnsureClientRole(ctx, app.Spec.RealmRef, app.Spec.ClientID, name, desc); err != nil {
 			return fmt.Errorf("ensure role %q: %w", name, err)
 		}
 	}
@@ -866,6 +705,7 @@ func (r *HankoApplicationReconciler) reconcileIdentityMappings(ctx context.Conte
 			app.Status.ManagedIdentityMappings = checkpointIdentityMappings(managed, previousMappings)
 			return err
 		}
+		desired.Config[applications.OwnerAttribute] = string(app.UID)
 		actual, err := kc.EnsureIdentityProviderMapper(ctx, app.Spec.RealmRef, desired)
 		if err != nil {
 			err = fmt.Errorf("ensure identity mapping %q: %w", mapping.Name, err)
@@ -885,10 +725,10 @@ func (r *HankoApplicationReconciler) reconcileIdentityMappings(ctx context.Conte
 		app.Status.ManagedIdentityMappings = checkpointIdentityMappings(managed, previousMappings)
 	}
 	for _, previous := range previousMappings {
-		if containsManagedIdentityMapping(managed, previous) {
+		if currentIdentityMapperID(managed, previous) {
 			continue
 		}
-		if err := kc.DeleteIdentityProviderMapper(ctx, app.Spec.RealmRef, previous.IdentityProvider, previous.KeycloakID); err != nil {
+		if err := deleteOwnedApplicationIdentityMapper(ctx, app, kc, previous.IdentityProvider, previous.KeycloakID); err != nil {
 			err = fmt.Errorf("delete stale identity mapping %q: %w", previous.Name, err)
 			setMapperCondition(&previous.Conditions, app.Generation, metav1.ConditionFalse, "DeleteFailed", err.Error())
 			managed = append(managed, previous)
@@ -953,7 +793,7 @@ func identityProviderMapperForApplication(app *hankoshv1alpha1.HankoApplication,
 }
 
 func (r *HankoApplicationReconciler) reconcileTokenClaims(ctx context.Context, app *hankoshv1alpha1.HankoApplication, kc *keycloak.Client) error {
-	owner := tokenClaimOwner{namespace: app.Namespace, name: app.Name, generation: app.Generation, realm: app.Spec.RealmRef, clientID: app.Spec.ClientID}
+	owner := tokenClaimOwner{uid: string(app.UID), namespace: app.Namespace, name: app.Name, generation: app.Generation, realm: app.Spec.RealmRef, clientID: app.Spec.ClientID}
 	managed, err := reconcileClientTokenClaims(ctx, kc, owner, app.Spec.TokenClaims, app.Status.ManagedTokenClaims)
 	app.Status.ManagedTokenClaims = managed
 	return err
@@ -1021,6 +861,9 @@ func reconcileClientTokenClaim(ctx context.Context, kc *keycloak.Client, owner t
 		setMapperCondition(&status.Conditions, owner.generation, metav1.ConditionFalse, "Invalid", err.Error())
 		return status, err
 	}
+	if owner.uid != "" {
+		desired.Config[applications.OwnerAttribute] = owner.uid
+	}
 	actual, err := kc.EnsureClientProtocolMapper(ctx, owner.realm, owner.clientID, desired)
 	if err != nil {
 		err = fmt.Errorf("ensure token claim %q: %w", claim.Name, err)
@@ -1035,10 +878,10 @@ func reconcileClientTokenClaim(ctx context.Context, kc *keycloak.Client, owner t
 
 func deleteStaleClientTokenClaims(ctx context.Context, kc *keycloak.Client, owner tokenClaimOwner, managed, previous []hankoshv1alpha1.ManagedTokenClaimReference) ([]hankoshv1alpha1.ManagedTokenClaimReference, error) {
 	for _, stale := range previous {
-		if containsManagedTokenClaim(managed, stale) {
+		if currentTokenMapperID(managed, stale.KeycloakID) {
 			continue
 		}
-		if err := kc.DeleteClientProtocolMapper(ctx, owner.realm, owner.clientID, stale.KeycloakID); err != nil {
+		if err := deleteOwnedApplicationTokenMapper(ctx, kc, owner, stale.KeycloakID); err != nil {
 			err = fmt.Errorf("delete stale token claim %q: %w", stale.Name, err)
 			setMapperCondition(&stale.Conditions, owner.generation, metav1.ConditionFalse, "DeleteFailed", err.Error())
 			managed = append(managed, stale)
@@ -1168,7 +1011,7 @@ func (r *HankoApplicationReconciler) cleanupApplicationMappings(ctx context.Cont
 		if mapping.KeycloakID == "" {
 			continue
 		}
-		if err := kc.DeleteIdentityProviderMapper(ctx, app.Spec.RealmRef, mapping.IdentityProvider, mapping.KeycloakID); err != nil {
+		if err := deleteOwnedApplicationIdentityMapper(ctx, app, kc, mapping.IdentityProvider, mapping.KeycloakID); err != nil {
 			return err
 		}
 	}
@@ -1176,7 +1019,7 @@ func (r *HankoApplicationReconciler) cleanupApplicationMappings(ctx context.Cont
 		if claim.KeycloakID == "" {
 			continue
 		}
-		if err := kc.DeleteClientProtocolMapper(ctx, app.Spec.RealmRef, app.Spec.ClientID, claim.KeycloakID); err != nil {
+		if err := deleteOwnedApplicationTokenMapper(ctx, kc, tokenClaimOwner{uid: string(app.UID), realm: app.Spec.RealmRef, clientID: app.Spec.ClientID}, claim.KeycloakID); err != nil {
 			return err
 		}
 	}

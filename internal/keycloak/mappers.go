@@ -33,6 +33,27 @@ type ProtocolMapper struct {
 	Config         map[string]string `json:"config"`
 }
 
+// CanonicalProtocolMapper normalizes only defaults qualified on 26.7.5/26.8.0.
+// Keycloak drops an empty audience/role prefix and inserts the audience mapper's
+// userinfo=false default. Explicit non-default values remain observable drift.
+func CanonicalProtocolMapper(mapper ProtocolMapper) ProtocolMapper {
+	mapper.Config = maps.Clone(mapper.Config)
+	switch mapper.ProtocolMapper {
+	case "oidc-audience-mapper":
+		if mapper.Config["included.client.audience"] == "" {
+			delete(mapper.Config, "included.client.audience")
+		}
+		if mapper.Config["userinfo.token.claim"] == "" {
+			mapper.Config["userinfo.token.claim"] = "false"
+		}
+	case "oidc-usermodel-realm-role-mapper":
+		if mapper.Config["usermodel.realmRoleMapping.rolePrefix"] == "" {
+			delete(mapper.Config, "usermodel.realmRoleMapping.rolePrefix")
+		}
+	}
+	return mapper
+}
+
 // EnsureIdentityProviderMapper creates a mapper or corrects its drift by name.
 // Mapper names must be stable and unique within an identity provider.
 func (c *Client) EnsureIdentityProviderMapper(ctx context.Context, realm string, desired IdentityProviderMapper) (IdentityProviderMapper, error) {
@@ -46,6 +67,9 @@ func (c *Client) EnsureIdentityProviderMapper(ctx context.Context, realm string,
 	current, found, err := findIdentityProviderMapper(mappers, desired.Name)
 	if err != nil {
 		return IdentityProviderMapper{}, err
+	}
+	if mapperOwnerConflict(current.Config, desired.Config) {
+		return IdentityProviderMapper{}, ErrApplicationPrecondition
 	}
 	collectionPath := identityProviderMappersPath(realm, desired.IdentityProviderAlias)
 	if !found {
@@ -131,12 +155,15 @@ func (c *Client) EnsureClientProtocolMapper(ctx context.Context, realm, clientID
 	if err != nil {
 		return ProtocolMapper{}, err
 	}
+	if mapperOwnerConflict(current.Config, desired.Config) {
+		return ProtocolMapper{}, ErrApplicationPrecondition
+	}
 	collectionPath := clientProtocolMappersPath(realm, uuid)
 	if !found {
 		return c.createClientProtocolMapper(ctx, realm, uuid, collectionPath, desired)
 	}
 	desired.ID = current.ID
-	if current.Protocol == desired.Protocol && current.ProtocolMapper == desired.ProtocolMapper && maps.Equal(current.Config, desired.Config) {
+	if current.Protocol == desired.Protocol && current.ProtocolMapper == desired.ProtocolMapper && maps.Equal(CanonicalProtocolMapper(current).Config, CanonicalProtocolMapper(desired).Config) {
 		return current, nil
 	}
 	if err := c.updateMapper(ctx, collectionPath+"/"+url.PathEscape(current.ID), desired); err != nil {
@@ -214,6 +241,11 @@ func identityProviderMappersPath(realm, alias string) string {
 
 func clientProtocolMappersPath(realm, uuid string) string {
 	return adminRealmsPath + url.PathEscape(realm) + clientsPath + url.PathEscape(uuid) + "/protocol-mappers/models"
+}
+
+func mapperOwnerConflict(current, desired map[string]string) bool {
+	const owner = "hanko.sh/application-owner"
+	return desired[owner] != "" && current[owner] != "" && current[owner] != desired[owner]
 }
 
 func findIdentityProviderMapper(mappers []IdentityProviderMapper, name string) (IdentityProviderMapper, bool, error) {

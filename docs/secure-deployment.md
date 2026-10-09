@@ -399,13 +399,33 @@ restores deleted provider state or previously rotated credentials.
 
 The suite uses Keycloak's disposable `dev-file` database in production server
 mode and a fake Kubernetes client. It does not qualify PostgreSQL, clustering,
-browser login/MFA challenges, actual upstream federation, Admin API v2, custom
+MFA challenges, actual upstream federation, Admin API v2, custom
 providers/themes, end-user resource-server authorization decisions, managed/adopted instance
 rollouts, backups/restores, or cloud/CNI/storage behavior. Those surfaces require
 installation acceptance tests. No runtime version rejection is added.
-The application discovery probe still uses system CA trust: this suite's private
-test CA intentionally leaves its `Operational` condition false without bypassing
-certificate verification.
+In the 0.3 development source, application discovery/metadata uses the configured
+Keycloak CA transport with TLS verification and a 1 MiB response limit, without
+administrative bearer credentials. The additional protocol suite qualifies OIDC
+web/SPA authorization code + PKCE, M2M client credentials and signed SAML POST
+responses/assertions on both Keycloak versions. Public realm frontend URL and
+private administrative URL separation is tested through two TLS-verified origins.
+These tests do not qualify arbitrary production SPs or MFA/federation scenarios.
+See [application identity, ownership migration and protocol limits](architecture/application-identity.md).
+
+### Application protocol ownership and migration
+
+`spec.protocol` defaults to OIDC; existing field paths remain valid. The 0.3
+source supports a bounded SAML contract and never creates an OIDC Secret for a
+SAML application. Client roles are shared; OIDC token/broker mappings, role scopes,
+rotation and Secret projection cannot be requested for SAML. Protocol changes
+require reviewed deletion/recreation, not an in-place conversion.
+
+Existing 0.2 application clients lack UID ownership. Review the actual client UUID
+and independently observed non-secret state, then explicitly approve both through
+the migration annotations. A matching clientID, client Secret or status hash alone
+cannot authorize adoption. Review applications before deleting them: client
+cleanup also removes its roles, mappers and credentials. See the
+[exact migration procedure and threat model](architecture/application-identity.md#ownership-and-02-migration).
 
 ### Kubernetes compatibility and hardening
 

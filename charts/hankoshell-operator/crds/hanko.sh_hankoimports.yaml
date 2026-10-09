@@ -210,6 +210,49 @@ spec:
                       and nested broker object.
                     type: integer
                 type: object
+              findings:
+                description: |-
+                  Findings reports protocol inventory that cannot be imported safely.
+                  No incompatible OIDC manifest is generated for a SAML/unknown client.
+                items:
+                  description: AuthorizationFinding is a machine-readable portability
+                    or provider-native gap.
+                  properties:
+                    classification:
+                      enum:
+                      - lossless
+                      - lossy
+                      - unsupported
+                      type: string
+                    code:
+                      maxLength: 64
+                      type: string
+                    message:
+                      maxLength: 256
+                      type: string
+                    objectKind:
+                      maxLength: 64
+                      type: string
+                    objectName:
+                      maxLength: 255
+                      type: string
+                    readOnly:
+                      type: boolean
+                  required:
+                  - classification
+                  - code
+                  - message
+                  - objectKind
+                  - objectName
+                  type: object
+                maxItems: 32
+                type: array
+                x-kubernetes-list-map-keys:
+                - classification
+                - objectKind
+                - objectName
+                - code
+                x-kubernetes-list-type: map
               lastReconciled:
                 description: LastReconciled is the timestamp of the last reconcile
                   loop.

@@ -377,6 +377,45 @@ class System:
         self.client("managed", "tls-denied")
         self.kubectl("delete", "hankoapplication", "tls-denied", "-n", "auth", "--wait=true", "--timeout=120s")
 
+    def application_protocols(self):
+        # Browser protocol handshakes live in the two-version Keycloak suite;
+        # this fixture qualifies the scanned manager's installed lifecycle.
+        wait("legacy OIDC application evidence", lambda: self.iam_reconciled("hankoapplication", "app"))
+        oidc = self.get("hankoapplication", "app")["status"]
+        if oidc.get("protocol") != "oidc" or not oidc.get("oidcEndpoints") or oidc.get("samlEndpoints"):
+            raise ValueError("Installed legacy OIDC status differs")
+        entity, acs = "https://system-sp.example/entity", "https://system-sp.example/acs"
+        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoApplication",
+                    "metadata": {"name": "saml", "namespace": "auth"},
+                    "spec": {"realmRef": "managed", "clientID": entity, "protocol": "saml",
+                             "saml": {"assertionConsumerServices": [acs]}, "roles": [{"name": "use"}]}},
+                   {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoApplication",
+                    "metadata": {"name": "saml-observe", "namespace": "auth"},
+                    "spec": {"realmRef": "managed", "clientID": entity, "protocol": "saml", "mode": "Observe",
+                             "saml": {"assertionConsumerServices": [acs]}}})
+        wait("installed SAML contract", lambda: self.iam_reconciled("hankoapplication", "saml"))
+        wait("installed SAML Observe", lambda: self.ready("hankoapplication", "saml-observe"))
+        resource = self.get("hankoapplication", "saml")
+        status = resource["status"]
+        if status.get("protocol") != "saml" or status.get("oidcEndpoints") or status.get("clientSecret") or not status.get("samlEndpoints"):
+            raise ValueError("Installed SAML metadata/credential boundary differs")
+        if not any(c.get("type") == "Operational" and c.get("status") == "True" for c in status.get("conditions", [])):
+            raise ValueError("Installed private-CA SAML metadata validation failed")
+        provider = self.client("managed", entity)
+        attributes = provider.get("attributes", {})
+        if provider.get("protocol") != "saml" or provider.get("redirectUris") != [acs] or attributes.get("hanko.sh/application-owner") != resource["metadata"]["uid"] or attributes.get("saml.assertion.signature") != "true" or attributes.get("saml.server.signature") != "true":
+            raise ValueError("Installed SAML ownership/configuration differs")
+        for secret in json.loads(self.kubectl("get", "secrets", "-n", "auth", "-o", "json"))["items"]:
+            if any(ref.get("uid") == resource["metadata"]["uid"] for ref in secret.get("metadata", {}).get("ownerReferences", [])):
+                raise ValueError("SAML acquired an OIDC Secret")
+        observer = self.get("hankoapplication", "saml-observe")
+        if observer["metadata"].get("finalizers") or observer["status"].get("clientSecret") or observer["status"].get("appliedPlanHash"):
+            raise ValueError("Installed Observe acquired write/secret authority")
+        self.kubectl("delete", "hankoapplication", "saml-observe", "-n", "auth", "--wait=true", "--timeout=30s")
+        self.kubectl("delete", "hankoapplication", "saml", "-n", "auth", "--wait=true", "--timeout=120s")
+        if self.api("GET", "/admin/realms/managed/clients?" + urlencode({"clientId": entity})):
+            raise ValueError("SAML finalizer left owned client behind")
+
     def reconcile(self):
         self.reject_wrong_ca()
         self.api("POST", "/admin/realms/managed/clients", {"clientId": "unmanaged", "enabled": True, "publicClient": True})
@@ -390,6 +429,7 @@ class System:
         wait("realm reconciliation", lambda: self.ready("hankorealm", "managed"))
         wait("application reconciliation", lambda: self.ready("hankoapplication", "app"))
         wait("observation", lambda: self.ready("hankoapplication", "observe"))
+        self.application_protocols()
         app_uid = self.get("hankoapplication", "app")["metadata"]["uid"]
         wait("namespaced current-API event recording", lambda: any(
             event.get("reason") == "ClientCreated" and event.get("regarding", {}).get("uid") == app_uid
@@ -498,6 +538,7 @@ def main():
                 "checks": ["Helm installation and real pod startup under Restricted admission", "namespace RBAC and current-API event recording",
                            "verified private-CA HTTPS, wrong-CA readiness/write denial and trust repair", "scoped Keycloak identity and denied authority", "realm/client/roles/Secret reconciliation",
                            "IAM role and authorization evaluated/applied/read-back evidence, UID ownership and finalizer cleanup",
+                           "legacy OIDC and SAML installed contracts, metadata, UID ownership, Observe/no SAML Secret and deletion",
                            "standalone root/child organization, native alias/domains, role bindings, Synced=True and Projection=Unknown/Disabled, no API URL/token/PositionID and child-first finalizer cleanup",
                            "drift recovery after manager restart without duplicate client or credential rotation", "managed finalizer and Observe preservation",
                            "no credentials in logs/events/CRDs"],

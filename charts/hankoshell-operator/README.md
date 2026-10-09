@@ -2,6 +2,9 @@
 
 Helm chart for declarative Keycloak IAM configuration with hankoShell Operator.
 Version 0.2.0 is a normal SemVer release in initial development.
+The 0.3 development source adds the [OIDC/SAML application contract](../../docs/architecture/application-identity.md),
+including explicit migration approval for existing unmarked clients. Packaging
+remains 0.2.0 until that milestone completes; no 0.3 artifact is published.
 The chart installs 16 experimental `hanko.sh/v1alpha1` CRDs. These APIs may change
 between minor versions. All controllers are registered; integration flags
 configure their connections to optional services.

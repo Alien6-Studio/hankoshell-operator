@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 )
 
@@ -97,6 +98,7 @@ func (r *HankoImportReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err != nil || discovered == nil {
 		return result, err
 	}
+	operation.Status.Findings = importApplicationProtocolFindings(discovered)
 	if operation.Spec.DryRun {
 		return r.completeImportDryRun(ctx, &operation, discovered, patch)
 	}
@@ -215,7 +217,7 @@ func classifyImportedApplications(apps []keycloak.App) ([]keycloak.App, []keyclo
 		if keycloakInternalClients[application.ClientID] {
 			continue
 		}
-		if application.ServiceAccountsEnabled {
+		if application.ServiceAccountsEnabled && (application.Protocol == "openid-connect" || application.Protocol == "") {
 			accounts = append(accounts, application)
 		} else {
 			clients = append(clients, application)
@@ -472,6 +474,10 @@ func appType(app keycloak.App) string {
 // it did not itself decide to manage.
 func (r *HankoImportReconciler) applyApplication(ctx context.Context, hi *hankoshv1alpha1.HankoImport, realmID string, app keycloak.App) error {
 	log := log.FromContext(ctx)
+	if app.Protocol != "" && app.Protocol != "openid-connect" {
+		hi.Status.Skipped.Applications++
+		return fmt.Errorf("application protocol import unsupported; use a reviewed protocol-aware Observe declaration")
+	}
 
 	var existingForClient hankoshv1alpha1.HankoApplicationList
 	if err := r.List(ctx, &existingForClient,
@@ -519,6 +525,18 @@ func (r *HankoImportReconciler) applyApplication(ctx context.Context, hi *hankos
 	log.Info("application already exists, skipping", "realm", realmID, "clientID", app.ClientID)
 	hi.Status.Skipped.Applications++
 	return nil
+}
+
+func importApplicationProtocolFindings(realms []importedRealmData) []hankoshv1alpha1.AuthorizationFinding {
+	var findings []iamcontract.Finding
+	for _, realm := range realms {
+		for _, app := range realm.clients {
+			if app.Protocol != "" && app.Protocol != "openid-connect" {
+				findings = append(findings, iamcontract.Finding{Classification: iamcontract.Unsupported, ObjectKind: "application", ObjectName: app.ClientID, Code: "application_protocol_import_unsupported", Message: "SAML and unknown protocols require a reviewed explicit Observe declaration; no OIDC manifest is generated", ReadOnly: true})
+			}
+		}
+	}
+	return findingsStatus(findings)
 }
 
 // applyServiceAccount creates an observe-only HankoServiceAccount inventory item
