@@ -280,7 +280,7 @@ class System:
         identity, proxy = self.client("master", "organization-operator"), self.client("master", realm + "-realm")
         user = self.api("GET", f'/admin/realms/master/clients/{identity["id"]}/service-account-user')
         roles = [self.api("GET", f'/admin/realms/master/clients/{proxy["id"]}/roles/{name}')
-                 for name in ("manage-realm", "manage-clients", "manage-users")]
+                 for name in ("manage-realm", "manage-clients", "manage-events", "manage-users")]
         self.api("POST", f'/admin/realms/master/users/{user["id"]}/role-mappings/clients/{proxy["id"]}', roles)
         self.api("POST", f'/admin/realms/master/clients/{identity["id"]}/scope-mappings/clients/{proxy["id"]}', roles)
         constrained = self.access_token({"client_id": "organization-operator", "client_secret": credential, "grant_type": "client_credentials"})
@@ -350,7 +350,7 @@ class System:
         # existing organization-writer profile. The two-version suite qualifies
         # authorization separately with manage-clients + view-users only.
         self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoRealm",
-                    "metadata": {"name": realm, "namespace": namespace}, "spec": {"mode": "Observe"}},
+                    "metadata": {"name": realm, "namespace": namespace}, "spec": {}},
                    {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoApplication",
                     "metadata": {"name": "organization-api", "namespace": namespace},
                     "spec": {"realmRef": realm, "clientID": "system-organization-api", "type": "m2m"}})
@@ -688,7 +688,7 @@ def main():
                            "standalone root/child organization and owned direct-only organizational descendant grant, current applied/read-back evidence, grant cleanup preserving organizations; native alias/domains, role bindings, Synced=True and Projection=Unknown/Disabled, no API URL/token/PositionID and child-first finalizer cleanup",
                            "drift recovery after manager restart without duplicate client or credential rotation", "managed finalizer and Observe preservation", "runtime M2M projected-credential token and rotation", "SAML metadata binding and target-preserving cleanup",
                            "no credentials in logs/events/CRDs"],
-                "organization_permissions": {"scope": "organization-target only", "roles": ["manage-realm", "manage-clients", "manage-users"],
+                "organization_permissions": {"scope": "organization-target only", "roles": ["manage-realm", "manage-clients", "manage-events", "manage-users"],
                                              "denied": ["master administration", "managed realm administration", "realm creation", "identity providers"]},
                 "limitations": ["single disposable kind node and Keycloak dev-file database",
                                 "kindnet does not enforce NetworkPolicy; CNI, CSI/cloud, enterprise fleet and DB recovery unqualified"]}, indent=2) + "\n")

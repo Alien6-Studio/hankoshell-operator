@@ -157,6 +157,13 @@ read authority (or the common profile's `manage-realm`). The mixed-role test use
 HankoOrganizations themselves retains the separate group-writer profile;
 ResourceServer reconciliation does not create groups or change memberships.
 
+These are per-capability minimums. All controllers register in the chart: a
+process reconciling realms, organizations and grants needs the union of their
+profiles (`manage-realm`, `manage-events`, `manage-clients`, `manage-users` for the
+installed fixture). `manage-users` already supplies group reads. The narrower
+two-role tests qualify the grant reconciler, not a chart profile that disables
+the organization writer. Use one writer for each Kubernetes/provider object.
+
 | Route used by organization grants | Required tested target role | Purpose |
 | --- | --- | --- |
 | `GET /admin/realms/{realm}/groups/{id}` | `view-users` | Fresh exact owner attributes, UUID, name and path |
