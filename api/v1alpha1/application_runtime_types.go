@@ -21,7 +21,7 @@ type ApplicationRuntimeWorkload struct {
 	Namespace string `json:"namespace"`
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
-	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	ServiceAccountRef string `json:"serviceAccountRef"`
 }
 
@@ -29,7 +29,7 @@ type ApplicationRuntimeWorkload struct {
 type ApplicationRuntimeMetadataTarget struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
-	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	ConfigMapRef string `json:"configMapRef"`
 }
 
@@ -37,7 +37,7 @@ type ApplicationRuntimeMetadataTarget struct {
 type ApplicationRuntimeCredentialTarget struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
-	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	SecretRef string `json:"secretRef"`
 }
 

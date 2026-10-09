@@ -366,3 +366,16 @@ func TestAllBindingsPrevalidatedAndSchemaBounds(t *testing.T) {
 		t.Fatal("canonical field order changed")
 	}
 }
+
+func TestRuntimeReferenceDNSValidation(t *testing.T) {
+	f := runtimeFixture(t, true)
+	f.app.Spec.RuntimeBindings[0].PublicMetadata.ConfigMapRef = "invalid..name"
+	if Reason(Validate(f.app)) != "InvalidBindings" {
+		t.Fatal("invalid DNS subdomain admitted")
+	}
+	f.app.Spec.RuntimeBindings[0].PublicMetadata.ConfigMapRef = "valid.name"
+	f.app.Spec.RuntimeBindings[0].Credentials.SecretRef = "invalid.-name"
+	if Reason(Validate(f.app)) != "InvalidCredentials" {
+		t.Fatal("invalid credential DNS subdomain admitted")
+	}
+}

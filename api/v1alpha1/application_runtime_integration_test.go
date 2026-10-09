@@ -221,6 +221,9 @@ func checkRuntimeBindingAdmission(t *testing.T, ctx context.Context, kube client
 		func(s map[string]any) { b := s["runtimeBindings"].([]any)[0]; s["runtimeBindings"] = []any{b, b} },
 		func(s map[string]any) { s["runtimeBindings"].([]any)[0].(map[string]any)["name"] = "invalid_name" },
 		func(s map[string]any) {
+			s["runtimeBindings"].([]any)[0].(map[string]any)["publicMetadata"].(map[string]any)["configMapRef"] = "invalid..name"
+		},
+		func(s map[string]any) {
 			bindings := []any{}
 			for i := 0; i < 33; i++ {
 				var one map[string]any

@@ -275,7 +275,7 @@ spec:
                         secretRef:
                           maxLength: 253
                           minLength: 1
-                          pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                           type: string
                       required:
                       - secretRef
@@ -292,7 +292,7 @@ spec:
                         configMapRef:
                           maxLength: 253
                           minLength: 1
-                          pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                           type: string
                       required:
                       - configMapRef
@@ -309,7 +309,7 @@ spec:
                         serviceAccountRef:
                           maxLength: 253
                           minLength: 1
-                          pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                           type: string
                       required:
                       - namespace

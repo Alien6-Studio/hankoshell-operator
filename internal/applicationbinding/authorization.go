@@ -19,7 +19,7 @@ const BindingName = "hanko.sh/runtime-binding-name"
 const ServiceAccountName = "hanko.sh/runtime-service-account"
 const ServiceAccountUID = "hanko.sh/runtime-service-account-uid"
 
-var dnsName = regexp.MustCompile(`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`)
+var dnsName = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`)
 var dnsLabel = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
 
 // Authorization is deliberately distinct from delivered annotations. It must
