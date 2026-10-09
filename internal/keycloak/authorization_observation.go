@@ -32,6 +32,7 @@ type ObservedAuthorizationPolicy struct {
 	Present, Owned                      bool
 	Principals                          []string
 	UnknownPrincipals                   int
+	GroupsClaimConfigured               bool `json:",omitempty"`
 }
 type ObservedAuthorizationPermission struct {
 	Name, Type, Logic, DecisionStrategy string
@@ -114,13 +115,18 @@ func (c *Client) authorizationPrincipalNames(ctx context.Context, model Authoriz
 	names := map[string]string{}
 	for _, permission := range model.Permissions {
 		for _, principal := range permission.Principals {
-			if principal.Kind == "realm_role" {
+			switch principal.Kind {
+			case "realm_role":
 				role, err := c.GetRealmRole(ctx, model.Realm, principal.Ref)
 				if err != nil {
 					return nil, err
 				}
 				names[role.ID] = "realm_role/" + principal.Ref
-			} else {
+			case "organization":
+				for _, g := range principal.Groups {
+					names[g.ID] = "organization/" + observedOrganizationGroupRef(principal, g.ID)
+				}
+			default:
 				id, err := c.resolveClientUUID(ctx, model.Realm, principal.Ref)
 				if err != nil {
 					return nil, err
@@ -183,17 +189,17 @@ func (c *Client) observeAuthorizationPolicies(ctx context.Context, model Authori
 		return nil, nil, err
 	}
 	for _, permission := range model.Permissions {
-		roles, clients, err := c.resolveAuthorizationPrincipals(ctx, model.Realm, permission.Principals)
+		roles, clients, groups, err := c.resolveAuthorizationPrincipals(ctx, model.Realm, permission.Principals)
 		if err != nil {
 			return nil, nil, err
 		}
-		for _, want := range desiredAuthorizationPolicies(model.Name, permission.Name, roles, clients) {
+		for _, want := range desiredAuthorizationPolicies(model.Name, permission.Name, roles, clients, groups) {
 			got, exists := policies.byName[want.payload.Name]
 			item := ObservedAuthorizationPolicy{Name: want.logical, Present: exists, Owned: ownsObservation(owned.Policies, want.logical, got.ID), Type: got.Type, Logic: normalizedLogic(got.Logic), DecisionStrategy: got.DecisionStrategy, Principals: []string{}}
 			observePolicyPrincipals(got, principalNames, &item)
 			item.Principals = semanticSet(item.Principals)
 			o.Policies = append(o.Policies, item)
-			o.Complete = o.Complete && item.UnknownPrincipals == 0 && (!exists || got.DecisionStrategy != "")
+			o.Complete = o.Complete && !got.Incomplete && item.UnknownPrincipals == 0 && (!exists || got.DecisionStrategy != "")
 			state.Drifted = state.Drifted || !exists || !item.Owned || !policyEqual(got, want.payload, want.kind)
 			if exists {
 				semanticPolicies[got.ID] = want.logical
@@ -222,6 +228,14 @@ func observePolicyPrincipals(got authorizationPolicyRepresentation, principalNam
 	for _, role := range got.Roles {
 		if name, ok := principalNames[role.ID]; ok {
 			item.Principals = append(item.Principals, name+"/required="+strconv.FormatBool(role.Required))
+		} else {
+			item.UnknownPrincipals++
+		}
+	}
+	item.GroupsClaimConfigured = got.GroupsClaim != ""
+	for _, g := range got.Groups {
+		if name, ok := principalNames[g.ID]; ok {
+			item.Principals = append(item.Principals, name+"/extendChildren="+strconv.FormatBool(g.ExtendChildren))
 		} else {
 			item.UnknownPrincipals++
 		}

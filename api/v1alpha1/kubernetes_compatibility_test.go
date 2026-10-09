@@ -92,6 +92,8 @@ func TestKubernetesCompatibility(t *testing.T) {
 		}
 	}
 
+	t.Run("organization principal admission and capabilities", func(t *testing.T) { checkOrganizationPrincipalAdmission(t, ctx, admin) })
+	t.Run("organization dependency watches", func(t *testing.T) { checkOrganizationDependencyWatch(t, ctx, admin, config) })
 	t.Run("IAM evidence status schema", func(t *testing.T) { checkIAMStatusEvidence(t, ctx, admin) })
 	t.Run("application protocols admission and status", func(t *testing.T) { checkApplicationProtocols(t, ctx, admin) })
 	t.Run("standalone organization status and finalizers", func(t *testing.T) { checkOrganizationStandaloneStatus(t, ctx, admin) })

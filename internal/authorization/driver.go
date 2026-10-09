@@ -19,6 +19,8 @@ var ErrOwnershipConflict = errors.New("authorization object is not owned by Hank
 
 // Capabilities declares provider semantics explicitly.
 type Capabilities struct {
+	OrganizationPrincipals   bool `json:",omitempty"`
+	OrganizationDescendants  bool `json:",omitempty"`
 	ScopeGrants              bool
 	RolePrincipals           bool
 	ApplicationPrincipals    bool
@@ -62,8 +64,32 @@ type Permission struct {
 }
 
 type Principal struct {
-	Kind string
-	Ref  string
+	Kind               string
+	Ref                string
+	IncludeDescendants bool `json:",omitempty"`
+	// Organization is private execution evidence; Normalize removes it from intent.
+	Organization *ResolvedOrganizationPrincipal `json:",omitempty"`
+}
+
+// ResolvedOrganizationPrincipal keeps verified execution groups separate from
+// the portable object reference. Graph binds the complete bounded namespace
+// inventory; Ancestors binds verified structural ancestors without granting them.
+type ResolvedOrganizationPrincipal struct {
+	Groups    []OrganizationGroup
+	Ancestors []OrganizationGroup
+	Graph     iamcontract.Digest
+}
+
+// OrganizationGroup is independently verified provider evidence, never public
+// desired state, status authority or a subject/membership inventory.
+type OrganizationGroup struct {
+	Ref, Namespace, UID, ID, Name, Path string
+}
+
+// OrganizationGroupReader provides current strict ownership/hierarchy reads.
+// Capability support alone does not imply that the credential can perform them.
+type OrganizationGroupReader interface {
+	ReadOrganizationGroup(context.Context, string, OrganizationGroup) (OrganizationGroup, error)
 }
 
 // ManagedObjects is the complete provider object ownership set. IDs originate
@@ -121,9 +147,13 @@ func ValidateCapabilities(model Model, capabilities Capabilities) error {
 				"realm_role":      capabilities.RolePrincipals,
 				"application":     capabilities.ApplicationPrincipals,
 				"service_account": capabilities.ServiceAccountPrincipals,
+				"organization":    capabilities.OrganizationPrincipals,
 			}[principal.Kind]
 			if !supported {
 				return errors.Join(ErrCapabilityUnsupported, errors.New("principal semantics are unsupported"))
+			}
+			if principal.IncludeDescendants && (principal.Kind != "organization" || !capabilities.OrganizationDescendants) {
+				return ErrCapabilityUnsupported
 			}
 		}
 	}

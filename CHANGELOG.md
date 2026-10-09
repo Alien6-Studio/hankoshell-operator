@@ -4,12 +4,23 @@
 
 - Accept the organizational authorization design: extend HankoResourceServer with
   an organization principal and explicit descendant semantics, preserving role
-  composition without adding a CRD. Implementation remains in #41; bounded
+  composition without adding a CRD. Bounded
   policy explanation/provenance remains in #42.
 - Characterize real group-policy CRUD, UMA decisions, hierarchy changes, native
   Organization separation and least-privilege profiles on HTTPS Keycloak
   26.7.5/26.8.0. Fresh group ownership reads require explicit view-users authority;
-  the standard profile is unchanged. No 0.4 public API or reconciler is added.
+  the standard profile is unchanged.
+- Implement organization principals with direct-only default and explicit
+  declared descendants, strict fresh UID/group/hierarchy ownership, uncached
+  execution revalidation and bounded namespace dependency watches. Keep expanded
+  provider UUIDs out of portable intent. Enforce 128 groups per permission,
+  32 hierarchy edges and the existing 256-policy journal budget before writes.
+- Reconcile typed group policies with extendChildren=false and no claim override,
+  including drift, owned-only cleanup, status-loss recovery and mixed allow paths.
+  Qualify real UMA/profile denials on HTTPS Keycloak 26.7.5/26.8.0, admission/watch
+  behavior on Kubernetes 1.35.0/1.36.2/1.37.0 and an installed scanned-image path.
+  Previous applied grants can persist until successful reconciliation; no instant
+  revocation or automatic privilege grant is introduced. #42 remains deferred.
 - Keep current packaging at 0.3.0 and all signed source tags immutable.
 
 ## 0.3.0 — Unreleased

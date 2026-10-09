@@ -51,8 +51,18 @@ type AuthorizationPermission struct {
 }
 
 type AuthorizationPrincipal struct {
-	Kind string
-	Ref  string
+	Kind   string
+	Ref    string
+	Groups []AuthorizationGroupDefinition
+	// GroupRefs normalizes observed bindings to verified Hanko object names.
+	// It is adapter-only evidence, never part of a provider policy payload.
+	GroupRefs map[string]string `json:"-"`
+}
+
+// AuthorizationGroupDefinition is the typed Keycloak group-policy binding.
+type AuthorizationGroupDefinition struct {
+	ID             string `json:"id"`
+	ExtendChildren bool   `json:"extendChildren"`
 }
 
 type AuthorizationManagedObjects struct {
@@ -97,14 +107,17 @@ type authorizationResourceRepresentation struct {
 }
 
 type authorizationPolicyRepresentation struct {
-	ID               string            `json:"id,omitempty"`
-	Name             string            `json:"name"`
-	Type             string            `json:"type,omitempty"`
-	Logic            string            `json:"logic,omitempty"`
-	DecisionStrategy string            `json:"decisionStrategy,omitempty"`
-	Config           map[string]string `json:"config,omitempty"`
-	Roles            []policyRole      `json:"roles,omitempty"`
-	Clients          []string          `json:"clients,omitempty"`
+	ID               string                         `json:"id,omitempty"`
+	Name             string                         `json:"name"`
+	Type             string                         `json:"type,omitempty"`
+	Logic            string                         `json:"logic,omitempty"`
+	DecisionStrategy string                         `json:"decisionStrategy,omitempty"`
+	Config           map[string]string              `json:"config,omitempty"`
+	Roles            []policyRole                   `json:"roles,omitempty"`
+	Clients          []string                       `json:"clients,omitempty"`
+	Groups           []AuthorizationGroupDefinition `json:"groups,omitempty"`
+	Incomplete       bool                           `json:"-"`
+	GroupsClaim      string                         `json:"groupsClaim,omitempty"`
 }
 
 type policyRole struct {
@@ -473,11 +486,11 @@ func (c *Client) reconcileAuthorizationPolicies(ctx context.Context, base string
 	refs := make([]AuthorizationManagedReference, 0)
 	byPermission := make(map[string][]string)
 	for _, permission := range model.Permissions {
-		roleRefs, clientRefs, err := c.resolveAuthorizationPrincipals(ctx, model.Realm, permission.Principals)
+		roleRefs, clientRefs, groupRefs, err := c.resolveAuthorizationPrincipals(ctx, model.Realm, permission.Principals)
 		if err != nil {
 			return nil, nil, err
 		}
-		wants := desiredAuthorizationPolicies(model.Name, permission.Name, roleRefs, clientRefs)
+		wants := desiredAuthorizationPolicies(model.Name, permission.Name, roleRefs, clientRefs, groupRefs)
 		for _, want := range wants {
 			ref, err := c.ensureAuthorizationPolicy(ctx, base, want, ownedByName[want.logical], index)
 			if err != nil {
@@ -503,54 +516,65 @@ func (c *Client) loadAuthorizationPolicies(ctx context.Context, base string) (au
 		byName: make(map[string]authorizationPolicyRepresentation, len(allPolicies)),
 	}
 	for _, item := range allPolicies {
+		if item.ID == "" || item.Name == "" {
+			return authorizationPolicyIndex{}, ErrAuthorizationReadLimit
+		}
+		if _, exists := index.byID[item.ID]; exists {
+			return authorizationPolicyIndex{}, ErrAuthorizationReadLimit
+		}
+		if _, exists := index.byName[item.Name]; exists {
+			return authorizationPolicyIndex{}, ErrAuthorizationReadLimit
+		}
 		index.byName[item.Name] = item
 		index.byID[item.ID] = item
 	}
 	// Generic representations omit type-specific bindings; typed reads are
 	// required for semantic drift comparison.
-	for _, policyType := range []string{"role", "client"} {
+	for _, policyType := range []string{"role", "client", "group"} {
 		var typed []authorizationPolicyRepresentation
 		if err := readAuthorizationCollection(ctx, c, base+authorizationPolicyPath+"/"+policyType, &typed); err != nil {
 			return authorizationPolicyIndex{}, err
 		}
-		for _, item := range typed {
-			item.Type = policyType
-			index.byID[item.ID], index.byName[item.Name] = item, item
+		if err := mergeTypedAuthorizationPolicies(&index, policyType, typed); err != nil {
+			return authorizationPolicyIndex{}, err
 		}
 	}
 	return index, nil
 }
 
-func (c *Client) resolveAuthorizationPrincipals(ctx context.Context, realm string, principals []AuthorizationPrincipal) ([]policyRole, []string, error) {
+func (c *Client) resolveAuthorizationPrincipals(ctx context.Context, realm string, principals []AuthorizationPrincipal) ([]policyRole, []string, []AuthorizationGroupDefinition, error) {
 	roleRefs := make([]policyRole, 0)
 	clientRefs := make([]string, 0)
+	groupRefs := make([]AuthorizationGroupDefinition, 0)
 	for _, principal := range principals {
 		switch principal.Kind {
 		case "realm_role":
 			role, err := c.GetRealmRole(ctx, realm, principal.Ref)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 			if role.ID == "" {
-				return nil, nil, fmt.Errorf("realm role %q has no provider ID", principal.Ref)
+				return nil, nil, nil, fmt.Errorf("realm role %q has no provider ID", principal.Ref)
 			}
 			roleRefs = append(roleRefs, policyRole{ID: role.ID, Required: false})
 		case "application", "service_account":
 			id, err := c.resolveClientUUID(ctx, realm, principal.Ref)
 			if err != nil || id == "" {
-				return nil, nil, fmt.Errorf("resolve principal %q: %w", principal.Ref, err)
+				return nil, nil, nil, fmt.Errorf("resolve principal %q: %w", principal.Ref, err)
 			}
 			clientRefs = append(clientRefs, id)
+		case "organization":
+			groupRefs = append(groupRefs, principal.Groups...)
 		default:
-			return nil, nil, fmt.Errorf("unsupported principal kind %q", principal.Kind)
+			return nil, nil, nil, fmt.Errorf("unsupported principal kind %q", principal.Kind)
 		}
 	}
 	sort.Slice(roleRefs, func(i, j int) bool { return roleRefs[i].ID < roleRefs[j].ID })
 	sort.Strings(clientRefs)
-	return roleRefs, clientRefs, nil
+	return roleRefs, clientRefs, canonicalAuthorizationGroups(groupRefs), nil
 }
 
-func desiredAuthorizationPolicies(modelName, permissionName string, roleRefs []policyRole, clientRefs []string) []desiredAuthorizationPolicy {
+func desiredAuthorizationPolicies(modelName, permissionName string, roleRefs []policyRole, clientRefs []string, groupRefs []AuthorizationGroupDefinition) []desiredAuthorizationPolicy {
 	wants := make([]desiredAuthorizationPolicy, 0, 2)
 	if len(roleRefs) > 0 {
 		logical := permissionName + "#realm_roles"
@@ -559,6 +583,10 @@ func desiredAuthorizationPolicies(modelName, permissionName string, roleRefs []p
 	if len(clientRefs) > 0 {
 		logical := permissionName + "#clients"
 		wants = append(wants, desiredAuthorizationPolicy{logical: logical, kind: "client", payload: authorizationPolicyRepresentation{Name: managedPolicyName(modelName, logical), Logic: "POSITIVE", DecisionStrategy: "AFFIRMATIVE", Clients: clientRefs}})
+	}
+	if len(groupRefs) > 0 {
+		logical := permissionName + "#organizations"
+		wants = append(wants, desiredAuthorizationPolicy{logical: logical, kind: "group", payload: authorizationPolicyRepresentation{Name: managedPolicyName(modelName, logical), Logic: "POSITIVE", DecisionStrategy: "AFFIRMATIVE", Groups: groupRefs}})
 	}
 	return wants
 }
@@ -570,7 +598,7 @@ func (c *Client) ensureAuthorizationPolicy(ctx context.Context, base string, des
 		if _, exists := index.byName[want.Name]; exists {
 			return AuthorizationManagedReference{}, fmt.Errorf("%w: policy %q already exists", ErrAuthorizationOwnershipConflict, want.Name)
 		}
-		id, err := c.authorizationCreate(ctx, collection, want)
+		id, err := c.authorizationCreate(ctx, collection, authorizationPolicyPayload(want, desired.kind))
 		return AuthorizationManagedReference{Name: desired.logical, ID: id}, err
 	}
 	got, exists := index.byID[owned.ID]
@@ -578,7 +606,7 @@ func (c *Client) ensureAuthorizationPolicy(ctx context.Context, base string, des
 		if _, collision := index.byName[want.Name]; collision {
 			return AuthorizationManagedReference{}, fmt.Errorf("%w: policy %q ownership ID disappeared", ErrAuthorizationOwnershipConflict, want.Name)
 		}
-		id, err := c.authorizationCreate(ctx, collection, want)
+		id, err := c.authorizationCreate(ctx, collection, authorizationPolicyPayload(want, desired.kind))
 		return AuthorizationManagedReference{Name: desired.logical, ID: id}, err
 	}
 	if got.Name != want.Name || (got.Type != "" && got.Type != desired.kind) {
@@ -586,7 +614,7 @@ func (c *Client) ensureAuthorizationPolicy(ctx context.Context, base string, des
 	}
 	if !policyEqual(got, want, desired.kind) {
 		want.ID = owned.ID
-		if err := c.authorizationUpdate(ctx, collection+"/"+url.PathEscape(owned.ID), want); err != nil {
+		if err := c.authorizationUpdate(ctx, collection+"/"+url.PathEscape(owned.ID), authorizationPolicyPayload(want, desired.kind)); err != nil {
 			return AuthorizationManagedReference{}, err
 		}
 	}
@@ -834,8 +862,11 @@ func resourceEqual(got, want authorizationResourceRepresentation) bool {
 }
 
 func policyEqual(got, want authorizationPolicyRepresentation, kind string) bool {
-	if (got.Type != "" && got.Type != kind) || got.Name != want.Name || normalizedLogic(got.Logic) != want.Logic || got.DecisionStrategy != want.DecisionStrategy {
+	if got.Incomplete || (got.Type != "" && got.Type != kind) || got.Name != want.Name || normalizedLogic(got.Logic) != want.Logic || got.DecisionStrategy != want.DecisionStrategy {
 		return false
+	}
+	if kind == "group" {
+		return got.GroupsClaim == want.GroupsClaim && slices.Equal(canonicalAuthorizationGroups(got.Groups), canonicalAuthorizationGroups(want.Groups))
 	}
 	if kind == "client" {
 		return slices.Equal(sorted(got.Clients), sorted(want.Clients))

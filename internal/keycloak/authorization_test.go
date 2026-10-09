@@ -127,6 +127,8 @@ func (s *authorizationTestServer) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		writeAuthorizationJSON(w, authorizationTestPage(r, sortedMapValues(s.policies)))
 	case path == "/policy/role" && r.Method == http.MethodGet:
 		writeAuthorizationJSON(w, authorizationTestPage(r, filterPolicies(s.policies, "role")))
+	case path == "/policy/group" && r.Method == http.MethodGet:
+		writeAuthorizationJSON(w, authorizationTestPage(r, filterPolicies(s.policies, "group")))
 	case path == "/policy/client" && r.Method == http.MethodGet:
 		writeAuthorizationJSON(w, authorizationTestPage(r, filterPolicies(s.policies, "client")))
 	case path == "/permission" && r.Method == http.MethodGet:
@@ -149,6 +151,12 @@ func (s *authorizationTestServer) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		var item authorizationPolicyRepresentation
 		_ = json.NewDecoder(r.Body).Decode(&item)
 		item.ID, item.Type = s.newID("policy"), "role"
+		s.policies[item.ID] = item
+		s.created(w, item.ID)
+	case path == "/policy/group" && r.Method == http.MethodPost:
+		var item authorizationPolicyRepresentation
+		_ = json.NewDecoder(r.Body).Decode(&item)
+		item.ID, item.Type = s.newID("policy"), "group"
 		s.policies[item.ID] = item
 		s.created(w, item.ID)
 	case path == "/policy/client" && r.Method == http.MethodPost:
@@ -182,6 +190,13 @@ func (s *authorizationTestServer) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		var item authorizationPolicyRepresentation
 		_ = json.NewDecoder(r.Body).Decode(&item)
 		item.ID, item.Type = id, "role"
+		s.policies[id] = item
+		s.updated(w)
+	case strings.HasPrefix(path, "/policy/group/") && r.Method == http.MethodPut:
+		id := strings.TrimPrefix(path, "/policy/group/")
+		var item authorizationPolicyRepresentation
+		_ = json.NewDecoder(r.Body).Decode(&item)
+		item.ID, item.Type = id, "group"
 		s.policies[id] = item
 		s.updated(w)
 	case strings.HasPrefix(path, "/policy/client/") && r.Method == http.MethodPut:

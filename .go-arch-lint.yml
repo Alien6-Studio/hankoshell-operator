@@ -29,6 +29,8 @@ components:
     in: "/internal/applications"
   applicationbinding:
     in: "/internal/applicationbinding"
+  organization:
+    in: "/internal/organization"
   authorization:
     in: "/internal/authorization"
   hub:
@@ -59,6 +61,7 @@ deps:
     mayDependOn:
       - keycloak
       - authorization
+      - organization
       - roles
       - applications
       - applicationbinding
@@ -104,8 +107,12 @@ deps:
       - api_types
       - iamcontract
 
+  organization:
+    anyVendorDeps: true
+
   authorization:
     mayDependOn:
+      - organization
       - keycloak
       - iamcontract
 

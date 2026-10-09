@@ -17,13 +17,14 @@ import (
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/hankoapi"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/organization"
 )
 
 const (
 	orgFinalizerName           = "hanko.sh/organization-cleanup"
-	orgOwnerNameAttribute      = "hanko.sh/organization-name"
-	orgOwnerNamespaceAttribute = "hanko.sh/organization-namespace"
-	orgOwnerUIDAttribute       = "hanko.sh/organization-uid"
+	orgOwnerNameAttribute      = organization.OwnerName
+	orgOwnerNamespaceAttribute = organization.OwnerNamespace
+	orgOwnerUIDAttribute       = organization.OwnerUID
 )
 
 var (

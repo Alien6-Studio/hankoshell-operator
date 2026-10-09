@@ -4,6 +4,8 @@ This is the permission contract for **hankoShell Operator 0.3.0**, verified agai
 real Keycloak **26.8.0 and 26.7.5** over verified HTTPS with `client_credentials`.
 It covers the Admin REST API used by the operator. Kubernetes permissions and
 Hub/Continuum credentials are separate; see [secure deployment](secure-deployment.md).
+The source also includes the unreleased 0.4 organization-grant capability below;
+chart/image versioning remains 0.3.0 until the milestone is complete.
 
 ## Trust model
 
@@ -75,6 +77,7 @@ roles already authorize the corresponding reads; redundant `view-*` and
 | Applications, client roles, protocol mappers and realm-role client scopes | `manage-clients` plus `manage-realm` for realm-role reconciliation/closure | All clients in each target realm | Common profile |
 | Machine/service-account clients, secret read/set/rotation | `manage-clients` | All clients in each target realm | Included in common profile; no `manage-users` needed just to create a machine client |
 | Resource-server enablement, scopes/resources, role/client policies and scope permissions | Common profile's `manage-clients`; referenced realm roles need `view-realm` or `manage-realm` | All resource servers in target realm | No additional `manage-authorization` role needed |
+| Organization principals in resource-server permissions | `manage-clients` + explicitly provisioned `view-users` | Client authorization and user/group reads throughout the target realm | Yes; not part of the common profile |
 | Identity providers, broker trust settings and IdP mappers | `manage-identity-providers` | All providers in target realm | Yes |
 | Organization hierarchy projected as groups, group attributes and role mappings | `manage-users` plus readable referenced roles (`view-realm`, `view-clients`, already covered by the common profile) | Groups/users throughout target realm | Yes |
 | Native Keycloak organizations | `manage-realm` already suffices; isolated organization administration can use `manage-organizations` | Target realm; enabling organizations separately needs `manage-realm` | No extra role on common profile |
@@ -134,6 +137,100 @@ required even if you did not declare an audit customization. Enabling stronger M
 can trigger realm-wide logout: grant `manage-users` when that transition is used,
 or have an administrator perform the transition and session revocation first.
 Never silently skip a denied security action to obtain a green reconciliation.
+
+## Organization principals (0.4 unreleased)
+
+**Fresh ownership reads require target-realm `view-users`. This also permits
+reading users throughout that realm.** It is an optional privacy tradeoff, not a
+group-only permission and not an addition to the common profile. Use a separate
+installation/identity where that read scope crosses a trust boundary. The operator
+never grants itself roles. Fine-grained group-only delegation is unqualified.
+
+For organization-only ResourceServer reconciliation against existing objects,
+the tested identity authenticates in master and has exactly the target proxy
+roles `manage-clients` + `view-users`, with Full Scope Allowed off and matching
+client role scopes. No `manage-users`, `manage-realm`, `manage-events`,
+`realm-admin`, impersonation, realm creation or master management is required.
+Referenced realm-role principals additionally need the existing `view-realm`
+read authority (or the common profile's `manage-realm`). The mixed-role test uses
+`manage-clients` + `view-users` + `view-realm`. Creating/reconciling the
+HankoOrganizations themselves retains the separate group-writer profile;
+ResourceServer reconciliation does not create groups or change memberships.
+
+| Route used by organization grants | Required tested target role | Purpose |
+| --- | --- | --- |
+| `GET /admin/realms/{realm}/groups/{id}` | `view-users` | Fresh exact owner attributes, UUID, name and path |
+| `GET /admin/realms/{realm}/group-by-path/{path}` | `view-users` | Verify the declared hierarchy resolves to that same owned UUID |
+| `GET /admin/realms/{realm}/clients/{client}/authz/resource-server/policy` | `manage-clients` for Manage; existing `view-authorization` read profile for Observe | Complete bounded generic policy inventory |
+| `GET .../authz/resource-server/policy/group` | Same authorization read authority | Complete typed group-policy inventory |
+| `POST .../authz/resource-server/policy/group` and `PUT .../policy/group/{id}` | `manage-clients` | Create/update the owned group policy |
+| `DELETE .../authz/resource-server/policy/{id}` | `manage-clients` | Delete only journal-owned policy IDs |
+
+Existing client, resource, scope, permission and journal routes are unchanged and
+listed in the operation inventory below. `query-groups` can list groups but
+cannot supply the exact individual ownership reads: it is not a substitute for
+`view-users`. Real HTTPS tests on 26.7.5 and 26.8.0 prove this profile succeeds
+and that user creation/modification, group creation/hierarchy/membership writes,
+impersonation, realm creation and master-client administration are denied.
+
+Declare principals by HankoOrganization name in the ResourceServer namespace:
+
+```yaml
+principals:
+  - kind: organization
+    ref: europe
+    includeDescendants: true
+```
+
+Omit `includeDescendants` (or set false) for Europe only. True includes Europe
+and its current declared HankoOrganization descendants in the same namespace
+and realm. It excludes foreign/markerless provider children and prefix siblings
+such as Europe-sibling. Desired state accepts object references, not group paths,
+UUIDs or native Keycloak Organization IDs. The optional platform Projection
+condition and PositionID do not authorize access. Existing role mappings and
+role/application/service-account grants retain their semantics; overlapping
+allow paths are valid alternatives.
+
+Resolution reads a complete namespace inventory (maximum 1,024 organizations),
+requires current processed generation and Synced=True on every selected node and
+ancestor, then freshly verifies exact singleton name/namespace/Kubernetes UID
+markers and provider name/path/UUID. Status is a locator, never ownership proof.
+New grants reject the legacy markerless-group fallback. Cycles, hierarchy
+mismatch, more than 32 hierarchy edges, more than 128 distinct group definitions
+per permission, or more than 256 owned policies fail before authorization writes.
+
+Each permission has one owned group policy containing the sorted union of
+verified UUIDs, with **every `extendChildren=false` and no groupsClaim override**.
+Native Keycloak subtree inheritance is not used. Generic and typed observations
+must agree to prove synchronization. Keycloak may retain a deleted group's UUID
+only in generic config; this reports incomplete evidence. Manage may replace the
+bindings of a journal-owned policy with the freshly verified desired set, but
+only consistent read-back can certify InSync. Foreign policies are not repaired
+or adopted. Removing a grant or ResourceServer deletes only its owned authorization
+objects, preserving groups, organizations and still-required role/client policies.
+
+The plan privately binds the inventory, UID/generation/realm/parent/sync state,
+verified ancestry and provider group identity/path. Uncached Kubernetes and fresh
+provider reads rebuild those dependencies immediately before and after execution.
+An indexed namespace-local organization watch also catches previously unknown
+descendants and status changes. More than 1,024 affected ResourceServers refuses
+watch fan-out and retains periodic reconciliation rather than truncating it.
+Unrelated namespace inventory changes can conservatively stale a plan.
+
+This is an **applied UUID snapshot**. Moving/removing a descendant requires a
+successful policy reconciliation to remove its UUID. The previous provider grant
+can remain during failure or lost connectivity; no instantaneous revocation or
+existing-token invalidation is promised. For urgent incidents, revoke provider
+permissions/tokens directly and investigate before resuming the operator.
+
+Missing group-read authority produces `OrganizationReadUnavailable`, no
+authorization mutation and historical applied proof only. Check the bounded
+finding, `Ready`, observation completeness, evaluated/applied plan hashes and
+applied generation before claiming current state. `OrganizationPrincipals` and
+`OrganizationDescendants` capabilities indicate qualified adapter semantics,
+not effective credential authority. Provider payloads, subjects, memberships,
+secrets and tokens are not exported to status. Bounded effective-policy
+explanation/provenance remains a separate follow-up (#42).
 
 ## Application protocols in 0.3.0
 
@@ -350,6 +447,8 @@ using the dedicated client's credentials.
 | authorization | GET | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy` | view-authorization or manage-authorization or manage-clients |
 | authorization | GET,POST | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/role` | view-authorization / manage-authorization or manage-clients |
 | authorization | GET,POST | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/client` | view-authorization / manage-authorization or manage-clients |
+| organization-authorization | GET,POST | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/group` | view-authorization / manage-authorization or manage-clients; strict group resolution additionally requires view-users |
+| organization-authorization | PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/group/{object}` | manage-authorization or manage-clients |
 | authorization | PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/role/{object}` | manage-authorization or manage-clients |
 | authorization | PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/client/{object}` | manage-authorization or manage-clients |
 | authorization | DELETE | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/{object}` | manage-authorization or manage-clients |
