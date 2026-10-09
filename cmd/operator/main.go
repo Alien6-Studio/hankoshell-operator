@@ -215,7 +215,7 @@ func setupControllers(
 		APIContainerName:  os.Getenv("HANKO_API_CONTAINER"),
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoIssuer")
 	fatalIfError((&controller.HankoApplicationReconciler{
-		Client: mgr.GetClient(), OwnershipReader: mgr.GetAPIReader(), SecretProjectionClient: applicationSecretProjectionClient,
+		Client: mgr.GetClient(), OwnershipReader: mgr.GetAPIReader(), SecretProjectionClient: applicationSecretProjectionClient, RuntimeClient: applicationSecretProjectionClient,
 		ProtectedClientIDs: protectedClientIDs, ProtectedRealm: protectedRealm,
 		Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName),
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoApplication")

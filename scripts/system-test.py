@@ -377,6 +377,99 @@ class System:
         self.client("managed", "tls-denied")
         self.kubectl("delete", "hankoapplication", "tls-denied", "-n", "auth", "--wait=true", "--timeout=120s")
 
+    def runtime_binding(self, name, credentials=False):
+        resource = self.get("hankoapplication", name)
+        namespace = "runtime-qualified"
+        self.apply({"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": namespace}},
+                   {"apiVersion": "v1", "kind": "ServiceAccount", "metadata": {"namespace": namespace, "name": name}, "automountServiceAccountToken": False})
+        sa_uid = self.get("serviceaccount", name, namespace)["metadata"]["uid"]
+        annotations = {"hanko.sh/runtime-application-namespace": "auth", "hanko.sh/runtime-application-name": name,
+                       "hanko.sh/runtime-application-uid": resource["metadata"]["uid"], "hanko.sh/runtime-binding-name": "workload",
+                       "hanko.sh/runtime-service-account": name, "hanko.sh/runtime-service-account-uid": sa_uid}
+        def meta(kind):
+            return {"namespace": namespace, "name": name, "labels": {"hanko.sh/runtime-target": kind}, "annotations": annotations}
+        self.apply({"apiVersion": "v1", "kind": "ConfigMap", "metadata": meta("metadata"), "data": {"owner": "preserved"}})
+        rules = [{"apiGroups": [""], "resources": ["serviceaccounts"], "resourceNames": [name], "verbs": ["get"]},
+                 {"apiGroups": [""], "resources": ["configmaps"], "resourceNames": [name], "verbs": ["get", "patch"]}]
+        binding = {"name": "workload", "workload": {"namespace": namespace, "serviceAccountRef": name}, "publicMetadata": {"configMapRef": name}}
+        if credentials:
+            target = self.secret(name, {"owner": "preserved"}, namespace)
+            target["metadata"] = meta("credentials")
+            self.apply(target)
+            rules.append({"apiGroups": [""], "resources": ["secrets"], "resourceNames": [name], "verbs": ["get", "patch"]})
+            binding["credentials"] = {"secretRef": name}
+        self.apply({"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "Role", "metadata": {"namespace": namespace, "name": name}, "rules": rules},
+                   {"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "RoleBinding", "metadata": {"namespace": namespace, "name": name},
+                    "roleRef": {"apiGroup": "rbac.authorization.k8s.io", "kind": "Role", "name": name},
+                    "subjects": [{"kind": "ServiceAccount", "namespace": "auth", "name": "system-operator"}]})
+        self.kubectl("patch", "hankoapplication", name, "-n", "auth", "--type=merge", "-p", json.dumps({"spec": {"runtimeBindings": [binding]}}))
+        wait("installed runtime binding " + name, lambda: self.runtime_ready(name))
+        doc = json.loads(self.get("configmap", name, namespace)["data"]["identity.json"])
+        if doc.get("schemaVersion") != "hanko.sh/application-runtime/v1alpha1" or doc.get("clientID") != resource["spec"]["clientID"] or doc.get("serviceAccountUID") != sa_uid:
+            raise ValueError("Installed runtime identity differs")
+        if credentials:
+            self.runtime_token(name, doc)
+            previous = self.get("secret", name, namespace)["data"]["client_secret"]
+            # The request is newer than the initial credential checkpoint. The
+            # normal periodic reconciliation applies it after this deadline.
+            force_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() + 2))
+            self.kubectl("patch", "hankoapplication", name, "-n", "auth", "--type=merge", "-p", json.dumps({"spec": {"secretRotationPolicy": {"enabled": True, "forceRotateAt": force_at}}}))
+            wait("installed runtime rotation", lambda: self.runtime_ready(name) and
+                 self.get("secret", name, namespace)["data"]["client_secret"] != previous and
+                 json.loads(self.get("configmap", name, namespace)["data"]["identity.json"])["bindingRevision"] != doc["bindingRevision"])
+            self.runtime_token(name, json.loads(self.get("configmap", name, namespace)["data"]["identity.json"]))
+            self.kubectl("patch", "hankoapplication", name, "-n", "auth", "--type=merge", "-p", '{"spec":{"runtimeBindings":[]}}')
+            wait("installed runtime removal", lambda: self.ready("hankoapplication", name) and self.runtime_clean(name, True))
+        else:
+            saml = doc.get("saml", {})
+            if doc.get("oidc") or doc.get("credentials") or saml.get("nameIDFormat") != "persistent" or not all(saml.get(k) for k in ("issuer", "sso", "metadata")):
+                raise ValueError("Installed SAML runtime subset differs")
+        return doc
+
+    def runtime_ready(self, name):
+        if not self.iam_reconciled("hankoapplication", name):
+            return False
+        app = self.get("hankoapplication", name)
+        status = app.get("status", {}).get("runtimeBindings", [])
+        if len(status) != 1 or not any(c.get("type") == "Ready" and c.get("status") == "True" for c in status[0].get("conditions", [])):
+            return False
+        revision = status[0]["bindingRevision"]
+        cm = self.get("configmap", name, "runtime-qualified")
+        if cm["metadata"].get("annotations", {}).get("hanko.sh/runtime-binding-revision") != revision:
+            return False
+        if app["spec"]["runtimeBindings"][0].get("credentials"):
+            return self.get("secret", name, "runtime-qualified")["metadata"].get("annotations", {}).get("hanko.sh/runtime-binding-revision") == revision
+        return True
+
+    def runtime_clean(self, name, credentials=False):
+        cm = self.get("configmap", name, "runtime-qualified")
+        if cm.get("data", {}).get("identity.json") or cm.get("data", {}).get("owner") != "preserved" or cm["metadata"].get("annotations", {}).get("hanko.sh/runtime-binding-revision"):
+            return False
+        if credentials:
+            secret = self.get("secret", name, "runtime-qualified")
+            return not secret.get("data", {}).get("client_secret") and base64.b64decode(secret["data"]["owner"]).decode() == "preserved" and not secret["metadata"].get("annotations", {}).get("hanko.sh/runtime-binding-revision")
+        return True
+
+    def runtime_token(self, name, doc):
+        credential = base64.b64decode(self.get("secret", name, "runtime-qualified")["data"]["client_secret"]).decode()
+        self.sensitive.append(credential)
+        fields = {"grant_type": "client_credentials", "client_id": doc["clientID"], "client_secret": credential}
+        # HTTPS response acceptance and issuer/audience are asserted here. Full
+        # JWT/JWKS signature verification lives in both real-Keycloak flow suites.
+        with urlopen(Request(self.endpoint + "/realms/managed/protocol/openid-connect/token", data=urlencode(fields).encode()), context=self.http, timeout=10) as response:
+            data = response.read(65_537)
+        if len(data) > 65_536:
+            raise ValueError("Runtime token response too large")
+        token = json.loads(data)["access_token"]
+        self.sensitive.append(token)
+        payload = token.split(".")[1]
+        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+        audiences = claims.get("aud", [])
+        if isinstance(audiences, str):
+            audiences = [audiences]
+        if claims.get("iss") != doc["oidc"]["issuer"] or doc["clientID"] not in audiences:
+            raise ValueError("Projected-credential token issuer/audience differs")
+
     def application_protocols(self):
         # Browser protocol handshakes live in the two-version Keycloak suite;
         # this fixture qualifies the scanned manager's installed lifecycle.
@@ -408,11 +501,14 @@ class System:
         for secret in json.loads(self.kubectl("get", "secrets", "-n", "auth", "-o", "json"))["items"]:
             if any(ref.get("uid") == resource["metadata"]["uid"] for ref in secret.get("metadata", {}).get("ownerReferences", [])):
                 raise ValueError("SAML acquired an OIDC Secret")
+        self.runtime_binding("saml")
         observer = self.get("hankoapplication", "saml-observe")
         if observer["metadata"].get("finalizers") or observer["status"].get("clientSecret") or observer["status"].get("appliedPlanHash"):
             raise ValueError("Installed Observe acquired write/secret authority")
         self.kubectl("delete", "hankoapplication", "saml-observe", "-n", "auth", "--wait=true", "--timeout=30s")
         self.kubectl("delete", "hankoapplication", "saml", "-n", "auth", "--wait=true", "--timeout=120s")
+        if not self.runtime_clean("saml"):
+            raise ValueError("Application finalizer left runtime metadata")
         if self.api("GET", "/admin/realms/managed/clients?" + urlencode({"clientId": entity})):
             raise ValueError("SAML finalizer left owned client behind")
 
@@ -445,8 +541,10 @@ class System:
             raise ValueError("Installed IAM role contract or ownership differs")
         self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoApplication",
                     "metadata": {"name": "contract-api", "namespace": "auth"},
-                    "spec": {"realmRef": "managed", "clientID": "system-contract-api", "type": "m2m"}})
+                    "spec": {"realmRef": "managed", "clientID": "system-contract-api", "type": "m2m",
+                             "tokenClaims": [{"name": "audience", "claim": "aud", "value": "system-contract-api"}]}})
         wait("IAM backing application", lambda: self.ready("hankoapplication", "contract-api"))
+        self.runtime_binding("contract-api", credentials=True)
         self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoResourceServer",
                     "metadata": {"name": "contract-server", "namespace": "auth"},
                     "spec": {"realmRef": "managed", "applicationRef": "contract-api", "audience": "urn:system-contract",
@@ -522,7 +620,7 @@ def main():
     for name in ("digest", "revision"):
         parser.add_argument("--" + name, required=True)
     args = parser.parse_args()
-    publication.publish.contract.security.verify(args.evidence, args.revision, "0.2.0", args.digest, args.archive)
+    publication.publish.contract.security.verify(args.evidence, args.revision, "0.3.0", args.digest, args.archive)
     with tempfile.TemporaryDirectory(prefix="hankoshell-system-private-") as temp:
         system = System(args, Path(temp))
         try:
@@ -533,14 +631,14 @@ def main():
             system.install()
             print("System: scanned operator installed through Helm", flush=True)
             system.reconcile()
-            args.output.write_text(json.dumps({"version": "0.2.0", "revision": args.revision, "image_digest": args.digest,
+            args.output.write_text(json.dumps({"version": "0.3.0", "revision": args.revision, "image_digest": args.digest,
                 "kubernetes": "1.37.0", "keycloak": "26.8.0", "result": "pass",
                 "checks": ["Helm installation and real pod startup under Restricted admission", "namespace RBAC and current-API event recording",
                            "verified private-CA HTTPS, wrong-CA readiness/write denial and trust repair", "scoped Keycloak identity and denied authority", "realm/client/roles/Secret reconciliation",
                            "IAM role and authorization evaluated/applied/read-back evidence, UID ownership and finalizer cleanup",
                            "legacy OIDC and SAML installed contracts, metadata, UID ownership, Observe/no SAML Secret and deletion",
                            "standalone root/child organization, native alias/domains, role bindings, Synced=True and Projection=Unknown/Disabled, no API URL/token/PositionID and child-first finalizer cleanup",
-                           "drift recovery after manager restart without duplicate client or credential rotation", "managed finalizer and Observe preservation",
+                           "drift recovery after manager restart without duplicate client or credential rotation", "managed finalizer and Observe preservation", "runtime M2M projected-credential token and rotation", "SAML metadata binding and target-preserving cleanup",
                            "no credentials in logs/events/CRDs"],
                 "organization_permissions": {"scope": "organization-target only", "roles": ["manage-realm", "manage-clients", "manage-users"],
                                              "denied": ["master administration", "managed realm administration", "realm creation", "identity providers"]},

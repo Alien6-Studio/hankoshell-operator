@@ -47,12 +47,14 @@ ownership remain separate.
 The **v0.1.0 and v0.2.0 sources and signed tags are frozen and immutable**.
 Publication work remains independent in [#21](https://github.com/Alien6-Studio/hankoshell-operator/issues/21);
 no public artifacts are claimed published. Milestone **0.2.0 — IAM Contract Engine**
-is complete and closed. Active development is **0.3.0 — Application Identity**.
+is complete and closed. **0.3.0 — Application Identity** completes the protocol
+and runtime delivery contract.
 [#24](https://github.com/Alien6-Studio/hankoshell-operator/issues/24) is resolved by
 the [qualified OIDC/SAML application contract](docs/architecture/application-identity.md).
-[#25](https://github.com/Alien6-Studio/hankoshell-operator/issues/25) is next and
-remains open; the milestone is not complete. Chart/app/release packaging remains
-0.2.0. The 16 `hanko.sh/v1alpha1` APIs remain experimental before 1.0. Later
+[#25](https://github.com/Alien6-Studio/hankoshell-operator/issues/25) defines
+[UID-bound runtime delivery](docs/architecture/application-identity.md#runtime-bindings),
+implemented on HankoApplication without another CRD. Chart/app source metadata is
+0.3.0. The 16 `hanko.sh/v1alpha1` APIs remain experimental before 1.0. Later
 milestones are proposed scope, not additional current support or scheduled delivery.
 
 The current foundation already includes:
@@ -77,7 +79,7 @@ The current foundation already includes:
   enrollment, credential rotation, supervision and guarded operator updates.
 
 `HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are experimental
-and unqualified in 0.2.0. Their interruption/retry, child ownership and completion
+and unqualified in 0.3.0. Their interruption/retry, child ownership and completion
 qualification remains in [lifecycle backlog issue #20](https://github.com/Alien6-Studio/hankoshell-operator/issues/20),
 not a prerequisite for the first core IAM delivery. They do not provide a tested
 database migration or disaster-recovery path; see the

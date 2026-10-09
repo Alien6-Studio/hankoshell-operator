@@ -14,13 +14,92 @@
 - Qualify real OIDC browser/PKCE/M2M and SAML signature/security flows on Keycloak
   26.7.5/26.8.0, protocol admission/status on Kubernetes 1.35.0/1.36.2/1.37.0, and
   installed OIDC/SAML lifecycles in the scanned-image system fixture.
-- Keep runtime identity bindings (#25), SLO, signed SP requests, encryption and
-  SAML attribute statements deferred. Version packaging remains 0.2.0 until the
-  Application Identity milestone is complete.
-
-## 0.2.0 — Unreleased
+- Add bounded HankoApplication runtimeBindings: versioned ConfigMap identity.json,
+  optional confidential OIDC credentials, exact application/workload UID consent,
+  explicit target namespace RBAC, revision and target-preserving cleanup.
+- Qualify drift, rotation, partial writes, lost acknowledgements and status-loss
+  recovery without repeated current provider writes; preserve legacy projections.
+- Align active chart/image/CI/evidence metadata to 0.3.0. Historical source tags
+  remain immutable; production publication is pending in #21.
+- Keep SLO, signed SP requests, encryption, SAML attribute statements, workload
+  federation, automatic restart and live Hub binding execution deferred.
 
 <!-- release-notes:start -->
+### Release overview
+
+hankoShell Operator 0.3.0 reconciles declarative Keycloak IAM configuration from
+Kubernetes. Application identity can live beside deployment manifests; Hub,
+hankoShell API and Continuum are optional. Project: https://hanko.sh.
+
+Application Identity supports OIDC SPA, confidential web and M2M clients, plus
+qualified SAML SP-initiated POST with exact HTTPS ACS, signed responses/assertions,
+bounded NameID formats, client roles and IdP metadata URLs. OIDC remains the
+omitted-protocol default. Application and mapper ownership is bound to Kubernetes
+UID; legacy unmarked clients require an administrator-reviewed exact provider UUID
+and observation hash. In-place protocol conversion is refused.
+
+HankoApplication runtimeBindings deliver a deterministic, versioned identity.json
+ConfigMap and optional confidential OIDC client_secret into existing workload-owned
+targets. Every target consents to the exact application UID, binding, current
+ServiceAccount UID and target type. Resource-name-limited namespace RBAC grants
+get/patch only; no new Keycloak permission is needed. SPA/SAML are metadata-only,
+and Observe bindings are refused. There is no new CRD.
+
+Delivery advances only from current proven applied provider state. bindingRevision
+uses public metadata, plan/generation and non-secret Kubernetes identities/version
+metadata, never secret bytes. Rotation updates canonical and workload credentials
+and output revisions. Partial writes, acknowledgement loss and status loss converge
+without repeating current client/mapper writes or credential rotation. Cleanup
+removes managed fields only and requires fresh consent; revoked consent needs
+administrator action. ConfigMap/Secret writes are nontransactional. Consumers check
+Ready and matching revisions; no SDK, workload mutation or automatic restart is
+provided. Legacy credential-only projections are preserved separately.
+
+The existing IAM Contract Engine covers roles/resource-server plans, observations,
+drift, capability refusals and owned cleanup. Standalone organizations reconcile
+Keycloak groups/native Organizations independently of optional platform projection.
+Status is evidence, not execution authority. No remote executable plan is exposed.
+
+Qualification uses Kubernetes 1.35.0, 1.36.2 and 1.37.0 API/etcd fixtures; real HTTPS
+Keycloak 26.7.5 and 26.8.0 including OIDC browser/PKCE, M2M and SAML signature/security
+regression; and an installed exact-scanned-image system on kind 1.37.0 plus HTTPS
+Keycloak 26.8.0 with runtime delivery, projected-credential token, rotation and
+cleanup. Other versions, cloud/CNI/CSI enforcement, enterprise fleets and production
+portable backup/restore are unqualified. Snapshot and lifecycle workflows remain
+experimental and unqualified. Federation, projected SA JWT login, SPIFFE/token
+exchange, live Hub binding execution, SLO, signed SP requests, encryption,
+artifact/ECP and SAML attribute statements are deferred.
+
+The 16 v1alpha1 APIs remain experimental. 0.3.0 is a normal SemVer version in
+initial development, not a prerelease. Use verified HTTPS, a dedicated limited
+Keycloak service account, referenced Secrets, namespace RBAC, Restricted pods and
+explicit default-deny networking. Source govulncheck and exact AMD64/ARM64 image
+scans are additive. The operator and embedded cosign are scanned. GO-2026-5932
+remains an unsuppressed UNKNOWN/unfixed dependency advisory until upstream supplies
+a compatible fix. No fixable HIGH/CRITICAL finding passes the image gate.
+
+Supply-chain evidence distinguishes SBOM, provenance, vulnerability reports,
+Sigstore signatures and Continuum Attest receipts. The signed source tag freezes
+source only. Production publication remains pending in #21: no public chart, image
+or GitHub Release is claimed. Install the source chart at charts/hankoshell-operator
+with an explicitly configured HTTPS Keycloak URL, referenced credentials/CA when
+needed and a reviewed immutable image. The future OCI chart path is
+oci://ghcr.io/alien6-studio/charts/hankoshell-operator.
+
+The standalone Hub authentication/integrity path uses HMAC tied to the bearer
+credential, not an independent asymmetric signature. Enterprise Continuum policy
+and optional platform integrations do not change runtime binding authority.
+Provider reconciliation and Kubernetes output patches offer no transaction or
+portable rollback guarantee. Review docs/architecture/application-identity.md,
+docs/secure-deployment.md and docs/keycloak-permissions.md before migration.
+
+Report vulnerabilities privately at
+https://github.com/Alien6-Studio/hankoshell-operator/security/advisories/new;
+SECURITY.md describes supported versions and response times.
+<!-- release-notes:end -->
+
+## 0.2.0 — Source frozen (unpublished)
+
 ### Release overview
 
 hankoShell Operator 0.2.0 reconciles declarative Keycloak IAM configuration from
@@ -81,7 +160,6 @@ https://github.com/Alien6-Studio/hankoshell-operator/security/advisories/new;
 see SECURITY.md for supported versions and response times.
 See docs/secure-deployment.md and docs/keycloak-permissions.md for deployment,
 permissions and migration limits.
-<!-- release-notes:end -->
 
 
 - Build the operator and embedded cosign with Go 1.27.2 and patched HTTP/2

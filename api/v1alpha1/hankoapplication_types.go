@@ -23,6 +23,8 @@ type HankoApplication struct {
 }
 
 // HankoApplicationSpec defines the desired application identity.
+// +kubebuilder:validation:XValidation:rule="!has(self.runtimeBindings) || size(self.runtimeBindings) == 0 || !has(self.mode) || self.mode == 'Manage'",message="runtimeBindings require Manage mode"
+// +kubebuilder:validation:XValidation:rule="!has(self.runtimeBindings) || self.runtimeBindings.all(b, !has(b.credentials) || ((!has(self.protocol) || self.protocol == 'oidc') && (!has(self.type) || self.type == 'web' || self.type == 'm2m')))",message="runtime credentials require confidential OIDC web or m2m clients"
 // +kubebuilder:validation:XValidation:rule="!has(self.clientSecretProjections) || size(self.clientSecretProjections) == 0 || (has(self.type) && (self.type == 'web' || self.type == 'm2m'))",message="clientSecretProjections require a confidential web or m2m client"
 // +kubebuilder:validation:XValidation:rule="!has(self.clientSecretProjections) || !has(self.mode) || self.mode != 'Observe'",message="clientSecretProjections require Manage mode"
 // +kubebuilder:validation:XValidation:rule="self.clientID.trim() != 'account' && self.clientID.trim() != 'account-console' && self.clientID.trim() != 'admin-cli' && self.clientID.trim() != 'broker' && self.clientID.trim() != 'realm-management' && self.clientID.trim() != 'security-admin-console'",message="built-in Keycloak clients cannot be managed as HankoApplication"
@@ -118,6 +120,13 @@ type HankoApplicationSpec struct {
 	// +listMapKey=namespace
 	// +listMapKey=name
 	ClientSecretProjections []ApplicationSecretProjection `json:"clientSecretProjections,omitempty"`
+
+	// RuntimeBindings delivers proven application metadata and optional OIDC
+	// credentials to preauthorized, pre-existing workload targets. Manage only.
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=32
+	RuntimeBindings []ApplicationRuntimeBinding `json:"runtimeBindings,omitempty"`
 }
 
 // ApplicationSecretProjection selects a dedicated workload Secret that receives
@@ -262,6 +271,11 @@ type ApplicationTokenClaim struct {
 
 // HankoApplicationStatus describes the observed state of the application.
 type HankoApplicationStatus struct {
+	// RuntimeBindings records bounded delivery evidence, never write authority.
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=32
+	RuntimeBindings []ApplicationRuntimeBindingStatus `json:"runtimeBindings,omitempty"`
 	// Protocol is the actual protocol detected by a successful provider read.
 	// A mismatch is reported; this field never authorizes protocol conversion.
 	// +kubebuilder:validation:Enum=oidc;saml;unsupported

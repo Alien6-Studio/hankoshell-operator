@@ -1,10 +1,14 @@
 # hankoShell Operator chart
 
 Helm chart for declarative Keycloak IAM configuration with hankoShell Operator.
-Version 0.2.0 is a normal SemVer release in initial development.
-The 0.3 development source adds the [OIDC/SAML application contract](../../docs/architecture/application-identity.md),
-including explicit migration approval for existing unmarked clients. Packaging
-remains 0.2.0 until that milestone completes; no 0.3 artifact is published.
+Version 0.3.0 is a normal SemVer release in initial development.
+The source includes the [OIDC/SAML application contract](../../docs/architecture/application-identity.md),
+including explicit migration approval for existing unmarked clients and
+[UID-bound runtime bindings](../../docs/architecture/application-identity.md#runtime-bindings).
+Public chart/image artifacts remain pending. Runtime target namespaces need
+explicit resource-name-limited Roles; the chart grants no broad target write
+permission. Provision the targets and their current application/ServiceAccount UID
+consent before requesting delivery.
 The chart installs 16 experimental `hanko.sh/v1alpha1` CRDs. These APIs may change
 between minor versions. All controllers are registered; integration flags
 configure their connections to optional services.
