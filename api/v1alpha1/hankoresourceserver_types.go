@@ -134,15 +134,21 @@ type AuthorizationPermission struct {
 	Principals []AuthorizationPrincipal `json:"principals"`
 }
 
-// AuthorizationPrincipal is a portable role or workload principal. Ref is a
+// AuthorizationPrincipal is a portable role, workload or organization principal. Ref is a
 // namespaced Hanko object name; provider IDs are never accepted in desired state.
+// +kubebuilder:validation:XValidation:rule="!has(self.includeDescendants) || !self.includeDescendants || self.kind == 'organization'",message="includeDescendants is only valid for organization principals"
 type AuthorizationPrincipal struct {
-	// +kubebuilder:validation:Enum=realm_role;application;service_account
+	// +kubebuilder:validation:Enum=realm_role;application;service_account;organization
 	Kind string `json:"kind"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`
 	Ref string `json:"ref"`
+
+	// IncludeDescendants explicitly includes current declared and independently
+	// owned HankoOrganization descendants. Omitted/false is direct-only; foreign
+	// provider subgroups are excluded. Only valid for kind organization.
+	IncludeDescendants bool `json:"includeDescendants,omitempty"`
 }
 
 // HankoResourceServerStatus describes provider observations only.
@@ -233,6 +239,10 @@ type HankoResourceServerStatus struct {
 
 // AuthorizationCapabilitySnapshot records the provider contract used during reconciliation.
 type AuthorizationCapabilitySnapshot struct {
+	// +kubebuilder:validation:Optional
+	OrganizationPrincipals bool `json:"organizationPrincipals"`
+	// +kubebuilder:validation:Optional
+	OrganizationDescendants  bool `json:"organizationDescendants"`
 	ScopeGrants              bool `json:"scopeGrants"`
 	RolePrincipals           bool `json:"rolePrincipals"`
 	ApplicationPrincipals    bool `json:"applicationPrincipals"`

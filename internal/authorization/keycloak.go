@@ -21,7 +21,7 @@ func NewKeycloakDriver(client *keycloak.Client) *KeycloakDriver {
 func (*KeycloakDriver) Capabilities(context.Context, string) (Capabilities, error) {
 	return Capabilities{
 		ScopeGrants: true, RolePrincipals: true, ApplicationPrincipals: true,
-		ServiceAccountPrincipals: true, ResourceObjects: true,
+		ServiceAccountPrincipals: true, ResourceObjects: true, OrganizationPrincipals: true, OrganizationDescendants: true,
 		ResourceURIMatching: true, UMARPT: true, NativePermissionClaim: true,
 	}, nil
 }
@@ -118,7 +118,7 @@ func toKeycloakModel(model Model) keycloak.AuthorizationModel {
 	for _, permission := range model.Permissions {
 		converted := keycloak.AuthorizationPermission{Name: permission.Name, Resources: permission.Resources, Scopes: permission.Scopes}
 		for _, principal := range permission.Principals {
-			converted.Principals = append(converted.Principals, keycloak.AuthorizationPrincipal{Kind: principal.Kind, Ref: principal.Ref})
+			converted.Principals = append(converted.Principals, keycloakPrincipal(principal))
 		}
 		result.Permissions = append(result.Permissions, converted)
 	}

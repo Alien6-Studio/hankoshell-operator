@@ -72,6 +72,7 @@ objects and reports their status in Kubernetes.
 | Identity brokering | Upstream identity providers and their Keycloak mappers, with provider credentials referenced from Secrets. Application mappings can turn upstream OIDC claims into roles or user attributes. |
 | Token contents | Client-specific claims from user attributes or fixed values, with control over the declared realm roles included in application tokens. |
 | Roles and API permissions | Realm and client roles, composite realm roles, and resource-server scopes, resources and permissions for role or workload principals. |
+| Organization grants (0.4 unreleased) | Direct or explicit declared-descendant grants through owned structural groups; [permissions, bounds and consistency](docs/keycloak-permissions.md#organization-principals-04-unreleased). |
 | Machine credentials | Service-account clients, confidential client secrets, scheduled or requested rotation, and explicitly authorized application Secret projections. |
 | Existing configuration | Import reports and supported realm, client, service-account and identity-provider configuration; observe existing objects before taking ownership. |
 

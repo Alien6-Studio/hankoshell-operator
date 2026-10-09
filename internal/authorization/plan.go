@@ -13,7 +13,15 @@ import (
 type Intent struct{ model Model }
 type ResolvedReferences struct{ model Model }
 
-func Normalize(model Model) Intent { return Intent{model: canonicalModel(model)} }
+func Normalize(model Model) Intent {
+	model = canonicalModel(model)
+	for i := range model.Permissions {
+		for j := range model.Permissions[i].Principals {
+			model.Permissions[i].Principals[j].Organization = nil
+		}
+	}
+	return Intent{model: model}
+}
 
 func (i Intent) Identity() iamcontract.Digest {
 	data, _ := json.Marshal(i.model)
@@ -35,7 +43,11 @@ func sameGraph(a, b Model) bool {
 		m.ApplicationRef = ""
 		for i := range m.Permissions {
 			for j := range m.Permissions[i].Principals {
-				m.Permissions[i].Principals[j].Ref = ""
+				p := &m.Permissions[i].Principals[j]
+				if p.Kind != "organization" {
+					p.Ref = ""
+				}
+				p.Organization = nil
 			}
 			slices.SortFunc(m.Permissions[i].Principals, comparePrincipal)
 		}
@@ -95,6 +107,9 @@ func Compile(intent Intent, resolved ResolvedReferences, evidence CapabilityEvid
 	if err := ValidateCapabilities(resolved.model, evidence.Supported); err != nil {
 		return Plan{}, err
 	}
+	if err := validateOrganizations(resolved.model); err != nil {
+		return Plan{}, err
+	}
 	if !sameGraph(intent.model, Normalize(resolved.model).model) {
 		return Plan{}, iamcontract.ErrStale
 	}
@@ -126,10 +141,22 @@ func requiredCapabilities(m Model) Capabilities {
 				c.ApplicationPrincipals = true
 			case "service_account":
 				c.ServiceAccountPrincipals = true
+			case "organization":
+				c.OrganizationPrincipals = true
+				c.OrganizationDescendants = c.OrganizationDescendants || v.IncludeDescendants
 			}
 		}
 	}
 	return c
+}
+
+func knownSet(values []string, known map[string]bool) bool {
+	for _, value := range values {
+		if !known[value] {
+			return false
+		}
+	}
+	return true
 }
 func canonicalModel(m Model) Model {
 	result := m
@@ -147,8 +174,18 @@ func canonicalModel(m Model) Model {
 		p.Resources = stringSet(p.Resources)
 		p.Scopes = stringSet(p.Scopes)
 		p.Principals = append([]Principal{}, p.Principals...)
+		for j := range p.Principals {
+			if o := p.Principals[j].Organization; o != nil {
+				copy := *o
+				copy.Groups = canonicalGroups(o.Groups)
+				copy.Ancestors = canonicalGroups(o.Ancestors)
+				p.Principals[j].Organization = &copy
+			}
+		}
 		slices.SortFunc(p.Principals, comparePrincipal)
-		p.Principals = slices.Compact(p.Principals)
+		p.Principals = slices.CompactFunc(p.Principals, func(a, b Principal) bool {
+			return comparePrincipal(a, b) == 0 && a.IncludeDescendants == b.IncludeDescendants
+		})
 	}
 	slices.SortFunc(result.Permissions, func(a, b Permission) int { return strings.Compare(a.Name, b.Name) })
 	return result
@@ -200,19 +237,85 @@ func validatePermissions(desired []Permission, scopes, resources, permissions ma
 		if !knownSet(p.Resources, resources) || !knownSet(p.Scopes, scopes) {
 			return iamcontract.ErrRejected
 		}
+		principalKeys := map[string]bool{}
 		for _, v := range p.Principals {
-			if v.Ref == "" {
+			key := v.Kind + "\x00" + v.Ref
+			if v.Ref == "" || principalKeys[key] || (v.IncludeDescendants && v.Kind != "organization") {
 				return iamcontract.ErrRejected
 			}
+			principalKeys[key] = true
 		}
 	}
 	return nil
 }
-func knownSet(values []string, known map[string]bool) bool {
-	for _, v := range values {
-		if !known[v] {
-			return false
+
+func canonicalGroups(groups []OrganizationGroup) []OrganizationGroup {
+	result := slices.Clone(groups)
+	slices.SortFunc(result, func(a, b OrganizationGroup) int { return strings.Compare(a.Ref+"\x00"+a.ID, b.Ref+"\x00"+b.ID) })
+	return result
+}
+
+func validateOrganizations(model Model) error {
+	for _, permission := range model.Permissions {
+		if err := validatePermissionOrganizations(permission); err != nil {
+			return err
 		}
 	}
-	return true
+	if expectedPolicyCount(model.Permissions) > 256 {
+		return OrganizationFailure("OrganizationPolicyBudgetExceeded")
+	}
+	return nil
+}
+func validatePermissionOrganizations(permission Permission) error {
+	ids := map[string]bool{}
+	for _, p := range permission.Principals {
+		if p.Kind != "organization" {
+			continue
+		}
+		if err := validateResolvedOrganization(p); err != nil {
+			return err
+		}
+		for _, g := range p.Organization.Groups {
+			ids[g.ID] = true
+		}
+	}
+	if len(ids) > 128 {
+		return OrganizationFailure("OrganizationExpansionTooLarge")
+	}
+	return nil
+}
+func validateResolvedOrganization(p Principal) error {
+	if p.Organization == nil || len(p.Organization.Groups) == 0 || !iamcontract.ValidDigest(string(p.Organization.Graph)) {
+		return OrganizationFailure("OrganizationNotCurrent")
+	}
+	if len(p.Organization.Groups) > 128 {
+		return OrganizationFailure("OrganizationExpansionTooLarge")
+	}
+	if len(p.Organization.Ancestors) > 32 {
+		return OrganizationFailure("OrganizationHierarchyTooDeep")
+	}
+	if !p.IncludeDescendants && len(p.Organization.Groups) != 1 {
+		return OrganizationFailure("OrganizationPolicyUnsupported")
+	}
+	for _, g := range p.Organization.Groups {
+		if g.ID == "" || g.UID == "" || g.Namespace == "" || g.Ref == "" || g.Path == "" {
+			return OrganizationFailure("OrganizationOwnershipConflict")
+		}
+	}
+	return nil
+}
+func expectedPolicyCount(permissions []Permission) int {
+	count := 0
+	for _, p := range permissions {
+		kinds := map[string]bool{}
+		for _, v := range p.Principals {
+			kind := v.Kind
+			if kind == "application" || kind == "service_account" {
+				kind = "client"
+			}
+			kinds[kind] = true
+		}
+		count += len(kinds)
+	}
+	return count
 }

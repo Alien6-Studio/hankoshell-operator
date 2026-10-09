@@ -179,16 +179,22 @@ func authorizationOwnershipBudget(model AuthorizationModel, owned AuthorizationM
 	}
 	for _, permission := range model.Permissions {
 		owned.Permissions = budgetReference(owned.Permissions, permission.Name)
-		roles, clients := false, false
+		roles, clients, organizations := false, false, false
 		for _, principal := range permission.Principals {
-			if principal.Kind == "realm_role" {
+			switch principal.Kind {
+			case "realm_role":
 				roles = true
-			} else {
+			case "organization":
+				organizations = true
+			default:
 				clients = true
 			}
 		}
 		if roles {
 			owned.Policies = budgetReference(owned.Policies, permission.Name+"#realm_roles")
+		}
+		if organizations {
+			owned.Policies = budgetReference(owned.Policies, permission.Name+"#organizations")
 		}
 		if clients {
 			owned.Policies = budgetReference(owned.Policies, permission.Name+"#clients")

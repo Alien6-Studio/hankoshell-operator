@@ -103,14 +103,21 @@ spec:
                     principals:
                       items:
                         description: |-
-                          AuthorizationPrincipal is a portable role or workload principal. Ref is a
+                          AuthorizationPrincipal is a portable role, workload or organization principal. Ref is a
                           namespaced Hanko object name; provider IDs are never accepted in desired state.
                         properties:
+                          includeDescendants:
+                            description: |-
+                              IncludeDescendants explicitly includes current declared and independently
+                              owned HankoOrganization descendants. Omitted/false is direct-only; foreign
+                              provider subgroups are excluded. Only valid for kind organization.
+                            type: boolean
                           kind:
                             enum:
                             - realm_role
                             - application
                             - service_account
+                            - organization
                             type: string
                           ref:
                             pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
@@ -119,6 +126,11 @@ spec:
                         - kind
                         - ref
                         type: object
+                        x-kubernetes-validations:
+                        - message: includeDescendants is only valid for organization
+                            principals
+                          rule: '!has(self.includeDescendants) || !self.includeDescendants
+                            || self.kind == ''organization'''
                       maxItems: 128
                       minItems: 1
                       type: array
@@ -260,6 +272,10 @@ spec:
                   applicationPrincipals:
                     type: boolean
                   nativePermissionClaim:
+                    type: boolean
+                  organizationDescendants:
+                    type: boolean
+                  organizationPrincipals:
                     type: boolean
                   resourceObjects:
                     type: boolean

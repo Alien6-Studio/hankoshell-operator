@@ -63,6 +63,8 @@ var adminOperations = []AdminOperation{
 	{"authorization", "GET", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy", "view-authorization or manage-authorization or manage-clients"},
 	{"authorization", "GET,POST", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/role", "view-authorization / manage-authorization or manage-clients"},
 	{"authorization", "GET,POST", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/client", "view-authorization / manage-authorization or manage-clients"},
+	{"organization-authorization", "GET,POST", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/group", "view-authorization / manage-authorization or manage-clients; strict group resolution additionally requires view-users"},
+	{"organization-authorization", "PUT", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/group/{object}", "manage-authorization or manage-clients"},
 	{"authorization", "PUT", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/role/{object}", "manage-authorization or manage-clients"},
 	{"authorization", "PUT", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/client/{object}", "manage-authorization or manage-clients"},
 	{"authorization", "DELETE", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/{object}", "manage-authorization or manage-clients"},

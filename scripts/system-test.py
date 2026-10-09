@@ -61,8 +61,8 @@ class System:
     def get(self, kind, name, namespace="auth"):
         return json.loads(self.kubectl("get", kind, name, "-n", namespace, "-o", "json"))
 
-    def ready(self, kind, name):
-        value = self.get(kind, name)
+    def ready(self, kind, name, namespace="auth"):
+        value = self.get(kind, name, namespace)
         return value.get("status", {}).get("phase") == "Ready" and value["status"].get("observedGeneration") == value["metadata"]["generation"]
 
     def role_reconciled(self, name):
@@ -280,7 +280,7 @@ class System:
         identity, proxy = self.client("master", "organization-operator"), self.client("master", realm + "-realm")
         user = self.api("GET", f'/admin/realms/master/clients/{identity["id"]}/service-account-user')
         roles = [self.api("GET", f'/admin/realms/master/clients/{proxy["id"]}/roles/{name}')
-                 for name in ("manage-realm", "manage-clients", "manage-users")]
+                 for name in ("manage-realm", "manage-clients", "manage-events", "manage-users")]
         self.api("POST", f'/admin/realms/master/users/{user["id"]}/role-mappings/clients/{proxy["id"]}', roles)
         self.api("POST", f'/admin/realms/master/clients/{identity["id"]}/scope-mappings/clients/{proxy["id"]}', roles)
         constrained = self.access_token({"client_id": "organization-operator", "client_secret": credential, "grant_type": "client_credentials"})
@@ -345,6 +345,52 @@ class System:
         if (native["alias"] != "system-organization" or native.get("attributes", {}).get("hanko.sh/organization-uid") != [objects[0]["metadata"]["uid"]]
                 or {domain["name"] for domain in native.get("domains", [])} != {"company.invalid"}):
             raise ValueError("Installed root Organization alias/domains/UID differs")
+        # Exercise organizational grants with the already-installed exact image.
+        # This process also provisions organizations, so it retains the separate
+        # existing organization-writer profile. The two-version suite qualifies
+        # authorization separately with manage-clients + view-users only.
+        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoRealm",
+                    "metadata": {"name": realm, "namespace": namespace}, "spec": {}},
+                   {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoApplication",
+                    "metadata": {"name": "organization-api", "namespace": namespace},
+                    "spec": {"realmRef": realm, "clientID": "system-organization-api", "type": "m2m"}})
+        wait("organization grant backing application", lambda: self.ready("hankoapplication", "organization-api", namespace))
+        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoResourceServer",
+                    "metadata": {"name": "organization-server", "namespace": namespace},
+                    "spec": {"realmRef": realm, "applicationRef": "organization-api", "audience": "urn:organization-system",
+                             "scopes": [{"name": "read"}], "resources": [{"name": "invoice", "scopes": ["read"]}],
+                             "permissions": [{"name": "invoice-read", "scopes": ["read"], "resources": ["invoice"],
+                                              "principals": [{"kind": "organization", "ref": "root", "includeDescendants": True}]}]}})
+        def grant_current():
+            value = self.get("hankoresourceserver", "organization-server", namespace)
+            status = value.get("status", {})
+            return (status.get("phase") == "Ready" and status.get("appliedGeneration") == value["metadata"]["generation"]
+                    and status.get("appliedPlanHash") == status.get("evaluatedPlanHash")
+                    and status.get("observationComplete") is True and status.get("driftState") == "InSync"
+                    and status.get("capabilities", {}).get("organizationPrincipals") is True
+                    and status.get("capabilities", {}).get("organizationDescendants") is True)
+        wait("installed organizational current applied evidence", grant_current)
+        resource_client = self.client(realm, "system-organization-api")
+        policies = self.api("GET", f'/admin/realms/{realm}/clients/{resource_client["id"]}/authz/resource-server/policy/group')
+        expected_groups = {value["status"]["groupID"] for value in objects}
+        if (len(policies) != 1 or {entry["id"] for entry in policies[0].get("groups", [])} != expected_groups
+                or len(policies[0].get("groups", [])) != len(expected_groups)
+                or any(entry.get("extendChildren") is not False for entry in policies[0]["groups"])
+                or policies[0].get("groupsClaim")):
+            raise ValueError("Installed organizational policy group contract differs")
+        server_uid = self.get("hankoresourceserver", "organization-server", namespace)["metadata"]["uid"]
+        journal = json.loads(resource_client.get("attributes", {}).get("hanko.sh/resource-server-ownership", "{}"))
+        if (journal.get("ownerUID") != server_uid or len(journal.get("objects", {}).get("policies", [])) != 1):
+            raise ValueError("Installed organization grant journal differs")
+        self.kubectl("delete", "hankoresourceserver", "organization-server", "-n", namespace, "--wait=true", "--timeout=120s")
+        remaining_client = self.client(realm, "system-organization-api")
+        if (remaining_client.get("authorizationServicesEnabled", False)
+                or "hanko.sh/resource-server-ownership" in remaining_client.get("attributes", {})):
+            raise ValueError("Installed owned organization grant graph/journal survived cleanup")
+        self.api("GET", f'/admin/realms/{realm}/clients/{resource_client["id"]}/authz/resource-server/policy/group', expected=(404,))
+        for value in objects:
+            self.api("GET", f'/admin/realms/{realm}/groups/{value["status"]["groupID"]}')
+        self.kubectl("delete", "hankoapplication", "organization-api", "-n", namespace, "--wait=true", "--timeout=120s")
         for value in reversed(objects):
             self.kubectl("delete", "hankoorganization", value["metadata"]["name"], "-n", namespace, "--wait=true", "--timeout=120s")
             self.api("GET", f'/admin/realms/{realm}/groups/{value["status"]["groupID"]}', expected=(404,))
@@ -639,10 +685,10 @@ def main():
                            "verified private-CA HTTPS, wrong-CA readiness/write denial and trust repair", "scoped Keycloak identity and denied authority", "realm/client/roles/Secret reconciliation",
                            "IAM role and authorization evaluated/applied/read-back evidence, UID ownership and finalizer cleanup",
                            "legacy OIDC and SAML installed contracts, metadata, UID ownership, Observe/no SAML Secret and deletion",
-                           "standalone root/child organization, native alias/domains, role bindings, Synced=True and Projection=Unknown/Disabled, no API URL/token/PositionID and child-first finalizer cleanup",
+                           "standalone root/child organization and owned direct-only organizational descendant grant, current applied/read-back evidence, grant cleanup preserving organizations; native alias/domains, role bindings, Synced=True and Projection=Unknown/Disabled, no API URL/token/PositionID and child-first finalizer cleanup",
                            "drift recovery after manager restart without duplicate client or credential rotation", "managed finalizer and Observe preservation", "runtime M2M projected-credential token and rotation", "SAML metadata binding and target-preserving cleanup",
                            "no credentials in logs/events/CRDs"],
-                "organization_permissions": {"scope": "organization-target only", "roles": ["manage-realm", "manage-clients", "manage-users"],
+                "organization_permissions": {"scope": "organization-target only", "roles": ["manage-realm", "manage-clients", "manage-events", "manage-users"],
                                              "denied": ["master administration", "managed realm administration", "realm creation", "identity providers"]},
                 "limitations": ["single disposable kind node and Keycloak dev-file database",
                                 "kindnet does not enforce NetworkPolicy; CNI, CSI/cloud, enterprise fleet and DB recovery unqualified"]}, indent=2) + "\n")

@@ -35,6 +35,12 @@ The existing-realm profile needs target `manage-realm`, `manage-clients` and
 `manage-events`; optional capabilities have additional or inherited authority.
 Keep secrets outside committed values and review native realm-creation grants.
 
+Organization principals in the unreleased 0.4 source require explicitly
+provisioned target `view-users` in addition to `manage-clients`; that read role
+also exposes realm users. No chart flag grants this authority. See the
+[organization-grant contract](../../docs/keycloak-permissions.md#organization-principals-04-unreleased)
+for direct/descendant semantics, ownership, bounds and the reconciliation window.
+
 Real HTTPS Admin API v1 qualification covers Keycloak **26.8.0 and 26.7.5** only.
 Other patches and major lines are unqualified. Hub/Continuum integrations are
 optional; standalone Keycloak reconciliation does not depend on them. See the

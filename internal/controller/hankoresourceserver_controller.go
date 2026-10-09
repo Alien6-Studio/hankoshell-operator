@@ -13,8 +13,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/authorization"
@@ -32,13 +34,15 @@ type AuthorizationDriverFactory func(namespace string, labels map[string]string)
 // +kubebuilder:rbac:groups=hanko.sh,resources=hankoresourceservers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=hanko.sh,resources=hankoresourceservers/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=hanko.sh,resources=hankoresourceservers/finalizers,verbs=update
-// +kubebuilder:rbac:groups=hanko.sh,resources=hankorealms;hankoapplications;hankoroles;hankoserviceaccounts,verbs=get;list;watch
+// +kubebuilder:rbac:groups=hanko.sh,resources=hankorealms;hankoapplications;hankoroles;hankoserviceaccounts;hankoorganizations,verbs=get;list;watch
 type HankoResourceServerReconciler struct {
 	client.Client
-	Scheme        *runtime.Scheme
-	Pool          *keycloak.Pool
-	DriverFactory AuthorizationDriverFactory
-	Recorder      events.EventRecorder
+	APIReader            client.Reader
+	organizationResolver *organizationGrantResolver
+	Scheme               *runtime.Scheme
+	Pool                 *keycloak.Pool
+	DriverFactory        AuthorizationDriverFactory
+	Recorder             events.EventRecorder
 }
 
 func (r *HankoResourceServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -99,16 +103,19 @@ func authorizationIntent(resourceServer *hankoshv1alpha1.HankoResourceServer) au
 	for _, v := range s.Permissions {
 		p := authorization.Permission{Name: v.Name, Resources: v.Resources, Scopes: v.Scopes}
 		for _, principal := range v.Principals {
-			p.Principals = append(p.Principals, authorization.Principal{Kind: principal.Kind, Ref: principal.Ref})
+			p.Principals = append(p.Principals, authorization.Principal{Kind: principal.Kind, Ref: principal.Ref, IncludeDescendants: principal.IncludeDescendants})
 		}
 		model.Permissions = append(model.Permissions, p)
 	}
 	return authorization.Normalize(model)
 }
 func (r *HankoResourceServerReconciler) compileAuthorizationPlan(ctx context.Context, obj *hankoshv1alpha1.HankoResourceServer, driver authorization.Driver, mode string) (authorization.Plan, error) {
-	reader := &contractReferenceReader{Client: r.Client}
+	reader := &contractReferenceReader{Client: r.Client, Reader: r.authorityReader()}
 	resolver := *r
 	resolver.Client = reader
+	if groupReader, ok := driver.(authorization.OrganizationGroupReader); ok {
+		resolver.organizationResolver = &organizationGrantResolver{reader: r.authorityReader(), provider: groupReader, namespace: obj.Namespace, realm: obj.Spec.RealmRef}
+	}
 	model, err := resolver.resolveAuthorizationModel(ctx, obj)
 	if err != nil {
 		return authorization.Plan{}, err
@@ -133,7 +140,7 @@ func (r *HankoResourceServerReconciler) compileAuthorizationPlan(ctx context.Con
 }
 func (r *HankoResourceServerReconciler) validateAuthorizationExecution(ctx context.Context, obj *hankoshv1alpha1.HankoResourceServer, driver authorization.Driver, plan authorization.Plan) error {
 	var current hankoshv1alpha1.HankoResourceServer
-	if err := r.Get(ctx, client.ObjectKeyFromObject(obj), &current); err != nil {
+	if err := r.authorityReader().Get(ctx, client.ObjectKeyFromObject(obj), &current); err != nil {
 		return err
 	}
 	mode := current.Spec.Mode
@@ -187,6 +194,9 @@ func (r *HankoResourceServerReconciler) observeResourceServer(ctx context.Contex
 	state, err := driver.Observe(ctx, plan)
 	if err != nil {
 		return ctrl.Result{RequeueAfter: requeueOnError}, r.statusPlanError(ctx, resourceServer, &plan, "ObserveFailed", err, nil)
+	}
+	if err := r.validateAuthorizationExecution(ctx, resourceServer, driver, plan); err != nil {
+		return ctrl.Result{RequeueAfter: requeueOnError}, r.statusPlanError(ctx, resourceServer, &plan, "StalePlan", err, nil)
 	}
 	return r.statusObservation(ctx, resourceServer, state, plan, true)
 }
@@ -278,6 +288,11 @@ func (r *HankoResourceServerReconciler) resolveAuthorizationPermission(ctx conte
 func (r *HankoResourceServerReconciler) resolveAuthorizationPrincipal(ctx context.Context, resourceServer *hankoshv1alpha1.HankoResourceServer, realm *hankoshv1alpha1.HankoRealm, principal hankoshv1alpha1.AuthorizationPrincipal) (authorization.Principal, error) {
 	resolvedRef := principal.Ref
 	switch principal.Kind {
+	case "organization":
+		if r.organizationResolver == nil {
+			return authorization.Principal{}, authorization.OrganizationFailure("OrganizationPolicyUnsupported")
+		}
+		return r.organizationResolver.resolve(ctx, principal)
 	case "realm_role":
 		roleName, err := r.roleInRealm(ctx, resourceServer.Namespace, principal.Ref, resourceServer.Spec.RealmRef, realm)
 		if err != nil {
@@ -417,7 +432,10 @@ func validateAuthorizationPrincipals(permission hankoshv1alpha1.AuthorizationPer
 			return fmt.Errorf("permission %q contains duplicate principal %s/%s", permission.Name, principal.Kind, principal.Ref)
 		}
 		principalKeys[key] = true
-		if principal.Kind != "realm_role" && principal.Kind != "application" && principal.Kind != "service_account" {
+		if principal.IncludeDescendants && principal.Kind != "organization" {
+			return authorization.OrganizationFailure("OrganizationPolicyUnsupported")
+		}
+		if principal.Kind != "realm_role" && principal.Kind != "application" && principal.Kind != "service_account" && principal.Kind != "organization" {
 			return fmt.Errorf("permission %q has unsupported principal kind %q", permission.Name, principal.Kind)
 		}
 	}
@@ -455,6 +473,11 @@ func (r *HankoResourceServerReconciler) statusPlanError(ctx context.Context, obj
 		iamCondition(&obj.Status.Conditions, obj.Generation, "ObservationSucceeded", metav1.ConditionTrue, "Observed", "bounded provider observation succeeded")
 	}
 	reason = iamFailureReason(err, reason)
+	var orgError authorization.OrganizationError
+	if errors.As(err, &orgError) {
+		reason = orgError.Code
+		obj.Status.Findings = findingsStatus([]authorization.Finding{{Classification: iamcontract.Unsupported, ObjectKind: "organization", Code: orgError.Code, Message: orgError.Error()}})
+	}
 	safe := iamcontract.SafeError(err)
 	for _, kind := range []string{"Synced", "DriftFree"} {
 		iamCondition(&obj.Status.Conditions, obj.Generation, kind, metav1.ConditionFalse, reason, safe.Error())
@@ -553,7 +576,7 @@ func managedRefsStatus(refs []authorization.ManagedReference) []hankoshv1alpha1.
 
 func capabilityStatus(value authorization.Capabilities) hankoshv1alpha1.AuthorizationCapabilitySnapshot {
 	return hankoshv1alpha1.AuthorizationCapabilitySnapshot{
-		ScopeGrants: value.ScopeGrants, RolePrincipals: value.RolePrincipals,
+		ScopeGrants: value.ScopeGrants, RolePrincipals: value.RolePrincipals, OrganizationPrincipals: value.OrganizationPrincipals, OrganizationDescendants: value.OrganizationDescendants,
 		ApplicationPrincipals: value.ApplicationPrincipals, ServiceAccountPrincipals: value.ServiceAccountPrincipals,
 		ResourceObjects: value.ResourceObjects, ResourceURIMatching: value.ResourceURIMatching,
 		UMARPT: value.UMARPT, NativePermissionClaim: value.NativePermissionClaim,
@@ -573,7 +596,14 @@ func findingsStatus(findings []authorization.Finding) []hankoshv1alpha1.Authoriz
 }
 
 func (r *HankoResourceServerReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.APIReader == nil {
+		r.APIReader = mgr.GetAPIReader()
+	}
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &hankoshv1alpha1.HankoResourceServer{}, organizationPrincipalIndex, organizationPrincipalIndexValues); err != nil {
+		return err
+	}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&hankoshv1alpha1.HankoResourceServer{}).
+		For(&hankoshv1alpha1.HankoResourceServer{}, builder.WithPredicates(resourceServerAuthorityChanged())).
+		Watches(&hankoshv1alpha1.HankoOrganization{}, handler.EnqueueRequestsFromMapFunc(r.organizationRequests)).
 		Complete(r)
 }

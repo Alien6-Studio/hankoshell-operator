@@ -389,6 +389,14 @@ credentials on both. Target-scoped master credentials do not receive the
 server version on either qualified version, so `status.keycloakVersion` can be empty.
 Do not broaden master permissions merely to fill this diagnostic field.
 
+Organization principals in the unreleased 0.4 source require the optional
+target `manage-clients` + `view-users` profile. `view-users` also permits reading
+target-realm users; it is not group-only authority or part of the common profile.
+Fresh strict group ownership/hierarchy reads precede grant execution. Missing
+authority refuses authorization writes; an old applied UUID snapshot can remain
+active until successful reconciliation or direct provider revocation. See
+[organization permissions and consistency](keycloak-permissions.md#organization-principals-04-unreleased).
+
 Unmanaged clients, roles and brokers survive child reconciliation/deletion.
 Deleting a managed realm is an explicit destructive ownership boundary: once
 managed applications/service accounts/issuers are gone, Keycloak deletes the
@@ -400,9 +408,12 @@ restores deleted provider state or previously rotated credentials.
 The suite uses Keycloak's disposable `dev-file` database in production server
 mode and a fake Kubernetes client. It does not qualify PostgreSQL, clustering,
 MFA challenges, actual upstream federation, Admin API v2, custom
-providers/themes, end-user resource-server authorization decisions, managed/adopted instance
+providers/themes, arbitrary application authorization enforcement, managed/adopted instance
 rollouts, backups/restores, or cloud/CNI/storage behavior. Those surfaces require
 installation acceptance tests. No runtime version rejection is added.
+The organization-grant suite qualifies fresh UMA decisions for its bounded
+group-policy fixtures on both versions; it does not qualify offline/RPT token
+revocation, external group-population flows or application enforcement.
 In 0.3.0, application discovery/metadata uses the configured
 Keycloak CA transport with TLS verification and a 1 MiB response limit, without
 administrative bearer credentials. The additional protocol suite qualifies OIDC
