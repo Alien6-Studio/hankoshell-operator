@@ -194,7 +194,7 @@ class System:
                 "metadata": {"labels": {"app": "keycloak"}}, "spec": {
                     "securityContext": security, "automountServiceAccountToken": False,
                     "containers": [{"name": "keycloak", "image": self.keycloak_image, "imagePullPolicy": "IfNotPresent", "args": ["start", "--optimized",
-                        "--http-enabled=false", "--http-management-scheme=http", "--hostname-strict=false", "--https-protocols=TLSv1.3",
+                        "--http-enabled=false", "--http-management-scheme=http", "--hostname=https://keycloak.auth.svc:8443", "--https-protocols=TLSv1.3",
                         "--https-certificate-file=/tls/tls.crt", "--https-certificate-key-file=/tls/tls.key"],
                         "securityContext": {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True, "capabilities": {"drop": ["ALL"]}},
                         "env": [{"name": name, "valueFrom": {"secretKeyRef": {"name": "keycloak-bootstrap", "key": key}}}
@@ -456,10 +456,9 @@ class System:
         fields = {"grant_type": "client_credentials", "client_id": doc["clientID"], "client_secret": credential}
         # HTTPS response acceptance and issuer/audience are asserted here. Full
         # JWT/JWKS signature verification lives in both real-Keycloak flow suites.
-        # Port forwarding changes the socket address; preserve the workload-facing
-        # Host so Keycloak issues the same issuer advertised inside Kubernetes.
-        with urlopen(Request(self.endpoint + "/realms/managed/protocol/openid-connect/token", data=urlencode(fields).encode(),
-                             headers={"Host": "keycloak.auth.svc:8443"}), context=self.http, timeout=10) as response:
+        # The fixture's canonical hostname keeps issuer stable across the
+        # internal service and verified-localhost port-forward socket.
+        with urlopen(Request(self.endpoint + "/realms/managed/protocol/openid-connect/token", data=urlencode(fields).encode()), context=self.http, timeout=10) as response:
             data = response.read(65_537)
         if len(data) > 65_536:
             raise ValueError("Runtime token response too large")
