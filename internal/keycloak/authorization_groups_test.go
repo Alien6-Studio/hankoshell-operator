@@ -158,3 +158,22 @@ func TestOrganizationPolicyJournalBudgetRefusesBeforeMutation(t *testing.T) {
 		t.Fatal("journal budget discovered after provider mutation")
 	}
 }
+
+func TestGenericManagedScopePermissionIsNotNativePolicy(t *testing.T) {
+	permission := authorizationPermissionRepresentation{ID: "permission", Name: "read", Type: "scope"}
+	owned := AuthorizationManagedObjects{Permissions: []AuthorizationManagedReference{{Name: "read", ID: "permission"}}}
+	policies := authorizationPolicyIndex{byID: map[string]authorizationPolicyRepresentation{"permission": {ID: "permission", Name: "read", Type: "scope"}}}
+	permissions := map[string]authorizationPermissionRepresentation{"read": permission}
+	if hasNativeAuthorizationPolicy(policies, permissions, nil, owned) {
+		t.Fatal("journal-owned generic scope permission classified as native")
+	}
+	policies.byID["foreign"] = authorizationPolicyRepresentation{ID: "foreign", Name: "external", Type: "group"}
+	if !hasNativeAuthorizationPolicy(policies, permissions, nil, owned) {
+		t.Fatal("foreign native policy hidden")
+	}
+	delete(policies.byID, "foreign")
+	owned.Permissions[0].ID = "foreign-journal"
+	if !hasNativeAuthorizationPolicy(policies, permissions, nil, owned) {
+		t.Fatal("unproven generic permission hidden")
+	}
+}

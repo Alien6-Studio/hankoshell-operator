@@ -152,7 +152,7 @@ jobs:
         env:
           DIGEST: ${{ needs.oci.outputs.digest }}
         run: |
-          python3 scripts/release-dry-run.py --version 0.3.0 --revision "$GITHUB_SHA" --digest "$DIGEST" \
+          python3 scripts/release-dry-run.py --version 0.4.0 --revision "$GITHUB_SHA" --digest "$DIGEST" \
             --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
             --evidence "$RUNNER_TEMP/hankoshell-scanned-oci/evidence" \
             --output "$RUNNER_TEMP/hankoshell-release-dry-run" --helm /tmp/linux-amd64/helm \

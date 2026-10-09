@@ -15,7 +15,7 @@ provider security patch within it; an end-of-life or provider-extended version
 does not receive additional project qualification. See the
 [Kubernetes compatibility and hardening matrix](docs/secure-deployment.md#kubernetes-compatibility-and-hardening).
 
-Version 0.3.0 is a normal SemVer release in initial development, not a beta or
+Version 0.4.0 is a normal SemVer release in initial development, not a beta or
 prerelease. The `v1alpha1` APIs are experimental and may change between minor
 versions before `1.0.0`. Reports against `main` are welcome; deploy reviewed
 tagged releases when available.
@@ -43,7 +43,7 @@ Database updates intentionally remain current, rather than frozen with the tool.
 [The versioned policy](security/oci-vulnerability-policy.json) blocks known
 **HIGH and CRITICAL vulnerabilities with an available fixed version**. It reports
 all severities and unfixed findings without filtering them out of the JSON.
-This 0.3.0 baseline makes actionable upgrades mandatory while retaining visibility
+This 0.4.0 baseline makes actionable upgrades mandatory while retaining visibility
 of issues without an upstream fix. Passing does not mean there are no unfixed,
 lower-severity, unknown or undiscovered vulnerabilities; maintainers must review
 those findings and can defer publication independently of the automated threshold.
@@ -84,7 +84,7 @@ After these gates, package promotion and GitHub draft creation are separate
 network operations, not an atomic transaction. A later publication failure may
 leave already verified OCI packages available. Before promotion, the workflow
 commits the complete verified delivery under a non-release
-`delivery-candidate-0.3.0` OCI reference. A retry resolves and restores that
+`delivery-candidate-0.4.0` OCI reference. A retry resolves and restores that
 checkpoint by digest, rescans its exact AMD64/ARM64 archive under the current
 policy, verifies the existing Sigstore signatures and recomputes Attest evidence.
 The original signed scan remains historical evidence; it cannot replace the

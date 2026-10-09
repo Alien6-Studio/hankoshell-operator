@@ -384,6 +384,10 @@ func checkOrganizationVerifiedRename(t *testing.T, q *reconciledOrganizationFixt
 		t.Fatal("fresh renamed hierarchy absent from applied evidence")
 	}
 	q.experiment.decision("france", "invoice#read", true)
+	x := q.server.Status.AuthorizationExplanation
+	if x == nil || explanationPath(x, "organization", "europe", "france", "descendant") == nil {
+		t.Fatal("UUID-preserving rename lost Hanko provenance")
+	}
 }
 
 func checkOrganizationSharedConformance(t *testing.T, q *reconciledOrganizationFixture) {
@@ -465,12 +469,21 @@ func checkOrganizationHierarchyChange(t *testing.T, q *reconciledOrganizationFix
 	t.Helper()
 	e, f := q.experiment, q.experiment.f
 	// Provider-only reparenting cannot be trusted through status. No grant writes.
+	previousExplanation := q.server.Status.AuthorizationExplanation.DeepCopy()
 	f.admin(http.MethodPost, "/admin/realms/managed/groups/"+q.nodes["africa"].Status.GroupID+"/children", map[string]any{"id": q.nodes["paris"].Status.GroupID, "name": "Paris"}, nil)
 	writes := q.writes()
 	if q.reconcile() == nil {
 		t.Fatal("provider hierarchy mismatch accepted")
 	}
 	fixtureEqual(t, "reparent refusal writes", q.writes(), writes)
+	if q.server.Status.AuthorizationExplanation == nil || q.server.Status.AuthorizationExplanation.ExplanationHash != previousExplanation.ExplanationHash {
+		t.Fatal("refused reparent replaced historical explanation")
+	}
+	for _, c := range q.server.Status.Conditions {
+		if c.Type == "AuthorizationExplained" && c.Status == "True" {
+			t.Fatal("old reparent provenance labelled current")
+		}
+	}
 	if len(q.server.Status.Findings) != 1 || q.server.Status.Findings[0].Code != "OrganizationHierarchyMismatch" {
 		t.Fatal("reparent finding differs")
 	}
@@ -487,6 +500,10 @@ func checkOrganizationHierarchyChange(t *testing.T, q *reconciledOrganizationFix
 	f.requireNoError(q.client.Status().Update(context.Background(), paris))
 	f.requireNoError(q.reconcile())
 	t.Log("provider move refusal and declared move qualified")
+	if x := q.server.Status.AuthorizationExplanation; x == nil || explanationPath(x, "organization", "europe", "paris", "descendant") != nil {
+		t.Fatal("reparent retained old applied ancestry")
+	}
+
 	q.requireGroupSet("europe", "france", "germany", "spain")
 	e.decision("paris", "invoice#read", false)
 	// Removing a descendant through its normal finalizer removes only its grant UUID.

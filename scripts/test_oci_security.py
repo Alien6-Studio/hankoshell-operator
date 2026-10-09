@@ -218,7 +218,7 @@ class ImageEvidenceTests(unittest.TestCase):
             digest = archive_fixture(archive)
             scanner = root / "trivy"
             scanner.write_bytes(b"scanner fixture")
-            args = SimpleNamespace(archive=archive, digest=digest, scanner=scanner, output=root / "evidence", revision="1" * 40, version="0.3.0")
+            args = SimpleNamespace(archive=archive, digest=digest, scanner=scanner, output=root / "evidence", revision="1" * 40, version="0.4.0")
             seen = []
             def scanner_run(command, **kwargs):
                 cache = Path(command[command.index("--cache-dir") + 1])
@@ -266,32 +266,32 @@ class ImageEvidenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             digest, revision = "sha256:" + "a" * 64, "1" * 40
-            summary = write_evidence(root, revision, "0.3.0", digest)
-            oci.verify(root, revision, "0.3.0", digest)
+            summary = write_evidence(root, revision, "0.4.0", digest)
+            oci.verify(root, revision, "0.4.0", digest)
             for field, value in (("index_digest", "sha256:" + "b" * 64), ("revision", "2" * 40),
                                  ("verdict", "fail"), ("scanned_at", "2020-01-01T00:00:00+00:00")):
                 changed = dict(summary, **{field: value})
                 (root / oci.SUMMARY).write_text(json.dumps(changed))
                 with self.assertRaises(ValueError):
-                    oci.verify(root, revision, "0.3.0", digest)
+                    oci.verify(root, revision, "0.4.0", digest)
             (root / oci.SUMMARY).write_text(json.dumps(summary))
             (root / "trivy-arm64.json").write_text("{}")
             with self.assertRaises(ValueError):
-                oci.verify(root, revision, "0.3.0", digest)
+                oci.verify(root, revision, "0.4.0", digest)
 
     def test_historical_evidence_verification_is_not_a_fresh_release_gate(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             digest, revision = "sha256:" + "a" * 64, "1" * 40
-            summary = write_evidence(root, revision, "0.3.0", digest)
+            summary = write_evidence(root, revision, "0.4.0", digest)
             summary["scanned_at"] = "2020-01-01T00:00:00+00:00"
             (root / oci.SUMMARY).write_text(json.dumps(summary))
-            oci.verify(root, revision, "0.3.0", digest, fresh=False)
+            oci.verify(root, revision, "0.4.0", digest, fresh=False)
             with self.assertRaises(ValueError):
-                oci.verify(root, revision, "0.3.0", digest)
+                oci.verify(root, revision, "0.4.0", digest)
             (root / "trivy-arm64.json").write_text("{}")
             with self.assertRaises(ValueError):
-                oci.verify(root, revision, "0.3.0", digest, fresh=False)
+                oci.verify(root, revision, "0.4.0", digest, fresh=False)
 
 
 class ReleaseWorkflowSecurityTests(unittest.TestCase):

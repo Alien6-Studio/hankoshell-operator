@@ -18,6 +18,7 @@ func Normalize(model Model) Intent {
 	for i := range model.Permissions {
 		for j := range model.Permissions[i].Principals {
 			model.Permissions[i].Principals[j].Organization = nil
+			model.Permissions[i].Principals[j].PortableRef = ""
 		}
 	}
 	return Intent{model: model}
@@ -48,6 +49,7 @@ func sameGraph(a, b Model) bool {
 					p.Ref = ""
 				}
 				p.Organization = nil
+				p.PortableRef = ""
 			}
 			slices.SortFunc(m.Permissions[i].Principals, comparePrincipal)
 		}

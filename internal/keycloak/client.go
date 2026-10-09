@@ -706,14 +706,11 @@ func (c *Client) getRoleClosure(ctx context.Context, realm string, root RealmRol
 		if !role.Composite {
 			continue
 		}
-		path, err := roleResourcePath(realm, role)
+		children, err := c.roleChildren(ctx, realm, role)
 		if err != nil {
 			return nil, err
 		}
-		var children []RealmRole
-		if err := c.get(ctx, path+"/composites", &children); err != nil {
-			return nil, fmt.Errorf("list composites for role %q in %q: %w", role.Name, realm, err)
-		}
+
 		if len(stack)+len(children) > 1024 {
 			return nil, errors.New("role closure exceeds observation budget")
 		}

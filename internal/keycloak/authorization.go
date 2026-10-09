@@ -84,6 +84,7 @@ type AuthorizationState struct {
 	ManagedObjects   AuthorizationManagedObjects
 	NativeObjects    []AuthorizationNativeObject
 	Observation      AuthorizationObservation
+	RealmRoleIDs     map[string]string `json:"-"`
 }
 
 type AuthorizationNativeObject struct {

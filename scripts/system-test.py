@@ -350,7 +350,7 @@ class System:
         # existing organization-writer profile. The two-version suite qualifies
         # authorization separately with manage-clients + view-users only.
         self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoRealm",
-                    "metadata": {"name": realm, "namespace": namespace}, "spec": {}},
+                    "metadata": {"name": realm, "namespace": namespace}, "spec": {"roles": [{"name": "reader"}]}},
                    {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoApplication",
                     "metadata": {"name": "organization-api", "namespace": namespace},
                     "spec": {"realmRef": realm, "clientID": "system-organization-api", "type": "m2m"}})
@@ -360,7 +360,7 @@ class System:
                     "spec": {"realmRef": realm, "applicationRef": "organization-api", "audience": "urn:organization-system",
                              "scopes": [{"name": "read"}], "resources": [{"name": "invoice", "scopes": ["read"]}],
                              "permissions": [{"name": "invoice-read", "scopes": ["read"], "resources": ["invoice"],
-                                              "principals": [{"kind": "organization", "ref": "root", "includeDescendants": True}]}]}})
+                                              "principals": [{"kind": "organization", "ref": "root", "includeDescendants": True}, {"kind": "realm_role", "ref": "reader"}]}]}})
         def grant_current():
             value = self.get("hankoresourceserver", "organization-server", namespace)
             status = value.get("status", {})
@@ -368,7 +368,8 @@ class System:
                     and status.get("appliedPlanHash") == status.get("evaluatedPlanHash")
                     and status.get("observationComplete") is True and status.get("driftState") == "InSync"
                     and status.get("capabilities", {}).get("organizationPrincipals") is True
-                    and status.get("capabilities", {}).get("organizationDescendants") is True)
+                    and status.get("capabilities", {}).get("organizationDescendants") is True
+                    and status.get("authorizationExplanation", {}).get("complete") is True)
         wait("installed organizational current applied evidence", grant_current)
         resource_client = self.client(realm, "system-organization-api")
         policies = self.api("GET", f'/admin/realms/{realm}/clients/{resource_client["id"]}/authz/resource-server/policy/group')
@@ -378,9 +379,22 @@ class System:
                 or any(entry.get("extendChildren") is not False for entry in policies[0]["groups"])
                 or policies[0].get("groupsClaim")):
             raise ValueError("Installed organizational policy group contract differs")
+        explanation = self.get("hankoresourceserver", "organization-server", namespace)["status"]["authorizationExplanation"]
+        status = self.get("hankoresourceserver", "organization-server", namespace)["status"]
+        paths = explanation["paths"]
+        if (explanation["source"] != "Applied" or explanation["sourcePlanHash"] != status["appliedPlanHash"]
+                or explanation["sourceGeneration"] != status["appliedGeneration"] or explanation["truncated"]
+                or not any(p["sourceKind"] == "organization" and p.get("organizationRef") == "root" and p["relationship"] == "direct" for p in paths)
+                or not any(p["sourceKind"] == "organization" and p.get("organizationRef") == "child" and p["relationship"] == "descendant" and p["ancestry"] == ["root", "child"] for p in paths)
+                or not any(p["sourceKind"] == "realm_role" and p["relationship"] == "generic" and not p.get("organizationRef") for p in paths)
+                or not any(p["sourceKind"] == "realm_role" and p.get("organizationRef") == "root" and p["relationship"] == "mapped_role" for p in paths)):
+            raise ValueError("Installed structural provenance differs")
+        encoded = json.dumps(explanation)
+        if any(word in encoded for word in ("username", "email", "password", "access_token", "client_secret")):
+            raise ValueError("Installed explanation exported subject or credential data")
         server_uid = self.get("hankoresourceserver", "organization-server", namespace)["metadata"]["uid"]
         journal = json.loads(resource_client.get("attributes", {}).get("hanko.sh/resource-server-ownership", "{}"))
-        if (journal.get("ownerUID") != server_uid or len(journal.get("objects", {}).get("policies", [])) != 1):
+        if (journal.get("ownerUID") != server_uid or len(journal.get("objects", {}).get("policies", [])) != 2):
             raise ValueError("Installed organization grant journal differs")
         self.kubectl("delete", "hankoresourceserver", "organization-server", "-n", namespace, "--wait=true", "--timeout=120s")
         remaining_client = self.client(realm, "system-organization-api")
@@ -668,7 +682,7 @@ def main():
     for name in ("digest", "revision"):
         parser.add_argument("--" + name, required=True)
     args = parser.parse_args()
-    publication.publish.contract.security.verify(args.evidence, args.revision, "0.3.0", args.digest, args.archive)
+    publication.publish.contract.security.verify(args.evidence, args.revision, "0.4.0", args.digest, args.archive)
     with tempfile.TemporaryDirectory(prefix="hankoshell-system-private-") as temp:
         system = System(args, Path(temp))
         try:
@@ -679,7 +693,7 @@ def main():
             system.install()
             print("System: scanned operator installed through Helm", flush=True)
             system.reconcile()
-            args.output.write_text(json.dumps({"version": "0.3.0", "revision": args.revision, "image_digest": args.digest,
+            args.output.write_text(json.dumps({"version": "0.4.0", "revision": args.revision, "image_digest": args.digest,
                 "kubernetes": "1.37.0", "keycloak": "26.8.0", "result": "pass",
                 "checks": ["Helm installation and real pod startup under Restricted admission", "namespace RBAC and current-API event recording",
                            "verified private-CA HTTPS, wrong-CA readiness/write denial and trust repair", "scoped Keycloak identity and denied authority", "realm/client/roles/Secret reconciliation",

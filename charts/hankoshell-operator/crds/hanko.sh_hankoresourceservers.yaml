@@ -262,6 +262,129 @@ spec:
                   bounded provider read-back, at AppliedGeneration.
                   Observe and external annotations do not authorize an applied plan.
                 type: string
+              authorizationExplanation:
+                description: AuthorizationExplanation is structural provider evidence,
+                  never a per-user decision or execution authority.
+                properties:
+                  complete:
+                    type: boolean
+                  explanationHash:
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  paths:
+                    items:
+                      description: |-
+                        AuthorizationExplanationPath is one observed resource/scope/policy allow
+                        alternative. Different proven origins remain separate even when access overlaps.
+                      properties:
+                        action:
+                          maxLength: 255
+                          minLength: 1
+                          type: string
+                        ancestry:
+                          description: Ordered HankoOrganization refs, at most 32
+                            edges. No provider paths or IDs.
+                          items:
+                            maxLength: 255
+                            type: string
+                          maxItems: 33
+                          type: array
+                        organizationRef:
+                          maxLength: 255
+                          type: string
+                        permission:
+                          maxLength: 255
+                          minLength: 1
+                          type: string
+                        relationship:
+                          enum:
+                          - direct
+                          - descendant
+                          - generic
+                          - mapped_role
+                          - mapped_composite_role
+                          - mapped_client_role
+                          type: string
+                        resource:
+                          maxLength: 255
+                          minLength: 1
+                          type: string
+                        roleChain:
+                          description: Ordered proven role mappings/composite edges,
+                            at most 32 edges.
+                          items:
+                            properties:
+                              client:
+                                description: Declared clientID, never a provider UUID.
+                                maxLength: 255
+                                type: string
+                              kind:
+                                enum:
+                                - realm_role
+                                - client_role
+                                type: string
+                              ref:
+                                description: Declared HankoRole ref or declared domain
+                                  role name.
+                                maxLength: 255
+                                minLength: 1
+                                type: string
+                            required:
+                            - kind
+                            - ref
+                            type: object
+                          maxItems: 33
+                          type: array
+                        sourceKind:
+                          enum:
+                          - organization
+                          - realm_role
+                          - application
+                          - service_account
+                          type: string
+                        sourceRef:
+                          maxLength: 255
+                          minLength: 1
+                          type: string
+                      required:
+                      - action
+                      - permission
+                      - relationship
+                      - resource
+                      - sourceKind
+                      - sourceRef
+                      type: object
+                    maxItems: 256
+                    type: array
+                  source:
+                    description: Applied requires matching current Manage read-back.
+                      Observed proves no application.
+                    enum:
+                    - Applied
+                    - Observed
+                    type: string
+                  sourceGeneration:
+                    format: int64
+                    minimum: 0
+                    type: integer
+                  sourceObservationHash:
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  sourcePlanHash:
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  truncated:
+                    type: boolean
+                required:
+                - complete
+                - explanationHash
+                - paths
+                - source
+                - sourceGeneration
+                - sourceObservationHash
+                - sourcePlanHash
+                - truncated
+                type: object
               backendKind:
                 maxLength: 32
                 type: string

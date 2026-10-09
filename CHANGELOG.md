@@ -5,7 +5,7 @@
 - Accept the organizational authorization design: extend HankoResourceServer with
   an organization principal and explicit descendant semantics, preserving role
   composition without adding a CRD. Bounded
-  policy explanation/provenance remains in #42.
+  structural explanation/provenance completes #42.
 - Characterize real group-policy CRUD, UMA decisions, hierarchy changes, native
   Organization separation and least-privilege profiles on HTTPS Keycloak
   26.7.5/26.8.0. Fresh group ownership reads require explicit view-users authority;
@@ -20,39 +20,47 @@
   Qualify real UMA/profile denials on HTTPS Keycloak 26.7.5/26.8.0, admission/watch
   behavior on Kubernetes 1.35.0/1.36.2/1.37.0 and an installed scanned-image path.
   Previous applied grants can persist until successful reconciliation; no instant
-  revocation or automatic privilege grant is introduced. #42 remains deferred.
-- Keep current packaging at 0.3.0 and all signed source tags immutable.
-
-## 0.3.0 — Unreleased
-
-- Add protocol-aware HankoApplication intent, sealed local plans, Keycloak adapter
-  and bounded evaluation/apply/observation evidence using the IAM contract engine.
-- Preserve the omitted-protocol OIDC default and existing flat OIDC fields. Add a
-  qualified SAML POST subset: entity identity, exact HTTPS ACS, signed response
-  and assertion, bounded NameID formats, shared client roles and metadata URLs.
-- Bind application and mapper ownership to Kubernetes UID. Existing unmarked 0.2
-  clients require reviewed exact UUID + observation approval; no automatic
-  adoption or in-place protocol conversion. Preserve credentials and object IDs
-  during unchanged approved OIDC migration.
-- Qualify real OIDC browser/PKCE/M2M and SAML signature/security flows on Keycloak
-  26.7.5/26.8.0, protocol admission/status on Kubernetes 1.35.0/1.36.2/1.37.0, and
-  installed OIDC/SAML lifecycles in the scanned-image system fixture.
-- Add bounded HankoApplication runtimeBindings: versioned ConfigMap identity.json,
-  optional confidential OIDC credentials, exact application/workload UID consent,
-  explicit target namespace RBAC, revision and target-preserving cleanup.
-- Qualify drift, rotation, partial writes, lost acknowledgements and status-loss
-  recovery without repeated current provider writes; preserve legacy projections.
-- Align active chart/image/CI/evidence metadata to 0.3.0. Historical source tags
-  remain immutable; production publication is pending in #21.
-- Keep SLO, signed SP requests, encryption, SAML attribute statements, workload
-  federation, automatic restart and live Hub binding execution deferred.
+  revocation or automatic privilege grant is introduced.
+- Expose provider-proven structural authorizationExplanation with Applied/Observed
+  source, plan/observation hashes, direct/descendant organization paths, generic
+  role/client paths and observed realm/client composite origins. Preserve overlap.
+  Bound paths to 256 and ancestry/role chains to 32 edges; native/unknown state,
+  missing optional reads and truncation remain explicitly incomplete. No subjects
+  or secrets are exported and status remains evidence only.
+- Keep optional deeper provenance independent of Synced and provider mutation.
+  Qualify read-only failure, forged/historical status and exact-image installation.
+- Align active source/release metadata to 0.4.0, a normal initial-development
+  SemVer source boundary. Historical tags remain immutable; publication is #21.
 
 <!-- release-notes:start -->
 ### Release overview
 
-hankoShell Operator 0.3.0 reconciles declarative Keycloak IAM configuration from
+hankoShell Operator 0.4.0 reconciles declarative Keycloak IAM configuration from
 Kubernetes. Application identity can live beside deployment manifests; Hub,
 hankoShell API and Continuum are optional. Project: https://hanko.sh.
+
+
+Organizational Authorization adds same-namespace organization principals, direct-only
+by default, with explicit expansion to current declared owned descendants. Foreign
+children and prefix collisions are excluded; every provider group definition is
+direct-only. Existing role/client grants remain valid and overlapping allows stay
+separate. Grants use an applied UUID snapshot: previous access can remain until
+successful reconciliation; no instantaneous revocation or token invalidation is claimed.
+
+ResourceServer status exposes up to 256 provider-proven structural alternatives,
+with Applied/Observed source and bound plan/read/hash evidence. Direct/descendant,
+generic realm-role, organization mapping and realm/client composite paths remain
+distinct. Resource/action pairs follow observed bindings, not a desired Cartesian
+product. Ancestry and role chains are bounded to 32 edges. Native policies, unknown
+bindings, unavailable optional reads and truncation prevent complete=true. This
+is structural explanation, not a per-user decision; no subjects or memberships
+are exported. Historical proof remains identifiable when current reads fail.
+
+Organization grants require explicitly provisioned target-realm view-users in
+addition to manage-clients. view-users also reads target-realm users. Mixed role
+provenance uses view-realm and existing client read authority. No new writer,
+self-grant or realm-admin requirement is introduced; optional explanation failure
+preserves otherwise synchronized authorization and induces no policy writes.
 
 Application Identity supports OIDC SPA, confidential web and M2M clients, plus
 qualified SAML SP-initiated POST with exact HTTPS ACS, signed responses/assertions,
@@ -93,7 +101,7 @@ experimental and unqualified. Federation, projected SA JWT login, SPIFFE/token
 exchange, live Hub binding execution, SLO, signed SP requests, encryption,
 artifact/ECP and SAML attribute statements are deferred.
 
-The 16 v1alpha1 APIs remain experimental. 0.3.0 is a normal SemVer version in
+The 16 v1alpha1 APIs remain experimental. 0.4.0 is a normal SemVer version in
 initial development, not a prerelease. Use verified HTTPS, a dedicated limited
 Keycloak service account, referenced Secrets, namespace RBAC, Restricted pods and
 explicit default-deny networking. Source govulncheck and exact AMD64/ARM64 image
@@ -120,6 +128,32 @@ Report vulnerabilities privately at
 https://github.com/Alien6-Studio/hankoshell-operator/security/advisories/new;
 SECURITY.md describes supported versions and response times.
 <!-- release-notes:end -->
+
+## 0.3.0 — Unreleased
+
+- Add protocol-aware HankoApplication intent, sealed local plans, Keycloak adapter
+  and bounded evaluation/apply/observation evidence using the IAM contract engine.
+- Preserve the omitted-protocol OIDC default and existing flat OIDC fields. Add a
+  qualified SAML POST subset: entity identity, exact HTTPS ACS, signed response
+  and assertion, bounded NameID formats, shared client roles and metadata URLs.
+- Bind application and mapper ownership to Kubernetes UID. Existing unmarked 0.2
+  clients require reviewed exact UUID + observation approval; no automatic
+  adoption or in-place protocol conversion. Preserve credentials and object IDs
+  during unchanged approved OIDC migration.
+- Qualify real OIDC browser/PKCE/M2M and SAML signature/security flows on Keycloak
+  26.7.5/26.8.0, protocol admission/status on Kubernetes 1.35.0/1.36.2/1.37.0, and
+  installed OIDC/SAML lifecycles in the scanned-image system fixture.
+- Add bounded HankoApplication runtimeBindings: versioned ConfigMap identity.json,
+  optional confidential OIDC credentials, exact application/workload UID consent,
+  explicit target namespace RBAC, revision and target-preserving cleanup.
+- Qualify drift, rotation, partial writes, lost acknowledgements and status-loss
+  recovery without repeated current provider writes; preserve legacy projections.
+- Align active chart/image/CI/evidence metadata to 0.3.0. Historical source tags
+  remain immutable; production publication is pending in #21.
+- Keep SLO, signed SP requests, encryption, SAML attribute statements, workload
+  federation, automatic restart and live Hub binding execution deferred.
+
+
 
 ## 0.2.0 — Source frozen (unpublished)
 

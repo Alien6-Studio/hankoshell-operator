@@ -315,7 +315,7 @@ func (r *HankoResourceServerReconciler) resolveAuthorizationPrincipal(ctx contex
 		}
 		resolvedRef = account.Spec.ClientID
 	}
-	return authorization.Principal{Kind: principal.Kind, Ref: resolvedRef}, nil
+	return authorization.Principal{Kind: principal.Kind, Ref: resolvedRef, PortableRef: principal.Ref}, nil
 }
 
 func (r *HankoResourceServerReconciler) applicationInRealm(ctx context.Context, namespace, name, realm string) (*hankoshv1alpha1.HankoApplication, error) {
@@ -467,6 +467,7 @@ func (r *HankoResourceServerReconciler) statusPlanError(ctx context.Context, obj
 		}
 		obj.Status.Findings = findingsStatus(state.Findings)
 	}
+	historicalExplanation(obj, "Stale", metav1.ConditionFalse)
 	obj.Status.Phase = "Error"
 	iamCondition(&obj.Status.Conditions, obj.Generation, "ObservationSucceeded", metav1.ConditionUnknown, "NotProven", "current attempt has no proven provider observation")
 	if state != nil && iamcontract.ValidDigest(string(state.Observation.StateHash)) {
@@ -535,6 +536,7 @@ func (r *HankoResourceServerReconciler) statusObservation(ctx context.Context, o
 	}
 	iamCondition(&obj.Status.Conditions, obj.Generation, "ObservationSucceeded", metav1.ConditionTrue, "Observed", "bounded provider observation succeeded")
 	iamCondition(&obj.Status.Conditions, obj.Generation, "CapabilitiesSatisfied", metav1.ConditionTrue, "Supported", "adapter supports requested semantics")
+	r.projectExplanation(ctx, obj, state, plan, !observe)
 	if err := r.Status().Patch(ctx, obj, patch); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -599,11 +601,12 @@ func (r *HankoResourceServerReconciler) SetupWithManager(mgr ctrl.Manager) error
 	if r.APIReader == nil {
 		r.APIReader = mgr.GetAPIReader()
 	}
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &hankoshv1alpha1.HankoResourceServer{}, organizationPrincipalIndex, organizationPrincipalIndexValues); err != nil {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &hankoshv1alpha1.HankoResourceServer{}, organizationPrincipalIndex, authorizationProvenanceIndexValues); err != nil {
 		return err
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoResourceServer{}, builder.WithPredicates(resourceServerAuthorityChanged())).
 		Watches(&hankoshv1alpha1.HankoOrganization{}, handler.EnqueueRequestsFromMapFunc(r.organizationRequests)).
+		Watches(&hankoshv1alpha1.HankoRole{}, handler.EnqueueRequestsFromMapFunc(r.organizationRequests)).
 		Complete(r)
 }

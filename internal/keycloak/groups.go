@@ -204,10 +204,9 @@ type groupClientRoleMapping struct {
 // a directly mapped client role may itself be composite to a reserved realm
 // role. Every provider lookup and composite edge therefore fails closed.
 func (c *Client) GetGroupEffectiveRoleClosure(ctx context.Context, realm, groupID string) ([]RealmRole, error) {
-	path := adminRealmsPath + realm + groupsSegment + url.PathEscape(groupID) + "/role-mappings"
-	var mappings groupRoleMappings
-	if err := c.get(ctx, path, &mappings); err != nil {
-		return nil, fmt.Errorf("get role mappings for group %q in realm %q: %w", groupID, realm, err)
+	mappings, err := c.groupRoleMappings(ctx, realm, groupID)
+	if err != nil {
+		return nil, err
 	}
 
 	closure := make([]RealmRole, 0, len(mappings.RealmMappings))
@@ -436,4 +435,11 @@ func (c *Client) HasGroupChildren(ctx context.Context, realm, groupID string) (b
 		return false, err
 	}
 	return len(children) > 0, nil
+}
+
+// groupRoleMappings shares the bounded authenticated read used by safety and provenance.
+func (c *Client) groupRoleMappings(ctx context.Context, realm, groupID string) (groupRoleMappings, error) {
+	var mappings groupRoleMappings
+	err := c.get(ctx, adminRealmsPath+realm+groupsSegment+url.PathEscape(groupID)+"/role-mappings", &mappings)
+	return mappings, err
 }

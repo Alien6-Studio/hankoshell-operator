@@ -27,7 +27,7 @@ class ReleaseContractTests(unittest.TestCase):
                             "backup/restore", "security/advisories/new", "oci://", "https://hanko.sh"):
             self.assertIn(requirement, notes)
         with self.assertRaises(ValueError):
-            contract.check("0.3.0-beta.1")
+            contract.check("0.4.0-beta.1")
 
     def test_note_drift_or_missing_markers_cannot_be_published(self):
         with patch.object(Path, "read_text", return_value="no curated release notes"), self.assertRaises(ValueError):

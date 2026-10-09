@@ -1,19 +1,17 @@
 # Organizational authorization: accepted 0.4 direction
 
-This document resolves [RFC #40](https://github.com/Alien6-Studio/hankoshell-operator/issues/40)
-when its architecture PR is merged. It defines the implementation direction,
-not an available 0.4 API. Packaging remains **0.3.0**; the signed v0.3.0 source
-boundary is immutable. Implementation is tracked in
-[#41](https://github.com/Alien6-Studio/hankoshell-operator/issues/41) and bounded
-explanation in [#42](https://github.com/Alien6-Studio/hankoshell-operator/issues/42).
+This is the implemented **0.4.0 Organizational Authorization** source contract,
+accepted in [RFC #40](https://github.com/Alien6-Studio/hankoshell-operator/issues/40),
+with grants in #41 and bounded explanation in #42. Packaging metadata is 0.4.0;
+public delivery remains independent in #21. Historical source tags are immutable.
 
 ## Decision
 
 Extend the existing **HankoResourceServer authorization aggregate** with an
 organization principal, explicit direct-only/descendant semantics and a Keycloak
 group-policy adapter. Preserve role composition. Do not add HankoEntitlement,
-HankoUser or another CRD. This PR changes no public API enum, controller or
-production adapter; there are still 16 experimental v1alpha1 CRDs.
+HankoUser or another CRD. The additive organization principal and bounded status projection retain the
+16 experimental v1alpha1 CRDs.
 
 Descendants mean **declared, current, owned HankoOrganization descendants**.
 Compile their bounded UUID set as direct-only group definitions. Do not translate
@@ -42,11 +40,11 @@ The model is `subject × organization × resource × action`:
 | --- | --- |
 | HankoOrganization | Hierarchical Keycloak groups, root native Organizations, realm/client-role mappings; optional platform projection has separate readiness. |
 | HankoRole | Realm roles and their configured composites. |
-| HankoResourceServer | Scopes, resources and allow-only permissions; principal kinds are realm_role, application and service_account. |
+| HankoResourceServer | Scopes, resources and allow-only permissions; principal kinds are realm_role, application, service_account and organization. |
 | HankoApplication | Application identity and the resource-server client relationship. |
 | IAM Contract Engine | Normalized intent, capabilities, locally compiled plans, ownership, freshness, observation and findings. |
 
-There is no organization principal in the current CRD. An organization can map
+An organization can also map
 a realm role whose corresponding HankoRole is referenced by a ResourceServer
 permission. Organization role mappings currently use provider role names;
 the ResourceServer principal uses the HankoRole object name and resolves its
@@ -125,11 +123,11 @@ describes an earlier delimiter error. The qualified images deny Europe-sibling
 under a Europe descendant grant. This result does not extend qualification to
 other versions or token-claim policy configurations.
 
-The experiment characterizes provider primitives. The future adapter's journal,
-stale-plan and forged-status enforcement are implementation acceptance criteria,
-not implemented features demonstrated by these raw REST helpers.
+The experiment characterizes provider primitives. Separate production-reconciler
+tests qualify journal ownership, stale plans, forged status and explanation;
+those guarantees do not follow from raw REST helpers alone.
 Renames/reparenting are bootstrap provider operations, not newly qualified
-HankoOrganization update lifecycle guarantees. The future grant resolver must
+HankoOrganization update lifecycle guarantees. The implemented grant resolver must
 reject a provider hierarchy inconsistent with current Hanko desired state.
 
 ## Exact permission contract and tradeoff
@@ -165,15 +163,14 @@ client administration for both constrained profiles. No manage-users,
 realm-admin, global administrator, new credential Secret or user provisioning
 is required by the group-policy path. The existing organization writer retains
 its separately documented broader provisioning permissions. See the
-[current permission guide](../keycloak-permissions.md); these future group-policy
-routes do not silently become current production client operations.
+[current permission guide](../keycloak-permissions.md); optional group-policy
+and provenance routes do not silently broaden the common credential profile.
 
 ## Principal and inheritance semantics
 
-The conceptual future principal identifies a HankoOrganization by Kubernetes
+The implemented principal identifies a HankoOrganization by Kubernetes
 object name in the ResourceServer namespace. Provider UUIDs, paths and native
-Organization IDs are never accepted as portable desired state. The exact public
-field spelling is reviewed in #41; the semantic choice is fixed here:
+Organization IDs are never accepted as portable desired state. The public fields are kind, ref and includeDescendants; the semantic choice is:
 
 - direct-only is the default, normalized identically for absent/false;
 - descendants require an explicit request and qualified capability;
@@ -264,8 +261,7 @@ objects, role paths, organizations and the resource server.
 
 ## Observation, budgets and capabilities
 
-Extend the existing generic policy inventory **and typed group-policy reads**;
-the current typed adapter handles role/client only. Normalize UUID group
+The adapter observes generic policy inventory **and typed role/client/group reads**. Normalize UUID group
 definitions into resolved organization semantics before domain observation hashes.
 Sort alternatives, preserve descendant choices and distinguish unknown/foreign
 types. Incomplete reads, inconsistent generic/typed representation or lost owner
@@ -275,15 +271,15 @@ visible as findings, including when their access impact cannot be fully explaine
 Retain current bounded collection and owner-journal discipline. One group policy
 per permission can hold its organization alternatives. Mixed role/client/group
 permissions can exceed the existing **256-policy journal bound** at maximum
-permission cardinality; #41 must budget the total before writes and fail closed
+permission cardinality; the compiler budgets the total before writes and fail closed
 rather than silently increase limits. The existing scope/resource/permission and
 response bounds still apply.
 The descendant closure must also fit a first design bound of 128 distinct group
 definitions per permission and 32 hierarchy edges; refuse incomplete/over-budget
-closure rather than truncate it into a proven grant. These are implementation
-validation budgets, not a changed current public schema.
+closure rather than truncate it into a proven grant. These are explicit
+implementation validation budgets.
 
-Explicit future capability evidence separates OrganizationPrincipals and
+Explicit capability evidence separates OrganizationPrincipals and
 OrganizationDescendants. It means qualified Hanko semantics, not merely that a
 server has groups, and it never auto-grants administrative privileges. Unsupported
 inheritance, missing read permission and foreign/native representation generate
@@ -293,48 +289,133 @@ claimed or required for 0.4.
 
 ## Bounded effective explanation
 
-#42 introduces an internal normalized **policy-structure** explain DTO, with a
-bounded ResourceServer status projection reviewed during implementation. A row
-contains organization reference, ResourceServer/resource/scope, effect allow,
-source permission/principal, direct/descendant relationship, ancestor source and
-current evaluated/applied plan evidence. It is not a per-user decision endpoint.
+`HankoResourceServer.status.authorizationExplanation` is normalized structural
+provider evidence. It does not evaluate an individual subject, enumerate
+memberships or promise that every user of an organization has access.
 
-Keep distinct provenance for direct organization, inherited ancestor,
-organization-mapped realm role, mapped client role/native finding, generic role
-unrelated to organization, application and service-account paths. Composite-role
-closure/mapping must be actually observed before attributing a source. If that
-relationship cannot be proved, report it as unknown/native rather than invent
-organization membership. Explain all valid overlapping alternatives.
+```yaml
+status:
+  authorizationExplanation:
+    sourceGeneration: 4
+    sourcePlanHash: sha256:<64 hex characters>
+    sourceObservationHash: sha256:<64 hex characters>
+    source: Applied
+    complete: true
+    truncated: false
+    explanationHash: sha256:<64 hex characters>
+    paths:
+      - permission: invoice-read
+        resource: invoice
+        action: read
+        sourceKind: organization
+        sourceRef: europe
+        organizationRef: france
+        relationship: descendant
+        ancestry: [europe, france]
+```
 
-First design budget: **256 paths**, **32 ancestry edges per path**, bounded
-condition/findings messages, and explicit incomplete/truncated state. Only
-complete current observations can claim complete structural explanation. No user
-names, membership lists, PII, bearer tokens, secret values/hashes, full policy
-payloads or provider UUIDs enter the primary explanation. Policy coverage does
-not imply `allowed=true` for an arbitrary subject or exclude other native grants.
+`Applied` means current Manage application/read-back matches the evaluated plan.
+`Observed` means provider structure was observed without proving Hanko applied it,
+including Observe mode. There is no Desired source. Source generation and plan
+hash identify the evaluated input; they never make an older generation current.
+The explanation sourceObservationHash domain-separates the authorization binding
+observation plus the additional verified organization/role provenance snapshot.
+It is distinct from the ordinary observedStateHash, which remains independent of
+optional deeper reads. explanationHash uses the existing IAM contract version,
+authorization/explanation domain and normalized public semantics, including source,
+completeness, truncation and the actually emitted paths. Hashes grant no authority.
 
-Conflicts are unresolved refs, realm mismatch, stale generation/hierarchy,
-missing/ambiguous ownership, foreign identity collisions, incompatible native
-representation, unsupported inheritance and incomplete reads. Insufficient
-group-read privilege is a blocking dependency/authority finding. Overlapping
-valid allows are not conflicts. There is no explicit deny or new precedence model.
+Paths use existing permission/resource/scope names and Hanko principal refs.
+Resource × action pairs require observed permission-resource/scope bindings and
+resource-scope intersection. A permission with no explicit resources expands only
+to observed declared resources supporting its scopes. No wildcard is invented.
+An owned policy and observed permission-policy binding must prove each path.
+Unknown, foreign, negative/unsupported or inconsistent bindings cannot certify it.
 
-## Migration, security and remaining review
+| Source | Relationship / meaning |
+| --- | --- |
+| organization | direct for its own verified group; descendant with declared Hanko ancestry for explicitly expanded owned nodes |
+| realm_role | generic without organization attribution; the role can be granted outside known organizations |
+| realm_role | mapped_role for an observed direct group realm-role mapping; mapped_composite_role for a proven realm-role chain |
+| realm_role | mapped_client_role for a directly mapped client-role chain reaching the relevant realm role |
+| application / service_account | generic observed client-policy alternative; no invented organization membership |
 
-Existing role grants remain untouched. Enabling an organization principal is an
-additive administrator decision; it does not remove roles, change memberships,
-transfer ownership or create a native Organization. Removing it cannot own the
-organization lifecycle. Recreated organizations require fresh UID proof.
+A role chain carries kind, declared role ref/name and a declared clientID for
+client roles. Direct mappings and each composite edge are read from Keycloak;
+Kubernetes role specs supply labels only. The final role UUID must match the
+private identity observed in the actual role policy; same-name recreation cannot
+bridge an old policy to a new mapping. Cross-client intermediate chains that
+cannot be safely labelled remain ambiguous/incomplete. Unknown or ambiguous labels produce a
+gap instead of raw provider names/IDs. Declared descendant group-role inheritance
+retains its mapping origin in ancestry. Generic role paths always remain, even
+when no organization maps the role. Native client-role effects do not introduce
+a client_role ResourceServer principal. Different valid overlapping origins
+remain separate; exact normalized duplicates collapse.
 
-Implementation tests must cover forged status, foreign/markerless groups,
-ambiguous markers, stale paths, hierarchy races, hidden native policies, read
-budgets, new descendant discovery, foreign-child exclusion, privilege omission
-and owned-only cleanup, in addition to the provider
-characterization. No new user/membership/LDAP API, credentials, deny model, Hub
-transport, Continuum change or second provider belongs to this RFC.
+Paths are sorted by permission, resource, action, source kind/ref, organization,
+relationship, ancestry and role chain. Public limits are **256 paths**, **33
+ancestry refs / 32 edges** and **33 role steps / 32 edges**, with bounded strings,
+enums and SHA-256 patterns enforced by the CRD. More than 256 paths yields the
+deterministic first 256, truncated=true, complete=false and ExplanationTruncated.
+Over-budget individual ancestry/role chains are not fabricated as complete.
+The serialized public explanation additionally stays below 192 KiB, keeping the
+same deterministic prefix and marking truncation if long paths reach that budget.
+Optional role discovery is bounded to 128 verified organizations; per group it
+bounds roots/nodes to 512, edges/chains to 1,024 and depth to 32.
+The aggregate role-binding evidence is limited to 1,024 chains. Cycles or excess
+budgets become CompositeClosureIncomplete. No unlimited graph walk is permitted.
 
-The accepted semantic decision is complete. The exact public field/status shape
-and names, group-only fine-grained delegation, external IdP population and broader
-operational/provider qualification remain explicitly separate reviews. They do
-not justify advertising those capabilities now. Next: #41 implements the accepted
-grant model; #42 follows its proven observations and provenance.
+`complete=true` means the relevant supported provider observation/bindings are
+resolved, all emitted portable origins are proven, no known native/unknown state
+prevents a full structural account and nothing was truncated. It does not cover
+all runtime subjects. Foreign/native policies remain untouched and visible;
+provider-native extendChildren=true is never converted into Hanko ancestry.
+Native permissions can also constrain the final result under Keycloak
+provider-wide decision strategies; a managed structural alternative alone does
+not promise a runtime allow. The real fixture demonstrates that distinction.
+Native/unknown authorization may add other paths, so complete=false never means
+that the displayed paths are the only ways to obtain access.
+
+`AuthorizationExplained` is independent of Synced: True/Complete; False/Incomplete,
+Truncated, Stale or ProvenanceReadUnavailable; Unknown/NotObserved when no usable
+observation exists. Optional provenance read failure cannot invalidate otherwise
+proven grants or cause policy writes. See the [read permission contract](../keycloak-permissions.md#optional-structural-role-provenance-reads).
+Optional provenance reads have a 30-second aggregate deadline. Their failure
+remains an explanation gap, not grant mutation or a new availability dependency.
+Current uncached Kubernetes data, fresh exact group ownership, repeated role-edge
+observations and final plan revalidation bound freshness. A concurrent dependency
+change yields historical/stale or incomplete evidence rather than new applied
+ancestry. Status updates do not trigger an explanation hot loop; indexed local
+organization/role watches and periodic reconciliation refresh dependency changes.
+Provider-only changes converge at the periodic interval.
+
+Read/plan failure retains previous proven explanation as historical; its source
+hashes/generation and the current condition disclose the distinction. Rename
+keeps public Hanko refs; reparent changes ancestry only after verified successful
+reconciliation. Role/composite paths change only after current provider reads.
+Previously applied UUID grants can remain during failure or connectivity loss.
+No instantaneous revocation, existing-token invalidation or application-enforcement
+guarantee follows from an explanation. Incident response may require provider and
+token/session revocation.
+
+No usernames, email, user IDs, memberships, tokens, secret values/hashes, provider
+UUIDs or raw payloads enter explanation paths. No user API, deny model, new CRD,
+live Hub receiving schema or Continuum behavior is added. Status tampering does
+not affect execution, adoption, ownership or deletion; new explanation is rebuilt
+from provider evidence.
+
+## Qualification and remaining limits
+
+Unit/adversarial tests cover observed resource/action intersection, exact scope-only
+coverage, overlapping alternatives, native/unknown gaps, deterministic order and
+truncation, graph cycles/depth, forged and historical status and missing optional
+reads. Kubernetes 1.35.0/1.36.2/1.37.0 qualifies bounded status admission/round-trip
+and the existing quiescent dependency watcher. HTTPS Keycloak 26.7.5/26.8.0 qualifies
+production-controller direct/descendant paths against actual UMA decisions,
+realm/client mapping/composite origins, privilege failure, Observe, native-policy
+preservation, rename/reparent and cleanup. The scanned-image installed system
+qualifies a compact organization/descendant + overlapping role explanation.
+
+Fine-grained group-only delegation, external IdP group population, provider/cloud
+parity, portable backup/restore and live subject decisions remain unqualified.
+The existing normal role grants and role-composition lifecycle remain unchanged.
