@@ -111,6 +111,17 @@ func TestRealKeycloakApplicationProtocolsAndFlows(t *testing.T) {
 			}
 		}
 	}
+	// An explicit request may select any registered exact ACS, rather than only
+	// Keycloak's canonical default POST destination. Qualify real multi-ACS use.
+	fixtureGet(f, ctx, kube, saml)
+	secondACS := acs + "-secondary"
+	saml.Spec.SAML.AssertionConsumerServices = []string{secondACS, acs}
+	saml.Generation++
+	f.requireNoError(kube.Update(ctx, saml))
+	fixtureReconcile(f, ctx, ar, saml)
+	secondResponse, secondRequest := fixtureSAMLResponse(f, protocolBrowser(f), entity, secondACS, issuer+"/protocol/saml", username, password)
+	_, err = validateSAMLResponse(secondResponse, certificates, samlExpectation{Issuer: issuer, Audience: entity, ACS: secondACS, RequestID: secondRequest, NameIDFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified", Now: time.Now()})
+	f.requireNoError(err)
 	status, _, _ := protocolHTTP(f, protocolBrowser(f), http.MethodPost, issuer+"/protocol/saml", samlAuthnRequest(entity, acs+"-foreign", issuer+"/protocol/saml", "_wrong_acs"))
 	if status != http.StatusBadRequest {
 		t.Fatalf("Keycloak accepted unregistered ACS: HTTP %d", status)

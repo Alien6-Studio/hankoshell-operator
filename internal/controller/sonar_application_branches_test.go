@@ -338,9 +338,12 @@ func TestManagedApplicationDeletionCleansOnlyRecordedMappers(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		switch {
 		case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/acme/identity-provider/instances/entra/mappers":
-			_ = json.NewEncoder(w).Encode([]keycloak.IdentityProviderMapper{{ID: "idp-uuid", Config: map[string]string{"hanko.sh/application-owner": "application-uid"}}})
+			_ = json.NewEncoder(w).Encode([]keycloak.IdentityProviderMapper{{ID: "idp-uuid", Config: map[string]string{"hanko.sh/application-owner": "application-uid"}}, {ID: "foreign-idp", Config: map[string]string{"hanko.sh/application-owner": "foreign-uid"}}})
 		case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/acme/clients/client-uuid/protocol-mappers/models":
-			_ = json.NewEncoder(w).Encode([]keycloak.ProtocolMapper{{ID: "claim-uuid", Config: map[string]string{"hanko.sh/application-owner": "application-uid"}}})
+			_ = json.NewEncoder(w).Encode([]keycloak.ProtocolMapper{{ID: "claim-uuid", Config: map[string]string{"hanko.sh/application-owner": "application-uid"}}, {ID: "foreign-claim", Config: map[string]string{"hanko.sh/application-owner": "foreign-uid"}}})
+		case request.Method == http.MethodDelete && strings.Contains(request.URL.Path, "foreign-"):
+			t.Error("forged status authorized foreign mapper deletion")
+			w.WriteHeader(http.StatusNoContent)
 
 		case request.Method == http.MethodPost && request.URL.Path == "/realms/master/protocol/openid-connect/token":
 			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "token", "expires_in": 300})
@@ -363,10 +366,12 @@ func TestManagedApplicationDeletionCleansOnlyRecordedMappers(t *testing.T) {
 		Status: hankoshv1alpha1.HankoApplicationStatus{
 			ManagedIdentityMappings: []hankoshv1alpha1.ManagedIdentityMappingReference{
 				{Name: "department", IdentityProvider: "entra", KeycloakID: "idp-uuid"},
+				{Name: "forged", IdentityProvider: "entra", KeycloakID: "foreign-idp"},
 				{Name: "not-created", IdentityProvider: "entra"},
 			},
 			ManagedTokenClaims: []hankoshv1alpha1.ManagedTokenClaimReference{
 				{Name: "tenant", KeycloakID: "claim-uuid"},
+				{Name: "forged", KeycloakID: "foreign-claim"},
 				{Name: "not-created"},
 			},
 		},
