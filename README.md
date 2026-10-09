@@ -26,7 +26,8 @@ enterprise fleet. Project website: **[hanko.sh](https://hanko.sh)**.
 [Secure deployment and trust model](docs/secure-deployment.md) ·
 [Keycloak permissions](docs/keycloak-permissions.md) ·
 [OIDC/SAML application model and migration](docs/architecture/application-identity.md) ·
-[Changes](CHANGELOG.md) · **[Roadmap](ROADMAP.md)** · [IAM contract architecture](docs/architecture/iam-contract-engine.md)
+[Changes](CHANGELOG.md) · **[Roadmap](ROADMAP.md)** · [IAM contract architecture](docs/architecture/iam-contract-engine.md) ·
+[0.4 organizational authorization design](docs/architecture/organizational-authorization.md)
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/badge/version-0.3.0%20initial%20development-blue.svg)](#release-maturity)
