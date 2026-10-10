@@ -615,6 +615,9 @@ class System:
             {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoImport",
              "metadata": {"name": "leaf-inventory", "namespace": "auth"},
              "spec": {"sourceRef": "inventory-source", "realms": ["managed"], "includeIdentityProviders": False}})
+        # Import publishes discovery candidates while creating targets. Finish
+        # that publisher before reviewing a fresh target-controller observation.
+        wait("completed leaf inventory", lambda: self.get("hankoimport", "leaf-inventory").get("status", {}).get("phase") == "Done")
 
         def imported(kind, field, value):
             items = json.loads(self.kubectl("get", kind, "-n", "auth", "-o", "json"))["items"]
@@ -629,6 +632,11 @@ class System:
                  imported(kind, field, value).get("status", {}).get("adoptionCandidate", {}).get("approvable") is True)
             target = imported(kind, field, value)
             name, uid = target["metadata"]["name"], target["metadata"]["uid"]
+            previous_observation = target.get("status", {}).get("lastReconciled")
+            self.kubectl("annotate", kind, name, "-n", "auth", "hanko.sh/reconcile-request=" + str(time.time_ns()))
+            wait("fresh installed leaf observation", lambda: self.get(kind, name).get("status", {}).get("lastReconciled") not in (None, previous_observation)
+                 and self.get(kind, name).get("status", {}).get("adoptionCandidate", {}).get("approvable") is True)
+            target = self.get(kind, name)
             candidate = target["status"]["adoptionCandidate"]
             if target["spec"].get("mode") != "Observe" or target["metadata"].get("finalizers"):
                 raise ValueError("Import acquired semantic or destructive authority")
@@ -636,7 +644,17 @@ class System:
                          "hanko.sh/adoption-source=inventory-source",
                          "hanko.sh/adoption-contract=hanko.sh/adoption-contract/v1alpha1",
                          "hanko.sh/adoption-candidate=" + candidate["candidateHash"])
-            wait("installed ownership receipt", lambda: self.get(kind, name).get("status", {}).get("adoptionReceipt", {}).get("state") == "Verified")
+            try:
+                wait("installed ownership receipt", lambda: self.get(kind, name).get("status", {}).get("adoptionReceipt", {}).get("state") == "Verified")
+            except RuntimeError:
+                status = self.get(kind, name).get("status", {})
+                observed = status.get("adoptionCandidate", {})
+                print(json.dumps({"kind": kind, "name": name, "approvedHash": candidate["candidateHash"],
+                                  "currentHash": observed.get("candidateHash"), "complete": observed.get("complete"),
+                                  "approvable": observed.get("approvable"), "receiptState": status.get("adoptionReceipt", {}).get("state"),
+                                  "conditions": [{"type": c.get("type"), "reason": c.get("reason")} for c in status.get("conditions", [])][:32],
+                                  "findings": [f.get("code") for f in observed.get("findings", [])][:32]}), flush=True)
+                raise
             adopted = self.get(kind, name)
             current = self.client("managed", value) if kind == "hankoserviceaccount" else self.api("GET", base + "/roles/" + value)
             attrs = current.get("attributes", {})
