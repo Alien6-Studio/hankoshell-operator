@@ -97,21 +97,21 @@ def qualify(output, archive, evidence, image, revision, oras, helm, attest, conf
         for directory in ("dist", "release-evidence"):
             shutil.copytree(output / directory, root / directory)
         shutil.copyfile(archive, root / "image.tar")
-        reference = local + "/operator:delivery-candidate-0.4.0"
-        publish.save(registry, reference, root, "0.4.0", revision, image)
+        reference = local + "/operator:delivery-candidate-0.5.0"
+        publish.save(registry, reference, root, "0.5.0", revision, image)
         committed = registry.resolve(reference)
         # Simulate an interrupted save whose registry acknowledgement was lost.
-        publish.save(registry, reference, root, "0.4.0", revision, image)
+        publish.save(registry, reference, root, "0.5.0", revision, image)
         if registry.resolve(reference) != committed:
             raise ValueError("Retry replaced the committed checkpoint")
         with tempfile.TemporaryDirectory() as temp:
             restored = Path(temp) / "delivery"
-            publish.restore(registry, reference, restored, "0.4.0", revision)
+            publish.restore(registry, reference, restored, "0.5.0", revision)
             publish.verify_attest(restored, attest, config)
             if publish.hashes(restored) != publish.hashes(root):
                 raise ValueError("Restored delivery differs from signed bytes")
             try:
-                publish.verify_checkpoint(restored, "0.4.0", "0" * 40)
+                publish.verify_checkpoint(restored, "0.5.0", "0" * 40)
             except ValueError:
                 pass
             else:
@@ -186,7 +186,7 @@ def qualify(output, archive, evidence, image, revision, oras, helm, attest, conf
             conflict = local + "/conflicting-operator"
             fake = Path(temp) / "fake-image"
             fake.write_bytes(b"unrelated OCI artifact")
-            registry.push_file(conflict + ":0.4.0", fake, "application/octet-stream")
+            registry.push_file(conflict + ":0.5.0", fake, "application/octet-stream")
             try:
                 publish.promote(transport, releases, restored, image_repository=conflict,
                                 chart_repository=chart_repo, fresh_evidence=evidence)

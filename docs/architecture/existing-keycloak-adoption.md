@@ -4,13 +4,12 @@ Accepted direction for [RFC #46](https://github.com/Alien6-Studio/hankoshell-ope
 starting milestone **0.5.0 — Adopt Existing Keycloak** after immutable v0.4.0.
 The source tree implements bounded discovery/diff, explicit reviewed ownership
 acquisition, Organization and ResourceServer checkpoints, and a separate qualified
-transition to Manage. Current packaging remains 0.4.0 while the final #49 source
-qualification is in progress. The 16 v1alpha1 CRDs remain experimental.
+transition to Manage. Source and chart metadata are aligned to 0.5.0; source
+freeze requires the final protected-merge and exact-main qualification gates. The 16 v1alpha1 CRDs remain experimental.
 
 ## Implemented discovery and diff (#47)
 
-The source tree implements DISCOVER → OBSERVE → PLAN → DIFF, while packaging
-remains 0.4.0. The discovery/diff evidence alone approves no adoption and writes no
+The source tree implements DISCOVER → OBSERVE → PLAN → DIFF. The discovery/diff evidence alone approves no adoption and writes no
 provider owner marker/journal/receipt. The separate #48 executor below requires
 explicit approval; it neither rotates credentials nor enters Manage.
 The existing application UUID + migration observation-hash flow is unchanged;
@@ -461,6 +460,58 @@ of requiring the realm's imported label to be removed. A root Organization requi
 the realm's Organizations feature to be enabled already. The operator refuses a
 disabled feature; child acquisition does not enable it. Realm-role definitions
 still require Keycloak's broader `manage-realm` authority; see the permission contract.
+
+## §117 — Provider authority and HankoRole exception
+
+Application, ServiceAccount, ResourceServer and Organization aggregate writers
+MUST retain provider-enforced denial of target-realm DELETE and realm security
+mutation. Real HTTPS Keycloak qualification must prove these denials; Kubernetes
+ownership alone is not a provider permission boundary.
+
+HankoRole Manage is enabled under an explicit provider-granularity exception.
+The target-realm built-in `manage-realm` role is the currently qualified Keycloak
+authority for creating, updating, deleting and composing realm-role definitions.
+It also permits configuration/security mutation and deletion of that **same
+complete target realm**. This is an unavoidable least-privilege limitation of the
+qualified built-in permission model, not a narrow role-definition-only permission.
+Fine-grained role mapping permissions are not a qualified substitute for this
+role-definition CRUD authority.
+
+The HankoRole writer MUST have Full Scope Allowed disabled, exact permitted role
+scopes and authority only on the explicitly authorized target realm. It MUST NOT
+receive `realm-admin`, master `manage-realm`, `create-realm` or authority on
+unrelated realms. Authentication in master through a target-realm proxy role does
+not authorize administration of master. Recommend a dedicated role-writer identity
+per target realm, with separately scoped watched declarations, wherever deployment
+architecture permits it. Document credential compromise as compromise of the
+**entire target realm**, even with a dedicated identity.
+
+This broader credential does not confer hankoShell ownership of realm lifecycle.
+An imported/external HankoRealm MUST remain Observe-only: no realm owner marker,
+no realm lifecycle finalizer, no realm deletion and no realm security reconciliation
+through HankoRole. Normal HankoRole Admin API operations MUST stay within the
+qualified realm-role definition/composite endpoints, with read-only realm identity
+checks as required. It MUST NOT invoke realm-level PUT/DELETE, security routes or
+other realm lifecycle mutations as a side effect of role reconciliation. Token
+acquisition is authentication, not realm administration.
+
+Qualification MUST distinguish two separate assertions:
+
+- Controller traces prove the qualified operation inventory, actual role Manage,
+  native preservation, conservative cleanup refusal and an untouched external realm.
+- Direct real-Keycloak credential probes prove that a client-only writer cannot
+  update/delete realm-role definitions, and that the `manage-realm` role writer
+  can alter security and delete its disposable target realm. These probes document
+  provider blast radius; they are never expected HankoRole controller behavior.
+
+Kubernetes object ownership governs what the controller is authorized to act on.
+It does not cryptographically constrain the Keycloak credential, whose technical
+authority remains broader. The #47/#48 contract remains mandatory: a reviewed
+candidate, exact provider UUID and target UID, verified receipt, native preservation,
+no adoption from name or status, and an explicit Observe → Manage transition.
+Adopted-role destructive cleanup MUST remain refused until complete absence of
+foreign references can be proven. This exception changes neither that conservative
+cleanup policy nor external realm ownership.
 
 ## Candidate, diff and approval identity
 

@@ -57,16 +57,17 @@ and [RFC #46](https://github.com/Alien6-Studio/hankoshell-operator/issues/46).
 [#47](https://github.com/Alien6-Studio/hankoshell-operator/issues/47),
 [#48](https://github.com/Alien6-Studio/hankoshell-operator/issues/48) and
 [#49](https://github.com/Alien6-Studio/hankoshell-operator/issues/49) implement discovery/diff,
-explicit ownership and aggregate/native qualification in that order. Current
-HankoImport/Observe remains the available inventory behavior until those changes
-land; general adoption is not implemented by the RFC. Production publication
+explicit ownership and aggregate/native qualification in that order. The source implements reviewed leaf/aggregate acquisition and explicit Manage
+with native preservation and the documented target-realm HankoRole credential
+exception. Final source freeze requires protected merge and exact-main qualification;
+no 0.6 work is started. Production publication
 remains independent in #21.
 [#24](https://github.com/Alien6-Studio/hankoshell-operator/issues/24) is resolved by
 the [qualified OIDC/SAML application contract](docs/architecture/application-identity.md).
 [#25](https://github.com/Alien6-Studio/hankoshell-operator/issues/25) defines
 [UID-bound runtime delivery](docs/architecture/application-identity.md#runtime-bindings),
 implemented on HankoApplication without another CRD. Chart/app source metadata is
-0.4.0. The 16 `hanko.sh/v1alpha1` APIs remain experimental before 1.0. Later
+0.5.0. The 16 `hanko.sh/v1alpha1` APIs remain experimental before 1.0. Later
 milestones are proposed scope, not additional current support or scheduled delivery.
 
 The current foundation already includes:
@@ -92,7 +93,7 @@ The current foundation already includes:
   enrollment, credential rotation, supervision and guarded operator updates.
 
 `HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are experimental
-and unqualified in 0.4.0. Their interruption/retry, child ownership and completion
+and unqualified in 0.5.0. Their interruption/retry, child ownership and completion
 qualification remains in [lifecycle backlog issue #20](https://github.com/Alien6-Studio/hankoshell-operator/issues/20),
 not a prerequisite for the first core IAM delivery. They do not provide a tested
 database migration or disaster-recovery path; see the

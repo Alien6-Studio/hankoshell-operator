@@ -1059,7 +1059,7 @@ def main():
     for name in ("digest", "revision"):
         parser.add_argument("--" + name, required=True)
     args = parser.parse_args()
-    publication.publish.contract.security.verify(args.evidence, args.revision, "0.4.0", args.digest, args.archive)
+    publication.publish.contract.security.verify(args.evidence, args.revision, "0.5.0", args.digest, args.archive)
     with tempfile.TemporaryDirectory(prefix="hankoshell-system-private-") as temp:
         system = System(args, Path(temp))
         try:
@@ -1070,7 +1070,7 @@ def main():
             system.install()
             print("System: scanned operator installed through Helm", flush=True)
             system.reconcile()
-            args.output.write_text(json.dumps({"version": "0.4.0", "revision": args.revision, "image_digest": args.digest,
+            args.output.write_text(json.dumps({"version": "0.5.0", "revision": args.revision, "image_digest": args.digest,
                 "kubernetes": "1.37.0", "keycloak": "26.8.0", "result": "pass",
                 "checks": ["Helm installation and real pod startup under Restricted admission", "namespace RBAC and current-API event recording",
                            "verified private-CA HTTPS, wrong-CA readiness/write denial and trust repair", "scoped Keycloak identity and denied authority", "realm/client/roles/Secret reconciliation",

@@ -1,6 +1,6 @@
 # Keycloak administrative permissions
 
-This is the permission contract for **hankoShell Operator 0.4.0**, verified against
+This is the permission contract for **hankoShell Operator 0.5.0**, verified against
 real Keycloak **26.8.0 and 26.7.5** over verified HTTPS with `client_credentials`.
 It covers the Admin REST API used by the operator. Kubernetes permissions and
 Hub/Continuum credentials are separate; see [secure deployment](secure-deployment.md).
@@ -20,7 +20,7 @@ powers of the minimum built-in-role profile. Use separate realms and identities
 when those powers cross a trust boundary. A fine-grained administration policy
 might reduce individual resource scope, but is **not qualified by this contract**.
 
-In 0.4.0 the credential client authenticates in **master**. Target-realm authority
+In 0.5.0 the credential client authenticates in **master**. Target-realm authority
 is granted through Keycloak's native **`<target-realm>-realm` client in master**.
 These client roles administer that target; they are not master administrative
 roles. Do not substitute master `admin` or the `master-realm` client roles.
@@ -136,7 +136,7 @@ can trigger realm-wide logout: grant `manage-users` when that transition is used
 or have an administrator perform the transition and session revocation first.
 Never silently skip a denied security action to obtain a green reconciliation.
 
-## Organization principals (0.4.0)
+## Organization principals (0.5.0)
 
 **Fresh ownership reads require target-realm `view-users`. This also permits
 reading users throughout that realm.** It is an optional privacy tradeoff, not a
@@ -263,7 +263,7 @@ organization principal still needs its mandatory ownership read before execution
 Transient composite/role-read failures have the same independent evidence behavior.
 All reads remain HTTPS-authenticated, response-bounded and redirect-rejecting.
 
-## Application protocols in 0.4.0
+## Application protocols in 0.5.0
 
 OIDC and the bounded SAML application/client-role contract use target-realm
 `manage-clients` only; real protocol/lifecycle tests omit realm, event, user,
@@ -591,9 +591,10 @@ It does not authorize the operator to modify those clients. The native 26.7.5
 credential-visibility limitation of view-clients remains: the inventory transport
 guard still refuses client-secret/service-account-user routes on both versions.
 
-The aggregate writers prove realm DELETE, realm security PUT and global realm
-creation return 403 on real HTTPS Keycloak. Bootstrap administration provisions
-disposable foreign fixtures and scoped identities only. Ownership acquisition
+Application, ServiceAccount, ResourceServer and Organization aggregate writers
+MUST prove realm DELETE, realm security PUT and global realm creation return 403
+on real HTTPS Keycloak. HankoRole uses the explicit §117 exception below.
+Bootstrap administration provisions disposable foreign fixtures and scoped identities only. Ownership acquisition
 does not use user/member reads; destructive Organization safety uses only bounded
 `first=0&max=1` membership existence, without retaining identities.
 
@@ -604,6 +605,25 @@ realm security and delete the disposable target realm. These direct probes
 characterize credential authority; normal child reconciliation leaves the
 external realm untouched. Fine-grained role permissions cover role mapping,
 composite mapping and client-scope mapping; they are not a qualified substitute
-for role-definition create/update/delete. Separate this identity and its watched
-declarations if this authority is acceptable. Otherwise keep roles Observe.
-Neither `realm-admin` nor a global master administrator is the default.
+for role-definition create/update/delete. HankoRole Manage remains enabled under
+[§117's provider-granularity exception](architecture/existing-keycloak-adoption.md#117--provider-authority-and-hankorole-exception).
+
+Use only the explicitly authorized target realm, exact permitted role scopes and
+Full Scope Allowed disabled. No `realm-admin`, master `manage-realm`, `create-realm`
+or unrelated-realm authority is permitted. Recommend a dedicated role-writer
+identity per target realm where deployment architecture permits it. Its compromise
+blast radius is the **complete target realm**, including configuration/security
+mutation and realm deletion. The built-in permission cannot express only
+role-definition management.
+
+Kubernetes ownership controls controller authorization; it does not cryptographically
+restrict this technically broader Keycloak credential. The external/imported realm
+remains Observe-only, with no realm owner marker or lifecycle finalizer. Normal
+HankoRole reconciliation uses the qualified realm-role endpoints (and necessary
+read-only realm identity checks); it must never invoke realm PUT/DELETE or security
+routes. Direct credential probes are intentionally broader and remain separate
+from controller traces. A child receipt grants no realm lifecycle/security ownership.
+Reviewed candidates, exact provider UUID/target UID, verified receipts, native
+preservation and the explicit Observe → Manage transition remain mandatory;
+name/status matching never adopts a role. Adopted-role cleanup remains refused
+while complete absence of foreign references cannot be proven.

@@ -37,9 +37,9 @@
 - Extend the installed scanned-image system test through acquisition, explicit
   Manage, native preservation, restart/status recovery, drift repair and safe
   cleanup/refusal with separate Organization and authorization writer profiles.
-  Final #49 source/image/matrix qualification remains in progress; no 0.5 tag
-  or public package has been created. GO-2026-5932 remains UNKNOWN/unfixed and
-  unsuppressed.
+  Align active source/chart/release qualification metadata to 0.5.0. Source freeze
+  requires protected merge and exact-main qualification; public distribution stays
+  independent in #21. GO-2026-5932 remains UNKNOWN/unfixed and unsuppressed.
 
 - Implement #48: explicit target-local source/contract/candidate approval for
   lossless OIDC/SAML application, role and service-account ownership acquisition.
@@ -63,7 +63,7 @@
   Other values/native state remain refused. Keep native client-scope collections
   unqualified; avoid reattaching service_account during ownership-only PUT.
   Qualify HTTPS 26.7.5/26.8.0, Kubernetes 1.35.0/1.36.2/1.37.0 and an installed
-  scanned-image import/acquisition path. Packaging remains 0.4.0.
+  scanned-image import/acquisition path. The final source boundary is 0.5.0.
 
 - Implement #47: bounded existing-Keycloak discovery, observation and typed
   adoption diff. Add the evidence-only `hanko.sh/adoption-contract/v1alpha1`
@@ -79,7 +79,7 @@
   memberships or client-secret endpoints. Opaque credentials remain excluded;
   lossy native round trips and unresolved aggregate references are not approvable.
 - Final aggregate/adopt-to-Manage qualification is tracked by #49.
-  Packaging stays 0.4.0 during qualification. GO-2026-5932 remains
+  GO-2026-5932 remains
   UNKNOWN/unfixed and unsuppressed: the Go advisory contains no fixed version.
 
 - Accept the existing-Keycloak adoption architecture: HankoImport remains
@@ -91,9 +91,126 @@
   and opaque broker lifecycle as Observe-only; preserve legacy application
   UUID/observation migration syntax. No production adoption API is added.
 - Create the discovery/diff, leaf ownership and aggregate/native qualification
-  backlog. Current packaging remains 0.4.0; no 0.5 source tag or publication.
+  backlog. Public distribution remains independent in #21.
 
-## 0.4.0 — Unreleased
+<!-- release-notes:start -->
+### Release overview
+
+hankoShell Operator 0.5.0 reconciles declarative Keycloak IAM configuration from
+Kubernetes. Application identity can live beside deployment manifests; Hub,
+hankoShell API and Continuum are optional. Project: https://hanko.sh.
+
+
+Existing-Keycloak adoption adds bounded discovery and typed diffs, reviewed
+owner-only leaf acquisition, Organization checkpoints and selective ResourceServer
+journals. Candidates bind exact provider UUIDs and Kubernetes target UIDs; verified
+receipts, native preservation and an explicit Observe → Manage transition are
+mandatory. Names and status never grant ownership. Imported realms and opaque
+brokers remain Observe-only. Adopted-role cleanup refuses destruction when complete
+absence of foreign references cannot be proven.
+
+HankoRole Manage uses an explicit §117 provider-granularity exception: target-realm
+manage-realm is required for realm-role definitions but also grants security/config
+mutation and deletion of the entire target realm. Recommend a dedicated role writer
+per target realm; credential compromise exposes that complete realm. Full Scope
+Allowed stays disabled, scopes stay exact, and realm-admin, master manage-realm,
+create-realm and unrelated-realm authority remain excluded. Controller ownership is
+not a cryptographic restriction on the credential. Normal HankoRole reconciliation
+never invokes realm lifecycle/security mutations or acquires realm ownership.
+Application, ServiceAccount, ResourceServer and Organization writers retain strict
+realm DELETE/security denial. Direct provider blast-radius probes and controller
+operation-inventory checks are distinct qualification evidence.
+
+Organizational Authorization adds same-namespace organization principals, direct-only
+by default, with explicit expansion to current declared owned descendants. Foreign
+children and prefix collisions are excluded; every provider group definition is
+direct-only. Existing role/client grants remain valid and overlapping allows stay
+separate. Grants use an applied UUID snapshot: previous access can remain until
+successful reconciliation; no instantaneous revocation or token invalidation is claimed.
+
+ResourceServer status exposes up to 256 provider-proven structural alternatives,
+with Applied/Observed source and bound plan/read/hash evidence. Direct/descendant,
+generic realm-role, organization mapping and realm/client composite paths remain
+distinct. Resource/action pairs follow observed bindings, not a desired Cartesian
+product. Ancestry and role chains are bounded to 32 edges. Native policies, unknown
+bindings, unavailable optional reads and truncation prevent complete=true. This
+is structural explanation, not a per-user decision; no subjects or memberships
+are exported. Historical proof remains identifiable when current reads fail.
+
+Organization grants require explicitly provisioned target-realm view-users in
+addition to manage-clients. view-users also reads target-realm users. Mixed role
+provenance uses view-realm and existing client read authority. No new writer,
+self-grant or realm-admin requirement is introduced; optional explanation failure
+preserves otherwise synchronized authorization and induces no policy writes.
+
+Application Identity supports OIDC SPA, confidential web and M2M clients, plus
+qualified SAML SP-initiated POST with exact HTTPS ACS, signed responses/assertions,
+bounded NameID formats, client roles and IdP metadata URLs. OIDC remains the
+omitted-protocol default. Application and mapper ownership is bound to Kubernetes
+UID; legacy unmarked clients require an administrator-reviewed exact provider UUID
+and observation hash. In-place protocol conversion is refused.
+
+HankoApplication runtimeBindings deliver a deterministic, versioned identity.json
+ConfigMap and optional confidential OIDC client_secret into existing workload-owned
+targets. Every target consents to the exact application UID, binding, current
+ServiceAccount UID and target type. Resource-name-limited namespace RBAC grants
+get/patch only; no new Keycloak permission is needed. SPA/SAML are metadata-only,
+and Observe bindings are refused. There is no new CRD.
+
+Delivery advances only from current proven applied provider state. bindingRevision
+uses public metadata, plan/generation and non-secret Kubernetes identities/version
+metadata, never secret bytes. Rotation updates canonical and workload credentials
+and output revisions. Partial writes, acknowledgement loss and status loss converge
+without repeating current client/mapper writes or credential rotation. Cleanup
+removes managed fields only and requires fresh consent; revoked consent needs
+administrator action. ConfigMap/Secret writes are nontransactional. Consumers check
+Ready and matching revisions; no SDK, workload mutation or automatic restart is
+provided. Legacy credential-only projections are preserved separately.
+
+The existing IAM Contract Engine covers roles/resource-server plans, observations,
+drift, capability refusals and owned cleanup. Standalone organizations reconcile
+Keycloak groups/native Organizations independently of optional platform projection.
+Status is evidence, not execution authority. No remote executable plan is exposed.
+
+Qualification uses Kubernetes 1.35.0, 1.36.2 and 1.37.0 API/etcd fixtures; real HTTPS
+Keycloak 26.7.5 and 26.8.0 including OIDC browser/PKCE, M2M and SAML signature/security
+regression; and an installed exact-scanned-image system on kind 1.37.0 plus HTTPS
+Keycloak 26.8.0 with runtime delivery, projected-credential token, rotation and
+cleanup. Other versions, cloud/CNI/CSI enforcement, enterprise fleets and production
+portable backup/restore are unqualified. Snapshot and lifecycle workflows remain
+experimental and unqualified. Federation, projected SA JWT login, SPIFFE/token
+exchange, live Hub binding execution, SLO, signed SP requests, encryption,
+artifact/ECP and SAML attribute statements are deferred.
+
+The 16 v1alpha1 APIs remain experimental. 0.5.0 is a normal SemVer version in
+initial development, not a prerelease. Use verified HTTPS, a dedicated limited
+Keycloak service account, referenced Secrets, namespace RBAC, Restricted pods and
+explicit default-deny networking. Source govulncheck and exact AMD64/ARM64 image
+scans are additive. The operator and embedded cosign are scanned. GO-2026-5932
+remains an unsuppressed UNKNOWN/unfixed dependency advisory until upstream supplies
+a compatible fix. No fixable HIGH/CRITICAL finding passes the image gate.
+
+Supply-chain evidence distinguishes SBOM, provenance, vulnerability reports,
+Sigstore signatures and Continuum Attest receipts. The signed source tag freezes
+source only. Production publication remains pending in #21: no public chart, image
+or GitHub Release is claimed. Install the source chart at charts/hankoshell-operator
+with an explicitly configured HTTPS Keycloak URL, referenced credentials/CA when
+needed and a reviewed immutable image. The future OCI chart path is
+oci://ghcr.io/alien6-studio/charts/hankoshell-operator.
+
+The standalone Hub authentication/integrity path uses HMAC tied to the bearer
+credential, not an independent asymmetric signature. Enterprise Continuum policy
+and optional platform integrations do not change runtime binding authority.
+Provider reconciliation and Kubernetes output patches offer no transaction or
+portable rollback guarantee. Review docs/architecture/application-identity.md,
+docs/secure-deployment.md and docs/keycloak-permissions.md before migration.
+
+Report vulnerabilities privately at
+https://github.com/Alien6-Studio/hankoshell-operator/security/advisories/new;
+SECURITY.md describes supported versions and response times.
+<!-- release-notes:end -->
+
+## 0.4.0 — Source frozen (unpublished)
 
 - Accept the organizational authorization design: extend HankoResourceServer with
   an organization principal and explicit descendant semantics, preserving role
@@ -125,7 +242,7 @@
 - Align active source/release metadata to 0.4.0, a normal initial-development
   SemVer source boundary. Historical tags remain immutable; publication is #21.
 
-<!-- release-notes:start -->
+
 ### Release overview
 
 hankoShell Operator 0.4.0 reconciles declarative Keycloak IAM configuration from
@@ -220,7 +337,7 @@ docs/secure-deployment.md and docs/keycloak-permissions.md before migration.
 Report vulnerabilities privately at
 https://github.com/Alien6-Studio/hankoshell-operator/security/advisories/new;
 SECURITY.md describes supported versions and response times.
-<!-- release-notes:end -->
+
 
 ## 0.3.0 — Unreleased
 
