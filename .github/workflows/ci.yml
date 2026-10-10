@@ -92,7 +92,7 @@ jobs:
   keycloak:
     name: Keycloak ${{ matrix.version }} Admin API and security
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:

@@ -50,7 +50,8 @@ integration-test:
 		KUBEBUILDER_ASSETS="$$assets" KUBERNETES_VERSION=$(KUBERNETES_VERSION) \
 		go test -tags=integration -race -count=1 -timeout=5m -v ./api/v1alpha1
 keycloak-integration-test:
-	KEYCLOAK_VERSION=$(KEYCLOAK_VERSION) go test -tags=keycloak_integration -race -count=1 -timeout=10m -v ./internal/controller
+	# Budget the complete serial fixture matrix; per-request/startup deadlines remain bounded.
+	KEYCLOAK_VERSION=$(KEYCLOAK_VERSION) go test -tags=keycloak_integration -race -count=1 -timeout=15m -v ./internal/controller
 $(GOLANGCI_LINT):
 	@mkdir -p "$(@D)"
 	GOBIN="$(@D)" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
