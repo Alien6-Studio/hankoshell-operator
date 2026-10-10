@@ -53,7 +53,7 @@ func organizationTestReconciler(t *testing.T, descendants bool) (*HankoResourceS
 		objects = append(objects, o)
 		driver.groups[o.Name] = organizationProof(o)
 	}
-	c := fake.NewClientBuilder().WithScheme(resourceServerScheme(t)).WithObjects(objects...).WithStatusSubresource(&api.HankoResourceServer{}, &api.HankoOrganization{}).WithIndex(&api.HankoResourceServer{}, organizationPrincipalIndex, organizationPrincipalIndexValues).Build()
+	c := fake.NewClientBuilder().WithScheme(resourceServerScheme(t)).WithObjects(objects...).WithStatusSubresource(&api.HankoResourceServer{}, &api.HankoOrganization{}).WithIndex(&api.HankoResourceServer{}, organizationPrincipalIndex, authorizationProvenanceIndexValues).Build()
 	return &HankoResourceServerReconciler{Client: c, APIReader: c, DriverFactory: func(string, map[string]string) authorization.Driver { return driver }}, rs, driver
 }
 
@@ -206,9 +206,9 @@ func TestOrganizationWatchExcludesOtherNamespacesAndNonConsumers(t *testing.T) {
 	other.Namespace = "unrelated"
 	other.ResourceVersion = ""
 	nonConsumer := rs.DeepCopy()
-	nonConsumer.Name += "-role-only"
+	nonConsumer.Name += "-workload-only"
 	nonConsumer.ResourceVersion = ""
-	nonConsumer.Spec.Permissions[0].Principals = []api.AuthorizationPrincipal{{Kind: "realm_role", Ref: "reader"}}
+	nonConsumer.Spec.Permissions[0].Principals = []api.AuthorizationPrincipal{{Kind: "service_account", Ref: "workload"}}
 	for _, candidate := range []*api.HankoResourceServer{other, nonConsumer} {
 		if err := r.Create(context.Background(), candidate); err != nil {
 			t.Fatal(err)
