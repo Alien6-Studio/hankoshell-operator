@@ -87,6 +87,17 @@ func checkAdoptionStatusContract(t *testing.T, ctx context.Context, admin client
 				if state, _, _ := unstructured.NestedString(got.Object, "status", "adoptionReceipt", "state"); state != "Verified" {
 					t.Fatal("receipt status did not round-trip")
 				}
+				for _, invalid := range []map[string]any{
+					{"contractVersion": "unreviewed", "candidateHash": digest, "state": "Verified"},
+					{"contractVersion": "hanko.sh/adoption-contract/v1alpha1", "candidateHash": "not-a-digest", "state": "Verified"},
+					{"contractVersion": "hanko.sh/adoption-contract/v1alpha1", "candidateHash": digest, "state": "Managed"},
+				} {
+					copy := obj.DeepCopy()
+					copy.Object["status"] = map[string]any{"adoptionReceipt": invalid}
+					if err := admin.Status().Update(ctx, copy); !apierrors.IsInvalid(err) {
+						t.Fatal("invalid aggregate/leaf receipt status admitted")
+					}
+				}
 			}
 			if len(got.GetAnnotations()) != 0 || len(got.GetFinalizers()) != 0 || got.GetLabels()["hanko.sh/imported-by"] != "inventory" {
 				t.Fatal("status evidence acquired authority")

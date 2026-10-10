@@ -24,6 +24,10 @@ func (r *HankoOrganizationReconciler) organizationReader() client.Reader {
 // Resolve the hierarchy from current declarations and exact provider reads;
 // parent status UUIDs are never ownership or adoption authority.
 func organizationAdoptionPath(ctx context.Context, reader client.Reader, kc *keycloak.Client, org *api.HankoOrganization) (string, string, []string, error) {
+	return organizationLifecyclePath(ctx, reader, kc, org, false)
+}
+
+func organizationLifecyclePath(ctx context.Context, reader client.Reader, kc *keycloak.Client, org *api.HankoOrganization, deleting bool) (string, string, []string, error) {
 	names := []string{org.Spec.Name}
 	bindings := []string{}
 	seen := map[string]bool{org.Name: true}
@@ -34,7 +38,7 @@ func organizationAdoptionPath(ctx context.Context, reader client.Reader, kc *key
 		}
 		seen[parentRef] = true
 		var parent api.HankoOrganization
-		if reader.Get(ctx, client.ObjectKey{Namespace: org.Namespace, Name: parentRef}, &parent) != nil || parent.UID == "" || !parent.DeletionTimestamp.IsZero() || parent.Spec.RealmRef != org.Spec.RealmRef {
+		if reader.Get(ctx, client.ObjectKey{Namespace: org.Namespace, Name: parentRef}, &parent) != nil || parent.UID == "" || !deleting && !parent.DeletionTimestamp.IsZero() || parent.Spec.RealmRef != org.Spec.RealmRef {
 			return "", "", nil, errAdoptionIdentity
 		}
 		bindings = append(bindings, string(parent.UID)+"/"+parent.Name)

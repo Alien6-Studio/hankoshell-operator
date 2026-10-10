@@ -407,6 +407,9 @@ func (r *HankoServiceAccountReconciler) ensureSASecret(ctx context.Context, sa *
 	var s corev1.Secret
 	err := r.Get(ctx, types.NamespacedName{Name: saSecretName(sa.Spec.ClientID), Namespace: sa.Namespace}, &s)
 	if err == nil {
+		// Reconstruct the reference after status loss without reading or rotating
+		// the provider credential. Execution ownership was already verified.
+		setServiceAccountSecretStatus(sa, sa.Status.LastRotated)
 		return nil
 	}
 	if client.IgnoreNotFound(err) != nil {

@@ -380,4 +380,51 @@ func TestOrganizationHierarchyUsesFreshAncestorUIDAndProviderIdentity(t *testing
 	if _, _, _, err := organizationAdoptionPath(context.Background(), kube, kc, child); err == nil {
 		t.Fatal("cyclic hierarchy accepted")
 	}
+	parent.Spec.ParentRef = ""
+	parent.Finalizers = []string{orgFinalizerName}
+	if err := kube.Update(context.Background(), parent); err != nil {
+		t.Fatal(err)
+	}
+	if err := kube.Delete(context.Background(), parent); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, _, err := organizationAdoptionPath(context.Background(), kube, kc, child); err == nil {
+		t.Fatal("deleting parent accepted for acquisition")
+	}
+	path, id, bindings, err = organizationLifecyclePath(context.Background(), kube, kc, child, true)
+	if err != nil || path != "/Parent/Child" || id != "current-parent-id" || len(bindings) != 1 || bindings[0] != "parent-uid/parent" {
+		t.Fatal("child-first cleanup could not resolve a deleting parent", err)
+	}
+
+}
+
+func TestOrganizationCleanupResolvesProviderBoundaryAfterStatusLossOrForgery(t *testing.T) {
+	for _, statusID := range []string{"", "forged-provider-id"} {
+		t.Run(statusID, func(t *testing.T) {
+			f := newOrganizationAcquisitionFixture(t)
+			f.approve()
+			if err := f.run(); err != nil {
+				t.Fatal(err)
+			}
+			current := f.status()
+			current.Spec.Mode = ModeManage
+			current.Finalizers = []string{orgFinalizerName}
+			if err := f.kube.Update(context.Background(), current); err != nil {
+				t.Fatal(err)
+			}
+			current.Status = api.HankoOrganizationStatus{GroupID: statusID, OrgID: statusID}
+			if err := f.kube.Status().Update(context.Background(), current); err != nil {
+				t.Fatal(err)
+			}
+			if err := f.kube.Delete(context.Background(), current); err != nil {
+				t.Fatal(err)
+			}
+			current = f.status()
+			r := &HankoOrganizationReconciler{Client: f.kube, APIReader: f.kube}
+			err := r.validateAdoptedOrganizationCleanup(context.Background(), current, f.writer)
+			if err != errOrganizationCleanupConflict || current.Status.GroupID != "group-id" || current.Status.OrgID != "org-id" || f.groupPuts != 1 || f.nativePuts != 1 || f.forbiddenReads != 0 {
+				t.Fatal("lost/forged status skipped the current foreign-child boundary", err)
+			}
+		})
+	}
 }

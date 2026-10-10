@@ -309,7 +309,9 @@ An Organization requires current ownership/hierarchy, no child group, no direct
 members and no foreign role mapping; its native root additionally requires no
 members or undeclared IdP link. Membership reads are internally limited to
 `first=0&max=1` and expose only existence, never identities. Ownership conflicts
-hold the finalizer even after status loss.
+hold the finalizer even after status loss. Cleanup resolves current path/alias
+identities rather than trusting status UUIDs; deleting a declared child remains
+possible while its parent is awaiting child-first cleanup.
 
 V2 ResourceServer cleanup rechecks incoming dependencies before each delete and
 removes only journal-owned nodes in dependency order. A late foreign reference

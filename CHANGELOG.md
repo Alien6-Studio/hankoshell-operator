@@ -25,8 +25,12 @@
 - Hold destructive cleanup on foreign client children/authorization boundaries,
   Organization children/members/mappings/links, unsafe graph sharing or unproven
   adopted-role reference absence. Keep finalizers on ownership conflicts after
-  status loss. V2 graph cleanup retains the client, sibling receipt and enabled
+  status loss; resolve Organization cleanup identities from live path/alias
+  rather than status UUIDs, including partial child-first cleanup. V2 graph cleanup retains the client, sibling receipt and enabled
   Authorization Services; Observe deletion preserves provider state.
+- Reconstruct a managed service account's SecretRef after status loss when its
+  credential projection already exists, without provider credential reads or
+  rotation.
 - Extend the installed scanned-image system test through acquisition, explicit
   Manage, native preservation, restart/status recovery, drift repair and safe
   cleanup/refusal with separate Organization and authorization writer profiles.

@@ -150,3 +150,26 @@ func preservedOrganizationDomains(domains []any, want []string) ([]any, error) {
 	}
 	return nextDomains, nil
 }
+
+// Each adopted node must still have a closed native representation and its own
+// exact checkpoint before cleanup; a sibling's receipt is not authority.
+func (c *Client) CheckAdoptedOrganizationRepresentation(ctx context.Context, realm, id string, native bool, owner map[string][]string) error {
+	path := groupEndpoint(realm, id)
+	if native {
+		path = organizationEndpoint(realm, id)
+	}
+	var document map[string]any
+	if err := c.get(ctx, path, &document); err != nil {
+		return err
+	}
+	delete(document, "access")
+	snapshot := &OrganizationOwnershipSnapshot{group: document}
+	if native {
+		snapshot.group, snapshot.native = nil, document
+	}
+	if document["id"] != id || !snapshot.QualifiedRoots() {
+		return ErrAdoptionPrecondition
+	}
+	_, err := organizationPreservationProof(document, owner)
+	return err
+}

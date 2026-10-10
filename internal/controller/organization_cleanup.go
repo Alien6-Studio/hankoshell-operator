@@ -27,6 +27,9 @@ func (r *HankoOrganizationReconciler) validateAdoptedOrganizationCleanup(ctx con
 	if !acquisitionCurrentTarget(ctx, r.organizationReader(), org, true) {
 		return errOrganizationCleanupConflict
 	}
+	if err := r.refreshOrganizationCleanupIdentities(ctx, org, kc); err != nil {
+		return err
+	}
 	groupReceipt := ""
 	if org.Status.GroupID != "" {
 		group, err := kc.GetGroup(ctx, org.Spec.RealmRef, org.Status.GroupID)
@@ -39,6 +42,9 @@ func (r *HankoOrganizationReconciler) validateAdoptedOrganizationCleanup(ctx con
 				return err
 			}
 			if groupReceipt != "" {
+				if err := kc.CheckAdoptedOrganizationRepresentation(ctx, org.Spec.RealmRef, group.ID, false, organizationGroupOwnershipAttributes(org)); err != nil {
+					return errOrganizationCleanupConflict
+				}
 				if err := r.validateAdoptedGroupCleanup(ctx, org, kc, group); err != nil {
 					return err
 				}
@@ -55,7 +61,13 @@ func (r *HankoOrganizationReconciler) validateAdoptedOrganizationCleanup(ctx con
 			if err != nil {
 				return err
 			}
+			if groupReceipt != "" && receipt == "" || receipt != "" && org.Status.GroupID != "" && groupReceipt == "" {
+				return errOrganizationCleanupConflict
+			}
 			if receipt != "" {
+				if err := kc.CheckAdoptedOrganizationRepresentation(ctx, org.Spec.RealmRef, native.ID, true, organizationGroupOwnershipAttributes(org)); err != nil {
+					return errOrganizationCleanupConflict
+				}
 				if groupReceipt != "" && receipt != groupReceipt || native.Alias != orgSlug(org) {
 					return errOrganizationCleanupConflict
 				}
@@ -82,7 +94,7 @@ func (r *HankoOrganizationReconciler) validateAdoptedOrganizationCleanup(ctx con
 }
 
 func (r *HankoOrganizationReconciler) validateAdoptedGroupCleanup(ctx context.Context, org *api.HankoOrganization, kc *keycloak.Client, group *keycloak.Group) error {
-	path, _, _, err := organizationAdoptionPath(ctx, r.organizationReader(), kc, org)
+	path, _, _, err := organizationLifecyclePath(ctx, r.organizationReader(), kc, org, true)
 	if err != nil || group.Path != path {
 		return errOrganizationCleanupConflict
 	}
@@ -110,6 +122,36 @@ func (r *HankoOrganizationReconciler) validateAdoptedGroupCleanup(ctx context.Co
 	}
 	if !within {
 		return errOrganizationCleanupConflict
+	}
+	return nil
+}
+
+// Status UUIDs are lookup history. Resolve the current lifecycle boundary even
+// when status was lost or forged, including partially completed cleanup.
+func (r *HankoOrganizationReconciler) refreshOrganizationCleanupIdentities(ctx context.Context, org *api.HankoOrganization, kc *keycloak.Client) error {
+	path, _, _, err := organizationLifecyclePath(ctx, r.organizationReader(), kc, org, true)
+	if err != nil {
+		return errOrganizationCleanupConflict
+	}
+	group, err := kc.GetGroupByPath(ctx, org.Spec.RealmRef, path)
+	if err != nil && !keycloak.IsNotFound(err) {
+		return err
+	}
+	org.Status.GroupID = ""
+	if err == nil && group != nil {
+		org.Status.GroupID, org.Status.GroupPath = group.ID, group.Path
+	}
+	if org.Spec.ParentRef != "" {
+		org.Status.OrgID = ""
+		return nil
+	}
+	native, err := kc.GetOrganizationByAlias(ctx, org.Spec.RealmRef, orgSlug(org))
+	if err != nil {
+		return err
+	}
+	org.Status.OrgID = ""
+	if native != nil {
+		org.Status.OrgID = native.ID
 	}
 	return nil
 }
