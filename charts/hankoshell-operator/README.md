@@ -1,7 +1,7 @@
 # hankoShell Operator chart
 
 Helm chart for declarative Keycloak IAM configuration with hankoShell Operator.
-Version 0.4.0 is a normal SemVer release in initial development.
+Version 0.5.0 is a normal SemVer release in initial development.
 The source includes the [OIDC/SAML application contract](../../docs/architecture/application-identity.md),
 including explicit migration approval for existing unmarked clients and
 [UID-bound runtime bindings](../../docs/architecture/application-identity.md#runtime-bindings).
@@ -34,11 +34,15 @@ Provision a **[dedicated Keycloak service account using the tested permission mo
 The existing-realm profile needs target `manage-realm`, `manage-clients` and
 `manage-events`; optional capabilities have additional or inherited authority.
 Keep secrets outside committed values and review native realm-creation grants.
+For adopted HankoRole Manage, target-only `manage-realm` also permits realm
+security changes/deletion, even though the controller never performs them. Use a
+dedicated role writer where possible; see the
+[credential blast-radius contract](../../docs/keycloak-permissions.md#dedicated-hankorole-writer-target-realm-exception).
 
-Organization principals in 0.4.0 require explicitly
+Organization principals in 0.5.0 require explicitly
 provisioned target `view-users` in addition to `manage-clients`; that read role
 also exposes realm users. No chart flag grants this authority. See the
-[organization-grant contract](../../docs/keycloak-permissions.md#organization-principals-04-unreleased)
+[organization-grant contract](../../docs/keycloak-permissions.md#organization-principals-050)
 for direct/descendant semantics, ownership, bounds and the reconciliation window.
 
 Real HTTPS Admin API v1 qualification covers Keycloak **26.8.0 and 26.7.5** only.
@@ -278,5 +282,5 @@ M2M clients require reviewed acquisition. Leaf and
 [aggregate checkpoints](../../docs/architecture/existing-keycloak-adoption.md#implemented-aggregate-acquisition-and-native-preservation-49)
 remain Observe until an administrator explicitly requests Manage and removes the
 imported latch. Exact current ownership and qualified native preservation are
-required; foreign dependencies hold cleanup. Chart/app packaging remains 0.4.0
-until final source qualification completes.
+required; foreign dependencies hold cleanup. Chart/app source metadata is 0.5.0;
+production publication remains pending in #21.

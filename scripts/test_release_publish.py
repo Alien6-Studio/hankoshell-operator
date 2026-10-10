@@ -94,13 +94,13 @@ class ReleaseResumeTests(unittest.TestCase):
         registry = publish.Registry(Path("oras"), Path("helm"))
         for message in (b"401 Unauthorized", b"403 Forbidden", b"TLS certificate error", b"connection refused", b"429 Too Many Requests", b"404 Not Found", b"authentication token: not found"):
             with patch.object(publish.subprocess, "run", return_value=subprocess.CompletedProcess([], 1, b"", message)), self.assertRaises(RuntimeError):
-                registry.resolve("example.test/operator:0.4.0")
-        for message in (b"Error response from registry: failed to resolve digest: example.test/operator:0.4.0: not found\n",):
+                registry.resolve("example.test/operator:0.5.0")
+        for message in (b"Error response from registry: failed to resolve digest: example.test/operator:0.5.0: not found\n",):
             with patch.object(publish.subprocess, "run", return_value=subprocess.CompletedProcess([], 1, b"", message)):
-                self.assertIsNone(registry.resolve("example.test/operator:0.4.0"))
+                self.assertIsNone(registry.resolve("example.test/operator:0.5.0"))
         for output in (b"latest", b"sha256:abc", b"sha256:" + b"a" * 64 + b"\nextra"):
             with patch.object(publish.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, output, b"")), self.assertRaises(ValueError):
-                registry.resolve("example.test/operator:0.4.0")
+                registry.resolve("example.test/operator:0.5.0")
 
     def test_checkpoint_archive_rejects_traversal_links_duplicates_and_oversize(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -123,8 +123,8 @@ class ReleaseResumeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for version, revision, image in (("0.1.1", "a" * 40, publish.IMAGE + "@sha256:" + "b" * 64),
-                                            ("0.4.0", "main", publish.IMAGE + "@sha256:" + "b" * 64),
-                                            ("0.4.0", "a" * 40, publish.IMAGE + ":0.4.0")):
+                                            ("0.5.0", "main", publish.IMAGE + "@sha256:" + "b" * 64),
+                                            ("0.5.0", "a" * 40, publish.IMAGE + ":0.5.0")):
                 with self.assertRaises(ValueError):
                     publish.checkpoint(root, version, revision, image)
 
@@ -133,9 +133,9 @@ class ReleaseResumeTests(unittest.TestCase):
             root = Path(directory)
             file = root / "image.tar"
             file.write_bytes(b"original archive")
-            before = publish.checkpoint(root, "0.4.0", "a" * 40, publish.IMAGE + "@sha256:" + "b" * 64)
+            before = publish.checkpoint(root, "0.5.0", "a" * 40, publish.IMAGE + "@sha256:" + "b" * 64)
             file.write_bytes(b"changed archive")
-            after = publish.checkpoint(root, "0.4.0", "a" * 40, publish.IMAGE + "@sha256:" + "b" * 64)
+            after = publish.checkpoint(root, "0.5.0", "a" * 40, publish.IMAGE + "@sha256:" + "b" * 64)
             self.assertNotEqual(before["files"], after["files"])
             (root / "link").symlink_to(file)
             with self.assertRaises(ValueError):

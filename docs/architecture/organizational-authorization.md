@@ -2,7 +2,7 @@
 
 This is the implemented **0.4.0 Organizational Authorization** source contract,
 accepted in [RFC #40](https://github.com/Alien6-Studio/hankoshell-operator/issues/40),
-with grants in #41 and bounded explanation in #42. Packaging metadata is 0.4.0;
+with grants in #41 and bounded explanation in #42. Current packaging metadata is 0.5.0;
 public delivery remains independent in #21. Historical source tags are immutable.
 
 ## Decision

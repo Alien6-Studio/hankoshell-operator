@@ -1,16 +1,16 @@
 # Existing Keycloak: explicit ownership adoption
 
 Accepted direction for [RFC #46](https://github.com/Alien6-Studio/hankoshell-operator/issues/46),
-starting milestone **0.5.0 — Adopt Existing Keycloak** after immutable v0.4.0.
+completing milestone **0.5.0 — Adopt Existing Keycloak** after immutable v0.4.0.
 The source tree implements bounded discovery/diff, explicit reviewed ownership
 acquisition, Organization and ResourceServer checkpoints, and a separate qualified
-transition to Manage. Current packaging remains 0.4.0 while the final #49 source
-qualification is in progress. The 16 v1alpha1 CRDs remain experimental.
+transition to Manage. Current source/chart metadata is 0.5.0. The 16 v1alpha1 CRDs
+remain experimental; source completion does not publish production packages.
 
 ## Implemented discovery and diff (#47)
 
-The source tree implements DISCOVER → OBSERVE → PLAN → DIFF, while packaging
-remains 0.4.0. The discovery/diff evidence alone approves no adoption and writes no
+The source tree implements DISCOVER → OBSERVE → PLAN → DIFF. The discovery/diff
+evidence alone approves no adoption and writes no
 provider owner marker/journal/receipt. The separate #48 executor below requires
 explicit approval; it neither rotates credentials nor enters Manage.
 The existing application UUID + migration observation-hash flow is unchanged;
@@ -325,6 +325,31 @@ holds the finalizer. Journal clearing requires selected-node absence; the backin
 client and its Application receipt remain. V2 never disables Authorization Services
 as part of selected-object cleanup. Explicit Observe withdraws lifecycle consent
 and releases the CR finalizer without deleting provider objects.
+
+### HankoRole credential authority versus controller ownership
+
+HankoRole Manage remains available after reviewed adoption and explicit lifecycle
+consent. On Keycloak 26.7.5/26.8.0, the dedicated target-realm writer's qualified
+built-in authority is `manage-realm`, with Full Scope Allowed disabled and exact
+permitted role scopes. No realm-admin, master/global administrator, create-realm
+or unrelated-realm grant is part of this role-writer profile. Isolate identities
+per target realm where deployment architecture permits it.
+
+The credential also permits security/configuration changes and deletion of its
+target realm. This is the explicit narrow exception to §117: direct qualification
+probes prove that blast radius, while normal controller traffic is separately
+asserted to make no realm security PUT or realm DELETE. Normal role mutations
+remain restricted to the inventoried role-definition/composite endpoints.
+Application/ServiceAccount/ResourceServer/Organization writers retain real
+realm-security/deletion denials.
+
+Provider markers and receipts bind authorized controller behavior, not the token's
+technical capabilities. A role receipt does not acquire realm lifecycle ownership.
+Imported/external HankoRealm remains Observe-only, with no realm lifecycle
+finalizer, security reconciliation or deletion from HankoRole. Adopted-role
+cleanup remains held when complete foreign-reference absence cannot be proven.
+The candidate/UID/provider UUID/receipt/native preservation/explicit Manage
+contract is unchanged. See the [permission contract](../keycloak-permissions.md#dedicated-hankorole-writer-target-realm-exception).
 
 ### Milestone-native coverage audit
 
@@ -704,13 +729,14 @@ adoption executor, all IdP extensions, arbitrary native fields, membership
 migration or portable rollback. No users/member API, LDAP sync, live Hub plan
 transport or Continuum change is introduced.
 
-## Implementation backlog and order
+## Completed implementation sequence
 
 1. [#47 — bounded discovery, observation and adoption diff](https://github.com/Alien6-Studio/hankoshell-operator/issues/47): expanded typed inventory, canonical secret-free candidates/diff, coverage/bounds and practical read-only identity/RBAC review. No adoption authority.
 2. [#48 — explicit provider ownership adoption](https://github.com/Alien6-Studio/hankoshell-operator/issues/48): annotation approval and leaf owner-only transitions, kind-safe SA marker, legacy application compatibility, separate Manage, fault/replacement/tamper qualification.
 3. [#49 — aggregate adoption, native preservation and adopt-to-manage](https://github.com/Alien6-Studio/hankoshell-operator/issues/49): organizations/ResourceServer checkpoints and foreign dependencies, selected children in external realms, native preservation during Manage and exact-image end-to-end qualification.
 
-After those implementations, qualify exact protected main before considering a
-0.5 source freeze. The accepted RFC and discovery/diff are #46/#47; leaf acquisition is #48.
-The aggregate implementation and milestone remain open until #49 is qualified. v0.1/v0.2/v0.3/v0.4 remain immutable
+The source freeze requires exact protected-main qualification after these
+implementations. The accepted RFC and discovery/diff are #46/#47; leaf acquisition is #48.
+The completed 0.5 source contract is qualified through #49. The next development
+milestone is **0.6.0 — Workload Identity**. v0.1/v0.2/v0.3/v0.4 remain immutable
 and production publication remains independent in #21.

@@ -22,7 +22,7 @@ class ReleaseEligibilityTests(unittest.TestCase):
         self.repository = "Alien6-Studio/hankoshell-operator"
         self.revision = "a" * 40
         self.tag_object = "b" * 40
-        self.tag = "v0.4.0"
+        self.tag = "v0.5.0"
         self.ref = "refs/tags/" + self.tag
         self.base = "repos/" + self.repository
         self.ref_path = self.base + "/git/ref/tags/" + self.tag

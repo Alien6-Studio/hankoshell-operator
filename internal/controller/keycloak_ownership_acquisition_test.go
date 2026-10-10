@@ -38,16 +38,41 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 	f.grantClientRoles("ownership-client-writer", "managed", []string{"view-realm", "manage-clients"})
 	_, roleSecret := f.serviceClient("ownership-role-writer")
 	f.grantClientRoles("ownership-role-writer", "managed", []string{"manage-realm"})
+	roleClient := f.client("master", "ownership-role-writer")
+	fixtureEqual(t, "role writer full scope disabled", roleClient["fullScopeAllowed"], false)
+	roleProxy := f.client("master", "managed-realm")
+	var roleScopes []map[string]any
+	f.admin(http.MethodGet, "/admin/realms/master/clients/"+roleClient["id"].(string)+"/scope-mappings/clients/"+roleProxy["id"].(string), nil, &roleScopes)
+	if len(roleScopes) != 1 || roleScopes[0]["name"] != "manage-realm" {
+		t.Fatal("role writer must have exactly the target-realm manage-realm scope")
+	}
 	endpoint, _ := url.Parse(f.baseURL)
 	var mu sync.Mutex
-	puts, credentials := 0, 0
-	loseAck, manage := false, false
+	puts, credentials, realmLifecycleCalls := 0, 0, 0
+	loseAck, manage, roleReconciliation := false, false, false
 	proxy := httputil.NewSingleHostReverseProxy(endpoint)
 	proxy.Transport = f.http.Transport
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// This proxy carries normal controller traffic only. Direct provider
+		// blast-radius probes below use f, never this reconciliation transport.
+		if r.URL.Path == "/admin/realms/managed" && (r.Method == http.MethodPut || r.Method == http.MethodDelete) {
+			mu.Lock()
+			realmLifecycleCalls++
+			mu.Unlock()
+			t.Errorf("normal child reconciliation attempted realm lifecycle operation: %s", r.Method)
+			http.Error(w, "realm lifecycle is outside child reconciliation", http.StatusForbidden)
+			return
+		}
 		mu.Lock()
 		managed := manage
+		roleOnly := roleReconciliation
 		mu.Unlock()
+		if roleOnly && r.Method != http.MethodGet && strings.HasPrefix(r.URL.Path, "/admin/") &&
+			r.URL.Path != "/admin/realms/managed/roles" && !strings.HasPrefix(r.URL.Path, "/admin/realms/managed/roles/") {
+			t.Errorf("normal HankoRole mutation escaped inventoried realm-role endpoints: %s %s", r.Method, r.URL.Path)
+			http.Error(w, "outside realm-role operation contract", http.StatusForbidden)
+			return
+		}
 		if !managed && (strings.Contains(r.URL.Path, "client-secret") || strings.Contains(r.URL.Path, "service-account-user")) {
 			mu.Lock()
 			credentials++
@@ -87,6 +112,7 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 			ctx := context.Background()
 			mu.Lock()
 			manage = false
+			roleReconciliation = capability == "role"
 			mu.Unlock()
 			m2m := capability == "m2m" || capability == "application-m2m"
 			name := "reviewed-" + capability
@@ -366,6 +392,9 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 			}
 		})
 	}
+	mu.Lock()
+	roleReconciliation = false
+	mu.Unlock()
 	for _, identity := range []adoptionProbe{{f, "ownership-client-writer", clientSecret}, {f, "ownership-role-writer", roleSecret}} {
 		fixtureEqual(t, "no global realm creation", identity.request(http.MethodPost, "/admin/realms", map[string]any{"realm": "denied-acquisition"}, nil), http.StatusForbidden)
 		fixtureEqual(t, "no user mutation", identity.request(http.MethodPost, base+"/users", map[string]any{"username": "denied-acquisition"}, nil), http.StatusForbidden)
@@ -459,9 +488,18 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 			}
 		})
 	}
+	mu.Lock()
+	realmCalls := realmLifecycleCalls
+	mu.Unlock()
+	fixtureEqual(t, "normal reconciliation never calls realm security PUT or realm DELETE", realmCalls, 0)
 	// The role writer has only manage-realm on this disposable target. Make its
 	// unavoidable broader authority observable rather than claiming §117 denial.
 	roleIdentity := adoptionProbe{f, "ownership-role-writer", roleSecret}
+	f.admin(http.MethodPost, "/admin/realms", map[string]any{"realm": "unrelated-role-target", "enabled": true}, nil)
+	for _, realm := range []string{"master", "unrelated-role-target"} {
+		fixtureEqual(t, "role writer cannot alter other realm security", roleIdentity.request(http.MethodPut, "/admin/realms/"+realm, map[string]any{"bruteForceProtected": true}, nil), http.StatusForbidden)
+		fixtureEqual(t, "role writer cannot delete other realm", roleIdentity.request(http.MethodDelete, "/admin/realms/"+realm, nil, nil), http.StatusForbidden)
+	}
 	fixtureEqual(t, "realm-role writer can alter target security", roleIdentity.request(http.MethodPut, base, map[string]any{"bruteForceProtected": true}, nil), http.StatusNoContent)
 	fixtureEqual(t, "realm-role writer can delete the disposable target realm", roleIdentity.request(http.MethodDelete, base, nil, nil), http.StatusNoContent)
 }

@@ -126,7 +126,7 @@ publisher signature with the pinned runtime cosign. It preserves its current
 image repository. Missing approval, revoked approval, failed verification or a
 concurrent Deployment change prevents the patch. Already-pinned images are checked
 again; a version string alone does not authorize an update.
-The Hub reference version must match the reviewed SemVer release, such as `0.4.0`.
+The Hub reference version must match the reviewed SemVer release, such as `0.5.0`.
 
 Configure `imageVerification.policyConfigMap: hanko-image-policy`, the independent
 [admission policy](../config/security/operator-image-policy-admission.yaml) and
@@ -149,8 +149,8 @@ approval. Replace the digest and source placeholders with the reviewed values:
     "purpose": "operator-update",
     "image": "ghcr.io/alien6-studio/hankoshell-operator@sha256:<verified-digest>",
     "revision": "<full-source-revision>",
-    "release_version": "0.4.0",
-    "certificate_identity": "https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.4.0",
+    "release_version": "0.5.0",
+    "certificate_identity": "https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.5.0",
     "certificate_oidc_issuer": "https://token.actions.githubusercontent.com"
   }]
 }
@@ -370,7 +370,7 @@ administrative HTTP exception above. Enterprise refuses this combination.
 
 ### Keycloak compatibility
 
-hankoShell Operator **0.4.0 is qualified against Keycloak 26.8.0 and 26.7.5**
+hankoShell Operator **0.5.0 is qualified against Keycloak 26.8.0 and 26.7.5**
 using the HTTPS Admin API v1 and service-account `client_credentials` flow.
 The official images are pinned by immutable multi-architecture index digests
 in the [qualification fixture](../internal/controller/keycloak_fixture_test.go).
@@ -378,7 +378,7 @@ Both versions run in required PR/release CI and weekly CI; the aggregate require
 check fails on either matrix failure or startup failure. Qualification is a
 compatibility contract, not a recommendation to retain a vulnerable patch.
 
-| Version | 0.4.0 qualification |
+| Version | 0.5.0 qualification |
 | --- | --- |
 | 26.8.0, 26.7.5 | Qualified by the real Admin API suite |
 | Other 26.x patches | May work; unqualified until the same suite passes |
@@ -417,7 +417,7 @@ credentials on both. Target-scoped master credentials do not receive the
 server version on either qualified version, so `status.keycloakVersion` can be empty.
 Do not broaden master permissions merely to fill this diagnostic field.
 
-Organization principals in 0.4.0 require the optional
+Organization principals in 0.5.0 require the optional
 target `manage-clients` + `view-users` profile. `view-users` also permits reading
 target-realm users; it is not group-only authority or part of the common profile.
 Fresh strict group ownership/hierarchy reads precede grant execution. Missing
@@ -442,7 +442,7 @@ installation acceptance tests. No runtime version rejection is added.
 The organization-grant suite qualifies fresh UMA decisions for its bounded
 group-policy fixtures on both versions; it does not qualify offline/RPT token
 revocation, external group-population flows or application enforcement.
-In 0.4.0, application discovery/metadata uses the configured
+In 0.5.0, application discovery/metadata uses the configured
 Keycloak CA transport with TLS verification and a 1 MiB response limit, without
 administrative bearer credentials. The additional protocol suite qualifies OIDC
 web/SPA authorization code + PKCE, M2M client credentials and signed SAML POST
@@ -450,6 +450,30 @@ responses/assertions on both Keycloak versions. Public realm frontend URL and
 private administrative URL separation is tested through two TLS-verified origins.
 These tests do not qualify arbitrary production SPs or MFA/federation scenarios.
 See [application identity, ownership migration and protocol limits](architecture/application-identity.md).
+
+### Dedicated role-writer authority
+
+Adopted HankoRole resources may enter explicit Manage inside an imported/Observe
+realm. On the qualified Keycloak 26.7.5/26.8.0 window, their dedicated writer needs
+only the target realm's `manage-realm` management role, with Full Scope Allowed
+**disabled** and the exact permitted role scope. Separate the identity per target
+realm where deployment permits it. No `realm-admin`, master `manage-realm`,
+master/global `admin`, `create-realm` or unrelated-realm authority is required.
+
+This native permission also allows target-realm configuration/security changes
+and target-realm deletion. Compromise of that credential has this broader blast
+radius. Kubernetes/provider ownership markers constrain the controller's behavior,
+not the token. HankoRole's normal writes stay on inventoried realm-role endpoints;
+it never sends realm security PUT or realm DELETE and never acquires realm
+lifecycle ownership/finalizers. The imported/external HankoRealm remains Observe.
+
+The HankoRole credential is the explicit narrow exception to the child-writer
+realm-mutation denial contract (§117). Other qualified child writers still prove
+those mutations are denied. Direct disposable-fixture probes characterize the
+role writer's authority separately from normal reconciliation. Adopted-role
+cleanup keeps `CleanupConflict` when absence of all foreign references is unproven.
+See the [complete role-writer contract](keycloak-permissions.md#dedicated-hankorole-writer-target-realm-exception),
+including exact operation inventory, scopes and qualification evidence.
 
 ### Application protocol ownership and migration
 
@@ -468,7 +492,7 @@ cleanup also removes its roles, mappers and credentials. See the
 
 ### Kubernetes compatibility and hardening
 
-The operator and chart keep their own SemVer (`0.4.0`); they do not share the
+The operator and chart keep their own SemVer (`0.5.0`); they do not share the
 cluster's version number. Kubernetes libraries are upgraded together:
 `k8s.io/{api,apimachinery,client-go,apiextensions-apiserver}` **v0.37.1** and
 `controller-runtime` **v0.25.2**, following its
@@ -823,7 +847,7 @@ a configuration snapshot and does not establish a database rollback point.
 ## Lifecycle operation qualification
 
 `HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are experimental
-and unqualified in 0.4.0. Existing unit tests exercise step transitions, but do
+and unqualified in 0.5.0. Existing unit tests exercise step transitions, but do
 not qualify durable completion, interruption/retry, child ownership or recovery
 on real installations. Qualification is tracked in
 [issue #20](https://github.com/Alien6-Studio/hankoshell-operator/issues/20), with no
@@ -834,7 +858,7 @@ outside the first release's qualified core IAM contract.
 database upgrade compatibility. `Clone` creates an external instance alias
 reusing the source administrative connection and imports supported configuration;
 it does not provision a new
-database. `clone.includeData` has no effect in 0.4.0. A target namespace outside
+database. `clone.includeData` has no effect in 0.5.0. A target namespace outside
 the release namespace is outside the default watch/RBAC scope. `DBSwitch` changes
 the database Secret reference without migrating data. Operation `dryRun` skips
 planned steps; it does not validate provider compatibility or recoverability.
@@ -881,7 +905,7 @@ configuration, while installation-specific enforcement still needs qualification
 
 ## Release rehearsal and publication
 
-0.4.0 is a normal SemVer release in initial development. The experimental
+0.5.0 is a normal SemVer release in initial development. The experimental
 `hanko.sh/v1alpha1` APIs may change across minor releases before 1.0. Artifact Hub
 uses `prerelease: false`; the workflow creates a normal GitHub **draft**, with
 curated notes extracted from the tracked CHANGELOG release overview. Publication
@@ -933,7 +957,7 @@ artifacts. It writes only to its disposable loopback registry, never creates a t
 changes Artifact Hub. The local signature proves payload binding, **not** GitHub
 OIDC/Fulcio/Rekor trust. Production image signatures remain keyless Sigstore with
 issuer `https://token.actions.githubusercontent.com` and exact certificate identity
-`https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.4.0`.
+`https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.5.0`.
 
 Before publication, maintainers must configure the real Attest signing secret,
 trusted public key/ID, RFC 3161 endpoint and pinned TSA certificate in the
@@ -947,7 +971,7 @@ Publication consumes the same scanned archive without rebuilding, stages it unde
 a non-release reference, verifies real image/blob Sigstore signatures and strict
 Attest delivery evidence, then promotes the digest, chart and catalog metadata.
 Before promotion it commits the archive, packaged chart, signatures, checksums
-and Attest evidence under `delivery-candidate-0.4.0`, an explicitly non-release
+and Attest evidence under `delivery-candidate-0.5.0`, an explicitly non-release
 OCI checkpoint. Every retry resolves that reference once, restores it by digest
 and reuses its exact bytes rather than rebuilding/repackaging them. A different
 source revision or conflicting candidate is rejected. Do not delete or retag the

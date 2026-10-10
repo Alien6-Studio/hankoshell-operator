@@ -19,7 +19,7 @@ ownership, deletion, adoption, or authentication need migration and rollback
 instructions. Use synthetic fixtures and keep credentials and tenant data out
 of the repository.
 
-Version 0.4.0 is a normal SemVer release in initial development, not a beta or
+Version 0.5.0 is a normal SemVer release in initial development, not a beta or
 SemVer prerelease. The `v1alpha1` APIs remain experimental and may change across
 minor versions before 1.0. Keep chart, release metadata and curated changelog
 notes consistent with that distinction.
