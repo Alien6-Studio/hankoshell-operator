@@ -598,7 +598,11 @@ does not use user/member reads; destructive Organization safety uses only bounde
 `first=0&max=1` membership existence, without retaining identities.
 
 Realm-role `manage-realm` is an unavoidable broader authority in the qualified
-legacy permission model. Fine-grained role permissions cover role mapping,
+legacy permission model. On both versions the client-only writer is denied
+realm-role definition PUT/DELETE, while the role-only writer can change target
+realm security and delete the disposable target realm. These direct probes
+characterize credential authority; normal child reconciliation leaves the
+external realm untouched. Fine-grained role permissions cover role mapping,
 composite mapping and client-scope mapping; they are not a qualified substitute
 for role-definition create/update/delete. Separate this identity and its watched
 declarations if this authority is acceptable. Otherwise keep roles Observe.

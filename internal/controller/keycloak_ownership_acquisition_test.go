@@ -373,6 +373,8 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 	clientIdentity := adoptionProbe{f, "ownership-client-writer", clientSecret}
 	fixtureEqual(t, "client writer cannot delete target realm", clientIdentity.request(http.MethodDelete, base, nil, nil), http.StatusForbidden)
 	fixtureEqual(t, "client writer cannot alter realm security", clientIdentity.request(http.MethodPut, base, map[string]any{"sslRequired": "none"}, nil), http.StatusForbidden)
+	fixtureEqual(t, "client writer cannot update realm-role definition", clientIdentity.request(http.MethodPut, base+"/roles/reviewed-role", map[string]any{"description": "denied"}, nil), http.StatusForbidden)
+	fixtureEqual(t, "client writer cannot delete realm-role definition", clientIdentity.request(http.MethodDelete, base+"/roles/reviewed-role", nil, nil), http.StatusForbidden)
 	// realm_client is synthesized back to false by Keycloak for these leaf
 	// clients, even when a PUT requests true. The mock adversarial suite covers
 	// a provider returning another value; both real versions assert false above.
@@ -457,6 +459,11 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 			}
 		})
 	}
+	// The role writer has only manage-realm on this disposable target. Make its
+	// unavoidable broader authority observable rather than claiming §117 denial.
+	roleIdentity := adoptionProbe{f, "ownership-role-writer", roleSecret}
+	fixtureEqual(t, "realm-role writer can alter target security", roleIdentity.request(http.MethodPut, base, map[string]any{"bruteForceProtected": true}, nil), http.StatusNoContent)
+	fixtureEqual(t, "realm-role writer can delete the disposable target realm", roleIdentity.request(http.MethodDelete, base, nil, nil), http.StatusNoContent)
 }
 
 func orderedOwnershipDocuments(documents []map[string]any) []map[string]any {
