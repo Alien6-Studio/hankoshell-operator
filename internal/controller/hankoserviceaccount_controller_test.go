@@ -67,6 +67,13 @@ func TestServiceAccountReconcileLeavesOmittedAttributesUnmanaged(t *testing.T) {
 	if reconciled.Status.Phase != "Ready" {
 		t.Fatalf("phase = %q, want Ready", reconciled.Status.Phase)
 	}
+	if reconciled.Status.SecretRef == nil || reconciled.Status.SecretRef.SecretRef.Name != secret.Name || reconciled.Status.SecretRef.SecretRef.Key != "client_secret" {
+		t.Fatal("Manage did not reconstruct a lost Secret reference from the existing projection")
+	}
+	var preserved corev1.Secret
+	if err := c.Get(context.Background(), client.ObjectKeyFromObject(secret), &preserved); err != nil || string(preserved.Data["client_secret"]) != "existing" {
+		t.Fatal("status recovery changed the projected credential", err)
+	}
 }
 
 func TestServiceAccountReconcilesTokenClaimsWithPerMapperStatus(t *testing.T) {

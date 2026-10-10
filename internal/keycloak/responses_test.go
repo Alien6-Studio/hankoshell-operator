@@ -83,6 +83,9 @@ func TestAllKeycloakOperationsBoundNetworkReadsAndCloseBodies(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
+					if strings.HasSuffix(operation.Capability, "cleanup-members") {
+						request.URL.RawQuery = "first=0&max=1"
+					}
 					response, err := c.do(request)
 					if response != nil || !errors.Is(err, ErrResponseTooLarge) {
 						t.Fatalf("HTTP %d accepted an oversized response: %v", status, err)

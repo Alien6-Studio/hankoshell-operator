@@ -38,6 +38,11 @@ type ProtocolMapper struct {
 // userinfo=false default. Explicit non-default values remain observable drift.
 func CanonicalProtocolMapper(mapper ProtocolMapper) ProtocolMapper {
 	mapper.Config = maps.Clone(mapper.Config)
+	if qualifiedMapperImplementation(mapper) && mapper.Config["introspection.token.claim"] == "" {
+		if access := mapper.Config["access.token.claim"]; access == "true" || access == "false" {
+			mapper.Config["introspection.token.claim"] = access
+		}
+	}
 	switch mapper.ProtocolMapper {
 	case "oidc-audience-mapper":
 		if mapper.Config["included.client.audience"] == "" {

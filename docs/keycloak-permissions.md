@@ -1,6 +1,6 @@
 # Keycloak administrative permissions
 
-This is the permission contract for **hankoShell Operator 0.4.0**, verified against
+This is the permission contract for **hankoShell Operator 0.5.0**, verified against
 real Keycloak **26.8.0 and 26.7.5** over verified HTTPS with `client_credentials`.
 It covers the Admin REST API used by the operator. Kubernetes permissions and
 Hub/Continuum credentials are separate; see [secure deployment](secure-deployment.md).
@@ -20,7 +20,7 @@ powers of the minimum built-in-role profile. Use separate realms and identities
 when those powers cross a trust boundary. A fine-grained administration policy
 might reduce individual resource scope, but is **not qualified by this contract**.
 
-In 0.4.0 the credential client authenticates in **master**. Target-realm authority
+In 0.5.0 the credential client authenticates in **master**. Target-realm authority
 is granted through Keycloak's native **`<target-realm>-realm` client in master**.
 These client roles administer that target; they are not master administrative
 roles. Do not substitute master `admin` or the `master-realm` client roles.
@@ -136,7 +136,7 @@ can trigger realm-wide logout: grant `manage-users` when that transition is used
 or have an administrator perform the transition and session revocation first.
 Never silently skip a denied security action to obtain a green reconciliation.
 
-## Organization principals (0.4.0)
+## Organization principals (0.5.0)
 
 **Fresh ownership reads require target-realm `view-users`. This also permits
 reading users throughout that realm.** It is an optional privacy tradeoff, not a
@@ -263,7 +263,7 @@ organization principal still needs its mandatory ownership read before execution
 Transient composite/role-read failures have the same independent evidence behavior.
 All reads remain HTTPS-authenticated, response-bounded and redirect-rejecting.
 
-## Application protocols in 0.4.0
+## Application protocols in 0.5.0
 
 OIDC and the bounded SAML application/client-role contract use target-realm
 `manage-clients` only; real protocol/lifecycle tests omit realm, event, user,
@@ -462,30 +462,33 @@ using the dedicated client's credentials.
 | groups | GET | `/admin/realms/{realm}/group-by-path/{path...}` | view-users or manage-users |
 | groups | GET,POST | `/admin/realms/{realm}/groups` | view-users / manage-users |
 | groups | GET,PUT,DELETE | `/admin/realms/{realm}/groups/{group}` | view-users / manage-users |
+| group-cleanup-members | GET | `/admin/realms/{realm}/groups/{group}/members` | view-users or manage-users; cleanup existence only, max=1 |
 | groups | GET,POST | `/admin/realms/{realm}/groups/{group}/children` | view-users / manage-users |
 | group-roles | GET | `/admin/realms/{realm}/groups/{group}/role-mappings` | view-users |
 | group-roles | GET,POST | `/admin/realms/{realm}/groups/{group}/role-mappings/realm` | view-users / manage-users and permission to map the realm role |
 | group-roles | GET,POST | `/admin/realms/{realm}/groups/{group}/role-mappings/clients/{client}` | view-users / manage-users and permission to map the client role |
 | organizations | GET,POST | `/admin/realms/{realm}/organizations` | view-organizations / manage-organizations or manage-realm |
 | organizations | GET,PUT,DELETE | `/admin/realms/{realm}/organizations/{organization}` | view-organizations / manage-organizations or manage-realm |
+| organization-cleanup-members | GET | `/admin/realms/{realm}/organizations/{organization}/members` | view-organizations or manage-organizations; cleanup existence only, max=1 |
 | organization-idps | GET,POST | `/admin/realms/{realm}/organizations/{organization}/identity-providers` | view-organizations / manage-organizations (or manage-realm) and manage-identity-providers |
 | organization-idps | DELETE | `/admin/realms/{realm}/organizations/{organization}/identity-providers/{alias}` | manage-organizations (or manage-realm) and manage-identity-providers |
 | authorization | GET,POST | `/admin/realms/{realm}/clients/{client}/authz/resource-server/scope` | view-authorization / manage-authorization or manage-clients |
-| authorization | PUT,DELETE | `/admin/realms/{realm}/clients/{client}/authz/resource-server/scope/{object}` | manage-authorization or manage-clients |
+| authorization | GET,PUT,DELETE | `/admin/realms/{realm}/clients/{client}/authz/resource-server/scope/{object}` | view-authorization / manage-authorization or manage-clients |
 | authorization | GET,POST | `/admin/realms/{realm}/clients/{client}/authz/resource-server/resource` | view-authorization / manage-authorization or manage-clients |
-| authorization | PUT,DELETE | `/admin/realms/{realm}/clients/{client}/authz/resource-server/resource/{object}` | manage-authorization or manage-clients |
+| authorization | GET,PUT,DELETE | `/admin/realms/{realm}/clients/{client}/authz/resource-server/resource/{object}` | view-authorization / manage-authorization or manage-clients |
 | authorization | GET | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/{object}/associatedPolicies` | view-authorization or manage-authorization or manage-clients |
 | authorization | GET | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy` | view-authorization or manage-authorization or manage-clients |
 | authorization | GET,POST | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/role` | view-authorization / manage-authorization or manage-clients |
 | authorization | GET,POST | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/client` | view-authorization / manage-authorization or manage-clients |
 | organization-authorization | GET,POST | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/group` | view-authorization / manage-authorization or manage-clients; strict group resolution additionally requires view-users |
-| organization-authorization | PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/group/{object}` | manage-authorization or manage-clients |
-| authorization | PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/role/{object}` | manage-authorization or manage-clients |
-| authorization | PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/client/{object}` | manage-authorization or manage-clients |
+| organization-authorization | GET,PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/group/{object}` | view-authorization / manage-authorization or manage-clients |
+| authorization | GET,PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/role/{object}` | view-authorization / manage-authorization or manage-clients |
+| authorization | GET,PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/client/{object}` | view-authorization / manage-authorization or manage-clients |
 | authorization | DELETE | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/{object}` | manage-authorization or manage-clients |
 | authorization | GET | `/admin/realms/{realm}/clients/{client}/authz/resource-server/permission` | view-authorization or manage-authorization or manage-clients |
 | authorization | GET,POST | `/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/scope` | view-authorization / manage-authorization or manage-clients |
-| authorization | PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/scope/{object}` | manage-authorization or manage-clients |
+| authorization | GET,PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/scope/{object}` | view-authorization / manage-authorization or manage-clients |
+| authorization-native-dependencies | GET | `/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/resource` | view-authorization or manage-authorization or manage-clients |
 | authorization | DELETE | `/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/{object}` | manage-authorization or manage-clients |
 <!-- admin-operation-contract:end -->
 
@@ -563,5 +566,85 @@ role-management authority; it is not global administrator authority.
 
 Restrict permission to change approval annotations and source credential/CA
 references with Kubernetes RBAC. A candidate, imported label or successful status
-alone does not approve provider mutation. Common receipt-bearing leaves remain
-Observe/Manage-blocked until #49 and gain no destructive finalizer or Secret.
+alone does not approve provider mutation. Acquisition remains Observe and gains
+no destructive finalizer or Secret. Explicit Manage requires an absent imported
+latch, current provider ownership and the qualified preservation schema.
+
+## Aggregate acquisition and adopted Manage
+
+Use a separate source observer and domain writer, with authority limited to the
+target realm. The [aggregate/preservation contract](architecture/existing-keycloak-adoption.md#implemented-aggregate-acquisition-and-native-preservation-49)
+does not grant realm lifecycle ownership. Credential access begins only after
+explicit qualified client/ServiceAccount Manage, not during acquisition.
+
+| Capability | Target-realm observer | Separate target-realm writer | Excluded authority / limitation |
+| --- | --- | --- | --- |
+| Application/ServiceAccount with existing Authorization Services | view-realm, view-clients; view-authorization for independent graph review | view-realm, manage-clients | No manage-realm, user/group/broker mutation or global realm administration. The client receipt does not acquire the graph. |
+| Selective ResourceServer | view-realm, view-clients, view-authorization | view-realm, manage-clients, manage-authorization | No manage-realm, realm deletion/security mutation, users or global realm creation. V2 selects safe nodes only. |
+| Organization group + already-enabled native root | view-realm, view-users, view-organizations, view-identity-providers, view-clients | view-realm, manage-users, manage-organizations, view-identity-providers, view-clients | No manage-realm, client management, IdP mutation or global realm administration. manage-users also grants target-realm user authority even though the operator does not provision members. |
+| Adopted realm-role definitions/composites | view-realm, view-clients for client-composite visibility | manage-realm | Broader target-realm security/lifecycle authority is inseparable from this legacy role-definition permission. This profile cannot honestly claim target-realm DELETE/security PUT denial. It has no global realm creation or other-realm authority. |
+
+`view-clients` on the Organization profile is necessary to observe foreign client
+role mappings consistently through both reader and writer on 26.8.0; without it,
+caller-dependent provider representations fail the acquisition comparison.
+It does not authorize the operator to modify those clients. The native 26.7.5
+credential-visibility limitation of view-clients remains: the inventory transport
+guard still refuses client-secret/service-account-user routes on both versions.
+
+Application, ServiceAccount, ResourceServer and Organization aggregate writers
+MUST prove realm DELETE, realm security PUT and global realm creation return 403
+on real HTTPS Keycloak. HankoRole uses the explicit §117 exception below.
+Bootstrap administration provisions disposable foreign fixtures and scoped identities only. Ownership acquisition
+does not use user/member reads; destructive Organization safety uses only bounded
+`first=0&max=1` membership existence, without retaining identities.
+
+### Dedicated HankoRole writer: target-realm exception
+
+**Adopted HankoRole Manage remains enabled.** On Keycloak 26.7.5 and 26.8.0,
+`manage-realm` is the currently qualified built-in authority for creating,
+updating, deleting and composing realm-role definitions. Keycloak does not
+currently provide a qualified built-in role-definition-only permission.
+Fine-grained role mapping, composite mapping and client-scope mapping permissions
+are not a qualified substitute for definition create/update/delete.
+
+Grant only `<target-realm>-realm/manage-realm` to this writer. Disable Full Scope
+Allowed and permit exactly that client-role scope. Use a dedicated role-writer
+identity per target realm, with separate watched declarations, wherever the
+deployment architecture permits it. Do not grant `realm-admin`, master
+`manage-realm`, master/global `admin`, `create-realm` or authority on unrelated
+realms. Authentication in master does not require any of those grants.
+
+This credential can also change target-realm security/configuration and delete
+that target realm. **Credential compromise therefore has a target-realm blast
+radius broader than role definitions.** Ownership markers, reviewed candidates,
+UIDs and receipts constrain the controller's authorized behavior; they do not
+restrict the technical capabilities of the Keycloak token.
+
+The narrow §117 exception applies only to HankoRole's credential authority.
+Normal HankoRole writes stay on the inventoried realm-role definition/composite
+endpoints: `POST /admin/realms/{realm}/roles`,
+`PUT,DELETE /admin/realms/{realm}/roles/{role}` and
+`POST /admin/realms/{realm}/roles/{role}/composites`. Bounded identity and
+role/composite reads support current ownership and authority checks. HankoRole
+never sends realm configuration/security PUT or realm DELETE. A role receipt
+confers no realm lifecycle ownership. An imported/external HankoRealm remains
+Observe-only: no realm ownership acquisition, lifecycle finalizer, security
+reconciliation or deletion from its HankoRole children.
+
+Real HTTPS tests preserve both sides of this distinction. A client-only writer
+cannot update/delete realm-role definitions. The dedicated role-only writer can
+change security and delete its **disposable target realm** through direct probes,
+but cannot change/delete master or an unrelated realm or create another realm.
+The normal reconciliation transport separately fails the test if a child calls
+realm security PUT/realm DELETE, or if HankoRole mutates an endpoint outside the
+role inventory. The writer has Full Scope Allowed disabled and its exact permitted
+role scope is asserted. Direct blast-radius probes are not controller behavior.
+Application, ServiceAccount, ResourceServer and Organization writers continue
+to prove realm security mutation and realm deletion are denied.
+
+Adopted-role deletion remains conservative: without qualified absence of every
+foreign role reference, retain `CleanupConflict` and the finalizer rather than
+deleting the provider role. An explicit return to Observe withdraws lifecycle
+participation and preserves the role. The exact reviewed candidate, target UID,
+provider UUID, receipt, qualified native preservation and explicit Observe →
+Manage transition remain required; neither status nor a matching name is authority.

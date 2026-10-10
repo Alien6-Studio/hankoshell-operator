@@ -24,6 +24,12 @@ func observeClientAttributes(item *adoptionInventoryItem, c keycloak.InventoryCl
 			item.observation.Facts = append(item.observation.Facts, f)
 			continue
 		}
+		if keycloak.QualifiedNativeLocale(key, []string{value}) {
+			f := inventoryFact(item.kind, item.id, item.name, "nativeLocale", textValue(value))
+			f.Classification, f.RoundTrip = adoption.Preserved, adoption.PreservedNative
+			item.observation.Facts = append(item.observation.Facts, f)
+			continue
+		}
 		switch key {
 		case "hanko.sh/application-owner", "hanko.sh/client-owner-kind", "hanko.sh/client-owner-uid", "hanko.sh/adoption-receipt", "hanko.app", "hanko.service", "hanko.sh/resource-server-ownership", "client.secret.creation.time":
 		case "post.logout.redirect.uris":
@@ -110,7 +116,7 @@ func observeInventoryMappers(item *adoptionInventoryItem, mappers []keycloak.Pro
 				item.finding("mapper_mapping_unsupported", "protocol mapper configuration is not qualified for lossless representation", true)
 			} else {
 				item.observation.Facts = append(item.observation.Facts, inventoryFact("protocol-mapper", mapper.ID, mapper.Name, "mapperClaim", textValue(claim.Claim)),
-					inventoryFact("protocol-mapper", mapper.ID, mapper.Name, "mapperFlags", setValue([]string{"access=" + boolDefault(claim.AddToAccessToken), "id=" + boolDefault(claim.AddToIDToken), "userinfo=" + boolDefault(claim.AddToUserInfo), "json=" + claim.JSONType})),
+					inventoryFact("protocol-mapper", mapper.ID, mapper.Name, "mapperFlags", setValue([]string{"access=" + boolDefault(claim.AddToAccessToken), "id=" + boolDefault(claim.AddToIDToken), "userinfo=" + boolDefault(claim.AddToUserInfo), "introspection=" + boolDefault(claim.AddToIntrospection), "json=" + claim.JSONType})),
 					inventoryFact("protocol-mapper", mapper.ID, mapper.Name, "claimSource", setValue([]string{"attribute=" + claim.UserAttribute, "realmRoles=" + boolText(claim.RealmRoles), "prefix=" + claim.RealmRolePrefix, "multivalued=" + boolText(claim.Multivalued)})))
 			}
 		default:
@@ -123,7 +129,7 @@ func observeInventoryMappers(item *adoptionInventoryItem, mappers []keycloak.Pro
 }
 func importedTokenClaim(mapper keycloak.ProtocolMapper) (api.ApplicationTokenClaim, bool) {
 	claim := api.ApplicationTokenClaim{Name: importResourceName("", mapper.Name), KeycloakName: mapper.Name, Claim: mapper.Config["claim.name"], JSONType: mapper.Config["jsonType.label"]}
-	allowed := map[string]bool{"claim.name": true, "user.attribute": true, "access.token.claim": true, "id.token.claim": true, "userinfo.token.claim": true, "jsonType.label": true, "multivalued": true, "usermodel.realmRoleMapping.rolePrefix": true, "hanko.sh/application-owner": true}
+	allowed := map[string]bool{"claim.name": true, "user.attribute": true, "access.token.claim": true, "id.token.claim": true, "userinfo.token.claim": true, "jsonType.label": true, "multivalued": true, "usermodel.realmRoleMapping.rolePrefix": true, "introspection.token.claim": true, "hanko.sh/application-owner": true}
 	for k := range mapper.Config {
 		if !allowed[k] {
 			return claim, false
@@ -146,6 +152,7 @@ func importedTokenClaim(mapper keycloak.ProtocolMapper) (api.ApplicationTokenCla
 	claim.AddToAccessToken = boolPointer(mapper.Config["access.token.claim"] == "true")
 	claim.AddToIDToken = boolPointer(mapper.Config["id.token.claim"] == "true")
 	claim.AddToUserInfo = boolPointer(mapper.Config["userinfo.token.claim"] == "true")
+	claim.AddToIntrospection = boolPointer(mapper.Config["introspection.token.claim"] == "true")
 	claim.Multivalued = mapper.Config["multivalued"] == "true"
 	if claim.JSONType == "" {
 		claim.JSONType = "String"
@@ -156,7 +163,7 @@ func importedTokenClaim(mapper keycloak.ProtocolMapper) (api.ApplicationTokenCla
 	if !slices.Contains([]string{"String", "long", "int", "boolean", "JSON"}, claim.JSONType) {
 		return claim, false
 	}
-	for _, key := range []string{"access.token.claim", "id.token.claim", "userinfo.token.claim", "multivalued"} {
+	for _, key := range []string{"access.token.claim", "id.token.claim", "userinfo.token.claim", "introspection.token.claim", "multivalued"} {
 		if value := mapper.Config[key]; value != "" && value != "true" && value != "false" {
 			return claim, false
 		}
@@ -502,7 +509,7 @@ func desiredTokenClaims(item *adoptionInventoryItem, facts *[]adoption.Fact, cla
 			}
 		}
 		*facts = append(*facts, inventoryFact("protocol-mapper", id, effectiveClaimName(claim), "mapperClaim", textValue(claim.Claim)),
-			inventoryFact("protocol-mapper", id, effectiveClaimName(claim), "mapperFlags", setValue([]string{"access=" + boolDefault(claim.AddToAccessToken), "id=" + boolDefault(claim.AddToIDToken), "userinfo=" + boolDefault(claim.AddToUserInfo), "json=" + claim.JSONType})),
+			inventoryFact("protocol-mapper", id, effectiveClaimName(claim), "mapperFlags", setValue([]string{"access=" + boolDefault(claim.AddToAccessToken), "id=" + boolDefault(claim.AddToIDToken), "userinfo=" + boolDefault(claim.AddToUserInfo), "introspection=" + boolDefault(claim.AddToIntrospection), "json=" + claim.JSONType})),
 			inventoryFact("protocol-mapper", id, effectiveClaimName(claim), "claimSource", setValue([]string{"attribute=" + claim.UserAttribute, "realmRoles=" + boolText(claim.RealmRoles), "prefix=" + claim.RealmRolePrefix, "multivalued=" + boolText(claim.Multivalued)})))
 		if claim.Value != nil {
 			item.finding("claim_value_excluded", "fixed token claim values are excluded from public adoption evidence", true)

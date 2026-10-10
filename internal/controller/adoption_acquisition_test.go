@@ -329,12 +329,12 @@ func TestOwnershipAcquisitionReceiptRecovery(t *testing.T) {
 			if err := f.kube.Update(context.Background(), app); err != nil {
 				t.Fatal(err)
 			}
-			if err := f.run(); err != nil {
+			handled, _, err := reconcileOwnershipAcquisition(context.Background(), f.kube, f.kube, app, f.writer, nil)
+			if err != nil {
 				t.Fatal(err)
 			}
-			_, conditions := f.status()
-			if conditionReason(conditions, "OwnershipAdopted") != "ManagePreservationUnqualified" || f.puts != 1 {
-				t.Fatal("receipt authorized semantic Manage")
+			if handled != (fault == "partial") || f.puts != 1 {
+				t.Fatal("durable checkpoint did not distinguish qualified Manage from partial ownership")
 			}
 		})
 	}

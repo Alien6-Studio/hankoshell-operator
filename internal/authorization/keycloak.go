@@ -98,6 +98,9 @@ func (d *KeycloakDriver) DeleteOwned(ctx context.Context, model Model, owned Man
 }
 
 func boundedAuthorizationError(err error) error {
+	if errors.Is(err, keycloak.ErrAuthorizationCleanupConflict) {
+		return errors.Join(keycloak.ErrAuthorizationCleanupConflict, iamcontract.SafeError(err))
+	}
 	if errors.Is(err, keycloak.ErrAuthorizationReadLimit) {
 		return errors.Join(iamcontract.ErrObservationIncomplete, iamcontract.SafeError(err))
 	}
@@ -124,6 +127,14 @@ func toKeycloakModel(model Model) keycloak.AuthorizationModel {
 		}
 		result.Permissions = append(result.Permissions, converted)
 	}
+	return result
+}
+
+// KeycloakAdoptionModel uses the same semantic conversion as reconciliation.
+// Provider ownership must be proved separately by the aggregate transaction.
+func KeycloakAdoptionModel(model Model, uid string) keycloak.AuthorizationModel {
+	result := toKeycloakModel(model)
+	result.OwnerUID = uid
 	return result
 }
 

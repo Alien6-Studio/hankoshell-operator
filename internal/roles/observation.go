@@ -47,8 +47,9 @@ func observeRole(got *keycloak.RealmRole, p Plan, direct, closure []string, nati
 		delete(o.Attributes, OwnerAttribute)
 		delete(o.Attributes, "hanko.sh/adoption-receipt")
 		metadataComplete := filterRoleObservationAttributes(o.Attributes)
+		metadataComplete = projectRoleMetadata(o.Attributes, p) && metadataComplete
 		o.NativeClientComposites = nativeClientComposites
-		o.Complete = metadataComplete && !nativeClientComposites
+		o.Complete = metadataComplete && (!nativeClientComposites || keycloak.ValidRoleAdoptionReceipt(got, p.resolved.Owner) && keycloak.QualifiedRoleAttributes(got.Attributes))
 		// Composition is additive: false does not authorize removing extra
 		// provider composites. An explicitly requested composite must exist.
 		state.Drifted = roleContractDrift(got, p, o, metadataComplete, state.Owned)
@@ -56,7 +57,7 @@ func observeRole(got *keycloak.RealmRole, p Plan, direct, closure []string, nati
 			state.Findings = []iamcontract.Finding{{Classification: iamcontract.Unsupported, ObjectKind: "role", Code: "native_metadata_not_observed", Message: "credential-shaped native metadata is excluded from observation", ReadOnly: true}}
 		}
 	}
-	if nativeClientComposites {
+	if nativeClientComposites && !o.Complete {
 		state.Findings = append(state.Findings, iamcontract.Finding{Classification: iamcontract.Unsupported, ObjectKind: "role", Code: "native_client_composites", Message: "client-role composite identity is outside the supported realm-role observation contract", ReadOnly: true})
 	}
 	data, _ := json.Marshal(o)
@@ -76,7 +77,7 @@ func filterRoleObservationAttributes(attributes map[string][]string) bool {
 }
 
 func roleContractDrift(got *keycloak.RealmRole, p Plan, o roleObservation, metadataComplete, owned bool) bool {
-	if !metadataComplete || !owned || got.Description != p.intent.Description || (p.intent.Composite && !got.Composite) || !maps.EqualFunc(o.Attributes, p.resolved.Attributes, slices.Equal[[]string]) {
+	if !metadataComplete || !owned || got.Description != p.intent.Description || (p.intent.Composite && !got.Composite) || !roleAttributesMatch(o.Attributes, p.resolved.Attributes, got.Attributes["hanko.sh/adoption-receipt"] != nil) {
 		return true
 	}
 	for _, child := range p.intent.Composites {
@@ -85,4 +86,34 @@ func roleContractDrift(got *keycloak.RealmRole, p Plan, o roleObservation, metad
 		}
 	}
 	return false
+}
+
+func roleAttributesMatch(actual, desired map[string][]string, adopted bool) bool {
+	if !adopted {
+		return maps.EqualFunc(actual, desired, slices.Equal[[]string])
+	}
+	for key, values := range desired {
+		if !slices.Equal(actual[key], values) {
+			return false
+		}
+	}
+	return true
+}
+
+func projectRoleMetadata(attrs map[string][]string, p Plan) bool {
+	complete := true
+	for key, values := range attrs {
+		if keycloak.QualifiedNativeLocale(key, values) {
+			continue
+		}
+		if expected, declared := p.resolved.Attributes[key]; declared {
+			if !slices.Equal(values, expected) {
+				attrs[key] = []string{"<different-from-intent>"}
+			}
+		} else {
+			delete(attrs, key)
+			complete = false
+		}
+	}
+	return complete
 }

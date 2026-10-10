@@ -53,7 +53,7 @@ func organizationTestReconciler(t *testing.T, descendants bool) (*HankoResourceS
 		objects = append(objects, o)
 		driver.groups[o.Name] = organizationProof(o)
 	}
-	c := fake.NewClientBuilder().WithScheme(resourceServerScheme(t)).WithObjects(objects...).WithStatusSubresource(&api.HankoResourceServer{}, &api.HankoOrganization{}).WithIndex(&api.HankoResourceServer{}, organizationPrincipalIndex, organizationPrincipalIndexValues).Build()
+	c := fake.NewClientBuilder().WithScheme(resourceServerScheme(t)).WithObjects(objects...).WithStatusSubresource(&api.HankoResourceServer{}, &api.HankoOrganization{}).WithIndex(&api.HankoResourceServer{}, organizationPrincipalIndex, authorizationProvenanceIndexValues).Build()
 	return &HankoResourceServerReconciler{Client: c, APIReader: c, DriverFactory: func(string, map[string]string) authorization.Driver { return driver }}, rs, driver
 }
 
@@ -201,13 +201,14 @@ func TestOrganizationExecutionRechecksFreshDependencyAfterCompile(t *testing.T) 
 
 func TestOrganizationWatchExcludesOtherNamespacesAndNonConsumers(t *testing.T) {
 	r, rs, _ := organizationTestReconciler(t, true)
+	r.Client = cacheContinuationClient{Client: r.Client}
 	other := rs.DeepCopy()
 	other.Namespace = "unrelated"
 	other.ResourceVersion = ""
 	nonConsumer := rs.DeepCopy()
-	nonConsumer.Name += "-role-only"
+	nonConsumer.Name += "-workload-only"
 	nonConsumer.ResourceVersion = ""
-	nonConsumer.Spec.Permissions[0].Principals = []api.AuthorizationPrincipal{{Kind: "realm_role", Ref: "reader"}}
+	nonConsumer.Spec.Permissions[0].Principals = []api.AuthorizationPrincipal{{Kind: "service_account", Ref: "workload"}}
 	for _, candidate := range []*api.HankoResourceServer{other, nonConsumer} {
 		if err := r.Create(context.Background(), candidate); err != nil {
 			t.Fatal(err)
@@ -216,6 +217,35 @@ func TestOrganizationWatchExcludesOtherNamespacesAndNonConsumers(t *testing.T) {
 	requests := r.organizationRequests(context.Background(), organizationNode("new-child", "europe", "/europe/new-child"))
 	if len(requests) != 1 || requests[0].NamespacedName != client.ObjectKeyFromObject(rs) {
 		t.Fatal("organization watch escaped namespace/explicit-principal boundary")
+	}
+}
+
+type cacheContinuationClient struct {
+	client.Client
+}
+
+func (c cacheContinuationClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	if err := c.Client.List(ctx, list, opts...); err != nil {
+		return err
+	}
+	list.SetContinue("continue-not-supported")
+	return nil
+}
+
+func TestOrganizationWatchRefusesOversizedCachedConsumerSet(t *testing.T) {
+	r, rs, _ := organizationTestReconciler(t, true)
+	r.Client = cacheContinuationClient{Client: r.Client}
+	for i := range maxOrganizationInventory {
+		other := rs.DeepCopy()
+		other.Name = fmt.Sprintf("consumer-%d", i)
+		other.ResourceVersion = ""
+		other.UID = ""
+		if err := r.Create(context.Background(), other); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if requests := r.organizationRequests(context.Background(), organizationNode("europe", "", "/europe")); len(requests) != 0 {
+		t.Fatal("oversized cached dependency inventory was partially enqueued")
 	}
 }
 

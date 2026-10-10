@@ -161,6 +161,7 @@ var fields = map[string]bool{
 	"mapperRoles": true, "mapperFlags": true, "providerType": true, "brokerEndpoints": true,
 	"acs": true, "nameID": true, "signedAssertions": true, "signedResponses": true,
 	"nativePresence": true, "credentialPresence": true, "attributes": true,
+	"nativeLocale": true, "authorizationServices": true,
 	"keycloakDefault.realm_client":                             true,
 	"keycloakDefault.backchannel.logout.session.required":      true,
 	"keycloakDefault.backchannel.logout.revoke.offline.tokens": true,
@@ -176,6 +177,9 @@ func digest(domain string, v any) string {
 	return string(iamcontract.Hash(iamcontract.ContractVersion(Version), domain, "evidence", b))
 }
 func validFact(f Fact) bool {
+	if !validNativeLocaleFact(f) || !validAuthorizationFeatureFact(f) {
+		return false
+	}
 	if !validKeycloakDefaultFact(f) {
 		return false
 	}
@@ -188,6 +192,13 @@ func validFact(f Fact) bool {
 		}
 	}
 	return true
+}
+
+func validNativeLocaleFact(f Fact) bool {
+	if f.Field != "nativeLocale" {
+		return true
+	}
+	return (f.Domain == "group" || f.Domain == "organization" || f.Domain == "application" || f.Domain == "service-account" || f.Domain == "role" || f.Domain == "client-role") && (f.Value.Text == "en" || f.Value.Text == "fr") && len(f.Value.Set) == 0 && f.Value.Flag == nil && f.Classification == Preserved && f.RoundTrip == PreservedNative
 }
 
 func validKeycloakDefaultFact(f Fact) bool {
@@ -461,7 +472,7 @@ func classifyDiff(entry *DiffEntry, f Fact) {
 	if f.Field == "owner" && f.Value.Text == "unmarked" {
 		entry.Code = OwnershipTransition
 	}
-	if entry.Code == WouldChange && slices.Contains([]string{"protocol", "container", "parent", "composites", "realmRoles", "clientRoles"}, f.Field) {
+	if entry.Code == WouldChange && (slices.Contains([]string{"protocol", "container", "parent", "realmRoles", "clientRoles"}, f.Field) || f.Field == "composites" && f.Domain != "role") {
 		entry.Code = RecreationRequired
 	}
 	if f.Field == "credentialRotation" && f.Value.Flag != nil && *f.Value.Flag {
@@ -480,4 +491,11 @@ func boundEdges(facts []Fact) bool {
 		remaining -= len(facts[i].Value.Set)
 	}
 	return truncated
+}
+
+func validAuthorizationFeatureFact(f Fact) bool {
+	if f.Field != "authorizationServices" {
+		return true
+	}
+	return (f.Domain == "application" || f.Domain == "service-account") && f.Value.Flag != nil && f.Value.Text == "" && len(f.Value.Set) == 0 && f.Classification == Preserved && f.RoundTrip == PreservedNative
 }

@@ -78,12 +78,13 @@ deps:
       - selfupdate
       - version
 
-  # ADR-009: HTTP client depends only on transport and the pure ownership wire contract.
+  # ADR-009: HTTP client depends on transport and pure ownership wire contracts.
   keycloak:
     anyVendorDeps: true
     mayDependOn:
       - httpsecurity
       - adoption
+      - organization
 
   httpsecurity:
     anyVendorDeps: true

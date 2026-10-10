@@ -66,6 +66,9 @@ type GroupSpec struct {
 	// RequireOwnership makes existing groups fail closed unless their ownership
 	// attributes (or LegacyOwnedID) match this spec.
 	RequireOwnership bool
+	// PreserveAdopted selects the receipt-backed, current-read attribute merge.
+	// The controller must first authorize explicit Manage of the full aggregate.
+	PreserveAdopted bool
 }
 
 // groupPath returns the full Keycloak path a GroupSpec resolves to.
@@ -142,10 +145,7 @@ func GroupMatchesOwnership(group *Group, expected map[string][]string, legacyOwn
 func (c *Client) EnsureGroup(ctx context.Context, realm string, spec GroupSpec) (string, error) {
 	existing, err := c.GetGroupByPath(ctx, realm, spec.groupPath())
 	if err == nil {
-		if spec.RequireOwnership && !GroupMatchesOwnership(existing, spec.OwnershipAttributes, spec.LegacyOwnedID) {
-			return "", fmt.Errorf("%w: existing group %q in realm %q is not owned by this HankoOrganization", ErrGroupOwnershipConflict, spec.groupPath(), realm)
-		}
-		return existing.ID, nil
+		return c.ensureExistingGroup(ctx, realm, spec, existing)
 	}
 	if !IsNotFound(err) {
 		return "", err
@@ -186,6 +186,23 @@ func (c *Client) EnsureGroup(ctx context.Context, realm string, spec GroupSpec) 
 		return "", fmt.Errorf("%w: created group %q in realm %q does not carry the expected owner", ErrGroupOwnershipConflict, spec.groupPath(), realm)
 	}
 	return adopted.ID, nil
+}
+
+func (c *Client) ensureExistingGroup(ctx context.Context, realm string, spec GroupSpec, existing *Group) (string, error) {
+	if spec.RequireOwnership && !GroupMatchesOwnership(existing, spec.OwnershipAttributes, spec.LegacyOwnedID) {
+		return "", fmt.Errorf("%w: existing group %q in realm %q is not owned by this HankoOrganization", ErrGroupOwnershipConflict, spec.groupPath(), realm)
+	}
+	if _, adopted := existing.Attributes["hanko.sh/adoption-receipt"]; adopted {
+		return c.ensureAdoptedGroup(ctx, realm, existing.ID, spec)
+	}
+	return existing.ID, nil
+}
+
+func (c *Client) ensureAdoptedGroup(ctx context.Context, realm, id string, spec GroupSpec) (string, error) {
+	if !spec.PreserveAdopted {
+		return "", ErrAdoptionPrecondition
+	}
+	return id, c.reconcileAdoptedGroup(ctx, realm, id, spec)
 }
 
 type groupRoleMappings struct {
@@ -442,4 +459,30 @@ func (c *Client) groupRoleMappings(ctx context.Context, realm, groupID string) (
 	var mappings groupRoleMappings
 	err := c.get(ctx, adminRealmsPath+realm+groupsSegment+url.PathEscape(groupID)+"/role-mappings", &mappings)
 	return mappings, err
+}
+
+// Cleanup checks the declared mapping boundary, without claiming the roles.
+func (c *Client) GroupRoleMappingsWithin(ctx context.Context, realm, id string, realmRoles []string, clientRoles map[string][]string) (bool, error) {
+	mappings, err := c.groupRoleMappings(ctx, realm, id)
+	if err != nil {
+		return false, err
+	}
+	count := len(mappings.RealmMappings)
+	for _, role := range mappings.RealmMappings {
+		if !slices.Contains(realmRoles, role.Name) {
+			return false, nil
+		}
+	}
+	for _, mapping := range mappings.ClientMappings {
+		count += len(mapping.Mappings)
+		for _, role := range mapping.Mappings {
+			if !slices.Contains(clientRoles[mapping.Client], role.Name) {
+				return false, nil
+			}
+		}
+	}
+	if count > 1024 {
+		return false, ErrAuthorizationReadLimit
+	}
+	return true, nil
 }

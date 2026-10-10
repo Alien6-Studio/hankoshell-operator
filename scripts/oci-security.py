@@ -256,8 +256,8 @@ def main():
     parser.add_argument("--revision", required=True)
     parser.add_argument("--version", required=True)
     args = parser.parse_args()
-    if not DIGEST.fullmatch(args.digest) or not re.fullmatch(r"[0-9a-f]{40}", args.revision) or args.version != "0.4.0":
-        parser.error("Expected immutable digest, full revision and version 0.4.0")
+    if not DIGEST.fullmatch(args.digest) or not re.fullmatch(r"[0-9a-f]{40}", args.revision) or args.version != "0.5.0":
+        parser.error("Expected immutable digest, full revision and version 0.5.0")
     if args.mode == "scan":
         if args.archive is None or args.scanner is None:
             parser.error("Scanning requires the exact OCI archive and pinned scanner")

@@ -2,7 +2,6 @@ package keycloak
 
 import (
 	"context"
-	"encoding/json"
 	"maps"
 	"net/url"
 
@@ -11,7 +10,7 @@ import (
 
 // getOwnedServiceAccount performs a fresh provider check for each sensitive
 // operation. Neither a Kubernetes Secret nor a previously observed UUID proves
-// ownership. Receipts acquired by #48 cannot enter Manage before #49.
+// ownership. Receipt-backed clients require the qualified preservation boundary.
 func (c *Client) getOwnedServiceAccount(ctx context.Context, realm, clientID, uid string) (*Application, error) {
 	a, err := c.GetApplication(ctx, realm, clientID)
 	if err != nil {
@@ -21,7 +20,14 @@ func (c *Client) getOwnedServiceAccount(ctx context.Context, realm, clientID, ui
 		return nil, ErrApplicationPrecondition
 	}
 	if _, present := a.Attributes[adoption.ReceiptKey]; present {
-		return nil, ErrAdoptionPrecondition
+		snapshot, err := c.ReadClientOwnership(ctx, realm, clientID)
+		if err != nil {
+			return nil, err
+		}
+		if snapshot == nil || snapshot.Application.ID != a.ID || !validClientAdoptionReceipt(&snapshot.Application, "HankoServiceAccount", uid) || !snapshot.PreservationQualified() {
+			return nil, ErrAdoptionPrecondition
+		}
+		a = &snapshot.Application
 	}
 	return a, nil
 }
@@ -38,7 +44,9 @@ func (c *Client) DeleteServiceAccountIfOwned(ctx context.Context, realm, clientI
 		return ErrApplicationPrecondition
 	}
 	if _, present := a.Attributes[adoption.ReceiptKey]; present {
-		return ErrAdoptionPrecondition
+		if err := c.CheckAdoptedClientCleanup(ctx, realm, clientID, "HankoServiceAccount", uid); err != nil {
+			return err
+		}
 	}
 	return c.deleteMapper(ctx, applicationPath(realm, a.ID))
 }
@@ -130,14 +138,22 @@ func setNewServiceAccountOwner(attributes map[string]any, spec CreateAppSpec) er
 	attributes[adoption.ClientOwnerKindKey], attributes[adoption.ClientOwnerUIDKey] = "HankoServiceAccount", spec.ServiceAccountOwnerUID
 	return nil
 }
-func validateServiceAccountAttributes(payload map[string]any, uuid, clientID, uid string, attrs map[string]string) error {
-	data, err := json.Marshal(payload)
+func (c *Client) validateServiceAccountAttributes(ctx context.Context, realm string, payload map[string]any, uuid, clientID, uid string, attrs map[string]string) error {
 	var current Application
-	if err != nil || json.Unmarshal(data, &current) != nil || current.ID != uuid || current.ClientID != clientID || !ServiceAccountOwned(&current, uid) {
+	if decodeSnapshot(payload, &current) != nil || current.ID != uuid || current.ClientID != clientID || !ServiceAccountOwned(&current, uid) {
 		return ErrApplicationPrecondition
 	}
 	if _, present := current.Attributes[adoption.ReceiptKey]; present {
-		return ErrAdoptionPrecondition
+		if !QualifiedClientAttributes(attrs) {
+			return ErrAdoptionPrecondition
+		}
+		snapshot := &ClientOwnershipSnapshot{Application: current, document: payload}
+		if err := c.get(ctx, applicationPath(realm, uuid)+"/protocol-mappers/models", &snapshot.mappers); err != nil {
+			return err
+		}
+		if len(snapshot.mappers) > 512 || !validClientAdoptionReceipt(&current, "HankoServiceAccount", uid) || !snapshot.PreservationQualified() {
+			return ErrAdoptionPrecondition
+		}
 	}
 	for key := range attrs {
 		if adoption.ReservedAttribute(key) {
@@ -145,4 +161,15 @@ func validateServiceAccountAttributes(payload map[string]any, uuid, clientID, ui
 		}
 	}
 	return nil
+}
+
+func preserveAdoptedServiceAttributes(payload, current, next map[string]any) {
+	if current[adoption.ReceiptKey] == nil {
+		return
+	}
+	for key, value := range current {
+		next[key] = value
+	}
+	delete(payload, "serviceAccountsEnabled")
+	delete(payload, "access")
 }

@@ -207,7 +207,14 @@ func (r *HankoServiceAccountReconciler) reconcileServiceAccountDeletion(ctx cont
 		if current != nil {
 			_, receipt = current.Attributes["hanko.sh/adoption-receipt"]
 		}
-		observe = !keycloak.ServiceAccountOwned(current, string(sa.UID)) || receipt
+		observe = !keycloak.ServiceAccountOwned(current, string(sa.UID))
+		if receipt && !observe {
+			if !explicitLeafManage(sa) {
+				observe = true
+			} else if err := kc.CheckAdoptedClientCleanup(ctx, sa.Spec.RealmRef, sa.Spec.ClientID, "HankoServiceAccount", string(sa.UID)); err != nil {
+				return adoptedCleanupConflict(ctx, r.Client, sa)
+			}
+		}
 	}
 	logger := log.FromContext(ctx)
 	if observe {
@@ -400,6 +407,9 @@ func (r *HankoServiceAccountReconciler) ensureSASecret(ctx context.Context, sa *
 	var s corev1.Secret
 	err := r.Get(ctx, types.NamespacedName{Name: saSecretName(sa.Spec.ClientID), Namespace: sa.Namespace}, &s)
 	if err == nil {
+		// Reconstruct the reference after status loss without reading or rotating
+		// the provider credential. Execution ownership was already verified.
+		setServiceAccountSecretStatus(sa, sa.Status.LastRotated)
 		return nil
 	}
 	if client.IgnoreNotFound(err) != nil {

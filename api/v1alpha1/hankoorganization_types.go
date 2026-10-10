@@ -28,6 +28,13 @@ type HankoOrganization struct {
 // HankoOrganizationSpec defines the desired state of an organization node.
 // +kubebuilder:validation:XValidation:rule="!has(self.roles) || self.roles.all(r, r != 'HANKO_PLATFORM' && !r.startsWith('HANKO_PLATFORM_') && !r.startsWith('HANKO_FLEET_') && !r.startsWith('HANKO_CLUSTER_'))",message="reserved platform, fleet and cluster roles cannot be assigned through an organization"
 type HankoOrganizationSpec struct {
+	// Mode controls provider writes. Observe never changes groups, native
+	// Organizations, role mappings or optional platform projections. An
+	// imported-by label always forces Observe. Adoption does not change Mode.
+	// +kubebuilder:validation:Enum=Manage;Observe
+	// +kubebuilder:default=Manage
+	Mode string `json:"mode,omitempty"`
+
 	// RealmRef references the HankoRealm this organization belongs to.
 	// +kubebuilder:validation:Required
 	RealmRef string `json:"realmRef"`
@@ -91,6 +98,12 @@ type OrganizationClientRoles struct {
 // HankoOrganizationStatus separates Keycloak Synced readiness from the optional
 // platform Projection. Ready standalone organizations do not need a PositionID.
 type HankoOrganizationStatus struct {
+	// AdoptionCandidate is bounded review evidence, never provider authority.
+	AdoptionCandidate *AdoptionCandidateStatus `json:"adoptionCandidate,omitempty"`
+	// AdoptionReceipt reports provider checkpoint verification, not consent
+	// to reconcile business state or delete either aggregate member.
+	AdoptionReceipt *AdoptionReceiptStatus `json:"adoptionReceipt,omitempty"`
+
 	// Phase is Ready when Keycloak is synchronized and projection is disabled or
 	// healthy. Configured projection failures are Error; parent projection waits
 	// are Pending even when provider Synced is True.

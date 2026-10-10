@@ -1,16 +1,17 @@
 # Existing Keycloak: explicit ownership adoption
 
 Accepted direction for [RFC #46](https://github.com/Alien6-Studio/hankoshell-operator/issues/46),
-starting milestone **0.5.0 — Adopt Existing Keycloak** after immutable v0.4.0.
-The source tree implements bounded discovery/diff and explicit reviewed leaf
-ownership acquisition. Aggregate adoption and adopt-to-Manage preservation remain
-#49. Current packaging remains 0.4.0, with 16 experimental v1alpha1 CRDs; these
-0.5 changes are unreleased.
+completing milestone **0.5.0 — Adopt Existing Keycloak** after immutable v0.4.0.
+The source tree implements bounded discovery/diff, explicit reviewed ownership
+acquisition, Organization and ResourceServer checkpoints, and a separate qualified
+transition to Manage. Current source/chart metadata is 0.5.0; source freeze
+requires protected merge and exact-main qualification. The 16 v1alpha1 CRDs remain
+experimental; source completion does not publish production packages.
 
 ## Implemented discovery and diff (#47)
 
-The source tree implements DISCOVER → OBSERVE → PLAN → DIFF, while packaging
-remains 0.4.0. The discovery/diff evidence alone approves no adoption and writes no
+The source tree implements DISCOVER → OBSERVE → PLAN → DIFF. The discovery/diff
+evidence alone approves no adoption and writes no
 provider owner marker/journal/receipt. The separate #48 executor below requires
 explicit approval; it neither rotates credentials nor enters Manage.
 The existing application UUID + migration observation-hash flow is unchanged;
@@ -19,7 +20,7 @@ its hash is separate from the new adoption observation hash.
 `internal/adoption` is a pure evidence package, with no provider SDK or Kubernetes
 client. Contract version `hanko.sh/adoption-contract/v1alpha1` is not a Kubernetes
 apiVersion. The public `status.adoptionCandidate` on HankoApplication, HankoRole,
-HankoServiceAccount and HankoResourceServer contains:
+HankoServiceAccount, HankoOrganization and HankoResourceServer contains:
 
 - contractVersion, current target kind/namespace/name/UID/generation and imported-by/tenant connection metadata;
 - providerIdentity: current HankoKeycloakInstance namespace/name/UID, normalized
@@ -110,9 +111,8 @@ No timestamp is added to adoption evidence; semantic no-op evidence avoids statu
 writes. Completeness means relevant semantics/foreign boundaries are classified,
 not that every provider byte has been exported or qualified.
 
-The implemented leaf executor is described below. Aggregate selection and safe
-adopt-to-Manage preservation remain #49; their architectural requirements below
-are not an implemented support claim.
+The leaf and aggregate executors are described below. A complete candidate is
+permission to review, not permission to acquire or enter Manage.
 
 ## Implemented reviewed leaf acquisition (#48)
 
@@ -121,11 +121,12 @@ SPA/web/M2M and SAML, HankoRole, and HankoServiceAccount leaves. It writes only
 root ownership metadata and a receipt, preserves the exact provider UUID and
 business configuration, verifies the read-back, and stops in Observe. It never
 acquires roles, composites, mappers or Authorization Services journals by name.
-Opaque/native collections, unknown mapper configurations, lossy/unsupported
-round trips and incomplete coverage remain non-approvable. Realm lifecycle,
-Organization and ResourceServer aggregate acquisition remain #49.
+Opaque collections, unknown mapper configurations, lossy/unsupported round trips
+and incomplete coverage remain non-approvable. Only the closed native schemas
+described in the preservation audit below are additionally qualified. Existing
+realm lifecycle remains Observe-only.
 
-The only new native-attribute exception is the following exact Keycloak defaults,
+Retain the following exact Keycloak defaults,
 qualified on HTTPS Keycloak **26.7.5 and 26.8.0**:
 
 | Attribute | Exact canonical value |
@@ -139,7 +140,7 @@ They appear as `keycloakDefault.<attribute>` facts with
 Their values and presence participate in canonical observation and CandidateHash.
 A different, empty, ambiguous or missing value invalidates the previous approval;
 a different value retains the lossy refusal. Other native attributes gain no
-exception. Nonempty native client-scope collections remain unqualified, including
+wildcard exception. Nonempty native client-scope collections remain unqualified, including
 Keycloak's automatic `service_account` scope. Qualification fixtures deliberately
 use leaves without those scopes; adoption does not remove them in production.
 
@@ -167,10 +168,14 @@ spec:
 
 5. Wait for `OwnershipAdopted=True/AdoptionVerified` and
    `status.adoptionReceipt.state: Verified`; inspect the provider owner and receipt.
-6. Keep the declaration Observe. A later Manage request is a separate decision.
-   **All common receipt-bearing leaves currently refuse Manage with
-   `ManagePreservationUnqualified` until #49**, even after approval annotations or
-   the imported label are removed. A receipt grants neither deletion nor secrets.
+6. Keep the declaration Observe until a separate administrator action explicitly
+   sets `spec.mode: Manage` and removes `hanko.sh/imported-by`, if present.
+   The writer rechecks current exact ownership, the complete domain checkpoint
+   and the closed preservation schema. Unqualified state still fails with
+   `ManagePreservationUnqualified`. A receipt alone grants neither deletion nor secrets.
+7. After verified acquisition, source and approval annotations may be removed;
+   they are not lifetime dependencies. Credential recovery/rotation and
+   destructive finalizers start only during the explicit qualified Manage lifecycle.
 
 The placeholder above is not an executable approval. Copy the exact reviewed
 hash from your target; do not approve a generic example, stale status or name.
@@ -221,7 +226,7 @@ resources without a common receipt retain their existing Manage lifecycle.
 from clientID alone.** Neither an existing Secret, status ID nor finalizer proves
 ownership. Existing declarations must remain/become Observe and follow the reviewed
 workflow when their leaf is qualified. If opaque native state blocks the candidate,
-keep Observe until #49; do not manually forge the reserved envelope. Newly created
+keep Observe; do not manually forge the reserved envelope. Newly created
 service accounts get their kind/UID envelope and fresh read-back before credential
 retrieval. Service-account token mappers require their own matching kind/UID proof.
 
@@ -231,6 +236,121 @@ allows only the separate acquisition transaction. Deleting an Observe target,
 including one with verified acquisition or a legacy finalizer, preserves provider
 state. Recreated targets/new provider UUIDs cannot reuse the old approval. Reserved
 owner/receipt/journal attributes are rejected in desired metadata.
+
+## Implemented aggregate acquisition and native preservation (#49)
+
+HankoOrganization has `spec.mode: Manage | Observe`, defaulting to Manage for
+existing manifests. Imported labels force Observe. Observe reads the provider
+and candidate without changing groups, native Organizations, mappings, hierarchy,
+domains, broker links or the optional Position projection; it has no finalizer.
+A manually reviewed Observe declaration is sufficient. Inventory does not create
+Organization declarations automatically.
+
+An Organization candidate binds the current realm UUID, group UUID/path, current
+provider parent and Kubernetes ancestor identities, and the optional root native
+Organization UUID/alias/name. Foreign child UUIDs, additive role mappings, domains,
+IdP aliases and qualified native metadata participate in review. Memberships and
+user identities are never inventory or approval evidence. A differing hierarchy
+is not acquired or moved. An external realm must already enable Organizations.
+
+The group checkpoint writes only name/namespace/UID ownership attributes and the
+common receipt. A root's native Organization is a separate checkpoint with the
+same four-field receipt. A denied second write is `AdoptionPartial`: the group
+remains marked, Manage is refused, and retry revalidates the reviewed business
+state before writing only the missing native checkpoint. Both checkpoints recover
+lost acknowledgements by read-back; no rollback or unconditional duplicate PUT.
+Foreign/mixed ownership on either member refuses continuation.
+
+ResourceServer adoption requires current exact ownership of its backing
+HankoApplication client. The realm may remain external/Observe. The candidate
+binds realm/client/Application UUIDs, current portable references and the bounded
+authorization graph. Unique existing scopes/resources, generated typed policies
+and scope permissions selected by the desired declaration can enter the owned
+set; absent desired objects carry no invented ID and can be created later in Manage.
+Selected objects with opaque/native fields outside the closed update schema remain
+unapprovable. Incoming edges from a foreign resource, permission or aggregate policy
+to any selected object refuse exclusive acquisition. Outgoing principal references
+do not acquire those principals.
+
+The acquisition writes only `hanko.sh/resource-server-ownership`. New V2 journals
+contain exact selected IDs, owner UID, realm UUID, Application UID and the common
+ResourceServer receipt. The client-level Application receipt remains unchanged.
+No graph node, client configuration, Authorization Services flag or credential is
+changed. Read-back verifies the same client UUID, graph and receipt. Lost HTTP/status
+acknowledgements recover the journal without another unconditional PUT.
+Existing valid V1 journals retain their reconciliation/recovery/cleanup behavior
+and are not converted merely for consistency.
+
+### Manage and cleanup boundaries
+
+Explicit `spec.mode: Manage`, an absent imported latch, current exact provider
+ownership and a complete qualified checkpoint are all required. Status and old
+approval alone cannot grant Manage. After acquisition, the source/approval may be
+removed. ResourceServer Manage restores owned IDs from the current journal after
+status loss. Every V2 graph write rereads the journal, backing ownership, realm
+identity and foreign incoming dependencies. It updates/deletes only journal-owned
+objects. Scoped children never remove the realm's imported latch or acquire realm
+lifecycle ownership.
+
+Receipt-backed clients, roles and Organizations merge current qualified native
+attributes rather than replacing them. Role composites and Organization role
+mappings remain additive. Foreign client roles/mappers and foreign Organization
+children/members/IdP links are not acquired by the parent receipt. Client PUTs do
+not resend an already-enabled service-account flag, avoiding Keycloak's implicit
+reattachment of the native `service_account` scope.
+
+Receipt-backed client/service-account/role attribute updates use the same closed
+qualification schema, including desired attributes. An unsupported desired key
+or value is refused before PUT; Manage cannot introduce a native extension whose
+next reconciliation would be unqualified. Custom theme names and arbitrary
+custom attributes need separate preservation qualification.
+
+Deleting a Manage declaration is consent to **bounded owned cleanup**, not an
+unconditional cascade. Adopted clients hold `CleanupConflict` while a foreign
+mapper, any client role, foreign scope mapping, ResourceServer journal or active
+Authorization Services boundary remains. Client-role markers do not prove
+absence of foreign user/group/policy references, so even owned client roles
+hold adopted-parent deletion. Adopted realm roles hold cleanup because no bounded qualified API
+proves absence of every foreign user/group/composite/scope/authorization reference.
+An Organization requires current ownership/hierarchy, no child group, no direct
+members and no foreign role mapping; its native root additionally requires no
+members or undeclared IdP link. Membership reads are internally limited to
+`first=0&max=1` and expose only existence, never identities. Ownership conflicts
+hold the finalizer even after status loss. Cleanup resolves current path/alias
+identities rather than trusting status UUIDs; deleting a declared child remains
+possible while its parent is awaiting child-first cleanup.
+
+V2 ResourceServer cleanup rechecks incoming dependencies before each delete and
+removes only journal-owned nodes in dependency order. A late foreign reference
+holds the finalizer. Journal clearing requires selected-node absence; the backing
+client and its Application receipt remain. V2 never disables Authorization Services
+as part of selected-object cleanup. Explicit Observe withdraws lifecycle consent
+and releases the CR finalizer without deleting provider objects.
+
+HankoRole Manage retains the documented [§117 credential-authority exception](#117--provider-authority-and-hankorole-exception); role ownership never acquires the external realm lifecycle.
+
+### Milestone-native coverage audit
+
+| Native family | 0.5 outcome | Exact boundary |
+| --- | --- | --- |
+| Authentication flows / WebAuthn | Observe-only | Existing realm lifecycle is not acquired; custom client flow overrides block common client adoption. No authentication-flow migration or browser-credential import. |
+| Client scopes | Observe-only / unsupported for parent acquisition | Nonempty default/optional scope collections remain blocking, including `service_account`; acquisition never detaches or owns them. |
+| OIDC protocol mappers | Qualified preserved-native | Foreign user-attribute and realm-role mapper implementations with closed public-reference/type/boolean configuration survive. Keycloak's missing introspection flag is canonicalized only to its qualified access-token default. Unknown implementation/root/configuration stays unqualified. Explicit Manage-created token claims require their own exact UID/kind marker and closed typed schema. |
+| OIDC client native metadata | Qualified preserved-native | Only exact canonical defaults, `locale=en|fr`, safe typed PKCE/logout/theme fields and a typed existing Authorization Services flag qualify. Foreign client roles and the authorization graph remain separate ownership boundaries. Arbitrary attributes are not copied or hashed. |
+| SAML | Qualified manageable / preserved-native subset | Safe existing ACS/name-ID/signature settings and disabled encryption/artifact/ECP are qualified. Native certificate/private material, enabled encryption/artifact/ECP, unknown attributes or foreign SAML mapper forms refuse Manage. No secret export or in-place protocol conversion. |
+| Realm-role native metadata/composites | Qualified preserved-native | Closed `locale=en|fr`, foreign realm/client composites and UUIDs survive additive Manage. Realm-role mutation requires broader target-realm `manage-realm`; adopted-role cleanup remains held when foreign-reference absence is unproven. |
+| Service-account native metadata | Qualified preserved-native | Closed client metadata survives; attributes and owned token claims reconcile after explicit Manage. Existing credential recovery starts only then. No adoption-time client-secret or service-account-user call. |
+| Organizations | Qualified aggregate / preserved-native | Structural group plus optional already-enabled native root, current hierarchy and matching receipt; closed locale/slug schema, foreign children/members/mappings/domains/IdP links preserved. No membership provisioning. |
+| Authorization Services | Qualified selective aggregate | Only fully observed safe selected nodes enter V2; foreign resources/role/aggregate policies remain unowned, with incoming-edge refusal. Opaque selected extensions stay unsupported. |
+| Client/security policies | Observe-only | Provider-native realm policy collections are classified as native presence; no typed adoption executor or ownership claim. |
+| Events/audit | Existing separate realm configuration / Observe-only data | Ordinary owned HankoRealm event settings remain distinct from event history. Existing realm lifecycle is external; no event-history import. |
+| Themes | Existing separate controller; bounded references only | HankoTheme retains its own lifecycle. Built-in qualified client references do not acquire theme artifacts. Arbitrary existing theme artifacts/references are not general adoption support. |
+| Existing realms and opaque brokers | Observe-only | No realm lifecycle, opaque broker credential/login migration or bulk adoption. |
+
+Unknown/lossy/unreadable state remains blocked. The closed schemas are not an
+`allowLossy` option and do not establish blanket provider coverage. Kubernetes and
+Keycloak do not provide a shared transaction or conditional Admin API ownership
+write; trusted administrators must serialize concurrent ownership edits.
 
 ## Decision
 
@@ -282,8 +402,8 @@ HankoImport's Applied count does not prove provider application or ownership.
 | ServiceAccount | OIDC service-account clients generate imported HankoServiceAccount | Explicit Manage/Observe; imported label forces Observe, no secret read/rotation/finalizer deletion | Client UUID exists; current SA declaration uses realm/clientID | Kind-discriminated provider UID envelope and fresh ownership checks before writes/secret recovery/rotation/deletion; unmarked existing clients require reviewed acquisition | Owner-only leaf acquisition; no implicit ownership from clientID, Secret, finalizer or status |
 | Realm Role/composites | HankoImport inventories bounded direct/effective closures and generates ordinary Observe HankoRole | Explicit Manage/Observe; imported label selects Observe in role IAM driver | Role UUID + container realm identity | Exact singleton `hanko.sh/role-owner` UID; unmarked role requires the common reviewed adoption workflow; status ID supplies no ownership | Owner-only leaf adoption; do not reconcile composites during acquisition |
 | Client roles | Bounded application graph includes role UUID/container, descriptions and direct/effective composites | Observed as application roles, not standalone HankoRole | Role UUID + client UUID | Part of application management; no independent common acquisition/journal of every old role | Explicit child classification/selection; preserve UUIDs/composites, no standalone client_role CRD |
-| Organization structural group | HankoImport covers safe group hierarchy and role mappings | No common Observe mode today; imported label is not an organization safety switch | Group UUID + exact hierarchy | Name/namespace/UID attributes; strict existing-group check. Legacy-ID helper/preflight compatibility exists, but current reconcile does **not** pass LegacyOwnedID into EnsureGroup; deletion requires current markers | Exact group candidate, hierarchy and mappings covered; marker-only acquisition |
-| Root native Organization | HankoImport covers enabled native Organizations without members | No independent Observe inventory | Organization UUID; alias/name are not ownership | Same name/namespace/UID tuple; strict EnsureOrganization does not receive LegacyOwnedID; old OrgID is only a limited preflight compatibility hint | Optional second object in the same target's checkpointed adoption; feature must already be enabled |
+| Organization structural group | HankoImport covers safe group hierarchy and role mappings | Explicit Manage/Observe; imported label forces Observe without provider or Position mutations | Group UUID + exact hierarchy | Name/namespace/UID attributes; strict existing-group check. Legacy-ID helper/preflight compatibility exists, but current reconcile does **not** pass LegacyOwnedID into EnsureGroup; deletion requires current markers | Exact group candidate, hierarchy and mappings covered; marker-only acquisition |
+| Root native Organization | HankoImport covers enabled native Organizations without members | Observe through the root HankoOrganization; no member inventory | Organization UUID; alias/name are not ownership | Same name/namespace/UID tuple; strict EnsureOrganization does not receive LegacyOwnedID; old OrgID is only a limited preflight compatibility hint | Optional second object in the same target's checkpointed adoption; feature must already be enabled |
 | ResourceServer authorization graph | Bounded scopes/resources/policies/permissions/principals and native/shared edges; unresolved portable references prevent automatic aggregate generation | Manage/Observe plus imported label; normalized graph and native findings, not every arbitrary representation | Backing client UUID + explicit child UUID graph | Client attribute `hanko.sh/resource-server-ownership`: bounded version/ownerUID/selected object journal, authoritative over status IDs; same audience/clientID insufficient | Selective aggregate only after backing application ownership, complete graph/foreign-boundary diff and exact selected IDs |
 | IdentityProvider | HankoImport captures brokers as HankoRealm nested spec; typed safe configuration allowlist | Imported realm does not reconcile brokers; no individual full broker Observe contract | Raw provider has internalId; typed inventory retains internalId separately from alias | Realm Ensure upserts by alias, no common provider owner marker; managed-alias status participates in stale deletion | **Opaque broker aggregate remains Observe-only**, pending a separate credential/native ownership strategy |
 | IdP mapper | Imported under realm broker; no separate target CR | Lists through imported discovery/application observation | Mapper UUID + exact broker internalId/realm | Realm path upserts by name and tracks IDs in status; application path uses `hanko.sh/application-owner` in mapper config and verifies UID before cleanup | Explicit child of a target application/approved supported aggregate, not adoption by name or realm status history |
@@ -325,8 +445,8 @@ DISCOVER → OBSERVE → PLAN → DIFF → APPROVE → ADOPT → VERIFY OWNERSHI
 | Verify ownership | Fresh read-back of every required marker/receipt and selected provider UUID | Proves acquisition; acknowledgement/status alone cannot advance it |
 | Manage | Separate later explicit request activates the reviewed ownership/field boundary | Normal validated plan/ownership/freshness controls; not arbitrary provider lifecycle authority |
 
-Future explicit Observe/Manage semantics should be standardized across adoptable
-resources in #48, with safe defaults and compatibility admission tests. Ordinary
+Applications, service accounts, roles, Organizations and ResourceServers expose
+explicit Observe/Manage semantics with compatibility admission tests. Ordinary
 Observe remains write-free. An explicitly approved adoption is a separate
 authorized phase, not an incidental side effect of Observe reconciliation.
 
@@ -337,11 +457,65 @@ ownership before honoring that transition. If both are requested before
 acquisition is proven, refuse Manage. Preserve import provenance in bounded
 evidence without treating a status flag as proof.
 
-Selected child IAM resources must be manageable inside an externally provisioned
-Observe realm **without acquiring realm deletion/runtime ownership**. Today role
-and ResourceServer controllers have blanket restrictions under imported realms;
-#49 must replace those restrictions with explicit qualified child boundaries.
-Removing the realm's imported label is not the proposed workaround.
+Selected owned children can enter Manage inside an externally provisioned Observe
+realm **without acquiring realm deletion/runtime ownership**. Role and
+ResourceServer reconciliation uses fresh exact child/provider ownership instead
+of requiring the realm's imported label to be removed. A root Organization requires
+the realm's Organizations feature to be enabled already. The operator refuses a
+disabled feature; child acquisition does not enable it. Realm-role definitions
+still require Keycloak's broader `manage-realm` authority; see the permission contract.
+
+## §117 — Provider authority and HankoRole exception
+
+Application, ServiceAccount, ResourceServer and Organization aggregate writers
+MUST retain provider-enforced denial of target-realm DELETE and realm security
+mutation. Real HTTPS Keycloak qualification must prove these denials; Kubernetes
+ownership alone is not a provider permission boundary.
+
+HankoRole Manage is enabled under an explicit provider-granularity exception.
+The target-realm built-in `manage-realm` role is the currently qualified Keycloak
+authority for creating, updating, deleting and composing realm-role definitions.
+It also permits configuration/security mutation and deletion of that **same
+complete target realm**. This is an unavoidable least-privilege limitation of the
+qualified built-in permission model, not a narrow role-definition-only permission.
+Fine-grained role mapping permissions are not a qualified substitute for this
+role-definition CRUD authority.
+
+The HankoRole writer MUST have Full Scope Allowed disabled, exact permitted role
+scopes and authority only on the explicitly authorized target realm. It MUST NOT
+receive `realm-admin`, master `manage-realm`, master/global `admin`, `create-realm` or authority on
+unrelated realms. Authentication in master through a target-realm proxy role does
+not authorize administration of master. Recommend a dedicated role-writer identity
+per target realm, with separately scoped watched declarations, wherever deployment
+architecture permits it. Document credential compromise as compromise of the
+**entire target realm**, even with a dedicated identity.
+
+This broader credential does not confer hankoShell ownership of realm lifecycle.
+An imported/external HankoRealm MUST remain Observe-only: no realm owner marker,
+no realm lifecycle finalizer, no realm deletion and no realm security reconciliation
+through HankoRole. Normal HankoRole Admin API operations MUST stay within the
+qualified realm-role definition/composite endpoints, with read-only realm identity
+checks as required. It MUST NOT invoke realm-level PUT/DELETE, security routes or
+other realm lifecycle mutations as a side effect of role reconciliation. Token
+acquisition is authentication, not realm administration.
+
+Qualification MUST distinguish two separate assertions:
+
+- Controller traces prove the qualified operation inventory, actual role Manage,
+  native preservation, conservative cleanup refusal and an untouched external realm.
+- Direct real-Keycloak credential probes prove that a client-only writer cannot
+  update/delete realm-role definitions, and that the `manage-realm` role writer
+  can alter security and delete its disposable target realm. These probes document
+  provider blast radius; they are never expected HankoRole controller behavior.
+
+Kubernetes object ownership governs what the controller is authorized to act on.
+It does not cryptographically constrain the Keycloak credential, whose technical
+authority remains broader. The #47/#48 contract remains mandatory: a reviewed
+candidate, exact provider UUID and target UID, verified receipt, native preservation,
+no adoption from name or status, and an explicit Observe → Manage transition.
+Adopted-role destructive cleanup MUST remain refused until complete absence of
+foreign references can be proven. This exception changes neither that conservative
+cleanup policy nor external realm ownership.
 
 ## Candidate, diff and approval identity
 
@@ -414,13 +588,12 @@ ownership**, **lossy** and **unsupported**. Required loss refuses ordinary
 adoption; no allowLossy switch is accepted. `would-change` is not permission for
 loss of foreign configuration.
 
-The current application **owner-only** primitive preserves unknown attributes,
-but subsequent `UpdateApplication` owns most of the attributes map, apart from
-the ResourceServer journal. Its existing observation is modeled, not a complete
-fingerprint of arbitrary client extensions. General 0.5 candidates must classify
-the additional native fields/children and expose any later erasure; #49 must
-prove preservation before enabling Manage. Do not advertise the legacy migration
-hash as complete native adoption coverage.
+The application **owner-only** primitive preserves provider attributes.
+Receipt-backed `UpdateApplication` additionally requires the closed native
+preservation schema and merges declared fields into the current representation,
+retaining unrelated qualified attributes and the ResourceServer journal.
+Unknown extensions still block adoption or Manage; the legacy migration hash
+is not a complete native adoption fingerprint.
 
 SAML inventory must distinguish the qualified unsigned-SP-request POST subset
 from native request-signing certificates, encryption, artifact/ECP bindings,
@@ -428,8 +601,9 @@ attribute mappers and other unsupported extensions. A client created with
 Keycloak's request-signing defaults can retain `saml.signing.certificate` and
 fail ordinary Hanko read-back equality even after an approved owner transition.
 The positive migration probe explicitly disables client-request signatures;
-it does not establish lossless general SAML adoption. #47/#49 must classify and
-preserve these native differences or keep the candidate non-approvable.
+it does not establish lossless general SAML adoption. Sensitive native certificates,
+request signing, encryption and artifact/ECP settings remain non-approvable;
+only the explicitly qualified closed subset can enter Manage.
 
 ### Bounds and completeness
 
@@ -455,7 +629,7 @@ unproven partial update, remain unsupported/Observe-only.
 
 | Domain | Ownership-only first mutation | Required post-write proof / limit |
 | --- | --- | --- |
-| Application | Existing client UID attribute plus future compatible candidate receipt; no secret field in PUT | Exact client UUID/protocol/current owner and preserved selected/native graph; preserve old UID marker meaning |
+| Application | Existing client UID attribute plus common candidate receipt; no secret field in PUT | Exact client UUID/protocol/current owner and preserved selected/native graph; preserve old UID marker meaning |
 | ServiceAccount | Separate kind-discriminated client envelope with UID/version/candidate receipt | Never interpret an application marker as SA ownership; contradictory/mixed markers conflict; protected clients remain refused |
 | Role | Merge exact singleton role UID attribute plus receipt into existing attributes | UUID, description, native attributes and direct/effective composites unchanged |
 | Organization | Merge current name/namespace/UID attributes plus receipt into exact group and optional native Organization | All expected UUIDs/parent boundaries read back; additive mappings/foreign children remain outside acquisition |
@@ -495,13 +669,15 @@ a second PUT. Existing approved SAML migration also recovers from an injected
 Kubernetes status-patch failure without another Admin write. These prove the
 primitive and legacy paths. The common leaf executor also qualifies lost HTTP
 acknowledgements and failed status checkpoints through real HTTPS integration
-tests; aggregate checkpoint recovery remains #49.
+tests. The aggregate suites inject lost acknowledgements at both Organization
+checkpoints and the ResourceServer journal, plus partial and failed Kubernetes
+status writes; retries read existing receipts instead of repeating successful PUTs.
 
 Ownership does not automatically justify deletion: deleting a group cascades
 children and deleting a realm cascades foreign contents. Shared authorization
-scope/resource/policy references can also affect unowned objects. Future cleanup
-must freshly prove ownership **and** absence of foreign incoming dependents or
-refuse destructive changes. Acquiring a selected graph subset never acquires the
+scope/resource/policy references can also affect unowned objects. Cleanup
+freshly proves ownership **and** absence of foreign incoming dependents, or
+refuses destructive changes. Acquiring a selected graph subset never acquires the
 entire client, realm, descendants or membership population.
 
 ## Secrets and least privilege
@@ -583,13 +759,14 @@ adoption executor, all IdP extensions, arbitrary native fields, membership
 migration or portable rollback. No users/member API, LDAP sync, live Hub plan
 transport or Continuum change is introduced.
 
-## Implementation backlog and order
+## Completed implementation sequence
 
 1. [#47 — bounded discovery, observation and adoption diff](https://github.com/Alien6-Studio/hankoshell-operator/issues/47): expanded typed inventory, canonical secret-free candidates/diff, coverage/bounds and practical read-only identity/RBAC review. No adoption authority.
 2. [#48 — explicit provider ownership adoption](https://github.com/Alien6-Studio/hankoshell-operator/issues/48): annotation approval and leaf owner-only transitions, kind-safe SA marker, legacy application compatibility, separate Manage, fault/replacement/tamper qualification.
 3. [#49 — aggregate adoption, native preservation and adopt-to-manage](https://github.com/Alien6-Studio/hankoshell-operator/issues/49): organizations/ResourceServer checkpoints and foreign dependencies, selected children in external realms, native preservation during Manage and exact-image end-to-end qualification.
 
-After those implementations, qualify exact protected main before considering a
-0.5 source freeze. The accepted RFC and discovery/diff are #46/#47; leaf acquisition is #48.
-The aggregate implementation and milestone remain open until #49 is qualified. v0.1/v0.2/v0.3/v0.4 remain immutable
+The source freeze requires exact protected-main qualification after these
+implementations. The accepted RFC and discovery/diff are #46/#47; leaf acquisition is #48.
+The completed 0.5 source contract is qualified through #49. The next development
+milestone is **0.6.0 — Workload Identity**. v0.1/v0.2/v0.3/v0.4 remain immutable
 and production publication remains independent in #21.

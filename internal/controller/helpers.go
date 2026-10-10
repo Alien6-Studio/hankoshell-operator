@@ -112,6 +112,13 @@ func effectiveServiceAccountMode(account *hankoshv1alpha1.HankoServiceAccount) s
 	return ModeManage
 }
 
+func effectiveOrganizationMode(org *hankoshv1alpha1.HankoOrganization) string {
+	if isImported(org.Labels) || org.Spec.Mode == ModeObserve {
+		return ModeObserve
+	}
+	return ModeManage
+}
+
 // clientOwnershipCandidate identifies one Kubernetes object that can mutate a
 // Keycloak client. Ownership is ordered by creation time so adding a colliding
 // object can never displace the incumbent. UID, kind and name provide a stable

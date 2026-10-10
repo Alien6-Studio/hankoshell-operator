@@ -223,28 +223,16 @@ func (r *HankoResourceServerReconciler) authorityReader() client.Reader {
 	return r.Client
 }
 
-func organizationPrincipalIndexValues(object client.Object) []string {
-	rs, ok := object.(*api.HankoResourceServer)
-	if !ok {
-		return nil
-	}
-	for _, p := range rs.Spec.Permissions {
-		for _, v := range p.Principals {
-			if v.Kind == "organization" {
-				return []string{"true"}
-			}
-		}
-	}
-	return nil
-}
-
-// Any organization status/spec/create/delete change requeues namespace-local
-// organizational grants, including previously unknown descendants. The index
-// excludes all ResourceServers without this explicit principal capability.
+// Organization/Role changes requeue namespace-local grants, including
+// previously unknown descendants. The registered provenance index excludes
+// ResourceServers without an organization or realm-role principal.
 func (r *HankoResourceServerReconciler) organizationRequests(ctx context.Context, object client.Object) []reconcile.Request {
 	var list api.HankoResourceServerList
 	err := r.List(ctx, &list, client.InNamespace(object.GetNamespace()), client.MatchingFields{organizationPrincipalIndex: "true"}, client.Limit(maxOrganizationInventory+1))
-	if err != nil || list.Continue != "" || len(list.Items) > maxOrganizationInventory {
+	// This indexed watch uses the manager cache, whose List always returns a
+	// non-pagination Continue sentinel. The extra item detects truncation;
+	// fresh authority inventories still require complete APIReader pagination.
+	if err != nil || len(list.Items) > maxOrganizationInventory {
 		log.FromContext(ctx).Error(authorization.OrganizationFailure("OrganizationExpansionTooLarge"), "organization dependency watch inventory unavailable; periodic reconciliation remains active")
 		return nil
 	}

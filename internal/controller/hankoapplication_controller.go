@@ -307,8 +307,19 @@ func (r *HankoApplicationReconciler) reconcileApplicationDeletion(ctx context.Co
 			return ctrl.Result{}, err
 		}
 		if preserve {
-			mode = ModeObserve
+			if !explicitLeafManage(app) {
+				mode = ModeObserve
+			} else if err := kc.CheckAdoptedClientCleanup(ctx, app.Spec.RealmRef, app.Spec.ClientID, "HankoApplication", string(app.UID)); err != nil {
+				return adoptedCleanupConflict(ctx, r.Client, app)
+			}
 		}
+	}
+	reader := r.OwnershipReader
+	if reader == nil {
+		reader = r.Client
+	}
+	if mode == ModeManage && !acquisitionCurrentTarget(ctx, reader, app, true) {
+		return ctrl.Result{RequeueAfter: requeueImmediately}, nil
 	}
 	logger := log.FromContext(ctx)
 	if mode == ModeManage {

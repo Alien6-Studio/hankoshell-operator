@@ -2,9 +2,12 @@ package controller
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -35,9 +38,22 @@ func TestDeriveSlug(t *testing.T) {
 }
 
 func TestOrganizationParentSeparatesProviderAndProjection(t *testing.T) {
-	parent := &hankoshv1alpha1.HankoOrganization{ObjectMeta: metav1.ObjectMeta{Name: "root", Namespace: "auth", Generation: 2}, Spec: hankoshv1alpha1.HankoOrganizationSpec{RealmRef: "realm"}, Status: hankoshv1alpha1.HankoOrganizationStatus{GroupID: "group-root", GroupPath: "/Root", Phase: "Error", Conditions: []metav1.Condition{{Type: "Synced", Status: metav1.ConditionTrue, ObservedGeneration: 2}}}}
-	child := &hankoshv1alpha1.HankoOrganization{ObjectMeta: metav1.ObjectMeta{Name: "child", Namespace: "auth"}, Spec: hankoshv1alpha1.HankoOrganizationSpec{RealmRef: "realm", ParentRef: "root"}}
-	r := &HankoOrganizationReconciler{Client: controllerTestClient(controllerTestScheme(t), parent)}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path == "/realms/master/protocol/openid-connect/token" {
+			_, _ = w.Write([]byte(`{"access_token":"fixture","expires_in":300}`))
+			return
+		}
+		if req.Method != http.MethodGet || req.URL.Path != "/admin/realms/realm/group-by-path/Root" {
+			t.Error("unexpected parent operation")
+			w.WriteHeader(403)
+			return
+		}
+		_, _ = w.Write([]byte(`{"id":"group-root","name":"Root","path":"/Root"}`))
+	}))
+	defer server.Close()
+	parent := &hankoshv1alpha1.HankoOrganization{ObjectMeta: metav1.ObjectMeta{Name: "root", Namespace: "auth", UID: "root-uid", Generation: 2}, Spec: hankoshv1alpha1.HankoOrganizationSpec{RealmRef: "realm", Name: "Root"}, Status: hankoshv1alpha1.HankoOrganizationStatus{GroupID: "forged-status-id", GroupPath: "/Forged", Phase: "Error", Conditions: []metav1.Condition{{Type: "Synced", Status: metav1.ConditionTrue, ObservedGeneration: 2}}}}
+	child := &hankoshv1alpha1.HankoOrganization{ObjectMeta: metav1.ObjectMeta{Name: "child", Namespace: "auth"}, Spec: hankoshv1alpha1.HankoOrganizationSpec{RealmRef: "realm", Name: "Child", ParentRef: "root"}}
+	r := &HankoOrganizationReconciler{Client: controllerTestClient(controllerTestScheme(t), parent), Pool: keycloak.NewPool(keycloak.New(server.URL, "fixture", "secret", keycloak.WithInsecureHTTP()))}
 	id, path, err := r.resolveProviderParent(context.Background(), child)
 	if err != nil || id != "group-root" || path != "/Root" {
 		t.Fatal("provider hierarchy depended on projection", err)

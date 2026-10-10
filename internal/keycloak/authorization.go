@@ -218,6 +218,10 @@ func (c *Client) ReconcileAuthorization(ctx context.Context, model Authorization
 	if err := authorizationOwnershipBudget(model, owned); err != nil {
 		return AuthorizationState{}, err
 	}
+	ctx, err = c.authorizationAdoptionContext(ctx, model, clientID)
+	if err != nil {
+		return AuthorizationState{}, err
+	}
 	if !enabled {
 		if err := c.setAuthorizationEnabled(ctx, model.Realm, clientID, true); err != nil {
 			return AuthorizationState{}, err
@@ -268,8 +272,8 @@ func (c *Client) ReconcileAuthorization(ctx context.Context, model Authorization
 	return result, nil
 }
 
-// DeleteAuthorizationOwned removes only status-owned objects, in reverse
-// dependency order, and disables authorization only on the recorded backing client.
+// DeleteAuthorizationOwned recovers provider-journal ownership and removes only
+// those objects in reverse dependency order. V2 preserves the feature toggle.
 func (c *Client) DeleteAuthorizationOwned(ctx context.Context, model AuthorizationModel, resourceServerID string, owned AuthorizationManagedObjects) error {
 	resourceServerID, owned, err := c.authorizationDeletionOwnership(ctx, model, resourceServerID, owned)
 	if err != nil {
@@ -278,16 +282,20 @@ func (c *Client) DeleteAuthorizationOwned(ctx context.Context, model Authorizati
 	if resourceServerID == "" {
 		return nil
 	}
-	if resourceServerID == "" || owned.ResourceServerID != resourceServerID {
+	if owned.ResourceServerID != resourceServerID {
 		return fmt.Errorf("%w: resource server ID is not owned", ErrAuthorizationOwnershipConflict)
 	}
-	clientPath := adminRealmsPath + url.PathEscape(model.Realm) + clientsPath + url.PathEscape(resourceServerID)
-	var representation map[string]any
-	if err := c.get(ctx, clientPath, &representation); err != nil {
-		if IsNotFound(err) {
-			return nil
-		}
+	ctx, err = c.authorizationAdoptionContext(ctx, model, resourceServerID)
+	if err != nil {
 		return err
+	}
+	clientPath := adminRealmsPath + url.PathEscape(model.Realm) + clientsPath + url.PathEscape(resourceServerID)
+	representation, err := c.authorizationDeletionClient(ctx, clientPath)
+	if err != nil {
+		return err
+	}
+	if representation == nil {
+		return nil
 	}
 	if enabled, ok := representation["authorizationServicesEnabled"].(bool); ok && !enabled {
 		return c.clearAuthorizationOwnership(ctx, model, resourceServerID)
@@ -306,19 +314,36 @@ func (c *Client) DeleteAuthorizationOwned(ctx context.Context, model Authorizati
 		}
 		foreignRemain = foreignRemain || foreign
 	}
+	if adopted, err := c.finalizeAdoptedAuthorizationCleanup(ctx, model, resourceServerID, owned); adopted {
+		return err
+	}
 	// Keycloak disabling Authorization Services deletes its entire graph. Never
 	// use that toggle to erase provider objects absent from the ownership set.
 	if foreignRemain {
 		return c.clearAuthorizationOwnership(ctx, model, resourceServerID)
 	}
+	return c.disableLegacyAuthorization(ctx, model, clientPath, representation)
+}
 
+func (c *Client) disableLegacyAuthorization(ctx context.Context, model AuthorizationModel, path string, representation map[string]any) error {
 	representation["authorizationServicesEnabled"] = false
 	if model.OwnerUID != "" {
 		if attrs, ok := representation["attributes"].(map[string]any); ok {
 			attrs[authorizationOwnerAttribute] = nil
 		}
 	}
-	return c.putJSON(ctx, clientPath, representation)
+	return c.putJSON(ctx, path, representation)
+}
+
+func (c *Client) authorizationDeletionClient(ctx context.Context, path string) (map[string]any, error) {
+	var representation map[string]any
+	if err := c.get(ctx, path, &representation); err != nil {
+		if IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return representation, nil
 }
 
 func authorizationBase(realm, clientID string) string {
@@ -770,6 +795,9 @@ func (c *Client) authorizationDelete(ctx context.Context, path string) error {
 }
 
 func (c *Client) authorizationRequest(ctx context.Context, method, path string, payload any, accepted ...int) (*http.Response, error) {
+	if err := c.guardAdoptedAuthorizationMutation(ctx, method, path); err != nil {
+		return nil, err
+	}
 	var body io.Reader
 	if payload != nil {
 		encoded, err := json.Marshal(payload)

@@ -28,7 +28,21 @@ func (c *InventoryClient) UnmarshalJSON(data []byte) error {
 	delete(native, "secret")
 	delete(native, "access")
 	*c = InventoryClient(typed)
-	c.UnqualifiedNative = !(&ClientOwnershipSnapshot{Application: c.Application, document: native}).QualifiedLeaf()
+	var mappers []map[string]any
+	if raw, present := native["protocolMappers"]; present {
+		encoded, err := json.Marshal(raw)
+		if err != nil {
+			return ErrAdoptionPrecondition
+		}
+		if json.Unmarshal(encoded, &mappers) != nil {
+			return ErrAdoptionPrecondition
+		}
+		if len(mappers) > 512 {
+			c.UnqualifiedNative = true
+			return nil
+		}
+	}
+	c.UnqualifiedNative = !(&ClientOwnershipSnapshot{Application: c.Application, document: native, mappers: mappers}).QualifiedLeaf()
 	return nil
 }
 
@@ -112,10 +126,10 @@ func (c *Client) InventoryGroupRoles(ctx context.Context, realm, id string) ([]R
 		return nil, err
 	}
 	roles := append([]RealmRole(nil), mappings.RealmMappings...)
-	for id, mapping := range mappings.ClientMappings {
+	for _, mapping := range mappings.ClientMappings {
 		for _, role := range mapping.Mappings {
 			role.ClientRole = true
-			role.ContainerID = id
+			role.ContainerID = mapping.ID
 			roles = append(roles, role)
 		}
 	}

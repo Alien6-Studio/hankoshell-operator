@@ -277,6 +277,13 @@ func (r *HankoImportReconciler) discoverRealmAdoption(ctx context.Context, opera
 	return inventory
 }
 func (r *HankoImportReconciler) discoverInventoryClients(ctx context.Context, kc *keycloak.Client, inventory *realmAdoptionInventory, realm string) {
+	r.discoverClientInventory(ctx, kc, inventory, realm, true)
+}
+
+// A target-local leaf candidate reviews the client boundary; it does not claim
+// Authorization Services objects. Full HankoImport keeps graph coverage and its
+// unresolved portable-reference refusals. ResourceServer has its own candidate.
+func (r *HankoImportReconciler) discoverClientInventory(ctx context.Context, kc *keycloak.Client, inventory *realmAdoptionInventory, realm string, includeAuthorization bool) {
 	for _, c := range inventory.clients {
 		if inventory.full() {
 			return
@@ -301,6 +308,9 @@ func (r *HankoImportReconciler) discoverInventoryClients(ctx context.Context, kc
 		item.fact("directAccessGrants", flagValue(c.DirectAccessGrantsEnabled))
 		item.fact("implicitFlow", flagValue(c.ImplicitFlowEnabled))
 		item.fact("fullScopeAllowed", flagValue(c.FullScopeAllowed))
+		feature := inventoryFact(kind, c.ID, c.ClientID, "authorizationServices", flagValue(c.AuthorizationServicesEnabled))
+		feature.Classification, feature.RoundTrip = adoption.Preserved, adoption.PreservedNative
+		item.observation.Facts = append(item.observation.Facts, feature)
 		pattern := "web"
 		if c.PublicClient {
 			pattern = "spa"
@@ -385,7 +395,7 @@ func (r *HankoImportReconciler) discoverInventoryClients(ctx context.Context, kc
 			item.failed("provider_identity_changed")
 		}
 		inventory.add(item)
-		if c.AuthorizationServicesEnabled {
+		if includeAuthorization && c.AuthorizationServicesEnabled {
 			r.discoverInventoryAuthorization(ctx, kc, inventory, realm, c)
 		}
 	}
@@ -418,6 +428,12 @@ func (r *HankoImportReconciler) observeInventoryRole(ctx context.Context, kc *ke
 			} else if len(values) > 0 {
 				item.finding("foreign_role_owner", "role has an ambiguous or child owner marker", true)
 			}
+			continue
+		}
+		if keycloak.QualifiedNativeLocale(key, values) {
+			f := inventoryFact(domain, role.ID, role.Name, "nativeLocale", textValue(values[0]))
+			f.Classification, f.RoundTrip = adoption.Preserved, adoption.PreservedNative
+			item.observation.Facts = append(item.observation.Facts, f)
 			continue
 		}
 		native = true

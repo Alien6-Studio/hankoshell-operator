@@ -14,7 +14,7 @@ import (
 // HankoSnapshot records supported operator configuration for a Keycloak instance.
 // It stores the operator CRD config in a ConfigMap and optionally
 // triggers a pg_dump Job for the database.
-// Portable backup/restore and database consistency are not qualified by 0.4.0.
+// Portable backup/restore and database consistency are not qualified by 0.5.0.
 type HankoSnapshot struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

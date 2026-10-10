@@ -2,6 +2,46 @@
 
 ## 0.5.0 — Unreleased
 
+- Add #49 Organization Observe/Manage and target-local aggregate candidates.
+  Bind live realm/group/path/parent and optional native Organization UUIDs;
+  write the same owner-only receipt at separate group/native checkpoints.
+  Recover partial acquisition, lost acknowledgements and status loss without
+  duplicating completed checkpoints. Root Organizations in external realms
+  require the feature to be enabled already.
+- Add selective ResourceServer V2 journals with exact owned IDs, realm/Application
+  identity and an embedded common receipt, preserving the Application receipt.
+  Block foreign incoming dependencies and unqualified selected native fields;
+  retain valid V1 reconciliation/recovery/cleanup without cosmetic migration.
+- Qualify explicit adopted-to-Manage after current ownership/preservation checks.
+  Keep acquisition Observe and the imported latch until explicit administrator
+  action. Source/approval annotations are not lifetime authority; live receipts
+  and journals recover ownership after status loss. Owned children can reconcile
+  inside external/Observe realms without acquiring the realm lifecycle.
+- Preserve closed native locale metadata, safe OIDC/SAML settings, foreign
+  mappers/client roles, additive role composites and Organization mappings,
+  children/members/domains/IdP links. Reject opaque or sensitive native state;
+  document all milestone-native families without claiming general provider
+  coverage. Recover existing service credentials only after explicit Manage.
+- Hold destructive cleanup on foreign client children/authorization boundaries,
+  Organization children/members/mappings/links, unsafe graph sharing or unproven
+  adopted-role reference absence. Keep finalizers on ownership conflicts after
+  status loss; resolve Organization cleanup identities from live path/alias
+  rather than status UUIDs, including partial child-first cleanup. V2 graph cleanup retains the client, sibling receipt and enabled
+  Authorization Services; Observe deletion preserves provider state.
+- Reconstruct a managed service account's SecretRef after status loss when its
+  credential projection already exists, without provider credential reads or
+  rotation.
+- Restore bounded Organization/Role dependency notifications when the manager
+  cache returns its non-pagination continuation marker; uncached authority
+  inventories still refuse incomplete pages.
+- Extend the installed scanned-image system test through acquisition, explicit
+  Manage, native preservation, restart/status recovery, drift repair and safe
+  cleanup/refusal with separate Organization and authorization writer profiles.
+  Qualify Kubernetes 1.35.0/1.36.2/1.37.0, real HTTPS Keycloak 26.7.5/26.8.0
+  and the exact AMD64/ARM64 runtime image. GO-2026-5932 remains UNKNOWN/unfixed
+  and unsuppressed; production distribution remains pending in #21.
+  Source freeze requires protected merge and exact-main qualification.
+
 - Implement #48: explicit target-local source/contract/candidate approval for
   lossless OIDC/SAML application, role and service-account ownership acquisition.
   Revalidate current Kubernetes/provider identity and bounded candidate through
@@ -9,9 +49,9 @@
   unchanged UUID/business semantics, and remain Observe. Recover lost HTTP
   acknowledgements/status checkpoints without another PUT; partial or conflicting
   state never authorizes semantic writes or rollback.
-- Add Manage/Observe to roles/service accounts, retain imported Observe latches,
-  and keep all common receipt-bearing leaves behind ManagePreservationUnqualified
-  until #49. Observe deletion preserves the provider and adds no finalizer/Secret.
+- Add Manage/Observe to roles/service accounts and retain imported Observe latches.
+  Unqualified native state remains behind ManagePreservationUnqualified.
+  Observe deletion preserves the provider and adds no finalizer/Secret.
   Legacy application UUID/observation migration remains compatible; combining
   legacy and common approval conflicts before writes.
 - Harden service-account clients and token mappers with distinct kind/UID owner
@@ -24,7 +64,7 @@
   Other values/native state remain refused. Keep native client-scope collections
   unqualified; avoid reattaching service_account during ownership-only PUT.
   Qualify HTTPS 26.7.5/26.8.0, Kubernetes 1.35.0/1.36.2/1.37.0 and an installed
-  scanned-image import/acquisition path. Packaging remains 0.4.0.
+  scanned-image import/acquisition path.
 
 - Implement #47: bounded existing-Keycloak discovery, observation and typed
   adoption diff. Add the evidence-only `hanko.sh/adoption-contract/v1alpha1`
@@ -39,22 +79,127 @@
   brokers and bounded Authorization Services graphs without reading users,
   memberships or client-secret endpoints. Opaque credentials remain excluded;
   lossy native round trips and unresolved aggregate references are not approvable.
-- Aggregate acquisition and adopt-to-Manage preservation remain #49.
-  Packaging stays 0.4.0. GO-2026-5932 remains
+- Complete aggregate/adopt-to-Manage qualification in #49. GO-2026-5932 remains
   UNKNOWN/unfixed and unsuppressed: the Go advisory contains no fixed version.
 
 - Accept the existing-Keycloak adoption architecture: HankoImport remains
   discovery/Observe orchestration; target-local one-shot metadata approval will
   bind exact provider identity, complete semantic observation and a reviewed
-  typed diff. Ownership-only acquisition and separate Manage are future work.
+  typed diff. Acquisition writes only ownership; Manage is a separate decision.
 - Characterize owner-marker/journal preservation and destructive lifecycle
   boundaries on real HTTPS Keycloak 26.7.5/26.8.0. Retain arbitrary existing realm
   and opaque broker lifecycle as Observe-only; preserve legacy application
   UUID/observation migration syntax. No production adoption API is added.
-- Create the discovery/diff, leaf ownership and aggregate/native qualification
-  backlog. Current packaging remains 0.4.0; no 0.5 source tag or publication.
+- Complete the discovery/diff, leaf ownership and aggregate/native qualification
+  source milestone without production publication.
 
-## 0.4.0 — Unreleased
+- Keep adopted HankoRole Manage with target-only `manage-realm`. Document its
+  broader target-realm security/deletion blast radius as the narrow §117
+  exception; normal reconciliation remains limited to realm-role operations,
+  without external realm lifecycle ownership. Dedicated writer scopes exclude
+  master/global and unrelated realm authority. Conservative adopted-role cleanup
+  still holds `CleanupConflict` when foreign-reference absence is unproven.
+- Align active source/chart/release metadata to 0.5.0, a normal SemVer version in
+  initial development with 16 experimental v1alpha1 APIs. The next development
+  milestone is 0.6.0 — Workload Identity; production distribution stays pending.
+
+<!-- release-notes:start -->
+### Release overview
+
+hankoShell Operator 0.5.0 manages declarative Keycloak IAM configuration from
+Kubernetes. Application identity can live beside deployment manifests. Hub,
+hankoShell API and Continuum are optional. Project: https://hanko.sh.
+
+Adopt Existing Keycloak adds DISCOVER → OBSERVE → PLAN → DIFF → APPROVE → ADOPT
+→ VERIFY OWNERSHIP → MANAGE for qualified existing resources. Bounded discovery
+and typed diffs export no credentials or secret-derived hashes. Approval is local
+Kubernetes metadata bound to the exact CandidateHash, provider UUID and target
+UID, independently revalidated by reader and writer. Acquisition writes only
+owner metadata and a common provider receipt, remains Observe and grants no
+credential access or destructive finalizer.
+
+Organization adoption uses structural group and optional already-enabled native
+Organization checkpoints carrying the same receipt. ResourceServer adoption
+selects safe existing scopes/resources/policies/permissions into a V2 journal,
+with an embedded receipt and backing Application/client/realm identity. Valid V1
+journals keep their behavior. Foreign incoming dependencies block ownership and
+later writes; the client-level Application receipt and unselected graph remain
+untouched. Partial commits, lost acknowledgements and status loss recover through
+provider read-back without blindly repeating completed writes or rolling back.
+
+Manage requires an explicit mode change, removal of the imported latch, current
+provider ownership and qualified preservation. Source/approval annotations are
+not permanent execution authority. Qualified OIDC/SAML/client and realm-role
+metadata, foreign mappers/client roles, additive composites/mappings, Organization
+children/members/domains/links survive reconciliation. Arbitrary native extensions,
+opaque broker credentials, private SAML material and unqualified mapper/policy
+schemas remain blocked. Client-default scopes are not acquired by the parent.
+Existing realms and opaque brokers remain Observe-only; no general native
+provider coverage, user/membership provisioning or live Hub adoption is claimed.
+
+Owned children may reconcile inside external/Observe realms without acquiring
+realm lifecycle. Realm-role definitions still require Keycloak's broader
+target-realm manage-realm authority, including security/deletion powers; use a
+dedicated target-realm role-writer identity where deployment permits it. Ownership
+markers constrain the controller, not the provider token. Role Manage never
+reconciles realm security or deletes the realm. Other qualified child
+writers exclude that authority. Organization manage-users also permits broader
+target user operations. No realm-admin, global administration or self-grant is
+introduced. On 26.7.5 view-clients can read secrets; the inventory transport also
+refuses credential/member/user routes and never exports those values.
+
+Credential recovery/projection starts only after qualified Manage; adoption never
+rotates credentials. Cleanup revalidates live provider identity and foreign state.
+Unsafe client children, Organization descendants/members/mappings/links or shared
+authorization dependencies hold the finalizer. Adopted realm-role cleanup remains
+held without qualified absence of all foreign references. Safe selected graph
+cleanup retains foreign objects, client, sibling receipt and Authorization
+Services. Returning to Observe withdraws lifecycle consent without provider
+deletion. No shared transaction or portable rollback guarantee is provided.
+
+Existing OIDC SPA/web/M2M, qualified SAML SP-initiated POST, application runtime
+bindings and direct/declared-descendant organizational authorization retain their
+contracts. Runtime outputs require current provider proof and fresh workload UID
+consent; they do not create workloads or restart pods. Structural authorization
+explanation is bounded provider evidence, not a per-user decision or instant
+revocation. Federation, projected SA JWT login, SPIFFE/token exchange, SLO,
+encrypted/artifact/ECP SAML and attribute statements remain outside qualification.
+
+Qualification covers Kubernetes 1.35.0, 1.36.2 and 1.37.0 API/security fixtures,
+real HTTPS Keycloak 26.7.5 and 26.8.0, and an installed exact-scanned-image system
+on kind 1.37.0 with HTTPS Keycloak 26.8.0. The installed path exercises import,
+reviewed acquisition, explicit Manage, native preservation, status loss/restart,
+drift repair and cleanup/refusal for leaves and both aggregates. Cloud/CNI/CSI
+enforcement, enterprise fleets and production portable backup/restore remain
+unqualified; snapshot/lifecycle workflows remain experimental.
+
+The 16 v1alpha1 APIs remain experimental. 0.5.0 is a normal SemVer version in
+initial development, not a prerelease. Use verified HTTPS, dedicated scoped
+Keycloak service accounts, referenced Secrets, namespace RBAC, Restricted pods
+and explicit default-deny networking. Source govulncheck and exact AMD64/ARM64
+image scanning are additive and cover the operator plus embedded cosign.
+GO-2026-5932 remains visible as UNKNOWN/unfixed without suppression; no fixable
+HIGH/CRITICAL finding passes the image gate.
+
+SBOM, provenance, vulnerability reports, Sigstore signatures and Continuum Attest
+receipts are separate evidence. The source milestone does not publish packages;
+production publication remains pending in #21. No public chart, image or GitHub
+Release is claimed. Install the source chart at charts/hankoshell-operator with
+an explicit HTTPS Keycloak URL, referenced credentials/CA when required and a
+reviewed immutable image. The future OCI chart path is
+oci://ghcr.io/alien6-studio/charts/hankoshell-operator.
+
+The standalone Hub integrity path uses bearer-token-derived HMAC, not an
+independent asymmetric signature. Optional enterprise integrations do not change
+local adoption authority. Review docs/architecture/existing-keycloak-adoption.md,
+docs/secure-deployment.md and docs/keycloak-permissions.md before migration.
+Report vulnerabilities privately at
+https://github.com/Alien6-Studio/hankoshell-operator/security/advisories/new.
+<!-- release-notes:end -->
+
+
+
+## 0.4.0 — Source frozen (unpublished)
 
 - Accept the organizational authorization design: extend HankoResourceServer with
   an organization principal and explicit descendant semantics, preserving role
@@ -86,7 +231,6 @@
 - Align active source/release metadata to 0.4.0, a normal initial-development
   SemVer source boundary. Historical tags remain immutable; publication is #21.
 
-<!-- release-notes:start -->
 ### Release overview
 
 hankoShell Operator 0.4.0 reconciles declarative Keycloak IAM configuration from
@@ -181,7 +325,6 @@ docs/secure-deployment.md and docs/keycloak-permissions.md before migration.
 Report vulnerabilities privately at
 https://github.com/Alien6-Studio/hankoshell-operator/security/advisories/new;
 SECURITY.md describes supported versions and response times.
-<!-- release-notes:end -->
 
 ## 0.3.0 — Unreleased
 

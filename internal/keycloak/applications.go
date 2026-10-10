@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+
+	"github.com/Alien6-Studio/hankoshell-operator/internal/adoption"
 )
 
 // Application is a non-secret projection of a complete provider client. Secret
@@ -116,6 +118,11 @@ func (c *Client) DeleteApplicationIfOwned(ctx context.Context, realm, id, client
 	if current.ID != id || current.ClientID != clientID || !ApplicationOwned(&current, owner) {
 		return ErrApplicationPrecondition
 	}
+	if _, present := current.Attributes[adoption.ReceiptKey]; present {
+		if err := c.CheckAdoptedClientCleanup(ctx, realm, clientID, "HankoApplication", owner); err != nil {
+			return err
+		}
+	}
 	return c.deleteMapper(ctx, path)
 }
 
@@ -133,16 +140,27 @@ func (c *Client) UpdateApplication(ctx context.Context, realm string, desired Ap
 	if current["clientId"] != desired.ClientID || current["protocol"] != desired.Protocol || attributes[ownerKey] != owner || attributes["hanko.sh/client-owner-kind"] != nil || attributes["hanko.sh/client-owner-uid"] != nil || attributes["hanko.sh/role-owner"] != nil {
 		return ErrApplicationPrecondition
 	}
+	adopted := attributes[adoption.ReceiptKey] != nil
+	if adopted {
+		snapshot, err := c.currentAdoptedApplication(ctx, realm, desired, owner)
+		if err != nil {
+			return err
+		}
+		current = snapshot.document
+		attributes, _ = current["attributes"].(map[string]any)
+	}
 	// Do not round-trip credentials returned by an administrative representation.
 	delete(current, "secret")
+	delete(current, "access")
+	alreadyServiceAccount := current["serviceAccountsEnabled"] == true
 	current["name"], current["enabled"], current["publicClient"] = desired.Name, desired.Enabled, desired.PublicClient
 	current["standardFlowEnabled"], current["serviceAccountsEnabled"] = desired.StandardFlowEnabled, desired.ServiceAccountsEnabled
 	current["directAccessGrantsEnabled"], current["implicitFlowEnabled"], current["fullScopeAllowed"] = false, false, false
 	current["redirectUris"], current["webOrigins"] = desired.RedirectURIs, desired.WebOrigins
-	nextAttributes := map[string]string{}
-	for k, v := range desired.Attributes {
-		nextAttributes[k] = v
+	if adopted && alreadyServiceAccount && desired.ServiceAccountsEnabled {
+		delete(current, "serviceAccountsEnabled")
 	}
+	nextAttributes := applicationUpdateAttributes(attributes, desired.Attributes, adopted)
 	// The authorization-domain journal belongs to HankoResourceServer.
 	if receipt, ok := attributes["hanko.sh/adoption-receipt"].(string); ok {
 		nextAttributes["hanko.sh/adoption-receipt"] = receipt
@@ -213,4 +231,33 @@ func (c *Client) ProtocolDocument(ctx context.Context, realm, protocol string) (
 		return nil, fmt.Errorf("protocol metadata HTTP %d", response.StatusCode)
 	}
 	return io.ReadAll(response.Body) // do has already buffered and enforced the byte budget.
+}
+
+func (c *Client) currentAdoptedApplication(ctx context.Context, realm string, desired Application, owner string) (*ClientOwnershipSnapshot, error) {
+	if !QualifiedClientAttributes(desired.Attributes) {
+		return nil, ErrAdoptionPrecondition
+	}
+	snapshot, err := c.ReadClientOwnership(ctx, realm, desired.ClientID)
+	if err != nil {
+		return nil, err
+	}
+	if snapshot == nil || snapshot.Application.ID != desired.ID || !validClientAdoptionReceipt(&snapshot.Application, "HankoApplication", owner) || !snapshot.PreservationQualified() {
+		return nil, ErrAdoptionPrecondition
+	}
+	return snapshot, nil
+}
+func applicationUpdateAttributes(current map[string]any, desired map[string]string, adopted bool) map[string]string {
+	result := map[string]string{}
+	if adopted {
+		for key, value := range current {
+			if text, ok := value.(string); ok {
+				result[key] = text
+			}
+		}
+		delete(result, "post.logout.redirect.uris")
+	}
+	for key, value := range desired {
+		result[key] = value
+	}
+	return result
 }

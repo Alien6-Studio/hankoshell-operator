@@ -56,6 +56,8 @@ func adoptionTargetKind(object client.Object) string {
 		return "HankoServiceAccount"
 	case *api.HankoResourceServer:
 		return "HankoResourceServer"
+	case *api.HankoOrganization:
+		return "HankoOrganization"
 	}
 	return ""
 }
