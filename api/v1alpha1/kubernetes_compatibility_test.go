@@ -95,6 +95,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 	t.Run("organization principal admission and capabilities", func(t *testing.T) { checkOrganizationPrincipalAdmission(t, ctx, admin) })
 	t.Run("organization dependency watches", func(t *testing.T) { checkOrganizationDependencyWatch(t, ctx, admin, config) })
 	t.Run("authorization explanation schema", func(t *testing.T) { checkAuthorizationExplanationSchema(t, ctx, admin) })
+	t.Run("adoption candidate and import coverage schema", func(t *testing.T) { checkAdoptionStatusContract(t, ctx, admin) })
 	t.Run("IAM evidence status schema", func(t *testing.T) { checkIAMStatusEvidence(t, ctx, admin) })
 	t.Run("application protocols admission and status", func(t *testing.T) { checkApplicationProtocols(t, ctx, admin) })
 	t.Run("standalone organization status and finalizers", func(t *testing.T) { checkOrganizationStandaloneStatus(t, ctx, admin) })
@@ -290,6 +291,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 			}
 		}
 	})
+	t.Run("inventory-secrets-get-only", func(t *testing.T) { checkInventorySecretsGETOnly(t, ctx, admin, operator) })
 	t.Run("namespace-and-credential-boundaries", func(t *testing.T) {
 		for _, namespace := range []string{"auth", "other"} {
 			if err := admin.Create(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{

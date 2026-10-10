@@ -11,6 +11,7 @@ import (
 
 // IdentityProvider is the Keycloak representation of an upstream identity broker.
 type IdentityProvider struct {
+	InternalID                string            `json:"internalId,omitempty"`
 	Alias                     string            `json:"alias"`
 	DisplayName               string            `json:"displayName,omitempty"`
 	ProviderID                string            `json:"providerId"`

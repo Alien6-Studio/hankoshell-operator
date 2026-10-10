@@ -111,6 +111,261 @@ spec:
             description: HankoRoleStatus describes the observed state of the realm
               role.
             properties:
+              adoptionCandidate:
+                description: AdoptionCandidate is bounded review evidence, never execution
+                  authority.
+                properties:
+                  approvable:
+                    type: boolean
+                  candidateHash:
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  complete:
+                    type: boolean
+                  contractVersion:
+                    enum:
+                    - hanko.sh/adoption-contract/v1alpha1
+                    type: string
+                  diff:
+                    items:
+                      properties:
+                        classification:
+                          enum:
+                          - supported-typed-native
+                          - preserved-readonly-native
+                          - unsupported
+                          - conflicting
+                          - security-sensitive-excluded
+                          type: string
+                        code:
+                          enum:
+                          - equal
+                          - would-manage
+                          - would-change
+                          - would-preserve
+                          - provider-native-readonly
+                          - unsupported
+                          - credential-excluded
+                          - recreation-required
+                          - ownership-transition
+                          type: string
+                        current:
+                          description: AdoptionValue contains only reviewed non-secret
+                            semantic fields.
+                          properties:
+                            flag:
+                              type: boolean
+                            set:
+                              items:
+                                maxLength: 512
+                                type: string
+                              maxItems: 1024
+                              type: array
+                              x-kubernetes-list-type: set
+                            text:
+                              maxLength: 512
+                              type: string
+                          type: object
+                        desired:
+                          description: AdoptionValue contains only reviewed non-secret
+                            semantic fields.
+                          properties:
+                            flag:
+                              type: boolean
+                            set:
+                              items:
+                                maxLength: 512
+                                type: string
+                              maxItems: 1024
+                              type: array
+                              x-kubernetes-list-type: set
+                            text:
+                              maxLength: 512
+                              type: string
+                          type: object
+                        domain:
+                          maxLength: 64
+                          type: string
+                        field:
+                          maxLength: 64
+                          type: string
+                        identity:
+                          maxLength: 128
+                          type: string
+                        object:
+                          maxLength: 255
+                          type: string
+                        roundTrip:
+                          enum:
+                          - lossless-represented
+                          - preserved-native
+                          - lossy
+                          - unsupported
+                          type: string
+                      required:
+                      - classification
+                      - code
+                      - domain
+                      - field
+                      - identity
+                      - object
+                      - roundTrip
+                      type: object
+                    maxItems: 256
+                    type: array
+                  diffHash:
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  findings:
+                    items:
+                      properties:
+                        blocking:
+                          type: boolean
+                        code:
+                          maxLength: 512
+                          type: string
+                        domain:
+                          maxLength: 64
+                          type: string
+                        message:
+                          maxLength: 512
+                          type: string
+                      required:
+                      - blocking
+                      - code
+                      - domain
+                      - message
+                      type: object
+                    maxItems: 32
+                    type: array
+                  observationHash:
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  providerIdentity:
+                    description: AdoptionProviderIdentity excludes AdminRef, credentials
+                      and credential hashes.
+                    properties:
+                      caIdentity:
+                        description: CAIdentity binds the public trust bundle and
+                          Secret UID.
+                        maxLength: 255
+                        type: string
+                      caReference:
+                        maxLength: 255
+                        type: string
+                      instance:
+                        description: AdoptionTargetIdentity identifies a current object,
+                          never write authority.
+                        properties:
+                          generation:
+                            format: int64
+                            minimum: 0
+                            type: integer
+                          importRef:
+                            description: ImportRef binds the discovery latch without
+                              consuming it.
+                            maxLength: 255
+                            type: string
+                          kind:
+                            maxLength: 64
+                            type: string
+                          name:
+                            maxLength: 255
+                            type: string
+                          namespace:
+                            maxLength: 255
+                            type: string
+                          tenantRef:
+                            description: TenantRef binds connection-selecting target
+                              metadata without acquiring it.
+                            maxLength: 255
+                            type: string
+                          uid:
+                            maxLength: 128
+                            type: string
+                        required:
+                        - kind
+                        - name
+                        - namespace
+                        - uid
+                        type: object
+                      objectIDs:
+                        items:
+                          maxLength: 128
+                          type: string
+                        maxItems: 512
+                        type: array
+                        x-kubernetes-list-type: set
+                      origin:
+                        maxLength: 2048
+                        type: string
+                      realmID:
+                        maxLength: 128
+                        type: string
+                      trust:
+                        description: Unknown is reserved for incomplete diagnostic
+                          evidence.
+                        enum:
+                        - public-ca
+                        - private-ca
+                        - explicit-http
+                        - unknown
+                        type: string
+                    required:
+                    - instance
+                    - origin
+                    - realmID
+                    - trust
+                    type: object
+                  target:
+                    description: AdoptionTargetIdentity identifies a current object,
+                      never write authority.
+                    properties:
+                      generation:
+                        format: int64
+                        minimum: 0
+                        type: integer
+                      importRef:
+                        description: ImportRef binds the discovery latch without consuming
+                          it.
+                        maxLength: 255
+                        type: string
+                      kind:
+                        maxLength: 64
+                        type: string
+                      name:
+                        maxLength: 255
+                        type: string
+                      namespace:
+                        maxLength: 255
+                        type: string
+                      tenantRef:
+                        description: TenantRef binds connection-selecting target metadata
+                          without acquiring it.
+                        maxLength: 255
+                        type: string
+                      uid:
+                        maxLength: 128
+                        type: string
+                    required:
+                    - kind
+                    - name
+                    - namespace
+                    - uid
+                    type: object
+                  truncated:
+                    type: boolean
+                required:
+                - approvable
+                - candidateHash
+                - complete
+                - contractVersion
+                - diffHash
+                - observationHash
+                - providerIdentity
+                - target
+                - truncated
+                type: object
               appliedGeneration:
                 description: |-
                   AppliedGeneration is the latest Manage generation proven by matching

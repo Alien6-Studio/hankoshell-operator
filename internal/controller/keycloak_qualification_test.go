@@ -401,8 +401,8 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 	fixtureEqual(t, "unowned IDP preserved", provider["alias"], "unowned-idp")
 
 	t.Log("real import and observe paths are read-only and omit sensitive credentials")
-	observer, _ := f.serviceClient("qualification-observer")
-	f.grantClientRoles("qualification-observer", "managed", []string{"view-realm", "view-clients", "view-identity-providers"})
+	observer, observerSecret := f.serviceClient("qualification-observer")
+	f.grantClientRoles("qualification-observer", "managed", []string{"view-realm", "view-clients", "view-identity-providers", "view-users", "view-authorization", "view-organizations"})
 	observePool := keycloak.NewPool(observer)
 	observeRealm := &controller.HankoRealmReconciler{Client: k8s, Scheme: scheme, Pool: observePool, Recorder: recorder}
 	observeApp := &controller.HankoApplicationReconciler{Client: k8s, OwnershipReader: k8s, Scheme: scheme, Pool: observePool, Recorder: recorder}
@@ -415,14 +415,21 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 	if len(beforeEvents) == 0 {
 		t.Fatal("Admin API write-event auditing is inactive; observation cannot be qualified")
 	}
-	importer := &controller.HankoImportReconciler{Client: k8s, Scheme: scheme, Pool: observePool, RequireHTTPS: true}
+	for _, object := range []client.Object{
+		&hanko.HankoKeycloakInstance{ObjectMeta: metav1.ObjectMeta{Name: "external", Namespace: "inventory", UID: "inventory-instance"}, Spec: hanko.HankoKeycloakInstanceSpec{Mode: "external", AdminRef: corev1.LocalObjectReference{Name: "inventory-reader"}, TLSCARef: "inventory-ca"}},
+		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "inventory-reader", Namespace: "inventory"}, Data: map[string][]byte{"HANKO_KEYCLOAK_URL": []byte(observer.BaseURL()), "HANKO_KC_CLIENT_ID": []byte(observer.CredentialClientID()), "HANKO_KC_CLIENT_SECRET": []byte(observerSecret)}},
+		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "inventory-ca", Namespace: "inventory"}, Data: map[string][]byte{"ca.crt": f.ca}},
+	} {
+		f.requireNoError(k8s.Create(ctx, object))
+	}
+	importer := &controller.HankoImportReconciler{Client: k8s, APIReader: k8s, Scheme: scheme, Pool: observePool, RequireHTTPS: true}
 	importObject := &hanko.HankoImport{ObjectMeta: metav1.ObjectMeta{Name: "inventory", Namespace: "inventory"}, Spec: hanko.HankoImportSpec{SourceRef: "external", Realms: []string{"managed"}}}
 	f.requireNoError(k8s.Create(ctx, importObject))
 	fixtureReconcile(f, ctx, importer, importObject)
 	fixtureGet(f, ctx, k8s, importObject)
 	fixtureEqual(t, "import phase", importObject.Status.Phase, "Done")
 	for _, condition := range importObject.Status.Conditions {
-		if condition.Reason == "PartialFailure" || condition.Status == metav1.ConditionFalse {
+		if condition.Type == "ImportReady" && (condition.Reason == "PartialFailure" || condition.Status == metav1.ConditionFalse) {
 			t.Fatal("import partially failed")
 		}
 	}
@@ -484,7 +491,12 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 	}
 	var importedSecrets corev1.SecretList
 	f.requireNoError(k8s.List(ctx, &importedSecrets, client.InNamespace("inventory")))
-	fixtureEqual(t, "no imported credential Secrets", len(importedSecrets.Items), 0)
+	fixtureEqual(t, "only the explicitly provisioned inventory credentials and CA", len(importedSecrets.Items), 2)
+	for _, secret := range importedSecrets.Items {
+		if secret.Name != "inventory-reader" && secret.Name != "inventory-ca" {
+			t.Fatal("inventory created an unexpected credential Secret")
+		}
+	}
 	fixtureEqual(t, "observe preserved realm", getRealm(), beforeObserveRealm)
 	fixtureEqual(t, "observe preserved application", f.client("managed", "app-spa"), beforeObserveSPA)
 	fixtureEqual(t, "observe preserved service account", f.client("managed", "worker"), beforeObserveWorker)

@@ -262,3 +262,10 @@ without exposing users. Enable the externally provisioned optional read profile
 for role provenance; it is independent of authorization synchronization. See
 [structural provenance](../../docs/architecture/organizational-authorization.md#bounded-effective-explanation)
 and [read permissions](../../docs/keycloak-permissions.md#optional-structural-role-provenance-reads).
+
+Existing-Keycloak inventory uses HankoImport.sourceRef and the referenced external
+instance's dedicated read-only AdminRef/TLSCARef. The shared writer pool is not an
+inventory fallback. Credential/CA Secrets require named GET, never list/watch.
+Review the [inventory permissions](../../docs/keycloak-permissions.md#dedicated-inventory-identity)
+and [bounded evidence contract](../../docs/architecture/existing-keycloak-adoption.md#implemented-discovery-and-diff-47).
+Done and complete coverage are separate; candidate status is not adoption approval.

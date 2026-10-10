@@ -45,7 +45,7 @@ var adminOperations = []AdminOperation{
 	{"identity-provider-mappers", "GET,POST", "/admin/realms/{realm}/identity-provider/instances/{alias}/mappers", "view-identity-providers / manage-identity-providers"},
 	{"identity-provider-mappers", "PUT,DELETE", "/admin/realms/{realm}/identity-provider/instances/{alias}/mappers/{mapper}", "manage-identity-providers"},
 	{"groups", "GET", "/admin/realms/{realm}/group-by-path/{path...}", "view-users or manage-users"},
-	{"groups", "POST", "/admin/realms/{realm}/groups", "manage-users"},
+	{"groups", "GET,POST", "/admin/realms/{realm}/groups", "view-users / manage-users"},
 	{"groups", "GET,PUT,DELETE", "/admin/realms/{realm}/groups/{group}", "view-users / manage-users"},
 	{"groups", "GET,POST", "/admin/realms/{realm}/groups/{group}/children", "view-users / manage-users"},
 	{"group-roles", "GET", "/admin/realms/{realm}/groups/{group}/role-mappings", "view-users"},
@@ -150,15 +150,52 @@ func (c *Client) responseBudget(req *http.Request) (int64, error) {
 		}
 		return maxKeycloakAdminResponseBytes, nil
 	}
+	return c.adminResponseBudget(req.Method, path)
+}
+
+func (c *Client) adminResponseBudget(method, path string) (int64, error) {
 	for _, operation := range adminOperations {
-		if matchAdminPath(operation.Path, path) && strings.Contains(","+operation.Methods+",", ","+req.Method+",") {
+		if matchAdminPath(operation.Path, path) && strings.Contains(","+operation.Methods+",", ","+method+",") {
+			if c.inventoryOnly && (method != http.MethodGet || !inventoryOperation(operation.Path)) {
+				return 0, fmt.Errorf("operation is outside the read-only inventory contract")
+			}
 			if operation.Capability == "credentials" {
 				return maxKeycloakCredentialResponseBytes, nil
 			}
 			return maxKeycloakAdminResponseBytes, nil
 		}
 	}
-	return 0, fmt.Errorf("unclassified Keycloak operation: %s %s; update the permission contract", req.Method, path)
+	return 0, fmt.Errorf("unclassified Keycloak operation: %s %s; update the permission contract", method, path)
+}
+
+// This separate read contract cannot grow merely because an existing broad
+// capability gains a new Admin route. User/member/credential routes stay absent.
+func inventoryOperation(path string) bool {
+	switch path {
+	case "/admin/realms", "/admin/realms/{realm}",
+		"/admin/realms/{realm}/roles", "/admin/realms/{realm}/roles/{role}",
+		"/admin/realms/{realm}/roles/{role}/composites", "/admin/realms/{realm}/roles/{role}/composites/realm",
+		"/admin/realms/{realm}/clients", "/admin/realms/{realm}/clients/{client}",
+		"/admin/realms/{realm}/clients/{client}/roles", "/admin/realms/{realm}/clients/{client}/roles/{role}",
+		"/admin/realms/{realm}/clients/{client}/roles/{role}/composites",
+		"/admin/realms/{realm}/clients/{client}/scope-mappings/realm",
+		"/admin/realms/{realm}/clients/{client}/protocol-mappers/models",
+		"/admin/realms/{realm}/identity-provider/instances", "/admin/realms/{realm}/identity-provider/instances/{alias}/mappers",
+		"/admin/realms/{realm}/groups", "/admin/realms/{realm}/groups/{group}/children", "/admin/realms/{realm}/groups/{group}/role-mappings",
+		"/admin/realms/{realm}/organizations",
+		"/admin/realms/{realm}/clients/{client}/authz/resource-server/scope",
+		"/admin/realms/{realm}/clients/{client}/authz/resource-server/resource",
+		"/admin/realms/{realm}/clients/{client}/authz/resource-server/policy",
+		"/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/{object}/associatedPolicies",
+		"/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/role",
+		"/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/client",
+		"/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/group",
+		"/admin/realms/{realm}/clients/{client}/authz/resource-server/permission",
+		"/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/scope":
+		return true
+	default:
+		return false
+	}
 }
 
 func isPublicProtocolDocument(method, path string) bool {

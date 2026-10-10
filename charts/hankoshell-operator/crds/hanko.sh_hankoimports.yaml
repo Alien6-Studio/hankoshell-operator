@@ -64,8 +64,8 @@ spec:
                 type: boolean
               includeClients:
                 default: true
-                description: IncludeClients controls whether OIDC clients are imported
-                  as HankoApplication objects.
+                description: IncludeClients controls whether qualified OIDC and SAML
+                  clients are imported as HankoApplication objects.
                 type: boolean
               includeIdentityProviders:
                 default: true
@@ -82,7 +82,9 @@ spec:
                 description: Realms is the list of realm names to import. Empty means
                   all realms.
                 items:
+                  maxLength: 255
                   type: string
+                maxItems: 16
                 type: array
               sourceRef:
                 description: SourceRef is the name of the HankoKeycloakInstance to
@@ -102,6 +104,10 @@ spec:
                   applications:
                     description: Applications is the count of OIDC client applications.
                     type: integer
+                  authorizationObjects:
+                    type: integer
+                  groups:
+                    type: integer
                   identityProviderMappers:
                     description: IdentityProviderMappers is the count of mappers attached
                       to imported brokers.
@@ -110,8 +116,14 @@ spec:
                     description: IdentityProviders is the count of realm-scoped upstream
                       brokers.
                     type: integer
+                  organizations:
+                    type: integer
                   realms:
                     description: Realms is the count of Keycloak realms.
+                    type: integer
+                  resourceServers:
+                    type: integer
+                  roles:
                     type: integer
                   serviceAccounts:
                     description: ServiceAccounts is the count of M2M service account
@@ -183,12 +195,43 @@ spec:
                   - type
                   type: object
                 type: array
+              coverage:
+                description: Coverage measures discovery; terminal Done does not imply
+                  complete inventory.
+                properties:
+                  candidateCount:
+                    minimum: 0
+                    type: integer
+                  complete:
+                    type: boolean
+                  inventoryCount:
+                    minimum: 0
+                    type: integer
+                  observationHash:
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  truncated:
+                    type: boolean
+                  unsupportedCount:
+                    minimum: 0
+                    type: integer
+                required:
+                - candidateCount
+                - complete
+                - inventoryCount
+                - truncated
+                - unsupportedCount
+                type: object
               discovered:
                 description: Discovered holds counts of resources found in the source
                   Keycloak instance.
                 properties:
                   applications:
                     description: Applications is the count of OIDC client applications.
+                    type: integer
+                  authorizationObjects:
+                    type: integer
+                  groups:
                     type: integer
                   identityProviderMappers:
                     description: IdentityProviderMappers is the count of mappers attached
@@ -198,8 +241,14 @@ spec:
                     description: IdentityProviders is the count of realm-scoped upstream
                       brokers.
                     type: integer
+                  organizations:
+                    type: integer
                   realms:
                     description: Realms is the count of Keycloak realms.
+                    type: integer
+                  resourceServers:
+                    type: integer
+                  roles:
                     type: integer
                   serviceAccounts:
                     description: ServiceAccounts is the count of M2M service account
@@ -253,6 +302,96 @@ spec:
                 - objectName
                 - code
                 x-kubernetes-list-type: map
+              inventory:
+                description: Inventory holds bounded summaries; full diffs live on
+                  Observe targets.
+                items:
+                  description: ImportInventoryReference is a compact identity/coverage
+                    summary, not a diff.
+                  properties:
+                    approvable:
+                      type: boolean
+                    candidateHash:
+                      pattern: ^sha256:[a-f0-9]{64}$
+                      type: string
+                    complete:
+                      type: boolean
+                    findings:
+                      items:
+                        properties:
+                          blocking:
+                            type: boolean
+                          code:
+                            maxLength: 512
+                            type: string
+                          domain:
+                            maxLength: 64
+                            type: string
+                          message:
+                            maxLength: 512
+                            type: string
+                        required:
+                        - blocking
+                        - code
+                        - domain
+                        - message
+                        type: object
+                      maxItems: 32
+                      type: array
+                    kind:
+                      maxLength: 64
+                      type: string
+                    providerID:
+                      maxLength: 128
+                      type: string
+                    realm:
+                      maxLength: 255
+                      type: string
+                    target:
+                      description: AdoptionTargetIdentity identifies a current object,
+                        never write authority.
+                      properties:
+                        generation:
+                          format: int64
+                          minimum: 0
+                          type: integer
+                        importRef:
+                          description: ImportRef binds the discovery latch without
+                            consuming it.
+                          maxLength: 255
+                          type: string
+                        kind:
+                          maxLength: 64
+                          type: string
+                        name:
+                          maxLength: 255
+                          type: string
+                        namespace:
+                          maxLength: 255
+                          type: string
+                        tenantRef:
+                          description: TenantRef binds connection-selecting target
+                            metadata without acquiring it.
+                          maxLength: 255
+                          type: string
+                        uid:
+                          maxLength: 128
+                          type: string
+                      required:
+                      - kind
+                      - name
+                      - namespace
+                      - uid
+                      type: object
+                  required:
+                  - approvable
+                  - complete
+                  - kind
+                  - providerID
+                  - realm
+                  type: object
+                maxItems: 128
+                type: array
               lastReconciled:
                 description: LastReconciled is the timestamp of the last reconcile
                   loop.
@@ -274,6 +413,10 @@ spec:
                   applications:
                     description: Applications is the count of OIDC client applications.
                     type: integer
+                  authorizationObjects:
+                    type: integer
+                  groups:
+                    type: integer
                   identityProviderMappers:
                     description: IdentityProviderMappers is the count of mappers attached
                       to imported brokers.
@@ -282,8 +425,14 @@ spec:
                     description: IdentityProviders is the count of realm-scoped upstream
                       brokers.
                     type: integer
+                  organizations:
+                    type: integer
                   realms:
                     description: Realms is the count of Keycloak realms.
+                    type: integer
+                  resourceServers:
+                    type: integer
+                  roles:
                     type: integer
                   serviceAccounts:
                     description: ServiceAccounts is the count of M2M service account

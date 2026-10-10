@@ -271,6 +271,9 @@ type ApplicationTokenClaim struct {
 
 // HankoApplicationStatus describes the observed state of the application.
 type HankoApplicationStatus struct {
+	// AdoptionCandidate is bounded review evidence, never execution authority.
+	AdoptionCandidate *AdoptionCandidateStatus `json:"adoptionCandidate,omitempty"`
+
 	// RuntimeBindings records bounded delivery evidence, never write authority.
 	// +listType=map
 	// +listMapKey=name

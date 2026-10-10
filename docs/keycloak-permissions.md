@@ -460,7 +460,7 @@ using the dedicated client's credentials.
 | identity-provider-mappers | GET,POST | `/admin/realms/{realm}/identity-provider/instances/{alias}/mappers` | view-identity-providers / manage-identity-providers |
 | identity-provider-mappers | PUT,DELETE | `/admin/realms/{realm}/identity-provider/instances/{alias}/mappers/{mapper}` | manage-identity-providers |
 | groups | GET | `/admin/realms/{realm}/group-by-path/{path...}` | view-users or manage-users |
-| groups | POST | `/admin/realms/{realm}/groups` | manage-users |
+| groups | GET,POST | `/admin/realms/{realm}/groups` | view-users / manage-users |
 | groups | GET,PUT,DELETE | `/admin/realms/{realm}/groups/{group}` | view-users / manage-users |
 | groups | GET,POST | `/admin/realms/{realm}/groups/{group}/children` | view-users / manage-users |
 | group-roles | GET | `/admin/realms/{realm}/groups/{group}/role-mappings` | view-users |
@@ -497,3 +497,43 @@ bounded read operations under the existing target permissions. Real tests prove
 common-profile success, read-only success and unprivileged HTTP 403; no new
 administrative role is granted. They are needed for semantic idempotence because
 Keycloak's default permission lists omit these relationships.
+
+## Dedicated inventory identity
+
+HankoImport always resolves sourceRef. Configure a separate external-mode
+HankoKeycloakInstance against the same reviewed HTTPS endpoint/CA, with AdminRef
+pointing to a dedicated client-credentials identity. It must have no realm-admin,
+manage-*, master create-realm, impersonation or global administrator role.
+A shared operator writer pool is never the inventory fallback. Credentials stay
+in the referenced Secret; do not embed them in manifests.
+
+| Inventory family | Target-realm read role | Scope and qualification |
+| --- | --- | --- |
+| Selected realms, realm roles/direct/effective composites | view-realm | Each selected realm; GET realm confirms UUID/full representation |
+| OIDC/SAML/M2M clients, client roles, protocol mappers and scope mappings | view-clients | Each selected realm; no client-secret endpoint is called |
+| Brokers and IdP mappers | view-identity-providers | Typed safe configuration projection; opaque secrets excluded |
+| Structural groups/hierarchy and role mappings | view-users | No user/member endpoints; the role itself also grants user visibility |
+| Native Organizations | view-organizations | Only when enabled; no member reads or feature-enabling write |
+| Authorization Services graph | view-authorization | Paginated/typed scope/resource/policy/permission and association reads |
+
+The full inventory CI identity uses these six read roles on the disposable target
+realm. Bootstrap administration provisions fixtures and records mutation evidence;
+normal inventory is authenticated as the constrained service account. Capability
+profiles can omit unrelated roles, but failed required family reads must produce
+incomplete coverage, not a misleading complete inventory. Every normal inventory
+operation is a qualified GET except token acquisition. Mutations and credential
+endpoints are deliberately rejected by the HTTPS inventory guard; Admin events
+independently prove zero provider writes.
+
+Read-only means mutation authority is absent, not credential confidentiality:
+**Keycloak 26.7.5 view-clients can read the client-secret endpoint**, while the
+qualified 26.8.0 behavior requires manage-clients there. The operator never calls
+that endpoint in inventory and cannot make 26.7.5's role narrower. view-users also
+has broader visibility than the structural subset the operator actually reads.
+These are explicit native permission limitations, not extra operator behavior.
+
+Kubernetes requires named GET of source AdminRef and TLSCARef Secrets; Secret
+list/watch remain denied in the effective chart RBAC and are qualified on the
+Kubernetes matrix. Imports generate Observe declarations and review evidence,
+not approvals or provider ownership. See the
+[implemented discovery contract](architecture/existing-keycloak-adoption.md#implemented-discovery-and-diff-47).

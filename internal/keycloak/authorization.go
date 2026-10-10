@@ -108,17 +108,18 @@ type authorizationResourceRepresentation struct {
 }
 
 type authorizationPolicyRepresentation struct {
-	ID               string                         `json:"id,omitempty"`
-	Name             string                         `json:"name"`
-	Type             string                         `json:"type,omitempty"`
-	Logic            string                         `json:"logic,omitempty"`
-	DecisionStrategy string                         `json:"decisionStrategy,omitempty"`
-	Config           map[string]string              `json:"config,omitempty"`
-	Roles            []policyRole                   `json:"roles,omitempty"`
-	Clients          []string                       `json:"clients,omitempty"`
-	Groups           []AuthorizationGroupDefinition `json:"groups,omitempty"`
-	Incomplete       bool                           `json:"-"`
-	GroupsClaim      string                         `json:"groupsClaim,omitempty"`
+	ID                 string                         `json:"id,omitempty"`
+	Name               string                         `json:"name"`
+	Type               string                         `json:"type,omitempty"`
+	Logic              string                         `json:"logic,omitempty"`
+	DecisionStrategy   string                         `json:"decisionStrategy,omitempty"`
+	Config             map[string]string              `json:"config,omitempty"`
+	Roles              []policyRole                   `json:"roles,omitempty"`
+	Clients            []string                       `json:"clients,omitempty"`
+	Groups             []AuthorizationGroupDefinition `json:"groups,omitempty"`
+	Incomplete         bool                           `json:"-"`
+	AssociatedPolicies []string                       `json:"-"`
+	GroupsClaim        string                         `json:"groupsClaim,omitempty"`
 }
 
 type policyRole struct {

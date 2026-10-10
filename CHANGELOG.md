@@ -2,6 +2,23 @@
 
 ## 0.5.0 — Unreleased
 
+- Implement #47: bounded existing-Keycloak discovery, observation and typed
+  adoption diff. Add the evidence-only `hanko.sh/adoption-contract/v1alpha1`
+  candidate on applications, imported roles, service accounts and safely observed
+  resource servers. Domain-separated hashes bind current target UID/generation,
+  provider instance/trust/realm/object identities and classified non-secret state.
+- Make HankoImport sourceRef authoritative through a direct APIReader and named
+  credential/CA Secret GETs; never use the shared writer pool as fallback. Add
+  independent InventoryComplete coverage, bounded inventory summaries and counts.
+- Generate qualified SAML Observe applications and ordinary Observe HankoRole
+  inventory; include client roles/composites/mappers, groups, native Organizations,
+  brokers and bounded Authorization Services graphs without reading users,
+  memberships or client-secret endpoints. Opaque credentials remain excluded;
+  lossy native round trips and unresolved aggregate references are not approvable.
+- Ownership acquisition, receipts, annotation approval consumption and transitions
+  to Manage remain deferred to #48/#49. Packaging stays 0.4.0. GO-2026-5932 remains
+  UNKNOWN/unfixed and unsuppressed: the Go advisory contains no fixed version.
+
 - Accept the existing-Keycloak adoption architecture: HankoImport remains
   discovery/Observe orchestration; target-local one-shot metadata approval will
   bind exact provider identity, complete semantic observation and a reviewed

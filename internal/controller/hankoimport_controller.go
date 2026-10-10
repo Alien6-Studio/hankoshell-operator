@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,17 +44,20 @@ type importedRealmIdentityProvider struct {
 // +kubebuilder:rbac:groups=hanko.sh,resources=hankoapplications,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=hanko.sh,resources=hankoserviceaccounts,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=hanko.sh,resources=hankokeycloakinstances,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get
+// +kubebuilder:rbac:groups=hanko.sh,resources=hankoroles;hankoresourceservers,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=hanko.sh,resources=hankoapplications/status;hankoserviceaccounts/status;hankoroles/status;hankoresourceservers/status,verbs=get;patch
 type HankoImportReconciler struct {
 	client.Client
 	Scheme             *runtime.Scheme
 	ProtectedClientIDs []string
 	ProtectedRealm     string
-	// Pool is the operator's shared Keycloak client pool. When non-nil the import
-	// uses the pool's default client (same credentials as all other reconcilers)
-	// instead of building a new client from the HankoKeycloakInstance adminRef.
-	// This guarantees consistent cross-realm access without extra permission grants.
-	Pool         *keycloak.Pool
+	// Pool is retained for Go wiring compatibility and is never used by import.
+	// SourceRef is authoritative, including when a shared writer is configured.
+	Pool *keycloak.Pool
+	// APIReader reads current configuration, named Secrets and adoption targets.
+	// Production initialization supplies mgr.GetAPIReader(), without Secret watches.
+	APIReader    client.Reader
 	RequireHTTPS bool
 }
 
@@ -62,6 +66,7 @@ type importedRealmData struct {
 	clients           []keycloak.App
 	accounts          []keycloak.App
 	identityProviders []importedRealmIdentityProvider
+	inventory         *realmAdoptionInventory
 }
 
 type importDiscoveryError struct {
@@ -75,6 +80,9 @@ func (e *importDiscoveryError) Error() string {
 }
 
 func (r *HankoImportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	parent := ctx
+	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
 	var operation hankoshv1alpha1.HankoImport
 	if err := r.Get(ctx, req.NamespacedName, &operation); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -95,6 +103,12 @@ func (r *HankoImportReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 	discovered, result, err := r.discoverImport(ctx, &operation, kc, patch)
+	if ctx.Err() != nil {
+		statusCtx, statusCancel := context.WithTimeout(parent, 10*time.Second)
+		defer statusCancel()
+		r.failImport(statusCtx, &operation, patch, "DiscoveryDeadlineExceeded", "bounded discovery deadline expired; inventory evidence is incomplete", "patch status after discovery deadline")
+		return ctrl.Result{}, nil
+	}
 	if err != nil || discovered == nil {
 		return result, err
 	}
@@ -109,11 +123,14 @@ func (r *HankoImportReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 	patch = client.MergeFrom(operation.DeepCopy())
 	applyErrors := r.applyImport(ctx, &operation, discovered)
+	r.publishImportEvidence(ctx, &operation, discovered)
 	return r.completeImport(ctx, &operation, applyErrors, patch)
 }
 
 func (r *HankoImportReconciler) failImport(ctx context.Context, operation *hankoshv1alpha1.HankoImport, patch client.Patch, reason, message, logMessage string) {
 	operation.Status.Phase = "Failed"
+	operation.Status.Coverage.Complete = false
+	setCondition(&operation.Status.Conditions, "InventoryComplete", metav1.ConditionFalse, "Incomplete", "required source or discovery read failed")
 	setCondition(&operation.Status.Conditions, "ImportReady", metav1.ConditionFalse, reason, message)
 	if err := r.Status().Patch(ctx, operation, patch); err != nil {
 		log.FromContext(ctx).Error(err, logMessage)
@@ -121,14 +138,11 @@ func (r *HankoImportReconciler) failImport(ctx context.Context, operation *hanko
 }
 
 func (r *HankoImportReconciler) importKeycloakClient(ctx context.Context, operation *hankoshv1alpha1.HankoImport, patch client.Patch) (*keycloak.Client, bool) {
-	if r.Pool != nil {
-		return r.Pool.Get(operation.Namespace + "/"), false
-	}
 	var instance hankoshv1alpha1.HankoKeycloakInstance
-	err := r.Get(ctx, types.NamespacedName{Name: operation.Spec.SourceRef, Namespace: operation.Namespace}, &instance)
+	err := r.importReader().Get(ctx, types.NamespacedName{Name: operation.Spec.SourceRef, Namespace: operation.Namespace}, &instance)
 	if err != nil {
 		reason := "SourceError"
-		message := fmt.Sprintf("get HankoKeycloakInstance %q: %v", operation.Spec.SourceRef, err)
+		message := "cannot read the referenced HankoKeycloakInstance"
 		if errors.IsNotFound(err) {
 			reason = "SourceNotFound"
 			message = fmt.Sprintf("HankoKeycloakInstance %q not found in namespace %q", operation.Spec.SourceRef, operation.Namespace)
@@ -136,35 +150,62 @@ func (r *HankoImportReconciler) importKeycloakClient(ctx context.Context, operat
 		r.failImport(ctx, operation, patch, reason, message, "patch status after source not found")
 		return nil, true
 	}
-	kc, err := buildKCClientForInstance(ctx, r.Client, &instance, r.RequireHTTPS)
+	kc, err := buildKCClientForInstance(ctx, r.importReader(), &instance, r.RequireHTTPS)
 	if err != nil {
-		log.FromContext(ctx).Error(err, "failed to build Keycloak client from instance")
-		r.failImport(ctx, operation, patch, "KCClientError", err.Error(), "patch status after KC client error")
+		log.FromContext(ctx).Error(iamcontract.SafeError(err), "failed to build Keycloak client from instance")
+		r.failImport(ctx, operation, patch, "KCClientError", "cannot initialize the sourceRef inventory identity and verified transport", "patch status after KC client error")
 		return nil, true
 	}
+	kc.RestrictToInventory()
 	return kc, false
 }
 
 func (r *HankoImportReconciler) discoverImport(ctx context.Context, operation *hankoshv1alpha1.HankoImport, kc *keycloak.Client, patch client.Patch) ([]importedRealmData, ctrl.Result, error) {
 	realms, err := kc.ListRealms(ctx)
 	if err != nil {
-		log.FromContext(ctx).Error(err, "failed to list realms")
-		r.failImport(ctx, operation, patch, "ListRealmsError", err.Error(), "patch status after list realms error")
+		log.FromContext(ctx).Error(iamcontract.SafeError(err), "failed to list realms")
+		r.failImport(ctx, operation, patch, "ListRealmsError", "cannot read the authorized realm inventory", "patch status after list realms error")
 		return nil, ctrl.Result{}, nil
 	}
 	selected := selectImportRealms(realms, operation.Spec.Realms)
+	sort.Slice(selected, func(i, j int) bool { return selected[i].URLName() < selected[j].URLName() })
+	operation.Status.Coverage = hankoshv1alpha1.ImportCoverage{Complete: true}
+	if len(selected) > 16 {
+		selected = selected[:16]
+		operation.Status.Coverage.Complete = false
+		operation.Status.Coverage.Truncated = true
+	}
+	if len(operation.Spec.Realms) > 0 && len(selected) != len(operation.Spec.Realms) {
+		operation.Status.Coverage.Complete = false
+	}
 	includeIdentityProviders := operation.Spec.IncludeIdentityProviders == nil || *operation.Spec.IncludeIdentityProviders
 	discovered := make([]importedRealmData, 0, len(selected))
+	remainingInventory := 1024
 	for _, realm := range selected {
+		if remainingInventory == 0 {
+			operation.Status.Coverage.Complete = false
+			operation.Status.Coverage.Truncated = true
+			break
+		}
 		data, discoverErr := discoverImportedRealm(ctx, kc, realm, includeIdentityProviders)
 		if discoverErr != nil {
-			log.FromContext(ctx).Error(discoverErr.cause, "failed to discover realm", "realm", realm.URLName())
-			r.failImport(ctx, operation, patch, discoverErr.reason, discoverErr.message, "patch status after realm discovery error")
-			return nil, ctrl.Result{RequeueAfter: requeueOnError}, discoverErr.cause
+			log.FromContext(ctx).Error(iamcontract.SafeError(discoverErr.cause), "failed to discover realm")
+			r.failImport(ctx, operation, patch, discoverErr.reason, "required realm inventory read failed", "patch status after realm discovery error")
+			return nil, ctrl.Result{}, iamcontract.SafeError(discoverErr.cause)
+		}
+		data.inventory = r.discoverRealmAdoption(ctx, operation, kc, realm, includeIdentityProviders, remainingInventory)
+		remainingInventory -= len(data.inventory.items)
+		if len(data.inventory.clients) > 0 {
+			apps := []keycloak.App{}
+			for _, c := range data.inventory.clients {
+				apps = append(apps, keycloak.App{ClientID: c.ClientID, Name: c.Name, Enabled: c.Enabled, Protocol: c.Protocol, PublicClient: c.PublicClient, ServiceAccountsEnabled: c.ServiceAccountsEnabled, StandardFlowEnabled: c.StandardFlowEnabled, RedirectURIs: c.RedirectURIs})
+			}
+			data.clients, data.accounts = classifyImportedApplications(apps)
 		}
 		discovered = append(discovered, data)
 	}
 	operation.Status.Discovered = importDiscoveryCounts(discovered)
+	r.publishImportEvidence(ctx, operation, discovered)
 	return discovered, ctrl.Result{}, nil
 }
 
@@ -278,6 +319,21 @@ func importIdentityProviderErrorMessage(err error) string {
 func importDiscoveryCounts(discovered []importedRealmData) hankoshv1alpha1.ImportCounts {
 	counts := hankoshv1alpha1.ImportCounts{Realms: len(discovered)}
 	for _, realm := range discovered {
+		if realm.inventory != nil {
+			for _, item := range realm.inventory.items {
+				switch item.kind {
+				case "role":
+					counts.Roles++
+				case "group":
+					counts.Groups++
+				case "organization":
+					counts.Organizations++
+				case "resource-server":
+					counts.ResourceServers++
+					counts.AuthorizationObjects += len(item.ids) - 1
+				}
+			}
+		}
 		counts.Applications += len(realm.clients)
 		counts.ServiceAccounts += len(realm.accounts)
 		counts.IdentityProviders += len(realm.identityProviders)
@@ -309,6 +365,17 @@ func (r *HankoImportReconciler) applyImport(ctx context.Context, operation *hank
 		realmName := realm.realm.URLName()
 		if err := r.applyRealm(ctx, operation, realm.realm, realm.identityProviders); err != nil {
 			applyErrors = append(applyErrors, fmt.Sprintf("realm %s: %v", realmName, err))
+		}
+		if realm.inventory != nil && len(realm.inventory.clients) > 0 {
+			for _, item := range realm.inventory.items {
+				if (item.kind == "application" && !includeClients) || (item.kind == "service-account" && !includeAccounts) {
+					continue
+				}
+				if err := r.applyInventoryTarget(ctx, operation, item); err != nil {
+					applyErrors = append(applyErrors, "Observe inventory target could not be created")
+				}
+			}
+			continue
 		}
 		if includeClients {
 			applyErrors = r.applyImportedApplications(ctx, operation, realmName, realm.clients, applyErrors)
@@ -346,7 +413,7 @@ func (r *HankoImportReconciler) completeImport(ctx context.Context, operation *h
 	operation.Status.CompletedAt = &now
 	if len(applyErrors) > 0 {
 		setCondition(&operation.Status.Conditions, "ImportReady", metav1.ConditionTrue, "PartialFailure",
-			fmt.Sprintf("import completed with %d error(s): %s", len(applyErrors), strings.Join(applyErrors, "; ")))
+			fmt.Sprintf("import completed with %d target creation or mapping error(s); inspect bounded inventory findings", len(applyErrors)))
 	} else {
 		setCondition(&operation.Status.Conditions, "ImportReady", metav1.ConditionTrue, "Completed", "import completed successfully")
 	}
@@ -427,20 +494,7 @@ func importedIdentityProviderSpecs(providers []importedRealmIdentityProvider) []
 }
 
 func sanitizedIdentityProviderConfig(config map[string]string) map[string]string {
-	result := make(map[string]string, len(config))
-	for key, value := range config {
-		normalized := strings.NewReplacer("_", "", "-", "", ".", "").Replace(strings.ToLower(key))
-		if strings.HasSuffix(normalized, "secret") || strings.HasSuffix(normalized, "password") ||
-			strings.HasSuffix(normalized, "privatekey") || strings.HasSuffix(normalized, "apikey") ||
-			strings.HasSuffix(normalized, "credential") || strings.HasSuffix(normalized, "credentials") {
-			continue
-		}
-		result[key] = value
-	}
-	if len(result) == 0 {
-		return nil
-	}
-	return result
+	return safeBrokerConfig(config)
 }
 
 func importedIdentityProviderMapperCount(providers []importedRealmIdentityProvider) int {
@@ -452,7 +506,7 @@ func importedIdentityProviderMapperCount(providers []importedRealmIdentityProvid
 }
 
 func importCountTotal(counts hankoshv1alpha1.ImportCounts) int {
-	return counts.Realms + counts.Applications + counts.ServiceAccounts + counts.IdentityProviders + counts.IdentityProviderMappers
+	return counts.Realms + counts.Applications + counts.ServiceAccounts + counts.IdentityProviders + counts.IdentityProviderMappers + counts.Roles + counts.Groups + counts.Organizations + counts.ResourceServers + counts.AuthorizationObjects
 }
 
 func boolPointer(value bool) *bool { return &value }
@@ -530,9 +584,17 @@ func (r *HankoImportReconciler) applyApplication(ctx context.Context, hi *hankos
 func importApplicationProtocolFindings(realms []importedRealmData) []hankoshv1alpha1.AuthorizationFinding {
 	var findings []iamcontract.Finding
 	for _, realm := range realms {
+		if realm.inventory != nil && len(realm.inventory.clients) > 0 {
+			for _, item := range realm.inventory.items {
+				if item.kind == "application" && item.app == nil {
+					findings = append(findings, iamcontract.Finding{Classification: iamcontract.Unsupported, ObjectKind: "application", ObjectName: item.name, Code: "application_protocol_import_unsupported", Message: "client does not fit the qualified protocol-aware Observe mapping", ReadOnly: true})
+				}
+			}
+			continue
+		}
 		for _, app := range realm.clients {
 			if app.Protocol != "" && app.Protocol != "openid-connect" {
-				findings = append(findings, iamcontract.Finding{Classification: iamcontract.Unsupported, ObjectKind: "application", ObjectName: app.ClientID, Code: "application_protocol_import_unsupported", Message: "SAML and unknown protocols require a reviewed explicit Observe declaration; no OIDC manifest is generated", ReadOnly: true})
+				findings = append(findings, iamcontract.Finding{Classification: iamcontract.Unsupported, ObjectKind: "application", ObjectName: app.ClientID, Code: "application_protocol_import_unsupported", Message: "client requires a qualified protocol-aware Observe declaration", ReadOnly: true})
 			}
 		}
 	}
@@ -597,7 +659,17 @@ func (r *HankoImportReconciler) applyServiceAccount(ctx context.Context, hi *han
 
 // SetupWithManager registers the reconciler. HankoImport owns no child resources.
 func (r *HankoImportReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.APIReader == nil {
+		r.APIReader = mgr.GetAPIReader()
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoImport{}).
 		Complete(r)
+}
+
+func (r *HankoImportReconciler) importReader() client.Reader {
+	if r.APIReader != nil {
+		return r.APIReader
+	}
+	return r.Client // unit-test clients; production always installs APIReader.
 }

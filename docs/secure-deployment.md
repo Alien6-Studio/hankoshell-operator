@@ -1081,3 +1081,11 @@ paths prevent a complete structural account. No users, memberships or tokens are
 exported. Existing provider UUID grants can remain during reconciliation failure;
 this evidence does not guarantee instantaneous revocation or token invalidation.
 See the [implemented contract](architecture/organizational-authorization.md#bounded-effective-explanation).
+
+For existing-Keycloak discovery, use a separate external-mode instance with a
+reviewed HTTPS endpoint/CA and a dedicated inventory AdminRef. HankoImport resolves
+sourceRef through the direct API reader and never falls back to a shared writer
+pool. [The inventory permission matrix](keycloak-permissions.md#dedicated-inventory-identity)
+explains native role privacy limits on 26.7.5/26.8.0. Terminal Done is not evidence
+of full coverage; inspect InventoryComplete, coverage and typed target candidates.
+These candidates do not approve provider ownership or a transition to Manage.

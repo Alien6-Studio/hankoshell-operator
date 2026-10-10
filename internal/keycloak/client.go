@@ -56,10 +56,13 @@ type Client struct {
 
 	allowInsecureHTTP bool
 	endpointError     error
-	httpClient        *http.Client
-	mu                sync.Mutex
-	token             string
-	tokenExpiry       time.Time
+	// inventoryOnly adds a local fail-closed boundary independently of the
+	// credential's native Keycloak authority. Set before the first request.
+	inventoryOnly bool
+	httpClient    *http.Client
+	mu            sync.Mutex
+	token         string
+	tokenExpiry   time.Time
 }
 
 // New creates a Client with explicit credentials. Equivalent to NewFromEnv but
@@ -204,6 +207,10 @@ type App struct {
 
 // BaseURL returns the configured Keycloak base URL (used to derive OIDC endpoints).
 func (c *Client) BaseURL() string { return c.baseURL }
+
+// RestrictToInventory permanently limits this dedicated client to qualified
+// inventory GETs and token acquisition. It cannot be used for normal Manage.
+func (c *Client) RestrictToInventory() { c.inventoryOnly = true }
 
 // CredentialClientID returns the client whose credentials authorize this Admin
 // API connection. Reconcilers use it to prevent a managed service account from

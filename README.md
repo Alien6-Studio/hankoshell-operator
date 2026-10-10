@@ -384,6 +384,11 @@ Keycloak convergence; `Projection` separately reports the optional configured
 API integration. A projection outage preserves provider success and does not
 block child Keycloak groups. See [organization configuration and migration](docs/secure-deployment.md#organization-provider-readiness-and-optional-projection).
 
+Existing Keycloak inventory can now produce bounded reviewable adoption evidence;
+provider ownership acquisition remains a separate unreleased step. See the
+[discovery and adoption contract](docs/architecture/existing-keycloak-adoption.md#implemented-discovery-and-diff-47)
+for coverage, read-only credentials and limitations.
+
 ## Development
 
 Organizational Authorization 0.4.0 adds explicit organization grants and bounded
