@@ -15,6 +15,7 @@ import (
 
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/adoption"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/applications"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -278,5 +279,41 @@ func TestExpectedNativeKeysStillRejectPrivateValues(t *testing.T) {
 	data, _ := json.Marshal(item.observation)
 	if strings.Contains(string(data), "sentinel") {
 		t.Fatal("expected native config key bypassed safe typed values")
+	}
+}
+
+func TestMapperOwnerBoundaryUsesFreshTargetAndKind(t *testing.T) {
+	for _, test := range []struct {
+		kind, owner string
+		conflict    bool
+	}{{"application", "target-uid", false}, {"application", "foreign-owner-sentinel", true}, {"service-account", "target-uid", true}} {
+		t.Run(test.kind+test.owner, func(t *testing.T) {
+			metadata := metav1.ObjectMeta{Name: "target", Namespace: "auth", UID: "target-uid", Labels: map[string]string{importedByLabel: "inventory"}}
+			var object client.Object = &api.HankoApplication{ObjectMeta: metadata, Spec: api.HankoApplicationSpec{RealmRef: "realm", ClientID: "client", Type: "spa", Mode: ModeObserve}}
+			if test.kind == "service-account" {
+				object = &api.HankoServiceAccount{ObjectMeta: metadata, Spec: api.HankoServiceAccountSpec{RealmRef: "realm", ClientID: "client"}}
+			}
+			kube := controllerTestClient(controllerTestScheme(t), object)
+			item := newInventoryItem(test.kind, "realm", "provider", "client")
+			mapper := keycloak.ProtocolMapper{ID: "mapper", Name: "department", ProtocolMapper: "oidc-usermodel-attribute-mapper", Config: map[string]string{"user.attribute": "department", "claim.name": "department", applications.OwnerAttribute: test.owner}}
+			observeInventoryMappers(item, []keycloak.ProtocolMapper{mapper})
+			reconciler := &HankoImportReconciler{Client: kube, APIReader: kube}
+			target, desired := reconciler.currentInventoryTarget(context.Background(), &api.HankoImport{ObjectMeta: metav1.ObjectMeta{Name: "inventory", Namespace: "auth"}}, item)
+			provider := adoption.ProviderIdentity{Instance: adoption.TargetIdentity{UID: "instance"}, Origin: "https://keycloak.example.test", RealmID: "realm", Trust: "public-ca", ObjectIDs: item.ids}
+			candidate := adoption.Build(target, provider, item.observation, desired)
+			conflict := false
+			for _, entry := range candidate.Diff {
+				if entry.Domain == "protocol-mapper" && entry.Field == "owner" {
+					conflict = entry.Classification == adoption.Conflicting
+				}
+			}
+			if conflict != test.conflict || (conflict && candidate.Approvable) {
+				t.Fatal("mapper ownership boundary was ignored or treated as the wrong target kind")
+			}
+			data, _ := json.Marshal(candidate)
+			if strings.Contains(string(data), "foreign-owner-sentinel") {
+				t.Fatal("raw foreign owner marker escaped public evidence")
+			}
+		})
 	}
 }

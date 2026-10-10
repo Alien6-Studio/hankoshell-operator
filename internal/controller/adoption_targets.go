@@ -85,6 +85,16 @@ func observeClientAttributes(item *adoptionInventoryItem, c keycloak.InventoryCl
 func observeInventoryMappers(item *adoptionInventoryItem, mappers []keycloak.ProtocolMapper) {
 	for _, mapper := range mappers {
 		item.ids = append(item.ids, mapper.ID)
+		if owner := mapper.Config[applications.OwnerAttribute]; owner != "" {
+			if item.mapperOwners == nil {
+				item.mapperOwners = map[string]string{}
+			}
+			item.mapperOwners[mapper.ID] = owner
+			marker := inventoryFact("protocol-mapper", mapper.ID, mapper.Name, "owner", textValue("application-marked"))
+			marker.Classification = adoption.Conflicting
+			item.observation.Facts = append(item.observation.Facts, marker)
+		}
+
 		f := inventoryFact("protocol-mapper", mapper.ID, mapper.Name, "mapperType", textValue(mapper.ProtocolMapper))
 		switch mapper.ProtocolMapper {
 		case "oidc-usermodel-attribute-mapper", "oidc-usermodel-realm-role-mapper":
@@ -345,6 +355,18 @@ func (r *HankoImportReconciler) currentInventoryTarget(ctx context.Context, oper
 		}
 	}
 
+	for i, fact := range item.observation.Facts {
+		if fact.Domain != "protocol-mapper" || fact.Field != "owner" {
+			continue
+		}
+		if item.mapperOwners[fact.Identity] == target.UID && target.Kind == "HankoApplication" {
+			item.observation.Facts[i].Classification = adoption.Supported
+			item.observation.Facts[i].Value = textValue("owned")
+		} else {
+			item.observation.Facts[i].Classification = adoption.Conflicting
+			item.observation.Facts[i].Value = textValue("foreign")
+		}
+	}
 	desired := desiredInventoryFacts(item, obj)
 	return target, desired
 }

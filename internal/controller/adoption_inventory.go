@@ -40,6 +40,7 @@ type realmAdoptionInventory struct {
 type adoptionInventoryItem struct {
 	kind, realm, id, name string
 	ownerID               string
+	mapperOwners          map[string]string
 	observation           adoption.Observation
 	ids                   []string
 	app                   *api.HankoApplicationSpec
