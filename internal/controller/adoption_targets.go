@@ -18,8 +18,14 @@ import (
 func observeClientAttributes(item *adoptionInventoryItem, c keycloak.InventoryClient) {
 	native, credential := false, false
 	for key, value := range c.Attributes {
+		if adoption.KeycloakDefault(key, value) {
+			f := inventoryFact(item.kind, item.id, item.name, "keycloakDefault."+key, textValue(value))
+			f.Classification, f.RoundTrip = adoption.Preserved, adoption.PreservedNative
+			item.observation.Facts = append(item.observation.Facts, f)
+			continue
+		}
 		switch key {
-		case "hanko.sh/application-owner", "hanko.app", "hanko.service", "hanko.sh/resource-server-ownership", "client.secret.creation.time":
+		case "hanko.sh/application-owner", "hanko.sh/client-owner-kind", "hanko.sh/client-owner-uid", "hanko.sh/adoption-receipt", "hanko.app", "hanko.service", "hanko.sh/resource-server-ownership", "client.secret.creation.time":
 		case "post.logout.redirect.uris":
 			if safeInventoryURLs(strings.Split(value, "##")) {
 				item.fact("postLogoutURIs", setValue(strings.Split(value, "##")))
@@ -110,7 +116,7 @@ func observeInventoryMappers(item *adoptionInventoryItem, mappers []keycloak.Pro
 		default:
 			f.Classification = adoption.Preserved
 			f.RoundTrip = adoption.PreservedNative
-			item.finding("native_mapper_preserved", "unknown or native protocol mappers remain read-only evidence", false)
+			item.finding("native_mapper_preserved", "unknown or native protocol mappers remain read-only evidence; lossless acquisition is unqualified", true)
 		}
 		item.observation.Facts = append(item.observation.Facts, f)
 	}
@@ -344,7 +350,7 @@ func (r *HankoImportReconciler) currentInventoryTarget(ctx context.Context, oper
 				if f.Value.Text == "unknown-owner" {
 					continue
 				}
-				if item.ownerID == target.UID && (target.Kind == "HankoApplication" || target.Kind == "HankoRole") {
+				if item.ownerID == target.UID && (target.Kind == "HankoApplication" || target.Kind == "HankoRole" || target.Kind == "HankoServiceAccount") {
 					item.observation.Facts[i].Value = textValue("owned")
 					item.observation.Facts[i].Classification = adoption.Supported
 				} else {
@@ -431,6 +437,7 @@ func desiredInventoryFacts(item *adoptionInventoryItem, obj client.Object) []ado
 		desiredClientRoles(item, &facts, o.Spec.Roles)
 		desiredTokenClaims(item, &facts, o.Spec.TokenClaims)
 	case *api.HankoServiceAccount:
+		add("mode", textValue(o.Spec.Mode))
 		add("realmRef", textValue(o.Spec.RealmRef))
 		add("name", textValue(o.Spec.ClientID))
 		add("scopes", setValue(o.Spec.Scopes))
@@ -441,6 +448,7 @@ func desiredInventoryFacts(item *adoptionInventoryItem, obj client.Object) []ado
 			item.finding("credential_rotation_excluded", "credential rotation is outside discovery and adoption diff", true)
 		}
 	case *api.HankoRole:
+		add("mode", textValue(o.Spec.Mode))
 		add("realmRef", textValue(o.Spec.RealmRef))
 		add("name", textValue(o.Spec.Name))
 		add("description", textValue(o.Spec.Description))

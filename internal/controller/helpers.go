@@ -18,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/adoption"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 )
 
@@ -61,8 +62,14 @@ func generationOrReconcileRequestChanged() predicate.Predicate {
 			if update.ObjectOld == nil || update.ObjectNew == nil {
 				return false
 			}
-			return update.ObjectOld.GetAnnotations()[reconcileRequestAnnotation] !=
-				update.ObjectNew.GetAnnotations()[reconcileRequestAnnotation]
+			for _, key := range []string{reconcileRequestAnnotation, adoption.SourceAnnotation, adoption.ContractAnnotation, adoption.CandidateAnnotation, "hanko.sh/migrate-keycloak-client-uuid", "hanko.sh/migrate-keycloak-observation"} {
+				oldValue, oldPresent := update.ObjectOld.GetAnnotations()[key]
+				newValue, newPresent := update.ObjectNew.GetAnnotations()[key]
+				if oldValue != newValue || oldPresent != newPresent {
+					return true
+				}
+			}
+			return update.ObjectOld.GetLabels()[importedByLabel] != update.ObjectNew.GetLabels()[importedByLabel] || update.ObjectOld.GetLabels()["hanko.sh/tenant"] != update.ObjectNew.GetLabels()["hanko.sh/tenant"] || !update.ObjectOld.GetDeletionTimestamp().Equal(update.ObjectNew.GetDeletionTimestamp())
 		}},
 	)
 }
@@ -87,6 +94,19 @@ func effectiveMode(app *hankoshv1alpha1.HankoApplication) string {
 		return ModeObserve
 	}
 	if app.Spec.Mode == ModeObserve {
+		return ModeObserve
+	}
+	return ModeManage
+}
+
+func effectiveRoleMode(role *hankoshv1alpha1.HankoRole) string {
+	if isImported(role.Labels) || role.Spec.Mode == ModeObserve {
+		return ModeObserve
+	}
+	return ModeManage
+}
+func effectiveServiceAccountMode(account *hankoshv1alpha1.HankoServiceAccount) string {
+	if isImported(account.Labels) || account.Spec.Mode == ModeObserve {
 		return ModeObserve
 	}
 	return ModeManage
@@ -208,6 +228,9 @@ func oidcEndpoints(kc *keycloak.Client, realm string) *hankoshv1alpha1.OIDCEndpo
 // Objects labelled with hanko.sh/tenant get the tenant's dedicated client;
 // unlabelled objects fall back to the pool's default client.
 func kcForObject(pool *keycloak.Pool, namespace string, labels map[string]string) *keycloak.Client {
+	if pool == nil {
+		return nil
+	}
 	tenantName := labels["hanko.sh/tenant"]
 	return pool.Get(namespace + "/" + tenantName)
 }

@@ -155,20 +155,12 @@ func safeBrokerConfig(config map[string]string) map[string]string {
 	return result
 }
 func adoptionSourceIdentity(ctx context.Context, reader client.Reader, source *api.HankoKeycloakInstance, kc *keycloak.Client, realmID string) (adoption.ProviderIdentity, error) {
-	u, err := url.Parse(kc.BaseURL())
+	origin, err := adoptionEndpointOrigin(kc.BaseURL())
 	if err != nil {
 		return adoption.ProviderIdentity{}, fmt.Errorf("parse current verified endpoint: %w", err)
 	}
-	u.Scheme = strings.ToLower(u.Scheme)
-	u.Host = strings.ToLower(u.Host)
-	u.Path = strings.TrimRight(u.Path, "/")
-	if (u.Scheme == "https" && u.Port() == "443") || (u.Scheme == "http" && u.Port() == "80") {
-		u.Host = u.Hostname()
-		if strings.Contains(u.Host, ":") {
-			u.Host = "[" + u.Host + "]"
-		}
-	}
-	p := adoption.ProviderIdentity{Instance: adoption.TargetIdentity{Kind: "HankoKeycloakInstance", Namespace: source.Namespace, Name: source.Name, UID: string(source.UID)}, Origin: u.String(), Trust: "public-ca", RealmID: realmID}
+	u, _ := url.Parse(origin)
+	p := adoption.ProviderIdentity{Instance: adoption.TargetIdentity{Kind: "HankoKeycloakInstance", Namespace: source.Namespace, Name: source.Name, UID: string(source.UID)}, Origin: origin, Trust: "public-ca", RealmID: realmID}
 	if u.Scheme == "http" {
 		p.Trust = "explicit-http"
 	}
@@ -207,6 +199,23 @@ func adoptionSourceIdentity(ctx context.Context, reader client.Reader, source *a
 		p.CAIdentity = string(ca.UID) + ":sha256:" + hex.EncodeToString(sum[:])
 	}
 	return p, nil
+}
+
+func adoptionEndpointOrigin(endpoint string) (string, error) {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return "", fmt.Errorf("parse adoption provider origin: %w", err)
+	}
+	u.Scheme = strings.ToLower(u.Scheme)
+	u.Host = strings.ToLower(u.Host)
+	u.Path = strings.TrimRight(u.Path, "/")
+	if (u.Scheme == "https" && u.Port() == "443") || (u.Scheme == "http" && u.Port() == "80") {
+		u.Host = u.Hostname()
+		if strings.Contains(u.Host, ":") {
+			u.Host = "[" + u.Host + "]"
+		}
+	}
+	return u.String(), nil
 }
 func (r *HankoImportReconciler) discoverRealmAdoption(ctx context.Context, operation *api.HankoImport, kc *keycloak.Client, realm keycloak.Realm, includeBrokers bool, limit int) *realmAdoptionInventory {
 	inventory := &realmAdoptionInventory{complete: true, limit: limit}
@@ -280,6 +289,9 @@ func (r *HankoImportReconciler) discoverInventoryClients(ctx context.Context, kc
 			kind = "service-account"
 		}
 		item := newInventoryItem(kind, realm, c.ID, c.ClientID)
+		if c.UnqualifiedNative {
+			item.native("nativePresence", "native root settings or scope collections are not qualified for lossless leaf acquisition", true)
+		}
 		item.fact("name", textValue(c.ClientID))
 		item.fact("protocol", textValue(c.Protocol))
 		item.fact("enabled", flagValue(c.Enabled))
@@ -324,6 +336,10 @@ func (r *HankoImportReconciler) discoverInventoryClients(ctx context.Context, kc
 				owner = "unknown-owner"
 				class = adoption.Conflicting
 			}
+		}
+		if kind == "service-account" && keycloak.ServiceAccountOwned(&c.Application, c.Attributes[adoption.ClientOwnerUIDKey]) {
+			owner, class = "service-account-marked", adoption.Conflicting
+			item.ownerID = c.Attributes[adoption.ClientOwnerUIDKey]
 		}
 		f := inventoryFact(kind, c.ID, c.ClientID, "owner", textValue(owner))
 		f.Classification = class
@@ -393,6 +409,9 @@ func (r *HankoImportReconciler) observeInventoryRole(ctx context.Context, kc *ke
 	item.observation.Facts = append(item.observation.Facts, inventoryFact(domain, role.ID, role.Name, "composites", setValue(direct)), inventoryFact(domain, role.ID, role.Name, "effectiveComposites", setValue(closure)))
 	native := false
 	for key, values := range role.Attributes {
+		if key == "hanko.sh/adoption-receipt" {
+			continue
+		}
 		if key == roles.OwnerAttribute {
 			if len(values) == 1 && role.ID == item.id {
 				item.ownerID = values[0]

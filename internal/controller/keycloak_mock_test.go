@@ -3,6 +3,7 @@ package controller_test
 import (
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/types"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -160,6 +161,21 @@ func (m *mockKeycloak) ownApplication(app *hankoshv1alpha1.HankoApplication) {
 	}
 	attrs := m.clientState[app.Spec.RealmRef+"|"+id]["attributes"].(map[string]any)
 	attrs["hanko.sh/application-owner"] = string(app.UID)
+}
+
+// ownServiceAccount is explicit fixture provisioning for already owned M2M tests.
+func (m *mockKeycloak) ownServiceAccount(sa *hankoshv1alpha1.HankoServiceAccount) {
+	if sa.UID == "" {
+		sa.UID = types.UID("fixture-" + sa.Namespace + "-" + sa.Name)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	id := m.clientUUID[sa.Spec.RealmRef+"|"+sa.Spec.ClientID]
+	if id == "" {
+		return
+	}
+	attrs := m.clientState[sa.Spec.RealmRef+"|"+id]["attributes"].(map[string]any)
+	attrs["hanko.sh/client-owner-kind"], attrs["hanko.sh/client-owner-uid"] = "HankoServiceAccount", string(sa.UID)
 }
 
 func (m *mockKeycloak) addRealm(realm keycloak.Realm) {

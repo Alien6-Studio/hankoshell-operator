@@ -26,7 +26,14 @@ type HankoServiceAccount struct {
 // Fleet-authority and cross-resource ownership are checked by the reconciler:
 // CEL cannot query other CRDs or runtime realm/client configuration.
 // +kubebuilder:validation:XValidation:rule="self.clientID.trim() != 'account' && self.clientID.trim() != 'account-console' && self.clientID.trim() != 'admin-cli' && self.clientID.trim() != 'broker' && self.clientID.trim() != 'realm-management' && self.clientID.trim() != 'security-admin-console'",message="built-in Keycloak clients cannot be managed as HankoServiceAccount"
+// +kubebuilder:validation:XValidation:rule="!has(self.attributes) || self.attributes.all(k, !(k.startsWith('hanko.sh/') && (k.contains('owner') || k == 'hanko.sh/adoption-receipt')))",message="provider ownership and adoption receipt attributes are reserved"
 type HankoServiceAccountSpec struct {
+	// Mode separates credential and provider management from observation.
+	// The imported-by label always forces effective Observe.
+	// +kubebuilder:validation:Enum=Manage;Observe
+	// +kubebuilder:default=Manage
+	Mode string `json:"mode,omitempty"`
+
 	// RealmRef references the HankoRealm this service account belongs to.
 	// +kubebuilder:validation:Required
 	RealmRef string `json:"realmRef"`
@@ -44,6 +51,7 @@ type HankoServiceAccountSpec struct {
 	// Attributes sets arbitrary Keycloak client attributes (single string value per
 	// key) on the underlying M2M client. The full map is the desired state and
 	// replaces unmanaged keys set directly in Keycloak on every reconcile.
+	// +kubebuilder:validation:MaxProperties=64
 	Attributes map[string]string `json:"attributes,omitempty"`
 
 	// TokenClaims exposes a Keycloak user attribute or fixed value as a claim in
@@ -70,6 +78,8 @@ type SecretRotationPolicy struct {
 
 // HankoServiceAccountStatus describes the observed state of the M2M client.
 type HankoServiceAccountStatus struct {
+	AdoptionReceipt *AdoptionReceiptStatus `json:"adoptionReceipt,omitempty"`
+
 	// AdoptionCandidate is bounded review evidence, never execution authority.
 	AdoptionCandidate *AdoptionCandidateStatus `json:"adoptionCandidate,omitempty"`
 

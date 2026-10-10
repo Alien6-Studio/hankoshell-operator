@@ -161,6 +161,9 @@ var fields = map[string]bool{
 	"mapperRoles": true, "mapperFlags": true, "providerType": true, "brokerEndpoints": true,
 	"acs": true, "nameID": true, "signedAssertions": true, "signedResponses": true,
 	"nativePresence": true, "credentialPresence": true, "attributes": true,
+	"keycloakDefault.realm_client":                             true,
+	"keycloakDefault.backchannel.logout.session.required":      true,
+	"keycloakDefault.backchannel.logout.revoke.offline.tokens": true,
 	"scopes": true, "resources": true, "policies": true, "principals": true,
 	"logic": true, "decisionStrategy": true, "uris": true, "type": true,
 	"theme": true, "runtimeBindings": true, "mode": true, "realmRef": true, "importLatch": true, "claimSource": true,
@@ -173,6 +176,9 @@ func digest(domain string, v any) string {
 	return string(iamcontract.Hash(iamcontract.ContractVersion(Version), domain, "evidence", b))
 }
 func validFact(f Fact) bool {
+	if !validKeycloakDefaultFact(f) {
+		return false
+	}
 	if !fields[f.Field] || len(f.Domain) > 64 || len(f.Identity) > MaxProviderIDBytes || len(f.Object) > MaxReferenceBytes || len(f.Field) > 64 || len(f.Value.Text) > MaxTextBytes || len(f.Value.Set) > MaxEdges {
 		return false
 	}
@@ -182,6 +188,14 @@ func validFact(f Fact) bool {
 		}
 	}
 	return true
+}
+
+func validKeycloakDefaultFact(f Fact) bool {
+	const prefix = "keycloakDefault."
+	if !strings.HasPrefix(f.Field, prefix) {
+		return true
+	}
+	return KeycloakDefault(strings.TrimPrefix(f.Field, prefix), f.Value.Text) && len(f.Value.Set) == 0 && f.Value.Flag == nil && f.Classification == Preserved && f.RoundTrip == PreservedNative
 }
 func normalize(facts []Fact) ([]Fact, bool) {
 	result := make([]Fact, 0, len(facts))

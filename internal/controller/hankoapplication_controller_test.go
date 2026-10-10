@@ -222,6 +222,28 @@ func controllerutilContainsFinalizer(app *hankoshv1alpha1.HankoApplication) bool
 	return slices.Contains(app.Finalizers, controller.FinalizerName)
 }
 
+func TestApplicationDeletionRetryWhenProviderAlreadyAbsent(t *testing.T) {
+	kc := newMockKeycloak(t)
+	now := metav1.Now()
+	app := &hankoshv1alpha1.HankoApplication{ObjectMeta: metav1.ObjectMeta{Name: "already-deleted", Namespace: "default", UID: "deleting-uid", Finalizers: []string{controller.FinalizerName}, DeletionTimestamp: &now}, Spec: hankoshv1alpha1.HankoApplicationSpec{Mode: "Manage", RealmRef: "myrealm", ClientID: "already-deleted", Type: "web"}}
+	c := newFakeClient(t, app)
+	r := newReconciler(t, c, kc.client())
+	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(app)}); err != nil {
+		t.Fatal(err)
+	}
+	current := &hankoshv1alpha1.HankoApplication{}
+	if err := c.Get(context.Background(), client.ObjectKeyFromObject(app), current); client.IgnoreNotFound(err) != nil {
+		t.Fatal(err)
+	} else if err == nil && len(current.Finalizers) != 0 {
+		t.Fatal("already-absent provider blocked finalizer completion")
+	}
+	for _, operation := range []string{"create", "update", "delete", "getSecret", "rotateSecret"} {
+		if kc.count(operation) != 0 {
+			t.Fatalf("absent provider retry called %s", operation)
+		}
+	}
+}
+
 // (d) Deleting a legacy imported object (imported-by label, old destructive finalizer
 // still present) must remove the finalizer WITHOUT calling DeleteApp.
 func TestReconcile_ObserveDeletion_NoDeleteApp(t *testing.T) {

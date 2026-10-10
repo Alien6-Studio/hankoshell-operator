@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/adoption"
 	"io"
 	"net/http"
 	"net/url"
@@ -875,6 +876,9 @@ func (c *Client) SyncRealmRole(ctx context.Context, realm string, role RealmRole
 		return c.writeRealmRole(ctx, http.MethodPost, adminRealmsPath+realm+rolesPath, role,
 			http.StatusCreated, http.StatusConflict)
 	}
+	if receipt, exists := existing.Attributes["hanko.sh/adoption-receipt"]; exists {
+		role.Attributes["hanko.sh/adoption-receipt"] = append([]string(nil), receipt...)
+	}
 	role.ID = existing.ID
 	role.ContainerID = existing.ContainerID
 	role.ClientRole = existing.ClientRole
@@ -1190,6 +1194,11 @@ func (c *Client) DeleteApp(ctx context.Context, realm, clientID string) error {
 // operator-managed settings.
 var reservedAppAttributeKeys = map[string]struct{}{
 	authorizationOwnerAttribute:    {},
+	"hanko.sh/application-owner":   {},
+	"hanko.sh/role-owner":          {},
+	"hanko.sh/client-owner-kind":   {},
+	"hanko.sh/client-owner-uid":    {},
+	"hanko.sh/adoption-receipt":    {},
 	"login_theme":                  {},
 	postLogoutRedirectURIAttribute: {},
 	hankoAppAttribute:              {},
@@ -1198,7 +1207,7 @@ var reservedAppAttributeKeys = map[string]struct{}{
 
 func mergeAppAttributes(dst map[string]any, attrs map[string]string) {
 	for k, v := range attrs {
-		if _, reserved := reservedAppAttributeKeys[k]; reserved {
+		if _, reserved := reservedAppAttributeKeys[k]; reserved || adoption.ReservedAttribute(k) {
 			continue
 		}
 		dst[k] = v
@@ -1235,6 +1244,9 @@ func (c *Client) CreateApp(ctx context.Context, realm string, spec CreateAppSpec
 		attributes[postLogoutRedirectURIAttribute] = joinURIs(spec.PostLogoutRedirectURIs)
 	}
 	mergeAppAttributes(attributes, spec.Attributes)
+	if err := setNewServiceAccountOwner(attributes, spec); err != nil {
+		return "", err
+	}
 
 	b, _ := json.Marshal(payload)
 	tok, err := c.bearerToken(ctx)
@@ -1269,6 +1281,12 @@ func (c *Client) CreateApp(ctx context.Context, realm string, spec CreateAppSpec
 		if err != nil || uuid == "" {
 			return "", fmt.Errorf("resolve UUID after create for %q: %w", spec.ClientID, err)
 		}
+		if spec.ServiceAccountOwnerUID != "" {
+			owned, err := c.getOwnedServiceAccount(ctx, realm, spec.ClientID, spec.ServiceAccountOwnerUID)
+			if err != nil || owned.ID != uuid {
+				return "", ErrApplicationPrecondition
+			}
+		}
 		var secret struct {
 			Value string `json:"value"`
 		}
@@ -1292,6 +1310,8 @@ type CreateAppSpec struct {
 	// reservedAppAttributeKeys are dropped — those are operator-managed via
 	// other fields on this spec.
 	Attributes map[string]string
+	// ServiceAccountOwnerUID is controller authority, never a user attribute.
+	ServiceAccountOwnerUID string
 }
 
 // UpdateApp applies spec changes (redirectURIs, theme, type) to an existing OIDC client via PUT.
@@ -1375,6 +1395,9 @@ func (c *Client) UpdateApp(ctx context.Context, realm string, spec CreateAppSpec
 // fields (notably fullScopeAllowed and scope mappings) are not owned by the
 // HankoServiceAccount CRD.
 func (c *Client) SyncClientAttributes(ctx context.Context, realm, clientID string, attrs map[string]string) error {
+	return c.syncClientAttributes(ctx, realm, clientID, "", attrs)
+}
+func (c *Client) syncClientAttributes(ctx context.Context, realm, clientID, ownerUID string, attrs map[string]string) error {
 	uuid, err := c.resolveClientUUID(ctx, realm, clientID)
 	if err != nil {
 		return fmt.Errorf("resolve UUID for attribute update of %q: %w", clientID, err)
@@ -1389,6 +1412,12 @@ func (c *Client) SyncClientAttributes(ctx context.Context, realm, clientID strin
 		return fmt.Errorf("get client %q before attribute update: %w", clientID, err)
 	}
 
+	if ownerUID != "" {
+		if err := validateServiceAccountAttributes(payload, uuid, clientID, ownerUID, attrs); err != nil {
+			return err
+		}
+	}
+	delete(payload, "secret")
 	nextAttributes := make(map[string]any, len(attrs)+len(reservedAppAttributeKeys))
 	if current, ok := payload["attributes"].(map[string]any); ok {
 		for key := range reservedAppAttributeKeys {
@@ -1509,6 +1538,9 @@ func (c *Client) RotateClientSecret(ctx context.Context, realm, clientID string)
 	if uuid == "" {
 		return "", fmt.Errorf(clientNotFoundFormat, clientID, realm)
 	}
+	return c.rotateClientSecretByUUID(ctx, realm, clientID, uuid)
+}
+func (c *Client) rotateClientSecretByUUID(ctx context.Context, realm, clientID, uuid string) (string, error) {
 	tok, err := c.bearerToken(ctx)
 	if err != nil {
 		return "", err
@@ -1924,6 +1956,9 @@ func (c *Client) SyncRealmRoleIfOwned(ctx context.Context, realm string, role Re
 	values := existing.Attributes[ownerKey]
 	if len(values) != 1 || values[0] != owner {
 		return ErrRoleOwnershipConflict
+	}
+	if receipt, exists := existing.Attributes["hanko.sh/adoption-receipt"]; exists {
+		role.Attributes["hanko.sh/adoption-receipt"] = append([]string(nil), receipt...)
 	}
 	role.ID = existing.ID
 	role.ContainerID = existing.ContainerID

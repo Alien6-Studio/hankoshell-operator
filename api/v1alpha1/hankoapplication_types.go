@@ -271,6 +271,8 @@ type ApplicationTokenClaim struct {
 
 // HankoApplicationStatus describes the observed state of the application.
 type HankoApplicationStatus struct {
+	AdoptionReceipt *AdoptionReceiptStatus `json:"adoptionReceipt,omitempty"`
+
 	// AdoptionCandidate is bounded review evidence, never execution authority.
 	AdoptionCandidate *AdoptionCandidateStatus `json:"adoptionCandidate,omitempty"`
 

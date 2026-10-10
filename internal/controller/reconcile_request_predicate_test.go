@@ -4,9 +4,11 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/adoption"
 )
 
 func TestGenerationOrReconcileRequestChanged(t *testing.T) {
@@ -65,6 +67,22 @@ func TestGenerationOrReconcileRequestChanged(t *testing.T) {
 				t.Fatalf("Update() = %t, want %t", got, test.want)
 			}
 		})
+	}
+}
+
+func TestAdoptionMetadataChangesEnqueueEachLeafWithoutGenerationChange(t *testing.T) {
+	for _, object := range []client.Object{&hankoshv1alpha1.HankoApplication{}, &hankoshv1alpha1.HankoRole{}, &hankoshv1alpha1.HankoServiceAccount{}} {
+		object.SetGeneration(8)
+		for _, key := range []string{adoption.SourceAnnotation, adoption.ContractAnnotation, adoption.CandidateAnnotation, "hanko.sh/migrate-keycloak-client-uuid", "hanko.sh/migrate-keycloak-observation"} {
+			for _, value := range []string{"", "reviewed"} {
+				changed := object.DeepCopyObject().(client.Object)
+				changed.SetAnnotations(map[string]string{key: value})
+				p := generationOrReconcileRequestChanged()
+				if !p.Update(event.UpdateEvent{ObjectOld: object, ObjectNew: changed}) || !p.Update(event.UpdateEvent{ObjectOld: changed, ObjectNew: object}) {
+					t.Fatalf("metadata addition/removal was filtered for %T %s", object, key)
+				}
+			}
+		}
 	}
 }
 

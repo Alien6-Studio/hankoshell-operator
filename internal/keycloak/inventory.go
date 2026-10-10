@@ -2,6 +2,7 @@ package keycloak
 
 import (
 	"context"
+	"encoding/json"
 	"net/url"
 	"slices"
 )
@@ -11,6 +12,24 @@ import (
 type InventoryClient struct {
 	Application
 	AuthorizationServicesEnabled bool `json:"authorizationServicesEnabled"`
+	UnqualifiedNative            bool `json:"-"`
+}
+
+func (c *InventoryClient) UnmarshalJSON(data []byte) error {
+	type projection InventoryClient
+	var typed projection
+	if err := json.Unmarshal(data, &typed); err != nil {
+		return err
+	}
+	var native map[string]any
+	if err := json.Unmarshal(data, &native); err != nil {
+		return err
+	}
+	delete(native, "secret")
+	delete(native, "access")
+	*c = InventoryClient(typed)
+	c.UnqualifiedNative = !(&ClientOwnershipSnapshot{Application: c.Application, document: native}).QualifiedLeaf()
+	return nil
 }
 
 // InventoryClients walks the whole bounded collection; a brief first page is

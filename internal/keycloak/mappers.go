@@ -245,7 +245,9 @@ func clientProtocolMappersPath(realm, uuid string) string {
 
 func mapperOwnerConflict(current, desired map[string]string) bool {
 	const owner = "hanko.sh/application-owner"
-	return desired[owner] != "" && current[owner] != "" && current[owner] != desired[owner]
+	_, kind := current["hanko.sh/client-owner-kind"]
+	_, uid := current["hanko.sh/client-owner-uid"]
+	return desired[owner] != "" && (kind || uid || current[owner] != "" && current[owner] != desired[owner])
 }
 
 func findIdentityProviderMapper(mappers []IdentityProviderMapper, name string) (IdentityProviderMapper, bool, error) {

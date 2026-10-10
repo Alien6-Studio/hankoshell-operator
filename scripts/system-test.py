@@ -574,6 +574,129 @@ class System:
         if self.api("GET", "/admin/realms/managed/clients?" + urlencode({"clientId": entity})):
             raise ValueError("SAML finalizer left owned client behind")
 
+    def ownership_adoption(self):
+        """Qualify leaf acquisition through the installed, scanned manager."""
+        reader_secret = secrets.token_hex(32)
+        credential = secrets.token_hex(32)
+        self.sensitive.extend((reader_secret, credential))
+        base = "/admin/realms/managed"
+        self.api("POST", "/admin/realms/master/clients", {
+            "clientId": "system-inventory", "secret": reader_secret, "enabled": True,
+            "protocol": "openid-connect", "publicClient": False, "serviceAccountsEnabled": True,
+            "standardFlowEnabled": False, "directAccessGrantsEnabled": False, "fullScopeAllowed": False})
+        reader, proxy = self.client("master", "system-inventory"), self.client("master", "managed-realm")
+        user = self.api("GET", f'/admin/realms/master/clients/{reader["id"]}/service-account-user')
+        roles = [self.api("GET", f'/admin/realms/master/clients/{proxy["id"]}/roles/{name}')
+                 for name in ("view-realm", "view-clients")]
+        self.api("POST", f'/admin/realms/master/users/{user["id"]}/role-mappings/clients/{proxy["id"]}', roles)
+        self.api("POST", f'/admin/realms/master/clients/{reader["id"]}/scope-mappings/clients/{proxy["id"]}', roles)
+        self.api("POST", base + "/clients", {
+            "clientId": "system-adopt-m2m", "name": "system-adopt-m2m", "secret": credential,
+            "protocol": "openid-connect", "enabled": True, "publicClient": False,
+            "serviceAccountsEnabled": True, "standardFlowEnabled": False, "directAccessGrantsEnabled": False,
+            "fullScopeAllowed": False, "frontchannelLogout": True, "redirectUris": [], "webOrigins": [],
+            "defaultClientScopes": [], "optionalClientScopes": []})
+        before = self.client("managed", "system-adopt-m2m")
+        path = base + "/clients/" + before["id"]
+        for scope in self.api("GET", path + "/default-client-scopes"):
+            self.api("DELETE", path + "/default-client-scopes/" + scope["id"])
+        before = self.client("managed", "system-adopt-m2m")
+        self.api("POST", base + "/roles", {"name": "system-adopt-role", "description": "Reviewed leaf"})
+        role_before = self.api("GET", base + "/roles/system-adopt-role")
+        readonly = self.access_token({"client_id": "system-inventory", "client_secret": reader_secret, "grant_type": "client_credentials"})
+        self.api("PUT", path, before, token=readonly, expected=(403,))
+        self.api("GET", path + "/client-secret", token=readonly, expected=(403,))
+        self.apply(self.secret("inventory-credentials", {
+            "HANKO_KEYCLOAK_URL": "https://keycloak.auth.svc:8443", "HANKO_KC_CLIENT_ID": "system-inventory",
+            "HANKO_KC_CLIENT_SECRET": reader_secret}),
+            {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoKeycloakInstance",
+             "metadata": {"name": "inventory-source", "namespace": "auth"},
+             "spec": {"mode": "external", "adminRef": {"name": "inventory-credentials"}, "tlsCARef": "operator-ca"}},
+            {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoImport",
+             "metadata": {"name": "leaf-inventory", "namespace": "auth"},
+             "spec": {"sourceRef": "inventory-source", "realms": ["managed"], "includeIdentityProviders": False}})
+        # Import publishes discovery candidates while creating targets. Finish
+        # that publisher before reviewing a fresh target-controller observation.
+        wait("completed leaf inventory", lambda: self.get("hankoimport", "leaf-inventory").get("status", {}).get("phase") == "Done")
+
+        def imported(kind, field, value):
+            items = json.loads(self.kubectl("get", kind, "-n", "auth", "-o", "json"))["items"]
+            matches = [item for item in items if item["spec"].get(field) == value
+                       and item["metadata"].get("labels", {}).get("hanko.sh/imported-by") == "leaf-inventory"]
+            return matches[0] if len(matches) == 1 else None
+
+        pairs = (("hankoserviceaccount", "clientID", "system-adopt-m2m", before),
+                 ("hankorole", "name", "system-adopt-role", role_before))
+        for kind, field, value, original in pairs:
+            wait("imported lossless leaf candidate", lambda: imported(kind, field, value) is not None and
+                 imported(kind, field, value).get("status", {}).get("adoptionCandidate", {}).get("approvable") is True)
+            target = imported(kind, field, value)
+            name, uid = target["metadata"]["name"], target["metadata"]["uid"]
+            previous_observation = target.get("status", {}).get("lastReconciled")
+            self.kubectl("annotate", kind, name, "-n", "auth", "hanko.sh/reconcile-request=" + str(time.time_ns()))
+            wait("fresh installed leaf observation", lambda: self.get(kind, name).get("status", {}).get("lastReconciled") not in (None, previous_observation)
+                 and self.get(kind, name).get("status", {}).get("adoptionCandidate", {}).get("approvable") is True)
+            target = self.get(kind, name)
+            candidate = target["status"]["adoptionCandidate"]
+            if target["spec"].get("mode") != "Observe" or target["metadata"].get("finalizers"):
+                raise ValueError("Import acquired semantic or destructive authority")
+            self.kubectl("annotate", kind, name, "-n", "auth",
+                         "hanko.sh/adoption-source=inventory-source",
+                         "hanko.sh/adoption-contract=hanko.sh/adoption-contract/v1alpha1",
+                         "hanko.sh/adoption-candidate=" + candidate["candidateHash"])
+            try:
+                wait("installed ownership receipt", lambda: self.get(kind, name).get("status", {}).get("adoptionReceipt", {}).get("state") == "Verified")
+            except RuntimeError:
+                status = self.get(kind, name).get("status", {})
+                observed = status.get("adoptionCandidate", {})
+                print(json.dumps({"kind": kind, "name": name, "approvedHash": candidate["candidateHash"],
+                                  "currentHash": observed.get("candidateHash"), "complete": observed.get("complete"),
+                                  "approvable": observed.get("approvable"), "receiptState": status.get("adoptionReceipt", {}).get("state"),
+                                  "conditions": [{"type": c.get("type"), "reason": c.get("reason")} for c in status.get("conditions", [])][:32],
+                                  "findings": [f.get("code") for f in observed.get("findings", [])][:32]}), flush=True)
+                raise
+            adopted = self.get(kind, name)
+            current = self.client("managed", value) if kind == "hankoserviceaccount" else self.api("GET", base + "/roles/" + value)
+            attrs = current.get("attributes", {})
+            receipt_value = attrs.pop("hanko.sh/adoption-receipt", None)
+            if kind == "hankorole":
+                if attrs.pop("hanko.sh/role-owner", None) != [uid] or not isinstance(receipt_value, list) or len(receipt_value) != 1:
+                    raise ValueError("Installed role ownership envelope differs")
+                receipt_value = receipt_value[0]
+            elif attrs.pop("hanko.sh/client-owner-kind", None) != "HankoServiceAccount" or attrs.pop("hanko.sh/client-owner-uid", None) != uid:
+                raise ValueError("Installed M2M ownership envelope differs")
+            if json.loads(receipt_value) != {"contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+                                           "targetKind": adopted["kind"], "targetUID": uid, "candidateHash": candidate["candidateHash"]}:
+                raise ValueError("Installed receipt does not bind the reviewed candidate")
+            for document in (current, original):
+                document.pop("access", None)
+                document.pop("secret", None)
+                if not document.get("attributes"):
+                    document.pop("attributes", None)
+            if current != original or adopted["metadata"].get("finalizers") or adopted["status"].get("secretRef"):
+                raise ValueError("Ownership acquisition changed leaf semantics or acquired a Secret/finalizer")
+            for secret in json.loads(self.kubectl("get", "secrets", "-n", "auth", "-o", "json"))["items"]:
+                if any(ref.get("uid") == uid for ref in secret.get("metadata", {}).get("ownerReferences", [])):
+                    raise ValueError("Observe ownership acquisition projected credentials")
+            if kind == "hankoserviceaccount":
+                if self.api("GET", path + "/client-secret")["value"] != credential:
+                    raise ValueError("Installed acquisition rotated the provider credential")
+            self.kubectl("patch", kind, name, "-n", "auth", "--type=merge", "-p", '{"spec":{"mode":"Manage"}}')
+            # The import latch retains Observe even when spec says Manage.
+            time.sleep(2)
+            if self.get(kind, name)["metadata"].get("finalizers"):
+                raise ValueError("Imported latch allowed destructive authority")
+            self.kubectl("label", kind, name, "-n", "auth", "hanko.sh/imported-by-")
+            wait("explicit Manage preservation gate", lambda: any(
+                c.get("type") == "OwnershipAdopted" and c.get("reason") == "ManagePreservationUnqualified"
+                for c in self.get(kind, name).get("status", {}).get("conditions", [])))
+            self.kubectl("patch", kind, name, "-n", "auth", "--type=merge", "-p", '{"spec":{"mode":"Observe"}}')
+            self.kubectl("delete", kind, name, "-n", "auth", "--wait=true", "--timeout=30s")
+            preserved = self.client("managed", value) if kind == "hankoserviceaccount" else self.api("GET", base + "/roles/" + value)
+            if preserved["id"] != original["id"]:
+                raise ValueError("Observe deletion removed or replaced the acquired leaf")
+        self.kubectl("delete", "hankoimport", "leaf-inventory", "-n", "auth", "--wait=true", "--timeout=30s")
+
     def reconcile(self):
         self.reject_wrong_ca()
         self.api("POST", "/admin/realms/managed/clients", {"clientId": "unmanaged", "enabled": True, "publicClient": True})
@@ -588,6 +711,7 @@ class System:
         wait("application reconciliation", lambda: self.ready("hankoapplication", "app"))
         wait("observation", lambda: self.ready("hankoapplication", "observe"))
         self.application_protocols()
+        self.ownership_adoption()
         app_uid = self.get("hankoapplication", "app")["metadata"]["uid"]
         wait("namespaced current-API event recording", lambda: any(
             event.get("reason") == "ClientCreated" and event.get("regarding", {}).get("uid") == app_uid
@@ -699,11 +823,16 @@ def main():
                            "verified private-CA HTTPS, wrong-CA readiness/write denial and trust repair", "scoped Keycloak identity and denied authority", "realm/client/roles/Secret reconciliation",
                            "IAM role and authorization evaluated/applied/read-back evidence, UID ownership and finalizer cleanup",
                            "legacy OIDC and SAML installed contracts, metadata, UID ownership, Observe/no SAML Secret and deletion",
+                           "imported M2M and role explicit leaf ownership, exact candidate/receipt/UUID, no credential rotation/projection, import latch and Observe deletion",
+                           "common receipt-bearing leaves deny Manage with ManagePreservationUnqualified pending #49",
                            "standalone root/child organization and owned direct-only organizational descendant grant, current applied/read-back evidence, grant cleanup preserving organizations; native alias/domains, role bindings, Synced=True and Projection=Unknown/Disabled, no API URL/token/PositionID and child-first finalizer cleanup",
                            "drift recovery after manager restart without duplicate client or credential rotation", "managed finalizer and Observe preservation", "runtime M2M projected-credential token and rotation", "SAML metadata binding and target-preserving cleanup",
                            "no credentials in logs/events/CRDs"],
                 "organization_permissions": {"scope": "organization-target only", "roles": ["manage-realm", "manage-clients", "manage-events", "manage-users"],
                                              "denied": ["master administration", "managed realm administration", "realm creation", "identity providers"]},
+                "adoption_permissions": {"scope": "managed target realm", "reader": ["view-realm", "view-clients"],
+                                         "writer": ["manage-realm", "manage-clients", "manage-events"],
+                                         "reader_denied": ["client PUT", "client-secret GET"]},
                 "limitations": ["single disposable kind node and Keycloak dev-file database",
                                 "kindnet does not enforce NetworkPolicy; CNI, CSI/cloud, enterprise fleet and DB recovery unqualified"]}, indent=2) + "\n")
             print("System qualification passed", flush=True)

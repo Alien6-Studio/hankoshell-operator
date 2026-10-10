@@ -47,7 +47,15 @@ func deleteOwnedApplicationTokenMapper(ctx context.Context, kc *keycloak.Client,
 	if id == "" {
 		return nil
 	}
-	// Service-account reconciliation has its independent existing contract.
+	if owner.validate != nil {
+		if err := owner.validate(ctx); err != nil {
+			return err
+		}
+	}
+	if owner.kind == "HankoServiceAccount" {
+		return kc.DeleteServiceAccountMapperIfOwned(ctx, owner.realm, owner.clientID, owner.uid, id)
+	}
+	// Legacy application tests without an UID have no provider ownership claim.
 	if owner.uid == "" {
 		return kc.DeleteClientProtocolMapper(ctx, owner.realm, owner.clientID, id)
 	}

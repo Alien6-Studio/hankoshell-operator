@@ -537,3 +537,31 @@ list/watch remain denied in the effective chart RBAC and are qualified on the
 Kubernetes matrix. Imports generate Observe declarations and review evidence,
 not approvals or provider ownership. See the
 [implemented discovery contract](architecture/existing-keycloak-adoption.md#implemented-discovery-and-diff-47).
+
+## Explicit reviewed leaf ownership acquisition
+
+The [common acquisition executor](architecture/existing-keycloak-adoption.md#implemented-reviewed-leaf-acquisition-48)
+adds no Admin API operation family or global privilege. Its sourceRef observer
+uses a dedicated identity; ownership is written by the normal domain writer only
+after normalized endpoint and realm UUID match the reviewed source.
+
+| Capability | Target-realm reader | Separate target-realm writer | Deliberately omitted |
+| --- | --- | --- | --- |
+| Application/ServiceAccount leaf | view-realm, view-clients | view-realm, manage-clients | realm-admin, master administration, users/groups, brokers, credential routes |
+| Realm-role leaf | view-realm | manage-realm | clients, users/groups, brokers, global realm creation |
+
+This is the leaf profile, not the full-family HankoImport profile above. CI tests
+actual production acquisition with separate reader/client-writer/role-writer clients
+on HTTPS 26.7.5/26.8.0. Bootstrap administration only provisions fixtures and roles.
+Every ownership PUT is client or role metadata; no credential retrieval/rotation
+or child mutation is part of acquisition. Reader PUT and unrelated writer realm
+creation/user mutation are denied. The native 26.7.5 view-clients credential-read
+limitation remains visible; the operator's inventory guard denies that route on
+both versions. manage-clients itself also grants credential authority, which the
+acquisition path does not exercise. manage-realm is Keycloak's broader target-realm
+role-management authority; it is not global administrator authority.
+
+Restrict permission to change approval annotations and source credential/CA
+references with Kubernetes RBAC. A candidate, imported label or successful status
+alone does not approve provider mutation. Common receipt-bearing leaves remain
+Observe/Manage-blocked until #49 and gain no destructive finalizer or Secret.
