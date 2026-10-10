@@ -606,6 +606,7 @@ class System:
         self.api("POST", base + "/roles", {"name": "system-foreign-composite"})
         foreign_composite = self.api("GET", base + "/roles/system-foreign-composite")
         self.api("POST", base + "/roles/system-adopt-role/composites", [foreign_composite])
+        role_composites_before = self.api("GET", base + "/roles/system-adopt-role/composites")
         role_before = self.api("GET", base + "/roles/system-adopt-role")
         readonly = self.access_token({"client_id": "system-inventory", "client_secret": reader_secret, "grant_type": "client_credentials"})
         self.api("PUT", path, before, token=readonly, expected=(403,))
@@ -720,7 +721,8 @@ class System:
                     raise ValueError("Safe adopted client cleanup left its owned node")
             else:
                 wait("adopted role drift repair", lambda: self.api("GET", base + "/roles/" + value).get("description") == "Reviewed leaf" and self.role_reconciled(name))
-                if self.api("GET", base + "/roles/" + value + "/composites") != [foreign_composite]:
+                if (self.api("GET", base + "/roles/" + value + "/composites") != role_composites_before or
+                        self.api("GET", base + "/roles/system-foreign-composite") != foreign_composite):
                     raise ValueError("Adopted role lost its foreign composite")
                 self.kubectl("delete", kind, name, "-n", "auth", "--wait=false")
                 wait("adopted role unproven cleanup refusal", lambda: self.cleanup_conflict(kind, name))
@@ -900,7 +902,7 @@ class System:
         foreign = self.api("GET", authz + "/resource/" + foreign_id)
         realm_before = self.api("GET", base)
         selected = {"scopes": [{"name": "read", "id": scope_id}], "resources": [{"name": "invoice", "id": resource_id}],
-            "policies": [{"name": "readers:realm_roles", "id": policy_id}], "permissions": [{"name": "readers", "id": permission_id}], "resourceServerID": backing["id"]}
+            "policies": [{"name": "readers#realm_roles", "id": policy_id}], "permissions": [{"name": "readers", "id": permission_id}], "resourceServerID": backing["id"]}
         self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoRole", "metadata": {"name": "readers", "namespace": namespace},
                     "spec": {"mode": "Observe", "realmRef": realm, "name": "reviewed-readers"}},
             {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoResourceServer", "metadata": {
@@ -911,8 +913,12 @@ class System:
         receipt = self.approve_aggregate("hankoresourceserver", "server", namespace)
         actual = self.client(realm, "reviewed-api")
         journal = json.loads(actual["attributes"]["hanko.sh/resource-server-ownership"])
-        if journal.get("version") != 2 or journal.get("objects") != selected or journal.get("adoptionReceipt") != receipt or json.loads(actual["attributes"]["hanko.sh/adoption-receipt"]) != app_receipt:
-            raise ValueError("Installed V2 selected journal/receipt differs or overwrote Application receipt")
+        if (journal.get("version") != 2 or journal.get("objects") != selected or journal.get("adoptionReceipt") != receipt or
+                journal.get("ownerUID") != receipt["targetUID"] or journal.get("realmID") != realm_before["id"] or
+                journal.get("applicationUID") != app_receipt["targetUID"]):
+            raise ValueError("Installed V2 selected journal identities/receipt differ")
+        if json.loads(actual["attributes"]["hanko.sh/adoption-receipt"]) != app_receipt:
+            raise ValueError("Installed V2 journal overwrote Application receipt")
         self.kubectl("patch", "hankoresourceserver", "server", "-n", namespace, "--subresource=status", "--type=merge", "-p", '{"status":null}')
         self.aggregate_manage("hankoresourceserver", "server", namespace)
         # Drift a selected field; foreign resource and all selected UUIDs remain.

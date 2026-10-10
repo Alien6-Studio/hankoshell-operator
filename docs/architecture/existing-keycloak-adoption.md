@@ -298,6 +298,12 @@ children/members/IdP links are not acquired by the parent receipt. Client PUTs d
 not resend an already-enabled service-account flag, avoiding Keycloak's implicit
 reattachment of the native `service_account` scope.
 
+Receipt-backed client/service-account/role attribute updates use the same closed
+qualification schema, including desired attributes. An unsupported desired key
+or value is refused before PUT; Manage cannot introduce a native extension whose
+next reconciliation would be unqualified. Custom theme names and arbitrary
+custom attributes need separate preservation qualification.
+
 Deleting a Manage declaration is consent to **bounded owned cleanup**, not an
 unconditional cascade. Adopted clients hold `CleanupConflict` while a foreign
 mapper, any client role, foreign scope mapping, ResourceServer journal or active

@@ -370,6 +370,9 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 		fixtureEqual(t, "no global realm creation", identity.request(http.MethodPost, "/admin/realms", map[string]any{"realm": "denied-acquisition"}, nil), http.StatusForbidden)
 		fixtureEqual(t, "no user mutation", identity.request(http.MethodPost, base+"/users", map[string]any{"username": "denied-acquisition"}, nil), http.StatusForbidden)
 	}
+	clientIdentity := adoptionProbe{f, "ownership-client-writer", clientSecret}
+	fixtureEqual(t, "client writer cannot delete target realm", clientIdentity.request(http.MethodDelete, base, nil, nil), http.StatusForbidden)
+	fixtureEqual(t, "client writer cannot alter realm security", clientIdentity.request(http.MethodPut, base, map[string]any{"sslRequired": "none"}, nil), http.StatusForbidden)
 	// realm_client is synthesized back to false by Keycloak for these leaf
 	// clients, even when a PUT requests true. The mock adversarial suite covers
 	// a provider returning another value; both real versions assert false above.

@@ -395,7 +395,6 @@ func TestOrganizationHierarchyUsesFreshAncestorUIDAndProviderIdentity(t *testing
 	if err != nil || path != "/Parent/Child" || id != "current-parent-id" || len(bindings) != 1 || bindings[0] != "parent-uid/parent" {
 		t.Fatal("child-first cleanup could not resolve a deleting parent", err)
 	}
-
 }
 
 func TestOrganizationCleanupResolvesProviderBoundaryAfterStatusLossOrForgery(t *testing.T) {

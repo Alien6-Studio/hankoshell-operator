@@ -1959,6 +1959,9 @@ func (c *Client) SyncRealmRoleIfOwned(ctx context.Context, realm string, role Re
 		return ErrRoleOwnershipConflict
 	}
 	if _, exists := existing.Attributes["hanko.sh/adoption-receipt"]; exists {
+		if !QualifiedRoleAttributes(role.Attributes) {
+			return ErrAdoptionPrecondition
+		}
 		snapshot, err := c.ReadRoleOwnership(ctx, realm, role.Name)
 		if err != nil {
 			return err

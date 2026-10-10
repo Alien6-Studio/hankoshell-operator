@@ -215,3 +215,58 @@ func TestNativePreservationSchemaRemainsClosed(t *testing.T) {
 		t.Fatal("opaque mapper configuration accepted")
 	}
 }
+
+func TestAdoptedManageCannotIntroduceUnqualifiedNativeState(t *testing.T) {
+	for _, kind := range []string{"HankoApplication", "HankoServiceAccount", "HankoRole"} {
+		t.Run(kind, func(t *testing.T) {
+			proof, err := (adoption.Receipt{ContractVersion: adoption.Version, TargetKind: kind, TargetUID: "uid", CandidateHash: "sha256:" + strings.Repeat("a", 64)}).Canonical()
+			if err != nil {
+				t.Fatal(err)
+			}
+			attrs := map[string]any{adoption.ReceiptKey: proof}
+			attrs[adoption.ApplicationOwnerKey] = "uid"
+			if kind == "HankoServiceAccount" {
+				delete(attrs, adoption.ApplicationOwnerKey)
+				attrs[adoption.ClientOwnerKindKey], attrs[adoption.ClientOwnerUIDKey] = kind, "uid"
+			}
+			document := map[string]any{"id": "provider-id", "clientId": "client", "protocol": "openid-connect", "attributes": attrs}
+			if kind == "HankoRole" {
+				document = map[string]any{"id": "provider-id", "name": "role", "attributes": map[string][]string{adoption.RoleOwnerKey: {"uid"}, adoption.ReceiptKey: {proof}}}
+			}
+			writes := 0
+			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if strings.HasSuffix(r.URL.Path, "/token") {
+					_, _ = w.Write([]byte(`{"access_token":"fixture","expires_in":300}`))
+					return
+				}
+				if r.Method != http.MethodGet {
+					writes++
+					w.WriteHeader(403)
+					return
+				}
+				var value any = document
+				if strings.HasSuffix(r.URL.Path, "/clients") {
+					value = []map[string]any{{"id": "provider-id", "clientId": "client"}}
+				}
+				if strings.HasSuffix(r.URL.Path, "/protocol-mappers/models") {
+					value = []any{}
+				}
+				_ = json.NewEncoder(w).Encode(value)
+			}))
+			defer server.Close()
+			kc := New(server.URL, "writer", "credential")
+			kc.httpClient = server.Client()
+			switch kind {
+			case "HankoApplication":
+				err = kc.UpdateApplication(context.Background(), "realm", Application{ID: "provider-id", ClientID: "client", Protocol: "openid-connect", Attributes: map[string]string{"unqualified.native": "private-sentinel"}}, adoption.ApplicationOwnerKey, "uid")
+			case "HankoServiceAccount":
+				err = kc.SyncServiceAccountAttributesIfOwned(context.Background(), "realm", "client", "uid", map[string]string{"unqualified.native": "private-sentinel"})
+			case "HankoRole":
+				err = kc.SyncRealmRoleIfOwned(context.Background(), "realm", RealmRole{Name: "role", Attributes: map[string][]string{"unqualified.native": {"private-sentinel"}}}, adoption.RoleOwnerKey, "uid")
+			}
+			if !errors.Is(err, ErrAdoptionPrecondition) || writes != 0 {
+				t.Fatal("Manage introduced unsupported state before its preservation qualification", err)
+			}
+		})
+	}
+}

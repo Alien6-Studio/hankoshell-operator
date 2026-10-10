@@ -234,6 +234,9 @@ func (c *Client) ProtocolDocument(ctx context.Context, realm, protocol string) (
 }
 
 func (c *Client) currentAdoptedApplication(ctx context.Context, realm string, desired Application, owner string) (*ClientOwnershipSnapshot, error) {
+	if !QualifiedClientAttributes(desired.Attributes) {
+		return nil, ErrAdoptionPrecondition
+	}
 	snapshot, err := c.ReadClientOwnership(ctx, realm, desired.ClientID)
 	if err != nil {
 		return nil, err

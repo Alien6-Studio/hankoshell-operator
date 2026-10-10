@@ -31,6 +31,9 @@
 - Reconstruct a managed service account's SecretRef after status loss when its
   credential projection already exists, without provider credential reads or
   rotation.
+- Restore bounded Organization/Role dependency notifications when the manager
+  cache returns its non-pagination continuation marker; uncached authority
+  inventories still refuse incomplete pages.
 - Extend the installed scanned-image system test through acquisition, explicit
   Manage, native preservation, restart/status recovery, drift repair and safe
   cleanup/refusal with separate Organization and authorization writer profiles.

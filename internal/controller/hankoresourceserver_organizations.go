@@ -244,7 +244,10 @@ func organizationPrincipalIndexValues(object client.Object) []string {
 func (r *HankoResourceServerReconciler) organizationRequests(ctx context.Context, object client.Object) []reconcile.Request {
 	var list api.HankoResourceServerList
 	err := r.List(ctx, &list, client.InNamespace(object.GetNamespace()), client.MatchingFields{organizationPrincipalIndex: "true"}, client.Limit(maxOrganizationInventory+1))
-	if err != nil || list.Continue != "" || len(list.Items) > maxOrganizationInventory {
+	// This indexed watch uses the manager cache, whose List always returns a
+	// non-pagination Continue sentinel. The extra item detects truncation;
+	// fresh authority inventories still require complete APIReader pagination.
+	if err != nil || len(list.Items) > maxOrganizationInventory {
 		log.FromContext(ctx).Error(authorization.OrganizationFailure("OrganizationExpansionTooLarge"), "organization dependency watch inventory unavailable; periodic reconciliation remains active")
 		return nil
 	}

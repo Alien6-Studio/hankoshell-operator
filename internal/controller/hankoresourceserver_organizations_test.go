@@ -201,6 +201,7 @@ func TestOrganizationExecutionRechecksFreshDependencyAfterCompile(t *testing.T) 
 
 func TestOrganizationWatchExcludesOtherNamespacesAndNonConsumers(t *testing.T) {
 	r, rs, _ := organizationTestReconciler(t, true)
+	r.Client = cacheContinuationClient{Client: r.Client}
 	other := rs.DeepCopy()
 	other.Namespace = "unrelated"
 	other.ResourceVersion = ""
@@ -216,6 +217,35 @@ func TestOrganizationWatchExcludesOtherNamespacesAndNonConsumers(t *testing.T) {
 	requests := r.organizationRequests(context.Background(), organizationNode("new-child", "europe", "/europe/new-child"))
 	if len(requests) != 1 || requests[0].NamespacedName != client.ObjectKeyFromObject(rs) {
 		t.Fatal("organization watch escaped namespace/explicit-principal boundary")
+	}
+}
+
+type cacheContinuationClient struct {
+	client.Client
+}
+
+func (c cacheContinuationClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	if err := c.Client.List(ctx, list, opts...); err != nil {
+		return err
+	}
+	list.SetContinue("continue-not-supported")
+	return nil
+}
+
+func TestOrganizationWatchRefusesOversizedCachedConsumerSet(t *testing.T) {
+	r, rs, _ := organizationTestReconciler(t, true)
+	r.Client = cacheContinuationClient{Client: r.Client}
+	for i := range maxOrganizationInventory {
+		other := rs.DeepCopy()
+		other.Name = fmt.Sprintf("consumer-%d", i)
+		other.ResourceVersion = ""
+		other.UID = ""
+		if err := r.Create(context.Background(), other); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if requests := r.organizationRequests(context.Background(), organizationNode("europe", "", "/europe")); len(requests) != 0 {
+		t.Fatal("oversized cached dependency inventory was partially enqueued")
 	}
 }
 

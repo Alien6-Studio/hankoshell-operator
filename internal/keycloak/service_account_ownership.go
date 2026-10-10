@@ -144,6 +144,9 @@ func (c *Client) validateServiceAccountAttributes(ctx context.Context, realm str
 		return ErrApplicationPrecondition
 	}
 	if _, present := current.Attributes[adoption.ReceiptKey]; present {
+		if !QualifiedClientAttributes(attrs) {
+			return ErrAdoptionPrecondition
+		}
 		snapshot := &ClientOwnershipSnapshot{Application: current, document: payload}
 		if err := c.get(ctx, applicationPath(realm, uuid)+"/protocol-mappers/models", &snapshot.mappers); err != nil {
 			return err
