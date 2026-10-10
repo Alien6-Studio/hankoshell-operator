@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -15,10 +16,21 @@ import (
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 )
 
-func newImportReconciler(c client.Client, kc *keycloak.Client) *controller.HankoImportReconciler {
+func newImportReconciler(t *testing.T, c client.Client, kc *keycloak.Client) *controller.HankoImportReconciler {
+	t.Helper()
+	t.Setenv("HANKO_KEYCLOAK_ALLOW_INSECURE_HTTP", "true")
+	var imports hankoshv1alpha1.HankoImportList
+	if err := c.List(context.Background(), &imports); err != nil {
+		t.Fatal(err)
+	}
+	for _, operation := range imports.Items {
+		source := &hankoshv1alpha1.HankoKeycloakInstance{ObjectMeta: metav1.ObjectMeta{Name: operation.Spec.SourceRef, Namespace: operation.Namespace, UID: "fixture-instance"}, Spec: hankoshv1alpha1.HankoKeycloakInstanceSpec{Mode: "external", AdminRef: corev1.LocalObjectReference{Name: "inventory-reader"}}}
+		_ = c.Create(context.Background(), source)
+	}
+	_ = c.Create(context.Background(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "inventory-reader", Namespace: "default"}, Data: map[string][]byte{"HANKO_KEYCLOAK_URL": []byte(kc.BaseURL()), "HANKO_KC_CLIENT_ID": []byte(kc.CredentialClientID()), "HANKO_KC_CLIENT_SECRET": []byte("test-secret")}})
 	return &controller.HankoImportReconciler{
-		Client: c,
-		Pool:   keycloak.NewPool(kc),
+		Client: c, APIReader: c,
+		Pool: keycloak.NewPool(kc),
 	}
 }
 
@@ -39,7 +51,7 @@ func TestHankoImportReportsUnsupportedApplicationProtocols(t *testing.T) {
 			kc.appsByRealm["realm"] = []keycloak.App{{ClientID: "saml-client", Protocol: "saml"}, {ClientID: "unknown-client", Protocol: "unknown"}}
 			importer := &hankoshv1alpha1.HankoImport{ObjectMeta: metav1.ObjectMeta{Name: "protocol-import", Namespace: "default"}, Spec: hankoshv1alpha1.HankoImportSpec{SourceRef: "instance", DryRun: dryRun}}
 			kube := newFakeClient(t, importer)
-			_, err := newImportReconciler(kube, kc.client()).Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(importer)})
+			_, err := newImportReconciler(t, kube, kc.client()).Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(importer)})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -87,7 +99,7 @@ func TestHankoImport_SkipsAlreadyDeclaredClient(t *testing.T) {
 	}
 
 	c := newFakeClient(t, existing, hi)
-	r := newImportReconciler(c, kc.client())
+	r := newImportReconciler(t, c, kc.client())
 
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: "import-1", Namespace: "default"}})
 	if err != nil {
@@ -125,7 +137,7 @@ func TestHankoImport_NewClient_CreatedInObserveMode(t *testing.T) {
 	}
 
 	c := newFakeClient(t, hi)
-	r := newImportReconciler(c, kc.client())
+	r := newImportReconciler(t, c, kc.client())
 
 	_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: "import-1", Namespace: "default"}})
 	if err != nil {
@@ -175,7 +187,7 @@ func TestHankoImport_CapturesIdentityProvidersAndSanitizesSecrets(t *testing.T) 
 		Spec:       hankoshv1alpha1.HankoImportSpec{SourceRef: "kc-instance"},
 	}
 	c := newFakeClient(t, hi)
-	r := newImportReconciler(c, kc.client())
+	r := newImportReconciler(t, c, kc.client())
 
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: hi.Name, Namespace: hi.Namespace}}); err != nil {
 		t.Fatalf("Reconcile: %v", err)

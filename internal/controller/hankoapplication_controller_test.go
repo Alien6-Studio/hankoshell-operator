@@ -57,7 +57,7 @@ func newFakeClient(t *testing.T, objs ...client.Object) client.Client {
 		WithScheme(newScheme(t)).
 		WithIndex(&hankoshv1alpha1.HankoApplication{}, controller.RealmClientIndexKey, realmClientIndexer).
 		WithObjects(objs...).
-		WithStatusSubresource(&hankoshv1alpha1.HankoApplication{}, &hankoshv1alpha1.HankoImport{}, &hankoshv1alpha1.HankoOrganization{}, &hankoshv1alpha1.HankoRealm{}, &hankoshv1alpha1.HankoServiceAccount{}, &hankoshv1alpha1.HankoTheme{}).
+		WithStatusSubresource(&hankoshv1alpha1.HankoApplication{}, &hankoshv1alpha1.HankoImport{}, &hankoshv1alpha1.HankoOrganization{}, &hankoshv1alpha1.HankoRealm{}, &hankoshv1alpha1.HankoServiceAccount{}, &hankoshv1alpha1.HankoTheme{}, &hankoshv1alpha1.HankoRole{}, &hankoshv1alpha1.HankoResourceServer{}).
 		Build()
 }
 

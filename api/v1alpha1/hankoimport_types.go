@@ -29,9 +29,11 @@ type HankoImportSpec struct {
 	SourceRef string `json:"sourceRef"`
 
 	// Realms is the list of realm names to import. Empty means all realms.
+	// +kubebuilder:validation:MaxItems=16
+	// +kubebuilder:validation:items:MaxLength=255
 	Realms []string `json:"realms,omitempty"`
 
-	// IncludeClients controls whether OIDC clients are imported as HankoApplication objects.
+	// IncludeClients controls whether qualified OIDC and SAML clients are imported as HankoApplication objects.
 	// +kubebuilder:default=true
 	IncludeClients *bool `json:"includeClients,omitempty"`
 
@@ -50,6 +52,12 @@ type HankoImportSpec struct {
 
 // HankoImportStatus describes the observed state of the import operation.
 type HankoImportStatus struct {
+	// Coverage measures discovery; terminal Done does not imply complete inventory.
+	Coverage ImportCoverage `json:"coverage,omitempty"`
+	// Inventory holds bounded summaries; full diffs live on Observe targets.
+	// +kubebuilder:validation:MaxItems=128
+	Inventory []ImportInventoryReference `json:"inventory,omitempty"`
+
 	// Findings reports protocol inventory that cannot be imported safely.
 	// No incompatible OIDC manifest is generated for a SAML/unknown client.
 	// +listType=map
@@ -84,6 +92,12 @@ type HankoImportStatus struct {
 
 // ImportCounts tracks resource counts across a single import phase.
 type ImportCounts struct {
+	Roles                int `json:"roles,omitempty"`
+	Groups               int `json:"groups,omitempty"`
+	Organizations        int `json:"organizations,omitempty"`
+	ResourceServers      int `json:"resourceServers,omitempty"`
+	AuthorizationObjects int `json:"authorizationObjects,omitempty"`
+
 	// Realms is the count of Keycloak realms.
 	Realms int `json:"realms,omitempty"`
 

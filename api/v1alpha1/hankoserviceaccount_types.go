@@ -70,6 +70,9 @@ type SecretRotationPolicy struct {
 
 // HankoServiceAccountStatus describes the observed state of the M2M client.
 type HankoServiceAccountStatus struct {
+	// AdoptionCandidate is bounded review evidence, never execution authority.
+	AdoptionCandidate *AdoptionCandidateStatus `json:"adoptionCandidate,omitempty"`
+
 	// Phase summarises the reconciliation state.
 	// +kubebuilder:validation:Enum=Pending;Reconciling;Ready;Error
 	Phase string `json:"phase,omitempty"`

@@ -31,6 +31,7 @@ const saFinalizerName = "hanko.sh/sa-cleanup"
 // +kubebuilder:rbac:groups=hanko.sh,resources=hankoapplications,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
 type HankoServiceAccountReconciler struct {
+	APIReader client.Reader
 	client.Client
 	// OwnershipReader should be the manager's uncached API reader in production.
 	// An authoritative read closes the cache-staleness window before any client
@@ -312,6 +313,7 @@ func setServiceAccountNextRotation(sa *hankoshv1alpha1.HankoServiceAccount, poli
 // reconcileServiceAccountObserve reports presence only. In particular, it does
 // not recover the Keycloak client secret into Kubernetes.
 func (r *HankoServiceAccountReconciler) reconcileServiceAccountObserve(ctx context.Context, sa *hankoshv1alpha1.HankoServiceAccount, kc *keycloak.Client, patch client.Patch) (ctrl.Result, error) {
+	sa.Status.AdoptionCandidate = refreshImportedCandidate(ctx, r.Client, r.APIReader, sa)
 	sa.Status.ObservedGeneration = sa.Generation
 	found, err := kc.ClientExists(ctx, sa.Spec.RealmRef, sa.Spec.ClientID)
 	if err != nil {
@@ -466,6 +468,9 @@ func (r *HankoServiceAccountReconciler) requestsForApplicationOwnership(ctx cont
 }
 
 func (r *HankoServiceAccountReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.APIReader == nil {
+		r.APIReader = mgr.GetAPIReader()
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoServiceAccount{}).
 		Watches(&hankoshv1alpha1.HankoApplication{}, handler.EnqueueRequestsFromMapFunc(r.requestsForApplicationOwnership)).

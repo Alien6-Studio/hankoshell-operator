@@ -24,7 +24,9 @@ import (
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/organization"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/roles"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -124,7 +126,7 @@ func adoptionCredentialStatus(f *keycloakFixture, clientID, credential, grant st
 	return response.StatusCode
 }
 
-func newAdoptionInventoryProxy(t *testing.T, f *keycloakFixture, name, secret string) (*keycloak.Client, func() []string) {
+func newAdoptionInventoryProxy(t *testing.T, f *keycloakFixture, name, secret string, faults ...func(*http.Request) bool) (*keycloak.Client, func() []string, []byte) {
 	t.Helper()
 	var mu sync.Mutex
 	var seen []string
@@ -140,7 +142,7 @@ func newAdoptionInventoryProxy(t *testing.T, f *keycloakFixture, name, secret st
 	// An exact route allowlist fixes every upstream URL to the disposable
 	// loopback fixture; incoming request URLs never select another destination.
 	allowed := map[string]bool{}
-	for _, path := range []string{"/realms/master/protocol/openid-connect/token", "/admin/realms", "/admin/realms/managed/clients", "/admin/realms/managed/identity-provider/instances", "/admin/realms/managed/identity-provider/instances/existing-broker/mappers"} {
+	for _, path := range []string{"/realms/master/protocol/openid-connect/token", "/admin/realms", "/admin/realms/managed", "/admin/realms/managed/clients", "/admin/realms/managed/identity-provider/instances", "/admin/realms/managed/identity-provider/instances/existing-broker/mappers"} {
 		allowed[path] = true
 	}
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -153,9 +155,41 @@ func newAdoptionInventoryProxy(t *testing.T, f *keycloakFixture, name, secret st
 		seen = append(seen, r.Method+" "+r.URL.Path)
 		mu.Unlock()
 		_, ok := allowed[r.URL.Path]
+		if !ok && strings.HasPrefix(r.URL.Path, "/admin/realms/managed/") {
+			for _, operation := range keycloak.AdminOperations() {
+				if !strings.Contains(operation.Methods, "GET") || operation.Capability == "credentials" {
+					continue
+				}
+				pattern := strings.Split(operation.Path, "/")
+				actual := strings.Split(r.URL.Path, "/")
+				if len(pattern) != len(actual) {
+					continue
+				}
+				matches := true
+				for i, segment := range pattern {
+					if strings.HasPrefix(segment, "{") {
+						if actual[i] == "" {
+							matches = false
+						}
+					} else if segment != actual[i] {
+						matches = false
+					}
+				}
+				if matches {
+					ok = true
+					break
+				}
+			}
+		}
 		if !ok || strings.Contains(r.URL.Path, "client-secret") || (r.Method != http.MethodGet && r.URL.Path != "/realms/master/protocol/openid-connect/token") {
 			http.Error(w, "inventory may not mutate or read credentials", http.StatusForbidden)
 			return
+		}
+		for _, fault := range faults {
+			if fault(r) {
+				http.Error(w, "qualified inventory read unavailable", http.StatusForbidden)
+				return
+			}
 		}
 		proxy.ServeHTTP(w, r)
 	}))
@@ -168,7 +202,7 @@ func newAdoptionInventoryProxy(t *testing.T, f *keycloakFixture, name, secret st
 		mu.Lock()
 		defer mu.Unlock()
 		return append([]string(nil), seen...)
-	}
+	}, ca
 }
 
 func newAdoptionLostAckProxy(t *testing.T, f *keycloakFixture, name, secret, path string) (*keycloak.Client, func() int) {
@@ -557,15 +591,49 @@ func TestRealKeycloakAdoptionCharacterization(t *testing.T) {
 	})
 
 	f.run("HankoImport read-only route inventory", func(t *testing.T) {
+		f.admin(http.MethodPost, base+"/clients", map[string]any{"clientId": "candidate-replacement", "protocol": "openid-connect", "enabled": true, "publicClient": true, "standardFlowEnabled": true, "redirectUris": []string{"https://replace.example.test/callback"}}, nil)
 		f.admin(http.MethodPost, base+"/clients", map[string]any{"clientId": "https://import.example.test/saml", "protocol": "saml", "enabled": true}, nil)
+		f.admin(http.MethodPost, base+"/clients", map[string]any{"clientId": "https://qualified-inventory.example.test", "protocol": "saml", "enabled": true, "redirectUris": []string{"https://qualified-inventory.example.test/acs"}, "attributes": map[string]string{"saml_name_id_format": "persistent", "saml.server.signature": "true", "saml.assertion.signature": "true", "saml.client.signature": "false", "saml.encrypt": "false"}}, nil)
+		f.admin(http.MethodPost, base+"/roles", map[string]any{"name": "inventory-role", "description": "inventory role"}, nil)
+		f.admin(http.MethodPost, base+"/groups", map[string]any{"name": "inventory-root"}, nil)
+		groupID := ""
+		for _, group := range reader.list(base + "/groups") {
+			if group["name"] == "inventory-root" {
+				groupID = group["id"].(string)
+			}
+		}
+		if groupID == "" {
+			t.Fatal("inventory hierarchy fixture missing")
+		}
+		f.admin(http.MethodPost, base+"/groups/"+groupID+"/children", map[string]any{"name": "inventory-child"}, nil)
+		f.admin(http.MethodPost, base+"/groups/"+groupID+"/role-mappings/realm", []any{reader.read(base + "/roles/inventory-role")}, nil)
+		realmRep := reader.read(base)
+		realmRep["organizationsEnabled"] = true
+		f.admin(http.MethodPut, base, realmRep, nil)
+		f.admin(http.MethodPost, base+"/organizations", map[string]any{"alias": "inventory-native", "name": "Inventory native", "domains": []any{map[string]any{"name": "inventory.example.test", "verified": false}}}, nil)
+		f.admin(http.MethodPost, base+"/users", map[string]any{"username": "inventory-user-sentinel", "email": "inventory-email-sentinel@example.test", "enabled": true}, nil)
+		writes := func() int {
+			var events []map[string]any
+			f.admin(http.MethodGet, base+"/admin-events?max=1000", nil, &events)
+			return len(events)
+		}
+
 		// A trusted TLS proxy records only paths/methods, never bodies or bearer
 		// headers. It fails any Admin mutation or credential endpoint outright.
-		proxy, routes := newAdoptionInventoryProxy(t, f, reader.name, reader.secret)
-		kube := newFakeClient(t)
+		proxy, routes, ca := newAdoptionInventoryProxy(t, f, reader.name, reader.secret)
+		var kube client.Client = &inventoryUIDClient{Client: newFakeClient(t)}
+		source := &api.HankoKeycloakInstance{ObjectMeta: fixtureMeta("source"), Spec: api.HankoKeycloakInstanceSpec{Mode: "external", AdminRef: corev1.LocalObjectReference{Name: "inventory-reader"}, TLSCARef: "inventory-ca"}}
+		source.UID = "fixture-source-uid"
+		f.requireNoError(kube.Create(ctx, source))
+		f.requireNoError(kube.Create(ctx, &corev1.Secret{ObjectMeta: fixtureMeta("inventory-reader"), Data: map[string][]byte{"HANKO_KEYCLOAK_URL": []byte(proxy.BaseURL()), "HANKO_KC_CLIENT_ID": []byte(reader.name), "HANKO_KC_CLIENT_SECRET": []byte(reader.secret)}}))
+		f.requireNoError(kube.Create(ctx, &corev1.Secret{ObjectMeta: fixtureMeta("inventory-ca"), Data: map[string][]byte{"ca.crt": ca}}))
 		operation := &api.HankoImport{ObjectMeta: fixtureMeta("inventory"), Spec: api.HankoImportSpec{SourceRef: "source", Realms: []string{"managed"}}}
 		f.requireNoError(kube.Create(ctx, operation))
-		r := &controller.HankoImportReconciler{Client: kube, Scheme: newScheme(t), Pool: keycloak.NewPool(proxy)}
-		fixtureReconcile(f, ctx, r, operation)
+		r := &controller.HankoImportReconciler{Client: kube, APIReader: kube, Scheme: newScheme(t), Pool: keycloak.NewPool(f.kc)}
+		iamconformance.NoMutation(t, writes, func() error {
+			_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(operation)})
+			return err
+		})
 		fixtureGet(f, ctx, kube, operation)
 		if operation.Status.Phase != "Done" || !applicationHasCondition(operation.Status.Conditions, "ImportReady", metav1.ConditionTrue, "PartialFailure") {
 			for _, c := range operation.Status.Conditions {
@@ -574,14 +642,102 @@ func TestRealKeycloakAdoptionCharacterization(t *testing.T) {
 			t.Logf("Import fixture routes (no bodies/headers): %v", routes())
 			t.Fatal("read-only import did not complete")
 		}
+		if operation.Status.Coverage.Complete || operation.Status.Coverage.Truncated {
+			t.Fatal("unresolved native authorization references must leave bounded coverage incomplete")
+		}
+		graphFound := false
+		for _, summary := range operation.Status.Inventory {
+			if summary.Kind == "resource-server" {
+				graphFound = true
+				if summary.Complete || summary.Approvable {
+					t.Fatal("native/shared graph claimed portable authority")
+				}
+			}
+		}
+		if !graphFound {
+			t.Fatal("authorization graph inventory missing")
+		}
+
 		var apps api.HankoApplicationList
 		f.requireNoError(kube.List(ctx, &apps, client.InNamespace(operation.Namespace)))
+		for _, summary := range operation.Status.Inventory {
+			for _, finding := range summary.Findings {
+				if !summary.Complete {
+					t.Logf("Incomplete %s: %s", summary.Kind, finding.Code)
+				}
+			}
+		}
 		if len(apps.Items) == 0 {
 			t.Fatal("application inventory not exercised")
 		}
+		samlCount := 0
 		for _, app := range apps.Items {
-			if app.Spec.Mode != "Observe" || app.Spec.Protocol == "saml" || app.Labels["hanko.sh/imported-by"] != operation.Name {
-				t.Fatal("import unexpectedly manages or imports SAML")
+			if app.Spec.Protocol == "saml" {
+				samlCount++
+				if app.Spec.SAML == nil || app.Spec.Type != "" || len(app.Spec.TokenClaims) != 0 {
+					t.Fatal("SAML manifest lost its protocol contract")
+				}
+			}
+			if app.Status.AdoptionCandidate == nil || app.Status.AdoptionCandidate.Target.UID != string(app.UID) {
+				t.Fatal("current exact target candidate missing")
+			}
+			if app.Spec.Mode != "Observe" || app.Labels["hanko.sh/imported-by"] != operation.Name {
+				t.Fatal("import unexpectedly manages an existing client")
+			}
+		}
+		if samlCount == 0 {
+			t.Fatal("qualified SAML import gap remains")
+		}
+		f.run("same-name provider replacement invalidates candidate", func(t *testing.T) {
+			var replacementTarget *api.HankoApplication
+			for i := range apps.Items {
+				if apps.Items[i].Spec.ClientID == "candidate-replacement" {
+					replacementTarget = apps.Items[i].DeepCopy()
+				}
+			}
+			if replacementTarget == nil || replacementTarget.Status.AdoptionCandidate == nil {
+				t.Fatal("replacement candidate fixture missing")
+			}
+			oldCandidate := replacementTarget.Status.AdoptionCandidate.DeepCopy()
+			oldProvider, err := proxy.GetApplication(ctx, "managed", "candidate-replacement")
+			f.requireNoError(err)
+			f.admin(http.MethodDelete, base+"/clients/"+oldProvider.ID, nil, nil)
+			f.admin(http.MethodPost, base+"/clients", map[string]any{"clientId": "candidate-replacement", "protocol": "openid-connect", "enabled": true, "publicClient": true, "standardFlowEnabled": true, "redirectUris": []string{"https://replace.example.test/callback"}}, nil)
+			observe := &controller.HankoApplicationReconciler{Client: kube, OwnershipReader: kube, Scheme: newScheme(t), Pool: keycloak.NewPool(proxy)}
+			iamconformance.NoMutation(t, writes, func() error {
+				_, err := observe.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(replacementTarget)})
+				return err
+			})
+			fixtureGet(f, ctx, kube, replacementTarget)
+			current := replacementTarget.Status.AdoptionCandidate
+			if current == nil || current.CandidateHash == oldCandidate.CandidateHash || current.ObservationHash == oldCandidate.ObservationHash {
+				t.Fatal("same-name provider replacement retained old evidence")
+			}
+			newProvider, err := proxy.GetApplication(ctx, "managed", "candidate-replacement")
+			f.requireNoError(err)
+			oldFound, newFound := false, false
+			for _, id := range current.ProviderIdentity.ObjectIDs {
+				oldFound = oldFound || id == oldProvider.ID
+				newFound = newFound || id == newProvider.ID
+			}
+			if oldFound || !newFound || newProvider.ID == oldProvider.ID {
+				t.Fatal("candidate did not bind the current replacement UUID")
+			}
+			priorHash := current.CandidateHash
+			iamconformance.NoMutation(t, writes, func() error {
+				_, err := observe.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(replacementTarget)})
+				return err
+			})
+			fixtureGet(f, ctx, kube, replacementTarget)
+			if replacementTarget.Status.AdoptionCandidate.CandidateHash != priorHash {
+				t.Fatal("unchanged observation changed candidate identity")
+			}
+			f.requireNoCredentials("replacement candidate", fixtureJSON(t, replacementTarget.Status))
+		})
+
+		for _, sentinel := range []string{"inventory-user-sentinel", "inventory-email-sentinel"} {
+			if strings.Contains(string(fixtureJSON(t, operation.Status)), sentinel) {
+				t.Fatal("inventory exported user data")
 			}
 		}
 		f.requireNoCredentials("import status", fixtureJSON(t, operation.Status))
@@ -615,15 +771,74 @@ func TestRealKeycloakAdoptionCharacterization(t *testing.T) {
 		if gaps == 0 {
 			t.Fatal("SAML discovery gap was hidden")
 		}
-		fixtureEqual(t, "only unsupported SAML clients skipped", operation.Status.Skipped.Applications, gaps)
-		fixtureEqual(t, "every supported client imported", operation.Status.Applied.Applications, operation.Status.Discovered.Applications-gaps)
+		if operation.Status.Coverage.InventoryCount == 0 || len(operation.Status.Inventory) == 0 {
+			t.Fatal("bounded inventory evidence missing")
+		}
+		if operation.Status.Applied.Applications == 0 {
+			t.Fatal("qualified clients not imported")
+		}
 		fixtureEqual(t, "application manifests match applied count", len(apps.Items), operation.Status.Applied.Applications)
 		fixtureEqual(t, "realm manifest matches applied count", len(realms.Items), operation.Status.Applied.Realms)
 		fixtureEqual(t, "every service account imported", operation.Status.Applied.ServiceAccounts, operation.Status.Discovered.ServiceAccounts)
+		for _, fault := range []struct{ name, suffix, finding string }{
+			{"mapper-read-denied", "/protocol-mappers/models", "protocol_mappers_unreadable"},
+			{"role-closure-denied", "/roles/existing-middle/composites", "role_closure_unreadable"},
+			{"authorization-child-denied", "/associatedPolicies", "authorization_graph_unreadable"},
+		} {
+			f.run(fault.name, func(t *testing.T) {
+				failedProxy, _, failedCA := newAdoptionInventoryProxy(t, f, reader.name, reader.secret, func(request *http.Request) bool { return strings.HasSuffix(request.URL.Path, fault.suffix) })
+				failedKube := newFakeClient(t)
+				failedSource := source.DeepCopy()
+				failedSource.ResourceVersion = ""
+				failedOperation := operation.DeepCopy()
+				failedOperation.ResourceVersion = ""
+				failedOperation.Status = api.HankoImportStatus{}
+				failedOperation.Spec.DryRun = true
+				for _, object := range []client.Object{failedSource, failedOperation,
+					&corev1.Secret{ObjectMeta: fixtureMeta("inventory-reader"), Data: map[string][]byte{"HANKO_KEYCLOAK_URL": []byte(failedProxy.BaseURL()), "HANKO_KC_CLIENT_ID": []byte(reader.name), "HANKO_KC_CLIENT_SECRET": []byte(reader.secret)}},
+					&corev1.Secret{ObjectMeta: fixtureMeta("inventory-ca"), Data: map[string][]byte{"ca.crt": failedCA}},
+				} {
+					f.requireNoError(failedKube.Create(ctx, object))
+				}
+				failedReconciler := &controller.HankoImportReconciler{Client: failedKube, APIReader: failedKube, Pool: keycloak.NewPool(f.kc), RequireHTTPS: true}
+				iamconformance.NoMutation(t, writes, func() error {
+					_, err := failedReconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(failedOperation)})
+					return err
+				})
+				fixtureGet(f, ctx, failedKube, failedOperation)
+				found := false
+				for _, summary := range failedOperation.Status.Inventory {
+					for _, finding := range summary.Findings {
+						if finding.Code == fault.finding {
+							found = true
+							if summary.Complete || summary.Approvable {
+								t.Fatal("failed child read retained complete evidence")
+							}
+						}
+					}
+				}
+				if !found || failedOperation.Status.Coverage.Complete {
+					t.Fatal("failed child read was not classified in bounded evidence")
+				}
+				f.requireNoCredentials("failed-read evidence", fixtureJSON(t, failedOperation.Status))
+			})
+		}
+
 		fixtureEqual(t, "account manifests match applied count", len(accounts.Items), operation.Status.Applied.ServiceAccounts)
 		if !strings.Contains(strings.Join(routes(), "\n"), "/identity-provider/instances") {
 			t.Fatal("broker inventory not exercised")
 		}
 	})
 	t.Logf("Keycloak %s: exact identity and ownership-only primitives characterized; no production adoption implemented", f.version)
+}
+
+// A real API assigns UIDs during Create. The fake client needs the equivalent
+// identity behavior so candidate status persistence is exercised, not skipped.
+type inventoryUIDClient struct{ client.Client }
+
+func (c *inventoryUIDClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
+	if obj.GetUID() == "" {
+		obj.SetUID(types.UID("inventory-" + obj.GetNamespace() + "-" + obj.GetName()))
+	}
+	return c.Client.Create(ctx, obj, opts...)
 }

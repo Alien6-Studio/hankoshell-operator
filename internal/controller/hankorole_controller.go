@@ -27,6 +27,7 @@ const roleFinalizerName = "hanko.sh/role-cleanup"
 // +kubebuilder:rbac:groups=hanko.sh,resources=hankoroles/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=hanko.sh,resources=hankoroles/finalizers,verbs=update
 type HankoRoleReconciler struct {
+	APIReader client.Reader
 	client.Client
 	ProtectedRealm string
 	Scheme         *runtime.Scheme
@@ -257,6 +258,7 @@ func (r *HankoRoleReconciler) roleObservation(ctx context.Context, obj *hankoshv
 	obj.Status.LastReconciled = &now
 	reason, status, message := "Reconciled", metav1.ConditionTrue, "provider read-back matches the evaluated contract"
 	if observe {
+		obj.Status.AdoptionCandidate = refreshImportedCandidate(ctx, r.Client, r.APIReader, obj)
 		reason, message = "Observed", "provider state observed without mutation"
 	}
 	if err := observationError(state.Observation); err != nil {
@@ -323,6 +325,9 @@ func (r *HankoRoleReconciler) ensureRoleFinalizer(ctx context.Context, role *han
 }
 
 func (r *HankoRoleReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.APIReader == nil {
+		r.APIReader = mgr.GetAPIReader()
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoRole{}).
 		Complete(r)

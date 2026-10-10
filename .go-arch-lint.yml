@@ -21,6 +21,8 @@ components:
     in: "/internal/httpsecurity"
   iamconformance:
     in: "/internal/iamconformance"
+  adoption:
+    in: "/internal/adoption"
   iamcontract:
     in: "/internal/iamcontract"
   roles:
@@ -66,6 +68,7 @@ deps:
       - applications
       - applicationbinding
       - iamcontract
+      - adoption
       - hub
       - api_types
       - imagevalidator
@@ -86,6 +89,10 @@ deps:
 
   # ADR-029: Provider-neutral authorization drivers may adapt provider clients.
   iamconformance:
+    mayDependOn:
+      - iamcontract
+
+  adoption:
     mayDependOn:
       - iamcontract
 

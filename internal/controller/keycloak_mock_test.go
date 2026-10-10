@@ -674,6 +674,15 @@ func (m *mockKeycloak) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		m.counts["deleteProtocolMapper"]++
 		w.WriteHeader(http.StatusNoContent)
 
+	case r.Method == http.MethodGet && reRealmRolesCollection.MatchString(path):
+		realm := reRealmRolesCollection.FindStringSubmatch(path)[1]
+		values := []keycloak.RealmRole{}
+		for _, role := range m.realmRoles[realm] {
+			values = append(values, role)
+		}
+		writeJSON(w, values)
+	case r.Method == http.MethodGet && reGroupsCollection.MatchString(path):
+		writeJSON(w, []keycloak.Group{})
 	case r.Method == http.MethodPost && reRealmRolesCollection.MatchString(path):
 		parts := reRealmRolesCollection.FindStringSubmatch(path)
 		var role keycloak.RealmRole

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -46,7 +47,8 @@ func TestImportDryRunDiscoversSelectedRealmWithoutMutation(t *testing.T) {
 	}
 	scheme := controllerTestScheme(t)
 	k8sClient := controllerTestClient(scheme, operation)
-	reconciler := &HankoImportReconciler{Client: k8sClient, Scheme: scheme, Pool: keycloak.NewPool(keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP()))}
+	provisionImportTestSource(t, k8sClient, operation, server.URL)
+	reconciler := &HankoImportReconciler{Client: k8sClient, APIReader: k8sClient, Scheme: scheme, Pool: keycloak.NewPool(keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP()))}
 	if _, err := reconciler.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(operation)}); err != nil {
 		t.Fatalf("dry-run import: %v", err)
 	}
@@ -89,9 +91,10 @@ func TestImportFailureAndTerminalPathsAreCheckpointed(t *testing.T) {
 			http.Error(w, "provider unavailable", http.StatusServiceUnavailable)
 		}))
 		t.Cleanup(server.Close)
-		operation := &hankoshv1alpha1.HankoImport{ObjectMeta: metav1.ObjectMeta{Name: "failure", Namespace: "test"}}
+		operation := &hankoshv1alpha1.HankoImport{ObjectMeta: metav1.ObjectMeta{Name: "failure", Namespace: "test"}, Spec: hankoshv1alpha1.HankoImportSpec{SourceRef: "source"}}
 		k8sClient := controllerTestClient(scheme, operation)
-		reconciler := &HankoImportReconciler{Client: k8sClient, Scheme: scheme, Pool: keycloak.NewPool(keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP()))}
+		provisionImportTestSource(t, k8sClient, operation, server.URL)
+		reconciler := &HankoImportReconciler{Client: k8sClient, APIReader: k8sClient, Scheme: scheme, Pool: keycloak.NewPool(keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP()))}
 		if _, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(operation)}); err != nil {
 			t.Fatalf("provider discovery failure must be recorded in status: %v", err)
 		}
@@ -222,4 +225,17 @@ func conditionReason(conditions []metav1.Condition, conditionType string) string
 		}
 	}
 	return ""
+}
+
+func provisionImportTestSource(t *testing.T, kube client.Client, operation *hankoshv1alpha1.HankoImport, endpoint string) {
+	t.Helper()
+	t.Setenv("HANKO_KEYCLOAK_ALLOW_INSECURE_HTTP", "true")
+	for _, o := range []client.Object{
+		&hankoshv1alpha1.HankoKeycloakInstance{ObjectMeta: metav1.ObjectMeta{Name: operation.Spec.SourceRef, Namespace: operation.Namespace, UID: "fixture-instance"}, Spec: hankoshv1alpha1.HankoKeycloakInstanceSpec{Mode: "external", AdminRef: corev1.LocalObjectReference{Name: "inventory-reader"}}},
+		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "inventory-reader", Namespace: operation.Namespace}, Data: map[string][]byte{"HANKO_KEYCLOAK_URL": []byte(endpoint), "HANKO_KC_CLIENT_ID": []byte("operator"), "HANKO_KC_CLIENT_SECRET": []byte("secret")}},
+	} {
+		if err := kube.Create(context.Background(), o); err != nil {
+			t.Fatal(err)
+		}
+	}
 }

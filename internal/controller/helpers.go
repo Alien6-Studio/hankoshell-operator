@@ -246,7 +246,7 @@ func metadataEndpointIPs() []net.IP {
 
 // buildKCClientForInstance reads the AdminRef Secret from a HankoKeycloakInstance
 // and returns a keycloak.Client. URL is validated (ADR-022). TLSCARef is honoured when set.
-func buildKCClientForInstance(ctx context.Context, c client.Client, ki *hankoshv1alpha1.HankoKeycloakInstance, requireHTTPS bool) (*keycloak.Client, error) {
+func buildKCClientForInstance(ctx context.Context, c client.Reader, ki *hankoshv1alpha1.HankoKeycloakInstance, requireHTTPS bool) (*keycloak.Client, error) {
 	var secret corev1.Secret
 	if err := c.Get(ctx, types.NamespacedName{Name: ki.Spec.AdminRef.Name, Namespace: ki.Namespace}, &secret); err != nil {
 		return nil, fmt.Errorf("get admin secret %q: %w", ki.Spec.AdminRef.Name, err)
@@ -254,7 +254,7 @@ func buildKCClientForInstance(ctx context.Context, c client.Client, ki *hankoshv
 	return buildKCClientFromAdminSecret(ctx, c, ki, &secret, "HANKO_KC_CLIENT_SECRET", requireHTTPS)
 }
 
-func buildKCClientFromAdminSecret(ctx context.Context, c client.Client, ki *hankoshv1alpha1.HankoKeycloakInstance, secret *corev1.Secret, credentialKey string, requireHTTPS bool) (*keycloak.Client, error) {
+func buildKCClientFromAdminSecret(ctx context.Context, c client.Reader, ki *hankoshv1alpha1.HankoKeycloakInstance, secret *corev1.Secret, credentialKey string, requireHTTPS bool) (*keycloak.Client, error) {
 	baseURL := string(secret.Data["HANKO_KEYCLOAK_URL"])
 	clientID := string(secret.Data["HANKO_KC_CLIENT_ID"])
 	clientSecret := string(secret.Data[credentialKey])
