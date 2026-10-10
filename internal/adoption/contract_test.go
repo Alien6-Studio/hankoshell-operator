@@ -69,6 +69,71 @@ func TestCandidateCanonicalIdentityAndDomains(t *testing.T) {
 		})
 	}
 }
+
+func TestOrganizationNativeLocaleProjectionIsClosedAndHashBound(t *testing.T) {
+	target, provider, observation, desired := fixture()
+	target.Kind = "HankoOrganization"
+	fact := Fact{Domain: "group", Identity: "group-id", Object: "Team", Field: "nativeLocale", Classification: Preserved, RoundTrip: PreservedNative, Value: Value{Text: "en"}}
+	observation.Facts = []Fact{fact}
+	en := Build(target, provider, observation, desired)
+	if !en.Approvable {
+		t.Fatal("qualified public locale was blocked")
+	}
+	observation.Facts[0].Value.Text = "fr"
+	fr := Build(target, provider, observation, desired)
+	if !fr.Approvable || fr.CandidateHash == en.CandidateHash {
+		t.Fatal("qualified native semantic change did not invalidate review")
+	}
+	for _, mutate := range []func(*Fact){
+		func(f *Fact) { f.Value.Text = "innocent-key-secret-sentinel" },
+		func(f *Fact) { f.Value.Set = []string{"opaque-value"} },
+		func(f *Fact) { f.Domain = "identity-provider" },
+		func(f *Fact) { f.RoundTrip = Lossy },
+	} {
+		observation.Facts = []Fact{fact}
+		mutate(&observation.Facts[0])
+		candidate := Build(target, provider, observation, desired)
+		if candidate.Approvable || candidate.Complete {
+			t.Fatal("unqualified native projection was accepted")
+		}
+		data, _ := json.Marshal(candidate)
+		if strings.Contains(string(data), "secret-sentinel") || strings.Contains(string(data), "opaque-value") {
+			t.Fatal("unsafe native value entered public evidence")
+		}
+	}
+}
+func TestNativeAuthorizationFeatureIsClosedAndHashBound(t *testing.T) {
+	target, provider, observation, desired := fixture()
+	enabled := true
+	fact := Fact{Domain: "application", Identity: "client-uuid", Object: "app", Field: "authorizationServices", Classification: Preserved, RoundTrip: PreservedNative, Value: Value{Flag: &enabled}}
+	observation.Facts = []Fact{fact}
+	base := Build(target, provider, observation, desired)
+	if !base.Approvable {
+		t.Fatal("qualified native feature refused")
+	}
+	disabled := false
+	observation.Facts[0].Value.Flag = &disabled
+	changed := Build(target, provider, observation, desired)
+	if !changed.Approvable || changed.CandidateHash == base.CandidateHash {
+		t.Fatal("native feature change did not invalidate approval")
+	}
+	for _, mutate := range []func(*Fact){
+		func(f *Fact) { f.Domain = "realm" },
+		func(f *Fact) { f.Value.Flag = nil },
+		func(f *Fact) { f.Value.Text = "private-sentinel" },
+		func(f *Fact) { f.Value.Set = []string{"private-sentinel"} },
+		func(f *Fact) { f.RoundTrip = Lossy },
+	} {
+		observation.Facts = []Fact{fact}
+		mutate(&observation.Facts[0])
+		candidate := Build(target, provider, observation, desired)
+		wire, _ := json.Marshal(candidate)
+		if candidate.Approvable || candidate.Complete || strings.Contains(string(wire), "private-sentinel") {
+			t.Fatal("unqualified feature projection accepted or exported")
+		}
+	}
+}
+
 func TestCandidateDiffCodesAndRefusals(t *testing.T) {
 	for _, tc := range []struct {
 		classification     Classification

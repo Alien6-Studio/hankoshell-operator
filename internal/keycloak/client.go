@@ -876,8 +876,8 @@ func (c *Client) SyncRealmRole(ctx context.Context, realm string, role RealmRole
 		return c.writeRealmRole(ctx, http.MethodPost, adminRealmsPath+realm+rolesPath, role,
 			http.StatusCreated, http.StatusConflict)
 	}
-	if receipt, exists := existing.Attributes["hanko.sh/adoption-receipt"]; exists {
-		role.Attributes["hanko.sh/adoption-receipt"] = append([]string(nil), receipt...)
+	if _, exists := existing.Attributes["hanko.sh/adoption-receipt"]; exists {
+		return ErrAdoptionPrecondition // Receipt-backed roles require SyncRealmRoleIfOwned.
 	}
 	role.ID = existing.ID
 	role.ContainerID = existing.ContainerID
@@ -1413,13 +1413,14 @@ func (c *Client) syncClientAttributes(ctx context.Context, realm, clientID, owne
 	}
 
 	if ownerUID != "" {
-		if err := validateServiceAccountAttributes(payload, uuid, clientID, ownerUID, attrs); err != nil {
+		if err := c.validateServiceAccountAttributes(ctx, realm, payload, uuid, clientID, ownerUID, attrs); err != nil {
 			return err
 		}
 	}
 	delete(payload, "secret")
 	nextAttributes := make(map[string]any, len(attrs)+len(reservedAppAttributeKeys))
 	if current, ok := payload["attributes"].(map[string]any); ok {
+		preserveAdoptedServiceAttributes(payload, current, nextAttributes)
 		for key := range reservedAppAttributeKeys {
 			if value, exists := current[key]; exists {
 				nextAttributes[key] = value
@@ -1957,8 +1958,22 @@ func (c *Client) SyncRealmRoleIfOwned(ctx context.Context, realm string, role Re
 	if len(values) != 1 || values[0] != owner {
 		return ErrRoleOwnershipConflict
 	}
-	if receipt, exists := existing.Attributes["hanko.sh/adoption-receipt"]; exists {
-		role.Attributes["hanko.sh/adoption-receipt"] = append([]string(nil), receipt...)
+	if _, exists := existing.Attributes["hanko.sh/adoption-receipt"]; exists {
+		snapshot, err := c.ReadRoleOwnership(ctx, realm, role.Name)
+		if err != nil {
+			return err
+		}
+		if snapshot == nil || snapshot.Role.ID != existing.ID || !snapshot.QualifiedLeaf() || !ValidRoleAdoptionReceipt(&snapshot.Role, owner) || !QualifiedRoleAttributes(snapshot.Role.Attributes) {
+			return ErrAdoptionPrecondition
+		}
+		attrs := cloneRoleAttributes(snapshot.Role.Attributes)
+		for key, values := range role.Attributes {
+			attrs[key] = append([]string(nil), values...)
+		}
+		snapshot.document["attributes"] = attrs
+		snapshot.document["description"] = role.Description
+		snapshot.document["composite"] = role.Composite || snapshot.Role.Composite
+		return c.putJSON(ctx, adminRealmsPath+realm+rolesSegment+url.PathEscape(role.Name), snapshot.document)
 	}
 	role.ID = existing.ID
 	role.ContainerID = existing.ContainerID

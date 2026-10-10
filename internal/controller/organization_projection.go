@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
@@ -90,7 +91,12 @@ func (r *HankoOrganizationReconciler) resolveProviderParent(ctx context.Context,
 	if parent.Status.GroupID == "" || parent.Status.GroupPath == "" || !organizationConditionCurrent(parent, "Synced", metav1.ConditionTrue) {
 		return "", "", errors.New("parent provider state is not synchronized")
 	}
-	return parent.Status.GroupID, parent.Status.GroupPath, nil
+	kc := kcForObject(r.Pool, org.Namespace, org.Labels)
+	path, parentID, _, err := organizationAdoptionPath(ctx, r.organizationReader(), kc, org)
+	if err != nil {
+		return "", "", err
+	}
+	return parentID, strings.TrimSuffix(path, "/"+org.Spec.Name), nil
 }
 
 func (r *HankoOrganizationReconciler) resolveProjectionParent(ctx context.Context, org *api.HankoOrganization) (string, error) {
@@ -147,7 +153,11 @@ func (r *HankoOrganizationReconciler) reconcileOrgDeletion(ctx context.Context, 
 	patch := client.MergeFrom(org.DeepCopy())
 	if err := r.deleteOrganizationProvider(ctx, org, kc); err != nil {
 		org.Status.Phase = "Error"
-		setCondition(&org.Status.Conditions, "Synced", metav1.ConditionFalse, "CleanupFailed", "owned provider cleanup is not proven")
+		reason := "CleanupFailed"
+		if errors.Is(err, errOrganizationCleanupConflict) {
+			reason = "CleanupConflict"
+		}
+		setCondition(&org.Status.Conditions, "Synced", metav1.ConditionFalse, reason, "owned provider cleanup is not proven")
 		return r.finishOrganization(ctx, org, patch, requeueOnError)
 	}
 	setCondition(&org.Status.Conditions, "Synced", metav1.ConditionTrue, "Deleted", "owned Keycloak resources are absent")
@@ -183,6 +193,9 @@ func (r *HankoOrganizationReconciler) reconcileOrgDeletion(ctx context.Context, 
 }
 
 func (r *HankoOrganizationReconciler) deleteOrganizationProvider(ctx context.Context, org *api.HankoOrganization, kc *keycloak.Client) error {
+	if err := r.validateAdoptedOrganizationCleanup(ctx, org, kc); err != nil {
+		return err
+	}
 	owner := organizationGroupOwnershipAttributes(org)
 	if org.Status.GroupID != "" {
 		group, err := kc.GetGroup(ctx, org.Spec.RealmRef, org.Status.GroupID)
@@ -200,6 +213,9 @@ func (r *HankoOrganizationReconciler) deleteOrganizationProvider(ctx context.Con
 			if children {
 				return errors.New("child groups must be cleaned before organization deletion")
 			}
+			if err := r.validateAdoptedOrganizationCleanup(ctx, org, kc); err != nil {
+				return err
+			}
 			if err := kc.DeleteGroup(ctx, org.Spec.RealmRef, group.ID); err != nil {
 				return err
 			}
@@ -216,6 +232,9 @@ func (r *HankoOrganizationReconciler) deleteOrganizationProvider(ctx context.Con
 		if err == nil {
 			if !keycloak.OrganizationMatchesOwnership(native, owner, "") {
 				return errRootOrganizationOwnership
+			}
+			if err := r.validateAdoptedOrganizationCleanup(ctx, org, kc); err != nil {
+				return err
 			}
 			if err := kc.DeleteOrganization(ctx, org.Spec.RealmRef, native.ID); err != nil {
 				return err

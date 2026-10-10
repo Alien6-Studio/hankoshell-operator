@@ -50,6 +50,13 @@ func (r *HankoResourceServerReconciler) Reconcile(ctx context.Context, req ctrl.
 	if err := r.Get(ctx, req.NamespacedName, &resourceServer); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	var writer *keycloak.Client
+	if r.Pool != nil {
+		writer = kcForObject(r.Pool, resourceServer.Namespace, resourceServer.Labels)
+	}
+	if handled, result, err := r.reconcileResourceServerAcquisition(ctx, &resourceServer, writer); handled {
+		return result, err
+	}
 
 	driver := r.driverFor(&resourceServer)
 	mode := resourceServer.Spec.Mode
@@ -169,16 +176,37 @@ func (r *HankoResourceServerReconciler) reconcileResourceServerDeletion(ctx cont
 		controllerutil.RemoveFinalizer(resourceServer, resourceServerFinalizerName)
 		return ctrl.Result{}, r.Update(ctx, resourceServer)
 	}
+	if !acquisitionCurrentTarget(ctx, r.authorityReader(), resourceServer, true) {
+		return ctrl.Result{RequeueAfter: requeueImmediately}, nil
+	}
 	model := authorization.Model{Name: resourceServer.Name, Realm: resourceServer.Spec.RealmRef}
-	if resourceServer.Status.ProviderResourceServerID == "" {
+	owned := managedObjectsFromStatus(resourceServer.Status)
+	if r.Pool != nil {
+		var app hankoshv1alpha1.HankoApplication
+		if err := r.authorityReader().Get(ctx, client.ObjectKey{Namespace: resourceServer.Namespace, Name: resourceServer.Spec.ApplicationRef}, &app); err != nil {
+			return ctrl.Result{RequeueAfter: requeueOnError}, r.statusError(ctx, resourceServer, "CleanupConflict", err)
+		}
+		kc := kcForObject(r.Pool, resourceServer.Namespace, resourceServer.Labels)
+		current, err := kc.GetApplication(ctx, resourceServer.Spec.RealmRef, app.Spec.ClientID)
+		if err != nil || app.Spec.RealmRef != resourceServer.Spec.RealmRef || current == nil || !keycloak.ApplicationOwned(current, string(app.UID)) {
+			return ctrl.Result{RequeueAfter: requeueOnError}, r.statusError(ctx, resourceServer, "CleanupConflict", keycloak.ErrAuthorizationCleanupConflict)
+		}
+		model.ApplicationRef = app.Spec.ClientID
+		owned.ResourceServerID = current.ID
+	}
+	if model.ApplicationRef == "" && resourceServer.Status.ProviderResourceServerID == "" {
 		application, err := r.applicationInRealm(ctx, resourceServer.Namespace, resourceServer.Spec.ApplicationRef, resourceServer.Spec.RealmRef)
 		if err != nil {
 			return ctrl.Result{RequeueAfter: requeueOnError}, r.statusError(ctx, resourceServer, "CleanupFailed", err)
 		}
 		model.ApplicationRef = application.Spec.ClientID
 	}
-	if err := driver.DeleteOwned(ctx, model, managedObjectsFromStatus(resourceServer.Status), string(resourceServer.UID)); err != nil {
-		return ctrl.Result{RequeueAfter: requeueOnError}, r.statusError(ctx, resourceServer, "CleanupFailed", err)
+	if err := driver.DeleteOwned(ctx, model, owned, string(resourceServer.UID)); err != nil {
+		reason := "CleanupFailed"
+		if errors.Is(err, keycloak.ErrAuthorizationCleanupConflict) {
+			reason = "CleanupConflict"
+		}
+		return ctrl.Result{RequeueAfter: requeueOnError}, r.statusError(ctx, resourceServer, reason, err)
 	}
 	controllerutil.RemoveFinalizer(resourceServer, resourceServerFinalizerName)
 	if err := r.Update(ctx, resourceServer); err != nil {
@@ -242,13 +270,19 @@ func (r *HankoResourceServerReconciler) resolveAuthorizationModel(ctx context.Co
 	if err := r.Get(ctx, types.NamespacedName{Name: resourceServer.Spec.RealmRef, Namespace: resourceServer.Namespace}, &realm); err != nil {
 		return authorization.Model{}, fmt.Errorf("realm %q: %w", resourceServer.Spec.RealmRef, err)
 	}
-	if isImported(realm.Labels) && resourceServer.Spec.Mode != ModeObserve && !isImported(resourceServer.Labels) {
-		return authorization.Model{}, fmt.Errorf("realm %q is read-only; resource server must use Observe", resourceServer.Spec.RealmRef)
-	}
 
 	application, err := r.applicationInRealm(ctx, resourceServer.Namespace, resourceServer.Spec.ApplicationRef, resourceServer.Spec.RealmRef)
 	if err != nil {
 		return authorization.Model{}, err
+	}
+	if isImported(realm.Labels) && resourceServer.Spec.Mode != ModeObserve && !isImported(resourceServer.Labels) {
+		if r.Pool == nil {
+			return authorization.Model{}, fmt.Errorf("external realm requires fresh backing client ownership")
+		}
+		native, err := kcForObject(r.Pool, resourceServer.Namespace, resourceServer.Labels).GetApplication(ctx, resourceServer.Spec.RealmRef, application.Spec.ClientID)
+		if err != nil || !keycloak.ApplicationOwned(native, string(application.UID)) {
+			return authorization.Model{}, fmt.Errorf("external realm requires fresh backing client ownership")
+		}
 	}
 	model := authorization.Model{
 		Name: resourceServer.Name, Realm: resourceServer.Spec.RealmRef,

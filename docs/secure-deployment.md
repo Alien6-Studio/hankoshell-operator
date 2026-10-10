@@ -8,7 +8,8 @@ destinations before the operator can reconcile resources.
 ## Reviewed existing-client ownership
 
 Use the [explicit adoption workflow](architecture/existing-keycloak-adoption.md#implemented-reviewed-leaf-acquisition-48)
-for existing applications, roles and service accounts. Keep the target Observe,
+for existing applications, roles, service accounts and
+[qualified aggregates](architecture/existing-keycloak-adoption.md#implemented-aggregate-acquisition-and-native-preservation-49). Keep the target Observe,
 review its live candidate and approve the exact source/contract/hash. Ownership
 acquisition writes only owner+receipt, verifies unchanged UUID/configuration and
 stops. Source credentials are independent read-only inventory credentials; the
@@ -19,11 +20,17 @@ not a signature or semantic reconciliation/deletion permission.
 **Service-account upgrade:** existing unmarked pre-0.5 M2M clients cannot receive
 writes, recovered/rotated credentials or deletion merely because clientID, status,
 Secret or finalizer matches. Set Observe and obtain reviewed acquisition for a
-qualified leaf. Opaque/unqualified native state remains refused until #49; do not
+qualified leaf. Opaque/unqualified native state remains refused; do not
 forge owner attributes. New service accounts get a kind/UID envelope before secret
 retrieval. Imported labels remain Observe latches and are never removed automatically.
-All common receipt-bearing leaves currently refuse Manage until #49; deleting an
-Observe declaration preserves Keycloak state. Lost HTTP/status acknowledgements
+After acquisition, explicitly set Manage and remove the imported latch to request
+semantic reconciliation. The operator rechecks exact current ownership and the
+closed preservation schema before writes/credentials. Source/approval metadata
+may then be removed. Deleting an Observe declaration preserves Keycloak state.
+Manage deletion holds `CleanupConflict` when foreign/native dependencies or
+current ownership prevent safe cleanup. Adopted realm-role cleanup remains held
+because absence of every foreign reference is not bounded/qualified.
+Lost HTTP/status acknowledgements
 recover from the exact provider receipt without repeating the ownership PUT.
 
 ## Trust boundaries

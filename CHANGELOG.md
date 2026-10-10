@@ -2,6 +2,38 @@
 
 ## 0.5.0 — Unreleased
 
+- Add #49 Organization Observe/Manage and target-local aggregate candidates.
+  Bind live realm/group/path/parent and optional native Organization UUIDs;
+  write the same owner-only receipt at separate group/native checkpoints.
+  Recover partial acquisition, lost acknowledgements and status loss without
+  duplicating completed checkpoints. Root Organizations in external realms
+  require the feature to be enabled already.
+- Add selective ResourceServer V2 journals with exact owned IDs, realm/Application
+  identity and an embedded common receipt, preserving the Application receipt.
+  Block foreign incoming dependencies and unqualified selected native fields;
+  retain valid V1 reconciliation/recovery/cleanup without cosmetic migration.
+- Qualify explicit adopted-to-Manage after current ownership/preservation checks.
+  Keep acquisition Observe and the imported latch until explicit administrator
+  action. Source/approval annotations are not lifetime authority; live receipts
+  and journals recover ownership after status loss. Owned children can reconcile
+  inside external/Observe realms without acquiring the realm lifecycle.
+- Preserve closed native locale metadata, safe OIDC/SAML settings, foreign
+  mappers/client roles, additive role composites and Organization mappings,
+  children/members/domains/IdP links. Reject opaque or sensitive native state;
+  document all milestone-native families without claiming general provider
+  coverage. Recover existing service credentials only after explicit Manage.
+- Hold destructive cleanup on foreign client children/authorization boundaries,
+  Organization children/members/mappings/links, unsafe graph sharing or unproven
+  adopted-role reference absence. Keep finalizers on ownership conflicts after
+  status loss. V2 graph cleanup retains the client, sibling receipt and enabled
+  Authorization Services; Observe deletion preserves provider state.
+- Extend the installed scanned-image system test through acquisition, explicit
+  Manage, native preservation, restart/status recovery, drift repair and safe
+  cleanup/refusal with separate Organization and authorization writer profiles.
+  Final #49 source/image/matrix qualification remains in progress; no 0.5 tag
+  or public package has been created. GO-2026-5932 remains UNKNOWN/unfixed and
+  unsuppressed.
+
 - Implement #48: explicit target-local source/contract/candidate approval for
   lossless OIDC/SAML application, role and service-account ownership acquisition.
   Revalidate current Kubernetes/provider identity and bounded candidate through
@@ -9,9 +41,9 @@
   unchanged UUID/business semantics, and remain Observe. Recover lost HTTP
   acknowledgements/status checkpoints without another PUT; partial or conflicting
   state never authorizes semantic writes or rollback.
-- Add Manage/Observe to roles/service accounts, retain imported Observe latches,
-  and keep all common receipt-bearing leaves behind ManagePreservationUnqualified
-  until #49. Observe deletion preserves the provider and adds no finalizer/Secret.
+- Add Manage/Observe to roles/service accounts and retain imported Observe latches.
+  Unqualified native state remains behind ManagePreservationUnqualified.
+  Observe deletion preserves the provider and adds no finalizer/Secret.
   Legacy application UUID/observation migration remains compatible; combining
   legacy and common approval conflicts before writes.
 - Harden service-account clients and token mappers with distinct kind/UID owner
@@ -39,14 +71,14 @@
   brokers and bounded Authorization Services graphs without reading users,
   memberships or client-secret endpoints. Opaque credentials remain excluded;
   lossy native round trips and unresolved aggregate references are not approvable.
-- Aggregate acquisition and adopt-to-Manage preservation remain #49.
-  Packaging stays 0.4.0. GO-2026-5932 remains
+- Final aggregate/adopt-to-Manage qualification is tracked by #49.
+  Packaging stays 0.4.0 during qualification. GO-2026-5932 remains
   UNKNOWN/unfixed and unsuppressed: the Go advisory contains no fixed version.
 
 - Accept the existing-Keycloak adoption architecture: HankoImport remains
   discovery/Observe orchestration; target-local one-shot metadata approval will
   bind exact provider identity, complete semantic observation and a reviewed
-  typed diff. Ownership-only acquisition and separate Manage are future work.
+  typed diff. Acquisition writes only ownership; Manage is a separate decision.
 - Characterize owner-marker/journal preservation and destructive lifecycle
   boundaries on real HTTPS Keycloak 26.7.5/26.8.0. Retain arbitrary existing realm
   and opaque broker lifecycle as Observe-only; preserve legacy application

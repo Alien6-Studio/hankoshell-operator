@@ -274,5 +274,9 @@ For the unreleased 0.5 source ownership flow, follow the
 [reviewed leaf adoption workflow](../../docs/architecture/existing-keycloak-adoption.md#implemented-reviewed-leaf-acquisition-48)
 and [service-account upgrade guidance](../../docs/secure-deployment.md#reviewed-existing-client-ownership).
 Approval is target-local Kubernetes metadata, not a chart flag. Existing unmarked
-M2M clients require reviewed acquisition; common receipt-bearing leaves remain
-Observe and refuse Manage until #49. Chart/app packaging remains 0.4.0.
+M2M clients require reviewed acquisition. Leaf and
+[aggregate checkpoints](../../docs/architecture/existing-keycloak-adoption.md#implemented-aggregate-acquisition-and-native-preservation-49)
+remain Observe until an administrator explicitly requests Manage and removes the
+imported latch. Exact current ownership and qualified native preservation are
+required; foreign dependencies hold cleanup. Chart/app packaging remains 0.4.0
+until final source qualification completes.

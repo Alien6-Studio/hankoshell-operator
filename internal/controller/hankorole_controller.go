@@ -144,13 +144,23 @@ func (r *HankoRoleReconciler) roleDriver(role *hankoshv1alpha1.HankoRole) roles.
 	return roles.NewKeycloakDriver(kcForObject(r.Pool, role.Namespace, role.Labels))
 }
 func (r *HankoRoleReconciler) compileRolePlan(ctx context.Context, role *hankoshv1alpha1.HankoRole, driver roles.Driver) (roles.Plan, error) {
-	reader := &contractReferenceReader{Client: r.Client}
+	reader := &contractReferenceReader{Client: r.Client, Reader: r.APIReader}
 	var realm hankoshv1alpha1.HankoRealm
 	if err := reader.Get(ctx, client.ObjectKey{Namespace: role.Namespace, Name: role.Spec.RealmRef}, &realm); err != nil {
 		return roles.Plan{}, err
 	}
-	if !realm.DeletionTimestamp.IsZero() || (isImported(realm.Labels) && effectiveRoleMode(role) == ModeManage) {
+	if !realm.DeletionTimestamp.IsZero() {
 		return roles.Plan{}, iamcontract.ErrRejected
+	}
+	if isImported(realm.Labels) && effectiveRoleMode(role) == ModeManage {
+		kc := kcForObject(r.Pool, role.Namespace, role.Labels)
+		if kc == nil {
+			return roles.Plan{}, iamcontract.ErrRejected
+		}
+		current, err := kc.GetRealmRole(ctx, role.Spec.RealmRef, role.Spec.Name)
+		if err != nil || current == nil || len(current.Attributes[roles.OwnerAttribute]) != 1 || current.Attributes[roles.OwnerAttribute][0] != string(role.UID) {
+			return roles.Plan{}, iamcontract.ErrRejected
+		}
 	}
 	caps, err := driver.Capabilities(ctx)
 	if err != nil {
@@ -189,7 +199,11 @@ func (r *HankoRoleReconciler) validateRoleAuthority(ctx context.Context, role *h
 }
 func (r *HankoRoleReconciler) validateRoleExecution(ctx context.Context, obj *hankoshv1alpha1.HankoRole, driver roles.Driver, plan roles.Plan) error {
 	var current hankoshv1alpha1.HankoRole
-	if err := r.Get(ctx, client.ObjectKeyFromObject(obj), &current); err != nil {
+	reader := r.APIReader
+	if reader == nil {
+		reader = r.Client
+	}
+	if err := reader.Get(ctx, client.ObjectKeyFromObject(obj), &current); err != nil {
 		return err
 	}
 	if !current.DeletionTimestamp.IsZero() {
@@ -304,8 +318,10 @@ func (r *HankoRoleReconciler) reconcileRoleDeletion(ctx context.Context, role *h
 			return ctrl.Result{}, err
 		}
 		if preserve {
-			controllerutil.RemoveFinalizer(role, roleFinalizerName)
-			return ctrl.Result{}, r.Update(ctx, role)
+			// No bounded API proves absence of every foreign user/group,
+			// composite, scope and authorization-policy reference to this role.
+			// Keep the adopted role until an administrator resolves that boundary.
+			return adoptedCleanupConflict(ctx, r.Client, role)
 		}
 	}
 	caps, err := driver.Capabilities(ctx)

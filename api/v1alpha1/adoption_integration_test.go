@@ -17,7 +17,7 @@ import (
 
 func checkAdoptionStatusContract(t *testing.T, ctx context.Context, admin client.Client) {
 	t.Helper()
-	for _, kind := range []string{"HankoApplication", "HankoRole", "HankoServiceAccount", "HankoResourceServer"} {
+	for _, kind := range []string{"HankoApplication", "HankoRole", "HankoServiceAccount", "HankoOrganization", "HankoResourceServer"} {
 		t.Run(kind, func(t *testing.T) {
 			spec := map[string]any{"realmRef": "adoption-realm"}
 			switch kind {
@@ -29,6 +29,8 @@ func checkAdoptionStatusContract(t *testing.T, ctx context.Context, admin client
 				spec["name"] = "role"
 			case "HankoServiceAccount":
 				spec["clientID"] = "service"
+			case "HankoOrganization":
+				spec["name"] = "organization"
 			case "HankoResourceServer":
 				spec["audience"] = "api"
 				spec["applicationRef"] = "app"
@@ -38,7 +40,7 @@ func checkAdoptionStatusContract(t *testing.T, ctx context.Context, admin client
 			if err := admin.Create(ctx, obj); err != nil {
 				t.Fatal(err)
 			}
-			if kind == "HankoRole" || kind == "HankoServiceAccount" {
+			if kind == "HankoRole" || kind == "HankoServiceAccount" || kind == "HankoOrganization" {
 				if mode, _, _ := unstructured.NestedString(obj.Object, "spec", "mode"); mode != "Manage" {
 					t.Fatal("omitted mode did not default to Manage")
 				}
@@ -47,8 +49,10 @@ func checkAdoptionStatusContract(t *testing.T, ctx context.Context, admin client
 				if err := admin.Update(ctx, bad); !apierrors.IsInvalid(err) {
 					t.Fatal("invalid mode admitted")
 				}
+			}
+			if kind == "HankoRole" || kind == "HankoServiceAccount" {
 				for _, key := range []string{"hanko.sh/role-owner", "hanko.sh/client-owner-kind", "hanko.sh/client-owner-uid", "hanko.sh/application-owner", "hanko.sh/adoption-receipt"} {
-					bad = obj.DeepCopy()
+					bad := obj.DeepCopy()
 					var value any = "forged"
 					if kind == "HankoRole" {
 						value = []any{"forged"}
@@ -72,7 +76,7 @@ func checkAdoptionStatusContract(t *testing.T, ctx context.Context, admin client
 			if complete, _, _ := unstructured.NestedBool(got.Object, "status", "adoptionCandidate", "complete"); !complete {
 				t.Fatal("candidate status did not round-trip")
 			}
-			if kind != "HankoResourceServer" {
+			{
 				obj.Object["status"] = map[string]any{"adoptionCandidate": candidate, "adoptionReceipt": map[string]any{"contractVersion": "hanko.sh/adoption-contract/v1alpha1", "candidateHash": digest, "state": "Verified"}}
 				if err := admin.Status().Update(ctx, obj); err != nil {
 					t.Fatal(err)

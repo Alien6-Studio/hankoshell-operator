@@ -51,6 +51,7 @@ class System:
         self.sensitive = [self.password, self.credential]
         self.http, self.token, self.endpoint = None, "", ""
         self.token_at = 0
+        self.scanned_operators = [("auth", "system-operator"), ("org-auth", "organization-operator")]
 
     def kubectl(self, *args, **kwargs):
         return run([self.args.kubectl, "--kubeconfig", self.config, *args], **kwargs)
@@ -575,7 +576,7 @@ class System:
             raise ValueError("SAML finalizer left owned client behind")
 
     def ownership_adoption(self):
-        """Qualify leaf acquisition through the installed, scanned manager."""
+        """Qualify import, acquisition, explicit Manage, repair and cleanup."""
         reader_secret = secrets.token_hex(32)
         credential = secrets.token_hex(32)
         self.sensitive.extend((reader_secret, credential))
@@ -594,14 +595,17 @@ class System:
             "clientId": "system-adopt-m2m", "name": "system-adopt-m2m", "secret": credential,
             "protocol": "openid-connect", "enabled": True, "publicClient": False,
             "serviceAccountsEnabled": True, "standardFlowEnabled": False, "directAccessGrantsEnabled": False,
-            "fullScopeAllowed": False, "frontchannelLogout": True, "redirectUris": [], "webOrigins": [],
+            "fullScopeAllowed": False, "frontchannelLogout": True, "redirectUris": [], "webOrigins": [], "attributes": {"locale": "en"},
             "defaultClientScopes": [], "optionalClientScopes": []})
         before = self.client("managed", "system-adopt-m2m")
         path = base + "/clients/" + before["id"]
         for scope in self.api("GET", path + "/default-client-scopes"):
             self.api("DELETE", path + "/default-client-scopes/" + scope["id"])
         before = self.client("managed", "system-adopt-m2m")
-        self.api("POST", base + "/roles", {"name": "system-adopt-role", "description": "Reviewed leaf"})
+        self.api("POST", base + "/roles", {"name": "system-adopt-role", "description": "Reviewed leaf", "attributes": {"locale": ["fr"]}})
+        self.api("POST", base + "/roles", {"name": "system-foreign-composite"})
+        foreign_composite = self.api("GET", base + "/roles/system-foreign-composite")
+        self.api("POST", base + "/roles/system-adopt-role/composites", [foreign_composite])
         role_before = self.api("GET", base + "/roles/system-adopt-role")
         readonly = self.access_token({"client_id": "system-inventory", "client_secret": reader_secret, "grant_type": "client_credentials"})
         self.api("PUT", path, before, token=readonly, expected=(403,))
@@ -618,6 +622,10 @@ class System:
         # Import publishes discovery candidates while creating targets. Finish
         # that publisher before reviewing a fresh target-controller observation.
         wait("completed leaf inventory", lambda: self.get("hankoimport", "leaf-inventory").get("status", {}).get("phase") == "Done")
+        self.kubectl("label", "hankorealm", "managed", "-n", "auth", "hanko.sh/imported-by=leaf-inventory", "--overwrite")
+        wait("external realm Observe boundary", lambda: not self.get("hankorealm", "managed")["metadata"].get("finalizers") and any(
+            c.get("reason") == "Observed" for c in self.get("hankorealm", "managed").get("status", {}).get("conditions", [])))
+        realm_before = self.api("GET", base)
 
         def imported(kind, field, value):
             items = json.loads(self.kubectl("get", kind, "-n", "auth", "-o", "json"))["items"]
@@ -687,15 +695,252 @@ class System:
             if self.get(kind, name)["metadata"].get("finalizers"):
                 raise ValueError("Imported latch allowed destructive authority")
             self.kubectl("label", kind, name, "-n", "auth", "hanko.sh/imported-by-")
-            wait("explicit Manage preservation gate", lambda: any(
-                c.get("type") == "OwnershipAdopted" and c.get("reason") == "ManagePreservationUnqualified"
-                for c in self.get(kind, name).get("status", {}).get("conditions", [])))
-            self.kubectl("patch", kind, name, "-n", "auth", "--type=merge", "-p", '{"spec":{"mode":"Observe"}}')
-            self.kubectl("delete", kind, name, "-n", "auth", "--wait=true", "--timeout=30s")
-            preserved = self.client("managed", value) if kind == "hankoserviceaccount" else self.api("GET", base + "/roles/" + value)
-            if preserved["id"] != original["id"]:
-                raise ValueError("Observe deletion removed or replaced the acquired leaf")
+            self.kubectl("annotate", kind, name, "-n", "auth", "hanko.sh/adoption-source-", "hanko.sh/adoption-contract-", "hanko.sh/adoption-candidate-")
+            wait("explicit adopted Manage", lambda: self.get(kind, name)["metadata"].get("finalizers") and self.ready(kind, name))
+            current = self.client("managed", value) if kind == "hankoserviceaccount" else self.api("GET", base + "/roles/" + value)
+            if current["id"] != original["id"] or current.get("attributes", {}).get("locale") != ("en" if kind == "hankoserviceaccount" else ["fr"]):
+                raise ValueError("Adopted Manage lost native metadata or replaced UUID")
+            # Lose status, then restart the real manager. The provider receipt
+            # must remain the only ownership checkpoint.
+            self.kubectl("patch", kind, name, "-n", "auth", "--subresource=status", "--type=merge", "-p", '{"status":null}')
+            if kind == "hankorole":
+                current["description"] = "Drift"
+                self.api("PUT", base + "/roles/" + value, current)
+            else:
+                self.kubectl("patch", kind, name, "-n", "auth", "--type=merge", "-p", '{"spec":{"attributes":{"locale":"fr"}}}')
+            self.kubectl("rollout", "restart", "deployment/system-operator", "-n", "auth")
+            self.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=120s")
+            if kind == "hankoserviceaccount":
+                wait("adopted service native-field repair", lambda: self.client("managed", value).get("attributes", {}).get("locale") == "fr" and self.ready(kind, name))
+                reference = self.get(kind, name)["status"]["secretRef"]["secretRef"]
+                if base64.b64decode(self.get("secret", reference["name"])["data"][reference["key"]]).decode() != credential:
+                    raise ValueError("Post-Manage recovery changed the service credential")
+                self.kubectl("delete", kind, name, "-n", "auth", "--wait=true", "--timeout=120s")
+                if self.api("GET", base + "/clients?" + urlencode({"clientId": value})):
+                    raise ValueError("Safe adopted client cleanup left its owned node")
+            else:
+                wait("adopted role drift repair", lambda: self.api("GET", base + "/roles/" + value).get("description") == "Reviewed leaf" and self.role_reconciled(name))
+                if self.api("GET", base + "/roles/" + value + "/composites") != [foreign_composite]:
+                    raise ValueError("Adopted role lost its foreign composite")
+                self.kubectl("delete", kind, name, "-n", "auth", "--wait=false")
+                wait("adopted role unproven cleanup refusal", lambda: self.cleanup_conflict(kind, name))
+                self.api("GET", base + "/roles/" + value)
+                # Explicit Observe withdraws provider deletion consent.
+                self.kubectl("patch", kind, name, "-n", "auth", "--type=merge", "-p", '{"spec":{"mode":"Observe"}}')
+                wait("Observe releases adopted role finalizer", lambda: not self.exists(kind, name))
+                if self.api("GET", base + "/roles/" + value)["id"] != original["id"]:
+                    raise ValueError("Observe removed or replaced the adopted role")
+        if self.api("GET", base) != realm_before or self.get("hankorealm", "managed")["metadata"].get("finalizers"):
+            raise ValueError("Child Manage acquired or changed the external realm")
+        self.kubectl("label", "hankorealm", "managed", "-n", "auth", "hanko.sh/imported-by-")
         self.kubectl("delete", "hankoimport", "leaf-inventory", "-n", "auth", "--wait=true", "--timeout=30s")
+
+    def exists(self, kind, name, namespace="auth"):
+        result = subprocess.run([str(self.args.kubectl), "--kubeconfig", str(self.config), "get", kind, name,
+                                 "-n", namespace, "--ignore-not-found", "-o", "name"], capture_output=True, timeout=30, check=True)
+        return bool(result.stdout.strip())
+
+    def cleanup_conflict(self, kind, name, namespace="auth"):
+        value = self.get(kind, name, namespace)
+        return bool(value["metadata"].get("deletionTimestamp") and value["metadata"].get("finalizers") and any(
+            c.get("reason") == "CleanupConflict" for c in value.get("status", {}).get("conditions", [])))
+
+    def adoption_identity(self, name, realm, permissions):
+        credential = secrets.token_hex(32)
+        self.sensitive.append(credential)
+        self.api("POST", "/admin/realms/master/clients", {"clientId": name, "secret": credential,
+            "protocol": "openid-connect", "enabled": True, "publicClient": False, "serviceAccountsEnabled": True,
+            "standardFlowEnabled": False, "directAccessGrantsEnabled": False, "fullScopeAllowed": False})
+        identity, proxy = self.client("master", name), self.client("master", realm + "-realm")
+        user = self.api("GET", f'/admin/realms/master/clients/{identity["id"]}/service-account-user')
+        roles = [self.api("GET", f'/admin/realms/master/clients/{proxy["id"]}/roles/{permission}') for permission in permissions]
+        self.api("POST", f'/admin/realms/master/users/{user["id"]}/role-mappings/clients/{proxy["id"]}', roles)
+        self.api("POST", f'/admin/realms/master/clients/{identity["id"]}/scope-mappings/clients/{proxy["id"]}', roles)
+        constrained = self.access_token({"client_id": name, "client_secret": credential, "grant_type": "client_credentials"})
+        self.api("DELETE", "/admin/realms/" + realm, token=constrained, expected=(403,))
+        self.api("PUT", "/admin/realms/" + realm, {"sslRequired": "none"}, token=constrained, expected=(403,))
+        self.api("POST", "/admin/realms", {"realm": "denied-adoption"}, token=constrained, expected=(403,))
+        return credential
+
+    def adoption_operator(self, namespace, realm, reader_roles, writer_roles):
+        writer, reader = namespace + "-writer", namespace + "-reader"
+        writer_secret = self.adoption_identity(writer, realm, writer_roles)
+        reader_secret = self.adoption_identity(reader, realm, reader_roles)
+        self.apply({"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": namespace, "labels": {
+            "pod-security.kubernetes.io/enforce": "restricted", "pod-security.kubernetes.io/enforce-version": "v1.37"}}},
+            self.secret("operator-credentials", {"client-id": writer, "client-secret": writer_secret}, namespace),
+            self.secret("operator-ca", {"ca.crt": (self.private / "tls.crt").read_text()}, namespace),
+            self.secret("inventory-credentials", {"HANKO_KEYCLOAK_URL": "https://keycloak.auth.svc:8443",
+                "HANKO_KC_CLIENT_ID": reader, "HANKO_KC_CLIENT_SECRET": reader_secret}, namespace))
+        values = yaml.safe_load((self.private / "values.yaml").read_text())
+        values["fullnameOverride"] = namespace + "-operator"
+        values["networkPolicy"]["keycloakNamespace"] = "auth"
+        config = self.private / (namespace + "-values.yaml")
+        config.write_text(yaml.safe_dump(values))
+        run([self.args.helm, "install", namespace, ROOT / "charts/hankoshell-operator", "--namespace", namespace,
+             "--kubeconfig", self.config, "--values", config, "--wait", "--timeout", "180s"])
+        self.scanned_operators.append((namespace, namespace + "-operator"))
+        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoRealm", "metadata": {
+            "name": realm, "namespace": namespace, "labels": {"hanko.sh/imported-by": "external"}}, "spec": {}},
+            {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoKeycloakInstance", "metadata": {"name": "source", "namespace": namespace},
+             "spec": {"mode": "external", "adminRef": {"name": "inventory-credentials"}, "tlsCARef": "operator-ca"}})
+        wait("installed external realm observation", lambda: self.ready("hankorealm", realm, namespace) and not self.get("hankorealm", realm, namespace)["metadata"].get("finalizers"))
+
+    def approve_aggregate(self, kind, name, namespace):
+        wait("complete installed aggregate candidate " + kind, lambda: self.get(kind, name, namespace).get("status", {}).get("adoptionCandidate", {}).get("approvable") is True)
+        target = self.get(kind, name, namespace)
+        candidate = target["status"]["adoptionCandidate"]
+        if target["metadata"].get("finalizers") or target["spec"].get("mode") != "Observe":
+            raise ValueError("Candidate gained lifecycle before explicit Manage")
+        self.kubectl("annotate", kind, name, "-n", namespace, "hanko.sh/adoption-source=source",
+                     "hanko.sh/adoption-contract=hanko.sh/adoption-contract/v1alpha1",
+                     "hanko.sh/adoption-candidate=" + candidate["candidateHash"])
+        wait("installed aggregate checkpoint read-back " + kind, lambda: self.get(kind, name, namespace).get("status", {}).get("adoptionReceipt", {}).get("state") == "Verified")
+        acquired = self.get(kind, name, namespace)
+        if acquired["metadata"].get("finalizers") or acquired["spec"].get("mode") != "Observe":
+            raise ValueError("Aggregate checkpoint implicitly granted Manage")
+        return {"contractVersion": "hanko.sh/adoption-contract/v1alpha1", "targetKind": acquired["kind"],
+                "targetUID": acquired["metadata"]["uid"], "candidateHash": candidate["candidateHash"]}
+
+    def aggregate_manage(self, kind, name, namespace):
+        self.kubectl("annotate", kind, name, "-n", namespace, "hanko.sh/adoption-source-", "hanko.sh/adoption-contract-", "hanko.sh/adoption-candidate-")
+        self.kubectl("patch", kind, name, "-n", namespace, "--type=merge", "-p", '{"spec":{"mode":"Manage"}}')
+        wait("explicit installed aggregate Manage " + kind, lambda: self.ready(kind, name, namespace) and self.get(kind, name, namespace)["metadata"].get("finalizers"))
+
+    def organization_adoption(self):
+        realm, namespace, name = "adopt-org-target", "adopt-org", "reviewed-root"
+        base = "/admin/realms/" + realm
+        self.api("POST", "/admin/realms", {"realm": realm, "enabled": True, "organizationsEnabled": True})
+        self.adoption_operator(namespace, realm,
+            ["view-realm", "view-users", "view-organizations", "view-identity-providers", "view-clients"],
+            ["view-realm", "manage-users", "manage-organizations", "view-identity-providers", "view-clients"])
+        self.api("POST", base + "/groups", {"name": name, "attributes": {"trunx_slug": [name], "locale": ["fr"]}})
+        group = self.api("GET", base + "/group-by-path/" + name)
+        group_path = base + "/groups/" + group["id"]
+        self.api("POST", group_path + "/children", {"name": "foreign-child"})
+        foreign = self.api("GET", group_path + "/children")
+        self.api("POST", base + "/organizations", {"name": name, "alias": name, "enabled": True,
+            "attributes": {"locale": ["en"]}, "domains": [{"name": "reviewed.example.test", "verified": True}]})
+        native = [item for item in self.api("GET", base + "/organizations?max=100") if item["alias"] == name][0]
+        native_path = base + "/organizations/" + native["id"]
+        native = self.api("GET", native_path)
+        realm_before = self.api("GET", base)
+        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoOrganization",
+            "metadata": {"name": name, "namespace": namespace, "annotations": {"hanko.sh/adoption-source": "source"}},
+            "spec": {"mode": "Observe", "realmRef": realm, "name": name, "slug": name, "domains": ["reviewed.example.test"]}})
+        receipt = self.approve_aggregate("hankoorganization", name, namespace)
+        for path in (group_path, native_path):
+            if json.loads(self.api("GET", path)["attributes"]["hanko.sh/adoption-receipt"][0]) != receipt:
+                raise ValueError("Installed group/native checkpoints do not share the reviewed receipt")
+        self.aggregate_manage("hankoorganization", name, namespace)
+        changed = self.api("GET", native_path)
+        changed["enabled"] = False
+        self.api("PUT", native_path, changed)
+        self.kubectl("patch", "hankoorganization", name, "-n", namespace, "--subresource=status", "--type=merge", "-p", '{"status":null}')
+        self.kubectl("rollout", "restart", "deployment/" + namespace + "-operator", "-n", namespace)
+        self.kubectl("rollout", "status", "deployment/" + namespace + "-operator", "-n", namespace, "--timeout=120s")
+        wait("installed adopted native Organization repair", lambda: self.api("GET", native_path).get("enabled") is True and self.ready("hankoorganization", name, namespace))
+        if (self.api("GET", group_path)["attributes"].get("locale") != ["fr"] or
+                self.api("GET", group_path + "/children") != foreign or self.api("GET", native_path)["domains"] != native["domains"] or
+                self.api("GET", native_path)["attributes"].get("locale") != ["en"]):
+            raise ValueError("Installed aggregate Manage lost foreign/native state")
+        self.kubectl("delete", "hankoorganization", name, "-n", namespace, "--wait=false")
+        wait("foreign child holds installed aggregate cleanup", lambda: self.cleanup_conflict("hankoorganization", name, namespace))
+        if self.api("GET", group_path + "/children") != foreign:
+            raise ValueError("Unsafe Organization cleanup mutated foreign children")
+        self.api("DELETE", base + "/groups/" + foreign[0]["id"])
+        wait("safe installed aggregate cleanup", lambda: not self.exists("hankoorganization", name, namespace))
+        self.api("GET", group_path, expected=(404,))
+        self.api("GET", native_path, expected=(404,))
+        if self.api("GET", base) != realm_before or self.get("hankorealm", realm, namespace)["metadata"].get("finalizers"):
+            raise ValueError("Organization child lifecycle changed the external realm")
+
+    def resourceserver_adoption(self):
+        realm, namespace = "adopt-authz-target", "adopt-authz"
+        base = "/admin/realms/" + realm
+        self.api("POST", "/admin/realms", {"realm": realm, "enabled": True})
+        self.adoption_operator(namespace, realm, ["view-realm", "view-clients", "view-authorization"],
+            ["view-realm", "manage-clients", "manage-authorization"])
+        credential = secrets.token_hex(32)
+        self.sensitive.append(credential)
+        self.api("POST", base + "/clients", {"clientId": "reviewed-api", "name": "reviewed-api", "secret": credential,
+            "protocol": "openid-connect", "enabled": True, "publicClient": False, "serviceAccountsEnabled": True,
+            "standardFlowEnabled": False, "directAccessGrantsEnabled": False, "fullScopeAllowed": False,
+            "authorizationServicesEnabled": True, "frontchannelLogout": True, "defaultClientScopes": [], "optionalClientScopes": [], "attributes": {"locale": "en"}})
+        backing = self.client(realm, "reviewed-api")
+        client_path = base + "/clients/" + backing["id"]
+        for scope in self.api("GET", client_path + "/default-client-scopes"):
+            self.api("DELETE", client_path + "/default-client-scopes/" + scope["id"])
+        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoApplication",
+            "metadata": {"name": "api", "namespace": namespace, "annotations": {"hanko.sh/adoption-source": "source"}},
+            "spec": {"realmRef": realm, "clientID": "reviewed-api", "type": "m2m", "mode": "Observe"}})
+        app_receipt = self.approve_aggregate("hankoapplication", "api", namespace)
+        self.aggregate_manage("hankoapplication", "api", namespace)
+        authz = client_path + "/authz/resource-server"
+
+        def object_id(collection, name, key="id"):
+            matches = [item for item in self.api("GET", authz + "/" + collection + "?max=100") if item["name"] == name]
+            if len(matches) != 1:
+                raise ValueError("Selected graph identity is ambiguous")
+            return matches[0][key]
+
+        self.api("POST", base + "/roles", {"name": "reviewed-readers"})
+        principal = self.api("GET", base + "/roles/reviewed-readers")
+        self.api("POST", authz + "/scope", {"name": "read", "displayName": "Read"})
+        scope_id = object_id("scope", "read")
+        self.api("POST", authz + "/resource", {"name": "invoice", "uris": ["/invoice"], "scopes": [{"id": scope_id, "name": "read"}]})
+        resource_id = object_id("resource", "invoice", "_id")
+        policy_name = "hanko:server:readers:realm_roles"
+        self.api("POST", authz + "/policy/role", {"name": policy_name, "logic": "POSITIVE", "decisionStrategy": "AFFIRMATIVE", "roles": [{"id": principal["id"], "required": False}]})
+        policy_id = object_id("policy", policy_name)
+        self.api("POST", authz + "/permission/scope", {"name": "readers", "type": "scope", "logic": "POSITIVE", "decisionStrategy": "AFFIRMATIVE", "scopes": [scope_id], "resources": [resource_id], "policies": [policy_id]})
+        permission_id = object_id("permission", "readers")
+        self.api("POST", authz + "/resource", {"name": "foreign-invoice", "uris": ["/foreign"]})
+        foreign_id = object_id("resource", "foreign-invoice", "_id")
+        foreign = self.api("GET", authz + "/resource/" + foreign_id)
+        realm_before = self.api("GET", base)
+        selected = {"scopes": [{"name": "read", "id": scope_id}], "resources": [{"name": "invoice", "id": resource_id}],
+            "policies": [{"name": "readers:realm_roles", "id": policy_id}], "permissions": [{"name": "readers", "id": permission_id}], "resourceServerID": backing["id"]}
+        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoRole", "metadata": {"name": "readers", "namespace": namespace},
+                    "spec": {"mode": "Observe", "realmRef": realm, "name": "reviewed-readers"}},
+            {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoResourceServer", "metadata": {
+                "name": "server", "namespace": namespace, "annotations": {"hanko.sh/adoption-source": "source"}},
+             "spec": {"mode": "Observe", "realmRef": realm, "applicationRef": "api", "audience": "urn:reviewed",
+                "scopes": [{"name": "read", "description": "Read"}], "resources": [{"name": "invoice", "uris": ["/invoice"], "scopes": ["read"]}],
+                "permissions": [{"name": "readers", "scopes": ["read"], "resources": ["invoice"], "principals": [{"kind": "realm_role", "ref": "readers"}]}]}})
+        receipt = self.approve_aggregate("hankoresourceserver", "server", namespace)
+        actual = self.client(realm, "reviewed-api")
+        journal = json.loads(actual["attributes"]["hanko.sh/resource-server-ownership"])
+        if journal.get("version") != 2 or journal.get("objects") != selected or journal.get("adoptionReceipt") != receipt or json.loads(actual["attributes"]["hanko.sh/adoption-receipt"]) != app_receipt:
+            raise ValueError("Installed V2 selected journal/receipt differs or overwrote Application receipt")
+        self.kubectl("patch", "hankoresourceserver", "server", "-n", namespace, "--subresource=status", "--type=merge", "-p", '{"status":null}')
+        self.aggregate_manage("hankoresourceserver", "server", namespace)
+        # Drift a selected field; foreign resource and all selected UUIDs remain.
+        self.api("PUT", authz + "/scope/" + scope_id, {"id": scope_id, "name": "read", "displayName": "Drift"})
+        self.kubectl("rollout", "restart", "deployment/" + namespace + "-operator", "-n", namespace)
+        self.kubectl("rollout", "status", "deployment/" + namespace + "-operator", "-n", namespace, "--timeout=120s")
+        wait("installed selected graph drift repair", lambda: self.api("GET", authz + "/scope/" + scope_id).get("displayName") == "Read" and self.ready("hankoresourceserver", "server", namespace))
+        if self.api("GET", authz + "/resource/" + foreign_id) != foreign:
+            raise ValueError("Installed Manage mutated a foreign graph node")
+        self.api("POST", authz + "/resource", {"name": "late-shared", "scopes": [{"id": scope_id, "name": "read"}]})
+        shared_id = object_id("resource", "late-shared", "_id")
+        self.kubectl("delete", "hankoresourceserver", "server", "-n", namespace, "--wait=false")
+        wait("installed foreign incoming dependency cleanup refusal", lambda: self.cleanup_conflict("hankoresourceserver", "server", namespace))
+        self.api("GET", authz + "/scope/" + scope_id)
+        self.api("DELETE", authz + "/resource/" + shared_id)
+        wait("safe selected graph cleanup", lambda: not self.exists("hankoresourceserver", "server", namespace))
+        for kind, identity in (("scope", scope_id), ("resource", resource_id), ("policy/role", policy_id), ("permission/scope", permission_id)):
+            self.api("GET", authz + "/" + kind + "/" + identity, expected=(404,))
+        remaining = self.client(realm, "reviewed-api")
+        if (not remaining.get("authorizationServicesEnabled") or "hanko.sh/resource-server-ownership" in remaining["attributes"] or
+                json.loads(remaining["attributes"]["hanko.sh/adoption-receipt"]) != app_receipt or self.api("GET", authz + "/resource/" + foreign_id) != foreign):
+            raise ValueError("Selected cleanup erased foreign graph or sibling ownership")
+        self.kubectl("delete", "hankoapplication", "api", "-n", namespace, "--wait=false")
+        wait("foreign authorization graph holds parent deletion", lambda: self.cleanup_conflict("hankoapplication", "api", namespace))
+        self.kubectl("patch", "hankoapplication", "api", "-n", namespace, "--type=merge", "-p", '{"spec":{"mode":"Observe"}}')
+        wait("explicit Observe releases parent lifecycle", lambda: not self.exists("hankoapplication", "api", namespace))
+        if self.client(realm, "reviewed-api")["id"] != backing["id"] or self.api("GET", base) != realm_before:
+            raise ValueError("Child cleanup replaced the client or changed the external realm")
 
     def reconcile(self):
         self.reject_wrong_ca()
@@ -773,9 +1018,11 @@ class System:
         self.kubectl("delete", "hankoapplication", "observe", "-n", "auth", "--wait=true", "--timeout=30s")
         self.client("managed", "unmanaged")
         self.standalone_organizations()
+        self.organization_adoption()
+        self.resourceserver_adoption()
         # Verify logs, events and every stored CRD, never exposing Secret values.
         data = ""
-        for namespace, deployment in (("auth", "system-operator"), ("org-auth", "organization-operator")):
+        for namespace, deployment in self.scanned_operators:
             data += self.kubectl("logs", "deployment/" + deployment, "-n", namespace) + self.kubectl("get", "events", "-n", namespace, "-o", "json")
             for crd in json.loads(self.kubectl("get", "crds", "-o", "json"))["items"]:
                 if crd["spec"]["group"] == "hanko.sh":
@@ -823,9 +1070,11 @@ def main():
                            "verified private-CA HTTPS, wrong-CA readiness/write denial and trust repair", "scoped Keycloak identity and denied authority", "realm/client/roles/Secret reconciliation",
                            "IAM role and authorization evaluated/applied/read-back evidence, UID ownership and finalizer cleanup",
                            "legacy OIDC and SAML installed contracts, metadata, UID ownership, Observe/no SAML Secret and deletion",
-                           "imported M2M and role explicit leaf ownership, exact candidate/receipt/UUID, no credential rotation/projection, import latch and Observe deletion",
-                           "common receipt-bearing leaves deny Manage with ManagePreservationUnqualified pending #49",
+                           "imported M2M and role reviewed leaf acquisition, exact candidate/receipt/UUID, no acquisition credential access, import latch, explicit Manage, native locale/composite preservation and restart/status-loss recovery",
+                           "receipt-backed safe M2M cleanup; role cleanup holds unqualified foreign-reference boundary and explicit Observe preserves the provider",
                            "standalone root/child organization and owned direct-only organizational descendant grant, current applied/read-back evidence, grant cleanup preserving organizations; native alias/domains, role bindings, Synced=True and Projection=Unknown/Disabled, no API URL/token/PositionID and child-first finalizer cleanup",
+                           "Organization group/native owner-only checkpoints, same receipt, explicit Manage, native drift repair, foreign child cleanup refusal and safe selected cleanup in an external realm",
+                           "Application acquisition followed by ResourceServer selective V2 journal, sibling receipt preservation, exact selected IDs, status-loss/restart recovery, drift repair, late shared dependency cleanup refusal and foreign graph survival",
                            "drift recovery after manager restart without duplicate client or credential rotation", "managed finalizer and Observe preservation", "runtime M2M projected-credential token and rotation", "SAML metadata binding and target-preserving cleanup",
                            "no credentials in logs/events/CRDs"],
                 "organization_permissions": {"scope": "organization-target only", "roles": ["manage-realm", "manage-clients", "manage-events", "manage-users"],
@@ -833,7 +1082,15 @@ def main():
                 "adoption_permissions": {"scope": "managed target realm", "reader": ["view-realm", "view-clients"],
                                          "writer": ["manage-realm", "manage-clients", "manage-events"],
                                          "reader_denied": ["client PUT", "client-secret GET"]},
-                "limitations": ["single disposable kind node and Keycloak dev-file database",
+                "aggregate_adoption_permissions": {
+                    "organizations": {"scope": "adopt-org-target only", "reader": ["view-realm", "view-users", "view-organizations", "view-identity-providers", "view-clients"],
+                        "writer": ["view-realm", "manage-users", "manage-organizations", "view-identity-providers", "view-clients"]},
+                    "authorization": {"scope": "adopt-authz-target only", "reader": ["view-realm", "view-clients", "view-authorization"],
+                        "writer": ["view-realm", "manage-clients", "manage-authorization"]},
+                    "denied": ["target realm deletion", "realm security PUT", "global realm creation"]},
+                "limitations": ["realm-role definitions require manage-realm with target-realm security/deletion authority; no realm-admin or global administrator",
+                                "adopted realm-role cleanup remains held without qualified absence of foreign references",
+                                "single disposable kind node and Keycloak dev-file database",
                                 "kindnet does not enforce NetworkPolicy; CNI, CSI/cloud, enterprise fleet and DB recovery unqualified"]}, indent=2) + "\n")
             print("System qualification passed", flush=True)
         except Exception:

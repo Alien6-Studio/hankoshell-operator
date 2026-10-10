@@ -504,6 +504,29 @@ spec:
                 - target
                 - truncated
                 type: object
+              adoptionReceipt:
+                description: AdoptionReceipt reports provider-journal verification,
+                  never ownership authority.
+                properties:
+                  candidateHash:
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  contractVersion:
+                    enum:
+                    - hanko.sh/adoption-contract/v1alpha1
+                    type: string
+                  state:
+                    enum:
+                    - Pending
+                    - Verified
+                    - Partial
+                    - Conflict
+                    type: string
+                required:
+                - candidateHash
+                - contractVersion
+                - state
+                type: object
               appliedGeneration:
                 description: |-
                   AppliedGeneration is the latest Manage generation proven by matching

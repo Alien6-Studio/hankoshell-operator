@@ -155,6 +155,8 @@ type AuthorizationPrincipal struct {
 type HankoResourceServerStatus struct {
 	// AdoptionCandidate is bounded review evidence, never execution authority.
 	AdoptionCandidate *AdoptionCandidateStatus `json:"adoptionCandidate,omitempty"`
+	// AdoptionReceipt reports provider-journal verification, never ownership authority.
+	AdoptionReceipt *AdoptionReceiptStatus `json:"adoptionReceipt,omitempty"`
 
 	// +kubebuilder:validation:Enum=Pending;Reconciling;Ready;Error
 	Phase string `json:"phase,omitempty"`

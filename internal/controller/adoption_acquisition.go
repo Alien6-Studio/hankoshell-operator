@@ -50,8 +50,8 @@ func reconcileOwnershipAcquisition(ctx context.Context, kube client.Client, read
 		}
 		return adoptionResult(ctx, kube, current, nil, approval, "Conflict", reason)
 	}
-	// Manage of an acquired leaf is deliberately deferred to #49. Read the
-	// provider, not status, even when approval annotations have been removed.
+	// The durable provider checkpoint replaces approval/source metadata after
+	// acquisition. Manage still requires explicit consent and current proof.
 	if targetAdoptionMode(current) == ModeManage {
 		if writer == nil {
 			return false, ctrl.Result{}, nil
@@ -64,7 +64,13 @@ func reconcileOwnershipAcquisition(ctx context.Context, kube client.Client, read
 			return false, ctrl.Result{}, nil
 		}
 		if s.receiptPresent() {
-			return adoptionResult(ctx, kube, current, nil, approval, "Conflict", "ManagePreservationUnqualified")
+			if !explicitLeafManage(current) || !s.manageQualified(current) {
+				return adoptionResult(ctx, kube, current, nil, approval, "Conflict", "ManagePreservationUnqualified")
+			}
+			if !acquisitionTargetUnchanged(ctx, reader, current) || guard != nil && guard(ctx, current, writer) != nil {
+				return adoptionResult(ctx, kube, current, nil, approval, "Conflict", "AdoptionOwnershipConflict")
+			}
+			return false, ctrl.Result{}, nil
 		}
 		if approval.Requested {
 			return adoptionResult(ctx, kube, current, nil, approval, "Conflict", "AdoptionUnsupported")
@@ -164,7 +170,7 @@ func adoptionCandidateFailure(c *api.AdoptionCandidateStatus, a adoption.Approva
 		}
 		// Credential exclusion is intentional. Other opaque/native state is
 		// not an acquisition exception to #47's reviewed semantic boundary.
-		if d.Classification != string(adoption.SecurityExcluded) && d.RoundTrip != string(adoption.Lossless) && !qualifiedDefaultDiff(d) {
+		if d.Classification != string(adoption.SecurityExcluded) && d.RoundTrip != string(adoption.Lossless) && !qualifiedDefaultDiff(d) && !qualifiedNativeLocaleDiff(d) && !qualifiedAuthorizationFlagDiff(d) {
 			return "AdoptionUnsupported"
 		}
 	}
@@ -175,6 +181,10 @@ func adoptionCandidateFailure(c *api.AdoptionCandidateStatus, a adoption.Approva
 		return "AdoptionObservationChanged"
 	}
 	return ""
+}
+
+func qualifiedNativeLocaleDiff(d api.AdoptionDiffEntry) bool {
+	return d.Field == "nativeLocale" && d.Code == string(adoption.NativeReadOnly) && d.Classification == string(adoption.Preserved) && d.RoundTrip == string(adoption.PreservedNative) && d.Current != nil && d.Desired == nil && len(d.Current.Set) == 0 && d.Current.Flag == nil && keycloak.QualifiedNativeLocale("locale", []string{d.Current.Text})
 }
 
 func qualifiedDefaultDiff(d api.AdoptionDiffEntry) bool {
@@ -190,6 +200,13 @@ func targetAdoptionMode(o client.Object) string {
 		return effectiveRoleMode(t)
 	case *api.HankoServiceAccount:
 		return effectiveServiceAccountMode(t)
+	case *api.HankoOrganization:
+		return effectiveOrganizationMode(t)
+	case *api.HankoResourceServer:
+		if isImported(t.Labels) || t.Spec.Mode == ModeObserve {
+			return ModeObserve
+		}
+		return ModeManage
 	}
 	return ""
 }
@@ -201,6 +218,10 @@ func targetAdoptionRealm(o client.Object) string {
 		return t.Spec.RealmRef
 	case *api.HankoServiceAccount:
 		return t.Spec.RealmRef
+	case *api.HankoOrganization:
+		return t.Spec.RealmRef
+	case *api.HankoResourceServer:
+		return t.Spec.RealmRef
 	}
 	return ""
 }
@@ -211,6 +232,10 @@ func adoptionTargetSpec(o client.Object) any {
 	case *api.HankoRole:
 		return t.Spec
 	case *api.HankoServiceAccount:
+		return t.Spec
+	case *api.HankoOrganization:
+		return t.Spec
+	case *api.HankoResourceServer:
 		return t.Spec
 	}
 	return nil
@@ -255,6 +280,13 @@ func adoptionResult(ctx context.Context, kube client.Client, o client.Object, ca
 	case *api.HankoServiceAccount:
 		t.Status.AdoptionCandidate, t.Status.AdoptionReceipt = candidate, receipt
 		t.Status.SecretRef, t.Status.LastRotated, t.Status.NextRotation = nil, nil, nil
+		iamCondition(&t.Status.Conditions, t.Generation, "OwnershipAdopted", condition, reason, message)
+	case *api.HankoOrganization:
+		t.Status.AdoptionCandidate, t.Status.AdoptionReceipt = candidate, receipt
+		iamCondition(&t.Status.Conditions, t.Generation, "OwnershipAdopted", condition, reason, message)
+	case *api.HankoResourceServer:
+		t.Status.AdoptionCandidate, t.Status.AdoptionReceipt = candidate, receipt
+		t.Status.AppliedGeneration, t.Status.AppliedPlanHash = 0, ""
 		iamCondition(&t.Status.Conditions, t.Generation, "OwnershipAdopted", condition, reason, message)
 	}
 	err := kube.Status().Patch(ctx, o, patch)
@@ -309,6 +341,9 @@ func (s *acquisitionSnapshot) unmarked() bool {
 	return true
 }
 func (s *acquisitionSnapshot) owned(o client.Object) bool {
+	if _, application := o.(*api.HankoApplication); application && s.client != nil {
+		return keycloak.ApplicationOwned(&s.client.Application, string(o.GetUID()))
+	}
 	attrs := s.attributes()
 	allowed := map[string]bool{adoption.ReceiptKey: true}
 	key := adoption.ApplicationOwnerKey
@@ -357,4 +392,8 @@ func (s *acquisitionSnapshot) mark(ctx context.Context, kc *keycloak.Client, o c
 		return kc.MarkServiceAccountAdoption(ctx, realm, s.client, uid, receipt)
 	}
 	return keycloak.ErrAdoptionPrecondition
+}
+
+func qualifiedAuthorizationFlagDiff(d api.AdoptionDiffEntry) bool {
+	return (d.Domain == "application" || d.Domain == "service-account") && d.Field == "authorizationServices" && d.Code == string(adoption.NativeReadOnly) && d.Classification == string(adoption.Preserved) && d.RoundTrip == string(adoption.PreservedNative) && d.Current != nil && d.Current.Flag != nil && len(d.Current.Set) == 0 && d.Current.Text == "" && d.Desired == nil
 }

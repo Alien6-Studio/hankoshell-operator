@@ -384,13 +384,17 @@ Keycloak convergence; `Projection` separately reports the optional configured
 API integration. A projection outage preserves provider success and does not
 block child Keycloak groups. See [organization configuration and migration](docs/secure-deployment.md#organization-provider-readiness-and-optional-projection).
 
-Existing Keycloak inventory can now produce bounded reviewable adoption evidence;
-explicit reviewed leaf ownership acquisition is implemented in the unreleased
-0.5 source work. See the [adoption workflow](docs/architecture/existing-keycloak-adoption.md#implemented-reviewed-leaf-acquisition-48)
-for source selection, approval, receipts and Observe/Manage boundaries.
+Existing Keycloak inventory produces bounded adoption candidates and typed diffs.
+The 0.5 source work adds reviewed leaf and aggregate ownership, followed by a
+separate explicit Manage decision. See the
+[adoption workflow](docs/architecture/existing-keycloak-adoption.md#administrator-workflow)
+and [native preservation boundaries](docs/architecture/existing-keycloak-adoption.md#milestone-native-coverage-audit).
 **Existing unmarked M2M clients require reviewed acquisition before provider
-writes, credential recovery/rotation or deletion.** Common receipt-bearing leaves
-remain Observe until #49 qualifies Manage preservation; packaging stays 0.4.0.
+writes, credential recovery/rotation or deletion.** Acquisition preserves UUIDs,
+writes only ownership checkpoints and remains Observe. Manage requires current
+exact ownership and qualified preservation; foreign dependencies hold cleanup.
+Existing realms and opaque brokers remain Observe-only. Packaging stays 0.4.0
+until the final source qualification completes.
 
 ## Development
 

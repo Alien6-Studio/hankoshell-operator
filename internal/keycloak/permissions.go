@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 )
 
@@ -47,30 +48,33 @@ var adminOperations = []AdminOperation{
 	{"groups", "GET", "/admin/realms/{realm}/group-by-path/{path...}", "view-users or manage-users"},
 	{"groups", "GET,POST", "/admin/realms/{realm}/groups", "view-users / manage-users"},
 	{"groups", "GET,PUT,DELETE", "/admin/realms/{realm}/groups/{group}", "view-users / manage-users"},
+	{"group-cleanup-members", "GET", "/admin/realms/{realm}/groups/{group}/members", "view-users or manage-users; cleanup existence only, max=1"},
 	{"groups", "GET,POST", "/admin/realms/{realm}/groups/{group}/children", "view-users / manage-users"},
 	{"group-roles", "GET", "/admin/realms/{realm}/groups/{group}/role-mappings", "view-users"},
 	{"group-roles", "GET,POST", "/admin/realms/{realm}/groups/{group}/role-mappings/realm", "view-users / manage-users and permission to map the realm role"},
 	{"group-roles", "GET,POST", "/admin/realms/{realm}/groups/{group}/role-mappings/clients/{client}", "view-users / manage-users and permission to map the client role"},
 	{"organizations", "GET,POST", "/admin/realms/{realm}/organizations", "view-organizations / manage-organizations or manage-realm"},
 	{"organizations", "GET,PUT,DELETE", "/admin/realms/{realm}/organizations/{organization}", "view-organizations / manage-organizations or manage-realm"},
+	{"organization-cleanup-members", "GET", "/admin/realms/{realm}/organizations/{organization}/members", "view-organizations or manage-organizations; cleanup existence only, max=1"},
 	{"organization-idps", "GET,POST", "/admin/realms/{realm}/organizations/{organization}/identity-providers", "view-organizations / manage-organizations (or manage-realm) and manage-identity-providers"},
 	{"organization-idps", "DELETE", "/admin/realms/{realm}/organizations/{organization}/identity-providers/{alias}", "manage-organizations (or manage-realm) and manage-identity-providers"},
 	{"authorization", "GET,POST", "/admin/realms/{realm}/clients/{client}/authz/resource-server/scope", "view-authorization / manage-authorization or manage-clients"},
-	{"authorization", "PUT,DELETE", "/admin/realms/{realm}/clients/{client}/authz/resource-server/scope/{object}", "manage-authorization or manage-clients"},
+	{"authorization", "GET,PUT,DELETE", "/admin/realms/{realm}/clients/{client}/authz/resource-server/scope/{object}", "view-authorization / manage-authorization or manage-clients"},
 	{"authorization", "GET,POST", "/admin/realms/{realm}/clients/{client}/authz/resource-server/resource", "view-authorization / manage-authorization or manage-clients"},
-	{"authorization", "PUT,DELETE", "/admin/realms/{realm}/clients/{client}/authz/resource-server/resource/{object}", "manage-authorization or manage-clients"},
+	{"authorization", "GET,PUT,DELETE", "/admin/realms/{realm}/clients/{client}/authz/resource-server/resource/{object}", "view-authorization / manage-authorization or manage-clients"},
 	{"authorization", "GET", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/{object}/associatedPolicies", "view-authorization or manage-authorization or manage-clients"},
 	{"authorization", "GET", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy", "view-authorization or manage-authorization or manage-clients"},
 	{"authorization", "GET,POST", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/role", "view-authorization / manage-authorization or manage-clients"},
 	{"authorization", "GET,POST", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/client", "view-authorization / manage-authorization or manage-clients"},
 	{"organization-authorization", "GET,POST", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/group", "view-authorization / manage-authorization or manage-clients; strict group resolution additionally requires view-users"},
-	{"organization-authorization", "PUT", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/group/{object}", "manage-authorization or manage-clients"},
-	{"authorization", "PUT", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/role/{object}", "manage-authorization or manage-clients"},
-	{"authorization", "PUT", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/client/{object}", "manage-authorization or manage-clients"},
+	{"organization-authorization", "GET,PUT", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/group/{object}", "view-authorization / manage-authorization or manage-clients"},
+	{"authorization", "GET,PUT", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/role/{object}", "view-authorization / manage-authorization or manage-clients"},
+	{"authorization", "GET,PUT", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/client/{object}", "view-authorization / manage-authorization or manage-clients"},
 	{"authorization", "DELETE", "/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/{object}", "manage-authorization or manage-clients"},
 	{"authorization", "GET", "/admin/realms/{realm}/clients/{client}/authz/resource-server/permission", "view-authorization or manage-authorization or manage-clients"},
 	{"authorization", "GET,POST", "/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/scope", "view-authorization / manage-authorization or manage-clients"},
-	{"authorization", "PUT", "/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/scope/{object}", "manage-authorization or manage-clients"},
+	{"authorization", "GET,PUT", "/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/scope/{object}", "view-authorization / manage-authorization or manage-clients"},
+	{"authorization-native-dependencies", "GET", "/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/resource", "view-authorization or manage-authorization or manage-clients"},
 	{"authorization", "DELETE", "/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/{object}", "manage-authorization or manage-clients"},
 }
 
@@ -150,7 +154,24 @@ func (c *Client) responseBudget(req *http.Request) (int64, error) {
 		}
 		return maxKeycloakAdminResponseBytes, nil
 	}
+	if matchAdminPath("/admin/realms/{realm}/groups/{group}/members", path) || matchAdminPath("/admin/realms/{realm}/organizations/{organization}/members", path) {
+		if err := validateCleanupMembershipQuery(req.URL.Query()); err != nil {
+			return 0, err
+		}
+	}
 	return c.adminResponseBudget(req.Method, path)
+}
+
+func validateCleanupMembershipQuery(query url.Values) error {
+	if !slices.Equal(query["first"], []string{"0"}) || !slices.Equal(query["max"], []string{"1"}) {
+		return fmt.Errorf("membership reads require bounded cleanup existence queries")
+	}
+	for key, values := range query {
+		if key != "first" && key != "max" && (key != "briefRepresentation" || len(values) != 1 || values[0] != "true") {
+			return fmt.Errorf("membership reads are cleanup existence only")
+		}
+	}
+	return nil
 }
 
 func (c *Client) adminResponseBudget(method, path string) (int64, error) {
@@ -182,7 +203,8 @@ func inventoryOperation(path string) bool {
 		"/admin/realms/{realm}/clients/{client}/protocol-mappers/models",
 		"/admin/realms/{realm}/identity-provider/instances", "/admin/realms/{realm}/identity-provider/instances/{alias}/mappers",
 		"/admin/realms/{realm}/groups", "/admin/realms/{realm}/groups/{group}/children", "/admin/realms/{realm}/groups/{group}/role-mappings",
-		"/admin/realms/{realm}/organizations",
+		"/admin/realms/{realm}/groups/{group}", "/admin/realms/{realm}/group-by-path/{path...}",
+		"/admin/realms/{realm}/organizations", "/admin/realms/{realm}/organizations/{organization}", "/admin/realms/{realm}/organizations/{organization}/identity-providers",
 		"/admin/realms/{realm}/clients/{client}/authz/resource-server/scope",
 		"/admin/realms/{realm}/clients/{client}/authz/resource-server/resource",
 		"/admin/realms/{realm}/clients/{client}/authz/resource-server/policy",
@@ -191,6 +213,13 @@ func inventoryOperation(path string) bool {
 		"/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/client",
 		"/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/group",
 		"/admin/realms/{realm}/clients/{client}/authz/resource-server/permission",
+		"/admin/realms/{realm}/clients/{client}/authz/resource-server/scope/{object}",
+		"/admin/realms/{realm}/clients/{client}/authz/resource-server/resource/{object}",
+		"/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/group/{object}",
+		"/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/role/{object}",
+		"/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/client/{object}",
+		"/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/scope/{object}",
+		"/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/resource",
 		"/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/scope":
 		return true
 	default:

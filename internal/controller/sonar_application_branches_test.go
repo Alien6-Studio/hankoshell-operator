@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"testing"
 	"time"
@@ -324,6 +325,15 @@ func TestManagedApplicationDeletionRemovesProviderClientBeforeFinalizer(t *testi
 	}
 	scheme := controllerTestScheme(t)
 	k8sClient := controllerTestClient(scheme, application)
+	if err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(application), application); err != nil {
+		t.Fatal(err)
+	}
+	if err := k8sClient.Delete(context.Background(), application); err != nil {
+		t.Fatal(err)
+	}
+	if err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(application), application); err != nil {
+		t.Fatal(err)
+	}
 	reconciler := &HankoApplicationReconciler{Client: k8sClient, Scheme: scheme}
 	if result, err := reconciler.reconcileApplicationDeletion(context.Background(), application, keycloak.New(server.URL, "operator", "secret", keycloak.WithInsecureHTTP()), ModeManage); err != nil || !result.IsZero() {
 		t.Fatalf("managed deletion result=%v err=%v", result, err)

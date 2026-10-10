@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/url"
 	"slices"
 	"strings"
+
+	"github.com/Alien6-Studio/hankoshell-operator/internal/adoption"
 )
 
 const authorizationOwnerAttribute = "hanko.sh/resource-server-ownership"
@@ -16,9 +19,34 @@ const maxAuthorizationJournalBytes = 512 * 1024
 // fails. It carries no executable plan or application proof. Keycloak admins
 // are trusted for ownership markers, just as for the realm-role owner marker.
 type authorizationJournal struct {
-	Version  int                         `json:"version"`
-	OwnerUID string                      `json:"ownerUID"`
-	Objects  AuthorizationManagedObjects `json:"objects"`
+	Version         int                         `json:"version"`
+	OwnerUID        string                      `json:"ownerUID"`
+	Objects         AuthorizationManagedObjects `json:"objects"`
+	RealmID         string                      `json:"realmID,omitempty"`
+	ApplicationUID  string                      `json:"applicationUID,omitempty"`
+	AdoptionReceipt *adoption.Receipt           `json:"adoptionReceipt,omitempty"`
+}
+
+func validAuthorizationJournal(j authorizationJournal, owner, clientID string) bool {
+	if j.OwnerUID != owner || j.Objects.ResourceServerID != clientID || !validAuthorizationObjects(j.Objects) {
+		return false
+	}
+	if j.Version == 1 {
+		return j.AdoptionReceipt == nil && j.RealmID == "" && j.ApplicationUID == ""
+	}
+	return validAuthorizationAdoptionJournal(j, owner)
+}
+
+func validAuthorizationAdoptionJournal(j authorizationJournal, owner string) bool {
+	if j.Version != 2 || j.AdoptionReceipt == nil || j.RealmID == "" || len(j.RealmID) > 128 || j.ApplicationUID == "" || len(j.ApplicationUID) > 128 {
+		return false
+	}
+	if _, err := authorizationSelectedIDs(j.Objects); err != nil {
+		return false
+	}
+	proof := j.AdoptionReceipt
+	_, err := proof.Canonical()
+	return err == nil && proof.TargetKind == "HankoResourceServer" && proof.TargetUID == owner
 }
 
 func validAuthorizationObjects(o AuthorizationManagedObjects) bool {
@@ -64,10 +92,52 @@ func parseAuthorizationJournal(representation map[string]any, owner, clientID st
 		return AuthorizationManagedObjects{}, false, nil
 	}
 	var j authorizationJournal
-	if len(value) > maxAuthorizationJournalBytes || json.Unmarshal([]byte(value), &j) != nil || j.Version != 1 || j.OwnerUID != owner || j.Objects.ResourceServerID != clientID || !validAuthorizationObjects(j.Objects) {
+	if len(value) > maxAuthorizationJournalBytes || json.Unmarshal([]byte(value), &j) != nil || !validAuthorizationJournal(j, owner, clientID) {
+		return AuthorizationManagedObjects{}, false, ErrAuthorizationOwnershipConflict
+	}
+	if !closedAuthorizationAdoptionJournal(value, j) {
+		return AuthorizationManagedObjects{}, false, ErrAuthorizationOwnershipConflict
+	}
+	if j.Version == 2 && !authorizationJournalApplicationOwned(representation, j) {
 		return AuthorizationManagedObjects{}, false, ErrAuthorizationOwnershipConflict
 	}
 	return j.Objects, true, nil
+}
+
+func closedAuthorizationAdoptionJournal(value string, journal authorizationJournal) bool {
+	if journal.Version != 2 {
+		return true
+	}
+	decoder := json.NewDecoder(strings.NewReader(value))
+	decoder.DisallowUnknownFields()
+	return decoder.Decode(&journal) == nil && decoder.Decode(new(any)) == io.EOF
+}
+
+func authorizationJournalApplicationOwned(document map[string]any, j authorizationJournal) bool {
+	var a Application
+	encoded, err := json.Marshal(document)
+	return err == nil && json.Unmarshal(encoded, &a) == nil && a.ID == j.Objects.ResourceServerID && ApplicationOwned(&a, j.ApplicationUID)
+}
+
+func (c *Client) verifyAuthorizationJournalRealm(ctx context.Context, realm string, document map[string]any) error {
+	var j authorizationJournal
+	if raw := journalValue(document); raw == "" {
+		return nil
+	}
+	if err := json.Unmarshal([]byte(journalValue(document)), &j); err != nil {
+		return ErrAuthorizationOwnershipConflict
+	}
+	if j.Version != 2 {
+		return nil
+	}
+	current, err := c.GetRealm(ctx, realm)
+	if err != nil {
+		return err
+	}
+	if current.ID != j.RealmID {
+		return ErrAuthorizationOwnershipConflict
+	}
+	return nil
 }
 func (c *Client) readAuthorizationOwnership(ctx context.Context, model AuthorizationModel, clientID string) (AuthorizationManagedObjects, bool, error) {
 	if model.OwnerUID == "" {
@@ -77,7 +147,11 @@ func (c *Client) readAuthorizationOwnership(ctx context.Context, model Authoriza
 	if err := c.get(ctx, authorizationClientPath(model.Realm, clientID), &representation); err != nil {
 		return AuthorizationManagedObjects{}, false, err
 	}
-	return parseAuthorizationJournal(representation, model.OwnerUID, clientID)
+	objects, found, err := parseAuthorizationJournal(representation, model.OwnerUID, clientID)
+	if err != nil || !found {
+		return objects, found, err
+	}
+	return objects, true, c.verifyAuthorizationJournalRealm(ctx, model.Realm, representation)
 }
 func authorizationClientPath(realm, clientID string) string {
 	return adminRealmsPath + url.PathEscape(realm) + clientsPath + url.PathEscape(clientID)
@@ -104,7 +178,15 @@ func (c *Client) saveAuthorizationOwnership(ctx context.Context, model Authoriza
 	if _, _, err := parseAuthorizationJournal(representation, model.OwnerUID, objects.ResourceServerID); err != nil {
 		return err
 	}
-	encoded, err := json.Marshal(authorizationJournal{Version: 1, OwnerUID: model.OwnerUID, Objects: canonicalAuthorizationObjects(objects)})
+	journal := authorizationJournal{Version: 1, OwnerUID: model.OwnerUID}
+	if raw := journalValue(representation); raw != "" && json.Unmarshal([]byte(raw), &journal) != nil {
+		return ErrAuthorizationOwnershipConflict
+	}
+	if err := c.verifyAuthorizationJournalRealm(ctx, model.Realm, representation); err != nil {
+		return err
+	}
+	journal.Objects = canonicalAuthorizationObjects(objects)
+	encoded, err := json.Marshal(journal)
 	if err != nil || len(encoded) > maxAuthorizationJournalBytes {
 		return errors.New("authorization ownership exceeds evidence budget")
 	}
@@ -117,6 +199,9 @@ func (c *Client) saveAuthorizationOwnership(ctx context.Context, model Authoriza
 	}
 	attrs[authorizationOwnerAttribute] = string(encoded)
 	representation["attributes"] = attrs
+	delete(representation, "secret")
+	delete(representation, "access")
+	delete(representation, "serviceAccountsEnabled")
 	return c.putJSON(ctx, path, representation)
 }
 
@@ -165,8 +250,14 @@ func (c *Client) clearAuthorizationOwnership(ctx context.Context, model Authoriz
 	if err != nil || !found {
 		return err
 	}
+	if err := c.verifyAuthorizationJournalRealm(ctx, model.Realm, representation); err != nil {
+		return err
+	}
 	attrs, _ := representation["attributes"].(map[string]any)
 	attrs[authorizationOwnerAttribute] = nil
+	delete(representation, "secret")
+	delete(representation, "access")
+	delete(representation, "serviceAccountsEnabled")
 	return c.putJSON(ctx, path, representation)
 }
 

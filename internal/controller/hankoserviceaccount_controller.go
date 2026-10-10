@@ -207,7 +207,14 @@ func (r *HankoServiceAccountReconciler) reconcileServiceAccountDeletion(ctx cont
 		if current != nil {
 			_, receipt = current.Attributes["hanko.sh/adoption-receipt"]
 		}
-		observe = !keycloak.ServiceAccountOwned(current, string(sa.UID)) || receipt
+		observe = !keycloak.ServiceAccountOwned(current, string(sa.UID))
+		if receipt && !observe {
+			if !explicitLeafManage(sa) {
+				observe = true
+			} else if err := kc.CheckAdoptedClientCleanup(ctx, sa.Spec.RealmRef, sa.Spec.ClientID, "HankoServiceAccount", string(sa.UID)); err != nil {
+				return adoptedCleanupConflict(ctx, r.Client, sa)
+			}
+		}
 	}
 	logger := log.FromContext(ctx)
 	if observe {

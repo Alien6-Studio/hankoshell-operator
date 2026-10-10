@@ -67,6 +67,10 @@ func readTargetCandidate(ctx context.Context, kube client.Client, reader client.
 			clientID = app.Spec.ClientID
 		}
 		kind = "resource-server"
+	case *api.HankoOrganization:
+		target.Kind = "HankoOrganization"
+		realmName = o.Spec.RealmRef
+		kind = "organization"
 	}
 	failed := func() *api.AdoptionCandidateStatus {
 		return candidateStatus(adoption.Build(target, adoption.ProviderIdentity{}, adoption.Observation{Complete: false, Findings: []adoption.Finding{{Code: "current_inventory_unreadable", Domain: kind, Message: "current target, sourceRef identity or bounded provider observation could not be verified", Blocking: true}}}, nil))
@@ -88,6 +92,27 @@ func readTargetCandidate(ctx context.Context, kube client.Client, reader client.
 	if err != nil {
 		return failed()
 	}
+	if org, ok := object.(*api.HankoOrganization); ok {
+		candidate := readOrganizationCandidate(ctx, reader, kc, org, p, normalizeAcquisition)
+		identity := &realmAdoptionInventory{provider: p, complete: true}
+		(&HankoImportReconciler{Client: kube, APIReader: reader}).verifyInventoryIdentity(ctx, identity, source, kc, *realm)
+		if !identity.complete || !acquisitionTargetUnchanged(ctx, reader, object) {
+			return failed()
+		}
+		return candidate
+	}
+	if server, ok := object.(*api.HankoResourceServer); ok {
+		state, err := readResourceServerAdoption(ctx, kube, reader, kc, server)
+		if err != nil {
+			return failed()
+		}
+		identity := &realmAdoptionInventory{provider: p, complete: true}
+		(&HankoImportReconciler{Client: kube, APIReader: reader}).verifyInventoryIdentity(ctx, identity, source, kc, *realm)
+		if !identity.complete || !acquisitionTargetUnchanged(ctx, reader, object) {
+			return failed()
+		}
+		return resourceServerCandidate(server, p, state)
+	}
 	reconciler := &HankoImportReconciler{Client: kube, APIReader: reader}
 	inventory := &realmAdoptionInventory{provider: p, complete: true}
 	switch kind {
@@ -96,8 +121,8 @@ func readTargetCandidate(ctx context.Context, kube client.Client, reader client.
 		if err != nil || got == nil {
 			return failed()
 		}
-		inventory.clients = []keycloak.InventoryClient{{Application: got.Application, UnqualifiedNative: !got.QualifiedLeaf()}}
-		reconciler.discoverInventoryClients(ctx, kc, inventory, realmName)
+		inventory.clients = []keycloak.InventoryClient{{Application: got.Application, AuthorizationServicesEnabled: got.AuthorizationEnabled(), UnqualifiedNative: !got.QualifiedLeaf()}}
+		reconciler.discoverClientInventory(ctx, kc, inventory, realmName, false)
 	case "role":
 		got, err := kc.GetRealmRole(ctx, realmName, clientID)
 		if err != nil || got == nil {
@@ -114,6 +139,14 @@ func readTargetCandidate(ctx context.Context, kube client.Client, reader client.
 	}
 	reconciler.verifyInventoryIdentity(ctx, inventory, source, kc, *realm)
 	for _, item := range inventory.items {
+		if kind == "application" && item.kind == "service-account" {
+			item.kind = "application"
+			for i := range item.observation.Facts {
+				if item.observation.Facts[i].Domain == "service-account" {
+					item.observation.Facts[i].Domain = "application"
+				}
+			}
+		}
 		if item.kind != kind {
 			continue
 		}

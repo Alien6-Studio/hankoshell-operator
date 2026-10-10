@@ -72,6 +72,8 @@ type OrganizationSpec struct {
 	LegacyOwnedID string
 	// RequireOwnership forbids alias-only adoption and concurrent 409 adoption.
 	RequireOwnership bool
+	// PreserveAdopted retains current native fields and domain verification.
+	PreserveAdopted bool
 }
 
 // GetOrganizationByAlias returns the organization with the exact alias, or nil
@@ -168,6 +170,14 @@ func (c *Client) EnsureOrganization(ctx context.Context, realm string, spec Orga
 	if existing != nil && spec.RequireOwnership && !OrganizationMatchesOwnership(existing, spec.OwnershipAttributes, spec.LegacyOwnedID) {
 		return "", fmt.Errorf("%w: existing organization %q in realm %q is not owned by this HankoOrganization", ErrOrganizationOwnershipConflict, spec.Alias, realm)
 	}
+	if existing != nil {
+		if _, adopted := existing.Attributes["hanko.sh/adoption-receipt"]; adopted {
+			if !spec.PreserveAdopted {
+				return "", ErrAdoptionPrecondition
+			}
+			return existing.ID, c.reconcileAdoptedNativeOrganization(ctx, realm, existing.ID, spec)
+		}
+	}
 	if existing == nil {
 		id, created, err := c.createOrganization(ctx, realm, spec)
 		if err != nil || created {
@@ -242,6 +252,15 @@ func (c *Client) DeleteOrganization(ctx context.Context, realm, orgID string) er
 // links untouched: unmanaged, never silently removed, so enabling the operator
 // on a realm whose broker is the live login path cannot break sign-in.
 func (c *Client) EnsureOrganizationIdentityProvider(ctx context.Context, realm, orgID, alias string) error {
+	return c.ensureOrganizationIdentityProvider(ctx, realm, orgID, alias, false)
+}
+
+// Receipt-backed node ownership does not own foreign broker relationships.
+func (c *Client) EnsureOrganizationIdentityProviderAdditive(ctx context.Context, realm, orgID, alias string) error {
+	return c.ensureOrganizationIdentityProvider(ctx, realm, orgID, alias, true)
+}
+
+func (c *Client) ensureOrganizationIdentityProvider(ctx context.Context, realm, orgID, alias string, preserve bool) error {
 	if alias == "" {
 		return nil
 	}
@@ -254,6 +273,9 @@ func (c *Client) EnsureOrganizationIdentityProvider(ctx context.Context, realm, 
 	for _, idp := range linked {
 		if idp.Alias == alias {
 			found = true
+			continue
+		}
+		if preserve {
 			continue
 		}
 		if err := c.unlinkOrganizationIdentityProvider(ctx, linksPath, idp.Alias); err != nil {

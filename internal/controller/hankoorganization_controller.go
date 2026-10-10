@@ -12,7 +12,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/hankoapi"
@@ -42,6 +41,7 @@ var (
 // +kubebuilder:rbac:groups=hanko.sh,resources=hankoorganizations/finalizers,verbs=update
 type HankoOrganizationReconciler struct {
 	client.Client
+	APIReader      client.Reader
 	ProtectedRealm string
 	Scheme         *runtime.Scheme
 	Pool           *keycloak.Pool
@@ -60,6 +60,13 @@ func (r *HankoOrganizationReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	if err := r.Get(ctx, req.NamespacedName, &org); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	kc := kcForObject(r.Pool, org.Namespace, org.Labels)
+	if handled, result, err := r.reconcileOrganizationAcquisition(ctx, &org, kc); handled {
+		return result, err
+	}
+	if effectiveOrganizationMode(&org) == ModeObserve {
+		return r.reconcileOrganizationObserve(ctx, &org)
+	}
 	if err := validateOrganizationAuthorityRoles(&org, r.ProtectedRealm); err != nil {
 		if !org.DeletionTimestamp.IsZero() {
 			return r.releaseInvalidOrganization(ctx, &org, err.Error())
@@ -74,7 +81,6 @@ func (r *HankoOrganizationReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{RequeueAfter: requeueWithJitter()}, nil
 	}
 
-	kc := kcForObject(r.Pool, org.Namespace, org.Labels)
 	if err := validateOrganizationEffectiveAuthorityRoles(ctx, &org, r.ProtectedRealm, kc); err != nil {
 		if !org.DeletionTimestamp.IsZero() {
 			if isReservedAuthorityRoleViolation(err) {
@@ -164,6 +170,7 @@ func (r *HankoOrganizationReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		Attributes:          attributes,
 		OwnershipAttributes: ownershipAttributes,
 		RequireOwnership:    true,
+		PreserveAdopted:     true,
 	}
 	if protectedGroup {
 		if org.Spec.ParentRef == "" {
@@ -281,16 +288,17 @@ func (r *HankoOrganizationReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	return r.finishOrganization(ctx, &org, patch, requeueWithJitter())
 }
 
-func (r *HankoOrganizationReconciler) releaseInvalidOrganization(ctx context.Context, org *hankoshv1alpha1.HankoOrganization, message string) (ctrl.Result, error) {
+func (r *HankoOrganizationReconciler) releaseInvalidOrganization(ctx context.Context, org *hankoshv1alpha1.HankoOrganization, _ string) (ctrl.Result, error) {
 	if !controllerutil.ContainsFinalizer(org, orgFinalizerName) {
 		return ctrl.Result{}, nil
 	}
-	controllerutil.RemoveFinalizer(org, orgFinalizerName)
-	if err := r.Update(ctx, org); err != nil {
-		return ctrl.Result{}, fmt.Errorf("remove invalid organization finalizer: %w", err)
-	}
-	log.FromContext(ctx).Info("released unsafe organization without mutating providers", "organization", org.Name, "reason", message)
-	return ctrl.Result{}, nil
+	// A provider ownership conflict cannot be turned into completed cleanup
+	// by losing Kubernetes status. Only explicit Observe releases lifecycle
+	// consent without provider deletion.
+	patch := client.MergeFrom(org.DeepCopy())
+	org.Status.Phase = "Error"
+	setCondition(&org.Status.Conditions, "Synced", metav1.ConditionFalse, "CleanupConflict", "current aggregate ownership does not authorize cleanup")
+	return ctrl.Result{RequeueAfter: requeueOnError}, r.patchOrganizationStatus(ctx, org, patch)
 }
 
 func organizationGroupOwnershipAttributes(org *hankoshv1alpha1.HankoOrganization) map[string][]string {
@@ -394,7 +402,23 @@ func (r *HankoOrganizationReconciler) recordOrganizationProviderSecurityError(ct
 // alias is the node's slug so the token "organization" claim key stays stable
 // even when the display name changes.
 func (r *HankoOrganizationReconciler) reconcileRootOrganization(ctx context.Context, org *hankoshv1alpha1.HankoOrganization, kc *keycloak.Client) (string, error) {
-	if err := kc.EnsureOrganizationsEnabled(ctx, org.Spec.RealmRef); err != nil {
+	var realm hankoshv1alpha1.HankoRealm
+	realmErr := r.organizationReader().Get(ctx, client.ObjectKey{Namespace: org.Namespace, Name: org.Spec.RealmRef}, &realm)
+	if realmErr != nil && client.IgnoreNotFound(realmErr) != nil {
+		return "", realmErr
+	}
+	external := realmErr == nil && isImported(realm.Labels)
+	native, err := kc.GetOrganizationByAlias(ctx, org.Spec.RealmRef, orgSlug(org))
+	if err != nil && (external || !keycloak.IsNotFound(err)) {
+		return "", err
+	}
+	adopted := native != nil && len(native.Attributes["hanko.sh/adoption-receipt"]) != 0
+	if external || adopted {
+		enabled, err := kc.InventoryOrganizationsEnabled(ctx, org.Spec.RealmRef)
+		if err != nil || !enabled {
+			return "", errors.New("organizations must already be enabled on an external or adopted realm")
+		}
+	} else if err := kc.EnsureOrganizationsEnabled(ctx, org.Spec.RealmRef); err != nil {
 		return "", err
 	}
 	orgID, err := kc.EnsureOrganization(ctx, org.Spec.RealmRef, keycloak.OrganizationSpec{
@@ -404,11 +428,16 @@ func (r *HankoOrganizationReconciler) reconcileRootOrganization(ctx context.Cont
 		Attributes:          organizationGroupOwnershipAttributes(org),
 		OwnershipAttributes: organizationGroupOwnershipAttributes(org),
 		RequireOwnership:    true,
+		PreserveAdopted:     true,
 	})
 	if err != nil {
 		return "", err
 	}
-	if err := kc.EnsureOrganizationIdentityProvider(ctx, org.Spec.RealmRef, orgID, org.Spec.IdentityProvider); err != nil {
+	link := kc.EnsureOrganizationIdentityProvider
+	if adopted {
+		link = kc.EnsureOrganizationIdentityProviderAdditive
+	}
+	if err := link(ctx, org.Spec.RealmRef, orgID, org.Spec.IdentityProvider); err != nil {
 		return orgID, fmt.Errorf("link identity provider %q: %w", org.Spec.IdentityProvider, err)
 	}
 	return orgID, nil
@@ -426,6 +455,9 @@ func (r *HankoOrganizationReconciler) ensureOrgFinalizer(ctx context.Context, or
 }
 
 func (r *HankoOrganizationReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.APIReader == nil {
+		r.APIReader = mgr.GetAPIReader()
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoOrganization{}).
 		Complete(r)

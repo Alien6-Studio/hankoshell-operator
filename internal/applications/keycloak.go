@@ -99,6 +99,7 @@ type observedApplication struct {
 	Mappers             []keycloak.ProtocolMapper
 	IdentityMappers     []keycloak.IdentityProviderMapper
 	Complete            bool
+	Adopted             bool
 }
 
 func (d *KeycloakDriver) observe(ctx context.Context, p Plan, got *keycloak.Application) (State, error) {
@@ -108,6 +109,7 @@ func (d *KeycloakDriver) observe(ctx context.Context, p Plan, got *keycloak.Appl
 		state = State{Present: true, ProviderID: got.ID, Owned: keycloak.ApplicationOwned(got, p.resolved.Owner), Protocol: publicProtocol(got.Protocol)}
 		o.Present, o.Protocol = true, state.Protocol
 		o.Ownership = ownershipClass(got.Attributes[OwnerAttribute], p.resolved.Owner)
+		o.Adopted = got.Attributes["hanko.sh/adoption-receipt"] != ""
 		o.Client, o.Complete = observedClient(*got, p)
 		if err := d.observeRoles(ctx, p, &o); err != nil {
 			return State{}, iamcontract.SafeError(err)
@@ -150,6 +152,19 @@ func observedClient(got keycloak.Application, p Plan) (keycloak.Application, boo
 	}
 	delete(got.Attributes, "client.secret.creation.time")
 	complete := sanitizeObservedConfig(got.Attributes)
+	for key, value := range got.Attributes {
+		if keycloak.QualifiedClientAttribute(key, value) {
+			continue
+		}
+		if expected, declared := desired(p).Attributes[key]; declared {
+			if value != expected {
+				got.Attributes[key] = "<different-from-intent>"
+			}
+		} else {
+			delete(got.Attributes, key)
+			complete = false
+		}
+	}
 	normalizeObservedAttributes(got.Attributes, p)
 	return got, complete
 }
@@ -191,7 +206,17 @@ func (d *KeycloakDriver) observeMappers(ctx context.Context, p Plan, o *observed
 		return err
 	}
 	for _, mapper := range mappers {
+		qualified := keycloak.QualifiedAdoptionMapper(mapper) || mapper.Config[OwnerAttribute] == p.resolved.Owner && p.resolved.Owner != "" || !o.Adopted && representedLegacyMapper(mapper, p)
 		mapper = keycloak.CanonicalProtocolMapper(mapper)
+		if o.Adopted && mapper.Config[OwnerAttribute] == p.resolved.Owner && p.resolved.Owner != "" {
+			if !projectAdoptedMapperLiteral(&mapper, p) {
+				o.Complete = false
+			}
+		}
+		if !qualified {
+			mapper.Config = nil
+			o.Complete = false
+		}
 		mapper.ID = ""
 		mapper.Config = observedMapperConfig(mapper.Config, p.resolved.Owner)
 		if !sanitizeObservedConfig(mapper.Config) {
@@ -209,6 +234,40 @@ func (d *KeycloakDriver) observeMappers(ctx context.Context, p Plan, o *observed
 		return strings.Compare(a.IdentityProviderAlias+"/"+a.Name, b.IdentityProviderAlias+"/"+b.Name)
 	})
 	return nil
+}
+
+// The legacy UUID/observation migration can represent a locally declared typed
+// mapper before its owner marker exists. It grants no authority over opaque
+// mapper configuration and does not extend common adoption's native schema.
+func representedLegacyMapper(mapper keycloak.ProtocolMapper, p Plan) bool {
+	mapper = keycloak.CanonicalProtocolMapper(mapper)
+	for _, expected := range p.resolved.Mappers {
+		expected = keycloak.CanonicalProtocolMapper(expected)
+		if mapper.Name == expected.Name && mapper.Protocol == expected.Protocol && mapper.ProtocolMapper == expected.ProtocolMapper {
+			actualConfig, desiredConfig := maps.Clone(mapper.Config), maps.Clone(expected.Config)
+			delete(actualConfig, OwnerAttribute)
+			delete(desiredConfig, OwnerAttribute)
+			return maps.Equal(actualConfig, desiredConfig)
+		}
+	}
+	return false
+}
+
+// A provider's current literal claim value is not automatically public merely
+// because its mapper is owned. Only the already-declared literal is observable;
+// all other values share a fixed incomplete projection, never a secret hash.
+func projectAdoptedMapperLiteral(mapper *keycloak.ProtocolMapper, p Plan) bool {
+	value, present := mapper.Config["claim.value"]
+	if !present {
+		return true
+	}
+	for _, expected := range p.resolved.Mappers {
+		if expected.Name == mapper.Name && expected.ProtocolMapper == mapper.ProtocolMapper && expected.Config["claim.value"] == value {
+			return true
+		}
+	}
+	mapper.Config["claim.value"] = "<different-from-intent>"
+	return false
 }
 func (d *KeycloakDriver) observeIdentityMapper(ctx context.Context, p Plan, o *observedApplication, expected keycloak.IdentityProviderMapper) error {
 	found, err := d.client.ListIdentityProviderMappers(ctx, p.resolved.Realm, expected.IdentityProviderAlias)
@@ -239,10 +298,10 @@ func applicationDrift(p Plan, o observedApplication) bool {
 	if attrs["login_theme"] == "" {
 		delete(attrs, "login_theme")
 	}
-	if !o.Complete || clientFlagsDrift(o.Client, want) || clientEndpointsDrift(o.Client, want) || !maps.Equal(o.Client.Attributes, attrs) {
+	if !o.Complete || clientFlagsDrift(o.Client, want) || clientEndpointsDrift(o.Client, want) || !applicationAttributesMatch(o.Client.Attributes, attrs, o.Adopted) {
 		return true
 	}
-	if len(p.intent.Roles) > 0 && !slices.Equal(o.Roles, p.intent.Roles) {
+	if len(p.intent.Roles) > 0 && !applicationRolesMatch(o.Roles, p.intent.Roles, o.Adopted) {
 		return true
 	}
 	if p.intent.ScopesManaged && !slices.Equal(o.Scopes, p.intent.RealmRoleScopes) {
@@ -408,4 +467,33 @@ func observedMapperConfig(config map[string]string, owner string) map[string]str
 		}
 	}
 	return result
+}
+
+func applicationAttributesMatch(actual, desired map[string]string, adopted bool) bool {
+	if !adopted {
+		return maps.Equal(actual, desired)
+	}
+	for key, value := range desired {
+		if actual[key] != value {
+			return false
+		}
+	}
+	// Absence of these always-managed fields is part of intent.
+	for _, key := range []string{"login_theme", "post.logout.redirect.uris"} {
+		if actual[key] != desired[key] {
+			return false
+		}
+	}
+	return true
+}
+func applicationRolesMatch(actual, desired []Role, adopted bool) bool {
+	if !adopted {
+		return slices.Equal(actual, desired)
+	}
+	for _, role := range desired {
+		if !slices.Contains(actual, role) {
+			return false
+		}
+	}
+	return true
 }

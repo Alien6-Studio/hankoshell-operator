@@ -94,6 +94,7 @@ func withoutAcquisition(document map[string]any) map[string]any {
 			delete(result, "attributes")
 		}
 	}
+	normalizeMapperSnapshotDefaults(result)
 	return result
 }
 func (s *ClientOwnershipSnapshot) SameSemantics(other *ClientOwnershipSnapshot) bool {
@@ -107,9 +108,12 @@ func (s *ClientOwnershipSnapshot) QualifiedLeaf() bool {
 	if s == nil {
 		return false
 	}
-	projected := map[string]bool{"id": true, "clientId": true, "protocol": true, "enabled": true, "publicClient": true, "standardFlowEnabled": true, "serviceAccountsEnabled": true, "directAccessGrantsEnabled": true, "implicitFlowEnabled": true, "fullScopeAllowed": true, "redirectUris": true, "webOrigins": true, "attributes": true}
+	projected := map[string]bool{"id": true, "clientId": true, "protocol": true, "enabled": true, "publicClient": true, "standardFlowEnabled": true, "serviceAccountsEnabled": true, "directAccessGrantsEnabled": true, "implicitFlowEnabled": true, "fullScopeAllowed": true, "redirectUris": true, "webOrigins": true, "attributes": true, "authorizationServicesEnabled": true}
 	defaults := map[string]any{"bearerOnly": false, "authorizationServicesEnabled": false, "rootUrl": "", "baseUrl": "", "adminUrl": "", "description": "", "surrogateAuthRequired": false, "alwaysDisplayInConsole": false, "consentRequired": false, "notBefore": float64(0), "nodeReRegistrationTimeout": float64(-1), "clientAuthenticatorType": "client-secret", "frontchannelLogout": true}
 	for key, value := range s.document {
+		if !qualifiedAuthorizationFlag(key, value) {
+			return false
+		}
 		if projected[key] {
 			continue
 		}
@@ -117,6 +121,9 @@ func (s *ClientOwnershipSnapshot) QualifiedLeaf() bool {
 			continue
 		}
 		if want, ok := defaults[key]; ok && reflect.DeepEqual(value, want) {
+			continue
+		}
+		if key == "protocolMappers" && qualifiedMapperDocuments(value, s.mappers, &s.Application) {
 			continue
 		}
 		if qualifiedEmptyNativeCollection(key, value) {
@@ -269,4 +276,87 @@ func (s *RoleOwnershipSnapshot) QualifiedLeaf() bool {
 		}
 	}
 	return true
+}
+
+func qualifiedMapperDocuments(value any, expected []map[string]any, app *Application) bool {
+	encoded, err := json.Marshal(value)
+	var documents []map[string]any
+	if err != nil || json.Unmarshal(encoded, &documents) != nil || !sameQualifiedMapperRoots(documents, expected) {
+		return false
+	}
+	for _, document := range documents {
+		if !qualifiedMapperRootKeys(document) {
+			return false
+		}
+		if document["consentRequired"] != nil && document["consentRequired"] != false {
+			return false
+		}
+		var mapper ProtocolMapper
+		data, _ := json.Marshal(document)
+		if json.Unmarshal(data, &mapper) != nil || !qualifiedLiveClientMapper(mapper, app) {
+			return false
+		}
+	}
+	return true
+}
+
+func sameQualifiedMapperRoots(a, b []map[string]any) bool {
+	convert := func(documents []map[string]any) map[string]ProtocolMapper {
+		result := map[string]ProtocolMapper{}
+		for _, document := range documents {
+			data, err := json.Marshal(document)
+			var mapper ProtocolMapper
+			if err != nil || json.Unmarshal(data, &mapper) != nil || mapper.ID == "" || result[mapper.ID].ID != "" {
+				return nil
+			}
+			result[mapper.ID] = CanonicalProtocolMapper(mapper)
+		}
+		return result
+	}
+	aa, bb := convert(a), convert(b)
+
+	return aa != nil && bb != nil && reflect.DeepEqual(aa, bb)
+}
+
+func qualifiedMapperRootKeys(document map[string]any) bool {
+	allowed := map[string]bool{"id": true, "name": true, "protocol": true, "protocolMapper": true, "config": true, "consentRequired": true}
+	for key := range document {
+		if !allowed[key] {
+			return false
+		}
+	}
+	return true
+}
+
+func normalizeMapperSnapshotDefaults(result map[string]any) {
+	if mappers, ok := result["protocolMappers"].([]any); ok {
+		for _, value := range mappers {
+			document, ok := value.(map[string]any)
+			if !ok {
+				continue
+			}
+			config, _ := document["config"].(map[string]any)
+			implementation, _ := document["protocolMapper"].(string)
+			if implementation != "oidc-usermodel-attribute-mapper" && implementation != "oidc-usermodel-realm-role-mapper" {
+				continue
+			}
+			if config["introspection.token.claim"] == nil {
+				if access := config["access.token.claim"]; access == "true" || access == "false" {
+					config["introspection.token.claim"] = access
+				}
+			}
+		}
+	}
+}
+
+func (s *ClientOwnershipSnapshot) AuthorizationEnabled() bool {
+	return s != nil && s.document["authorizationServicesEnabled"] == true
+}
+
+func qualifiedAuthorizationFlag(key string, value any) bool {
+	if key != "authorizationServicesEnabled" {
+		return true
+	}
+	_, valid := value.(bool)
+	return valid
 }

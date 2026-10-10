@@ -462,30 +462,33 @@ using the dedicated client's credentials.
 | groups | GET | `/admin/realms/{realm}/group-by-path/{path...}` | view-users or manage-users |
 | groups | GET,POST | `/admin/realms/{realm}/groups` | view-users / manage-users |
 | groups | GET,PUT,DELETE | `/admin/realms/{realm}/groups/{group}` | view-users / manage-users |
+| group-cleanup-members | GET | `/admin/realms/{realm}/groups/{group}/members` | view-users or manage-users; cleanup existence only, max=1 |
 | groups | GET,POST | `/admin/realms/{realm}/groups/{group}/children` | view-users / manage-users |
 | group-roles | GET | `/admin/realms/{realm}/groups/{group}/role-mappings` | view-users |
 | group-roles | GET,POST | `/admin/realms/{realm}/groups/{group}/role-mappings/realm` | view-users / manage-users and permission to map the realm role |
 | group-roles | GET,POST | `/admin/realms/{realm}/groups/{group}/role-mappings/clients/{client}` | view-users / manage-users and permission to map the client role |
 | organizations | GET,POST | `/admin/realms/{realm}/organizations` | view-organizations / manage-organizations or manage-realm |
 | organizations | GET,PUT,DELETE | `/admin/realms/{realm}/organizations/{organization}` | view-organizations / manage-organizations or manage-realm |
+| organization-cleanup-members | GET | `/admin/realms/{realm}/organizations/{organization}/members` | view-organizations or manage-organizations; cleanup existence only, max=1 |
 | organization-idps | GET,POST | `/admin/realms/{realm}/organizations/{organization}/identity-providers` | view-organizations / manage-organizations (or manage-realm) and manage-identity-providers |
 | organization-idps | DELETE | `/admin/realms/{realm}/organizations/{organization}/identity-providers/{alias}` | manage-organizations (or manage-realm) and manage-identity-providers |
 | authorization | GET,POST | `/admin/realms/{realm}/clients/{client}/authz/resource-server/scope` | view-authorization / manage-authorization or manage-clients |
-| authorization | PUT,DELETE | `/admin/realms/{realm}/clients/{client}/authz/resource-server/scope/{object}` | manage-authorization or manage-clients |
+| authorization | GET,PUT,DELETE | `/admin/realms/{realm}/clients/{client}/authz/resource-server/scope/{object}` | view-authorization / manage-authorization or manage-clients |
 | authorization | GET,POST | `/admin/realms/{realm}/clients/{client}/authz/resource-server/resource` | view-authorization / manage-authorization or manage-clients |
-| authorization | PUT,DELETE | `/admin/realms/{realm}/clients/{client}/authz/resource-server/resource/{object}` | manage-authorization or manage-clients |
+| authorization | GET,PUT,DELETE | `/admin/realms/{realm}/clients/{client}/authz/resource-server/resource/{object}` | view-authorization / manage-authorization or manage-clients |
 | authorization | GET | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/{object}/associatedPolicies` | view-authorization or manage-authorization or manage-clients |
 | authorization | GET | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy` | view-authorization or manage-authorization or manage-clients |
 | authorization | GET,POST | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/role` | view-authorization / manage-authorization or manage-clients |
 | authorization | GET,POST | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/client` | view-authorization / manage-authorization or manage-clients |
 | organization-authorization | GET,POST | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/group` | view-authorization / manage-authorization or manage-clients; strict group resolution additionally requires view-users |
-| organization-authorization | PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/group/{object}` | manage-authorization or manage-clients |
-| authorization | PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/role/{object}` | manage-authorization or manage-clients |
-| authorization | PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/client/{object}` | manage-authorization or manage-clients |
+| organization-authorization | GET,PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/group/{object}` | view-authorization / manage-authorization or manage-clients |
+| authorization | GET,PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/role/{object}` | view-authorization / manage-authorization or manage-clients |
+| authorization | GET,PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/client/{object}` | view-authorization / manage-authorization or manage-clients |
 | authorization | DELETE | `/admin/realms/{realm}/clients/{client}/authz/resource-server/policy/{object}` | manage-authorization or manage-clients |
 | authorization | GET | `/admin/realms/{realm}/clients/{client}/authz/resource-server/permission` | view-authorization or manage-authorization or manage-clients |
 | authorization | GET,POST | `/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/scope` | view-authorization / manage-authorization or manage-clients |
-| authorization | PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/scope/{object}` | manage-authorization or manage-clients |
+| authorization | GET,PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/scope/{object}` | view-authorization / manage-authorization or manage-clients |
+| authorization-native-dependencies | GET | `/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/resource` | view-authorization or manage-authorization or manage-clients |
 | authorization | DELETE | `/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/{object}` | manage-authorization or manage-clients |
 <!-- admin-operation-contract:end -->
 
@@ -563,5 +566,40 @@ role-management authority; it is not global administrator authority.
 
 Restrict permission to change approval annotations and source credential/CA
 references with Kubernetes RBAC. A candidate, imported label or successful status
-alone does not approve provider mutation. Common receipt-bearing leaves remain
-Observe/Manage-blocked until #49 and gain no destructive finalizer or Secret.
+alone does not approve provider mutation. Acquisition remains Observe and gains
+no destructive finalizer or Secret. Explicit Manage requires an absent imported
+latch, current provider ownership and the qualified preservation schema.
+
+## Aggregate acquisition and adopted Manage
+
+Use a separate source observer and domain writer, with authority limited to the
+target realm. The [aggregate/preservation contract](architecture/existing-keycloak-adoption.md#implemented-aggregate-acquisition-and-native-preservation-49)
+does not grant realm lifecycle ownership. Credential access begins only after
+explicit qualified client/ServiceAccount Manage, not during acquisition.
+
+| Capability | Target-realm observer | Separate target-realm writer | Excluded authority / limitation |
+| --- | --- | --- | --- |
+| Application/ServiceAccount with existing Authorization Services | view-realm, view-clients; view-authorization for independent graph review | view-realm, manage-clients | No manage-realm, user/group/broker mutation or global realm administration. The client receipt does not acquire the graph. |
+| Selective ResourceServer | view-realm, view-clients, view-authorization | view-realm, manage-clients, manage-authorization | No manage-realm, realm deletion/security mutation, users or global realm creation. V2 selects safe nodes only. |
+| Organization group + already-enabled native root | view-realm, view-users, view-organizations, view-identity-providers, view-clients | view-realm, manage-users, manage-organizations, view-identity-providers, view-clients | No manage-realm, client management, IdP mutation or global realm administration. manage-users also grants target-realm user authority even though the operator does not provision members. |
+| Adopted realm-role definitions/composites | view-realm, view-clients for client-composite visibility | manage-realm | Broader target-realm security/lifecycle authority is inseparable from this legacy role-definition permission. This profile cannot honestly claim target-realm DELETE/security PUT denial. It has no global realm creation or other-realm authority. |
+
+`view-clients` on the Organization profile is necessary to observe foreign client
+role mappings consistently through both reader and writer on 26.8.0; without it,
+caller-dependent provider representations fail the acquisition comparison.
+It does not authorize the operator to modify those clients. The native 26.7.5
+credential-visibility limitation of view-clients remains: the inventory transport
+guard still refuses client-secret/service-account-user routes on both versions.
+
+The aggregate writers prove realm DELETE, realm security PUT and global realm
+creation return 403 on real HTTPS Keycloak. Bootstrap administration provisions
+disposable foreign fixtures and scoped identities only. Ownership acquisition
+does not use user/member reads; destructive Organization safety uses only bounded
+`first=0&max=1` membership existence, without retaining identities.
+
+Realm-role `manage-realm` is an unavoidable broader authority in the qualified
+legacy permission model. Fine-grained role permissions cover role mapping,
+composite mapping and client-scope mapping; they are not a qualified substitute
+for role-definition create/update/delete. Separate this identity and its watched
+declarations if this authority is acceptable. Otherwise keep roles Observe.
+Neither `realm-admin` nor a global master administrator is the default.
