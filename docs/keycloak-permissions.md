@@ -591,9 +591,10 @@ It does not authorize the operator to modify those clients. The native 26.7.5
 credential-visibility limitation of view-clients remains: the inventory transport
 guard still refuses client-secret/service-account-user routes on both versions.
 
-The aggregate writers prove realm DELETE, realm security PUT and global realm
-creation return 403 on real HTTPS Keycloak. Bootstrap administration provisions
-disposable foreign fixtures and scoped identities only. Ownership acquisition
+Application, ServiceAccount, ResourceServer and Organization aggregate writers
+MUST prove realm DELETE, realm security PUT and global realm creation return 403
+on real HTTPS Keycloak. HankoRole uses the explicit §117 exception below.
+Bootstrap administration provisions disposable foreign fixtures and scoped identities only. Ownership acquisition
 does not use user/member reads; destructive Organization safety uses only bounded
 `first=0&max=1` membership existence, without retaining identities.
 

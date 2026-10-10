@@ -274,7 +274,7 @@ Review the [inventory permissions](../../docs/keycloak-permissions.md#dedicated-
 and [bounded evidence contract](../../docs/architecture/existing-keycloak-adoption.md#implemented-discovery-and-diff-47).
 Done and complete coverage are separate; candidate status is not adoption approval.
 
-For the unreleased 0.5 source ownership flow, follow the
+For the 0.5.0 source ownership flow, follow the
 [reviewed leaf adoption workflow](../../docs/architecture/existing-keycloak-adoption.md#implemented-reviewed-leaf-acquisition-48)
 and [service-account upgrade guidance](../../docs/secure-deployment.md#reviewed-existing-client-ownership).
 Approval is target-local Kubernetes metadata, not a chart flag. Existing unmarked
@@ -283,4 +283,5 @@ M2M clients require reviewed acquisition. Leaf and
 remain Observe until an administrator explicitly requests Manage and removes the
 imported latch. Exact current ownership and qualified native preservation are
 required; foreign dependencies hold cleanup. Chart/app source metadata is 0.5.0;
-production publication remains pending in #21.
+source freeze requires exact-main qualification. Production publication remains
+pending in #21.

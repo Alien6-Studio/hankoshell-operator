@@ -50,6 +50,8 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 	var mu sync.Mutex
 	puts, credentials, realmLifecycleCalls := 0, 0, 0
 	loseAck, manage, roleReconciliation := false, false, false
+	roleReconcile := false
+	roleRoutes := map[string]int{}
 	proxy := httputil.NewSingleHostReverseProxy(endpoint)
 	proxy.Transport = f.http.Transport
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -66,6 +68,9 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 		mu.Lock()
 		managed := manage
 		roleOnly := roleReconciliation
+		if roleReconcile && strings.HasPrefix(r.URL.Path, "/admin/") {
+			roleRoutes[r.Method+" "+r.URL.Path]++
+		}
 		mu.Unlock()
 		if roleOnly && r.Method != http.MethodGet && strings.HasPrefix(r.URL.Path, "/admin/") &&
 			r.URL.Path != "/admin/realms/managed/roles" && !strings.HasPrefix(r.URL.Path, "/admin/realms/managed/roles/") {
@@ -121,7 +126,7 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 				clientID = "https://reviewed.example.test/saml"
 			}
 			var target client.Object
-			var before map[string]any
+			var before, realmBefore map[string]any
 			var rolesBefore, mappersBefore, resourcesBefore, compositesBefore []map[string]any
 			path := base + "/roles/" + name
 			meta := fixtureMeta(name)
@@ -131,6 +136,7 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 			credential := fixtureSecret(t)
 			f.secrets = append(f.secrets, credential)
 			if capability == "role" {
+				realmBefore = reader.read(base)
 				f.admin(http.MethodPost, base+"/roles", map[string]any{"name": name, "description": "Reviewed leaf", "attributes": map[string][]string{"locale": {"fr"}}}, nil)
 				f.admin(http.MethodPost, base+"/roles", map[string]any{"name": name + "-foreign-composite"}, nil)
 				var composite map[string]any
@@ -214,6 +220,14 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 			case *api.HankoRole:
 				r := &controller.HankoRoleReconciler{Client: kube, APIReader: kube, Pool: keycloak.NewPool(roleWriter)}
 				reconcile = func() error {
+					mu.Lock()
+					roleReconcile = manage && len(target.GetAnnotations()) == 0
+					mu.Unlock()
+					defer func() {
+						mu.Lock()
+						roleReconcile = false
+						mu.Unlock()
+					}()
 					_, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(target)})
 					return err
 				}
@@ -313,6 +327,9 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 			switch object := target.(type) {
 			case *api.HankoRole:
 				object.Spec.Mode = "Manage"
+				object.Spec.Composite = true
+				object.Spec.Composites = []string{name + "-desired-composite"}
+				f.admin(http.MethodPost, base+"/roles", map[string]any{"name": name + "-desired-composite"}, nil)
 			case *api.HankoServiceAccount:
 				object.Spec.Mode = "Manage"
 			case *api.HankoApplication:
@@ -332,7 +349,10 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 			native, _ := managedSnapshot["attributes"].(map[string]any)
 			if capability == "role" {
 				fixtureEqual(t, "role native locale survives Manage", native["locale"], []any{"fr"})
-				fixtureEqual(t, "foreign realm/client composites and UUIDs survive Manage", orderedOwnershipDocuments(reader.list(path+"/composites")), orderedOwnershipDocuments(compositesBefore))
+				compositesAfter := reader.list(path + "/composites")
+				fixtureEqual(t, "additive Manage keeps foreign composites", len(compositesAfter), len(compositesBefore)+1)
+				foreignAfter := slices.DeleteFunc(compositesAfter, func(actual map[string]any) bool { return actual["name"] == name+"-desired-composite" })
+				fixtureEqual(t, "foreign realm/client composites and UUIDs survive Manage", orderedOwnershipDocuments(foreignAfter), orderedOwnershipDocuments(compositesBefore))
 			} else {
 				fixtureEqual(t, "client native locale survives Manage", native["locale"], "en")
 			}
@@ -378,6 +398,28 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 			target.SetAnnotations(map[string]string{adoption.SourceAnnotation: "source", adoption.ContractAnnotation: string(adoption.Version), adoption.CandidateAnnotation: candidate.CandidateHash})
 			f.requireNoError(kube.Update(ctx, target))
 			f.requireNoError(reconcile())
+			if capability == "role" {
+				// Controller cleanup remains conservative despite the credential's
+				// independent realm-delete capability, probed only below.
+				f.requireNoError(kube.Get(ctx, client.ObjectKeyFromObject(target), target))
+				target.SetAnnotations(nil)
+				f.requireNoError(kube.Update(ctx, target))
+				f.requireNoError(kube.Delete(ctx, target))
+				f.requireNoError(reconcile())
+				f.requireNoError(kube.Get(ctx, client.ObjectKeyFromObject(target), target))
+				if len(target.GetFinalizers()) != 1 || !slices.ContainsFunc(ownershipConditions(target), func(c metav1.Condition) bool { return c.Reason == "CleanupConflict" }) {
+					t.Fatal("adopted-role cleanup did not retain its conservative boundary")
+				}
+				fixtureEqual(t, "adopted role retained", reader.read(path)["id"], before["id"])
+				fixtureEqual(t, "external realm identity, security and attributes untouched", reader.read(base), realmBefore)
+				var external api.HankoRealm
+				f.requireNoError(kube.Get(ctx, types.NamespacedName{Namespace: meta.Namespace, Name: "managed"}, &external))
+				fixtureEqual(t, "external realm stays imported Observe", external.Labels["hanko.sh/imported-by"], "external")
+				fixtureEqual(t, "no external realm lifecycle finalizer", len(external.Finalizers), 0)
+				mu.Lock()
+				qualifyRoleOperationInventory(t, roleRoutes, base, name)
+				mu.Unlock()
+			}
 			if capability != "role" {
 				secretStatus := http.StatusForbidden
 				if f.version == "26.7.5" {
@@ -492,6 +534,7 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 	realmCalls := realmLifecycleCalls
 	mu.Unlock()
 	fixtureEqual(t, "normal reconciliation never calls realm security PUT or realm DELETE", realmCalls, 0)
+	qualifyRoleWriterScope(t, f, roleSecret)
 	// The role writer has only manage-realm on this disposable target. Make its
 	// unavoidable broader authority observable rather than claiming §117 denial.
 	roleIdentity := adoptionProbe{f, "ownership-role-writer", roleSecret}

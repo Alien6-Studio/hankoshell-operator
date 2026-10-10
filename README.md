@@ -398,7 +398,8 @@ completes reviewed adoption and qualified native preservation; public distributi
 remains independent in #21.
 
 HankoRole Manage uses target-realm `manage-realm`, which also permits target-realm
-security changes and deletion. HankoRole never performs those realm operations;
+security changes and deletion: credential compromise exposes the complete target
+realm. HankoRole never performs those realm operations;
 ownership markers do not narrow the credential's technical capabilities. Use a
 dedicated scoped writer where possible and review the
 [role-writer permission boundary](docs/keycloak-permissions.md#dedicated-hankorole-writer-target-realm-exception).

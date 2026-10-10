@@ -40,6 +40,7 @@
   Qualify Kubernetes 1.35.0/1.36.2/1.37.0, real HTTPS Keycloak 26.7.5/26.8.0
   and the exact AMD64/ARM64 runtime image. GO-2026-5932 remains UNKNOWN/unfixed
   and unsuppressed; production distribution remains pending in #21.
+  Source freeze requires protected merge and exact-main qualification.
 
 - Implement #48: explicit target-local source/contract/candidate approval for
   lossless OIDC/SAML application, role and service-account ownership acquisition.
@@ -196,7 +197,9 @@ Report vulnerabilities privately at
 https://github.com/Alien6-Studio/hankoshell-operator/security/advisories/new.
 <!-- release-notes:end -->
 
-## 0.4.0 — Unreleased
+
+
+## 0.4.0 — Source frozen (unpublished)
 
 - Accept the organizational authorization design: extend HankoResourceServer with
   an organization principal and explicit descendant semantics, preserving role

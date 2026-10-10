@@ -29,7 +29,7 @@ annotations:
     - kind: added
       description: Preserve qualified native state during explicit Manage and refuse unsafe foreign/shared cleanup.
     - kind: changed
-      description: Complete Adopt Existing Keycloak source metadata at 0.5.0; public distribution remains pending.
+      description: Complete reviewed adoption, native preservation and explicit target-realm role-writer authority at 0.5.0; public distribution remains pending.
   artifacthub.io/images: |
     - name: hankoshell-operator
       image: ghcr.io/alien6-studio/hankoshell-operator:0.5.0

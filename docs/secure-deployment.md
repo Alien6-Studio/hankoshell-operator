@@ -33,6 +33,40 @@ because absence of every foreign reference is not bounded/qualified.
 Lost HTTP/status acknowledgements
 recover from the exact provider receipt without repeating the ownership PUT.
 
+## HankoRole writer: complete target-realm credential blast radius
+
+HankoRole Manage is enabled under the explicit
+[§117 exception](architecture/existing-keycloak-adoption.md#117--provider-authority-and-hankorole-exception).
+Realm-role create/update/delete/composition requires the qualified Keycloak
+`manage-realm` built-in role on the target realm. That credential can also mutate
+configuration/security and **delete the entire same target realm**. Keycloak's
+qualified built-in permission cannot express role-definition-only management.
+
+Recommend a dedicated role-writer identity per target realm wherever the deployment
+architecture permits it. Keep Full Scope Allowed disabled and permit exactly the
+reviewed role scopes for that target only; never add `realm-admin`, master
+`manage-realm`, master/global `admin`, `create-realm` or unrelated-realm grants. Authentication in master
+is distinct from authority over master. A shared process's credential has the
+union of its granted capabilities; separate identities must also be isolated from
+processes that should not hold them. Dedicated identity compromise still exposes
+the **complete target realm**, not just the declared or owned roles.
+
+Ownership checks authorize controller actions; Kubernetes objects do not
+cryptographically restrict the provider credential. An imported/external HankoRealm
+remains Observe-only, without realm ownership markers or lifecycle finalizers.
+Normal HankoRole reconciliation uses only qualified role definition/composite
+operations and necessary read-only identity checks: no realm-level PUT/DELETE,
+security reconciliation or realm deletion. Real-Keycloak credential probes that
+change security/delete a disposable target realm document permission breadth,
+not controller behavior. Application, ServiceAccount, ResourceServer and Organization
+writers retain strict provider-enforced realm deletion/security mutation denial.
+
+Reviewed candidates, exact provider UUID and target UID, verified receipts and
+native preservation still precede an explicit Observe → Manage transition.
+Conservative adopted-role cleanup refusal remains necessary when complete absence
+of foreign references cannot be proven. For deployment permissions and qualification
+profiles, see [the Keycloak permission contract](keycloak-permissions.md#dedicated-hankorole-writer-target-realm-exception).
+
 ## Trust boundaries
 
 The Kubernetes API server, cluster administrators and the configured Keycloak
@@ -450,30 +484,6 @@ responses/assertions on both Keycloak versions. Public realm frontend URL and
 private administrative URL separation is tested through two TLS-verified origins.
 These tests do not qualify arbitrary production SPs or MFA/federation scenarios.
 See [application identity, ownership migration and protocol limits](architecture/application-identity.md).
-
-### Dedicated role-writer authority
-
-Adopted HankoRole resources may enter explicit Manage inside an imported/Observe
-realm. On the qualified Keycloak 26.7.5/26.8.0 window, their dedicated writer needs
-only the target realm's `manage-realm` management role, with Full Scope Allowed
-**disabled** and the exact permitted role scope. Separate the identity per target
-realm where deployment permits it. No `realm-admin`, master `manage-realm`,
-master/global `admin`, `create-realm` or unrelated-realm authority is required.
-
-This native permission also allows target-realm configuration/security changes
-and target-realm deletion. Compromise of that credential has this broader blast
-radius. Kubernetes/provider ownership markers constrain the controller's behavior,
-not the token. HankoRole's normal writes stay on inventoried realm-role endpoints;
-it never sends realm security PUT or realm DELETE and never acquires realm
-lifecycle ownership/finalizers. The imported/external HankoRealm remains Observe.
-
-The HankoRole credential is the explicit narrow exception to the child-writer
-realm-mutation denial contract (§117). Other qualified child writers still prove
-those mutations are denied. Direct disposable-fixture probes characterize the
-role writer's authority separately from normal reconciliation. Adopted-role
-cleanup keeps `CleanupConflict` when absence of all foreign references is unproven.
-See the [complete role-writer contract](keycloak-permissions.md#dedicated-hankorole-writer-target-realm-exception),
-including exact operation inventory, scopes and qualification evidence.
 
 ### Application protocol ownership and migration
 
