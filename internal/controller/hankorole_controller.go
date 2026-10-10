@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -47,7 +48,7 @@ func (r *HankoRoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 		patch := client.MergeFrom(role.DeepCopy())
 		role.Status.Phase = "Error"
-		roleEvidence(&role.Status).process(role.Generation, isImported(role.Labels))
+		roleEvidence(&role.Status).process(role.Generation, effectiveRoleMode(&role) == ModeObserve)
 		iamCondition(&role.Status.Conditions, role.Generation, "Synced", metav1.ConditionFalse, "ReservedAuthorityRole", err.Error())
 		if patchErr := r.Status().Patch(ctx, &role, patch); patchErr != nil {
 			return ctrl.Result{}, patchErr
@@ -55,6 +56,9 @@ func (r *HankoRoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{RequeueAfter: requeueWithJitter()}, nil
 	}
 
+	if handled, result, err := reconcileOwnershipAcquisition(ctx, r.Client, r.APIReader, &role, kcForObject(r.Pool, role.Namespace, role.Labels), r.roleAcquisitionGuard); handled {
+		return result, err
+	}
 	driver := r.roleDriver(&role)
 	if err := r.validateRoleAuthority(ctx, &role, driver); err != nil {
 		if !role.DeletionTimestamp.IsZero() {
@@ -65,7 +69,7 @@ func (r *HankoRoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 		patch := client.MergeFrom(role.DeepCopy())
 		role.Status.Phase = "Error"
-		roleEvidence(&role.Status).process(role.Generation, isImported(role.Labels))
+		roleEvidence(&role.Status).process(role.Generation, effectiveRoleMode(&role) == ModeObserve)
 		reason := "AuthorityRoleLookupFailed"
 		if isReservedAuthorityRoleViolation(err) {
 			reason = "ReservedAuthorityRole"
@@ -89,7 +93,7 @@ func (r *HankoRoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil {
 		return r.rolePlanError(ctx, &role, nil, "PlanRejected", err, nil)
 	}
-	if isImported(role.Labels) {
+	if effectiveRoleMode(&role) == ModeObserve {
 		if controllerutil.ContainsFinalizer(&role, roleFinalizerName) {
 			controllerutil.RemoveFinalizer(&role, roleFinalizerName)
 			if err := r.Update(ctx, &role); err != nil {
@@ -145,7 +149,7 @@ func (r *HankoRoleReconciler) compileRolePlan(ctx context.Context, role *hankosh
 	if err := reader.Get(ctx, client.ObjectKey{Namespace: role.Namespace, Name: role.Spec.RealmRef}, &realm); err != nil {
 		return roles.Plan{}, err
 	}
-	if !realm.DeletionTimestamp.IsZero() || (isImported(realm.Labels) && !isImported(role.Labels)) {
+	if !realm.DeletionTimestamp.IsZero() || (isImported(realm.Labels) && effectiveRoleMode(role) == ModeManage) {
 		return roles.Plan{}, iamcontract.ErrRejected
 	}
 	caps, err := driver.Capabilities(ctx)
@@ -157,7 +161,7 @@ func (r *HankoRoleReconciler) compileRolePlan(ctx context.Context, role *hankosh
 	intent := roles.Intent{RealmRef: role.Spec.RealmRef, Name: role.Spec.Name, Description: role.Spec.Description, Composite: role.Spec.Composite, Composites: role.Spec.Composites}
 	resolved := roles.ResolvedReferences{Realm: realm.Name, Owner: owner, Attributes: role.Spec.Attributes}
 	mode := ModeManage
-	if isImported(role.Labels) {
+	if effectiveRoleMode(role) == ModeObserve {
 		mode = ModeObserve
 	}
 	plan, err := roles.Compile(intent, resolved, caps, executionPreconditions(role, reader.digest(), mode))
@@ -200,7 +204,7 @@ func (r *HankoRoleReconciler) validateRoleExecution(ctx context.Context, obj *ha
 func (r *HankoRoleReconciler) rolePlanError(ctx context.Context, obj *hankoshv1alpha1.HankoRole, plan *roles.Plan, reason string, err error, state *roles.State) (ctrl.Result, error) {
 	patch := client.MergeFrom(obj.DeepCopy())
 	e := roleEvidence(&obj.Status)
-	e.process(obj.Generation, isImported(obj.Labels))
+	e.process(obj.Generation, effectiveRoleMode(obj) == ModeObserve)
 	if plan != nil {
 		e.evaluate(obj.Generation, plan.Identity())
 		obj.Status.Capabilities = roleCapabilityStatus(plan.Evidence().Supported)
@@ -258,7 +262,7 @@ func (r *HankoRoleReconciler) roleObservation(ctx context.Context, obj *hankoshv
 	obj.Status.LastReconciled = &now
 	reason, status, message := "Reconciled", metav1.ConditionTrue, "provider read-back matches the evaluated contract"
 	if observe {
-		obj.Status.AdoptionCandidate = refreshImportedCandidate(ctx, r.Client, r.APIReader, obj)
+		obj.Status.AdoptionCandidate = refreshTargetCandidate(ctx, r.Client, r.APIReader, obj)
 		reason, message = "Observed", "provider state observed without mutation"
 	}
 	if err := observationError(state.Observation); err != nil {
@@ -290,9 +294,19 @@ func (r *HankoRoleReconciler) reconcileRoleDeletion(ctx context.Context, role *h
 	if !controllerutil.ContainsFinalizer(role, roleFinalizerName) {
 		return ctrl.Result{}, nil
 	}
-	if isImported(role.Labels) {
+	if effectiveRoleMode(role) == ModeObserve {
 		controllerutil.RemoveFinalizer(role, roleFinalizerName)
 		return ctrl.Result{}, r.Update(ctx, role)
+	}
+	if r.Pool != nil {
+		preserve, err := acquiredProviderReceipt(ctx, kcForObject(r.Pool, role.Namespace, role.Labels), role)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if preserve {
+			controllerutil.RemoveFinalizer(role, roleFinalizerName)
+			return ctrl.Result{}, r.Update(ctx, role)
+		}
 	}
 	caps, err := driver.Capabilities(ctx)
 	if err != nil {
@@ -329,7 +343,7 @@ func (r *HankoRoleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		r.APIReader = mgr.GetAPIReader()
 	}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&hankoshv1alpha1.HankoRole{}).
+		For(&hankoshv1alpha1.HankoRole{}, builder.WithPredicates(generationOrReconcileRequestChanged())).
 		Complete(r)
 }
 

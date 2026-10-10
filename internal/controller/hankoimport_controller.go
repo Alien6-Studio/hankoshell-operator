@@ -634,6 +634,7 @@ func (r *HankoImportReconciler) applyServiceAccount(ctx context.Context, hi *han
 			Labels:    map[string]string{importedByLabel: hi.Name},
 		},
 		Spec: hankoshv1alpha1.HankoServiceAccountSpec{
+			Mode:     ModeObserve,
 			RealmRef: realmID,
 			ClientID: app.ClientID,
 		},

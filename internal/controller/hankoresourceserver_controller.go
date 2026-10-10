@@ -523,7 +523,7 @@ func (r *HankoResourceServerReconciler) statusObservation(ctx context.Context, o
 	obj.Status.Findings = findingsStatus(state.Findings)
 	reason, message := "Reconciled", "provider read-back matches the evaluated contract"
 	if observe {
-		obj.Status.AdoptionCandidate = refreshImportedCandidate(ctx, r.Client, r.APIReader, obj)
+		obj.Status.AdoptionCandidate = refreshTargetCandidate(ctx, r.Client, r.APIReader, obj)
 		reason, message = "Observed", "provider state observed without mutation"
 	}
 	status := metav1.ConditionTrue

@@ -38,6 +38,27 @@ func checkAdoptionStatusContract(t *testing.T, ctx context.Context, admin client
 			if err := admin.Create(ctx, obj); err != nil {
 				t.Fatal(err)
 			}
+			if kind == "HankoRole" || kind == "HankoServiceAccount" {
+				if mode, _, _ := unstructured.NestedString(obj.Object, "spec", "mode"); mode != "Manage" {
+					t.Fatal("omitted mode did not default to Manage")
+				}
+				bad := obj.DeepCopy()
+				_ = unstructured.SetNestedField(bad.Object, "invalid", "spec", "mode")
+				if err := admin.Update(ctx, bad); !apierrors.IsInvalid(err) {
+					t.Fatal("invalid mode admitted")
+				}
+				for _, key := range []string{"hanko.sh/role-owner", "hanko.sh/client-owner-kind", "hanko.sh/client-owner-uid", "hanko.sh/application-owner", "hanko.sh/adoption-receipt"} {
+					bad = obj.DeepCopy()
+					var value any = "forged"
+					if kind == "HankoRole" {
+						value = []any{"forged"}
+					}
+					_ = unstructured.SetNestedMap(bad.Object, map[string]any{key: value}, "spec", "attributes")
+					if err := admin.Update(ctx, bad); !apierrors.IsInvalid(err) {
+						t.Fatalf("reserved provider attribute admitted: %s", key)
+					}
+				}
+			}
 			digest := "sha256:" + strings.Repeat("a", 64)
 			candidate := map[string]any{"contractVersion": "hanko.sh/adoption-contract/v1alpha1", "target": map[string]any{"kind": kind, "namespace": "auth", "name": obj.GetName(), "uid": string(obj.GetUID()), "generation": obj.GetGeneration()}, "providerIdentity": map[string]any{"instance": map[string]any{"kind": "HankoKeycloakInstance", "namespace": "auth", "name": "reader", "uid": "source-uid"}, "origin": "https://keycloak.example.test", "trust": "public-ca", "realmID": "realm-uuid", "objectIDs": []any{"provider-uuid"}}, "observationHash": digest, "diffHash": digest, "candidateHash": digest, "complete": true, "truncated": false, "approvable": true, "diff": []any{map[string]any{"domain": "application", "identity": "provider-uuid", "object": "app", "field": "owner", "code": "ownership-transition", "classification": "supported-typed-native", "roundTrip": "lossless-represented"}}}
 			obj.Object["status"] = map[string]any{"adoptionCandidate": candidate}
@@ -50,6 +71,18 @@ func checkAdoptionStatusContract(t *testing.T, ctx context.Context, admin client
 			}
 			if complete, _, _ := unstructured.NestedBool(got.Object, "status", "adoptionCandidate", "complete"); !complete {
 				t.Fatal("candidate status did not round-trip")
+			}
+			if kind != "HankoResourceServer" {
+				obj.Object["status"] = map[string]any{"adoptionCandidate": candidate, "adoptionReceipt": map[string]any{"contractVersion": "hanko.sh/adoption-contract/v1alpha1", "candidateHash": digest, "state": "Verified"}}
+				if err := admin.Status().Update(ctx, obj); err != nil {
+					t.Fatal(err)
+				}
+				if err := admin.Get(ctx, client.ObjectKeyFromObject(obj), got); err != nil {
+					t.Fatal(err)
+				}
+				if state, _, _ := unstructured.NestedString(got.Object, "status", "adoptionReceipt", "state"); state != "Verified" {
+					t.Fatal("receipt status did not round-trip")
+				}
 			}
 			if len(got.GetAnnotations()) != 0 || len(got.GetFinalizers()) != 0 || got.GetLabels()["hanko.sh/imported-by"] != "inventory" {
 				t.Fatal("status evidence acquired authority")

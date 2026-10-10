@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Alien6-Studio/hankoshell-operator/internal/adoption"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
 )
 
@@ -154,6 +155,9 @@ func validateNativeAttributes(attributes map[string][]string) error {
 		return iamcontract.ErrRejected
 	}
 	for k := range attributes {
+		if adoption.ReservedAttribute(k) {
+			return iamcontract.ErrRejected
+		}
 		switch strings.ToLower(k) {
 		case "password", "client_secret", "client-secret", "access_token", "bearer-token", "private_key", "private-key", "credential":
 			return iamcontract.ErrRejected

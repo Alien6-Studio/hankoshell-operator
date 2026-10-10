@@ -78,11 +78,12 @@ deps:
       - selfupdate
       - version
 
-  # ADR-009: Keycloak client is a pure HTTP client — no upstream project deps.
+  # ADR-009: HTTP client depends only on transport and the pure ownership wire contract.
   keycloak:
     anyVendorDeps: true
     mayDependOn:
       - httpsecurity
+      - adoption
 
   httpsecurity:
     anyVendorDeps: true
@@ -103,11 +104,13 @@ deps:
     mayDependOn:
       - keycloak
       - iamcontract
+      - adoption
 
   applications:
     mayDependOn:
       - keycloak
       - iamcontract
+      - adoption
 
   applicationbinding:
     mayDependOn:

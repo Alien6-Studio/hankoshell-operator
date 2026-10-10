@@ -32,12 +32,14 @@ func (r *HankoImportReconciler) applyInventoryTarget(ctx context.Context, operat
 	case item.app != nil:
 		object = &api.HankoApplication{ObjectMeta: meta, Spec: *item.app}
 	case item.account != nil:
+		item.account.Mode = ModeObserve
 		if isStaticallyProtectedServiceAccountClient(item.name) || isProtectedControlPlaneClient(r.ProtectedRealm, r.ProtectedClientIDs, item.realm, item.name) {
 			operation.Status.Skipped.ServiceAccounts++
 			return nil
 		}
 		object = &api.HankoServiceAccount{ObjectMeta: meta, Spec: *item.account}
 	case item.role != nil:
+		item.role.Mode = ModeObserve
 		object = &api.HankoRole{ObjectMeta: meta, Spec: *item.role}
 	default:
 		if item.kind == "application" {

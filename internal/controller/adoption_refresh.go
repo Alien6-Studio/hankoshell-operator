@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
@@ -11,19 +12,35 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// refreshImportedCandidate resolves sourceRef from the current import latch,
-// never a status-supplied endpoint/credential or the shared writer pool. A fresh
-// UID/spec read is mandatory. The result cannot cause a provider write.
-func refreshImportedCandidate(ctx context.Context, kube client.Client, reader client.Reader, object client.Object) *api.AdoptionCandidateStatus {
-	importName := object.GetLabels()[importedByLabel]
-	if importName == "" {
-		return nil
-	}
+// refreshTargetCandidate resolves the current explicit source or import latch.
+// It cannot acquire provider ownership and never uses the writer pool.
+func refreshTargetCandidate(ctx context.Context, kube client.Client, reader client.Reader, object client.Object) *api.AdoptionCandidateStatus {
+	return readTargetCandidate(ctx, kube, reader, object, false)
+}
+
+func readTargetCandidate(ctx context.Context, kube client.Client, reader client.Reader, object client.Object, normalizeAcquisition bool) *api.AdoptionCandidateStatus {
 	if reader == nil {
 		reader = kube
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
+	current, ok := object.DeepCopyObject().(client.Object)
+	if !ok {
+		return incompleteTargetCandidate(object)
+	}
+	if reader.Get(ctx, client.ObjectKeyFromObject(object), current) != nil || current.GetUID() != object.GetUID() {
+		return incompleteTargetCandidate(object)
+	}
+	object = current
+	source, err := resolveAdoptionSource(ctx, reader, object)
+	if errors.Is(err, errNoAdoptionSource) {
+		return nil
+	}
+	if err != nil {
+		return incompleteTargetCandidate(object)
+	}
+	importName := object.GetLabels()[importedByLabel]
+
 	target := adoption.TargetIdentity{Namespace: object.GetNamespace(), Name: object.GetName(), UID: string(object.GetUID()), Generation: object.GetGeneration(), ImportRef: importName, TenantRef: object.GetLabels()["hanko.sh/tenant"]}
 	realmName, clientID, kind := "", "", ""
 	switch o := object.(type) {
@@ -54,15 +71,11 @@ func refreshImportedCandidate(ctx context.Context, kube client.Client, reader cl
 	failed := func() *api.AdoptionCandidateStatus {
 		return candidateStatus(adoption.Build(target, adoption.ProviderIdentity{}, adoption.Observation{Complete: false, Findings: []adoption.Finding{{Code: "current_inventory_unreadable", Domain: kind, Message: "current target, sourceRef identity or bounded provider observation could not be verified", Blocking: true}}}, nil))
 	}
-	var operation api.HankoImport
-	if reader.Get(ctx, types.NamespacedName{Namespace: object.GetNamespace(), Name: importName}, &operation) != nil {
-		return failed()
-	}
-	var source api.HankoKeycloakInstance
-	if reader.Get(ctx, types.NamespacedName{Namespace: object.GetNamespace(), Name: operation.Spec.SourceRef}, &source) != nil {
-		return failed()
-	}
-	kc, err := buildKCClientForInstance(ctx, reader, &source, false)
+	operation := api.HankoImport{}
+	operation.Namespace = object.GetNamespace()
+	operation.Name = importName
+
+	kc, err := buildKCClientForInstance(ctx, reader, source, false)
 	if err != nil {
 		return failed()
 	}
@@ -71,7 +84,7 @@ func refreshImportedCandidate(ctx context.Context, kube client.Client, reader cl
 	if err != nil {
 		return failed()
 	}
-	p, err := adoptionSourceIdentity(ctx, reader, &source, kc, realm.ID)
+	p, err := adoptionSourceIdentity(ctx, reader, source, kc, realm.ID)
 	if err != nil {
 		return failed()
 	}
@@ -79,11 +92,11 @@ func refreshImportedCandidate(ctx context.Context, kube client.Client, reader cl
 	inventory := &realmAdoptionInventory{provider: p, complete: true}
 	switch kind {
 	case "application", "service-account":
-		got, err := kc.GetApplication(ctx, realmName, clientID)
+		got, err := kc.ReadClientOwnership(ctx, realmName, clientID)
 		if err != nil || got == nil {
 			return failed()
 		}
-		inventory.clients = []keycloak.InventoryClient{{Application: *got}}
+		inventory.clients = []keycloak.InventoryClient{{Application: got.Application, UnqualifiedNative: !got.QualifiedLeaf()}}
 		reconciler.discoverInventoryClients(ctx, kc, inventory, realmName)
 	case "role":
 		got, err := kc.GetRealmRole(ctx, realmName, clientID)
@@ -99,14 +112,25 @@ func refreshImportedCandidate(ctx context.Context, kube client.Client, reader cl
 		}
 		reconciler.discoverInventoryAuthorization(ctx, kc, inventory, realmName, keycloak.InventoryClient{Application: *got})
 	}
-	reconciler.verifyInventoryIdentity(ctx, inventory, &source, kc, *realm)
+	reconciler.verifyInventoryIdentity(ctx, inventory, source, kc, *realm)
 	for _, item := range inventory.items {
 		if item.kind != kind {
 			continue
 		}
+		if normalizeAcquisition {
+			item.ownerID = ""
+		}
 		current, desired := reconciler.currentInventoryTarget(ctx, &operation, item)
 		if current.UID != target.UID || current.ImportRef != importName {
 			return failed()
+		}
+		if normalizeAcquisition {
+			for i, f := range item.observation.Facts {
+				if f.Identity == item.id && f.Field == "owner" {
+					item.observation.Facts[i].Value = textValue("unmarked")
+					item.observation.Facts[i].Classification = adoption.Supported
+				}
+			}
 		}
 		p.ObjectIDs = item.ids
 		item.observation.Complete = item.observation.Complete && inventory.complete

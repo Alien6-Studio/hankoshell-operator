@@ -2,6 +2,30 @@
 
 ## 0.5.0 — Unreleased
 
+- Implement #48: explicit target-local source/contract/candidate approval for
+  lossless OIDC/SAML application, role and service-account ownership acquisition.
+  Revalidate current Kubernetes/provider identity and bounded candidate through
+  an independent reader; write only owner + canonical provider receipt, verify
+  unchanged UUID/business semantics, and remain Observe. Recover lost HTTP
+  acknowledgements/status checkpoints without another PUT; partial or conflicting
+  state never authorizes semantic writes or rollback.
+- Add Manage/Observe to roles/service accounts, retain imported Observe latches,
+  and keep all common receipt-bearing leaves behind ManagePreservationUnqualified
+  until #49. Observe deletion preserves the provider and adds no finalizer/Secret.
+  Legacy application UUID/observation migration remains compatible; combining
+  legacy and common approval conflicts before writes.
+- Harden service-account clients and token mappers with distinct kind/UID owner
+  envelopes and fresh checks before writes, secrets, rotation and deletion.
+  Existing unmarked M2M clients require explicit reviewed acquisition; matching
+  clientID, Secret, status or finalizer no longer grants implicit authority.
+- Include only exact qualified Keycloak defaults realm_client=false,
+  backchannel.logout.session.required=true and
+  backchannel.logout.revoke.offline.tokens=false in canonical read-only evidence.
+  Other values/native state remain refused. Keep native client-scope collections
+  unqualified; avoid reattaching service_account during ownership-only PUT.
+  Qualify HTTPS 26.7.5/26.8.0, Kubernetes 1.35.0/1.36.2/1.37.0 and an installed
+  scanned-image import/acquisition path. Packaging remains 0.4.0.
+
 - Implement #47: bounded existing-Keycloak discovery, observation and typed
   adoption diff. Add the evidence-only `hanko.sh/adoption-contract/v1alpha1`
   candidate on applications, imported roles, service accounts and safely observed
@@ -15,8 +39,8 @@
   brokers and bounded Authorization Services graphs without reading users,
   memberships or client-secret endpoints. Opaque credentials remain excluded;
   lossy native round trips and unresolved aggregate references are not approvable.
-- Ownership acquisition, receipts, annotation approval consumption and transitions
-  to Manage remain deferred to #48/#49. Packaging stays 0.4.0. GO-2026-5932 remains
+- Aggregate acquisition and adopt-to-Manage preservation remain #49.
+  Packaging stays 0.4.0. GO-2026-5932 remains
   UNKNOWN/unfixed and unsuppressed: the Go advisory contains no fixed version.
 
 - Accept the existing-Keycloak adoption architecture: HankoImport remains

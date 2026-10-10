@@ -67,6 +67,7 @@ spec:
                 description: |-
                   Attributes holds arbitrary key/value metadata attached to the role in
                   Keycloak. Values are lists of strings per Keycloak's representation.
+                maxProperties: 64
                 type: object
               composite:
                 description: |-
@@ -84,6 +85,15 @@ spec:
                 type: array
               description:
                 description: Description is a human-readable description of the role.
+                type: string
+              mode:
+                default: Manage
+                description: |-
+                  Mode separates provider reconciliation from read-only observation.
+                  The imported-by label always forces effective Observe.
+                enum:
+                - Manage
+                - Observe
                 type: string
               name:
                 description: Name is the Keycloak realm role name.
@@ -107,6 +117,9 @@ spec:
               rule: '!has(self.composites) || self.composites.all(r, r != ''HANKO_PLATFORM''
                 && !r.startsWith(''HANKO_PLATFORM_'') && !r.startsWith(''HANKO_FLEET_'')
                 && !r.startsWith(''HANKO_CLUSTER_''))'
+            - message: provider ownership and adoption receipt attributes are reserved
+              rule: '!has(self.attributes) || self.attributes.all(k, !(k.startsWith(''hanko.sh/'')
+                && (k.contains(''owner'') || k == ''hanko.sh/adoption-receipt'')))'
           status:
             description: HankoRoleStatus describes the observed state of the realm
               role.
@@ -365,6 +378,30 @@ spec:
                 - providerIdentity
                 - target
                 - truncated
+                type: object
+              adoptionReceipt:
+                description: |-
+                  AdoptionReceiptStatus reports a live provider checkpoint, never write or
+                  deletion authority. A failed status update can be recovered from the provider.
+                properties:
+                  candidateHash:
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  contractVersion:
+                    enum:
+                    - hanko.sh/adoption-contract/v1alpha1
+                    type: string
+                  state:
+                    enum:
+                    - Pending
+                    - Verified
+                    - Partial
+                    - Conflict
+                    type: string
+                required:
+                - candidateHash
+                - contractVersion
+                - state
                 type: object
               appliedGeneration:
                 description: |-

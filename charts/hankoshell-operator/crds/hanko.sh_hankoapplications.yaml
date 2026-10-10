@@ -801,6 +801,30 @@ spec:
                 - target
                 - truncated
                 type: object
+              adoptionReceipt:
+                description: |-
+                  AdoptionReceiptStatus reports a live provider checkpoint, never write or
+                  deletion authority. A failed status update can be recovered from the provider.
+                properties:
+                  candidateHash:
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  contractVersion:
+                    enum:
+                    - hanko.sh/adoption-contract/v1alpha1
+                    type: string
+                  state:
+                    enum:
+                    - Pending
+                    - Verified
+                    - Partial
+                    - Conflict
+                    type: string
+                required:
+                - candidateHash
+                - contractVersion
+                - state
+                type: object
               appliedGeneration:
                 description: |-
                   AppliedGeneration is the latest Manage generation proven by matching

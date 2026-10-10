@@ -45,6 +45,7 @@ func controllerTestClient(scheme *runtime.Scheme, objects ...client.Object) clie
 	return fake.NewClientBuilder().WithScheme(scheme).
 		WithStatusSubresource(
 			&hankoshv1alpha1.HankoApplication{},
+			&hankoshv1alpha1.HankoRole{},
 			&hankoshv1alpha1.HankoImport{},
 			&hankoshv1alpha1.HankoSnapshot{},
 			&hankoshv1alpha1.HankoOperation{},

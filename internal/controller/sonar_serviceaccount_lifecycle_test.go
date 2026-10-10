@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 
 func TestManagedServiceAccountCreatesCredentialAndSchedulesRotation(t *testing.T) {
 	created := false
+	var stored map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		switch {
 		case request.Method == http.MethodPost && request.URL.Path == "/realms/master/protocol/openid-connect/token":
@@ -38,8 +40,14 @@ func TestManagedServiceAccountCreatesCredentialAndSchedulesRotation(t *testing.T
 			if payload["serviceAccountsEnabled"] != true || payload["fullScopeAllowed"] != false {
 				t.Fatalf("unsafe service-account client: %#v", payload)
 			}
+			stored = payload
+			stored["id"] = "automation-uuid"
 			created = true
 			w.WriteHeader(http.StatusCreated)
+		case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/acme/clients/automation-uuid":
+			_ = json.NewEncoder(w).Encode(stored)
+		case request.Method == http.MethodGet && strings.HasSuffix(request.URL.Path, "/protocol-mappers/models"):
+			_ = json.NewEncoder(w).Encode([]any{})
 		case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/acme/clients/automation-uuid/client-secret":
 			_ = json.NewEncoder(w).Encode(map[string]string{"value": "generated-secret"})
 		case request.Method == http.MethodPost && request.URL.Path == "/admin/realms/acme/clients/automation-uuid/client-secret":
@@ -51,7 +59,7 @@ func TestManagedServiceAccountCreatesCredentialAndSchedulesRotation(t *testing.T
 	t.Cleanup(server.Close)
 
 	serviceAccount := &hankoshv1alpha1.HankoServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{Name: "automation", Namespace: "test", Generation: 2},
+		ObjectMeta: metav1.ObjectMeta{Name: "automation", Namespace: "test", Generation: 2, UID: "sa-uid"},
 		Spec: hankoshv1alpha1.HankoServiceAccountSpec{
 			RealmRef: "acme", ClientID: "automation",
 			SecretRotationPolicy: &hankoshv1alpha1.SecretRotationPolicy{Enabled: true, IntervalDays: 30},

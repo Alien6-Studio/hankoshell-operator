@@ -1,5 +1,16 @@
 package v1alpha1
 
+// AdoptionReceiptStatus reports a live provider checkpoint, never write or
+// deletion authority. A failed status update can be recovered from the provider.
+type AdoptionReceiptStatus struct {
+	// +kubebuilder:validation:Enum="hanko.sh/adoption-contract/v1alpha1"
+	ContractVersion string `json:"contractVersion"`
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	CandidateHash string `json:"candidateHash"`
+	// +kubebuilder:validation:Enum=Pending;Verified;Partial;Conflict
+	State string `json:"state"`
+}
+
 // AdoptionTargetIdentity identifies a current object, never write authority.
 type AdoptionTargetIdentity struct {
 	// TenantRef binds connection-selecting target metadata without acquiring it.

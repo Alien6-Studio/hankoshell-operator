@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -57,7 +58,7 @@ func (r *HankoServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	kc := kcForObject(r.Pool, sa.Namespace, sa.Labels)
-	observe := isImported(sa.Labels)
+	observe := effectiveServiceAccountMode(&sa) == ModeObserve
 	if !observe {
 		ownershipConflict, err := r.serviceAccountOwnershipConflict(ctx, &sa, kc)
 		if err != nil {
@@ -69,6 +70,10 @@ func (r *HankoServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.
 			}
 			return r.recordServiceAccountOwnershipConflict(ctx, &sa, ownershipConflict)
 		}
+	}
+
+	if handled, result, err := reconcileOwnershipAcquisition(ctx, r.Client, r.APIReader, &sa, kc, r.serviceAccountAcquisitionGuard); handled {
+		return result, err
 	}
 
 	// ── Deletion path ─────────────────────────────────────────────────────────
@@ -83,6 +88,13 @@ func (r *HankoServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.
 		return r.prepareServiceAccountObserve(ctx, &sa, kc)
 	}
 
+	existing, err := kc.GetApplication(ctx, sa.Spec.RealmRef, sa.Spec.ClientID)
+	if err != nil {
+		return ctrl.Result{RequeueAfter: requeueOnError}, err
+	}
+	if existing != nil && !keycloak.ServiceAccountOwned(existing, string(sa.UID)) {
+		return r.recordServiceAccountOwnershipConflict(ctx, &sa, "existing unmarked or foreign M2M client requires explicit reviewed acquisition")
+	}
 	if !controllerutil.ContainsFinalizer(&sa, saFinalizerName) {
 		controllerutil.AddFinalizer(&sa, saFinalizerName)
 		if err := r.Update(ctx, &sa); err != nil {
@@ -119,7 +131,7 @@ func (r *HankoServiceAccountReconciler) serviceAccountOwnershipConflict(ctx cont
 	}
 	for i := range accounts.Items {
 		account := &accounts.Items[i]
-		if account.Name == sa.Name || isImported(account.Labels) || !sameClientIdentity(account.Spec.RealmRef, account.Spec.ClientID, sa.Spec.RealmRef, clientID) {
+		if account.Name == sa.Name || effectiveServiceAccountMode(account) == ModeObserve || !sameClientIdentity(account.Spec.RealmRef, account.Spec.ClientID, sa.Spec.RealmRef, clientID) {
 			continue
 		}
 		candidates = append(candidates, newClientOwnershipCandidate("HankoServiceAccount", account))
@@ -176,11 +188,37 @@ func (r *HankoServiceAccountReconciler) reconcileServiceAccountDeletion(ctx cont
 	if !controllerutil.ContainsFinalizer(sa, saFinalizerName) {
 		return ctrl.Result{}, nil
 	}
+	reader := r.OwnershipReader
+	if reader == nil {
+		reader = r.APIReader
+	}
+	if reader == nil {
+		reader = r.Client
+	}
+	if !acquisitionCurrentTarget(ctx, reader, sa, true) {
+		return ctrl.Result{RequeueAfter: requeueImmediately}, nil
+	}
+	if !observe {
+		current, err := kc.GetApplication(ctx, sa.Spec.RealmRef, sa.Spec.ClientID)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		receipt := false
+		if current != nil {
+			_, receipt = current.Attributes["hanko.sh/adoption-receipt"]
+		}
+		observe = !keycloak.ServiceAccountOwned(current, string(sa.UID)) || receipt
+	}
 	logger := log.FromContext(ctx)
 	if observe {
 		logger.Info("Observe mode: dropping legacy finalizer without deleting M2M client", "clientID", sa.Spec.ClientID)
-	} else if err := kc.DeleteApp(ctx, sa.Spec.RealmRef, sa.Spec.ClientID); err != nil {
-		return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("delete M2M client %q: %w", sa.Spec.ClientID, err)
+	} else {
+		if !acquisitionCurrentTarget(ctx, reader, sa, true) {
+			return ctrl.Result{RequeueAfter: requeueImmediately}, nil
+		}
+		if err := kc.DeleteServiceAccountIfOwned(ctx, sa.Spec.RealmRef, sa.Spec.ClientID, string(sa.UID)); err != nil {
+			return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("delete M2M client %q: %w", sa.Spec.ClientID, err)
+		}
 	}
 	controllerutil.RemoveFinalizer(sa, saFinalizerName)
 	if err := r.Update(ctx, sa); err != nil {
@@ -223,7 +261,7 @@ func (r *HankoServiceAccountReconciler) reconcileManagedServiceAccount(ctx conte
 		return ctrl.Result{RequeueAfter: requeueOnError}, err
 	}
 
-	owner := tokenClaimOwner{namespace: sa.Namespace, name: sa.Name, generation: sa.Generation, realm: sa.Spec.RealmRef, clientID: sa.Spec.ClientID}
+	owner := tokenClaimOwner{kind: "HankoServiceAccount", uid: string(sa.UID), validate: func(ctx context.Context) error { return r.validateServiceAccountExecution(ctx, sa, kc, true) }, namespace: sa.Namespace, name: sa.Name, generation: sa.Generation, realm: sa.Spec.RealmRef, clientID: sa.Spec.ClientID}
 	managedClaims, err := reconcileClientTokenClaims(ctx, kc, owner, sa.Spec.TokenClaims, sa.Status.ManagedTokenClaims)
 	sa.Status.ManagedTokenClaims = managedClaims
 	if err != nil {
@@ -262,8 +300,11 @@ func (r *HankoServiceAccountReconciler) ensureServiceAccountClient(ctx context.C
 	if !found {
 		return r.createServiceAccountClient(ctx, sa, kc, rotationPolicy, now, patch)
 	}
+	if err := r.validateServiceAccountExecution(ctx, sa, kc, true); err != nil {
+		return r.serviceAccountStatusError(ctx, sa, patch, "AdoptionApprovalRequired", err)
+	}
 	if sa.Spec.Attributes != nil {
-		if err := kc.SyncClientAttributes(ctx, sa.Spec.RealmRef, sa.Spec.ClientID, sa.Spec.Attributes); err != nil {
+		if err := kc.SyncServiceAccountAttributesIfOwned(ctx, sa.Spec.RealmRef, sa.Spec.ClientID, string(sa.UID), sa.Spec.Attributes); err != nil {
 			return r.serviceAccountStatusError(ctx, sa, patch, "UpdateFailed", fmt.Errorf("update M2M client attributes %q: %w", sa.Spec.ClientID, err))
 		}
 	}
@@ -274,7 +315,10 @@ func (r *HankoServiceAccountReconciler) ensureServiceAccountClient(ctx context.C
 }
 
 func (r *HankoServiceAccountReconciler) createServiceAccountClient(ctx context.Context, sa *hankoshv1alpha1.HankoServiceAccount, kc *keycloak.Client, rotationPolicy *hankoshv1alpha1.SecretRotationPolicy, now *metav1.Time, patch client.Patch) error {
-	secret, err := kc.CreateApp(ctx, sa.Spec.RealmRef, keycloak.CreateAppSpec{ClientID: sa.Spec.ClientID, Name: sa.Spec.ClientID, Type: "m2m", Attributes: sa.Spec.Attributes})
+	if err := r.validateServiceAccountExecution(ctx, sa, kc, false); err != nil {
+		return err
+	}
+	secret, err := kc.CreateApp(ctx, sa.Spec.RealmRef, keycloak.CreateAppSpec{ClientID: sa.Spec.ClientID, Name: sa.Spec.ClientID, Type: "m2m", Attributes: sa.Spec.Attributes, ServiceAccountOwnerUID: string(sa.UID)})
 	if err != nil {
 		return r.serviceAccountStatusError(ctx, sa, patch, "CreateFailed", fmt.Errorf("create M2M client %q: %w", sa.Spec.ClientID, err))
 	}
@@ -313,7 +357,7 @@ func setServiceAccountNextRotation(sa *hankoshv1alpha1.HankoServiceAccount, poli
 // reconcileServiceAccountObserve reports presence only. In particular, it does
 // not recover the Keycloak client secret into Kubernetes.
 func (r *HankoServiceAccountReconciler) reconcileServiceAccountObserve(ctx context.Context, sa *hankoshv1alpha1.HankoServiceAccount, kc *keycloak.Client, patch client.Patch) (ctrl.Result, error) {
-	sa.Status.AdoptionCandidate = refreshImportedCandidate(ctx, r.Client, r.APIReader, sa)
+	sa.Status.AdoptionCandidate = refreshTargetCandidate(ctx, r.Client, r.APIReader, sa)
 	sa.Status.ObservedGeneration = sa.Generation
 	found, err := kc.ClientExists(ctx, sa.Spec.RealmRef, sa.Spec.ClientID)
 	if err != nil {
@@ -362,7 +406,10 @@ func (r *HankoServiceAccountReconciler) ensureSASecret(ctx context.Context, sa *
 		return err
 	}
 	// Secret missing — fetch current value from Keycloak without rotating.
-	current, fetchErr := kc.GetClientSecret(ctx, sa.Spec.RealmRef, sa.Spec.ClientID)
+	if err := r.validateServiceAccountExecution(ctx, sa, kc, true); err != nil {
+		return err
+	}
+	current, fetchErr := kc.GetServiceAccountSecretIfOwned(ctx, sa.Spec.RealmRef, sa.Spec.ClientID, string(sa.UID))
 	if fetchErr != nil {
 		return fmt.Errorf("recover secret for %q: %w", sa.Spec.ClientID, fetchErr)
 	}
@@ -390,7 +437,10 @@ func (r *HankoServiceAccountReconciler) maybeRotate(ctx context.Context, sa *han
 	}
 	logger := log.FromContext(ctx)
 	logger.Info("rotating M2M client secret", "clientID", sa.Spec.ClientID)
-	newSecret, err := kc.RotateClientSecret(ctx, sa.Spec.RealmRef, sa.Spec.ClientID)
+	if err := r.validateServiceAccountExecution(ctx, sa, kc, true); err != nil {
+		return err
+	}
+	newSecret, err := kc.RotateServiceAccountSecretIfOwned(ctx, sa.Spec.RealmRef, sa.Spec.ClientID, string(sa.UID))
 	if err != nil {
 		return fmt.Errorf("rotate secret for %q: %w", sa.Spec.ClientID, err)
 	}
@@ -472,7 +522,7 @@ func (r *HankoServiceAccountReconciler) SetupWithManager(mgr ctrl.Manager) error
 		r.APIReader = mgr.GetAPIReader()
 	}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&hankoshv1alpha1.HankoServiceAccount{}).
+		For(&hankoshv1alpha1.HankoServiceAccount{}, builder.WithPredicates(generationOrReconcileRequestChanged())).
 		Watches(&hankoshv1alpha1.HankoApplication{}, handler.EnqueueRequestsFromMapFunc(r.requestsForApplicationOwnership)).
 		Watches(&hankoshv1alpha1.HankoRealm{}, handler.EnqueueRequestsFromMapFunc(
 			func(ctx context.Context, obj client.Object) []reconcile.Request {

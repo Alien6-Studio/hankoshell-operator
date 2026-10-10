@@ -26,7 +26,14 @@ type HankoRole struct {
 // HankoRealm in the configured fleet authority realm.
 // +kubebuilder:validation:XValidation:rule="self.name != 'HANKO_PLATFORM' && !self.name.startsWith('HANKO_PLATFORM_') && !self.name.startsWith('HANKO_FLEET_') && !self.name.startsWith('HANKO_CLUSTER_')",message="reserved platform, fleet and cluster roles cannot be defined by HankoRole"
 // +kubebuilder:validation:XValidation:rule="!has(self.composites) || self.composites.all(r, r != 'HANKO_PLATFORM' && !r.startsWith('HANKO_PLATFORM_') && !r.startsWith('HANKO_FLEET_') && !r.startsWith('HANKO_CLUSTER_'))",message="reserved platform, fleet and cluster roles cannot be inherited through HankoRole composites"
+// +kubebuilder:validation:XValidation:rule="!has(self.attributes) || self.attributes.all(k, !(k.startsWith('hanko.sh/') && (k.contains('owner') || k == 'hanko.sh/adoption-receipt')))",message="provider ownership and adoption receipt attributes are reserved"
 type HankoRoleSpec struct {
+	// Mode separates provider reconciliation from read-only observation.
+	// The imported-by label always forces effective Observe.
+	// +kubebuilder:validation:Enum=Manage;Observe
+	// +kubebuilder:default=Manage
+	Mode string `json:"mode,omitempty"`
+
 	// RealmRef references the HankoRealm this role belongs to.
 	// +kubebuilder:validation:Required
 	RealmRef string `json:"realmRef"`
@@ -51,11 +58,14 @@ type HankoRoleSpec struct {
 
 	// Attributes holds arbitrary key/value metadata attached to the role in
 	// Keycloak. Values are lists of strings per Keycloak's representation.
+	// +kubebuilder:validation:MaxProperties=64
 	Attributes map[string][]string `json:"attributes,omitempty"`
 }
 
 // HankoRoleStatus describes the observed state of the realm role.
 type HankoRoleStatus struct {
+	AdoptionReceipt *AdoptionReceiptStatus `json:"adoptionReceipt,omitempty"`
+
 	// AdoptionCandidate is bounded review evidence, never execution authority.
 	AdoptionCandidate *AdoptionCandidateStatus `json:"adoptionCandidate,omitempty"`
 

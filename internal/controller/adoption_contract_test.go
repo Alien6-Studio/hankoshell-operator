@@ -29,7 +29,7 @@ func TestAdoptionInventoryNeverIntroducesProviderWriteCalls(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	allowed := map[string]bool{"RestrictToInventory": true, "BaseURL": true, "InventoryClients": true, "InventoryRealmRoles": true, "InventoryClientRoles": true, "InventoryRoleChildren": true, "InventoryGroups": true, "InventoryGroupRoles": true, "InventoryOrganizations": true, "InventoryOrganizationsEnabled": true, "InventoryAuthorization": true, "GetRealm": true, "GetRealmRole": true, "GetRealmRoleCompositeNames": true, "GetApplication": true, "ListClientProtocolMappers": true, "GetClientRealmRoleScopes": true, "ListIdentityProviders": true, "ListIdentityProviderMappers": true}
+	allowed := map[string]bool{"CredentialClientID": true, "RestrictToInventory": true, "BaseURL": true, "InventoryClients": true, "InventoryRealmRoles": true, "InventoryClientRoles": true, "InventoryRoleChildren": true, "InventoryGroups": true, "InventoryGroupRoles": true, "InventoryOrganizations": true, "InventoryOrganizationsEnabled": true, "InventoryAuthorization": true, "GetRealm": true, "GetRealmRole": true, "GetRealmRoleCompositeNames": true, "GetApplication": true, "ListClientProtocolMappers": true, "GetClientRealmRoleScopes": true, "ListIdentityProviders": true, "ListIdentityProviderMappers": true}
 	for _, file := range files {
 		if strings.HasSuffix(file, "_test.go") {
 			continue
@@ -48,7 +48,9 @@ func TestAdoptionInventoryNeverIntroducesProviderWriteCalls(t *testing.T) {
 				return true
 			}
 			receiver, ok := selector.X.(*ast.Ident)
-			if ok && receiver.Name == "kc" && !allowed[selector.Sel.Name] {
+			transaction := file == "adoption_acquisition.go" && map[string]bool{"ReadClientOwnership": true, "ReadRoleOwnership": true, "MarkApplicationAdoption": true, "MarkRoleAdoption": true, "MarkServiceAccountAdoption": true}[selector.Sel.Name]
+			qualifiedRead := file == "adoption_refresh.go" && selector.Sel.Name == "ReadClientOwnership"
+			if ok && receiver.Name == "kc" && !allowed[selector.Sel.Name] && !transaction && !qualifiedRead {
 				t.Errorf("unreviewed provider operation %s in %s", selector.Sel.Name, file)
 			}
 			return true
@@ -279,6 +281,45 @@ func TestExpectedNativeKeysStillRejectPrivateValues(t *testing.T) {
 	data, _ := json.Marshal(item.observation)
 	if strings.Contains(string(data), "sentinel") {
 		t.Fatal("expected native config key bypassed safe typed values")
+	}
+}
+
+func TestOnlyQualifiedKeycloakDefaultsAreCanonicalAndNonBlocking(t *testing.T) {
+	target := adoption.TargetIdentity{Kind: "HankoApplication", Namespace: "auth", Name: "client", UID: "target"}
+	provider := adoption.ProviderIdentity{Instance: adoption.TargetIdentity{UID: "source"}, Origin: "https://keycloak.example.test", Trust: "public-ca", RealmID: "realm"}
+	build := func(attributes map[string]string) *api.AdoptionCandidateStatus {
+		item := newInventoryItem("application", "realm", "client-id", "client")
+		observeClientAttributes(item, keycloak.InventoryClient{Application: keycloak.Application{Attributes: attributes}})
+		return candidateStatus(adoption.Build(target, provider, item.observation, nil))
+	}
+	for key, canonical := range map[string]string{"realm_client": "false", "backchannel.logout.session.required": "true", "backchannel.logout.revoke.offline.tokens": "false"} {
+		t.Run(key, func(t *testing.T) {
+			known := build(map[string]string{key: canonical})
+			if !known.Approvable || len(known.Diff) != 1 || !qualifiedDefaultDiff(known.Diff[0]) {
+				t.Fatal("exact default not represented read-only", known.Diff)
+			}
+			if adoptionCandidateFailure(known, adoption.Approval{CandidateHash: known.CandidateHash}) != "" {
+				t.Fatal("qualified default blocked acquisition")
+			}
+			for _, unsafe := range []string{"", "TRUE", "ambiguous-secret-sentinel", map[string]string{"true": "false", "false": "true"}[canonical]} {
+				changed := build(map[string]string{key: unsafe})
+				if changed.Approvable || changed.CandidateHash == known.CandidateHash || adoptionCandidateFailure(changed, adoption.Approval{CandidateHash: known.CandidateHash}) == "" {
+					t.Fatal("changed default accepted")
+				}
+				data, _ := json.Marshal(changed)
+				if strings.Contains(string(data), "sentinel") {
+					t.Fatal("unqualified default value escaped public evidence")
+				}
+			}
+			absent := build(nil)
+			if absent.CandidateHash == known.CandidateHash {
+				t.Fatal("default presence not hashed")
+			}
+		})
+	}
+	other := build(map[string]string{"other.native": "false"})
+	if other.Approvable {
+		t.Fatal("default exception expanded to another native attribute")
 	}
 }
 

@@ -269,3 +269,10 @@ inventory fallback. Credential/CA Secrets require named GET, never list/watch.
 Review the [inventory permissions](../../docs/keycloak-permissions.md#dedicated-inventory-identity)
 and [bounded evidence contract](../../docs/architecture/existing-keycloak-adoption.md#implemented-discovery-and-diff-47).
 Done and complete coverage are separate; candidate status is not adoption approval.
+
+For the unreleased 0.5 source ownership flow, follow the
+[reviewed leaf adoption workflow](../../docs/architecture/existing-keycloak-adoption.md#implemented-reviewed-leaf-acquisition-48)
+and [service-account upgrade guidance](../../docs/secure-deployment.md#reviewed-existing-client-ownership).
+Approval is target-local Kubernetes metadata, not a chart flag. Existing unmarked
+M2M clients require reviewed acquisition; common receipt-bearing leaves remain
+Observe and refuse Manage until #49. Chart/app packaging remains 0.4.0.

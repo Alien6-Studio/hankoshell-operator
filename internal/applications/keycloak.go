@@ -105,7 +105,7 @@ func (d *KeycloakDriver) observe(ctx context.Context, p Plan, got *keycloak.Appl
 	o := observedApplication{Ownership: "absent", Roles: []Role{}, Scopes: []string{}, Mappers: []keycloak.ProtocolMapper{}, IdentityMappers: []keycloak.IdentityProviderMapper{}, Complete: true}
 	state := State{Observation: iamcontract.Observation{Complete: true, Drifted: true}}
 	if got != nil {
-		state = State{Present: true, ProviderID: got.ID, Owned: got.Attributes[OwnerAttribute] == p.resolved.Owner, Protocol: publicProtocol(got.Protocol)}
+		state = State{Present: true, ProviderID: got.ID, Owned: keycloak.ApplicationOwned(got, p.resolved.Owner), Protocol: publicProtocol(got.Protocol)}
 		o.Present, o.Protocol = true, state.Protocol
 		o.Ownership = ownershipClass(got.Attributes[OwnerAttribute], p.resolved.Owner)
 		o.Client, o.Complete = observedClient(*got, p)
@@ -142,6 +142,7 @@ func observedClient(got keycloak.Application, p Plan) (keycloak.Application, boo
 	got.WebOrigins = stringSet(got.WebOrigins)
 	got.Attributes = cloneAttributes(got.Attributes)
 	delete(got.Attributes, OwnerAttribute)
+	delete(got.Attributes, "hanko.sh/adoption-receipt")
 	delete(got.Attributes, "hanko.sh/resource-server-ownership")
 	// Generated artifact identity is irrelevant to the supported POST-only contract.
 	if p.intent.Protocol == "saml" {
@@ -385,7 +386,7 @@ func (d *KeycloakDriver) CheckOwned(ctx context.Context, p Plan) (State, error) 
 	if got == nil {
 		return State{}, nil
 	}
-	return State{Present: true, Owned: got.Attributes[OwnerAttribute] == p.resolved.Owner, ProviderID: got.ID, Protocol: publicProtocol(got.Protocol)}, nil
+	return State{Present: true, Owned: keycloak.ApplicationOwned(got, p.resolved.Owner), ProviderID: got.ID, Protocol: publicProtocol(got.Protocol)}, nil
 }
 func (d *KeycloakDriver) DeleteOwned(ctx context.Context, p Plan) error {
 	state, err := d.CheckOwned(ctx, p)

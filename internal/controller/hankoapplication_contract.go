@@ -353,7 +353,7 @@ func (r *HankoApplicationReconciler) reconcileApplicationContract(ctx context.Co
 	iamCondition(&app.Status.Conditions, app.Generation, "Synced", metav1.ConditionTrue, reason, message)
 	r.applicationProtocolStatus(ctx, app, driver, plan)
 	if observe {
-		app.Status.AdoptionCandidate = refreshImportedCandidate(ctx, r.Client, r.OwnershipReader, app)
+		app.Status.AdoptionCandidate = refreshTargetCandidate(ctx, r.Client, r.OwnershipReader, app)
 		markRuntimePending(app, "NotConfigured")
 	} else if len(app.Spec.RuntimeBindings) != 0 {
 		markRuntimePending(app, "OutputPending")

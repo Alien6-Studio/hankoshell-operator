@@ -43,6 +43,7 @@ func TestServiceAccountReconcileLeavesOmittedAttributesUnmanaged(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "hanko-sa-keycloak-ops", Namespace: "default"},
 		Data:       map[string][]byte{"client_secret": []byte("existing")},
 	}
+	kc.ownServiceAccount(sa)
 	c := newFakeClient(t, sa, secret)
 	r := &controller.HankoServiceAccountReconciler{
 		Client:   c,
@@ -83,6 +84,7 @@ func TestServiceAccountReconcilesTokenClaimsWithPerMapperStatus(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "hanko-sa-worker", Namespace: "default"},
 		Data:       map[string][]byte{"client_secret": []byte("existing")},
 	}
+	kc.ownServiceAccount(sa)
 	c := newFakeClient(t, sa, secret)
 	r := &controller.HankoServiceAccountReconciler{
 		Client: c, Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
@@ -132,6 +134,7 @@ func TestServiceAccountRejectsReservedTokenClaim(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "hanko-sa-worker", Namespace: "default"},
 		Data:       map[string][]byte{"client_secret": []byte("existing")},
 	}
+	kc.ownServiceAccount(sa)
 	c := newFakeClient(t, sa, secret)
 	r := &controller.HankoServiceAccountReconciler{
 		Client: c, Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
@@ -323,6 +326,7 @@ func TestServiceAccountControlPlaneProtectionIsScopedToAuthorityRealm(t *testing
 		ObjectMeta: metav1.ObjectMeta{Name: "hanko-sa-hanko-dashboard", Namespace: "default"},
 		Data:       map[string][]byte{"client_secret": []byte("existing")},
 	}
+	kc.ownServiceAccount(sa)
 	c := newFakeClient(t, sa, secret)
 	r := &controller.HankoServiceAccountReconciler{
 		Client: c, OwnershipReader: c, ProtectedClientIDs: []string{"hanko-dashboard"}, ProtectedRealm: "alien6",
@@ -357,6 +361,7 @@ func TestServiceAccountSameKindOwnershipIsDeterministic(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "hanko-sa-worker", Namespace: "default"},
 		Data:       map[string][]byte{"client_secret": []byte("existing")},
 	}
+	kc.ownServiceAccount(owner)
 	c := newFakeClient(t, owner, duplicate, secret)
 	r := &controller.HankoServiceAccountReconciler{
 		Client: c, OwnershipReader: c, Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
@@ -433,6 +438,7 @@ func TestObserveApplicationDoesNotBlockManagedServiceAccount(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "hanko-sa-worker", Namespace: "default"},
 		Data:       map[string][]byte{"client_secret": []byte("existing")},
 	}
+	kc.ownServiceAccount(sa)
 	c := newFakeClient(t, app, sa, secret)
 	r := &controller.HankoServiceAccountReconciler{
 		Client: c, OwnershipReader: c, Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10),
@@ -532,5 +538,65 @@ func TestImportedServiceAccountDeletionDoesNotDeleteClient(t *testing.T) {
 	}
 	if got := kc.count("delete"); got != 0 {
 		t.Fatalf("DeleteApp calls = %d, want 0", got)
+	}
+}
+
+func TestUnmarkedServiceAccountDoesNotGainAuthorityFromLegacyState(t *testing.T) {
+	kc := newMockKeycloak(t)
+	kc.addClient("gifen", "legacy-m2m", "client-uuid")
+	sa := &hankoshv1alpha1.HankoServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{Name: "legacy-m2m", Namespace: "default", UID: "legacy-uid", Finalizers: []string{controller.SAFinalizerName}},
+		Spec:       hankoshv1alpha1.HankoServiceAccountSpec{RealmRef: "gifen", ClientID: "legacy-m2m", Mode: "Manage", SecretRotationPolicy: &hankoshv1alpha1.SecretRotationPolicy{Enabled: true, IntervalDays: 1}},
+		Status:     hankoshv1alpha1.HankoServiceAccountStatus{SecretRef: &hankoshv1alpha1.SecretReference{SecretRef: corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "legacy-secret"}, Key: "client_secret"}}},
+	}
+	c := newFakeClient(t, sa, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "legacy-secret", Namespace: "default"}, Data: map[string][]byte{"client_secret": []byte("legacy-secret-sentinel")}})
+	r := &controller.HankoServiceAccountReconciler{Client: c, APIReader: c, OwnershipReader: c, Pool: keycloak.NewPool(kc.client())}
+	req := ctrl.Request{NamespacedName: client.ObjectKeyFromObject(sa)}
+	if _, err := r.Reconcile(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Get(context.Background(), req.NamespacedName, sa); err != nil {
+		t.Fatal(err)
+	}
+	if sa.Status.Phase != "Error" {
+		t.Fatal("unmarked legacy state authorized Manage")
+	}
+	if err := c.Delete(context.Background(), sa); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.Reconcile(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+	for _, operation := range []string{"create", "update", "delete", "getSecret", "rotateSecret"} {
+		if kc.count(operation) != 0 {
+			t.Fatalf("unmarked legacy state authorized %s", operation)
+		}
+	}
+}
+
+func TestServiceAccountDeletionUsesCurrentModeAndUID(t *testing.T) {
+	for _, changed := range []string{"mode", "UID"} {
+		t.Run(changed, func(t *testing.T) {
+			kc := newMockKeycloak(t)
+			now := metav1.Now()
+			sa := &hankoshv1alpha1.HankoServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "cached-m2m", Namespace: "default", UID: "cached-uid", Finalizers: []string{controller.SAFinalizerName}, DeletionTimestamp: &now}, Spec: hankoshv1alpha1.HankoServiceAccountSpec{Mode: "Manage", RealmRef: "gifen", ClientID: "cached-m2m"}}
+			kc.addClient("gifen", "cached-m2m", "client-uuid")
+			kc.ownServiceAccount(sa)
+			cached := newFakeClient(t, sa)
+			current := sa.DeepCopy()
+			if changed == "mode" {
+				current.Spec.Mode = "Observe"
+			} else {
+				current.UID = "replacement-uid"
+			}
+			live := newFakeClient(t, current)
+			r := &controller.HankoServiceAccountReconciler{Client: cached, APIReader: live, OwnershipReader: live, Pool: keycloak.NewPool(kc.client())}
+			if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(sa)}); err != nil {
+				t.Fatal(err)
+			}
+			if kc.count("delete") != 0 || kc.count("getSecret") != 0 || kc.count("rotateSecret") != 0 {
+				t.Fatal("stale cached deletion acquired provider authority")
+			}
+		})
 	}
 }

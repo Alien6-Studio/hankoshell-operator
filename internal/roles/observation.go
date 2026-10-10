@@ -45,6 +45,7 @@ func observeRole(got *keycloak.RealmRole, p Plan, direct, closure []string, nati
 		o.EffectiveComposites = Normalize(Intent{Composites: closure}).Composites
 		o.Attributes = cloneAttributes(got.Attributes)
 		delete(o.Attributes, OwnerAttribute)
+		delete(o.Attributes, "hanko.sh/adoption-receipt")
 		metadataComplete := filterRoleObservationAttributes(o.Attributes)
 		o.NativeClientComposites = nativeClientComposites
 		o.Complete = metadataComplete && !nativeClientComposites

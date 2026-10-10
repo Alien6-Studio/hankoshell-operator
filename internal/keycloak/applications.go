@@ -113,7 +113,7 @@ func (c *Client) DeleteApplicationIfOwned(ctx context.Context, realm, id, client
 		}
 		return err
 	}
-	if current.ID != id || current.ClientID != clientID || current.Attributes[ownerKey] != owner {
+	if current.ID != id || current.ClientID != clientID || !ApplicationOwned(&current, owner) {
 		return ErrApplicationPrecondition
 	}
 	return c.deleteMapper(ctx, path)
@@ -130,7 +130,7 @@ func (c *Client) UpdateApplication(ctx context.Context, realm string, desired Ap
 		return err
 	}
 	attributes, _ := current["attributes"].(map[string]any)
-	if current["clientId"] != desired.ClientID || current["protocol"] != desired.Protocol || attributes[ownerKey] != owner {
+	if current["clientId"] != desired.ClientID || current["protocol"] != desired.Protocol || attributes[ownerKey] != owner || attributes["hanko.sh/client-owner-kind"] != nil || attributes["hanko.sh/client-owner-uid"] != nil || attributes["hanko.sh/role-owner"] != nil {
 		return ErrApplicationPrecondition
 	}
 	// Do not round-trip credentials returned by an administrative representation.
@@ -144,6 +144,9 @@ func (c *Client) UpdateApplication(ctx context.Context, realm string, desired Ap
 		nextAttributes[k] = v
 	}
 	// The authorization-domain journal belongs to HankoResourceServer.
+	if receipt, ok := attributes["hanko.sh/adoption-receipt"].(string); ok {
+		nextAttributes["hanko.sh/adoption-receipt"] = receipt
+	}
 	if journal, ok := attributes[authorizationOwnerAttribute].(string); ok {
 		nextAttributes[authorizationOwnerAttribute] = journal
 	}
@@ -165,7 +168,7 @@ func (c *Client) MarkApplicationOwner(ctx context.Context, realm string, expecte
 	if attrs == nil {
 		attrs = map[string]any{}
 	}
-	if current["clientId"] != expected.ClientID || current["protocol"] != expected.Protocol || (attrs[ownerKey] != nil && attrs[ownerKey] != "") {
+	if current["clientId"] != expected.ClientID || current["protocol"] != expected.Protocol || (attrs[ownerKey] != nil && attrs[ownerKey] != "") || attrs["hanko.sh/client-owner-kind"] != nil || attrs["hanko.sh/client-owner-uid"] != nil || attrs["hanko.sh/adoption-receipt"] != nil || attrs["hanko.sh/role-owner"] != nil {
 		return ErrApplicationPrecondition
 	}
 	delete(current, "secret")

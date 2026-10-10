@@ -385,9 +385,12 @@ API integration. A projection outage preserves provider success and does not
 block child Keycloak groups. See [organization configuration and migration](docs/secure-deployment.md#organization-provider-readiness-and-optional-projection).
 
 Existing Keycloak inventory can now produce bounded reviewable adoption evidence;
-provider ownership acquisition remains a separate unreleased step. See the
-[discovery and adoption contract](docs/architecture/existing-keycloak-adoption.md#implemented-discovery-and-diff-47)
-for coverage, read-only credentials and limitations.
+explicit reviewed leaf ownership acquisition is implemented in the unreleased
+0.5 source work. See the [adoption workflow](docs/architecture/existing-keycloak-adoption.md#implemented-reviewed-leaf-acquisition-48)
+for source selection, approval, receipts and Observe/Manage boundaries.
+**Existing unmarked M2M clients require reviewed acquisition before provider
+writes, credential recovery/rotation or deletion.** Common receipt-bearing leaves
+remain Observe until #49 qualifies Manage preservation; packaging stays 0.4.0.
 
 ## Development
 

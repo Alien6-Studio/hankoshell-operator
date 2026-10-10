@@ -61,6 +61,8 @@ var structuredReservedTokenClaims = []string{
 }
 
 type tokenClaimOwner struct {
+	kind       string
+	validate   func(context.Context) error
 	uid        string
 	namespace  string
 	name       string
@@ -161,6 +163,16 @@ func (r *HankoApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			}
 			return r.recordApplicationConflict(ctx, &app, patch, reason, ownershipConflict)
 		}
+	}
+
+	if mode == ModeManage && app.DeletionTimestamp.IsZero() {
+		handled, result, err := r.reconcileApplicationConflicts(ctx, &app, client.MergeFrom(app.DeepCopy()))
+		if err != nil || handled {
+			return result, err
+		}
+	}
+	if handled, result, err := reconcileOwnershipAcquisition(ctx, r.Client, r.OwnershipReader, &app, kc, r.applicationAcquisitionGuard); handled {
+		return result, err
 	}
 
 	// ── Deletion path ─────────────────────────────────────────────────────────
@@ -289,6 +301,15 @@ func (r *HankoApplicationReconciler) reconcileApplicationDeletion(ctx context.Co
 	if !controllerutil.ContainsFinalizer(app, finalizerName) {
 		return ctrl.Result{}, nil
 	}
+	if mode == ModeManage {
+		preserve, err := acquiredProviderReceipt(ctx, kc, app)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if preserve {
+			mode = ModeObserve
+		}
+	}
 	logger := log.FromContext(ctx)
 	if mode == ModeManage {
 		plan, err := applicationDeletionPlan(app)
@@ -379,7 +400,7 @@ func (r *HankoApplicationReconciler) applicationOwnershipConflict(ctx context.Co
 	if !isProtectedControlPlaneClient(r.ProtectedRealm, r.ProtectedClientIDs, app.Spec.RealmRef, clientID) {
 		for i := range accounts.Items {
 			account := &accounts.Items[i]
-			if isImported(account.Labels) || !sameClientIdentity(account.Spec.RealmRef, account.Spec.ClientID, app.Spec.RealmRef, clientID) {
+			if effectiveServiceAccountMode(account) == ModeObserve || !sameClientIdentity(account.Spec.RealmRef, account.Spec.ClientID, app.Spec.RealmRef, clientID) {
 				continue
 			}
 			candidates = append(candidates, newClientOwnershipCandidate("HankoServiceAccount", account))
@@ -877,10 +898,22 @@ func reconcileClientTokenClaim(ctx context.Context, kc *keycloak.Client, owner t
 		setMapperCondition(&status.Conditions, owner.generation, metav1.ConditionFalse, "Invalid", err.Error())
 		return status, err
 	}
-	if owner.uid != "" {
-		desired.Config[applications.OwnerAttribute] = owner.uid
+	if owner.validate != nil {
+		if err := owner.validate(ctx); err != nil {
+			return status, err
+		}
 	}
-	actual, err := kc.EnsureClientProtocolMapper(ctx, owner.realm, owner.clientID, desired)
+	var actual keycloak.ProtocolMapper
+	if owner.kind == "HankoServiceAccount" {
+		desired.Config["hanko.sh/client-owner-kind"] = owner.kind
+		desired.Config["hanko.sh/client-owner-uid"] = owner.uid
+		actual, err = kc.EnsureServiceAccountMapperIfOwned(ctx, owner.realm, owner.clientID, owner.uid, desired)
+	} else {
+		if owner.uid != "" {
+			desired.Config[applications.OwnerAttribute] = owner.uid
+		}
+		actual, err = kc.EnsureClientProtocolMapper(ctx, owner.realm, owner.clientID, desired)
+	}
 	if err != nil {
 		err = fmt.Errorf("ensure token claim %q: %w", claim.Name, err)
 		setMapperCondition(&status.Conditions, owner.generation, metav1.ConditionFalse, "EnsureFailed", err.Error())
