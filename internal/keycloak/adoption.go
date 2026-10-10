@@ -43,7 +43,7 @@ func (c *Client) ReadClientOwnership(ctx context.Context, realm, clientID string
 		return nil, err
 	}
 	if id == "" {
-		return nil, ErrAdoptionPrecondition
+		return nil, nil // absent provider client; never an acquisition candidate
 	}
 	var document map[string]any
 	if err := c.get(ctx, applicationPath(realm, id), &document); err != nil {
