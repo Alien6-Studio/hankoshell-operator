@@ -44,7 +44,11 @@ ownership remain separate.
 
 ## Current status
 
-The **v0.1.0, v0.2.0, v0.3.0 and v0.4.0 sources and signed tags are frozen and immutable**.
+The **v0.1.0, v0.2.0, v0.3.0, v0.4.0 and v0.5.0 sources and signed tags are frozen and immutable**.
+`v0.5.0` is a historical source tag and will not be published. **0.5.1** retains
+the completed 0.5 adoption contract and adds only release-trust consistency
+hardening; it becomes the first public-distribution candidate. Its tag and
+publication require separate authorization after exact-main qualification.
 Publication work remains independent in [#21](https://github.com/Alien6-Studio/hankoshell-operator/issues/21);
 no public artifacts are claimed published. Milestone **0.2.0 — IAM Contract Engine**
 is complete and closed. **0.3.0 — Application Identity** is complete and closed,
@@ -94,7 +98,7 @@ The current foundation already includes:
   enrollment, credential rotation, supervision and guarded operator updates.
 
 `HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are experimental
-and unqualified in 0.5.0. Their interruption/retry, child ownership and completion
+and unqualified in 0.5.1. Their interruption/retry, child ownership and completion
 qualification remains in [lifecycle backlog issue #20](https://github.com/Alien6-Studio/hankoshell-operator/issues/20),
 not a prerequisite for the first core IAM delivery. They do not provide a tested
 database migration or disaster-recovery path; see the

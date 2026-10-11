@@ -123,8 +123,8 @@ class ReleaseResumeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for version, revision, image in (("0.1.1", "a" * 40, publish.IMAGE + "@sha256:" + "b" * 64),
-                                            ("0.5.0", "main", publish.IMAGE + "@sha256:" + "b" * 64),
-                                            ("0.5.0", "a" * 40, publish.IMAGE + ":0.5.0")):
+                                            ("0.5.1", "main", publish.IMAGE + "@sha256:" + "b" * 64),
+                                            ("0.5.1", "a" * 40, publish.IMAGE + ":0.5.1")):
                 with self.assertRaises(ValueError):
                     publish.checkpoint(root, version, revision, image)
 
@@ -133,9 +133,9 @@ class ReleaseResumeTests(unittest.TestCase):
             root = Path(directory)
             file = root / "image.tar"
             file.write_bytes(b"original archive")
-            before = publish.checkpoint(root, "0.5.0", "a" * 40, publish.IMAGE + "@sha256:" + "b" * 64)
+            before = publish.checkpoint(root, "0.5.1", "a" * 40, publish.IMAGE + "@sha256:" + "b" * 64)
             file.write_bytes(b"changed archive")
-            after = publish.checkpoint(root, "0.5.0", "a" * 40, publish.IMAGE + "@sha256:" + "b" * 64)
+            after = publish.checkpoint(root, "0.5.1", "a" * 40, publish.IMAGE + "@sha256:" + "b" * 64)
             self.assertNotEqual(before["files"], after["files"])
             (root / "link").symlink_to(file)
             with self.assertRaises(ValueError):

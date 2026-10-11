@@ -34,7 +34,7 @@ enterprise fleet. Project website: **[hanko.sh](https://hanko.sh)**.
 [Organizational grants and provenance](docs/architecture/organizational-authorization.md)
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-0.5.0%20initial%20development-blue.svg)](#release-maturity)
+[![Version](https://img.shields.io/badge/version-0.5.1%20initial%20development-blue.svg)](#release-maturity)
 [![Go](https://img.shields.io/badge/go-1.27.2-00ADD8.svg)](go.mod)
 [![Kubernetes](https://img.shields.io/badge/kubernetes-1.35%E2%80%931.37-326CE5.svg)](docs/secure-deployment.md#kubernetes-compatibility-and-hardening)
 [![Delivery](https://img.shields.io/badge/delivery-Continuum%20Attest-blue.svg)](#verified-delivery)
@@ -93,7 +93,7 @@ reviewed deletion/recreation.
 deliver a versioned `identity.json` ConfigMap and optional confidential OIDC Secret
 to preauthorized workload targets. Delivery binds the current ServiceAccount UID,
 requires proven applied provider state and preserves unrelated target data. No SDK
-or automatic pod restart is needed. Source metadata is 0.5.0; public packages and
+or automatic pod restart is needed. Source metadata is 0.5.1; public packages and
 a GitHub Release remain pending.
 
 `HankoRole` management and deletion require the CR UID ownership marker in
@@ -124,7 +124,7 @@ and a dedicated backup credential Secret. PostgreSQL/PVC configuration and
 portable backup/restore remain installation-specific and unqualified; see the
 [backup execution contract](docs/secure-deployment.md#database-snapshot-jobs).
 `HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are experimental in
-0.5.0: completion, interruption/retry and recovery are not qualified. See the
+0.5.1: completion, interruption/retry and recovery are not qualified. See the
 [lifecycle qualification limits](docs/secure-deployment.md#lifecycle-operation-qualification).
 
 </details>
@@ -150,12 +150,12 @@ See the **[Keycloak permission model](docs/keycloak-permissions.md)** before
 provisioning credentials: it specifies optional feature roles, read-only import,
 forbidden authority and the broader native grants attached to realm creation.
 
-hankoShell Operator **0.5.0 is qualified against Keycloak 26.8.0 and 26.7.5**
+hankoShell Operator **0.5.1 is qualified against Keycloak 26.8.0 and 26.7.5**
 through its real HTTPS Admin API v1. Required CI exercises realm/client lifecycles,
 IAM/MFA settings, roles, identity-provider configuration, secret rotation,
 drift recovery, ownership, finalizers and read-only import. Other 26.x patches
 may work but are unqualified; older and future major lines are outside the
-0.5.0 support contract pending qualification. CI also qualifies OIDC browser/PKCE, M2M and
+0.5.1 support contract pending qualification. CI also qualifies OIDC browser/PKCE, M2M and
 signed SAML POST application flows on these same versions; see the
 [protocol evidence and limits](docs/architecture/application-identity.md#protocol-and-xml-security-qualification).
 External identity-provider handshakes and production database/cluster operations
@@ -322,7 +322,7 @@ implemented. Existing installations should follow the
 
 ## Verified delivery
 
-0.5.0 publication requires a GitHub-verified source commit and a GitHub-verified
+0.5.1 publication requires a GitHub-verified source commit and a GitHub-verified
 signed annotated SemVer tag bound to that exact commit on protected main.
 The workflow rejects unverified signatures, lightweight tags and conflicting or
 moved references, and checks these identities again before publication.
@@ -371,7 +371,12 @@ Helm signing key through `artifacthub.io/signKey`.
 
 ## Release maturity
 
-**0.5.0 is a normal SemVer release in initial development.**
+**0.5.1 is a normal SemVer release in initial development.**
+It is the first intended public-distribution candidate and retains the complete
+0.5 IAM contract with release-trust consistency hardening. The signed `v0.5.0`
+tag is historical, immutable and will not be published; no public 0.5.0 package
+requires migration. Tag creation and production publication remain separately
+authorized steps. See the [0.5.1 preparation and administrator checklist](docs/release-0.5.1-preparation.md).
 The `hanko.sh/v1alpha1` APIs are experimental and may change across minor releases
 before 1.0. See the [curated release
 overview](CHANGELOG.md#release-overview) for capabilities and qualification limits.

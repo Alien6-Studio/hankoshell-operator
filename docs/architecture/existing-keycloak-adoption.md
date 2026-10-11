@@ -4,7 +4,7 @@ Accepted direction for [RFC #46](https://github.com/Alien6-Studio/hankoshell-ope
 completing milestone **0.5.0 — Adopt Existing Keycloak** after immutable v0.4.0.
 The source tree implements bounded discovery/diff, explicit reviewed ownership
 acquisition, Organization and ResourceServer checkpoints, and a separate qualified
-transition to Manage. Current source/chart metadata is 0.5.0; source freeze
+transition to Manage. Current source/chart metadata is 0.5.1; source freeze
 requires protected merge and exact-main qualification. The 16 v1alpha1 CRDs remain
 experimental; source completion does not publish production packages.
 
