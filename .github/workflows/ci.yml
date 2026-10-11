@@ -112,6 +112,40 @@ jobs:
         run: |
           go vet -tags=keycloak_integration ./...
           make lint LINT_BUILD_TAGS=keycloak_integration
+  workload:
+    name: Workload identity KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        keycloak: ['26.7.5', '26.8.0']
+        kubernetes: ['1.35.0', '1.36.2', '1.37.0']
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install checksum-pinned Kubernetes fixture tools
+        run: |
+          python3 -m pip install -r scripts/requirements.txt
+          python3 scripts/install-system-tools.py "$RUNNER_TEMP/workload-tools"
+      - name: Qualify real projected assertions, expiry, UID recreation and native permissions
+        run: |
+          python3 scripts/workload-identity-probe.py --keycloak-version '${{ matrix.keycloak }}' \
+            --kubernetes-version '${{ matrix.kubernetes }}' --kind "$RUNNER_TEMP/workload-tools/kind" \
+            --kubectl "$RUNNER_TEMP/workload-tools/kubectl" --openssl /usr/bin/openssl \
+            --output "$RUNNER_TEMP/workload-identity.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: NONPUBLISHABLE-workload-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/workload-identity.json
+          if-no-files-found: error
+          retention-days: 14
   oci:
     permissions:
       contents: read
@@ -209,7 +243,7 @@ jobs:
           retention-days: 14
   checks:
     name: Source and chart checks
-    needs: [source, kubernetes, keycloak, oci, rehearsal, system]
+    needs: [source, kubernetes, keycloak, workload, oci, rehearsal, system]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -218,7 +252,8 @@ jobs:
           SOURCE_RESULT: ${{ needs.source.result }}
           KUBERNETES_RESULT: ${{ needs.kubernetes.result }}
           KEYCLOAK_RESULT: ${{ needs.keycloak.result }}
+          WORKLOAD_RESULT: ${{ needs.workload.result }}
           OCI_RESULT: ${{ needs.oci.result }}
           REHEARSAL_RESULT: ${{ needs.rehearsal.result }}
           SYSTEM_RESULT: ${{ needs.system.result }}
-        run: test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success
+        run: test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success
