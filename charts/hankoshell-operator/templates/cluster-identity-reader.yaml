@@ -11,6 +11,9 @@ rules:
     resources: ["namespaces"]
     resourceNames: ["kube-system"]
     verbs: ["get"]
+  # Current-cluster public signing-source qualification; no token issuance or review.
+  - nonResourceURLs: ["/.well-known/openid-configuration", "/openid/v1/jwks"]
+    verbs: ["get"]
   # Hub-driven decommission: adopt the release's cluster-scoped RBAC under a
   # single anchor so one garbage-collected delete removes the whole group.
   # Rules stay identical during adoption, so no privilege escalation is needed.

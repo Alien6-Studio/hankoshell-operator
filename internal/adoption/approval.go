@@ -92,9 +92,9 @@ func ParseReceipt(value string) (Receipt, error) {
 }
 
 func leafKind(kind string) bool {
-	return kind == "HankoApplication" || kind == "HankoRole" || kind == "HankoServiceAccount" || kind == "HankoOrganization" || kind == "HankoResourceServer"
+	return kind == "HankoApplication" || kind == "HankoRole" || kind == "HankoServiceAccount" || kind == "HankoOrganization" || kind == "HankoResourceServer" || kind == "HankoWorkloadTrust"
 }
 
 func ReservedAttribute(key string) bool {
-	return (strings.HasPrefix(key, "hanko.sh/") && strings.Contains(key, "owner")) || key == ApplicationOwnerKey || key == RoleOwnerKey || key == ClientOwnerKindKey || key == ClientOwnerUIDKey || key == ReceiptKey || key == "hanko.sh/resource-server-ownership" || key == "hanko.sh/organization-name" || key == "hanko.sh/organization-namespace" || key == "hanko.sh/organization-uid"
+	return (strings.HasPrefix(key, "hanko.sh/") && strings.Contains(key, "owner")) || key == ApplicationOwnerKey || key == RoleOwnerKey || key == ClientOwnerKindKey || key == ClientOwnerUIDKey || key == ReceiptKey || key == "hanko.sh/resource-server-ownership" || key == "hanko.sh/workload-trust-journal" || key == "hanko.sh/workload-trust-checkpoint" || key == "hanko.sh/organization-name" || key == "hanko.sh/organization-namespace" || key == "hanko.sh/organization-uid"
 }

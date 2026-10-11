@@ -76,6 +76,15 @@ implemented before federated activation; native authentication does not enforce
 SA UIDs or single-use assertions. Subsequent implementation order is trust,
 binding/mesh, authentication/migration, then full installed-system qualification.
 
+P6.2 adds the independent seventeenth `HankoWorkloadTrust` CRD, exact provider
+ownership/journal, current-cluster anchor/discovery checks, explicit adoption and
+shared-age/deletion dependency guards. Its distinct dependent reader has only
+target-realm view-clients; on 26.7.5 this credential can expose client secrets,
+even though the controller prohibits credential routes. Writer and reader
+credentials share the manager process and their practical powers combine on
+compromise. Binding/mesh (#61), federated client activation (#62) and complete
+installed migration (#63) remain separate implementation work.
+
 The current foundation already includes:
 
 - `HankoRealm` and `HankoIAMProfile`: reusable MFA, password, session, brute-force,

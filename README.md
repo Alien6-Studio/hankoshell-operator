@@ -163,7 +163,7 @@ remain unqualified.
 See the [Keycloak compatibility contract](docs/secure-deployment.md#keycloak-compatibility).
 
 The chart targets Kubernetes **1.35–1.37** on Linux nodes. Required CI checks
-qualify all 16 CRDs, server-side apply, namespace/credential RBAC boundaries and
+qualify all 17 CRDs, server-side apply, namespace/credential RBAC boundaries and
 Restricted Pod Security admission against each minor version. Optional AppArmor
 and stable user namespaces extend the baseline when supported by the nodes.
 An installed-system test also runs the scanned image through Helm on Kubernetes

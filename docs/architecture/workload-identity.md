@@ -251,8 +251,8 @@ claim this native contract satisfies it.
 ## 7. API decision and capability model
 
 **Choose B: a namespaced, typed `HankoWorkloadTrust`**, scoped to one exact realm
-and native provider. It is a future seventeenth CRD, introduced in P6.2 only after
-this contract. It is justified because several M2M clients share one realm-wide
+and native provider. P6.2 introduces this seventeenth CRD after the accepted
+contract. It is justified because several M2M clients share one realm-wide
 trust and because a managed trust must work with an external/Observe realm without
 taking ownership of that realm. HankoServiceAccount remains the only M2M identity.
 
@@ -264,15 +264,21 @@ taking ownership of that realm. HankoServiceAccount remains the only M2M identit
 | D: extend RealmIdentityProvider.Config | Open broker config and existing realm lifecycle cannot establish closed workload semantics/independent ownership; rejected |
 | Reuse HankoIssuer | Public facade authority has different origin, lifecycle and security semantics; rejected |
 
-Conceptual, **not currently accepted API**:
+The trust API is implemented by P6.2. The service-account authentication and
+runtime-metadata example after the separator remains **future API**, outside
+P6.2 and not accepted by the current HankoServiceAccount schema:
 
 ```yaml
 kind: HankoWorkloadTrust
 spec:
   mode: Manage                  # Observe is read-only
   realmRef: example             # same Hanko namespace, may resolve external realm
+  sourceRef: trust-observer     # canonical HankoKeycloakInstance, same namespace
+  writerRef: trust-writer       # distinct writer connection; optional in Manage
+  dependentReaderRef: dependent-client-reader # mandatory distinct inventory identity
   keycloakAlias: cluster-one
   provider: Kubernetes
+  qualifiedKeycloakVersion: "26.8.0" # explicit source qualification for override
   kubernetes:
     issuer: https://approved-kubernetes-issuer.example
     discoveryURL: https://approved-discovery.example # optional, native 26.8 only
@@ -320,8 +326,9 @@ capability snapshot: `KubernetesWorkloadIdentity`, `FederatedClientAuthenticatio
 version-specific `IssuerDiscoveryOverride`. Static adapter evidence names exact
 qualified versions; actual credentials/flow/trust/binding are freshly validated
 preconditions. Unsupported/lossy cases refuse activation. `Ready` means current
-supported configuration with complete read-back and binding; it does not assert
-a live token was issued. Authentication proof is separate bounded evidence from
+supported configuration with complete read-back. For the trust CR it qualifies
+only trust configuration and the effective flow prerequisite, with no workload
+binding or live authentication claim. Authentication proof is separate bounded evidence from
 the workload/qualification owner, not writable status execution authority.
 
 ## 8. Provider ownership and freshness
@@ -520,6 +527,145 @@ creation, master administration, unrelated realm changes and impersonation are
 explicitly denied to the constrained test profiles. A trust writer's unrelated
 IdP write succeeds because that native role is realm-wide; code ownership checks
 do not reduce stolen-credential authority.
+
+### P6.2 dependency-inventory permission boundary
+
+The P6.2 controller uses these three separate credentials. The real-provider
+test `TestRealKeycloakWorkloadTrustRequiredInventoryPermissions` separately
+qualifies the requested two-role profiles on real HTTPS Keycloak 26.7.5 and
+26.8.0. Both `manage-identity-providers` + `view-realm` and
+`view-identity-providers` + `view-realm` can GET the realm, IdP collection,
+individual IdP and effective client-flow executions. Both receive HTTP 403 from
+the client collection, filtered client lookup and exact dependent-client GET.
+The existing production inventory reader returns an error, never an empty
+successful dependency inventory. A separate `view-clients` control observes the
+actual native `federated-jwt` dependent and is denied client PUT.
+
+The accepted P6.2 exception requires a dedicated `dependent-client-reader` with
+only target-realm `view-clients`, Full Scope Allowed disabled, and exact service
+account mappings and client scopes. The trust writer retains only
+`manage-identity-providers` + `view-realm`; the observer retains
+`view-identity-providers` + `view-realm`. The dependent reader has no
+`manage-clients`, `manage-realm`, `manage-users`, `realm-admin`, impersonation,
+master or unrelated-realm authority. It is a distinct credential and connection
+reference, freshly bound to the writer's exact endpoint, public CA identity and
+target realm. There is no fallback to the writer or a shared administrative pool.
+
+Its application transport permits only token acquisition and target-realm
+client metadata collection/exact GET. All other methods, realms and routes,
+especially `client-secret` and other credential endpoints, are refused before
+network dispatch. The closed projection excludes secrets and secret-derived
+fields from plans, status, logs, events and evidence. This reader supplies only
+the complete dependent inventory for shared-age review, native federated-client
+references, deletion and owned/foreign/ambiguous dependency classification.
+
+**On Keycloak 26.7.5, `view-clients` can natively retrieve client secrets.** A
+real-provider test must demonstrate that credential authority separately from
+the controller's route refusal. This identity is not credential-confidential;
+compromise can expose target-realm client secrets. Qualified 26.8.0 instead
+requires `manage-clients` at the client-secret endpoint. Application route
+restrictions do not cryptographically narrow either credential's native powers.
+
+The existing operator uses one manager process. A separate inventory deployment
+would require a new authenticated freshness/execution protocol; P6.2 keeps
+credentials and transports distinct in that process instead. Compromise of its
+process/pod gives the practical union of writer and dependent-reader powers,
+including the 26.7.5 credential-exposure risk. Deployments requiring a stronger
+boundary must isolate credentials and administrative authority independently;
+this implementation does not claim process isolation. Other credentials held
+by the same operator process also belong to that practical union. Permission
+characterization and controller/installed qualification remain separate proofs.
+
+### P6.2 implemented trust ownership
+
+`HankoWorkloadTrust` and its list are registered in `hanko.sh/v1alpha1`, with
+generated deepcopy/OpenAPI, status subresource and chart RBAC. `realmRef`,
+`sourceRef` and `keycloakAlias` are immutable. All connection references are
+same-namespace HankoKeycloakInstances using existing adminRef/TLSCARef Secrets;
+they do not create native identities or role grants. Default mode is Manage,
+default age is 600 and the range is 600–3,600. Imported-by always forces Observe.
+QualifiedKeycloakVersion is explicit administrator input, never status or a
+request for server-info privilege. Both common versions qualify; a discovery
+override requires 26.8.0 and matching resolved native issuer/JWKS read-back.
+
+The production controller uses uncached APIReader reads for the target UID,
+generation/spec, realm UID/generation, imported source, connection UID/mode,
+credential Secret UID/resourceVersion and endpoint/public CA identity. It
+validates the named current `kube-system` UID and exactly one public CA certificate
+DER hash from the controller's actual REST TLS configuration. PEM formatting is
+irrelevant; missing/ambiguous/insecure CA state is refused. It reads current API
+issuer/JWKS with its normal API transport, then verifies public approved HTTPS
+discovery/keysets without credentials, redirects or foreign unapproved authority.
+No workload JWT, TokenRequest, TokenReview or runtime Secret is involved.
+
+The effective client-authentication graph is read rather than repaired. P6.2
+qualifies only the measured native flat `clients` flow: builtIn/topLevel flags,
+client-flow provider, known alternative execution providers and exactly one
+active `federated-jwt`. Disabled, nested, custom, duplicate, missing, malformed,
+unknown or unreadable state reports an administrator prerequisite. Native
+builtIn does not make executions immutable. No flow PUT or realm-policy write is
+available in this reconciliation path.
+
+Ownership combines the CR UID, `hanko.sh/workload-trust-owner`, exact native
+internalId, realm UUID, canonical source identity and the strict nonsecret
+`hanko.sh/workload-trust-journal`. Its version is
+`hanko.sh/workload-trust-journal/v1alpha1`; it binds approved input/plan/native
+state hashes, generation and Applied/Acquired step. The alias alone, status,
+finalizer or a copied marker never authorizes an existing provider. Creation
+reserves a deterministic native UUID before POST; both qualified native JPA
+backends retain it. Unknown config/root security fields and any mapper refuse
+semantic writes. Display name, default first-broker flow and LEGACY syncMode are
+the only qualified preserved fields; no arbitrary native map is replayed.
+
+The bounded local annotation `hanko.sh/workload-trust-checkpoint` uses version
+`hanko.sh/workload-trust-checkpoint/v1alpha1` and records only owner/provider/realm
+IDs, source hash and CreateReserved/CreateAttempted/AdoptionPending/Owned step.
+It prevents an absent provider on a changed source from looking like successful
+cleanup, and prevents silent recreation after an uncertain create or external
+deletion. It does not grant native ownership. A CreateAttempted provider that
+remains absent requires independent administrator review; an accepted write is
+recovered from exact native UUID/owner/journal/configuration read-back. A lost
+PUT ACK or Kubernetes status patch similarly recovers without repeating the
+native semantic write. Replacement UUID, owner, realm or source stops execution.
+
+Observe performs no provider writes and carries no destructive finalizer.
+An unmarked closed provider produces a bounded common adoption candidate.
+Explicit common source/contract/candidate approval permits an owner+receipt+
+journal-only PUT preserving the original native semantic document; read-back
+must retain exact UUID/state. The receipt uses the existing adoption protocol,
+and acquisition remains Observe. Manage requires an explicit spec transition
+and imported-latch removal; a foreign or unsupported provider is never claimed.
+
+Before a shared-age PUT, complete paginated native client metadata and exact
+UUID reads are sealed into `dependentInventoryHash`. The annotation
+`hanko.sh/workload-trust-age-review` contains exactly `contract`, `planHash`,
+`dependenciesHash` and `reviewHash`, using the IAM contract version and displayed
+current review evidence. Approval is revalidated before/after PUT against fresh
+spec/identity/full inventory and old/new age. It is neither a status latch nor a
+permanent permission. All native federated-jwt clients referencing the alias
+block deletion, including disabled, owned and foreign clients. Missing required
+issuer/subject or ambiguous/incomplete reads block the whole inventory.
+Deletion rechecks complete zero-dependents, source/UUID/owner/journal/native
+state before and after deleting only the provider; it never cascades to clients.
+
+Conflicts include another watched trust on the same resolved realm UUID and
+alias/issuer, conflicting generic HankoRealm broker intent and conflicting native
+providers. Reads are bounded at 1,024 objects, 100 per page and existing response
+byte budgets; duplicate/malformed/partial/outage/overflow reads never become an
+empty inventory. There is no winner selection. Trusted provider administrators
+can still race between REST calls: Keycloak offers no cross-object transaction
+or cryptographic namespace scope. A watch namespace and marker checks do not
+isolate mutually hostile CRD authors.
+
+Status clears stale capability/ownership evidence on failure. Ready is current
+configuration only; SecretFallback stays false. Source Go tests exercise sealed
+plans, anchors, discovery, transport exclusions, adoption/restart/ACK loss,
+conflicts, age and deletion; real API-server tests cover the seventeenth CRD.
+Real Keycloak tests qualify both versions separately from the unchanged six-cell
+native JWT matrix. The installed scanned-image test additionally uses actual
+current-cluster API discovery/CA/UID, three dedicated credentials, restart,
+reviewed age update and independent external-realm cleanup. This does not enable
+HankoServiceAccount federation, workload binding or mesh authority (#61–#63).
 
 Kubernetes grants are direct `get` on each named workload SA and, for optional
 metadata, `get/patch` on each named pre-existing ConfigMap. Reuse the existing

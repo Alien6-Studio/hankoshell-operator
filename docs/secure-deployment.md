@@ -69,6 +69,28 @@ profiles, see [the Keycloak permission contract](keycloak-permissions.md#dedicat
 
 ## Trust boundaries
 
+For independent Kubernetes trust, provision three distinct
+[P6.2 profiles](keycloak-permissions.md#workload-identity-qualification-phase-6a):
+trust-writer (`manage-identity-providers`, `view-realm`), trust-observer
+(`view-identity-providers`, `view-realm`) and dependent-client-reader
+(`view-clients` only on the target realm). Keep Full Scope Allowed off and exact
+role mappings/scopes. The writer receives no view-clients concession. The reader
+controller permits only bounded client metadata GET; secret/credential and write
+routes are refused before dispatch. **26.7.5 still permits this credential to
+read native client secrets.** A stolen reader credential can expose target-realm
+secrets; route restrictions do not narrow native token powers. 26.8.0 has the
+stricter native client-secret denial. Distinct identities in the current single
+manager process/pod are not process isolation: compromise gives the practical
+union of every loaded credential. The writer also retains realm-wide IdP powers.
+
+Use independently reviewed current kube-system UID and the single public API CA
+DER hash in the trust spec. Ensure approved public HTTPS issuer/JWKS discovery is
+reachable without credentials; the controller never configures public access or
+repairs client-authentication flows. See the
+[implemented trust ownership and recovery contract](architecture/workload-identity.md#p62-implemented-trust-ownership).
+Trust Ready means configuration only, with no workload binding, token issuance,
+federated HankoServiceAccount activation or mesh authority.
+
 The Kubernetes API server, cluster administrators and the configured Keycloak
 provider are trusted. Anyone who can change watched CRDs or the operator's
 credentials can influence provider operations within its granted authority.
@@ -521,7 +543,7 @@ Provider extended support for an older cluster does not qualify this chart for i
 | 1.36 | 1.36.2 | Same mandatory baseline | Node support required | Node/runtime support required |
 | 1.37 | 1.37.0 | Same mandatory baseline | Node support required | Node/runtime support required |
 
-CI starts a real API server and etcd for each fixture, installs all 16 CRDs and
+CI starts a real API server and etcd for each fixture, installs all 17 CRDs and
 validates chart resources with strict server field validation. It tests actual
 Restricted pod admission, including rejection of host networking, host probes,
 privileged containers and BPF capabilities; server-side apply preserves explicit

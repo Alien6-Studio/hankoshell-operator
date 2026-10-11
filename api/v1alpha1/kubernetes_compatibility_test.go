@@ -53,8 +53,8 @@ func TestKubernetesCompatibility(t *testing.T) {
 			t.Errorf("stop Kubernetes: %v", err)
 		}
 	})
-	if len(environment.CRDs) != 16 {
-		t.Fatalf("installed %d CRDs, want 16", len(environment.CRDs))
+	if len(environment.CRDs) != 17 {
+		t.Fatalf("installed %d CRDs, want 17", len(environment.CRDs))
 	}
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
@@ -67,7 +67,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 	if strings.TrimPrefix(server.GitVersion, "v") != version {
 		t.Fatalf("server version = %v, want %s: %v", server, version, err)
 	}
-	t.Logf("qualifying Kubernetes %s with all 16 CRDs", server.GitVersion)
+	t.Logf("qualifying Kubernetes %s with all 17 CRDs", server.GitVersion)
 	scheme := runtime.NewScheme()
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
@@ -99,6 +99,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 	t.Run("IAM evidence status schema", func(t *testing.T) { checkIAMStatusEvidence(t, ctx, admin) })
 	t.Run("application protocols admission and status", func(t *testing.T) { checkApplicationProtocols(t, ctx, admin) })
 	t.Run("standalone organization status and finalizers", func(t *testing.T) { checkOrganizationStandaloneStatus(t, ctx, admin) })
+	t.Run("typed workload trust admission and status", func(t *testing.T) { checkWorkloadTrustAdmission(t, ctx, admin) })
 
 	t.Run("instance-administrative-capability-contract", func(t *testing.T) {
 		instance := &unstructured.Unstructured{Object: map[string]any{
