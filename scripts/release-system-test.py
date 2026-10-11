@@ -89,7 +89,7 @@ def qualify(output, archive, evidence, image, revision, oras, helm, attest, conf
         if not address.startswith("127.0.0.1:") or "\n" in address:
             raise ValueError("Registry fixture must bind only loopback")
         registry = publish.Registry(oras, helm, plain_http=True)
-        local = "localhost:" + address.split(":")[1]
+        local = address
         digest = image.split("@")[1]
         publish.run([oras, "cp", "--from-oci-layout", str(archive) + "@" + digest,
                      "--to-plain-http", local + "/operator:staging"])

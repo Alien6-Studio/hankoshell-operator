@@ -71,6 +71,19 @@ class ReleaseResumeTests(unittest.TestCase):
                     image_repository=image, chart_repository=chart, fresh_evidence=Path("nonexistent"))
             mutation.assert_not_called()
 
+    def test_production_cli_cannot_override_source_readiness(self):
+        import sys
+        for mode in ("restore", "save", "promote"):
+            for version in ("0.1.0-dev.0", "0.1.0"):
+                with self.subTest(mode=mode, version=version):
+                    result = subprocess.run([sys.executable, str(publish.ROOT / "scripts/release-publish.py"),
+                        mode, "--root", "/nonexistent/checkpoint", "--version", version,
+                        "--revision", "a" * 40, "--oras", "/nonexistent/oras", "--helm", "/nonexistent/helm"],
+                        capture_output=True, text=True, timeout=30)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("Production publication blocked", result.stderr)
+                    self.assertNotIn("FileNotFoundError", result.stderr)
+
     def test_installed_authorization_cleanup_requires_preserved_client_and_absent_server(self):
         fixture = object.__new__(system.System)
         client = {"id": "fixture-id", "authorizationServicesEnabled": False, "attributes": {}}
