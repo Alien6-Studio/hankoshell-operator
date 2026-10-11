@@ -78,7 +78,7 @@ func classifyWorkloadDependent(d keycloak.DependentClient, owners []workloadDepe
 			match = owner.UID != "" && owner.UID == d.OwnerUID
 		}
 	}
-	if claims > 1 || (d.OwnerKind == "") != (d.OwnerUID == "") || d.OwnerUID != "" && !workloadtrust.ValidOwner(d.OwnerUID) {
+	if d.OwnershipAmbiguous || claims > 1 || (d.OwnerKind == "") != (d.OwnerUID == "") || d.OwnerUID != "" && !workloadtrust.ValidOwner(d.OwnerUID) {
 		return "ambiguous"
 	}
 	if d.OwnerKind == "HankoServiceAccount" && claims == 1 && match {

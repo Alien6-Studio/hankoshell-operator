@@ -648,10 +648,13 @@ permanent permission. All native federated-jwt clients referencing the alias
 block deletion, including disabled, owned, foreign and ambiguous clients.
 `status.dependents` diagnoses ownership using the exact native kind/UID markers
 and an uncached bounded inventory of local HankoServiceAccount UID/client/realm
-metadata. Partial markers, mismatches and competing local claims are ambiguous;
+metadata. Empty, partial or conflicting markers, mismatches and competing local
+claims are ambiguous;
 unmarked or independently owned clients are foreign. The local inventory is
 sealed into the review hash and re-read at the reference barrier. These counts
-confer no client or workload binding authority. Missing required
+confer no client or workload binding authority. Counts and dependent inventory
+hash are omitted when Observe does not load the reader; omitted evidence never
+means a qualified zero-dependent inventory. Missing required
 issuer/subject or ambiguous/incomplete reads block the whole inventory.
 Deletion rechecks complete zero-dependents, source/UUID/owner/journal/native
 state before and after deleting only the provider; it never cascades to clients.

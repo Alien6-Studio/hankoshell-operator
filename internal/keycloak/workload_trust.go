@@ -377,6 +377,7 @@ type DependentClient struct {
 	Authenticator                        string `json:"clientAuthenticatorType"`
 	Enabled                              bool   `json:"enabled"`
 	Issuer, Subject, OwnerKind, OwnerUID string
+	OwnershipAmbiguous                   bool
 }
 
 func (d *DependentClient) UnmarshalJSON(data []byte) error {
@@ -399,6 +400,7 @@ func (d *DependentClient) UnmarshalJSON(data []byte) error {
 			return ErrWorkloadTrustRead
 		}
 	}
+	d.OwnershipAmbiguous = dependentOwnershipAmbiguous(p.Attributes, *d)
 	if !d.validMetadata() {
 		return ErrWorkloadTrustRead
 	}
@@ -406,6 +408,19 @@ func (d *DependentClient) UnmarshalJSON(data []byte) error {
 		return ErrWorkloadTrustRead
 	}
 	return nil
+}
+
+func dependentOwnershipAmbiguous(attributes map[string]json.RawMessage, d DependentClient) bool {
+	for key := range attributes {
+		if key != adoption.ClientOwnerKindKey && key != adoption.ClientOwnerUIDKey && key != adoption.ReceiptKey && adoption.ReservedAttribute(key) {
+			return true
+		}
+	}
+	if _, present := attributes[adoption.ClientOwnerKindKey]; present && d.OwnerKind == "" {
+		return true
+	}
+	_, present := attributes[adoption.ClientOwnerUIDKey]
+	return present && d.OwnerUID == ""
 }
 
 func (d DependentClient) validMetadata() bool {

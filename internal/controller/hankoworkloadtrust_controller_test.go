@@ -259,7 +259,7 @@ func TestWorkloadTrustObserveAndExplicitOwnerOnlyAdoption(t *testing.T) {
 	f.foreign()
 	f.run(2)
 	observed := f.current()
-	if f.posts+f.puts+f.deletes != 0 || len(observed.Finalizers) != 0 || observed.Status.AdoptionCandidate == nil || !observed.Status.AdoptionCandidate.Approvable {
+	if f.posts+f.puts+f.deletes != 0 || len(observed.Finalizers) != 0 || observed.Status.AdoptionCandidate == nil || !observed.Status.AdoptionCandidate.Approvable || observed.Status.Dependents != nil || observed.Status.DependentInventoryHash != "" {
 		t.Fatal("Observe violated ownership boundary")
 	}
 	candidate := observed.Status.AdoptionCandidate.CandidateHash
@@ -370,7 +370,7 @@ func TestWorkloadTrustProviderReplacementAndAbsenceCannotRecreate(t *testing.T) 
 }
 
 func TestWorkloadTrustDeletionRequiresCompleteZeroDependencies(t *testing.T) {
-	for _, caseName := range []string{"zero", "owned", "foreign", "ambiguous", "inventory denied", "UUID replaced"} {
+	for _, caseName := range []string{"zero", "owned", "foreign", "ambiguous", "conflicting markers", "inventory denied", "UUID replaced"} {
 		t.Run(caseName, func(t *testing.T) {
 			f := newTrustFixture(t, ModeManage)
 			f.run(3)
@@ -380,7 +380,7 @@ func TestWorkloadTrustDeletionRequiresCompleteZeroDependencies(t *testing.T) {
 			if caseName == "UUID replaced" {
 				f.native(func(p map[string]any) { p["internalId"] = "replacement-uuid" })
 			}
-			if caseName == "owned" || caseName == "foreign" || caseName == "ambiguous" {
+			if caseName == "owned" || caseName == "foreign" || caseName == "ambiguous" || caseName == "conflicting markers" {
 				f.dependents = []map[string]any{{"id": "dependent-uuid", "clientId": "dependent", "enabled": false, "clientAuthenticatorType": "federated-jwt", "attributes": map[string]string{"jwt.credential.issuer": "cluster", "jwt.credential.sub": "system:serviceaccount:workloads:worker", "hanko.sh/client-owner-kind": "HankoServiceAccount", "hanko.sh/client-owner-uid": "foreign"}}}
 				if caseName == "owned" {
 					a := &api.HankoServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "dependent", Namespace: "auth", UID: "owned-uid"}, Spec: api.HankoServiceAccountSpec{RealmRef: "managed", ClientID: "dependent"}}
@@ -391,6 +391,9 @@ func TestWorkloadTrustDeletionRequiresCompleteZeroDependencies(t *testing.T) {
 				}
 				if caseName == "ambiguous" {
 					delete(f.dependents[0]["attributes"].(map[string]string), "hanko.sh/client-owner-uid")
+				}
+				if caseName == "conflicting markers" {
+					f.dependents[0]["attributes"].(map[string]string)[adoption.ApplicationOwnerKey] = "conflicting-owner"
 				}
 			}
 			if err := f.kube.Delete(context.Background(), f.current()); err != nil {
@@ -407,7 +410,7 @@ func TestWorkloadTrustDeletionRequiresCompleteZeroDependencies(t *testing.T) {
 					t.Fatal("cleanup ignored uncertainty or dependency")
 				}
 				counts := f.current().Status.Dependents
-				if caseName == "owned" && counts.Owned != 1 || caseName == "foreign" && counts.Foreign != 1 || caseName == "ambiguous" && counts.Ambiguous != 1 {
+				if caseName == "owned" && counts.Owned != 1 || caseName == "foreign" && counts.Foreign != 1 || (caseName == "ambiguous" || caseName == "conflicting markers") && counts.Ambiguous != 1 {
 					t.Fatal("dependent classification missing")
 				}
 			}
