@@ -5,10 +5,11 @@ metadata is `0.1.0-dev.0`, with Artifact Hub prerelease status true. No public
 release has been published yet. All implemented IAM and security behavior is
 retained; no permission, dependency or functional rollback accompanies this reset.
 
-Phases 1–5 are the implemented foundation. The complete original prelaunch
-trajectory, including Workload Identity, Delegation & Agent Identity, Provider
-Portability, Fleet Reconciliation and Initial Public Contract Stabilization
-(Phases 6–10), is required before the first 0.1.0. See the [roadmap](../ROADMAP.md).
+Trusted Keycloak Foundation, IAM Contract Engine, Application Identity,
+Organizational Authorization and Adopt Existing Keycloak form the implemented
+foundation. Workload Identity, Delegation & Agent Identity, Provider Portability,
+Fleet Reconciliation and Initial Public Contract Stabilization are also required
+before the first 0.1.0. See the [roadmap](../ROADMAP.md).
 The 17 `v1alpha1` APIs may remain alpha with explicit initial-public contract and
 migration limits. A true later 1.0 decision depends on actual public use and a
 proven backward-compatibility policy; there is no predetermined 1.0 milestone.
@@ -16,7 +17,8 @@ proven backward-compatibility policy; there is no predetermined 1.0 milestone.
 [#54](https://github.com/Alien6-Studio/hankoshell-operator/pull/54) merged as
 `7e0063704738ef9e63968b79d9e553555c2f2eb0` and its canonical Attest hardening is
 retained. [#21](https://github.com/Alien6-Studio/hankoshell-operator/issues/21)
-remains open for transversal first-publication trust/readiness and Phase 10.
+remains open for transversal first-publication trust/readiness and Initial Public
+Contract Stabilization.
 Source qualification and fixture trust do not supply that external evidence.
 
 ## Version and publication contract
@@ -47,10 +49,10 @@ candidate metadata uses normal `v0.1.0` icon and delivery-key asset links.
 Early development used milestone-like SemVer labels. Their five tag refs are
 scheduled for deletion after this reset's protected merge and exact-main
 qualification; commits, SHA identities, signatures and PR/CI history remain.
-No alternate tags are created. GitHub milestones are renamed in place to
-[Phases 1–10](engineering-milestone-mapping.md), preserving IDs, issue links and
+No alternate tags are created. GitHub milestones use
+[functional work subjects](engineering-milestone-mapping.md), preserving IDs, issue links and
 states. The [reference inventory](version-reference-inventory.md) distinguishes
-active metadata, old phase labels, legacy migration contracts, generic fixtures
+active metadata, historical naming, legacy migration contracts, generic fixtures
 and external dependency versions.
 
 ## Audit limits and authorization boundaries
@@ -64,10 +66,10 @@ No actual public distribution or external consumer was discovered. If one is
 found before ref deletion, stop the affected deletion and record the conflict.
 
 No tag, GitHub Release, production package, production trust secret, package ACL
-change or catalog registration is authorized by this preparation. Phase progress
+change or catalog registration is authorized by this preparation. Work progress
 uses issues/RFCs, milestones, PRs, commits and CI, without SemVer/checkpoint tags.
 Any future tag/trust/dispatch/publication needs separate explicit authorization
-on the fully qualified ready source after all phases.
+on the fully qualified ready source after all required work subjects are complete.
 
 The future Sigstore identity is
 `https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.1.0`,
@@ -75,7 +77,7 @@ with issuer `https://token.actions.githubusercontent.com`. Nonpublishable rehear
 uses ephemeral local key/TSA, a loopback registry and in-memory GitHub storage,
 never production credentials, GHCR writes or public transparency services.
 
-## Administrator actions for a separately authorized trust phase
+## Administrator actions for separately authorized publication trust
 
 ### Attest signer
 
@@ -133,7 +135,7 @@ never production credentials, GHCR writes or public transparency services.
    "$receipt_workspace" --trust-store "$receipt_workspace/.attest/trust"
    --offline --format json`. Require all five checks, no warnings and the exact
    approved public signer in the verdict. This proof uses real approved external
-   trust in its separately authorized phase, never rehearsal trust.
+   trust through its separately authorized procedure, never rehearsal trust.
 4. Store the approved issuer PEM in `HANKOSHELL_ATTEST_TSA_CERTIFICATE`. Retain
    the endpoint/fingerprint/challenge-verification evidence without private keys
    or credentials. A foreign certificate or bad endpoint must fail qualification.
@@ -161,7 +163,7 @@ old refs. Required review and no administrator bypass remain mandatory. The trus
 secret `HANKOSHELL_ATTEST_SIGNING_KEY` and public variables
 `HANKOSHELL_ATTEST_PUBLIC_KEY`, `HANKOSHELL_ATTEST_KEY_ID`,
 `HANKOSHELL_ATTEST_TSA_URL`, `HANKOSHELL_ATTEST_TSA_CERTIFICATE` and
-`HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID` belong to that separately approved phase.
+`HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID` belong to that separately approved publication procedure.
 
 ### GHCR
 
