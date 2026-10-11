@@ -204,6 +204,19 @@ The server's token-expiration flags and an intentionally excessive TokenRequest
 are recorded to distinguish its configured ceiling from the tested product range.
 Long assertions in this limit probe stay only in fixture memory; they are never
 workload recommendations or persisted credentials.
+The unmodified kind 1.36.2 server has no explicit expiration-cap flags and even
+issues the requested 1,000,000,000-second assertion; do not infer a universal
+24-hour Kubernetes ceiling. The required matrix records the other exact servers.
+Native acceptance is still bounded by the explicitly configured assertion age.
+
+Maximum age belongs to the shared **trust**, not to each client. A client's
+recommended projection must be between 600 and the smaller of 3,600 seconds and
+that trust's maximum age. Refuse `ProjectionExceedsTrustAge`: kubelet renewal of
+a longer-lived projection can occur after Keycloak starts rejecting it. Publish
+both projection duration and shared native maximum age in public metadata.
+Changing the trust limit affects every referenced client and requires explicit
+review of the complete dependent inventory; no client reconcile may silently
+raise the shared limit to accommodate itself.
 
 Assertions are reusable during their acceptance window. Access tokens already
 issued can outlive that window; urgent revocation requires independent client,
@@ -605,13 +618,17 @@ unchanged. Any future delegation needs its own Phase 7 contract and qualificatio
 
 ## 18. Implementation and migration order
 
-P6.1 is this contract, primary-source/native qualification, threat model and safe
-matrix gates. P6.2 implements typed trust ownership, capabilities, read-only
-prerequisite validation and explicit adoption. P6.4 implements binding UID
+[P6.1 #59](https://github.com/Alien6-Studio/hankoshell-operator/issues/59) is this
+contract, primary-source/native qualification, threat model and safe matrix gates.
+[P6.2 #60](https://github.com/Alien6-Studio/hankoshell-operator/issues/60) implements
+typed trust ownership, capabilities, read-only prerequisite validation and
+explicit adoption. [P6.4 #61](https://github.com/Alien6-Studio/hankoshell-operator/issues/61) implements binding UID
 freshness/containment, runtime metadata consent and mesh coherence **before**
-P6.3 enables federated activation. P6.3 extends HankoServiceAccount typed
+[P6.3 #62](https://github.com/Alien6-Studio/hankoshell-operator/issues/62) enables
+federated activation. P6.3 extends HankoServiceAccount typed
 authentication, durable credential/mode transitions and explicit fallback.
-P6.5 proves the complete installed/migration system. Phase 6 remains open until
+[P6.5 #63](https://github.com/Alien6-Studio/hankoshell-operator/issues/63) proves
+the complete installed/migration system. Phase 6 remains open until
 all implementation and installed proofs pass; the roadmap retains every later
 phase required for the first public 0.1.0.
 
@@ -625,13 +642,26 @@ replacement authority. Rollback of code/YAML is not provider or credential recov
 
 ## 19. Questions resolved by real probes
 
-The evidence must resolve native IDs and exact representation round-trips,
-discovery differences/external reachability, effective fresh/legacy flow behavior,
-minimal writer/read roles, 600-second projection and rotation, cluster issuance
-limits, single audience and cross-realm validation, native method exclusivity and
-inactive secret recovery, replay, SA recreation and offline-versus-TokenReview
-revocation, actual expiry and maximum-age semantics. No unresolved native result
-can be replaced with a boolean capability or an invented payload.
+| Question | Observed resolution |
+| --- | --- |
+| Which native IDs/configuration? | `kubernetes`, `federated-jwt`, provider alias in `jwt.credential.issuer`, exact subject in `jwt.credential.sub`; GET/PUT preserve native IdP internalId and its fixture UID marker; DELETE yields absence and authentication refusal |
+| Persisted versus calculated fields? | Both return CLIENT_ASSERTION/hideOnLogin. 26.7.5 stores an unknown discovery key without resolving it; 26.8.0 calculates and persists issuer/jwksUrl. Only the latter override authenticates the foreign-cluster assertion |
+| External reachability? | Both accept real assertions through a public verified issuer/discovery/JWKS route with only its CA mounted; no Kubernetes credential in external Keycloak |
+| Effective flow prerequisite? | Fresh realms include the alternative. Missing/disabled execution refuses authentication. Built-in DELETE is refused; administrator execution-requirement PUT is allowed, so builtIn is not immutable execution proof |
+| Can Secret and federation be exclusive? | Secret → federated → Secret → federated succeeds on the same native client; the inactive method is refused, and the original native secret is recoverable without rotation |
+| Is replay prevented? | No; repeating the same actual projection returns HTTP 200 |
+| Does native matching check SA UID? | No; the old assertion after SA deletion and new same-name/different-UID assertion both return HTTP 200. TokenReview switches from authenticated original UID to false |
+| Actual expiry and rotation? | Projected lifetime is exactly 600; the live kubelet replaces it with the same SA UID; an actually expired held assertion returns HTTP 400 |
+| What does maximum expiration mean? | Fresh long assertions are accepted. With max age 600, a 900-second assertion is refused after age 600 while still unexpired; this is age enforcement, not JWT lifespan enforcement |
+| Cluster lifetime bounds? | 599 is refused, 600 is issued exactly. The fixtures also measure long requests and server flags; unmodified 1.36.2 imposes no measured ceiling even at 1,000,000,000 seconds. Product projection remains 600–3,600 and no greater than shared trust age |
+| What authority is intrinsic? | IdP writer manage-identity-providers; client writer manage-clients; effective-flow reader view-realm. Scoped identities deny privileged user/realm/master/impersonation operations; unrelated IdP writes remain possible under the realm-wide trust-writer role |
+
+The required six-cell matrix retains exact statuses, native representations,
+minimal read/combined writer profiles, public cluster anchors and credential-free
+artifact checks. It gates the PR's completion; incomplete reports do not qualify
+the contract. Future controller-only freshness, adoption, containment and
+installed-system behavior remain acceptance criteria of #60–#63, not fabricated
+outcomes of the native fixture.
 
 The selected public semantics deliberately retain the measured limits: local UID
 approval with asynchronous containment, reusable assertions with short age,
