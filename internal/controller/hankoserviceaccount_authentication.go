@@ -116,6 +116,10 @@ func (r *HankoServiceAccountReconciler) authenticationVerifier(sa *api.HankoServ
 	}
 }
 
+func authenticationTransitionAuthorityMissing(sa *api.HankoServiceAccount) bool {
+	return effectiveServiceAccountMode(sa) != ModeObserve && authenticationMode(sa) == "Secret" && sa.Annotations[workloadauth.JournalKey] != "" && (sa.Spec.Authentication == nil || sa.Spec.Authentication.FallbackBinding == nil)
+}
+
 func transitionStatus(j *workloadauth.Journal) *api.AuthenticationTransitionStatus {
 	if j == nil {
 		return nil

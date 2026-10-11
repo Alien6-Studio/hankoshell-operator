@@ -1078,6 +1078,9 @@ credential reads, immutable or foreign/replaced outputs and write failures prese
 the working federated authenticator. Missing recovery credentials never trigger
 rotation. Accepted switch/Secret writes with lost acknowledgements resume using the
 same credential and native UUID. Explicit approval is not an authentication test.
+The fallback retains its typed binding authority while its authentication journal
+exists. Removing those references stops reconciliation before the historical
+Secret path can select another connection, including after a committed fallback.
 
 A contained disabled client is not automatically reactivated by fallback or a UID
 edit. A new, complete reviewed federated transaction is required for reactivation.

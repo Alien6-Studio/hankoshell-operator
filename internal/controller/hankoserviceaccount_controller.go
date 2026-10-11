@@ -62,6 +62,9 @@ func (r *HankoServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.
 	if r.APIReader == nil {
 		r.APIReader = r.Client
 	}
+	if authenticationTransitionAuthorityMissing(&sa) {
+		return r.authenticationTransitionResult(ctx, &sa, nil, nil, "AuthenticationAuthorityRequired")
+	}
 	if sa.Spec.Authentication != nil && sa.Spec.Authentication.Mode == "Secret" && sa.Spec.Authentication.FallbackBinding != nil {
 		return r.reconcileServiceAccountFallback(ctx, &sa)
 	}

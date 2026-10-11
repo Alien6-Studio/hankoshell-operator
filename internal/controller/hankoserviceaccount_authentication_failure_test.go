@@ -306,6 +306,31 @@ func TestFederatedGenericAttributeUpdateRecoversAcknowledgementWithoutMethodWrit
 	}
 }
 
+func TestFallbackCannotDropSealedAuthorityIntoHistoricalSecretPath(t *testing.T) {
+	for _, committed := range []bool{false, true} {
+		t.Run(map[bool]string{false: "prepared", true: "committed"}[committed], func(t *testing.T) {
+			f := newAuthenticationFixture(t)
+			f.federateReviewed()
+			f.requestTransition("explicit-fallback", "Secret")
+			f.runAuthentication(3)
+			if committed {
+				f.approve()
+				f.runAuthentication(3)
+			}
+			credentialReads, writes := f.credentialRoutes, f.clientWrites
+			f.account.Spec.Authentication = nil
+			f.account.Generation++
+			if err := f.kube.Update(context.Background(), f.account); err != nil {
+				t.Fatal(err)
+			}
+			f.runAuthentication(2)
+			if f.account.Status.Phase == "Ready" || conditionReason(f.account.Status.Conditions, "Synced") != "AuthenticationAuthorityRequired" || f.credentialRoutes != credentialReads || f.clientWrites != writes {
+				t.Fatal("dropping fallback authority bypassed the durable native transaction")
+			}
+		})
+	}
+}
+
 func TestAuthenticationTransitionFreshDependencyDriftStopsMutationAndCleanup(t *testing.T) {
 	for _, after := range []bool{false, true} {
 		for _, failure := range []string{"flow", "provider-uuid", "native-uuid", "native-state", "source", "reader", "trust-generation", "workload-uid", "consent"} {
