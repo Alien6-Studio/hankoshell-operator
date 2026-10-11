@@ -15,6 +15,14 @@ import (
 func TestRealKeycloakWorkloadTrustRequiredInventoryPermissions(t *testing.T) {
 	f := newKeycloakFixture(t)
 	base := "/admin/realms/managed"
+	f.admin(http.MethodPost, base+"/users", map[string]any{"username": "p62-negative-user", "enabled": true}, nil)
+	var users []map[string]any
+	f.admin(http.MethodGet, base+"/users?username=p62-negative-user&exact=true", nil, &users)
+	if len(users) != 1 {
+		t.Fatal("negative permission fixture user is ambiguous")
+	}
+	impersonation := base + "/users/" + users[0]["id"].(string) + "/impersonation"
+	f.admin(http.MethodPost, "/admin/realms", map[string]any{"realm": "p62-unrelated", "enabled": true}, nil)
 	provider := map[string]any{
 		"alias": "inventory-trust", "providerId": "kubernetes", "enabled": true,
 		"config": map[string]string{"issuer": "https://inventory-cluster.example.test"},
@@ -65,6 +73,9 @@ func TestRealKeycloakWorkloadTrustRequiredInventoryPermissions(t *testing.T) {
 		if err == nil || len(clients) != 0 {
 			t.Fatal("denied dependency inventory must return an error and no partial collection")
 		}
+		fixtureEqual(t, "trust profile cannot impersonate actual user", f.identityStatus(profile.name, secret, http.MethodPost, impersonation, nil), http.StatusForbidden)
+		fixtureEqual(t, "trust profile cannot inventory unrelated realm", f.identityStatus(profile.name, secret, http.MethodGet, "/admin/realms/p62-unrelated/clients", nil), http.StatusForbidden)
+		fixtureEqual(t, "trust profile cannot administer unrelated realm", f.identityStatus(profile.name, secret, http.MethodPut, "/admin/realms/p62-unrelated", map[string]any{"enabled": false}), http.StatusForbidden)
 		if profile.name == "p62-trust-reader" {
 			for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodDelete} {
 				path := base + "/identity-provider/instances/inventory-trust"
@@ -134,6 +145,9 @@ func TestRealKeycloakWorkloadTrustRequiredInventoryPermissions(t *testing.T) {
 		{http.MethodPost, "/admin/realms", map[string]any{"realm": "forbidden"}},
 		{http.MethodPut, "/admin/realms/master", map[string]any{"enabled": false}},
 		{http.MethodGet, "/admin/realms/master/clients", nil},
+		{http.MethodPost, impersonation, nil},
+		{http.MethodGet, "/admin/realms/p62-unrelated/clients", nil},
+		{http.MethodPut, "/admin/realms/p62-unrelated", map[string]any{"enabled": false}},
 	} {
 		fixtureEqual(t, "dependency reader native denial", f.identityStatus("p62-dependency-reader-control", secret, request.method, request.path, request.payload), http.StatusForbidden)
 	}

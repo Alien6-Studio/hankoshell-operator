@@ -852,6 +852,10 @@ class System:
             raise ValueError("Installed trust lacks exact UID/native UUID journal ownership")
         self.kubectl("rollout", "restart", "deployment/system-operator", "-n", "auth")
         self.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=120s")
+        # Clear diagnostic status after the old process has stopped: only the
+        # new controller can reconstruct Ready from current native ownership.
+        self.kubectl("patch", "hankoworkloadtrust", "shared-workload", "-n", "auth", "--subresource=status",
+                     "--type=merge", "-p", '{"status":null}')
         wait("installed trust reconstructs after restart", lambda: self.ready("hankoworkloadtrust", "shared-workload"))
         if self.api("GET", path)["internalId"] != native["internalId"]:
             raise ValueError("Installed trust restart replaced native UUID")

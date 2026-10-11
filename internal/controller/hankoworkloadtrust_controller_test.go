@@ -284,6 +284,24 @@ func TestWorkloadTrustObserveAndExplicitOwnerOnlyAdoption(t *testing.T) {
 	}
 }
 
+func TestWorkloadTrustStatusLossAndRestartUseNativeJournal(t *testing.T) {
+	f := newTrustFixture(t, ModeManage)
+	f.run(3)
+	before := f.current()
+	id := before.Status.ProviderID
+	before.Status = api.HankoWorkloadTrustStatus{}
+	if err := f.kube.Status().Update(context.Background(), before); err != nil {
+		t.Fatal(err)
+	}
+	// A new reconciler has no previous status or in-memory execution authority.
+	f.r = &HankoWorkloadTrustReconciler{Client: f.kube, APIReader: f.kube, ClusterConfig: f.r.ClusterConfig, DiscoveryCheck: f.r.DiscoveryCheck}
+	f.run(2)
+	after := f.current()
+	if after.Status.Phase != "Ready" || after.Status.ProviderID != id || f.posts != 1 || f.puts+f.deletes != 0 {
+		t.Fatal("status loss/restart repeated a native write or lost exact ownership")
+	}
+}
+
 func TestWorkloadTrustFailsClosedBeforeNativeWrites(t *testing.T) {
 	for _, failure := range []string{"disabled flow", "missing flow", "custom flow", "inventory denied", "null inventory", "outage", "mapper", "unknown config", "foreign marker", "anchor UID", "anchor CA", "duplicate alias"} {
 		t.Run(failure, func(t *testing.T) {
