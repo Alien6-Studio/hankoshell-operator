@@ -91,6 +91,83 @@ class AttestVerdictTests(unittest.TestCase):
             release.validate_verdict(report, self.signer, self.receipt)
 
 
+class AttestConfigurationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.private = subprocess.run(["openssl", "genpkey", "-algorithm", "ED25519"],
+                                     capture_output=True, check=True).stdout.decode()
+        public = subprocess.run(["openssl", "pkey", "-pubout", "-outform", "DER"],
+                                input=cls.private.encode(), capture_output=True, check=True).stdout
+        cls.public = public[-32:].hex()
+        cls.other_private = subprocess.run(["openssl", "genpkey", "-algorithm", "ED25519"],
+                                           capture_output=True, check=True).stdout.decode()
+        cls.config = {"SIGNING_KEY": cls.private, "PUBLIC_KEY": cls.public,
+                      "KEY_ID": "a" * 32, "TSA_CERTIFICATE": "synthetic certificate"}
+
+    def test_matching_private_public_and_native_id_are_required(self):
+        with patch.object(release, "key_id", return_value=self.config["KEY_ID"]), \
+                patch.object(release, "trust_output", wraps=release.trust_output) as tool:
+            with self.assertRaisesRegex(ValueError, "TSA X.509"):
+                release.validate_configuration(self.config, Path("attest"), Path("openssl"))
+            self.assertEqual(tool.call_count, 2)
+        for field, value, message in (("SIGNING_KEY", "-----BEGIN PRIVATE KEY-----\ninvalid\n", "private key"),
+                                     ("SIGNING_KEY", self.other_private, "does not match"),
+                                     ("PUBLIC_KEY", "b" * 64, "does not match"),
+                                     ("KEY_ID", "0" * 32, "key ID")):
+            with self.subTest(field=field), patch.object(release, "key_id", return_value=self.config["KEY_ID"]), \
+                    self.assertRaisesRegex(ValueError, message):
+                release.validate_configuration(dict(self.config, **{field: value}), Path("attest"), Path("openssl"))
+
+    def test_retry_refuses_wrong_declared_id_before_reading_the_checkpoint(self):
+        publish = release.contract.module("release_publish", "release-publish.py")
+        with patch.object(publish.attest, "key_id", return_value="a" * 32), \
+                patch.object(publish, "verify_checkpoint") as checkpoint, self.assertRaisesRegex(ValueError, "key ID"):
+            publish.verify_attest(Path("/nonexistent/checkpoint"), Path("attest"),
+                                 {"PUBLIC_KEY": self.public, "KEY_ID": "0" * 32})
+        checkpoint.assert_not_called()
+
+    def test_base64_pem_envelope_without_x509_is_rejected(self):
+        config = dict(self.config, TSA_CERTIFICATE="-----BEGIN CERTIFICATE-----\nAA==\n-----END CERTIFICATE-----")
+        with patch.object(release, "key_id", return_value=config["KEY_ID"]), self.assertRaisesRegex(ValueError, "TSA X.509"):
+            release.validate_configuration(config, Path("attest"), Path("openssl"))
+
+    def test_native_id_uses_only_public_material_in_an_isolated_workspace(self):
+        def native(command, message, **kwargs):
+            self.assertNotIn("input", kwargs)
+            if command[1] == "--version":
+                return b"attest 0.1.0"
+            workspace = Path(kwargs["cwd"])
+            if command[2] == "import":
+                self.assertEqual(Path(command[-1]).read_text(), release.public_key_pem(self.public))
+                self.assertFalse(list(workspace.rglob("*.key")))
+                return b"imported"
+            return json.dumps({"id": "a" * 32, "status": "trusted", "private_key_present": False}).encode()
+        with patch.object(release, "trust_output", side_effect=native):
+            self.assertEqual(release.key_id(Path("attest"), self.public), "a" * 32)
+        for output in (b"not json", b"{}", b"[]", b'{"id":"bad"}',
+                       json.dumps({"id": "a" * 32, "status": "trusted", "private_key_present": True}).encode()):
+            with self.subTest(output=output), patch.object(release, "trust_output", side_effect=[b"attest 0.1.0", b"", output]), \
+                    self.assertRaisesRegex(ValueError, "native Attest key identity"):
+                release.key_id(Path("attest"), self.public)
+        with patch.object(release, "trust_output", return_value=b"attest 99.0.0"), self.assertRaisesRegex(ValueError, "Attest 0.1.0"):
+            release.key_id(Path("attest"), self.public)
+
+    def test_secret_is_removed_from_environment_and_never_in_failure_diagnostics(self):
+        with patch.dict(os.environ, {"HANKOSHELL_ATTEST_SIGNING_KEY": self.private}, clear=True):
+            with self.assertRaises(ValueError):
+                release.configuration()
+            self.assertNotIn("HANKOSHELL_ATTEST_SIGNING_KEY", os.environ)
+        failures = (subprocess.CompletedProcess([], 1, self.private.encode(), self.private.encode()),
+                    subprocess.TimeoutExpired(["openssl"], 30, output=self.private.encode(), stderr=self.private.encode()),
+                    OSError(self.private))
+        for failure in failures:
+            kwargs = {"side_effect": failure} if isinstance(failure, Exception) else {"return_value": failure}
+            with self.subTest(kind=type(failure).__name__), patch.object(release.subprocess, "run", **kwargs):
+                with self.assertRaisesRegex(ValueError, "sanitized") as caught:
+                    release.trust_output(["openssl", "pkey"], "sanitized", input=self.private.encode())
+                self.assertEqual(str(caught.exception), "sanitized")
+
+
 class DeliveryArtifactTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

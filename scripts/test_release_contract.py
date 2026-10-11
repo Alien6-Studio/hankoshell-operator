@@ -75,6 +75,13 @@ class ReleaseContractTests(unittest.TestCase):
         self.assertLess(recheck, registry_login)
         self.assertEqual(steps[recheck]["env"]["EXPECTED_TAG_OBJECT"],
                          "${{ needs.eligibility.outputs.tag_object }}")
+        trust = next(i for i, step in enumerate(steps)
+                     if "scripts/attest-release.py --check-config" in step.get("run", ""))
+        staging = next(i for i, step in enumerate(steps)
+                       if "oras\" cp --from-oci-layout" in step.get("run", ""))
+        self.assertLess(trust, staging)
+        self.assertIn('bash scripts/install-attest.sh "$RUNNER_TEMP/hankoshell-attest/attest"', steps[trust]["run"])
+        self.assertIn('--check-config --attest "$RUNNER_TEMP/hankoshell-attest/attest"', steps[trust]["run"])
         self.assertEqual(release["eligibility"]["outputs"]["tag_object"],
                          "${{ steps.identity.outputs.tag_object }}")
 

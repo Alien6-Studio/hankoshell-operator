@@ -974,6 +974,19 @@ trusted public key/ID, RFC 3161 endpoint and pinned TSA certificate in the
 reviewed `release` environment, register the OCI chart in Artifact Hub and set
 its assigned repository UUID, and verify public registry access. See the README
 release configuration. The rehearsal does not qualify these external settings.
+The configuration preflight requires the checksum-pinned Attest binary and
+OpenSSL. It parses the Ed25519 PKCS#8 private key over stdin, compares its derived
+public key, derives the canonical Key ID through native Attest using public
+material only, and parses the TSA X.509 certificate. A retry rechecks that Key ID
+before trusting its restored receipt. Tool diagnostics are captured and discarded
+on failure; no private key is passed in command arguments or retained by preflight.
+These checks establish configuration consistency, not administrative approval of
+the signer or TSA. Independently review the public key/ID and the TSA issuing
+certificate fingerprint, then verify a real endpoint-issued RFC 3161 token
+against that pinned issuer. Successful certificate parsing alone does not prove
+that the endpoint uses it. The rehearsal separately rejects wrong keys/IDs,
+malformed certificates, an unrelated TSA certificate and a failing TSA endpoint;
+its ephemeral authorities remain nonproduction fixtures.
 Artifact Hub Verified Publisher establishes ownership, not vulnerability absence
 or a chart signature. The named Attest key link is not Helm OpenPGP `.prov` signing.
 
