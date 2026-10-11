@@ -45,7 +45,7 @@ ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
 REALM_ISSUER = "https://keycloak.auth.svc:8443/realms/managed"
 
 
-def run(args, input=None, timeout=240):
+def run(args, input=None, timeout=240, include_stderr=False):
     try:
         result = subprocess.run([str(a) for a in args], input=input, capture_output=True, timeout=timeout)
     except subprocess.TimeoutExpired:
@@ -54,7 +54,7 @@ def run(args, input=None, timeout=240):
         # Never render arguments, stdout, stderr, or stdin: a failed token read or
         # TokenReview could otherwise disclose a credential through diagnostics.
         raise RuntimeError("Disposable workload fixture command failed: " + Path(str(args[0])).name)
-    return result.stdout.decode()
+    return (result.stdout + (result.stderr if include_stderr else b"")).decode()
 
 
 def claims(token):
@@ -90,6 +90,12 @@ class Fixture(system.System):
                        "fixture_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
         self.foreign_name = self.name + "-foreign"
         self.foreign_config = private / "foreign-kubeconfig"
+        self.owned_clusters = set()
+
+    def reserve_cluster(self, name):
+        if name in run([self.args.kind, "get", "clusters"]).splitlines():
+            raise ValueError("Disposable fixture name already exists; refusing to touch it")
+        self.owned_clusters.add(name)
 
     def kubectl(self, *args, **kwargs):
         return run([self.args.kubectl, "--kubeconfig", self.config, *args], **kwargs)
@@ -102,6 +108,7 @@ class Fixture(system.System):
         else:
             self.node_image = NODE_IMAGES[self.args.kubernetes_version]
         node = self.node_image
+        self.reserve_cluster(self.name)
         run([self.args.kind, "create", "cluster", "--name", self.name,
              "--image", node, "--kubeconfig", self.config, "--wait", "120s"])
         actual = json.loads(self.kubectl("version", "-o", "json"))["serverVersion"]["gitVersion"]
@@ -273,6 +280,7 @@ except urllib.error.HTTPError as e:
                     "extraArgs": extra}})]}]}
         path = self.private / "foreign-kind.yaml"
         path.write_text(yaml.safe_dump(configuration))
+        self.reserve_cluster(self.foreign_name)
         run([self.args.kind, "create", "cluster", "--name", self.foreign_name, "--image", node,
              "--config", path, "--kubeconfig", self.foreign_config, "--wait", "120s"])
         run([self.args.kubectl, "--kubeconfig", self.foreign_config, "create", "namespace", "workload"])
@@ -302,7 +310,10 @@ except urllib.error.HTTPError as e:
         proxy = self.client("master", "managed-realm")
         records = {}
         for profile, role_names in (("trust-writer", ["manage-identity-providers"]),
-                                    ("client-writer", ["manage-clients"]), ("flow-reader", ["view-realm"])):
+                                    ("trust-reader", ["view-identity-providers"]),
+                                    ("client-writer", ["manage-clients"]),
+                                    ("federated-writer", ["manage-clients", "view-realm"]),
+                                    ("flow-reader", ["view-realm"])):
             secret = secrets.token_hex(32)
             self.sensitive.append(secret)
             self.api("POST", "/admin/realms/master/clients", {"clientId": profile, "secret": secret,
@@ -341,16 +352,33 @@ except urllib.error.HTTPError as e:
                 self.api("DELETE", base + "/unrelated-broker", token=token)
                 record["unrelated_idp_write"] = "allowed (realm-wide native role)"
                 self.api("GET", "/admin/realms/managed/authentication/flows", token=token, expected=(403,))
-            elif profile == "client-writer":
-                self.api("POST", "/admin/realms/managed/clients", {"clientId": "permission-client",
+            elif profile == "trust-reader":
+                base = "/admin/realms/managed/identity-provider/instances"
+                self.api("GET", base, token=token)
+                observed = self.api("GET", base + "/workload-kube", token=token)
+                self.api("POST", base, {"alias": "forbidden-trust", "providerId": "kubernetes"}, token=token, expected=(403,))
+                self.api("PUT", base + "/workload-kube", observed, token=token, expected=(403,))
+                self.api("DELETE", base + "/workload-kube", token=token, expected=(403,))
+                record["provider_read_only"] = True
+            elif profile in ("client-writer", "federated-writer"):
+                self.api("POST", "/admin/realms/managed/clients", {"clientId": "permission-" + profile,
                     "serviceAccountsEnabled": True, "clientAuthenticatorType": "federated-jwt",
                     "attributes": {"jwt.credential.issuer": "workload-kube", "jwt.credential.sub": "permission-subject"}}, token=token)
-                observed = self.client("managed", "permission-client")
+                observed = self.client("managed", "permission-" + profile)
                 self.api("GET", "/admin/realms/managed/clients/" + observed["id"], token=token)
+                native_secret = self.api("GET", "/admin/realms/managed/clients/" + observed["id"] + "/client-secret", token=token).get("value")
+                if not native_secret:
+                    raise ValueError("Scoped client writer cannot read the native recovery credential")
+                self.sensitive.append(native_secret)
+                record["native_secret_recovery_read"] = True
                 self.api("PUT", "/admin/realms/managed/clients/" + observed["id"], observed, token=token)
                 self.api("DELETE", "/admin/realms/managed/clients/" + observed["id"], token=token)
                 record["client_crud"] = True
                 self.api("GET", "/admin/realms/managed/identity-provider/instances", token=token, expected=(403,))
+                if profile == "federated-writer":
+                    record["flow_reads"] = self.api("GET", "/admin/realms/managed/authentication/flows/clients/executions", token=token)
+                else:
+                    self.api("GET", "/admin/realms/managed/authentication/flows", token=token, expected=(403,))
             else:
                 record["flow_reads"] = self.api("GET", "/admin/realms/managed/authentication/flows/clients/executions", token=token)
                 self.api("POST", "/admin/realms/managed/authentication/flows/clients/copy", {"newName": "forbidden-flow"}, token=token, expected=(403,))
@@ -386,7 +414,7 @@ except urllib.error.HTTPError as e:
             "directAccessGrantsEnabled": False, "fullScopeAllowed": False, "clientAuthenticatorType": "federated-jwt",
             "attributes": {"jwt.credential.issuer": "workload-kube", "jwt.credential.sub": binding_subject("workload", "worker")}})
         client = self.client("managed", "workload-a")
-        self.report["client_created"] = {k: client[k] for k in ("clientId", "clientAuthenticatorType", "serviceAccountsEnabled", "attributes")}
+        self.report["client_created"] = {k: client[k] for k in ("id", "clientId", "clientAuthenticatorType", "serviceAccountsEnabled", "attributes")}
         self.api("POST", "/admin/realms/managed/clients", {"clientId": "workload-b", "protocol": "openid-connect",
             "enabled": True, "publicClient": False, "serviceAccountsEnabled": True, "clientAuthenticatorType": "federated-jwt",
             "attributes": {"jwt.credential.issuer": "workload-kube", "jwt.credential.sub": binding_subject("workload", "other")}})
@@ -397,6 +425,8 @@ except urllib.error.HTTPError as e:
         statuses = expected_status if isinstance(expected_status, tuple) else (expected_status,)
         if value["http_status"] not in statuses:
             raise ValueError("Native qualification unexpected result: " + name)
+        if value["http_status"] == 200 and (value.get("authorized_party") != "workload-a" or value.get("issuer") != REALM_ISSUER):
+            raise ValueError("Native token is not bound to the expected machine client and realm")
 
     def qualify(self):
         self.create_cluster()
@@ -549,7 +579,7 @@ except urllib.error.HTTPError as e:
             self.report["external_discovery_override"] = self.api("GET", path)
             self.check("external_discovery_override", self.assertion(foreign_token),
                        200 if self.args.keycloak_version == "26.8.0" else (400, 401))
-            logs = run(["docker", "logs", self.external_name])
+            logs = run(["docker", "logs", self.external_name], include_stderr=True)
             safe_report({"fixture_logs": logs}, self.sensitive)
         finally:
             self.endpoint, self.token, self.token_at = saved
@@ -581,6 +611,12 @@ except urllib.error.HTTPError as e:
         self.client_update({"clientAuthenticatorType": "federated-jwt"})
         self.check("client_secret_attempt", self.exchange(fields), (400, 401))
         self.check("assertion_after_migration", self.assertion(token), 200)
+        recovered = self.api("GET", "/admin/realms/managed/clients/" + self.client("managed", "workload-a")["id"] + "/client-secret").get("value")
+        if recovered != credential:
+            raise ValueError("Native fallback did not preserve the same recovery secret")
+        self.sensitive.append(recovered)
+        fields["client_secret"] = recovered
+        self.report["secret_recovered_without_rotation"] = True
         self.client_update({"clientAuthenticatorType": "client-secret"})
         self.check("explicit_secret_fallback", self.exchange(fields), 200)
         self.check("fallback_rejects_assertion", self.assertion(token), (400, 401))
@@ -668,8 +704,8 @@ except urllib.error.HTTPError as e:
                 self.forward.kill()
                 self.forward.wait(timeout=10)
             self.forward_log.close()
-        run([self.args.kind, "delete", "cluster", "--name", self.name])
-        run([self.args.kind, "delete", "cluster", "--name", self.foreign_name])
+        for name in sorted(self.owned_clusters):
+            run([self.args.kind, "delete", "cluster", "--name", name])
         if hasattr(self, "keycloak_image"):
             run(["docker", "image", "rm", self.keycloak_image])
         if hasattr(self, "built_node_image"):

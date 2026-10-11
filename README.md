@@ -423,8 +423,10 @@ dedicated scoped writer where possible and review the
 
 Phase 5 — Adopt Existing Keycloak completes reviewed acquisition, native
 preservation and explicit Manage. Organizational Authorization retains explicit
-grants and bounded structural provenance. **Phase 6 — Workload Identity** is
-next; all remaining phases lead to the same first public 0.1.0.
+grants and bounded structural provenance. **Phase 6 — Workload Identity** starts
+with the [native qualification and architecture contract](docs/architecture/workload-identity.md).
+Its typed production APIs/controllers remain implementation work; all remaining
+phases lead to the same first public 0.1.0.
 [#21](https://github.com/Alien6-Studio/hankoshell-operator/issues/21) remains
 open for transversal first-publication trust and readiness.
 For `HankoRole` and `HankoResourceServer`, status distinguishes the evaluated

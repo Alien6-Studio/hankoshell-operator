@@ -1151,6 +1151,23 @@ blocks cleanup; administrators must explicitly resolve CleanupConflict and revok
 provider credentials during an incident. ServiceAccount replacement requires fresh
 UID consent. This is controlled credential delivery, not token federation.
 
+## Workload identity native qualification
+
+Phase 6A defines the [workload identity contract](architecture/workload-identity.md)
+and adds a required real kubelet/Keycloak matrix for 1.35.0/1.36.2/1.37.0 and
+26.7.5/26.8.0. These disposable fixtures prove projected 600-second assertions,
+rotation/expiry, native permissions, method exclusivity and negative inputs.
+They do not install a federated HankoServiceAccount controller or a trust CRD.
+Existing application runtime anchors remain credential delivery, not federation.
+
+Native Keycloak accepts same-name recreated SAs and reusable assertions, without
+TokenReview. Future implementation therefore requires explicit SA UID approval
+and fresh local containment, with a documented residual revocation interval.
+Use the contract's two-client migration when authentication proof must precede
+secret deactivation. The operator will configure trust/metadata without storing
+workload JWTs or injecting PodSpec projections. #21 production trust and the
+first-publication release gate remain unchanged.
+
 ## Structural authorization explanation
 
 `HankoResourceServer.status.authorizationExplanation` shows bounded provider-proven

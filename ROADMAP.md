@@ -69,6 +69,12 @@ resolve #24/#25 without another CRD.
 The next phase is **Phase 6 — Workload Identity**. It has no independent public
 version. The [phase mapping](docs/engineering-milestone-mapping.md) preserves
 existing milestone IDs, issue associations and open/closed states.
+Phase 6A's [architecture contract](docs/architecture/workload-identity.md) selects
+native Keycloak Kubernetes client assertions, independent typed trust ownership
+and the existing HankoServiceAccount M2M concept. Local UID containment must be
+implemented before federated activation; native authentication does not enforce
+SA UIDs or single-use assertions. Subsequent implementation order is trust,
+binding/mesh, authentication/migration, then full installed-system qualification.
 
 The current foundation already includes:
 

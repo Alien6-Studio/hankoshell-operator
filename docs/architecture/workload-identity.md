@@ -407,6 +407,19 @@ Cleanup requires an explicit administrator/workload-owner approval of the exact
 current plan and successful real workload test; status booleans cannot grant it.
 The operator does not collect or validate a stored workload JWT as proof.
 
+The future typed `authentication.transitionApproval` contains
+`strategy: CoordinatedCutover`, a bounded `requestID`, `expectedClientUUID`,
+`reviewedStateHash` and `preparedWorkloadRevision`. It is explicit authorization
+by a trusted spec writer, not proof that the operator tested a JWT. The initial
+provider observation and sealed input/dependency hashes are captured before
+mutation; the durable journal distinguishes the expected before/after native
+states so a successful method change does not stale its own recovery. A separate
+cleanup approval binds the same request, current binding/plan and reviewed
+workload-test evidence. Source, SA/trust/output UID or authority changes stale
+both approvals. Missing approval keeps the working native method and prevents
+cleanup. The recoverable states are `Prepared`, `ModeApplied`, `AuthReviewed`,
+`OutputsCleaned`, `Committed`; status records them but never drives a replay.
+
 Explicit Kubernetes → Secret fallback first verifies ownership and recovers the
 current native secret into the owned canonical Secret, with a durable checkpoint.
 The owner prepares Secret consumption before approving the authenticator change.
@@ -478,7 +491,7 @@ Bootstrap administration provisions fixtures; normal operation does not use it.
 | Typed trust GET/POST/PUT/DELETE | `manage-identity-providers` | Realm-wide broker read/write/delete, including unrelated IdPs; no claim of per-provider isolation |
 | Federated client GET/POST/PUT/DELETE and explicit secret recovery | `manage-clients` | Realm-wide client/credential authority, not one-client isolation |
 | Read effective realm/client authentication flow | `view-realm` | Realm security configuration reads; cannot repair/copy/write a flow |
-| Observe IdP | Dedicated read profile to be qualified in P6.2 | Do not substitute a writer merely to make observation succeed |
+| Observe IdP GET/list | `view-identity-providers` | Realm-wide IdP reads; native POST/PUT/DELETE denied; do not substitute a writer |
 | Observe client | Existing qualified inventory read profile | Preserve the documented 26.7.5 client-secret privacy limitation |
 | Change client authentication flow prerequisite | External administrator, normally `manage-realm` | Excluded from the workload controller's writer profile |
 
@@ -621,3 +634,26 @@ approval with asynchronous containment, reusable assertions with short age,
 explicit migration/fallback and no runtime token broker. Stronger immediate UID
 revocation or zero-interruption same-client pre-authentication would require a
 different native capability and a separate design decision.
+
+### Reproduce the native qualification
+
+Use Docker, OpenSSL 3, Python 3.12+ and the pinned tools; each invocation owns and
+cleans two uniquely named kind clusters and its Keycloak containers/image:
+
+```sh
+python3 -m pip install -r scripts/requirements.txt
+python3 scripts/install-system-tools.py /tmp/hankoshell-workload-tools
+make workload-identity-probe KEYCLOAK_VERSION=26.7.5 KUBERNETES_VERSION=1.35.0 \
+  KIND=/tmp/hankoshell-workload-tools/kind \
+  KUBECTL=/tmp/hankoshell-workload-tools/kubectl OPENSSL=/usr/bin/openssl \
+  WORKLOAD_OUTPUT=/tmp/workload-identity.json
+```
+
+Repeat both Keycloak versions across all three Kubernetes versions. On macOS use
+the OpenSSL 3 path. Kubernetes 1.36.2 has no published `kindest/node` image: the
+fixture downloads the exact official server archive, checks committed AMD64/ARM64
+SHA-256 pins and builds against a digest-pinned kind base. It verifies the actual
+server version; no patch-version substitution or image publication is allowed.
+Only filtered JSON is retained/uploaded. Failed runs are explicitly incomplete
+and never substitute for successful evidence. Real expiry/rotation/age tests
+take at least ten minutes; no fabricated JWT/time shortcut is used.
