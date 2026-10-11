@@ -111,12 +111,12 @@ token issuance and its authentication emails.
 
 | Area | Custom resources |
 | --- | --- |
-| Identity and access | `HankoRealm`, `HankoApplication`, `HankoRole`, `HankoIAMProfile`, `HankoServiceAccount`, `HankoResourceServer` |
+| Identity and access | `HankoRealm`, `HankoApplication`, `HankoRole`, `HankoIAMProfile`, `HankoServiceAccount`, `HankoResourceServer`, `HankoWorkloadTrust` |
 | Provider instances and imports | `HankoKeycloakInstance`, `HankoImport` |
 | Platform and fleet integration | `HankoOrganization`, `HankoIssuer`, `HankoTenant`, `HankoMeshService` |
 | Workload operations | `HankoTheme`, `HankoSnapshot`, `HankoOperation` |
 
-The API provides 16 `hanko.sh/v1alpha1` custom resources, including the deprecated
+The API provides 17 `hanko.sh/v1alpha1` custom resources, including the deprecated
 `HankoEmailProvider`. See the [API definitions](api/v1alpha1) for supported fields.
 Integration flags configure clients and do not disable controller registration.
 Snapshot database Jobs require a locally approved, publisher-verified image digest

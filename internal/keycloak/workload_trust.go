@@ -188,7 +188,7 @@ func (t *KubernetesTrust) readConfig(data []byte) error {
 		t.Config.MaxAge = 3600
 	}
 	if t.Config.ClockSkew == "" {
-		t.Config.ClockSkew = "10"
+		t.Config.ClockSkew = "0"
 	}
 	if !t.configWithinBudget() {
 		t.Qualified = false

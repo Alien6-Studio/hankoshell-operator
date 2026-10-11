@@ -85,6 +85,10 @@ func TestJournalCheckpointAndAgeReviewBindCurrentIdentity(t *testing.T) {
 	if p.ApproveAge(string(approved), 3600) != nil || q.ApproveAge(string(approved), 3600) == nil || p.ApproveAge(string(approved), 1200) == nil || p.ApproveAge(string(approved)+" {}", 3600) == nil {
 		t.Fatal("age review accepted stale authority")
 	}
+	duplicate := strings.Replace(string(approved), `"contract":`, `"contract":"hanko.sh/iam-contract/v1alpha1","contract":`, 1)
+	if p.ApproveAge(duplicate, 3600) == nil {
+		t.Fatal("duplicate approval authority accepted")
+	}
 	if len(PlannedProviderID("trust", "realm", "source")) != 36 || PlannedProviderID("trust", "realm", "source") == PlannedProviderID("trust", "realm", "other") {
 		t.Fatal("planned UUID binding")
 	}

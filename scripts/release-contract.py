@@ -52,9 +52,9 @@ def check(version=VERSION):
         if ci[job]["strategy"]["matrix"]["version"] != versions:
             raise ValueError("Update the release contract when changing qualification fixtures")
     crds = list((ROOT / "charts/hankoshell-operator/crds").glob("*.yaml"))
-    if len(crds) != 16 or any([version["name"] for version in yaml.safe_load(path.read_text())["spec"]["versions"]]
+    if len(crds) != 17 or any([version["name"] for version in yaml.safe_load(path.read_text())["spec"]["versions"]]
                              != ["v1alpha1"] for path in crds):
-        raise ValueError("The reviewed release exposes 16 experimental v1alpha1 APIs")
+        raise ValueError("The reviewed release exposes 17 experimental v1alpha1 APIs")
     for path in ("README.md", "CONTRIBUTING.md", "SECURITY.md", "charts/hankoshell-operator/README.md"):
         text = (ROOT / path).read_text()
         if "initial development" not in text or "v1alpha1" not in text:

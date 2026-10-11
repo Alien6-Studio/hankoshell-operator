@@ -245,6 +245,10 @@ func (p Plan) ApproveAge(value string, before int64) error {
 	if len(value) > 1024 || d.Decode(&approved) != nil || approved != p.AgeReview(before) {
 		return ErrReview
 	}
+	canonical, _ := json.Marshal(approved)
+	if string(canonical) != value {
+		return ErrReview
+	}
 	var extra any
 	if d.Decode(&extra) != io.EOF {
 		return ErrReview

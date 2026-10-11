@@ -363,9 +363,16 @@ func TestWorkloadTrustDeletionRequiresCompleteZeroDependencies(t *testing.T) {
 				f.native(func(p map[string]any) { p["internalId"] = "replacement-uuid" })
 			}
 			if caseName == "owned" || caseName == "foreign" || caseName == "ambiguous" {
-				f.dependents = []map[string]any{{"id": "dependent-uuid", "clientId": "dependent", "enabled": false, "clientAuthenticatorType": "federated-jwt", "attributes": map[string]string{"jwt.credential.issuer": "cluster", "jwt.credential.sub": "system:serviceaccount:workloads:worker", "hanko.sh/owner-kind": "HankoServiceAccount", "hanko.sh/owner-uid": "foreign"}}}
+				f.dependents = []map[string]any{{"id": "dependent-uuid", "clientId": "dependent", "enabled": false, "clientAuthenticatorType": "federated-jwt", "attributes": map[string]string{"jwt.credential.issuer": "cluster", "jwt.credential.sub": "system:serviceaccount:workloads:worker", "hanko.sh/client-owner-kind": "HankoServiceAccount", "hanko.sh/client-owner-uid": "foreign"}}}
+				if caseName == "owned" {
+					a := &api.HankoServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "dependent", Namespace: "auth", UID: "owned-uid"}, Spec: api.HankoServiceAccountSpec{RealmRef: "managed", ClientID: "dependent"}}
+					if err := f.kube.Create(context.Background(), a); err != nil {
+						t.Fatal(err)
+					}
+					f.dependents[0]["attributes"].(map[string]string)["hanko.sh/client-owner-uid"] = string(a.UID)
+				}
 				if caseName == "ambiguous" {
-					delete(f.dependents[0]["attributes"].(map[string]string), "jwt.credential.issuer")
+					delete(f.dependents[0]["attributes"].(map[string]string), "hanko.sh/client-owner-uid")
 				}
 			}
 			if err := f.kube.Delete(context.Background(), f.current()); err != nil {
@@ -380,6 +387,10 @@ func TestWorkloadTrustDeletionRequiresCompleteZeroDependencies(t *testing.T) {
 			} else {
 				if f.deletes != 0 || len(f.current().Finalizers) == 0 {
 					t.Fatal("cleanup ignored uncertainty or dependency")
+				}
+				counts := f.current().Status.Dependents
+				if caseName == "owned" && counts.Owned != 1 || caseName == "foreign" && counts.Foreign != 1 || caseName == "ambiguous" && counts.Ambiguous != 1 {
+					t.Fatal("dependent classification missing")
 				}
 			}
 		})

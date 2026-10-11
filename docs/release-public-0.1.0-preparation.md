@@ -9,7 +9,7 @@ Phases 1–5 are the implemented foundation. The complete original prelaunch
 trajectory, including Workload Identity, Delegation & Agent Identity, Provider
 Portability, Fleet Reconciliation and Initial Public Contract Stabilization
 (Phases 6–10), is required before the first 0.1.0. See the [roadmap](../ROADMAP.md).
-The 16 `v1alpha1` APIs may remain alpha with explicit initial-public contract and
+The 17 `v1alpha1` APIs may remain alpha with explicit initial-public contract and
 migration limits. A true later 1.0 decision depends on actual public use and a
 proven backward-compatibility policy; there is no predetermined 1.0 milestone.
 

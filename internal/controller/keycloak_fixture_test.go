@@ -121,6 +121,10 @@ func newKeycloakFixtureWithManagedTransport(t *testing.T, managed bool) *keycloa
 }
 
 func newKeycloakFixtureWithTransport(t *testing.T, managed, publicIP bool) *keycloakFixture {
+	return newKeycloakFixtureWithTransportAndDiscovery(t, managed, publicIP, false)
+}
+
+func newKeycloakFixtureWithTransportAndDiscovery(t *testing.T, managed, publicIP, selfDiscovery bool) *keycloakFixture {
 	t.Helper()
 	version := os.Getenv("KEYCLOAK_VERSION")
 	if version == "" {
@@ -150,6 +154,9 @@ func newKeycloakFixtureWithTransport(t *testing.T, managed, publicIP bool) *keyc
 	}
 	serverArgs := []string{"start", "--db=dev-file", "--http-enabled=false", "--hostname-strict=false",
 		"--https-certificate-file=/fixture-tls/tls.crt", "--https-certificate-key-file=/fixture-tls/tls.key", "--https-protocols=TLSv1.3"}
+	if selfDiscovery {
+		serverArgs = append(serverArgs, "--truststore-paths=/fixture-tls/tls.crt")
+	}
 	mountPath := "/fixture-tls"
 	if managed {
 		serverArgs, mountPath = managedFixtureTemplate(t, image, cert, key)

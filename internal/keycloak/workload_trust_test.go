@@ -41,7 +41,7 @@ func TestKubernetesTrustClosedNativeProjectionAndOwnerOnlyPreservation(t *testin
 			var native KubernetesTrust
 			err := json.Unmarshal(b, &native)
 			if field == "qualified" {
-				if err != nil || !native.Qualified || native.Config.MaxAge != 3600 || native.Config.ClockSkew != "10" {
+				if err != nil || !native.Qualified || native.Config.MaxAge != 3600 || native.Config.ClockSkew != "0" {
 					t.Fatal("qualified native defaults lost")
 				}
 			} else if err == nil && native.Qualified {

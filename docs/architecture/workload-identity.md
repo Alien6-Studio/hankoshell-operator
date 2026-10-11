@@ -1,8 +1,9 @@
 # Workload identity contract — Phase 6A
 
 This document selects an implementation contract for Phase 6 of the first public
-`0.1.0` roadmap. The active version remains `0.1.0-dev.0`, development. It does
-not implement the API examples below. The qualification fixture changes only
+`0.1.0` roadmap. The active version remains `0.1.0-dev.0`, development. P6.2
+implements the independent trust API; service-account authentication and
+binding examples remain future work. The qualification fixture changes only
 uniquely named disposable clusters and servers. Production trust (#21), release
 publication, existing IAM grants and Phase 7 remain separate work.
 
@@ -639,11 +640,18 @@ and imported-latch removal; a foreign or unsupported provider is never claimed.
 Before a shared-age PUT, complete paginated native client metadata and exact
 UUID reads are sealed into `dependentInventoryHash`. The annotation
 `hanko.sh/workload-trust-age-review` contains exactly `contract`, `planHash`,
-`dependenciesHash` and `reviewHash`, using the IAM contract version and displayed
-current review evidence. Approval is revalidated before/after PUT against fresh
+`dependenciesHash` and `reviewHash`, in that order as compact canonical JSON,
+using the IAM contract version and displayed current review evidence. Approval
+is revalidated before/after PUT against fresh
 spec/identity/full inventory and old/new age. It is neither a status latch nor a
 permanent permission. All native federated-jwt clients referencing the alias
-block deletion, including disabled, owned and foreign clients. Missing required
+block deletion, including disabled, owned, foreign and ambiguous clients.
+`status.dependents` diagnoses ownership using the exact native kind/UID markers
+and an uncached bounded inventory of local HankoServiceAccount UID/client/realm
+metadata. Partial markers, mismatches and competing local claims are ambiguous;
+unmarked or independently owned clients are foreign. The local inventory is
+sealed into the review hash and re-read at the reference barrier. These counts
+confer no client or workload binding authority. Missing required
 issuer/subject or ambiguous/incomplete reads block the whole inventory.
 Deletion rechecks complete zero-dependents, source/UUID/owner/journal/native
 state before and after deleting only the provider; it never cascades to clients.

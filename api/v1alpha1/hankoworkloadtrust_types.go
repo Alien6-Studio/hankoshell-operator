@@ -124,15 +124,29 @@ type HankoWorkloadTrustStatus struct {
 	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
 	SharedAgeReviewHash string `json:"sharedAgeReviewHash,omitempty"`
 	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
-	DependentInventoryHash string                    `json:"dependentInventoryHash,omitempty"`
-	CapabilityEvidence     IAMCapabilityEvidence     `json:"capabilityEvidence,omitempty"`
-	Capabilities           WorkloadTrustCapabilities `json:"capabilities,omitempty"`
-	AdoptionCandidate      *AdoptionCandidateStatus  `json:"adoptionCandidate,omitempty"`
-	AdoptionReceipt        *AdoptionReceiptStatus    `json:"adoptionReceipt,omitempty"`
+	DependentInventoryHash string `json:"dependentInventoryHash,omitempty"`
+	// Dependents are diagnostic counts from a fresh complete inventory, never client execution authority.
+	Dependents         WorkloadTrustDependents   `json:"dependents,omitempty"`
+	CapabilityEvidence IAMCapabilityEvidence     `json:"capabilityEvidence,omitempty"`
+	Capabilities       WorkloadTrustCapabilities `json:"capabilities,omitempty"`
+	AdoptionCandidate  *AdoptionCandidateStatus  `json:"adoptionCandidate,omitempty"`
+	AdoptionReceipt    *AdoptionReceiptStatus    `json:"adoptionReceipt,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +kubebuilder:validation:MaxItems=8
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
+type WorkloadTrustDependents struct {
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1024
+	Owned int32 `json:"owned"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1024
+	Foreign int32 `json:"foreign"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1024
+	Ambiguous int32 `json:"ambiguous"`
 }
 
 // +kubebuilder:object:root=true

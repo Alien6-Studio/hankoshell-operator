@@ -63,6 +63,8 @@ type workloadSnapshot struct {
 	provider               *keycloak.KubernetesTrust
 	providers              []keycloak.KubernetesTrust
 	dependencies           []keycloak.DependentClient
+	dependentCounts        api.WorkloadTrustDependents
+	dependentOwnersHash    string
 	discovery              workloadtrust.DiscoveryEvidence
 	plan                   workloadtrust.Plan
 	foreignInventoryHash   string
@@ -174,6 +176,10 @@ func (r *HankoWorkloadTrustReconciler) workloadSnapshot(ctx context.Context, key
 		if err != nil {
 			return s, trustFailure("IncompleteProviderRead")
 		}
+		s.dependentCounts, s.dependentOwnersHash, err = r.workloadDependentOwners(ctx, s)
+		if err != nil {
+			return s, err
+		}
 	}
 	flow, err := active.ValidateEffectiveFederatedClientFlow(ctx, t.Spec.RealmRef)
 	if err != nil {
@@ -241,7 +247,10 @@ func (r *HankoWorkloadTrustReconciler) workloadSnapshot(ctx context.Context, key
 		ForeignProviders                              string
 		Imports                                       []any
 	}{t.Spec, s.realm.UID, s.realm.Generation, realmSource, s.realm.Labels[importedByLabel], t.Labels[importedByLabel], t.Labels["hanko.sh/tenant"], approval, workloadAgeApprovalIdentity(t.Annotations), connectionEvidence, s.discovery, s.foreignInventoryHash, importEvidence})
-	s.plan, err = workloadtrust.Compile(i, workloadtrust.References{Owner: string(t.UID), Generation: t.Generation, RealmID: flow.RealmID, ProviderID: providerID, SourceHash: sourceHash, FreshReferencesHash: freshHash, FlowHash: workloadtrust.Digest("flow", flow), DependenciesHash: workloadtrust.Digest("dependencies", s.dependencies)})
+	s.plan, err = workloadtrust.Compile(i, workloadtrust.References{Owner: string(t.UID), Generation: t.Generation, RealmID: flow.RealmID, ProviderID: providerID, SourceHash: sourceHash, FreshReferencesHash: freshHash, FlowHash: workloadtrust.Digest("flow", flow), DependenciesHash: workloadtrust.Digest("dependencies", struct {
+		Native []keycloak.DependentClient
+		Owners string
+	}{s.dependencies, s.dependentOwnersHash})})
 	if err != nil {
 		return s, trustFailure("UnsupportedNativeState")
 	}
@@ -285,6 +294,10 @@ func (r *HankoWorkloadTrustReconciler) verifyWorkloadReferences(ctx context.Cont
 	connections := []workloadConnection{s.source}
 	if writes {
 		connections = append(connections, s.writer, s.reader)
+		_, owners, err := r.workloadDependentOwners(ctx, s)
+		if err != nil || owners != s.dependentOwnersHash {
+			return trustFailure("CurrentIdentityChanged")
+		}
 	}
 	for _, before := range connections {
 		current, err := r.workloadConnection(ctx, before.instance.Namespace, before.instance.Name)
@@ -534,13 +547,7 @@ func (r *HankoWorkloadTrustReconciler) deleteWorkloadTrust(ctx context.Context, 
 	return ctrl.Result{}, r.Patch(ctx, &after.trust, patch)
 }
 func workloadDependentCount(s *workloadSnapshot) int {
-	count := 0
-	for _, c := range s.dependencies {
-		if c.Authenticator == "federated-jwt" && c.Issuer == s.trust.Spec.KeycloakAlias {
-			count++
-		}
-	}
-	return count
+	return int(s.dependentCounts.Owned + s.dependentCounts.Foreign + s.dependentCounts.Ambiguous)
 }
 
 func (r *HankoWorkloadTrustReconciler) workloadStatus(ctx context.Context, t *api.HankoWorkloadTrust, s *workloadSnapshot, reason string, ready bool) (ctrl.Result, error) {
@@ -562,6 +569,7 @@ func (r *HankoWorkloadTrustReconciler) workloadStatus(ctx context.Context, t *ap
 	t.Status.ObservedStateHash = ""
 	t.Status.SharedAgeReviewHash = ""
 	t.Status.DependentInventoryHash = ""
+	t.Status.Dependents = api.WorkloadTrustDependents{}
 	t.Status.CapabilityEvidence = api.IAMCapabilityEvidence{}
 	t.Status.Capabilities = api.WorkloadTrustCapabilities{}
 	if s != nil && s.plan.Identity().Contract == iamcontract.Version {
@@ -571,6 +579,7 @@ func (r *HankoWorkloadTrustReconciler) workloadStatus(ctx context.Context, t *ap
 		t.Status.EvaluatedPlanHash = string(id.Plan)
 		t.Status.RealmID = s.plan.References().RealmID
 		t.Status.DependentInventoryHash = s.plan.References().DependenciesHash
+		t.Status.Dependents = s.dependentCounts
 		t.Status.CapabilityEvidence = api.IAMCapabilityEvidence{Source: "adapter-and-real-qualification", QualificationWindow: "26.7.5,26.8.0"}
 		t.Status.Capabilities = api.WorkloadTrustCapabilities{KubernetesWorkloadIdentity: true, FederatedClientAuthentication: true, ShortLivedClientAssertion: true, IssuerDiscoveryOverride: s.plan.Intent().QualifiedVersion == "26.8.0"}
 		if s.provider != nil {

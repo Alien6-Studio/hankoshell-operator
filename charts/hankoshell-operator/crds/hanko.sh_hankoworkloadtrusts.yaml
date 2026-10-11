@@ -557,6 +557,30 @@ spec:
               dependentInventoryHash:
                 pattern: ^sha256:[a-f0-9]{64}$
                 type: string
+              dependents:
+                description: Dependents are diagnostic counts from a fresh complete
+                  inventory, never client execution authority.
+                properties:
+                  ambiguous:
+                    format: int32
+                    maximum: 1024
+                    minimum: 0
+                    type: integer
+                  foreign:
+                    format: int32
+                    maximum: 1024
+                    minimum: 0
+                    type: integer
+                  owned:
+                    format: int32
+                    maximum: 1024
+                    minimum: 0
+                    type: integer
+                required:
+                - ambiguous
+                - foreign
+                - owned
+                type: object
               evaluatedPlanHash:
                 pattern: ^sha256:[a-f0-9]{64}$
                 type: string
