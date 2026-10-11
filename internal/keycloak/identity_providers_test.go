@@ -78,6 +78,10 @@ func TestDeleteIdentityProviderAcceptsMissingProvider(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
+		if r.Method == http.MethodGet {
+			_ = json.NewEncoder(w).Encode(keycloak.IdentityProvider{Alias: "entra", ProviderID: "oidc"})
+			return
+		}
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
@@ -89,7 +93,50 @@ func TestDeleteIdentityProviderAcceptsMissingProvider(t *testing.T) {
 	if err := client.DeleteIdentityProvider(context.Background(), "alien6", "missing"); err != nil {
 		t.Fatalf("delete missing: %v", err)
 	}
-	if len(paths) != 2 {
+	if len(paths) != 3 {
 		t.Fatalf("delete paths = %v", paths)
+	}
+}
+
+func TestGenericBrokerPathsPreserveIndependentWorkloadTrust(t *testing.T) {
+	for _, marker := range []string{keycloak.WorkloadTrustOwnerKey, keycloak.WorkloadTrustJournalKey} {
+		t.Run(marker, func(t *testing.T) {
+			writes := 0
+			provider := keycloak.IdentityProvider{Alias: "cluster", ProviderID: "kubernetes", Enabled: true, Config: map[string]string{marker: "", "issuer": "https://current.example.test"}}
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/realms/master/protocol/openid-connect/token" {
+					_, _ = w.Write([]byte(`{"access_token":"fixture-token","expires_in":300}`))
+					return
+				}
+				if r.Method != http.MethodGet {
+					writes++
+					w.WriteHeader(http.StatusNoContent)
+					return
+				}
+				if strings.HasSuffix(r.URL.Path, "/cluster") {
+					_ = json.NewEncoder(w).Encode(provider)
+				} else {
+					_ = json.NewEncoder(w).Encode([]keycloak.IdentityProvider{provider})
+				}
+			}))
+			defer s.Close()
+			c := keycloak.New(s.URL, "generic", "credential", keycloak.WithInsecureHTTP())
+			if _, err := c.EnsureIdentityProvider(context.Background(), "managed", keycloak.IdentityProvider{Alias: "cluster", ProviderID: "oidc", Enabled: false}); err == nil {
+				t.Fatal("opaque writer accepted reserved native trust")
+			}
+			if _, err := c.EnsureIdentityProvider(context.Background(), "managed", provider); err == nil {
+				t.Fatal("opaque writer accepted desired trust marker")
+			}
+			if err := c.DeleteIdentityProvider(context.Background(), "managed", "cluster"); err == nil {
+				t.Fatal("stale alias cleanup accepted reserved trust")
+			}
+			flag := true
+			if err := c.ConfigureIdentityProviderTrust(context.Background(), "managed", &flag, &flag); err != nil {
+				t.Fatal(err)
+			}
+			if writes != 0 {
+				t.Fatal("generic broker path mutated an independent workload trust")
+			}
+		})
 	}
 }

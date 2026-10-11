@@ -6,6 +6,7 @@ normal operator uses the chart service account and target-realm Keycloak roles.
 
 import argparse
 import base64
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -809,6 +810,74 @@ class System:
         self.kubectl("patch", kind, name, "-n", namespace, "--type=merge", "-p", '{"spec":{"mode":"Manage"}}')
         wait("explicit installed aggregate Manage " + kind, lambda: self.ready(kind, name, namespace) and self.get(kind, name, namespace)["metadata"].get("finalizers"))
 
+    def workload_trust(self):
+        realm = "workload-trust-target"
+        self.api("POST", "/admin/realms", {"realm": realm, "enabled": True})
+        # Public issuer/JWKS metadata is an explicit fixture administrator
+        # prerequisite. The controller adds no anonymous-discovery grants.
+        self.apply({"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "ClusterRoleBinding",
+            "metadata": {"name": self.name + "-public-discovery"},
+            "roleRef": {"apiGroup": "rbac.authorization.k8s.io", "kind": "ClusterRole", "name": "system:service-account-issuer-discovery"},
+            "subjects": [{"apiGroup": "rbac.authorization.k8s.io", "kind": "Group", "name": "system:unauthenticated"}]})
+        discovery = json.loads(self.kubectl("get", "--raw", "/.well-known/openid-configuration"))
+        anchor_uid = self.get("namespace", "kube-system")["metadata"]["uid"]
+        ca = self.get("configmap", "kube-root-ca.crt")["data"]["ca.crt"]
+        anchor_ca = "sha256:" + hashlib.sha256(ssl.PEM_cert_to_DER_cert(ca)).hexdigest()
+        profiles = {"workload-observer": ["view-identity-providers", "view-realm"],
+                    "workload-writer": ["manage-identity-providers", "view-realm"],
+                    "workload-dependent-reader": ["view-clients"]}
+        for name, roles in profiles.items():
+            secret = self.adoption_identity(name, realm, roles)
+            self.apply(self.secret(name, {"HANKO_KEYCLOAK_URL": "https://keycloak.auth.svc:8443",
+                "HANKO_KC_CLIENT_ID": name, "HANKO_KC_CLIENT_SECRET": secret}),
+                {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoKeycloakInstance", "metadata": {"name": name, "namespace": "auth"},
+                 "spec": {"mode": "external", "adminRef": {"name": name}, "tlsCARef": "operator-ca"}})
+        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoImport", "metadata": {"name": "workload-source", "namespace": "auth"},
+            "spec": {"sourceRef": "workload-observer", "realms": [realm], "dryRun": True,
+                     "includeClients": False, "includeServiceAccounts": False, "includeIdentityProviders": False}},
+            {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoRealm", "metadata": {"name": realm, "namespace": "auth",
+                "labels": {"hanko.sh/imported-by": "workload-source"}}, "spec": {}})
+        trust = {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoWorkloadTrust", "metadata": {"name": "shared-workload", "namespace": "auth"},
+            "spec": {"mode": "Manage", "realmRef": realm, "sourceRef": "workload-observer", "writerRef": "workload-writer",
+                     "dependentReaderRef": "workload-dependent-reader", "keycloakAlias": "installed-cluster", "provider": "Kubernetes",
+                     "kubernetes": {"issuer": discovery["issuer"], "clusterAnchor": {"kubeSystemNamespaceUID": anchor_uid, "apiServerCAHash": anchor_ca},
+                                    "assertionMaxAgeSeconds": 600}}}
+        self.apply(trust)
+        wait("installed current-cluster shared trust", lambda: self.ready("hankoworkloadtrust", "shared-workload"))
+        value = self.get("hankoworkloadtrust", "shared-workload")
+        path = "/admin/realms/" + realm + "/identity-provider/instances/installed-cluster"
+        native = self.api("GET", path)
+        journal = json.loads(native["config"]["hanko.sh/workload-trust-journal"])
+        if native["internalId"] != value["status"]["providerID"] or journal["providerID"] != native["internalId"] or journal["owner"] != value["metadata"]["uid"]:
+            raise ValueError("Installed trust lacks exact UID/native UUID journal ownership")
+        self.kubectl("rollout", "restart", "deployment/system-operator", "-n", "auth")
+        self.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=120s")
+        # Clear diagnostic status after the old process has stopped: only the
+        # new controller can reconstruct Ready from current native ownership.
+        self.kubectl("patch", "hankoworkloadtrust", "shared-workload", "-n", "auth", "--subresource=status",
+                     "--type=merge", "-p", '{"status":null}')
+        wait("installed trust reconstructs after restart", lambda: self.ready("hankoworkloadtrust", "shared-workload"))
+        if self.api("GET", path)["internalId"] != native["internalId"]:
+            raise ValueError("Installed trust restart replaced native UUID")
+        self.kubectl("patch", "hankoworkloadtrust", "shared-workload", "-n", "auth", "--type=merge", "-p", '{"spec":{"kubernetes":{"assertionMaxAgeSeconds":900}}}')
+        def review_ready():
+            value = self.get("hankoworkloadtrust", "shared-workload")
+            return value.get("status", {}).get("observedGeneration") == value["metadata"]["generation"] and any(
+                c.get("reason") == "SharedAgeReviewRequired" for c in value.get("status", {}).get("conditions", []))
+        wait("installed exact shared-age dependency review", review_ready)
+        status = self.get("hankoworkloadtrust", "shared-workload")["status"]
+        review = {"contract": "hanko.sh/iam-contract/v1alpha1", "planHash": status["evaluatedPlanHash"],
+                  "dependenciesHash": status["dependentInventoryHash"], "reviewHash": status["sharedAgeReviewHash"]}
+        self.kubectl("annotate", "hankoworkloadtrust", "shared-workload", "-n", "auth", "hanko.sh/workload-trust-age-review=" + json.dumps(review, separators=(",", ":")))
+        wait("installed reviewed shared-age update", lambda: self.ready("hankoworkloadtrust", "shared-workload"))
+        if self.api("GET", path)["config"]["fedClientAssertionMaxExp"] != "900":
+            raise ValueError("Installed shared-age native read-back differs")
+        self.kubectl("delete", "hankoworkloadtrust", "shared-workload", "-n", "auth", "--wait=true", "--timeout=120s")
+        self.api("GET", path, expected=(404,))
+        if self.get("hankorealm", realm)["metadata"].get("finalizers"):
+            raise ValueError("Trust controller acquired external realm lifecycle")
+        self.api("GET", "/admin/realms/" + realm)
+
     def organization_adoption(self):
         realm, namespace, name = "adopt-org-target", "adopt-org", "reviewed-root"
         base = "/admin/realms/" + realm
@@ -1025,6 +1094,7 @@ class System:
         self.client("managed", "unmanaged")
         self.standalone_organizations()
         self.organization_adoption()
+        self.workload_trust()
         self.resourceserver_adoption()
         # Verify logs, events and every stored CRD, never exposing Secret values.
         data = ""
@@ -1082,6 +1152,7 @@ def main():
                            "Organization group/native owner-only checkpoints, same receipt, explicit Manage, native drift repair, foreign child cleanup refusal and safe selected cleanup in an external realm",
                            "Application acquisition followed by ResourceServer selective V2 journal, sibling receipt preservation, exact selected IDs, status-loss/restart recovery, drift repair, late shared dependency cleanup refusal and foreign graph survival",
                            "drift recovery after manager restart without duplicate client or credential rotation", "managed finalizer and Observe preservation", "runtime M2M projected-credential token and rotation", "SAML metadata binding and target-preserving cleanup",
+                           "independent typed shared trust in external Observe realm; actual current kube-system UID/public API CA DER anchor and verified issuer/JWKS, three dedicated credentials, native UUID/journal, manager restart, explicit shared-age inventory review and zero-dependent provider-only cleanup",
                            "no credentials in logs/events/CRDs"],
                 "organization_permissions": {"scope": "organization-target only", "roles": ["manage-realm", "manage-clients", "manage-events", "manage-users"],
                                              "denied": ["master administration", "managed realm administration", "realm creation", "identity providers"]},

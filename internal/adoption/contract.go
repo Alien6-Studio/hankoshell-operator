@@ -169,6 +169,8 @@ var fields = map[string]bool{
 	"logic": true, "decisionStrategy": true, "uris": true, "type": true,
 	"theme": true, "runtimeBindings": true, "mode": true, "realmRef": true, "importLatch": true, "claimSource": true,
 	"credentialRotation": true,
+	"workloadIssuer":     true, "workloadDiscovery": true, "workloadAge": true,
+	"workloadSkew": true, "workloadAnchor": true, "workloadReferences": true,
 }
 
 func key(f Fact) string { return f.Domain + "\x00" + f.Identity + "\x00" + f.Object + "\x00" + f.Field }
@@ -177,6 +179,9 @@ func digest(domain string, v any) string {
 	return string(iamcontract.Hash(iamcontract.ContractVersion(Version), domain, "evidence", b))
 }
 func validFact(f Fact) bool {
+	if !validWorkloadTrustFact(f) {
+		return false
+	}
 	if !validNativeLocaleFact(f) || !validAuthorizationFeatureFact(f) {
 		return false
 	}

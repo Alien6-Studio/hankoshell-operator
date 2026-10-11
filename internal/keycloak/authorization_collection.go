@@ -31,7 +31,7 @@ func readAuthorizationCollection[T any](ctx context.Context, c *Client, path str
 		if err := c.get(ctx, endpoint.String(), &page); err != nil {
 			return err
 		}
-		if len(page) > authorizationPageSize || len(result)+len(page) > MaxAuthorizationCollectionObjects {
+		if page == nil || len(page) > authorizationPageSize || len(result)+len(page) > MaxAuthorizationCollectionObjects {
 			return ErrAuthorizationReadLimit
 		}
 		result = append(result, page...)

@@ -24,6 +24,12 @@ for documents in [render(), render('hub.endpoint=https://hub.example.test', 'hub
     expected_rule = {'apiGroups': [''], 'resources': ['namespaces'], 'resourceNames': ['kube-system'], 'verbs': ['get']}
     identity_rules = [rule for rule in identity_role['rules'] if 'namespaces' in rule.get('resources', [])]
     assert identity_rules == [expected_rule], 'Identity reader permissions exceeded exact Namespace GET'
+    public_rules = [rule for rule in identity_role['rules'] if 'nonResourceURLs' in rule]
+    assert public_rules == [{'nonResourceURLs': ['/.well-known/openid-configuration', '/openid/v1/jwks'], 'verbs': ['get']}], 'Trust discovery exceeded exact public metadata GET routes'
+    all_rules = [rule for item in documents if item['kind'] in ('Role', 'ClusterRole') for rule in item['rules']]
+    assert not any('serviceaccounts/token' in rule.get('resources', []) or 'tokenreviews' in rule.get('resources', []) for rule in all_rules), 'Workload trust granted runtime token authority'
+    trust_rules = [rule for rule in all_rules if 'hankoworkloadtrusts' in rule.get('resources', [])]
+    assert len(trust_rules) == 1 and set(trust_rules[0]['verbs']) == {'get', 'list', 'watch', 'create', 'update', 'patch', 'delete'}
     ownership_rules = [rule for rule in identity_role['rules'] if rule.get('apiGroups') == ['rbac.authorization.k8s.io']]
     assert ownership_rules == [{'apiGroups': ['rbac.authorization.k8s.io'], 'resources': ['clusterroles', 'clusterrolebindings'], 'resourceNames': ['hanko-operator-cluster-identity-reader', 'hanko-operator-node-reader'], 'verbs': ['get', 'patch', 'delete']}], 'Decommission permissions exceeded release-owned RBAC'
     namespace_rules = [rule for item in documents if item['kind'] in ('Role', 'ClusterRole') for rule in item['rules'] if 'namespaces' in rule.get('resources', [])]

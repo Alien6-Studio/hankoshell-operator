@@ -60,10 +60,13 @@ type Client struct {
 	// inventoryOnly adds a local fail-closed boundary independently of the
 	// credential's native Keycloak authority. Set before the first request.
 	inventoryOnly bool
-	httpClient    *http.Client
-	mu            sync.Mutex
-	token         string
-	tokenExpiry   time.Time
+	// dependentRealm permanently restricts a dedicated dependency credential to
+	// client metadata GETs in this one realm, independently of native token roles.
+	dependentRealm string
+	httpClient     *http.Client
+	mu             sync.Mutex
+	token          string
+	tokenExpiry    time.Time
 }
 
 // New creates a Client with explicit credentials. Equivalent to NewFromEnv but
@@ -209,9 +212,22 @@ type App struct {
 // BaseURL returns the configured Keycloak base URL (used to derive OIDC endpoints).
 func (c *Client) BaseURL() string { return c.baseURL }
 
+// CloseIdleConnections releases connections owned by a short-lived snapshot.
+func (c *Client) CloseIdleConnections() { c.httpClient.CloseIdleConnections() }
+
 // RestrictToInventory permanently limits this dedicated client to qualified
 // inventory GETs and token acquisition. It cannot be used for normal Manage.
 func (c *Client) RestrictToInventory() { c.inventoryOnly = true }
+
+// RestrictToDependentClients is irreversible for this client. Do not share it
+// with the trust writer or the general Phase 5 inventory connection.
+func (c *Client) RestrictToDependentClients(realm string) error {
+	if !workloadNativeID.MatchString(realm) || realm == "master" || c.dependentRealm != "" && c.dependentRealm != realm {
+		return fmt.Errorf("dependent reader requires one exact realm")
+	}
+	c.dependentRealm = realm
+	return nil
+}
 
 // CredentialClientID returns the client whose credentials authorize this Admin
 // API connection. Reconcilers use it to prevent a managed service account from
@@ -1759,6 +1775,10 @@ func (c *Client) ConfigureIdentityProviderTrust(ctx context.Context, realm strin
 }
 
 func applyIdentityProviderTrust(provider map[string]any, requireSignature, trustEmail *bool) (string, bool, error) {
+	config, _ := provider["config"].(map[string]any)
+	if provider["providerId"] == "kubernetes" || workloadTrustReserved(config) {
+		return "", false, nil
+	}
 	alias, _ := provider["alias"].(string)
 	if alias == "" {
 		return "", false, fmt.Errorf("identity provider without alias")

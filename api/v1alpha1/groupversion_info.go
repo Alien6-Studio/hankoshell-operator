@@ -55,6 +55,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&HankoTenantList{},
 		&HankoTheme{},
 		&HankoThemeList{},
+		&HankoWorkloadTrust{},
+		&HankoWorkloadTrustList{},
 	)
 	metav1.AddToGroupVersion(scheme, GroupVersion)
 	return nil

@@ -26,7 +26,7 @@ https://github.com/Alien6-Studio/hankoshell-operator/security/advisories/new.
 
 Qualification covers real HTTPS Keycloak 26.7.5/26.8.0, Kubernetes
 1.35.0/1.36.2/1.37.0, installed exact-image lifecycles, and scanned Linux AMD64/ARM64
-OCI delivery. All 16 `hanko.sh/v1alpha1` APIs remain experimental. Cloud/CNI/CSI,
+OCI delivery. All 17 `hanko.sh/v1alpha1` APIs remain experimental. Cloud/CNI/CSI,
 enterprise fleet operation and portable production backup/restore remain
 unqualified. Snapshot and advanced lifecycle limitations are documented below.
 
@@ -44,6 +44,17 @@ Early development used milestone-like version labels before the first public
 release; those labels did not identify public packages or GitHub Releases.
 
 ### Release trust and delivery readiness
+
+- Introduce the seventeenth typed HankoWorkloadTrust API and independent native
+  Kubernetes provider ownership, current-cluster CA/UID/discovery qualification,
+  read-only flow prerequisites, explicit owner-only adoption, public durable
+  journals and exact complete-inventory age/deletion guards. Keep workload binding,
+  HankoServiceAccount federated activation and mesh authority outside P6.2.
+- Retain the narrow trust-writer profile and use a distinct target-realm
+  view-clients dependent reader. Document native client-secret exposure on
+  26.7.5, stricter 26.8.0 denial, application route guards and the practical union
+  of credentials in the existing manager process. No credential-derived evidence
+  or runtime token authority is added.
 
 - Preserve #54 canonical Attest hardening: bind the Ed25519 PKCS#8 private signer
   to the approved raw public key and native Attest ID before publication; derive

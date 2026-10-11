@@ -111,12 +111,12 @@ token issuance and its authentication emails.
 
 | Area | Custom resources |
 | --- | --- |
-| Identity and access | `HankoRealm`, `HankoApplication`, `HankoRole`, `HankoIAMProfile`, `HankoServiceAccount`, `HankoResourceServer` |
+| Identity and access | `HankoRealm`, `HankoApplication`, `HankoRole`, `HankoIAMProfile`, `HankoServiceAccount`, `HankoResourceServer`, `HankoWorkloadTrust` |
 | Provider instances and imports | `HankoKeycloakInstance`, `HankoImport` |
 | Platform and fleet integration | `HankoOrganization`, `HankoIssuer`, `HankoTenant`, `HankoMeshService` |
 | Workload operations | `HankoTheme`, `HankoSnapshot`, `HankoOperation` |
 
-The API provides 16 `hanko.sh/v1alpha1` custom resources, including the deprecated
+The API provides 17 `hanko.sh/v1alpha1` custom resources, including the deprecated
 `HankoEmailProvider`. See the [API definitions](api/v1alpha1) for supported fields.
 Integration flags configure clients and do not disable controller registration.
 Snapshot database Jobs require a locally approved, publisher-verified image digest
@@ -163,7 +163,7 @@ remain unqualified.
 See the [Keycloak compatibility contract](docs/secure-deployment.md#keycloak-compatibility).
 
 The chart targets Kubernetes **1.35–1.37** on Linux nodes. Required CI checks
-qualify all 16 CRDs, server-side apply, namespace/credential RBAC boundaries and
+qualify all 17 CRDs, server-side apply, namespace/credential RBAC boundaries and
 Restricted Pod Security admission against each minor version. Optional AppArmor
 and stable user namespaces extend the baseline when supported by the nodes.
 An installed-system test also runs the scanned image through Helm on Kubernetes

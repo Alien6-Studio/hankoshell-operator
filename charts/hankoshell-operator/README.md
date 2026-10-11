@@ -10,7 +10,7 @@ Public chart/image artifacts remain pending. Runtime target namespaces need
 explicit resource-name-limited Roles; the chart grants no broad target write
 permission. Provision the targets and their current application/ServiceAccount UID
 consent before requesting delivery.
-The chart installs 16 experimental `hanko.sh/v1alpha1` CRDs. These APIs may change
+The chart installs 17 experimental `hanko.sh/v1alpha1` CRDs. These APIs may change
 between minor versions. All controllers are registered; integration flags
 configure their connections to optional services.
 

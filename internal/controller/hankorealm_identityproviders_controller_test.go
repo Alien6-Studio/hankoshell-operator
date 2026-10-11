@@ -85,6 +85,15 @@ func newRealmIdentityProviderServer(t *testing.T) (*realmIdentityProviderServer,
 			}
 			state.mappers[alias] = kept
 			w.WriteHeader(http.StatusNoContent)
+		case strings.HasPrefix(r.URL.Path, collection+"/") && r.Method == http.MethodGet && !strings.Contains(strings.TrimPrefix(r.URL.Path, collection+"/"), "/"):
+			alias := pathPart(t, r.URL.Path, 5)
+			for _, provider := range state.providers {
+				if provider.Alias == alias {
+					_ = json.NewEncoder(w).Encode(provider)
+					return
+				}
+			}
+			http.NotFound(w, r)
 		case strings.HasPrefix(r.URL.Path, collection+"/") && r.Method == http.MethodPut:
 			alias := pathPart(t, r.URL.Path, 5)
 			var provider keycloak.IdentityProvider

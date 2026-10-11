@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -42,6 +43,9 @@ var adminOperations = []AdminOperation{
 	{"protocol-mappers", "GET,POST", "/admin/realms/{realm}/clients/{client}/protocol-mappers/models", "view-clients / manage-clients"},
 	{"protocol-mappers", "PUT,DELETE", "/admin/realms/{realm}/clients/{client}/protocol-mappers/models/{mapper}", "manage-clients"},
 	{"identity-providers", "GET,POST", "/admin/realms/{realm}/identity-provider/instances", "view-identity-providers / manage-identity-providers"},
+	{"identity-providers", "GET", "/admin/realms/{realm}/identity-provider/instances/{alias}", "view-identity-providers or manage-identity-providers"},
+	{"workload-trust-flow", "GET", "/admin/realms/{realm}/authentication/flows", "view-realm"},
+	{"workload-trust-flow", "GET", "/admin/realms/{realm}/authentication/flows/{alias}/executions", "view-realm"},
 	{"identity-providers", "PUT,DELETE", "/admin/realms/{realm}/identity-provider/instances/{alias}", "manage-identity-providers"},
 	{"identity-provider-mappers", "GET,POST", "/admin/realms/{realm}/identity-provider/instances/{alias}/mappers", "view-identity-providers / manage-identity-providers"},
 	{"identity-provider-mappers", "PUT,DELETE", "/admin/realms/{realm}/identity-provider/instances/{alias}/mappers/{mapper}", "manage-identity-providers"},
@@ -147,6 +151,10 @@ func (c *Client) responseBudget(req *http.Request) (int64, error) {
 	if isBootstrapTokenRequest(req.Method, path) {
 		return maxKeycloakCredentialResponseBytes, nil
 	}
+	if c.dependentRealm != "" {
+		return c.dependentResponseBudget(req, path)
+	}
+
 	// Public protocol documents: no administrative authority and no token.
 	if isPublicProtocolDocument(req.Method, path) {
 		if req.Header.Get(authorizationHeader) != "" {
@@ -160,6 +168,34 @@ func (c *Client) responseBudget(req *http.Request) (int64, error) {
 		}
 	}
 	return c.adminResponseBudget(req.Method, path)
+}
+
+func (c *Client) dependentResponseBudget(req *http.Request, path string) (int64, error) {
+	base := adminRealmsPath + url.PathEscape(c.dependentRealm) + "/clients"
+	id, exact := strings.CutPrefix(path, base+"/")
+	if req.Method != http.MethodGet || path != base && (!exact || !workloadNativeID.MatchString(id)) || req.URL.Fragment != "" || req.URL.ForceQuery {
+		return 0, fmt.Errorf("operation outside target-realm dependent metadata read contract")
+	}
+	for key, values := range req.URL.Query() {
+		if path != base || key != "first" && key != "max" || len(values) != 1 {
+			return 0, fmt.Errorf("unqualified dependent metadata query")
+		}
+		if !boundedDependentQuery(key, values[0]) {
+			return 0, fmt.Errorf("unbounded dependent metadata query")
+		}
+	}
+	return maxKeycloakAdminResponseBytes, nil
+}
+
+func boundedDependentQuery(key, value string) bool {
+	n, err := strconv.Atoi(value)
+	if err != nil || strconv.Itoa(n) != value || n < 0 {
+		return false
+	}
+	if key == "first" {
+		return n <= MaxAuthorizationCollectionObjects
+	}
+	return key == "max" && n >= 1 && n <= authorizationPageSize
 }
 
 func validateCleanupMembershipQuery(query url.Values) error {

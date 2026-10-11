@@ -70,12 +70,46 @@ observe trusts but cannot create/update/delete them. The activating federated
 client profile is `manage-clients` + `view-realm`; it needs no new `manage-realm`
 grant. An external administrator prepares missing client-flow prerequisites.
 
-These are future Phase 6 capability profiles, tested by disposable real accounts,
-not new production controllers or a change to existing common grants. The native
+The P6.2 trust profiles now serve the independent trust controller; federated
+client activation remains future work. Disposable real accounts qualify each
+profile separately, without changing existing common grants. The native
 trust writer can also mutate unrelated IdPs in its target realm. All constrained
 profiles refuse user management, realm deletion/security PUT, create-realm,
 master/unrelated-realm administration and impersonation. Ownership guards do not
 make either writer role narrower than the native realm-wide authority.
+
+P6.2 explicitly requires a **separate dependent-client-reader** with only
+`view-clients` on the target realm. The trust writer keeps
+`manage-identity-providers` + `view-realm`, and receives no `view-clients`.
+The observer uses `view-identity-providers` + `view-realm`. Provision distinct
+credentials with Full Scope Allowed disabled, exact target-realm service-account
+role mappings and matching client scopes. Do not grant the dependent reader
+`manage-clients`, `manage-realm`, `manage-users`, `realm-admin`, impersonation,
+master administration or unrelated-realm roles.
+
+`spec.dependentReaderRef` selects the dedicated reader HankoKeycloakInstance;
+`spec.sourceRef` selects the canonical observer/source and optional writerRef
+selects the distinct writer. All references use the same namespace. The
+dependent reader establishes complete native dependent metadata for
+shared assertion-age changes and deletion/conflict guards. Its transport admits
+only target-realm client collection/exact metadata GET and its own token
+acquisition; client mutations, other realms, all unrelated routes and
+`client-secret`/credential endpoints are locally denied before dispatch. No
+secret-derived field enters plans, status, logs, events or qualification evidence.
+It must resolve to the writer's exact endpoint, public CA and native realm.
+
+**Keycloak 26.7.5 makes this reader capable of reading native client secrets.**
+The controller never invokes that route, but a stolen credential can; it is not
+a credential-confidential identity. The real-provider qualification must prove
+native secret-read authority and application route denial separately. On
+26.8.0, the native client-secret endpoint instead requires `manage-clients`.
+These application restrictions do not reduce the credential's native powers.
+The existing single-manager architecture loads these distinct credentials in
+one process/pod: compromise gives their practical union, together with any
+other credentials held by the manager. Adding a separate
+inventory service would require a new authenticated freshness protocol, so
+P6.2 does not claim deployment/process isolation. See the accepted
+[dependency-reader exception](architecture/workload-identity.md#p62-dependency-inventory-permission-boundary).
 
 ## Permission and capability matrix
 
@@ -473,6 +507,9 @@ using the dedicated client's credentials.
 | protocol-mappers | GET,POST | `/admin/realms/{realm}/clients/{client}/protocol-mappers/models` | view-clients / manage-clients |
 | protocol-mappers | PUT,DELETE | `/admin/realms/{realm}/clients/{client}/protocol-mappers/models/{mapper}` | manage-clients |
 | identity-providers | GET,POST | `/admin/realms/{realm}/identity-provider/instances` | view-identity-providers / manage-identity-providers |
+| identity-providers | GET | `/admin/realms/{realm}/identity-provider/instances/{alias}` | view-identity-providers or manage-identity-providers |
+| workload-trust-flow | GET | `/admin/realms/{realm}/authentication/flows` | view-realm |
+| workload-trust-flow | GET | `/admin/realms/{realm}/authentication/flows/{alias}/executions` | view-realm |
 | identity-providers | PUT,DELETE | `/admin/realms/{realm}/identity-provider/instances/{alias}` | manage-identity-providers |
 | identity-provider-mappers | GET,POST | `/admin/realms/{realm}/identity-provider/instances/{alias}/mappers` | view-identity-providers / manage-identity-providers |
 | identity-provider-mappers | PUT,DELETE | `/admin/realms/{realm}/identity-provider/instances/{alias}/mappers/{mapper}` | manage-identity-providers |

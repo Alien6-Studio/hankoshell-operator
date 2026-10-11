@@ -15,6 +15,7 @@ rules:
       - hankoroles
       - hankoorganizations
       - hankoserviceaccounts
+      - hankoworkloadtrusts
       - hankothemes
       - hankotenants
       - hankokeycloakinstances
@@ -33,6 +34,7 @@ rules:
       - hankoroles/status
       - hankoorganizations/status
       - hankoserviceaccounts/status
+      - hankoworkloadtrusts/status
       - hankothemes/status
       - hankotenants/status
       - hankokeycloakinstances/status
@@ -49,6 +51,7 @@ rules:
       - hankoroles/finalizers
       - hankoorganizations/finalizers
       - hankoserviceaccounts/finalizers
+      - hankoworkloadtrusts/finalizers
       - hankothemes/finalizers
       - hankotenants/finalizers
       - hankokeycloakinstances/finalizers

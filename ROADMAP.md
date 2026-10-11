@@ -48,8 +48,9 @@ ownership remain separate.
 metadata is `0.1.0-dev.0`; no public release has been published yet.
 Phases 1–5 supply the implemented foundation, including #54 canonical Attest
 identity hardening. Phases 6–10 are required before the first public release;
-this correction implements no new capability and removes no existing behavior.
-All 16 `hanko.sh/v1alpha1` APIs remain experimental.
+P6.2 adds independent Kubernetes trust ownership; workload binding and federated
+M2M client activation remain subsequent milestones.
+All 17 `hanko.sh/v1alpha1` APIs remain experimental.
 
 Phase 2 — IAM Contract Engine, Phase 3 — Application Identity, Phase 4 —
 Organizational Authorization and Phase 5 — Adopt Existing Keycloak have completed
@@ -75,6 +76,15 @@ and the existing HankoServiceAccount M2M concept. Local UID containment must be
 implemented before federated activation; native authentication does not enforce
 SA UIDs or single-use assertions. Subsequent implementation order is trust,
 binding/mesh, authentication/migration, then full installed-system qualification.
+
+P6.2 adds the independent seventeenth `HankoWorkloadTrust` CRD, exact provider
+ownership/journal, current-cluster anchor/discovery checks, explicit adoption and
+shared-age/deletion dependency guards. Its distinct dependent reader has only
+target-realm view-clients; on 26.7.5 this credential can expose client secrets,
+even though the controller prohibits credential routes. Writer and reader
+credentials share the manager process and their practical powers combine on
+compromise. Binding/mesh (#61), federated client activation (#62) and complete
+installed migration (#63) remain separate implementation work.
 
 The current foundation already includes:
 
