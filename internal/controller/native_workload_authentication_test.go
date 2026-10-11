@@ -97,6 +97,10 @@ func TestNativeWorkloadAuthenticationController(t *testing.T) {
 		return &api.KubernetesServiceAccountAuthentication{TrustRef: "controller-trust", SourceRef: "controller-client-writer", Workload: api.KubernetesWorkloadBinding{ApplicationRuntimeWorkload: api.ApplicationRuntimeWorkload{Namespace: "workload", ServiceAccountRef: name}, ExpectedUID: uid}, ExpirationSeconds: 600}
 	}
 	state := nativeAuthenticationState{Trust: api.HankoWorkloadTrust{ObjectMeta: meta("controller-trust"), Spec: api.HankoWorkloadTrustSpec{Mode: "Manage", RealmRef: input.Realm, SourceRef: "controller-observer", WriterRef: "controller-trust-writer", DependentReaderRef: "controller-dependent-reader", KeycloakAlias: "controller-kube", Provider: "Kubernetes", Kubernetes: api.KubernetesWorkloadTrustSpec{Issuer: input.Issuer, AssertionMaxAgeSeconds: 600, ClusterAnchor: api.WorkloadClusterAnchor{KubeSystemNamespaceUID: string(namespace.UID), APIServerCAHash: hash}}}}, Worker: api.HankoServiceAccount{ObjectMeta: meta("controller-worker"), Spec: api.HankoServiceAccountSpec{RealmRef: input.Realm, ClientID: "controller-worker", Authentication: &api.ServiceAccountAuthentication{Mode: "Kubernetes", Kubernetes: kubeBinding("worker", input.ExpectedUID)}}}, Legacy: api.HankoServiceAccount{ObjectMeta: meta("controller-secret"), Spec: api.HankoServiceAccountSpec{RealmRef: input.Realm, ClientID: "controller-secret", Attributes: map[string]string{"locale": "fr"}}}}
+	claimValue := "controller-managed"
+	for _, account := range []*api.HankoServiceAccount{&state.Worker, &state.Legacy} {
+		account.Spec.TokenClaims = []api.ApplicationTokenClaim{{Name: "qualification", Claim: "workload_qualification", Value: &claimValue}}
+	}
 	statePath := filepath.Join(filepath.Dir(path), "controller-state.json")
 	if saved, e := os.ReadFile(statePath); e == nil {
 		if json.Unmarshal(saved, &state) != nil {

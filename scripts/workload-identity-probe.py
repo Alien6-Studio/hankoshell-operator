@@ -422,6 +422,9 @@ except urllib.error.HTTPError as e:
             c = claims(access)
             # Access tokens have additional machine-client claims; select safely.
             raw = json.loads(base64.urlsafe_b64decode(access.split(".")[1] + "=" * (-len(access.split(".")[1]) % 4)))
+            if realm == CONTROLLER_REALM and fields.get("client_id") in ("controller-worker", "controller-secret"):
+                if raw.get("workload_qualification") != "controller-managed":
+                    raise ValueError("Controller-managed typed token claim missing from active authentication")
             return {"http_status": status, "issuer": c["iss"], "subject": c["sub"], "authorized_party": raw.get("azp"),
                     "expires_in": data["expires_in"]}
         return {"http_status": status, "oauth_error": data.get("error")}
@@ -521,6 +524,7 @@ except urllib.error.HTTPError as e:
                 raise ValueError("Controller transition changed native identity, recovery credential or independent configuration")
         self.report["controller_authentication"] = {"fresh_creation": True, "same_client_round_trip": True,
             "retained_credential_without_rotation": True, "external_projected_review": True,
+            "typed_claims_qualified": True,
             "controller_received_workload_jwt": False, "hanko_storage": "ephemeral-fixture", "workload_uid_reads": "real-api"}
 
     def controller_check(self, name, value, status, client="controller-secret"):
