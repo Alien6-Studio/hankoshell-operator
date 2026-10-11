@@ -1,7 +1,12 @@
-"""Parse public release tags without accepting historical source checkpoints."""
+"""Parse normal public tags and reject production delivery until source is ready."""
 
 import argparse
 import re
+
+
+VERSION = "0.1.0-dev.0"
+TARGET_VERSION = "0.1.0"
+RELEASE_STATUS = "development"
 
 
 NUMBER = r"(?:0|[1-9][0-9]*)"
@@ -12,22 +17,29 @@ VERSION_PATTERN = (
     r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
 )
 SEMVER = re.compile(VERSION_PATTERN)
-PUBLIC_TAG = re.compile(r"release/v(?P<version>" + VERSION_PATTERN + r")")
+PUBLIC_TAG = re.compile(r"v(?P<version>" + VERSION_PATTERN + r")")
 
 
 def from_tag(tag):
     match = PUBLIC_TAG.fullmatch(tag) if isinstance(tag, str) and len(tag) <= 256 else None
     if match is None:
-        raise ValueError("Expected a public release/v<SemVer> tag")
+        raise ValueError("Expected a public v<SemVer> tag")
     return match["version"]
 
 
 def public_tag(version):
     if not isinstance(version, str) or not SEMVER.fullmatch(version):
         raise ValueError("Expected a valid product SemVer version")
-    tag = "release/v" + version
+    tag = "v" + version
     from_tag(tag)
     return tag
+
+
+def require_production(version):
+    # Readiness is a reviewed source decision, never an environment/CLI override.
+    if (RELEASE_STATUS != "candidate" or VERSION != TARGET_VERSION
+            or version != TARGET_VERSION or "-" in version or "+" in version):
+        raise ValueError("Production publication blocked: source is in development toward " + TARGET_VERSION)
 
 
 def main():

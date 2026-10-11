@@ -1,7 +1,8 @@
 # hankoShell Operator chart
 
 Helm chart for declarative Keycloak IAM configuration with hankoShell Operator.
-Version 0.1.0 is a normal SemVer release in initial development.
+Target 0.1.0 is in initial development; current chart/app metadata is the
+prerelease `0.1.0-dev.0`. No public release has been published yet.
 The source includes the [OIDC/SAML application contract](../../docs/architecture/application-identity.md),
 including explicit migration approval for existing unmarked clients and
 [UID-bound runtime bindings](../../docs/architecture/application-identity.md#runtime-bindings).
@@ -39,7 +40,7 @@ security changes/deletion, even though the controller never performs them. Use a
 dedicated role writer where possible; see the
 [credential blast-radius contract](../../docs/keycloak-permissions.md#dedicated-hankorole-writer-target-realm-exception).
 
-Organization principals in 0.1.0 require explicitly
+Organization principals require explicitly
 provisioned target `view-users` in addition to `manage-clients`; that read role
 also exposes realm users. No chart flag grants this authority. See the
 [organization-grant contract](../../docs/keycloak-permissions.md#organization-principals-010)
@@ -274,7 +275,7 @@ Review the [inventory permissions](../../docs/keycloak-permissions.md#dedicated-
 and [bounded evidence contract](../../docs/architecture/existing-keycloak-adoption.md#implemented-discovery-and-diff-47).
 Done and complete coverage are separate; candidate status is not adoption approval.
 
-For the 0.1.0 source ownership flow, follow the
+For the reviewed source ownership flow, follow the
 [reviewed leaf adoption workflow](../../docs/architecture/existing-keycloak-adoption.md#implemented-reviewed-leaf-acquisition-48)
 and [service-account upgrade guidance](../../docs/secure-deployment.md#reviewed-existing-client-ownership).
 Approval is target-local Kubernetes metadata, not a chart flag. Existing unmarked
@@ -282,6 +283,6 @@ M2M clients require reviewed acquisition. Leaf and
 [aggregate checkpoints](../../docs/architecture/existing-keycloak-adoption.md#implemented-aggregate-acquisition-and-native-preservation-49)
 remain Observe until an administrator explicitly requests Manage and removes the
 imported latch. Exact current ownership and qualified native preservation are
-required; foreign dependencies hold cleanup. Chart/app source metadata is 0.1.0;
+required; foreign dependencies hold cleanup. Chart/app source metadata is 0.1.0-dev.0;
 source freeze requires exact-main qualification. Production publication remains
 pending in #21.

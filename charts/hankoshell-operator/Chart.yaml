@@ -2,8 +2,8 @@ apiVersion: v2
 name: hankoshell-operator
 description: Declarative IAM reconciliation for Keycloak and hankoShell platform integrations
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.1.0-dev.0
+appVersion: "0.1.0-dev.0"
 kubeVersion: ">=1.35.0-0 <1.38.0-0"
 keywords:
   - oidc
@@ -11,7 +11,7 @@ keywords:
   - operator
   - identity
 home: https://hanko.sh
-icon: https://raw.githubusercontent.com/Alien6-Studio/hankoshell-operator/v0.5.0/charts/hankoshell-operator/icon.svg
+icon: https://raw.githubusercontent.com/Alien6-Studio/hankoshell-operator/d1e3555fd64e3ac25a3b2c364ab936608754b41a/charts/hankoshell-operator/icon.svg
 sources:
   - https://github.com/Alien6-Studio/hankoshell-operator
 maintainers:
@@ -22,10 +22,10 @@ annotations:
   artifacthub.io/license: Apache-2.0
   artifacthub.io/category: security
   artifacthub.io/operator: "true"
-  artifacthub.io/prerelease: "false"
+  artifacthub.io/prerelease: "true"
   artifacthub.io/changes: |
     - kind: changed
-      description: Establish first public product version 0.1.0 under release/v0.1.0; consolidate historical E1-E5 engineering checkpoints without an IAM rollback.
+      description: Develop the first public 0.1.0 with prerelease metadata 0.1.0-dev.0; all ten engineering phases precede publication.
     - kind: fixed
       description: Bind the private Ed25519 signer to its approved public key and canonical Attest identity before publication; qualify TSA structure and adversarial retries without changing IAM behavior.
     - kind: added
@@ -33,10 +33,10 @@ annotations:
     - kind: added
       description: Preserve qualified native state during explicit Manage and refuse unsafe foreign/shared cleanup.
     - kind: changed
-      description: Complete reviewed adoption, native preservation and explicit target-realm role-writer authority at engineering checkpoint v0.5.0; public distribution remains pending.
+      description: Complete reviewed adoption, native preservation and explicit target-realm role-writer authority as the implemented adoption foundation; public distribution remains pending.
   artifacthub.io/images: |
     - name: hankoshell-operator
-      image: ghcr.io/alien6-studio/hankoshell-operator:0.1.0
+      image: ghcr.io/alien6-studio/hankoshell-operator:0.1.0-dev.0
       platforms:
         - linux/amd64
         - linux/arm64

@@ -2,6 +2,6 @@
 package version
 
 // Agent is the operator build identifier reported to the Hub with every
-// heartbeat. Release images stamp it with the immutable image tag (git short
-// revision) via -ldflags; "dev" identifies local, unreleased builds.
-var Agent = "dev"
+// heartbeat. Builds stamp the reviewed technical SemVer via -ldflags.
+// The default identifies current unreleased development.
+var Agent = "0.1.0-dev.0"

@@ -34,7 +34,7 @@ enterprise fleet. Project website: **[hanko.sh](https://hanko.sh)**.
 [Organizational grants and provenance](docs/architecture/organizational-authorization.md)
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-0.1.0%20initial%20development-blue.svg)](#release-maturity)
+[![Version](https://img.shields.io/badge/version-0.1.0--dev.0%20development-blue.svg)](#release-maturity)
 [![Go](https://img.shields.io/badge/go-1.27.2-00ADD8.svg)](go.mod)
 [![Kubernetes](https://img.shields.io/badge/kubernetes-1.35%E2%80%931.37-326CE5.svg)](docs/secure-deployment.md#kubernetes-compatibility-and-hardening)
 [![Delivery](https://img.shields.io/badge/delivery-Continuum%20Attest-blue.svg)](#verified-delivery)
@@ -85,7 +85,7 @@ field paths. The SAML subset supports:
 exact HTTPS ACS destinations, signed responses/assertions, four NameID formats,
 client roles and public IdP metadata in status. See the
 [application contract](docs/architecture/application-identity.md) for fields,
-qualification and unsupported features. Clients installed from historical 0.2 source checkpoints without a UID marker
+qualification and unsupported features. Clients installed from legacy source installations without a UID marker
 require reviewed UUID + observation approval; protocol conversion requires
 reviewed deletion/recreation.
 
@@ -93,7 +93,7 @@ reviewed deletion/recreation.
 deliver a versioned `identity.json` ConfigMap and optional confidential OIDC Secret
 to preauthorized workload targets. Delivery binds the current ServiceAccount UID,
 requires proven applied provider state and preserves unrelated target data. No SDK
-or automatic pod restart is needed. Source metadata is 0.1.0; public packages and
+or automatic pod restart is needed. Source metadata is 0.1.0-dev.0; public packages and
 a GitHub Release remain pending.
 
 `HankoRole` management and deletion require the CR UID ownership marker in
@@ -150,12 +150,12 @@ See the **[Keycloak permission model](docs/keycloak-permissions.md)** before
 provisioning credentials: it specifies optional feature roles, read-only import,
 forbidden authority and the broader native grants attached to realm creation.
 
-hankoShell Operator **0.1.0 is qualified against Keycloak 26.8.0 and 26.7.5**
+The current development operator **is qualified against Keycloak 26.8.0 and 26.7.5**
 through its real HTTPS Admin API v1. Required CI exercises realm/client lifecycles,
 IAM/MFA settings, roles, identity-provider configuration, secret rotation,
 drift recovery, ownership, finalizers and read-only import. Other 26.x patches
 may work but are unqualified; older and future major lines are outside the
-0.1.0 support contract pending qualification. CI also qualifies OIDC browser/PKCE, M2M and
+current qualification contract pending qualification. CI also qualifies OIDC browser/PKCE, M2M and
 signed SAML POST application flows on these same versions; see the
 [protocol evidence and limits](docs/architecture/application-identity.md#protocol-and-xml-security-qualification).
 External identity-provider handshakes and production database/cluster operations
@@ -322,11 +322,11 @@ implemented. Existing installations should follow the
 
 ## Verified delivery
 
-0.1.0 publication requires a GitHub-verified source commit and a GitHub-verified
-signed annotated `release/v<SemVer>` tag bound to that exact commit on protected main.
-For public 0.1.0 the source ref is `refs/tags/release/v0.1.0`, while the
-GitHub Release display name is `v0.1.0`. Historical `refs/tags/v*` checkpoints
-cannot satisfy the current publication contract.
+Production publication is blocked while the source is `0.1.0-dev.0`.
+The future first release requires an explicitly prepared stable candidate,
+a GitHub-verified source commit and a GitHub-verified signed annotated
+`v0.1.0` tag bound to that exact commit on protected main. The expected source
+ref is `refs/tags/v0.1.0` and GitHub display name is `v0.1.0`.
 The workflow rejects unverified signatures, lightweight tags and conflicting or
 moved references, and checks these identities again before publication.
 It builds Linux AMD64/ARM64 images and the Helm chart from that source.
@@ -374,17 +374,14 @@ Helm signing key through `artifacthub.io/signKey`.
 
 ## Release maturity
 
-**0.1.0 is a normal SemVer release in initial development.**
-It is the first public product version, consolidating the complete qualified
-foundation, IAM Contract Engine, Application Identity, Organizational Authorization,
-Adopt Existing Keycloak and #54 release-trust hardening. This is a version-model
-correction, with no functional rollback. Signed `v0.1.0` through `v0.5.0` are
-immutable historical engineering/source checkpoints, not public releases.
-The earlier 0.5.1 preparation was canceled before tagging. Public distribution
-uses the distinct `release/v0.1.0` tag, chart/app/image version `0.1.0` and GitHub
-display name `v0.1.0`; no migration from a prior public package is required.
-Tag creation and production publication remain separately authorized steps.
-See the [public 0.1.0 preparation and administrator checklist](docs/release-public-0.1.0-preparation.md).
+**hankoShell Operator 0.1.0 is in initial development. No public release has been
+published yet.** Active chart/app/build metadata is `0.1.0-dev.0` (prerelease).
+The implemented foundation, IAM contracts, application identity, organizational
+authorization, adoption and canonical Attest hardening remain intact. Phases
+6–10 are required before first publication: Workload Identity, Delegation &
+Agent Identity, Provider Portability, Fleet Reconciliation and Initial Public
+Contract Stabilization. See the [roadmap](ROADMAP.md) and
+[first-publication checklist](docs/release-public-0.1.0-preparation.md).
 The `hanko.sh/v1alpha1` APIs are experimental and may change across minor releases
 before 1.0. See the [curated release
 overview](CHANGELOG.md#release-overview) for capabilities and qualification limits.
@@ -403,7 +400,7 @@ API integration. A projection outage preserves provider success and does not
 block child Keycloak groups. See [organization configuration and migration](docs/secure-deployment.md#organization-provider-readiness-and-optional-projection).
 
 Existing Keycloak inventory produces bounded adoption candidates and typed diffs.
-Engineering E5 source work adds reviewed leaf and aggregate ownership, followed by a
+Phase 5 source work adds reviewed leaf and aggregate ownership, followed by a
 separate explicit Manage decision. See the
 [adoption workflow](docs/architecture/existing-keycloak-adoption.md#administrator-workflow)
 and [native preservation boundaries](docs/architecture/existing-keycloak-adoption.md#milestone-native-coverage-audit).
@@ -411,7 +408,7 @@ and [native preservation boundaries](docs/architecture/existing-keycloak-adoptio
 writes, credential recovery/rotation or deletion.** Acquisition preserves UUIDs,
 writes only ownership checkpoints and remains Observe. Manage requires current
 exact ownership and qualified preservation; foreign dependencies hold cleanup.
-Existing realms and opaque brokers remain Observe-only. Engineering milestone E5
+Existing realms and opaque brokers remain Observe-only. Phase 5
 completes reviewed adoption and qualified native preservation; public distribution
 remains independent in #21.
 
@@ -424,12 +421,12 @@ dedicated scoped writer where possible and review the
 
 ## Development
 
-E5 — Adopt Existing Keycloak completes reviewed ownership acquisition, qualified
-native preservation and explicit Manage. Organizational Authorization, introduced
-at the historical v0.4.0 checkpoint, retains its explicit grants and bounded structural provenance. The next
-engineering milestone is **E6 — Workload Identity**, with no assigned public release version. Public package publication
-remains pending in [#21](https://github.com/Alien6-Studio/hankoshell-operator/issues/21);
-the immutable v0.1.0 source retains its historical contract and is distinct from public release/v0.1.0.
+Phase 5 — Adopt Existing Keycloak completes reviewed acquisition, native
+preservation and explicit Manage. Organizational Authorization retains explicit
+grants and bounded structural provenance. **Phase 6 — Workload Identity** is
+next; all remaining phases lead to the same first public 0.1.0.
+[#21](https://github.com/Alien6-Studio/hankoshell-operator/issues/21) remains
+open for transversal first-publication trust and readiness.
 For `HankoRole` and `HankoResourceServer`, status distinguishes the evaluated
 intent/plan, the latest Manage application proven by provider read-back, and the
 latest provider observation with explicit drift/coverage. Observe never claims

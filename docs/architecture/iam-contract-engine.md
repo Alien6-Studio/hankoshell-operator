@@ -2,13 +2,13 @@
 
 This implementation resolves [RFC #22](https://github.com/Alien6-Studio/hankoshell-operator/issues/22)
 and the execution boundary of [RFC #23](https://github.com/Alien6-Studio/hankoshell-operator/issues/23).
-It was qualified at the 0.2 boundary for `HankoResourceServer` and `HankoRole`.
-Application Identity 0.3.0 extends this pattern to `HankoApplication`; see the
+It qualifies `HankoResourceServer` and `HankoRole`.
+Application Identity extends this pattern to `HankoApplication`; see the
 [application domain contract](application-identity.md). Keycloak remains the only
 backend. Public evidence implements [#27](https://github.com/Alien6-Studio/hankoshell-operator/issues/27),
 with matching application semantics in #24; other controllers retain their implementation.
 
-The [0.4 organizational authorization design](organizational-authorization.md)
+The [organizational authorization design](organizational-authorization.md)
 defines the next extension of this engine. Its real Keycloak characterization
 is committed; organization principals and bounded explanation are implementation
 backlog, with no public API or production adapter change in the RFC phase.
@@ -58,7 +58,7 @@ Scopes/resources/permissions are name-keyed sets. Resource URIs, scope/resource
 bindings and principals are sorted; duplicate entries in semantic sets normalize
 consistently. Kubernetes admission/controller validation continues to reject
 invalid duplicate object names/references. Composite role membership is an
-additive set: existing extra composites remain, as in 0.1. The composite flag
+additive set: existing extra composites remain, as in the original role contract. The composite flag
 normalizes to true when children are declared, matching that existing behavior.
 Nil and empty collections normalize identically. Native role attribute map keys
 use canonical JSON ordering; values retain their list order. Meaningful semantic
@@ -151,7 +151,7 @@ Descriptions, attributes, composite additions and reserved-authority safeguards
 remain supported. Renaming a role does not clean up its previous provider name;
 use deletion/recreation for changes to realm/name and inspect residual objects.
 
-**Migration from an early 0.1 source installation:** existing HankoRole-created
+**Migration from an early source installation:** existing HankoRole-created
 roles have no ownership marker. They are now refused rather than silently adopted.
 An administrator must review the role, its composites and the owning CR UID, then
 explicitly assign `hanko.sh/role-owner` to that UID through Keycloak administration,
@@ -196,11 +196,9 @@ write/read roles and denied to an unprivileged service account. No role grant ex
 The exact-image installed-system suite also reconciles a HankoRole through the
 running manager and checks the ownership marker, description and finalizer cleanup.
 All existing Kubernetes, provider, OCI, supply-chain and release rehearsal gates
-remain mandatory. The IAM Contract Engine was completed at the immutable v0.2.0 source boundary.
-Current chart/app metadata is public **0.1.0**, consolidating E1–E5 including
-Adopt Existing Keycloak and Organizational Authorization at historical checkpoint v0.4.0.
-The public source ref is release/v0.1.0. The distinct immutable v0.1.0 checkpoint keeps its original source/workflow;
-source completion does not imply production publication.
+remain mandatory. The IAM Contract Engine is complete for the qualified Keycloak surface.
+Current chart/app metadata is `0.1.0-dev.0`; first-publication readiness includes
+Phases 6–10 and transversal trust evidence in #21.
 
 [#28](https://github.com/Alien6-Studio/hankoshell-operator/issues/28) completes
 standalone organization readiness versus configured optional projection. Provider

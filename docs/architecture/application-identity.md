@@ -1,9 +1,9 @@
 # Application identity: OIDC and SAML
 
-The **0.3.0 Application Identity** source contract resolves
+The **Phase 3 — Application Identity** source contract resolves
 [RFC #24](https://github.com/Alien6-Studio/hankoshell-operator/issues/24) for protocols
 and [RFC #25](https://github.com/Alien6-Studio/hankoshell-operator/issues/25) for runtime
-bindings. The signed v0.2.0 source remains immutable. Public artifacts are pending.
+bindings. Public artifacts are pending; active development metadata is `0.1.0-dev.0`.
 The `hanko.sh/v1alpha1` API is experimental. A future graduated API may group OIDC
 fields differently. Keycloak is the only implemented backend.
 
@@ -117,7 +117,7 @@ credential-shaped keys are reserved and rejected. Native extensions cannot
 override signing, ACS or ownership. Sibling resource-server authorization state
 and its ownership journal are preserved by client updates.
 
-## Ownership and 0.2 migration
+## Ownership and legacy client migration
 
 New clients carry the HankoApplication UID. A client carrying another nonempty UID
 cannot be adopted, updated, used to retrieve credentials or deleted. A matching
@@ -125,7 +125,7 @@ clientID or forged status hash is insufficient. Protocol conflicts are explicit:
 `ProtocolMismatch` for observation/foreign objects and
 `ProtocolChangeRequiresRecreation` for an owned client.
 
-The 0.2 client markers (`hanko.app`/`hanko.service`) did not bind a Kubernetes UID.
+The legacy client markers (`hanko.app`/`hanko.service`) did not bind a Kubernetes UID.
 **Upgrading such an installation requires explicit administrator migration
 approval**, including for a SPA without a Secret. The manifest's omitted protocol
 still means OIDC; it does not itself prove ownership.
@@ -176,7 +176,7 @@ clears endpoint claims. On OIDC discovery failure, declared public endpoints rem
 with Operational=false; they do not prove reachability. Observe reports actual protocol, observations and
 findings without writes, credential reads, Secrets, applied proof or finalizers.
 
-Evidence follows the 0.2 contract: contract/backend/protocol, intent and evaluated
+Evidence follows the IAM contract engine: contract/backend/protocol, intent and evaluated
 plan hashes/generation, last proven applied plan/generation, observation hash and
 plan/generation, completeness/drift, bounded capabilities and findings. An error
 does not turn evaluation into application. Status is evidence, never authority.
