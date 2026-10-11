@@ -603,9 +603,19 @@ unavailable. Cloud/CNI/CSI and production issuer signing-key rotation require
 installation-specific qualification; kubelet JWT renewal is not issuer-key rollover.
 
 SPIFFE federation is documented only as a possible future issuer adapter.
-Keycloak's current SPIFFE feature is preview, while the Kubernetes client
-authentication target is supported. This contract adds no SPIFFE API, issuer
-adapter, trust bundle or workload attestation claim.
+Keycloak's versioned feature profiles classify SPIFFE as preview on both
+[26.7.5](https://github.com/keycloak/keycloak/blob/26.7.5/common/src/main/java/org/keycloak/common/Profile.java)
+and [26.8.0](https://github.com/keycloak/keycloak/blob/26.8.0/common/src/main/java/org/keycloak/common/Profile.java),
+while Kubernetes and federated client authentication are default supported features.
+Conceptually, Kubernetes uses an issuer plus namespace/SA subject and OIDC
+discovery/JWKS. SPIFFE uses a JWT-SVID whose `sub` contains the trust domain and
+workload SPIFFE ID, with keys obtained from a SPIFFE bundle endpoint rather than
+Kubernetes discovery. Both authenticate an explicitly mapped machine client via
+an external signed assertion; neither supplies Hanko's local SA UID approval or
+single-use assertions. See the [upstream comparison](https://www.keycloak.org/2026/01/federated-client-authentication).
+This is a source-based comparison, not an experimental SPIFFE qualification.
+This contract adds no SPIFFE API, issuer adapter, trust bundle or workload
+attestation claim.
 
 ## 17. Phase 7 boundary
 
