@@ -237,6 +237,9 @@ func (r *HankoServiceAccountReconciler) containInvalidWorkload(ctx context.Conte
 	if !s.workloadInvalid {
 		return workloadbinding.Failure("StaleSource")
 	}
+	if conflict, err := r.serviceAccountOwnershipConflict(ctx, &s.account, s.source.client); err != nil || conflict != "" {
+		return workloadbinding.Failure("ContainmentOwnershipConflict")
+	}
 	if s.native == nil {
 		return nil
 	}
@@ -246,6 +249,9 @@ func (r *HankoServiceAccountReconciler) containInvalidWorkload(ctx context.Conte
 	verify := func(ctx context.Context) error {
 		fresh, err := r.WorkloadTrust.serviceAccountWorkloadSnapshot(ctx, sa, true)
 		if err != nil || !fresh.workloadInvalid || fresh.seal != s.seal || effectiveServiceAccountMode(&fresh.account) != ModeManage {
+			return iamcontract.ErrStale
+		}
+		if conflict, err := r.serviceAccountOwnershipConflict(ctx, &fresh.account, fresh.source.client); err != nil || conflict != "" {
 			return iamcontract.ErrStale
 		}
 		return nil
@@ -260,6 +266,12 @@ func (r *HankoServiceAccountReconciler) reconcileWorkloadServiceAccount(ctx cont
 	observe := effectiveServiceAccountMode(sa) == ModeObserve
 	if observe {
 		return r.workloadAccountStatus(ctx, sa, nil, nil, "ObserveOnly")
+	}
+	// Containment precedes output cleanup. A missing/replaced workload can hold
+	// cleanup consent, including during deletion, but must not leave its strictly
+	// owned native client enabled while waiting for administrator resolution.
+	if workloadbinding.Validate(sa) == nil && r.confirmedInvalidWorkload(ctx, sa) {
+		return r.recordInvalidWorkload(ctx, sa)
 	}
 	if !sa.DeletionTimestamp.IsZero() || sa.Spec.RuntimeMetadata == nil {
 		if err := r.workloadDelivery(nil).Cleanup(ctx, sa); err != nil {
@@ -283,13 +295,7 @@ func (r *HankoServiceAccountReconciler) reconcileWorkloadServiceAccount(ctx cont
 		reason := workloadbinding.Reason(err)
 		// Confirmed absence/replacement is the sole UID containment trigger.
 		if workloadbinding.Validate(sa) == nil && r.confirmedInvalidWorkload(ctx, sa) {
-			reason = "WorkloadUIDMismatch"
-			if _, err := r.workloadAccountStatus(ctx, sa, nil, nil, reason); err != nil {
-				return ctrl.Result{RequeueAfter: workloadBindingPoll}, err
-			}
-			if containmentErr := r.containInvalidWorkload(ctx, sa); containmentErr != nil {
-				reason = workloadbinding.Reason(containmentErr)
-			}
+			return r.recordInvalidWorkload(ctx, sa)
 		}
 		return r.workloadAccountStatus(ctx, sa, nil, nil, reason)
 	}
@@ -320,6 +326,17 @@ func (r *HankoServiceAccountReconciler) reconcileWorkloadServiceAccount(ctx cont
 		return r.workloadAccountStatus(ctx, sa, nil, nil, "StaleSource")
 	}
 	return r.workloadAccountStatus(ctx, sa, s, metadata, "BindingValidated")
+}
+
+func (r *HankoServiceAccountReconciler) recordInvalidWorkload(ctx context.Context, sa *api.HankoServiceAccount) (ctrl.Result, error) {
+	reason := "WorkloadUIDMismatch"
+	if _, err := r.workloadAccountStatus(ctx, sa, nil, nil, reason); err != nil {
+		return ctrl.Result{RequeueAfter: workloadBindingPoll}, err
+	}
+	if err := r.containInvalidWorkload(ctx, sa); err != nil {
+		reason = workloadbinding.Reason(err)
+	}
+	return r.workloadAccountStatus(ctx, sa, nil, nil, reason)
 }
 
 func (r *HankoServiceAccountReconciler) confirmedInvalidWorkload(ctx context.Context, sa *api.HankoServiceAccount) bool {

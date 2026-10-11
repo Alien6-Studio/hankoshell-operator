@@ -532,3 +532,43 @@ func TestWorkloadFederatedClientCannotEnterLegacySecretOperations(t *testing.T) 
 		t.Fatal("legacy boundary dispatched credentials or federated client mutation")
 	}
 }
+
+func TestWorkloadContainmentPrecedesBlockedMetadataCleanup(t *testing.T) {
+	for _, deleting := range []bool{false, true} {
+		t.Run(map[bool]string{false: "removed-output", true: "deleting-source"}[deleting], func(t *testing.T) {
+			f := newBindingFixture(t)
+			f.nativeClient("identity-uid")
+			f.reconcileBinding()
+			metadata := f.runtime.Data[workloadbinding.MetadataKey]
+			f.replaceWorkload()
+			if deleting {
+				if err := f.kube.Delete(context.Background(), f.account); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				f.account.Spec.RuntimeMetadata = nil
+				f.account.Generation++
+				if err := f.kube.Update(context.Background(), f.account); err != nil {
+					t.Fatal(err)
+				}
+			}
+			f.reconcileBinding()
+			if f.clientWrites != 1 || f.dependents[0]["enabled"] != false || f.account.Status.WorkloadBinding != nil || f.runtime.Data[workloadbinding.MetadataKey] != metadata || f.account.Annotations[workloadbinding.JournalKey] == "" {
+				t.Fatal("blocked output cleanup delayed containment or lost lookup evidence")
+			}
+		})
+	}
+}
+
+func TestWorkloadContainmentRetainsProtectedClientBoundary(t *testing.T) {
+	f := newBindingFixture(t)
+	f.nativeClient("identity-uid")
+	f.reconcileBinding()
+	f.replaceWorkload()
+	f.reconciler.ProtectedRealm = "managed"
+	f.reconciler.ProtectedClientIDs = []string{"worker"}
+	f.reconcileBinding()
+	if f.clientWrites != 0 || f.dependents[0]["enabled"] != true || f.account.Status.WorkloadBinding != nil || conditionReason(f.account.Status.Conditions, "WorkloadBindingReady") != "ContainmentOwnershipConflict" {
+		t.Fatal("containment crossed protected client authority")
+	}
+}
