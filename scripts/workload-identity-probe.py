@@ -377,7 +377,8 @@ except urllib.error.HTTPError as e:
 
     def prepare_native(self):
         provider = {"alias": "workload-kube", "providerId": "kubernetes", "enabled": True,
-                    "config": {"issuer": self.report["discovery"]["issuer"]}}
+                    "config": {"issuer": self.report["discovery"]["issuer"],
+                               "hanko.sh/workload-trust-owner": self.get("namespace", "auth")["metadata"]["uid"]}}
         self.api("POST", "/admin/realms/managed/identity-provider/instances", provider)
         self.report["provider_created"] = self.api("GET", "/admin/realms/managed/identity-provider/instances/workload-kube")
         self.api("POST", "/admin/realms/managed/clients", {"clientId": "workload-a", "protocol": "openid-connect",
@@ -399,6 +400,8 @@ except urllib.error.HTTPError as e:
 
     def qualify(self):
         self.create_cluster()
+        # Complete both cluster startups before issuing a 600-second assertion.
+        self.foreign_cluster()
         self.keycloak()
         self.pod("probe", "worker")
         self.prepare_native()
@@ -428,7 +431,6 @@ except urllib.error.HTTPError as e:
         altered = bytes([signature[0] ^ 1]) + signature[1:]
         tampered = ".".join(parts[:2] + [base64.urlsafe_b64encode(altered).decode().rstrip("=")])
         self.check("tampered", self.assertion(tampered), (400, 401))
-        self.foreign_cluster()
         foreign = self.token_request(audiences=[REALM_ISSUER], foreign=True)
         self.check("wrong_issuer", self.assertion(foreign), (400, 401))
         self.report["token_lifetime_limits"] = {}
@@ -449,6 +451,9 @@ except urllib.error.HTTPError as e:
         provider["config"]["allowedClockSkew"] = "0"
         self.api("PUT", provider_path, provider)
         self.report["provider_updated"] = self.api("GET", provider_path)
+        if (self.report["provider_updated"]["internalId"] != self.report["provider_created"]["internalId"]
+                or self.report["provider_updated"]["config"]["hanko.sh/workload-trust-owner"] != provider["config"]["hanko.sh/workload-trust-owner"]):
+            raise ValueError("Provider update did not preserve native identity and fixture UID marker")
         provider["enabled"] = False
         self.api("PUT", provider_path, provider)
         self.check("provider_disabled", self.assertion(token), (400, 401))
@@ -596,9 +601,9 @@ except urllib.error.HTTPError as e:
         self.api("DELETE", "/admin/realms/managed/authentication/flows/" + builtin["id"], expected=(400,))
         self.report["builtin_client_flow_delete"] = {"http_status": 400}
         disabled = dict(fed[0], requirement="DISABLED")
-        self.api("PUT", "/admin/realms/managed/authentication/flows/" + alias + "/executions", disabled)
+        self.api("PUT", "/admin/realms/managed/authentication/flows/" + alias + "/executions", disabled, expected=(204,))
         self.check("builtin_execution_disabled", self.assertion(token), (400, 401))
-        self.api("PUT", "/admin/realms/managed/authentication/flows/" + alias + "/executions", fed[0])
+        self.api("PUT", "/admin/realms/managed/authentication/flows/" + alias + "/executions", fed[0], expected=(204,))
         self.check("builtin_execution_restored", self.assertion(token), 200)
         self.report["builtin_execution_requirement_write"] = {"http_status": 204, "allowed_for_fixture_administrator": True}
         self.api("POST", "/admin/realms/managed/authentication/flows/" + alias + "/copy", {"newName": "legacy-clients"})
