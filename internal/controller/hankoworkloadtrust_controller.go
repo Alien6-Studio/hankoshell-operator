@@ -571,7 +571,7 @@ func (r *HankoWorkloadTrustReconciler) workloadStatus(ctx context.Context, t *ap
 	t.Status.DependentInventoryHash = ""
 	t.Status.Dependents = nil
 	t.Status.CapabilityEvidence = api.IAMCapabilityEvidence{}
-	t.Status.Capabilities = api.WorkloadTrustCapabilities{}
+	t.Status.Capabilities = nil
 	if s != nil && s.plan.Identity().Contract == iamcontract.Version {
 		id := s.plan.Identity()
 		t.Status.ContractVersion = string(id.Contract)
@@ -583,7 +583,7 @@ func (r *HankoWorkloadTrustReconciler) workloadStatus(ctx context.Context, t *ap
 			t.Status.Dependents = &s.dependentCounts
 		}
 		t.Status.CapabilityEvidence = api.IAMCapabilityEvidence{Source: "adapter-and-real-qualification", QualificationWindow: "26.7.5,26.8.0"}
-		t.Status.Capabilities = api.WorkloadTrustCapabilities{KubernetesWorkloadIdentity: true, FederatedClientAuthentication: true, ShortLivedClientAssertion: true, IssuerDiscoveryOverride: s.plan.Intent().QualifiedVersion == "26.8.0"}
+		t.Status.Capabilities = &api.WorkloadTrustCapabilities{KubernetesWorkloadIdentity: true, FederatedClientAuthentication: true, ShortLivedClientAssertion: true, IssuerDiscoveryOverride: s.plan.Intent().QualifiedVersion == "26.8.0"}
 		if s.provider != nil {
 			t.Status.ProviderID = s.provider.InternalID
 			t.Status.ObservedStateHash = nativeWorkloadStateHash(*s.provider)

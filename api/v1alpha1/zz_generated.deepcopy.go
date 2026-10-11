@@ -2841,7 +2841,11 @@ func (in *HankoWorkloadTrustStatus) DeepCopyInto(out *HankoWorkloadTrustStatus) 
 		**out = **in
 	}
 	out.CapabilityEvidence = in.CapabilityEvidence
-	out.Capabilities = in.Capabilities
+	if in.Capabilities != nil {
+		in, out := &in.Capabilities, &out.Capabilities
+		*out = new(WorkloadTrustCapabilities)
+		**out = **in
+	}
 	if in.AdoptionCandidate != nil {
 		in, out := &in.AdoptionCandidate, &out.AdoptionCandidate
 		*out = new(AdoptionCandidateStatus)

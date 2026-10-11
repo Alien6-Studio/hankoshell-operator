@@ -126,11 +126,11 @@ type HankoWorkloadTrustStatus struct {
 	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
 	DependentInventoryHash string `json:"dependentInventoryHash,omitempty"`
 	// Dependents are diagnostic counts from a fresh complete inventory, never client execution authority.
-	Dependents         *WorkloadTrustDependents  `json:"dependents,omitempty"`
-	CapabilityEvidence IAMCapabilityEvidence     `json:"capabilityEvidence,omitempty"`
-	Capabilities       WorkloadTrustCapabilities `json:"capabilities,omitempty"`
-	AdoptionCandidate  *AdoptionCandidateStatus  `json:"adoptionCandidate,omitempty"`
-	AdoptionReceipt    *AdoptionReceiptStatus    `json:"adoptionReceipt,omitempty"`
+	Dependents         *WorkloadTrustDependents   `json:"dependents,omitempty"`
+	CapabilityEvidence IAMCapabilityEvidence      `json:"capabilityEvidence,omitempty"`
+	Capabilities       *WorkloadTrustCapabilities `json:"capabilities,omitempty"`
+	AdoptionCandidate  *AdoptionCandidateStatus   `json:"adoptionCandidate,omitempty"`
+	AdoptionReceipt    *AdoptionReceiptStatus     `json:"adoptionReceipt,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +kubebuilder:validation:MaxItems=8

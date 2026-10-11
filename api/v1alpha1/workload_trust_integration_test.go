@@ -54,18 +54,28 @@ func checkWorkloadTrustAdmission(t *testing.T, ctx context.Context, kube client.
 		t.Fatal(err)
 	}
 	before := typed.Spec
+	patch := client.MergeFrom(typed.DeepCopy())
 	typed.Status.Phase = "Ready"
 	typed.Status.ObservedGeneration = typed.Generation
 	typed.Status.ProviderID = "native-uuid"
-	typed.Status.Capabilities = api.WorkloadTrustCapabilities{KubernetesWorkloadIdentity: true}
+	typed.Status.Capabilities = &api.WorkloadTrustCapabilities{KubernetesWorkloadIdentity: true}
 	typed.Status.Conditions = []metav1.Condition{{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Qualified", Message: "configuration only", ObservedGeneration: typed.Generation, LastTransitionTime: metav1.Now()}}
-	if err := kube.Status().Update(ctx, &typed); err != nil {
+	if err := kube.Status().Patch(ctx, &typed, patch); err != nil {
 		t.Fatal(err)
 	}
 	if err := kube.Get(ctx, client.ObjectKeyFromObject(obj), &typed); err != nil {
 		t.Fatal(err)
 	}
-	if typed.Spec != before || typed.Status.ProviderID != "native-uuid" || typed.Status.Capabilities.SecretFallback {
+	if typed.Spec != before || typed.Status.ProviderID != "native-uuid" || typed.Status.Capabilities == nil || typed.Status.Capabilities.SecretFallback || typed.Status.Capabilities.IssuerDiscoveryOverride {
 		t.Fatal("trust status subresource did not preserve configuration-only evidence")
+	}
+	if err := kube.Get(ctx, client.ObjectKeyFromObject(obj), obj); err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range []string{"secretFallback", "issuerDiscoveryOverride"} {
+		value, found, err := unstructured.NestedBool(obj.Object, "status", "capabilities", field)
+		if err != nil || !found || value {
+			t.Fatalf("false capability %s was not persisted explicitly", field)
+		}
 	}
 }
