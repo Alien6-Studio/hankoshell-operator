@@ -28,6 +28,8 @@ class ReleaseContractTests(unittest.TestCase):
             self.assertIn(requirement, notes)
         with self.assertRaises(ValueError):
             contract.check("0.5.0-beta.1")
+        with self.assertRaises(ValueError):
+            contract.check("0.5.0")
 
     def test_note_drift_or_missing_markers_cannot_be_published(self):
         with patch.object(Path, "read_text", return_value="no curated release notes"), self.assertRaises(ValueError):

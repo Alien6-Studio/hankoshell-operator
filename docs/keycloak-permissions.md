@@ -1,6 +1,6 @@
 # Keycloak administrative permissions
 
-This is the permission contract for **hankoShell Operator 0.5.0**, verified against
+This is the permission contract for **hankoShell Operator 0.5.1**, verified against
 real Keycloak **26.8.0 and 26.7.5** over verified HTTPS with `client_credentials`.
 It covers the Admin REST API used by the operator. Kubernetes permissions and
 Hub/Continuum credentials are separate; see [secure deployment](secure-deployment.md).
@@ -20,7 +20,7 @@ powers of the minimum built-in-role profile. Use separate realms and identities
 when those powers cross a trust boundary. A fine-grained administration policy
 might reduce individual resource scope, but is **not qualified by this contract**.
 
-In 0.5.0 the credential client authenticates in **master**. Target-realm authority
+In 0.5.1 the credential client authenticates in **master**. Target-realm authority
 is granted through Keycloak's native **`<target-realm>-realm` client in master**.
 These client roles administer that target; they are not master administrative
 roles. Do not substitute master `admin` or the `master-realm` client roles.
@@ -136,7 +136,7 @@ can trigger realm-wide logout: grant `manage-users` when that transition is used
 or have an administrator perform the transition and session revocation first.
 Never silently skip a denied security action to obtain a green reconciliation.
 
-## Organization principals (0.5.0)
+## Organization principals (0.5.1)
 
 **Fresh ownership reads require target-realm `view-users`. This also permits
 reading users throughout that realm.** It is an optional privacy tradeoff, not a
@@ -263,7 +263,7 @@ organization principal still needs its mandatory ownership read before execution
 Transient composite/role-read failures have the same independent evidence behavior.
 All reads remain HTTPS-authenticated, response-bounded and redirect-rejecting.
 
-## Application protocols in 0.5.0
+## Application protocols in 0.5.1
 
 OIDC and the bounded SAML application/client-role contract use target-realm
 `manage-clients` only; real protocol/lifecycle tests omit realm, event, user,
