@@ -19,6 +19,7 @@ import (
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/adoption"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/controller"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/workloadtrust"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,6 +80,16 @@ func TestRealKeycloakWorkloadTrustController(t *testing.T) {
 	var again map[string]any
 	f.admin(http.MethodGet, base, nil, &again)
 	fixtureEqual(t, "idempotent native document", again, native)
+	if _, err := f.kc.EnsureIdentityProvider(ctx, "managed", keycloak.IdentityProvider{Alias: "p62-shared", ProviderID: "kubernetes", Enabled: false}); err == nil {
+		t.Fatal("generic native broker writer accepted independent ownership")
+	}
+	if err := f.kc.DeleteIdentityProvider(ctx, "managed", "p62-shared"); err == nil {
+		t.Fatal("generic native alias cleanup accepted independent ownership")
+	}
+	flag := true
+	f.requireNoError(f.kc.ConfigureIdentityProviderTrust(ctx, "managed", &flag, &flag))
+	f.admin(http.MethodGet, base, nil, &again)
+	fixtureEqual(t, "native realm broker paths preserve complete owned trust", again, native)
 	trust.Spec.Kubernetes.AssertionMaxAgeSeconds = 900
 	trust.Generation++
 	f.requireNoError(kube.Update(ctx, trust))

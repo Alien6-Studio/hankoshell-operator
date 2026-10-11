@@ -1775,6 +1775,10 @@ func (c *Client) ConfigureIdentityProviderTrust(ctx context.Context, realm strin
 }
 
 func applyIdentityProviderTrust(provider map[string]any, requireSignature, trustEmail *bool) (string, bool, error) {
+	config, _ := provider["config"].(map[string]any)
+	if provider["providerId"] == "kubernetes" || workloadTrustReserved(config) {
+		return "", false, nil
+	}
 	alias, _ := provider["alias"].(string)
 	if alias == "" {
 		return "", false, fmt.Errorf("identity provider without alias")

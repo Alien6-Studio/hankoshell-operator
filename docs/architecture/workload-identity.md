@@ -617,6 +617,11 @@ reserves a deterministic native UUID before POST; both qualified native JPA
 backends retain it. Unknown config/root security fields and any mapper refuse
 semantic writes. Display name, default first-broker flow and LEGACY syncMode are
 the only qualified preserved fields; no arbitrary native map is replayed.
+The historical generic broker writer refuses trust ownership/journal markers
+on both desired and observed providers, including stale alias-based cleanup.
+Realm-wide broker trustEmail/signature projection skips Kubernetes trusts and
+reserved trust markers. A later HankoRealm broker declaration therefore cannot
+become a second semantic writer for an already independently owned provider.
 
 The bounded local annotation `hanko.sh/workload-trust-checkpoint` uses version
 `hanko.sh/workload-trust-checkpoint/v1alpha1` and records only owner/provider/realm

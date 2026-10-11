@@ -2,6 +2,7 @@ package keycloak
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"net/http"
@@ -41,6 +42,9 @@ func (c *Client) EnsureIdentityProvider(ctx context.Context, realm string, desir
 	if strings.TrimSpace(desired.Alias) == "" || strings.TrimSpace(desired.ProviderID) == "" {
 		return IdentityProvider{}, fmt.Errorf("identity-provider alias and provider ID are required")
 	}
+	if workloadTrustReserved(desired.Config) {
+		return IdentityProvider{}, ErrWorkloadTrustConflict
+	}
 	providers, err := c.ListIdentityProviders(ctx, realm)
 	if err != nil {
 		return IdentityProvider{}, err
@@ -48,6 +52,9 @@ func (c *Client) EnsureIdentityProvider(ctx context.Context, realm string, desir
 	current, found, err := findIdentityProvider(providers, desired.Alias)
 	if err != nil {
 		return IdentityProvider{}, err
+	}
+	if workloadTrustReserved(current.Config) {
+		return IdentityProvider{}, ErrWorkloadTrustConflict
 	}
 	collectionPath := identityProvidersPath(realm)
 	if !found {
@@ -79,6 +86,23 @@ func (c *Client) DeleteIdentityProvider(ctx context.Context, realm, alias string
 		return nil
 	}
 	providerPath := identityProvidersPath(realm) + "/" + url.PathEscape(alias)
+	read, document, err := c.mapperRequest(ctx, http.MethodGet, providerPath, nil)
+	if err != nil {
+		return err
+	}
+	if read.StatusCode == http.StatusNotFound {
+		return nil
+	}
+	if read.StatusCode != http.StatusOK {
+		return ErrWorkloadTrustRead
+	}
+	var current IdentityProvider
+	if json.Unmarshal(document, &current) != nil || current.Alias != alias {
+		return ErrWorkloadTrustRead
+	}
+	if workloadTrustReserved(current.Config) {
+		return ErrWorkloadTrustConflict
+	}
 	resp, body, err := c.mapperRequest(ctx, http.MethodDelete, providerPath, nil)
 	if err != nil {
 		return fmt.Errorf("delete identity provider %q: %w", alias, err)
@@ -87,6 +111,18 @@ func (c *Client) DeleteIdentityProvider(ctx context.Context, realm, alias string
 		return fmt.Errorf("delete identity provider %q: keycloak %d: %s", alias, resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	return nil
+}
+
+// Opaque broker APIs must never acquire, overwrite or clean up the independently
+// owned trust. Presence is sufficient to refuse; even a malformed marker cannot
+// grant an alternative generic writer authority.
+func workloadTrustReserved[V any](config map[string]V) bool {
+	for _, key := range []string{WorkloadTrustOwnerKey, WorkloadTrustJournalKey} {
+		if _, present := config[key]; present {
+			return true
+		}
+	}
+	return false
 }
 
 func identityProvidersPath(realm string) string {
