@@ -3,8 +3,12 @@ package v1alpha1
 // ServiceAccountAuthentication selects one client authentication contract.
 // Omission preserves Secret. Kubernetes binding is validated independently of
 // native activation and does not authorize a method transition.
+// +kubebuilder:validation:XValidation:rule="!has(self.fallbackBinding) || (self.mode == 'Secret' && has(self.transition))",message="fallback binding requires an explicit Secret transition"
 // +kubebuilder:validation:XValidation:rule="self.mode == 'Kubernetes' ? has(self.kubernetes) : !has(self.kubernetes)",message="Kubernetes parameters are required only for Kubernetes mode"
 type ServiceAccountAuthentication struct {
+	Transition *ServiceAccountAuthenticationTransition `json:"transition,omitempty"`
+	// FallbackBinding retains explicit trust/workload authority for Secret fallback.
+	FallbackBinding *KubernetesServiceAccountAuthentication `json:"fallbackBinding,omitempty"`
 	// +kubebuilder:validation:Enum=Secret;Kubernetes
 	// +kubebuilder:default=Secret
 	Mode       string                                  `json:"mode,omitempty"`

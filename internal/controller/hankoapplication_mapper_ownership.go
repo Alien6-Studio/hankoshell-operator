@@ -53,6 +53,9 @@ func deleteOwnedApplicationTokenMapper(ctx context.Context, kc *keycloak.Client,
 		}
 	}
 	if owner.kind == "HankoServiceAccount" {
+		if owner.federatedAlias != "" {
+			return kc.DeleteFederatedServiceAccountMapperIfOwned(ctx, owner.realm, owner.clientID, owner.uid, owner.federatedAlias, owner.federatedSubject, id)
+		}
 		return kc.DeleteServiceAccountMapperIfOwned(ctx, owner.realm, owner.clientID, owner.uid, id)
 	}
 	// Legacy application tests without an UID have no provider ownership claim.

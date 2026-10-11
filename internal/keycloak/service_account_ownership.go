@@ -4,6 +4,7 @@ import (
 	"context"
 	"maps"
 	"net/url"
+	"strings"
 
 	"github.com/Alien6-Studio/hankoshell-operator/internal/adoption"
 )
@@ -80,7 +81,10 @@ func serviceMapperOwned(config map[string]string, uid string) bool {
 	return uid != "" && config[adoption.ClientOwnerKindKey] == "HankoServiceAccount" && config[adoption.ClientOwnerUIDKey] == uid
 }
 func (c *Client) EnsureServiceAccountMapperIfOwned(ctx context.Context, realm, clientID, uid string, desired ProtocolMapper) (ProtocolMapper, error) {
-	a, err := c.getOwnedServiceAccount(ctx, realm, clientID, uid)
+	return c.ensureServiceAccountMapper(ctx, realm, clientID, uid, desired, func() (*Application, error) { return c.getOwnedServiceAccount(ctx, realm, clientID, uid) })
+}
+func (c *Client) ensureServiceAccountMapper(ctx context.Context, realm, clientID, uid string, desired ProtocolMapper, lookup func() (*Application, error)) (ProtocolMapper, error) {
+	a, err := lookup()
 	if err != nil {
 		return ProtocolMapper{}, err
 	}
@@ -109,7 +113,10 @@ func (c *Client) EnsureServiceAccountMapperIfOwned(ctx context.Context, realm, c
 	return desired, nil
 }
 func (c *Client) DeleteServiceAccountMapperIfOwned(ctx context.Context, realm, clientID, uid, id string) error {
-	a, err := c.getOwnedServiceAccount(ctx, realm, clientID, uid)
+	return c.deleteServiceAccountMapper(ctx, realm, clientID, uid, id, func() (*Application, error) { return c.getOwnedServiceAccount(ctx, realm, clientID, uid) })
+}
+func (c *Client) deleteServiceAccountMapper(ctx context.Context, realm, clientID, uid, id string, lookup func() (*Application, error)) error {
+	a, err := lookup()
 	if err != nil {
 		return err
 	}
@@ -131,6 +138,11 @@ func (c *Client) DeleteServiceAccountMapperIfOwned(ctx context.Context, realm, c
 func setNewServiceAccountOwner(attributes map[string]any, spec CreateAppSpec) error {
 	if spec.ServiceAccountOwnerUID == "" {
 		return nil
+	}
+	for key := range spec.Attributes {
+		if adoption.ReservedAttribute(key) || strings.HasPrefix(key, "jwt.credential.") || strings.HasPrefix(key, "hanko.sh/workload-") {
+			return ErrApplicationPrecondition
+		}
 	}
 	if spec.Type != "m2m" {
 		return ErrApplicationPrecondition
@@ -156,7 +168,7 @@ func (c *Client) validateServiceAccountAttributes(ctx context.Context, realm str
 		}
 	}
 	for key := range attrs {
-		if adoption.ReservedAttribute(key) {
+		if reservedServiceAccountAttribute(key) {
 			return ErrApplicationPrecondition
 		}
 	}
@@ -176,4 +188,26 @@ func preserveAdoptedServiceAttributes(payload, current, next map[string]any) {
 	}
 	delete(payload, "serviceAccountsEnabled")
 	delete(payload, "access")
+}
+
+func (c *Client) federatedServiceAccountMapperOwner(ctx context.Context, realm, clientID, uid, alias, subject string) (*Application, error) {
+	s, err := c.ReadClientOwnership(ctx, realm, clientID)
+	if err != nil || s == nil || !s.PreservationQualified() || !FederatedWorkloadOwned(&s.Application, uid, alias, subject) || !s.Application.Enabled {
+		return nil, ErrApplicationPrecondition
+	}
+	return &s.Application, nil
+}
+func (c *Client) EnsureFederatedServiceAccountMapperIfOwned(ctx context.Context, realm, clientID, uid, alias, subject string, desired ProtocolMapper) (ProtocolMapper, error) {
+	return c.ensureServiceAccountMapper(ctx, realm, clientID, uid, desired, func() (*Application, error) {
+		return c.federatedServiceAccountMapperOwner(ctx, realm, clientID, uid, alias, subject)
+	})
+}
+func (c *Client) DeleteFederatedServiceAccountMapperIfOwned(ctx context.Context, realm, clientID, uid, alias, subject, id string) error {
+	return c.deleteServiceAccountMapper(ctx, realm, clientID, uid, id, func() (*Application, error) {
+		return c.federatedServiceAccountMapperOwner(ctx, realm, clientID, uid, alias, subject)
+	})
+}
+
+func reservedServiceAccountAttribute(key string) bool {
+	return adoption.ReservedAttribute(key) || strings.HasPrefix(key, "jwt.credential.") || strings.HasPrefix(key, "hanko.sh/workload-")
 }

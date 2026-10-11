@@ -11,7 +11,7 @@ import (
 // FederatedWorkloadOwned checks the narrow native envelope used by containment.
 // It neither acquires ownership nor treats a status/UUID as execution authority.
 func FederatedWorkloadOwned(a *Application, uid, alias, subject string) bool {
-	if !ServiceAccountOwned(a, uid) || !federatedWorkloadEnvelope(a) || a.Attributes["jwt.credential.issuer"] != alias || a.Attributes["jwt.credential.sub"] != subject {
+	if !ServiceAccountOwned(a, uid) || !FederatedWorkloadMapping(a, alias, subject) {
 		return false
 	}
 	if _, present := a.Attributes[adoption.ReceiptKey]; present && !validClientAdoptionReceipt(a, "HankoServiceAccount", uid) {
@@ -23,6 +23,10 @@ func FederatedWorkloadOwned(a *Application, uid, alias, subject string) bool {
 		}
 	}
 	return true
+}
+
+func FederatedWorkloadMapping(a *Application, alias, subject string) bool {
+	return a != nil && federatedWorkloadEnvelope(a) && a.Attributes["jwt.credential.issuer"] == alias && a.Attributes["jwt.credential.sub"] == subject
 }
 
 func federatedWorkloadEnvelope(a *Application) bool {

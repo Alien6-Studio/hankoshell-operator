@@ -61,14 +61,16 @@ var structuredReservedTokenClaims = []string{
 }
 
 type tokenClaimOwner struct {
-	kind       string
-	validate   func(context.Context) error
-	uid        string
-	namespace  string
-	name       string
-	generation int64
-	realm      string
-	clientID   string
+	federatedAlias   string
+	federatedSubject string
+	kind             string
+	validate         func(context.Context) error
+	uid              string
+	namespace        string
+	name             string
+	generation       int64
+	realm            string
+	clientID         string
 }
 
 // HankoApplicationReconciler reconciles HankoApplication objects.
@@ -918,7 +920,11 @@ func reconcileClientTokenClaim(ctx context.Context, kc *keycloak.Client, owner t
 	if owner.kind == "HankoServiceAccount" {
 		desired.Config["hanko.sh/client-owner-kind"] = owner.kind
 		desired.Config["hanko.sh/client-owner-uid"] = owner.uid
-		actual, err = kc.EnsureServiceAccountMapperIfOwned(ctx, owner.realm, owner.clientID, owner.uid, desired)
+		if owner.federatedAlias != "" {
+			actual, err = kc.EnsureFederatedServiceAccountMapperIfOwned(ctx, owner.realm, owner.clientID, owner.uid, owner.federatedAlias, owner.federatedSubject, desired)
+		} else {
+			actual, err = kc.EnsureServiceAccountMapperIfOwned(ctx, owner.realm, owner.clientID, owner.uid, desired)
+		}
 	} else {
 		if owner.uid != "" {
 			desired.Config[applications.OwnerAttribute] = owner.uid

@@ -1,6 +1,7 @@
 package keycloak
 
 import (
+	"k8s.io/apimachinery/pkg/util/validation"
 	"net/url"
 	"slices"
 	"strings"
@@ -22,6 +23,8 @@ func QualifiedClientAttribute(key, value string) bool {
 		return true
 	}
 	switch key {
+	case "jwt.credential.issuer", "jwt.credential.sub":
+		return qualifiedFederatedAttribute(key, value)
 	case "hanko.app", "hanko.service":
 		return value == "true"
 	case "client.secret.creation.time", "saml.artifact.binding.identifier":
@@ -112,7 +115,7 @@ func liveMapperOwnerMatches(mapper ProtocolMapper, app *Application) bool {
 		return mapper.Config[adoption.ApplicationOwnerKey] == uid && mapper.Config[adoption.ClientOwnerKindKey] == "" && mapper.Config[adoption.ClientOwnerUIDKey] == ""
 	}
 	uid = app.Attributes[adoption.ClientOwnerUIDKey]
-	return uid != "" && validClientAdoptionReceipt(app, "HankoServiceAccount", uid) && serviceMapperOwned(mapper.Config, uid)
+	return uid != "" && ServiceAccountOwned(app, uid) && serviceMapperOwned(mapper.Config, uid)
 }
 
 func qualifiedManagedMapperField(implementation, key, value string) bool {
@@ -216,4 +219,12 @@ func qualifiedMapperReference(value string) bool {
 
 func qualifiedMapperImplementation(mapper ProtocolMapper) bool {
 	return mapper.Protocol == "openid-connect" && slices.Contains([]string{"oidc-usermodel-attribute-mapper", "oidc-usermodel-realm-role-mapper"}, mapper.ProtocolMapper)
+}
+
+func qualifiedFederatedAttribute(key, value string) bool {
+	if key == "jwt.credential.issuer" {
+		return len(value) <= 128 && len(validation.IsDNS1123Subdomain(value)) == 0
+	}
+	parts := strings.Split(value, ":")
+	return len(parts) == 4 && parts[0] == "system" && parts[1] == "serviceaccount" && len(validation.IsDNS1123Label(parts[2])) == 0 && len(validation.IsDNS1123Subdomain(parts[3])) == 0
 }

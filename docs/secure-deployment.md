@@ -1179,7 +1179,9 @@ Native workload qualification defines the [workload identity contract](architect
 and adds a required real kubelet/Keycloak matrix for 1.35.0/1.36.2/1.37.0 and
 26.7.5/26.8.0. These disposable fixtures prove projected 600-second assertions,
 rotation/expiry, native permissions, method exclusivity and negative inputs.
-They do not install a federated HankoServiceAccount controller or a trust CRD.
+The native fixture uses production reconcilers with ephemeral Hanko storage and
+real workload API UID reads; installed regression separately proves activation.
+Complete installed workload-to-resource authorization remains separate work.
 Existing application runtime anchors remain credential delivery, not federation.
 
 Native Keycloak accepts same-name recreated SAs and reusable assertions, without
@@ -1208,8 +1210,8 @@ The workload owner creates the ServiceAccount/ConfigMap and supplies consent.
 The binding controller uses named uncached reads and only patches its public
 metadata field. It adds no TokenRequest/TokenReview, token Secret, Pod mutation,
 ConfigMap creation or wildcard cross-namespace watch. Projection duration must
-fit the shared trust age. Binding status is passive and remains Pending for
-separate authentication activation; do not infer token issuance from metadata.
+fit the shared trust age. Binding readiness precedes native activation; do not
+infer token issuance or workload authentication from either readiness or metadata.
 
 UID loss clears current readiness and attempts enabled-only containment of the
 strictly owned native federated client. Normal polling is 30 seconds; API/provider
@@ -1241,3 +1243,32 @@ pool. [The inventory permission matrix](keycloak-permissions.md#dedicated-invent
 explains native role privacy limits on 26.7.5/26.8.0. Terminal Done is not evidence
 of full coverage; inspect InventoryComplete, coverage and typed target candidates.
 These candidates do not approve provider ownership or a transition to Manage.
+
+## HankoServiceAccount federated authentication operations
+
+Install the updated HankoServiceAccount schema before controller upgrades. Existing
+manifests with omitted authentication retain Secret behavior. Review the
+[activation and migration contract](architecture/workload-identity.md#hankoserviceaccount-federated-authentication)
+and [credential authority limits](keycloak-permissions.md#hankoserviceaccount-federated-authentication).
+The client writer is separate from the trust writer and dependent reader; the
+current manager process can access their combined native powers.
+
+Prepare the workload's dedicated ServiceAccount, exact UID, projection audience,
+short lifetime and runtime configuration yourself. The operator never modifies
+PodSpec or requests/receives workload JWTs. Named ServiceAccount reads and public
+ConfigMap field patches add no TokenRequest/TokenReview authority. Ready and active
+metadata prove configuration; test actual workload authentication and separately
+declared API permissions before switching consumers. Prefer two-client migration;
+same-client cutover may interrupt consumers and requires exact current external
+approvals, a durable journal, explicit authentication review and output cleanup.
+
+Do not drop Kubernetes binding authority to force Secret mode. Explicit fallback
+retains the binding, stages and verifies the same native recovery credential before
+an approved method switch, and never generates a replacement on missing credentials.
+Keep the canonical output UID and owner intact. Revoked approval/consent, immutable
+or replaced outputs, unexpected native fields and unfinished rotations stop the
+transaction. Resolve ambiguous attempted rotations explicitly; replay is refused.
+Issued access tokens retain their own lifetime after containment or authenticator
+changes. The existing native UID/replay limitations and residual revocation interval
+still apply. Installed-system and migration qualification remains open for complete
+Pod-to-resource authorization and restart recovery; no release/publication is added.

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"strings"
 
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/adoption"
@@ -24,7 +25,7 @@ func (r *HankoServiceAccountReconciler) validateServiceAccountExecution(ctx cont
 		return err
 	}
 	for key := range sa.Spec.Attributes {
-		if adoption.ReservedAttribute(key) {
+		if adoption.ReservedAttribute(key) || strings.HasPrefix(key, "jwt.credential.") || strings.HasPrefix(key, "hanko.sh/workload-") {
 			return keycloak.ErrApplicationPrecondition
 		}
 	}

@@ -903,7 +903,7 @@ class System:
             current = self.get("hankoserviceaccount", "bound-worker")
             return current.get("status", {}).get("observedGeneration") == current["metadata"]["generation"] and any(
                 c.get("type") == "WorkloadBindingReady" and c.get("status") == "True" for c in current.get("status", {}).get("conditions", []))
-        wait("installed passive workload binding", bound)
+        wait("installed current workload binding", bound)
         account = self.get("hankoserviceaccount", "bound-worker")
         prefix = "hanko.sh/workload-runtime-"
         consent = {prefix + "owner-kind": "HankoServiceAccount", prefix + "owner-namespace": "auth", prefix + "owner-name": account["metadata"]["name"],
@@ -915,21 +915,18 @@ class System:
             json.dumps({"spec": {"runtimeMetadata": {"configMapRef": "identity", "expectedUID": target_uid}}}))
         def delivered():
             current = self.get("hankoserviceaccount", "bound-worker")
-            return bound() and current.get("status", {}).get("runtimeMetadata", {}).get("configMapUID") == target_uid
+            return bound() and self.ready("hankoserviceaccount", "bound-worker") and current.get("status", {}).get("runtimeMetadata", {}).get("configMapUID") == target_uid
         wait("installed named public runtime metadata", delivered)
         account = self.get("hankoserviceaccount", "bound-worker")
         metadata = self.get("configmap", "identity", namespace)
         document = json.loads(metadata["data"]["workload-identity.json"])
-        if account["status"]["phase"] != "Pending" or account["status"].get("secretRef") or document["workload"]["expectedUID"] != uid or document["bindingRevision"] != account["status"]["workloadBinding"]["bindingRevision"]:
-            raise ValueError("Passive workload metadata claimed authentication or lost exact UID/revision")
-        # Native activation is fixture-administrator setup, distinct from binding.
-        self.api("POST", "/admin/realms/" + realm + "/clients", {"clientId": "bound-worker", "protocol": "openid-connect", "enabled": True,
-            "clientAuthenticatorType": "federated-jwt", "serviceAccountsEnabled": True, "publicClient": False,
-            "standardFlowEnabled": False, "directAccessGrantsEnabled": False, "implicitFlowEnabled": False, "fullScopeAllowed": False,
-            "name": "Preserved display", "attributes": {"hanko.sh/client-owner-kind": "HankoServiceAccount", "hanko.sh/client-owner-uid": account["metadata"]["uid"],
-                "jwt.credential.issuer": "installed-cluster", "jwt.credential.sub": "system:serviceaccount:" + namespace + ":worker"}})
+        if account["status"].get("secretRef") or document["authenticationActivation"] != "Federated" or document["workload"]["expectedUID"] != uid or document["bindingRevision"] != account["status"]["workloadBinding"]["bindingRevision"]:
+            raise ValueError("Installed activation lost exact public UID/revision evidence")
         before = self.client(realm, "bound-worker")
-        wait("installed native client reference refresh", lambda: bound() and self.get("hankoserviceaccount", "bound-worker")["status"]["workloadBinding"]["bindingRevision"] != document["bindingRevision"])
+        if before["clientAuthenticatorType"] != "federated-jwt" or before["attributes"].get("hanko.sh/client-owner-uid") != account["metadata"]["uid"]:
+            raise ValueError("Installed controller did not create the owned native federated client")
+        self.api("PUT", "/admin/realms/" + realm + "/clients/" + before["id"], {"name": "Preserved display"})
+        before = self.client(realm, "bound-worker")
         metadata = self.get("configmap", "identity", namespace)
         self.kubectl("delete", "serviceaccount", "worker", "-n", namespace, "--wait=true")
         self.apply({"apiVersion": "v1", "kind": "ServiceAccount", "metadata": {"name": "worker", "namespace": namespace}})
@@ -948,6 +945,10 @@ class System:
                 "-n", namespace, "--as=system:serviceaccount:auth:system-operator"], capture_output=True, timeout=30, check=False)
             if result.returncode != 1 or result.stdout.decode().strip() != "no":
                 raise ValueError("Installed binding grant exceeds named get/patch boundary")
+        # Fixture administration retires the deliberately invalidated native
+        # child only after containment/preservation has been measured. The
+        # controller remains blocked on the old workload UID/output consent;
+        # this is not a claim of automatic cleanup after UID replacement.
         self.api("DELETE", "/admin/realms/" + realm + "/clients/" + after["id"])
 
     def organization_adoption(self):
@@ -1225,7 +1226,7 @@ def main():
                            "Application acquisition followed by ResourceServer selective V2 journal, sibling receipt preservation, exact selected IDs, status-loss/restart recovery, drift repair, late shared dependency cleanup refusal and foreign graph survival",
                            "drift recovery after manager restart without duplicate client or credential rotation", "managed finalizer and Observe preservation", "runtime M2M projected-credential token and rotation", "SAML metadata binding and target-preserving cleanup",
                            "independent typed shared trust in external Observe realm; actual current kube-system UID/public API CA DER anchor and verified issuer/JWKS, three dedicated credentials, native UUID/journal, manager restart, explicit shared-age inventory review and zero-dependent provider-only cleanup",
-                           "workload binding: actual cross-namespace named SA/CM get/patch, explicit approved UID and target UID consent, public-only metadata with passive status, recreated-SA containment preserves complete native state except enabled=false; no TokenRequest/list/create/delete grant",
+                           "workload binding and native federated activation: actual cross-namespace named SA/CM get/patch, explicit approved UID and target UID consent, current owned native client and active public-only metadata, recreated-SA containment preserves complete native state except enabled=false; no TokenRequest/list/create/delete grant",
                            "no credentials in logs/events/CRDs"],
                 "organization_permissions": {"scope": "organization-target only", "roles": ["manage-realm", "manage-clients", "manage-events", "manage-users"],
                                              "denied": ["master administration", "managed realm administration", "realm creation", "identity providers"]},

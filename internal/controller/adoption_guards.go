@@ -41,6 +41,12 @@ func (r *HankoServiceAccountReconciler) serviceAccountAcquisitionGuard(ctx conte
 	if !ok {
 		return errAcquisitionAuthority
 	}
+	if sa.Spec.Authentication != nil && sa.Spec.Authentication.Mode == "Kubernetes" {
+		s, err := r.WorkloadTrust.serviceAccountWorkloadSnapshot(ctx, sa, false)
+		if err != nil || s.source.client.BaseURL() != kc.BaseURL() || s.native == nil || !keycloak.FederatedWorkloadMapping(s.native, s.trust.trust.Spec.KeycloakAlias, workloadSubject(sa)) {
+			return errAcquisitionAuthority
+		}
+	}
 	conflict, err := r.serviceAccountOwnershipConflict(ctx, sa, kc)
 	if err != nil || conflict != "" {
 		return errAcquisitionAuthority

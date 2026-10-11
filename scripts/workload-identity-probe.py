@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import importlib.util
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import secrets
@@ -43,6 +44,8 @@ NODE_ARCHIVES = {"arm64": "fb072af40057be271d3a7175b7c7689c719b02fb8bb00027b4a03
                  "amd64": "a87298665748685c6ea595f6cb1dd8b437b4148cb7f40ab9dc7d88d2da18e7df"}
 ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
 REALM_ISSUER = "https://keycloak.auth.svc:8443/realms/managed"
+CONTROLLER_REALM = "controller-managed"
+CONTROLLER_ISSUER = "https://keycloak.auth.svc:8443/realms/" + CONTROLLER_REALM
 
 
 def run(args, input=None, timeout=240, include_stderr=False):
@@ -76,6 +79,18 @@ def safe_report(report, sensitive):
     if any(secret and secret in encoded for secret in sensitive) or re.search(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", encoded):
         raise ValueError("Credential found in report (withheld)")
     return encoded
+
+
+def public_report(report):
+    # Uploaded evidence is deliberately narrower than local fixture evidence.
+    # Never publish full provider/client/flow/permission representations.
+    keys = ("keycloak_version", "kubernetes_version", "publishable", "complete", "started_at", "completed_at",
+            "fixture_sha256", "node_image", "keycloak_image", "controller_authentication",
+            "no_jwt_in_logs_events_secrets_configmaps", "projected_rotation", "secret_recovered_without_rotation")
+    result = {key: report[key] for key in keys if key in report}
+    result["checks"] = {name: {"http_status": value["http_status"]} for name, value in report.get("checks", {}).items()}
+    result["check_count"] = len(result["checks"])
+    return result
 
 
 class Fixture(system.System):
@@ -224,6 +239,7 @@ class Fixture(system.System):
                                      {"name": "ca", "mountPath": "/ca", "readOnly": True}]}],
                 "volumes": [{"name": "tokens", "projected": {"sources": [
                     {"serviceAccountToken": {"audience": REALM_ISSUER, "expirationSeconds": 600, "path": "assertion"}},
+                    {"serviceAccountToken": {"audience": CONTROLLER_ISSUER, "expirationSeconds": 600, "path": "controller-assertion"}},
                     {"serviceAccountToken": {"audience": "https://wrong.invalid", "expirationSeconds": 600, "path": "wrong-audience"}}]}},
                     {"name": "ca", "configMap": {"name": "keycloak-ca"}}]}})
         self.kubectl("wait", "--for=condition=Ready", "pod/" + name, "-n", namespace, "--timeout=180s")
@@ -426,14 +442,89 @@ except urllib.error.HTTPError as e:
             "enabled": True, "publicClient": False, "serviceAccountsEnabled": True, "clientAuthenticatorType": "federated-jwt",
             "attributes": {"jwt.credential.issuer": "workload-kube", "jwt.credential.sub": binding_subject("workload", "other")}})
 
-    def check(self, name, value, expected_status):
+    def check(self, name, value, expected_status, client="workload-a", issuer=REALM_ISSUER):
         self.report["checks"][name] = value
         print(name + ": HTTP " + str(value["http_status"]), flush=True)
         statuses = expected_status if isinstance(expected_status, tuple) else (expected_status,)
         if value["http_status"] not in statuses:
             raise ValueError("Native qualification unexpected result: " + name)
-        if value["http_status"] == 200 and (value.get("authorized_party") != "workload-a" or value.get("issuer") != REALM_ISSUER):
+        if value["http_status"] == 200 and (value.get("authorized_party") != client or value.get("issuer") != issuer):
             raise ValueError("Native token is not bound to the expected machine client and realm")
+
+    def controller_action(self, action):
+        # The production reconciler receives no projected assertion. Its only
+        # credential input is the four separately constrained admin identities.
+        self.controller_input["Action"] = action
+        path = self.private / "controller-input.json"
+        path.write_text(json.dumps(self.controller_input))
+        path.chmod(0o600)
+        env = dict(os.environ, HANKO_NATIVE_CONTROLLER_INPUT=str(path))
+        result = subprocess.run([str(self.controller_binary), "-test.run=^TestNativeWorkloadAuthenticationController$",
+                                 "-test.timeout=120s"], env=env, capture_output=True, timeout=150)
+        if result.returncode:
+            # This tagged harness logs only bounded reasons, but diagnostics
+            # still stay in the private, disposable fixture directory.
+            (self.private / "controller-failure.log").write_bytes(result.stdout + result.stderr)
+            failure = self.args.output.with_suffix(".controller-private.log")
+            failure.write_bytes(result.stdout + result.stderr)
+            failure.chmod(0o600)
+            raise RuntimeError("Native production controller action failed: " + action)
+
+    def controller_authentication(self):
+        self.api("POST", "/admin/realms", {"realm": CONTROLLER_REALM, "enabled": True})
+        profiles = {"controller-observer": ["view-identity-providers", "view-realm"],
+                    "controller-trust-writer": ["manage-identity-providers", "view-realm"],
+                    "controller-dependent-reader": ["view-clients"],
+                    "controller-client-writer": ["manage-clients", "view-realm"]}
+        credentials = {name: self.adoption_identity(name, CONTROLLER_REALM, roles) for name, roles in profiles.items()}
+        self.pod("controller-legacy", "controller-legacy")
+        self.controller_input = {"Endpoint": self.endpoint, "CA": (self.private / "tls.crt").read_text(),
+            "Kubeconfig": str(self.config), "Realm": CONTROLLER_REALM, "Issuer": self.report["discovery"]["issuer"],
+            "KeysHash": "sha256:" + hashlib.sha256(self.kubectl("get", "--raw", "/openid/v1/jwks").encode()).hexdigest(),
+            "ExpectedUID": self.get("serviceaccount", "worker", "workload")["metadata"]["uid"],
+            "LegacyUID": self.get("serviceaccount", "controller-legacy", "workload")["metadata"]["uid"], "Credentials": credentials}
+        self.controller_binary = self.private / "native-controller.test"
+        run(["go", "test", "-c", "-tags=native_workload_qualification", "./internal/controller", "-o", self.controller_binary], timeout=240)
+        self.controller_action("create")
+        self.controller_check("controller_fresh_assertion", self.assertion(self.projected(path="controller-assertion"), "controller-worker", CONTROLLER_REALM), 200, "controller-worker")
+        worker = self.client(CONTROLLER_REALM, "controller-worker")
+        worker_secret = self.api("GET", f'/admin/realms/{CONTROLLER_REALM}/clients/{worker["id"]}/client-secret')["value"]
+        self.sensitive.append(worker_secret)
+        self.controller_check("controller_fresh_rejects_secret", self.exchange({"grant_type": "client_credentials", "client_id": "controller-worker", "client_secret": worker_secret}, CONTROLLER_REALM), (400, 401), "controller-worker")
+        self.controller_action("secret")
+        legacy = self.client(CONTROLLER_REALM, "controller-secret")
+        credential = self.api("GET", f'/admin/realms/{CONTROLLER_REALM}/clients/{legacy["id"]}/client-secret')["value"]
+        self.sensitive.append(credential)
+        fields = {"grant_type": "client_credentials", "client_id": "controller-secret", "client_secret": credential}
+        self.controller_check("controller_legacy_secret", self.exchange(fields, CONTROLLER_REALM), 200)
+        self.controller_check("controller_legacy_rejects_assertion", self.assertion(self.projected("controller-legacy", path="controller-assertion"), "controller-secret", CONTROLLER_REALM), (400, 401))
+        for request in ("prepare-federated", "prepare-fallback", "prepare-return"):
+            self.controller_action(request)
+            before_approval = self.client(CONTROLLER_REALM, "controller-secret")
+            expected_before = "federated-jwt" if request == "prepare-fallback" else "client-secret"
+            if before_approval["clientAuthenticatorType"] != expected_before:
+                raise ValueError("Controller changed native authentication before exact approval")
+            self.controller_action("approve")
+            applied = self.client(CONTROLLER_REALM, "controller-secret")
+            if applied["clientAuthenticatorType"] != ("client-secret" if request == "prepare-fallback" else "federated-jwt"):
+                raise ValueError("Approved controller method was not applied")
+            fallback = request == "prepare-fallback"
+            self.controller_check("controller_" + request + "_assertion", self.assertion(self.projected("controller-legacy", path="controller-assertion"), "controller-secret", CONTROLLER_REALM), (400, 401) if fallback else 200)
+            self.controller_check("controller_" + request + "_secret", self.exchange(fields, CONTROLLER_REALM), 200 if fallback else (400, 401))
+            if not fallback:
+                # AuthReviewed is authored by this external workload fixture
+                # only after its actual projected assertion succeeded.
+                self.controller_action("review")
+            after = self.client(CONTROLLER_REALM, "controller-secret")
+            retained = self.api("GET", f'/admin/realms/{CONTROLLER_REALM}/clients/{after["id"]}/client-secret')["value"]
+            if after["id"] != legacy["id"] or retained != credential or after["defaultClientScopes"] != legacy["defaultClientScopes"] or after["optionalClientScopes"] != legacy["optionalClientScopes"] or after["attributes"].get("locale") != "fr":
+                raise ValueError("Controller transition changed native identity, recovery credential or independent configuration")
+        self.report["controller_authentication"] = {"fresh_creation": True, "same_client_round_trip": True,
+            "retained_credential_without_rotation": True, "external_projected_review": True,
+            "controller_received_workload_jwt": False, "hanko_storage": "ephemeral-fixture", "workload_uid_reads": "real-api"}
+
+    def controller_check(self, name, value, status, client="controller-secret"):
+        self.check(name, value, status, client, CONTROLLER_ISSUER)
 
     def qualify(self):
         self.create_cluster()
@@ -525,6 +616,7 @@ except urllib.error.HTTPError as e:
         self.secret_migration(token)
         self.flows(token)
         self.permissions()
+        self.controller_authentication()
         self.external_keycloak(foreign)
         self.identity_lifecycle(token)
         live = self.token_request(audiences=[REALM_ISSUER])
@@ -679,6 +771,10 @@ except urllib.error.HTTPError as e:
         if uid_b == self.report["service_account_uid_a"]:
             raise ValueError("ServiceAccount was not recreated")
         self.check("recreated_sa_native_acceptance", self.assertion(token_b), 200)
+        self.controller_action("contain")
+        if self.client(CONTROLLER_REALM, "controller-worker")["enabled"]:
+            raise ValueError("Production controller did not contain the actual recreated workload UID")
+        self.report["controller_authentication"]["real_uid_replacement_contained"] = True
         self.check("old_sa_after_recreation", self.assertion(token), 200)
         # Hold assertions only in memory and leave a real live Pod running so
         # kubelet rotation is measured, rather than forging dates or signatures.
@@ -738,7 +834,7 @@ def main():
         finally:
             report = fixture.report
             try:
-                encoded = safe_report(report, fixture.sensitive)
+                encoded = safe_report(public_report(report), fixture.sensitive)
                 args.output.parent.mkdir(parents=True, exist_ok=True)
                 args.output.write_text(encoded)
             finally:

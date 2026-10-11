@@ -31,6 +31,11 @@ func observeClientAttributes(item *adoptionInventoryItem, c keycloak.InventoryCl
 			continue
 		}
 		switch key {
+		case "jwt.credential.issuer", "jwt.credential.sub":
+			if !keycloak.QualifiedClientAttribute(key, value) {
+				native = true
+				credential = true
+			}
 		case "hanko.sh/application-owner", "hanko.sh/client-owner-kind", "hanko.sh/client-owner-uid", "hanko.sh/adoption-receipt", "hanko.app", "hanko.service", "hanko.sh/resource-server-ownership", "client.secret.creation.time":
 		case "post.logout.redirect.uris":
 			if safeInventoryURLs(strings.Split(value, "##")) {
@@ -448,6 +453,15 @@ func desiredInventoryFacts(item *adoptionInventoryItem, obj client.Object) []ado
 		add("realmRef", textValue(o.Spec.RealmRef))
 		add("name", textValue(o.Spec.ClientID))
 		add("scopes", setValue(o.Spec.Scopes))
+		method := "client-secret"
+		if o.Spec.Authentication != nil && o.Spec.Authentication.Mode == "Kubernetes" {
+			method = "federated-jwt"
+			if o.Spec.Authentication.Kubernetes != nil {
+				w := o.Spec.Authentication.Kubernetes.Workload
+				add("federatedSubject", textValue("system:serviceaccount:"+w.Namespace+":"+w.ServiceAccountRef))
+			}
+		}
+		add("clientAuthenticatorType", textValue(method))
 		desiredMetadata(item, add, o.Spec.Attributes)
 		desiredTokenClaims(item, &facts, o.Spec.TokenClaims)
 		if o.Spec.SecretRotationPolicy != nil && o.Spec.SecretRotationPolicy.Enabled {

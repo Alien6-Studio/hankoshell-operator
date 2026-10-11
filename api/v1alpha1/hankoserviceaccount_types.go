@@ -30,6 +30,7 @@ type HankoServiceAccount struct {
 // +kubebuilder:validation:XValidation:rule="!has(self.attributes) || self.attributes.all(k, !k.startsWith('jwt.credential.') && !k.startsWith('hanko.sh/workload-'))",message="workload authenticator and binding attributes are reserved"
 // +kubebuilder:validation:XValidation:rule="!has(self.runtimeMetadata) || (has(self.authentication) && self.authentication.mode == 'Kubernetes')",message="workload runtime metadata requires Kubernetes authentication intent"
 // +kubebuilder:validation:XValidation:rule="!has(self.authentication) || self.authentication.mode != 'Kubernetes' || !has(self.secretRotationPolicy) || !self.secretRotationPolicy.enabled",message="active secret rotation is incompatible with Kubernetes authentication"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.authentication) || oldSelf.authentication.mode != 'Kubernetes' || (has(self.authentication) && (self.authentication.mode == 'Kubernetes' || has(self.authentication.fallbackBinding)))",message="Secret fallback from Kubernetes must retain its explicit binding for reviewed preparation"
 type HankoServiceAccountSpec struct {
 	// Mode separates credential and provider management from observation.
 	// The imported-by label always forces effective Observe.
@@ -84,9 +85,10 @@ type SecretRotationPolicy struct {
 
 // HankoServiceAccountStatus describes the observed state of the M2M client.
 type HankoServiceAccountStatus struct {
-	WorkloadBinding *WorkloadBindingStatus         `json:"workloadBinding,omitempty"`
-	RuntimeMetadata *WorkloadRuntimeMetadataStatus `json:"runtimeMetadata,omitempty"`
-	AdoptionReceipt *AdoptionReceiptStatus         `json:"adoptionReceipt,omitempty"`
+	AuthenticationTransition *AuthenticationTransitionStatus `json:"authenticationTransition,omitempty"`
+	WorkloadBinding          *WorkloadBindingStatus          `json:"workloadBinding,omitempty"`
+	RuntimeMetadata          *WorkloadRuntimeMetadataStatus  `json:"runtimeMetadata,omitempty"`
+	AdoptionReceipt          *AdoptionReceiptStatus          `json:"adoptionReceipt,omitempty"`
 
 	// AdoptionCandidate is bounded review evidence, never execution authority.
 	AdoptionCandidate *AdoptionCandidateStatus `json:"adoptionCandidate,omitempty"`

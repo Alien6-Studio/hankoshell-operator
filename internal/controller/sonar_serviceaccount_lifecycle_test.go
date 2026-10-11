@@ -21,6 +21,7 @@ import (
 
 func TestManagedServiceAccountCreatesCredentialAndSchedulesRotation(t *testing.T) {
 	created := false
+	nativeSecret := "generated-secret"
 	var stored map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		switch {
@@ -49,9 +50,10 @@ func TestManagedServiceAccountCreatesCredentialAndSchedulesRotation(t *testing.T
 		case request.Method == http.MethodGet && strings.HasSuffix(request.URL.Path, "/protocol-mappers/models"):
 			_ = json.NewEncoder(w).Encode([]any{})
 		case request.Method == http.MethodGet && request.URL.Path == "/admin/realms/acme/clients/automation-uuid/client-secret":
-			_ = json.NewEncoder(w).Encode(map[string]string{"value": "generated-secret"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"value": nativeSecret})
 		case request.Method == http.MethodPost && request.URL.Path == "/admin/realms/acme/clients/automation-uuid/client-secret":
-			_ = json.NewEncoder(w).Encode(map[string]string{"value": "rotated-secret"})
+			nativeSecret = "rotated-secret"
+			_ = json.NewEncoder(w).Encode(map[string]string{"value": nativeSecret})
 		default:
 			http.Error(w, "unexpected request", http.StatusNotFound)
 		}
@@ -90,7 +92,7 @@ func TestManagedServiceAccountCreatesCredentialAndSchedulesRotation(t *testing.T
 	if err := k8sClient.Get(context.Background(), client.ObjectKey{Namespace: "test", Name: "hanko-sa-automation"}, &secret); err != nil {
 		t.Fatalf("get generated client secret: %v", err)
 	}
-	if secret.StringData["client_secret"] != "generated-secret" {
+	if canonicalServiceAccountSecret(&secret) != "generated-secret" {
 		t.Fatalf("stored client secret = %#v", secret.StringData)
 	}
 	if _, err := reconciler.Reconcile(context.Background(), request); err != nil {
@@ -110,7 +112,7 @@ func TestManagedServiceAccountCreatesCredentialAndSchedulesRotation(t *testing.T
 	if err := k8sClient.Get(context.Background(), client.ObjectKey{Namespace: "test", Name: "hanko-sa-automation"}, &secret); err != nil {
 		t.Fatal(err)
 	}
-	if secret.StringData["client_secret"] != "rotated-secret" {
+	if canonicalServiceAccountSecret(&secret) != "rotated-secret" {
 		t.Fatalf("rotated Kubernetes secret = %#v", secret.StringData)
 	}
 }
