@@ -25,7 +25,7 @@ annotations:
   artifacthub.io/prerelease: "true"
   artifacthub.io/changes: |
     - kind: changed
-      description: Develop the first public 0.1.0 with prerelease metadata 0.1.0-dev.0; all ten engineering phases precede publication.
+      description: Develop the first public 0.1.0 with prerelease metadata 0.1.0-dev.0; all required capability and qualification work precedes publication.
     - kind: fixed
       description: Bind the private Ed25519 signer to its approved public key and canonical Attest identity before publication; qualify TSA structure and adversarial retries without changing IAM behavior.
     - kind: added

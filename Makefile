@@ -45,6 +45,7 @@ chart-test:
 	python3 $(CHART)/tests/observability.py
 	python3 $(CHART)/tests/organization-projection.py
 	python3 $(CHART)/tests/kubernetes-compatibility.py
+	python3 $(CHART)/tests/workload-binding.py
 integration-test:
 	@assets="$$(bash scripts/install-envtest.sh $(KUBERNETES_VERSION))" && \
 		KUBEBUILDER_ASSETS="$$assets" KUBERNETES_VERSION=$(KUBERNETES_VERSION) \

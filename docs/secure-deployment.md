@@ -70,7 +70,7 @@ profiles, see [the Keycloak permission contract](keycloak-permissions.md#dedicat
 ## Trust boundaries
 
 For independent Kubernetes trust, provision three distinct
-[P6.2 profiles](keycloak-permissions.md#workload-identity-qualification-phase-6a):
+[Trust profiles](keycloak-permissions.md#workload-identity-qualification):
 trust-writer (`manage-identity-providers`, `view-realm`), trust-observer
 (`view-identity-providers`, `view-realm`) and dependent-client-reader
 (`view-clients` only on the target realm). Keep Full Scope Allowed off and exact
@@ -940,7 +940,7 @@ configuration, while installation-specific enforcement still needs qualification
 The first public 0.1.0 is in development; no public release has been published.
 Source/chart/app/build/rehearsal metadata is `0.1.0-dev.0`, with Artifact Hub
 `prerelease: true`. All implemented capabilities and canonical Attest hardening
-remain intact. Phases 6–10 and #21's real trust evidence are required before
+remain intact. Workload Identity, Delegation & Agent Identity, Provider Portability, Fleet Reconciliation and Initial Public Contract Stabilization and #21's real trust evidence are required before
 first publication; see the [roadmap](../ROADMAP.md) and
 [administrator checklist](release-public-0.1.0-preparation.md).
 
@@ -1175,7 +1175,7 @@ UID consent. This is controlled credential delivery, not token federation.
 
 ## Workload identity native qualification
 
-Phase 6A defines the [workload identity contract](architecture/workload-identity.md)
+Native workload qualification defines the [workload identity contract](architecture/workload-identity.md)
 and adds a required real kubelet/Keycloak matrix for 1.35.0/1.36.2/1.37.0 and
 26.7.5/26.8.0. These disposable fixtures prove projected 600-second assertions,
 rotation/expiry, native permissions, method exclusivity and negative inputs.
@@ -1183,12 +1183,40 @@ They do not install a federated HankoServiceAccount controller or a trust CRD.
 Existing application runtime anchors remain credential delivery, not federation.
 
 Native Keycloak accepts same-name recreated SAs and reusable assertions, without
-TokenReview. Future implementation therefore requires explicit SA UID approval
+TokenReview. Workload binding and mesh coherence therefore uses explicit SA UID approval
 and fresh local containment, with a documented residual revocation interval.
 Use the contract's two-client migration when authentication proof must precede
 secret deactivation. The operator will configure trust/metadata without storing
 workload JWTs or injecting PodSpec projections. #21 production trust and the
 first-publication release gate remain unchanged.
+
+## Workload binding configuration
+
+Use the [Workload binding and mesh coherence contract](architecture/workload-identity.md#workload-binding-and-mesh-coherence)
+for the required live ServiceAccount UID, explicit client source and optional
+pre-existing ConfigMap UID consent. A minimal Helm cross-namespace grant is:
+
+```yaml
+workloadBinding:
+  grants:
+    - namespace: workloads
+      serviceAccounts: [worker]
+      configMaps: [worker-identity]
+```
+
+The workload owner creates the ServiceAccount/ConfigMap and supplies consent.
+The binding controller uses named uncached reads and only patches its public
+metadata field. It adds no TokenRequest/TokenReview, token Secret, Pod mutation,
+ConfigMap creation or wildcard cross-namespace watch. Projection duration must
+fit the shared trust age. Binding status is passive and remains Pending for
+separate authentication activation; do not infer token issuance from metadata.
+
+UID loss clears current readiness and attempts enabled-only containment of the
+strictly owned native federated client. Normal polling is 30 seconds; API/provider
+outages can extend the interval and issued access tokens survive native client
+disabling according to their own lifetime. Lost consent/UID holds field cleanup
+for explicit administrator resolution. Review the [native credential powers and
+same-process limits](keycloak-permissions.md#workload-identity-qualification).
 
 ## Structural authorization explanation
 

@@ -60,25 +60,32 @@ targets. Protocol/runtime tests use only target-realm `manage-clients`; realm
 reconciliation and declared realm roles retain their existing additional grants.
 See [runtime target RBAC and consent](architecture/application-identity.md#runtime-bindings).
 
-## Workload identity qualification (Phase 6A)
+## Workload identity qualification
 
 The [workload identity contract](architecture/workload-identity.md#13-permission-model)
 qualifies native Kubernetes trust CRUD with `manage-identity-providers`,
 federated client CRUD/method selection with `manage-clients`, and effective
 client-flow reads with `view-realm`. Dedicated `view-identity-providers` can
-observe trusts but cannot create/update/delete them. The activating federated
-client profile is `manage-clients` + `view-realm`; it needs no new `manage-realm`
+observe trusts but cannot create/update/delete them. The dedicated client connection profile is `manage-clients` + `view-realm`; it needs no new `manage-realm`
 grant. An external administrator prepares missing client-flow prerequisites.
 
-The P6.2 trust profiles now serve the independent trust controller; federated
-client activation remains future work. Disposable real accounts qualify each
+The trust profiles serve the independent trust controller; federated
+client activation remains separate work. The passive binding controller uses an
+explicit `authentication.kubernetes.sourceRef` client connection with target-realm
+`manage-clients` + `view-realm`. It reads metadata/flow only, except that confirmed
+workload UID loss may disable a strictly owned federated client through a partial
+`enabled=false` update. It never creates/deletes clients, reads/rotates secrets,
+changes authentication methods or repairs flows. Full Scope Allowed remains off.
+The credential still has native realm-wide client administration, including secret
+access; this narrow application path does not attenuate that credential. These
+client powers also join the practical union of credentials in the manager process. Disposable real accounts qualify each
 profile separately, without changing existing common grants. The native
 trust writer can also mutate unrelated IdPs in its target realm. All constrained
 profiles refuse user management, realm deletion/security PUT, create-realm,
 master/unrelated-realm administration and impersonation. Ownership guards do not
 make either writer role narrower than the native realm-wide authority.
 
-P6.2 explicitly requires a **separate dependent-client-reader** with only
+Trust ownership requires a **separate dependent-client-reader** with only
 `view-clients` on the target realm. The trust writer keeps
 `manage-identity-providers` + `view-realm`, and receives no `view-clients`.
 The observer uses `view-identity-providers` + `view-realm`. Provision distinct
@@ -108,8 +115,8 @@ The existing single-manager architecture loads these distinct credentials in
 one process/pod: compromise gives their practical union, together with any
 other credentials held by the manager. Adding a separate
 inventory service would require a new authenticated freshness protocol, so
-P6.2 does not claim deployment/process isolation. See the accepted
-[dependency-reader exception](architecture/workload-identity.md#p62-dependency-inventory-permission-boundary).
+The trust controller does not claim deployment/process isolation. See the accepted
+[dependency-reader exception](architecture/workload-identity.md#dependency-inventory-permission-boundary).
 
 ## Permission and capability matrix
 

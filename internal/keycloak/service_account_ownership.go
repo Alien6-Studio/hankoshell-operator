@@ -16,7 +16,7 @@ func (c *Client) getOwnedServiceAccount(ctx context.Context, realm, clientID, ui
 	if err != nil {
 		return nil, err
 	}
-	if !ServiceAccountOwned(a, uid) {
+	if !ServiceAccountOwned(a, uid) || !secretServiceAccountMethod(a) {
 		return nil, ErrApplicationPrecondition
 	}
 	if _, present := a.Attributes[adoption.ReceiptKey]; present {
@@ -40,7 +40,7 @@ func (c *Client) DeleteServiceAccountIfOwned(ctx context.Context, realm, clientI
 	if err != nil || a == nil {
 		return err
 	}
-	if !ServiceAccountOwned(a, uid) {
+	if !ServiceAccountOwned(a, uid) || !secretServiceAccountMethod(a) {
 		return ErrApplicationPrecondition
 	}
 	if _, present := a.Attributes[adoption.ReceiptKey]; present {
@@ -140,7 +140,7 @@ func setNewServiceAccountOwner(attributes map[string]any, spec CreateAppSpec) er
 }
 func (c *Client) validateServiceAccountAttributes(ctx context.Context, realm string, payload map[string]any, uuid, clientID, uid string, attrs map[string]string) error {
 	var current Application
-	if decodeSnapshot(payload, &current) != nil || current.ID != uuid || current.ClientID != clientID || !ServiceAccountOwned(&current, uid) {
+	if decodeSnapshot(payload, &current) != nil || current.ID != uuid || current.ClientID != clientID || !ServiceAccountOwned(&current, uid) || !secretServiceAccountMethod(&current) {
 		return ErrApplicationPrecondition
 	}
 	if _, present := current.Attributes[adoption.ReceiptKey]; present {
@@ -161,6 +161,10 @@ func (c *Client) validateServiceAccountAttributes(ctx context.Context, realm str
 		}
 	}
 	return nil
+}
+
+func secretServiceAccountMethod(a *Application) bool {
+	return a != nil && (a.ClientAuthenticatorType == "" || a.ClientAuthenticatorType == "client-secret")
 }
 
 func preserveAdoptedServiceAttributes(payload, current, next map[string]any) {

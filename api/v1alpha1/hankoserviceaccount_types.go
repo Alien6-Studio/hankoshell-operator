@@ -27,6 +27,9 @@ type HankoServiceAccount struct {
 // CEL cannot query other CRDs or runtime realm/client configuration.
 // +kubebuilder:validation:XValidation:rule="self.clientID.trim() != 'account' && self.clientID.trim() != 'account-console' && self.clientID.trim() != 'admin-cli' && self.clientID.trim() != 'broker' && self.clientID.trim() != 'realm-management' && self.clientID.trim() != 'security-admin-console'",message="built-in Keycloak clients cannot be managed as HankoServiceAccount"
 // +kubebuilder:validation:XValidation:rule="!has(self.attributes) || self.attributes.all(k, !(k.startsWith('hanko.sh/') && (k.contains('owner') || k == 'hanko.sh/adoption-receipt')))",message="provider ownership and adoption receipt attributes are reserved"
+// +kubebuilder:validation:XValidation:rule="!has(self.attributes) || self.attributes.all(k, !k.startsWith('jwt.credential.') && !k.startsWith('hanko.sh/workload-'))",message="workload authenticator and binding attributes are reserved"
+// +kubebuilder:validation:XValidation:rule="!has(self.runtimeMetadata) || (has(self.authentication) && self.authentication.mode == 'Kubernetes')",message="workload runtime metadata requires Kubernetes authentication intent"
+// +kubebuilder:validation:XValidation:rule="!has(self.authentication) || self.authentication.mode != 'Kubernetes' || !has(self.secretRotationPolicy) || !self.secretRotationPolicy.enabled",message="active secret rotation is incompatible with Kubernetes authentication"
 type HankoServiceAccountSpec struct {
 	// Mode separates credential and provider management from observation.
 	// The imported-by label always forces effective Observe.
@@ -41,6 +44,9 @@ type HankoServiceAccountSpec struct {
 	// ClientID is the Keycloak client identifier for the M2M client.
 	// +kubebuilder:validation:Required
 	ClientID string `json:"clientID"`
+
+	Authentication  *ServiceAccountAuthentication  `json:"authentication,omitempty"`
+	RuntimeMetadata *WorkloadRuntimeMetadataTarget `json:"runtimeMetadata,omitempty"`
 
 	// Scopes lists the OAuth2 scopes granted to this service account.
 	Scopes []string `json:"scopes,omitempty"`
@@ -78,7 +84,9 @@ type SecretRotationPolicy struct {
 
 // HankoServiceAccountStatus describes the observed state of the M2M client.
 type HankoServiceAccountStatus struct {
-	AdoptionReceipt *AdoptionReceiptStatus `json:"adoptionReceipt,omitempty"`
+	WorkloadBinding *WorkloadBindingStatus         `json:"workloadBinding,omitempty"`
+	RuntimeMetadata *WorkloadRuntimeMetadataStatus `json:"runtimeMetadata,omitempty"`
+	AdoptionReceipt *AdoptionReceiptStatus         `json:"adoptionReceipt,omitempty"`
 
 	// AdoptionCandidate is bounded review evidence, never execution authority.
 	AdoptionCandidate *AdoptionCandidateStatus `json:"adoptionCandidate,omitempty"`

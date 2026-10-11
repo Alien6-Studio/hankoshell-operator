@@ -186,6 +186,14 @@ meshPolicyAudit:
   # reference reviewed egress Services. Each receives services/get only.
   egressNamespaces: []
 
+# Optional workload-owner reviewed cross-namespace access. No targets or
+# ServiceAccounts are created; each grant permits named gets and CM field patches.
+workloadBinding:
+  grants: []
+  # - namespace: workloads
+  #   serviceAccounts: [worker]
+  #   configMaps: [worker-identity]
+
 # Deprecated compatibility switches. Messaging and vault access belong to the
 # platform API. Enabling either legacy integration is rejected by the chart.
 azureKeyVault:

@@ -49,7 +49,7 @@ func TestRealKeycloakWorkloadTrustController(t *testing.T) {
 		objects = append(objects, &api.HankoKeycloakInstance{ObjectMeta: fixtureMeta(p.name), Spec: api.HankoKeycloakInstanceSpec{Mode: "external", TLSCARef: "trust-ca", AdminRef: corev1.LocalObjectReference{Name: p.name}}}, &corev1.Secret{ObjectMeta: fixtureMeta(p.name + "-credential"), Data: map[string][]byte{"HANKO_KEYCLOAK_URL": []byte(proxyURL), "HANKO_KC_CLIENT_ID": []byte("p62-" + p.name), "HANKO_KC_CLIENT_SECRET": []byte(secret)}})
 		objects[len(objects)-2].(*api.HankoKeycloakInstance).Spec.AdminRef.Name = p.name + "-credential"
 	}
-	kube := fake.NewClientBuilder().WithScheme(newScheme(t)).WithStatusSubresource(&api.HankoWorkloadTrust{}).WithObjects(objects...).Build()
+	kube := fake.NewClientBuilder().WithScheme(newScheme(t)).WithStatusSubresource(&api.HankoWorkloadTrust{}, &api.HankoServiceAccount{}).WithObjects(objects...).Build()
 	r := &controller.HankoWorkloadTrustReconciler{Client: kube, APIReader: kube, ClusterConfig: &rest.Config{Host: f.baseURL, TLSClientConfig: rest.TLSClientConfig{CAData: f.ca}}, DiscoveryCheck: func(_ context.Context, i workloadtrust.Intent) (workloadtrust.DiscoveryEvidence, error) {
 		jwks := i.Issuer + "/jwks"
 		if i.DiscoveryURL != "" {
@@ -80,6 +80,7 @@ func TestRealKeycloakWorkloadTrustController(t *testing.T) {
 	var again map[string]any
 	f.admin(http.MethodGet, base, nil, &again)
 	fixtureEqual(t, "idempotent native document", again, native)
+	containmentPath := qualifyWorkloadBinding(f, kube, r, trust, proxyURL, routes)
 	if _, err := f.kc.EnsureIdentityProvider(ctx, "managed", keycloak.IdentityProvider{Alias: "p62-shared", ProviderID: "kubernetes", Enabled: false}); err == nil {
 		t.Fatal("generic native broker writer accepted independent ownership")
 	}
@@ -161,6 +162,9 @@ func TestRealKeycloakWorkloadTrustController(t *testing.T) {
 	}
 	fixtureEqual(t, "lost DELETE ACK cleanup runs once", routes()["DELETE "+base], 1)
 	for route := range routes() {
+		if route == "PUT "+containmentPath && routes()[route] == 1 {
+			continue
+		} // exact owned containment qualified above
 		if strings.Contains(route, "client-secret") || strings.HasPrefix(route, "PUT /admin/realms/managed/clients") || strings.HasPrefix(route, "DELETE /admin/realms/managed/clients") {
 			t.Fatal("trust controller dispatched a client credential/mutation route")
 		}

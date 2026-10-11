@@ -20,6 +20,7 @@ type Application struct {
 	ClientID                  string            `json:"clientId"`
 	Name                      string            `json:"name"`
 	Protocol                  string            `json:"protocol"`
+	ClientAuthenticatorType   string            `json:"clientAuthenticatorType,omitempty"`
 	Enabled                   bool              `json:"enabled"`
 	PublicClient              bool              `json:"publicClient"`
 	StandardFlowEnabled       bool              `json:"standardFlowEnabled"`

@@ -204,7 +204,8 @@ func setupControllers(
 	fatalIfError(err, "unable to initialise application secret projection client")
 	protectedClientIDs := controlPlaneAuthorizedClientIDs()
 	protectedRealm := fleetAuthorityRealm()
-	fatalIfError((&controller.HankoWorkloadTrustReconciler{Client: mgr.GetClient(), APIReader: mgr.GetAPIReader(), ClusterConfig: mgr.GetConfig()}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoWorkloadTrust")
+	workloadTrust := &controller.HankoWorkloadTrustReconciler{Client: mgr.GetClient(), APIReader: mgr.GetAPIReader(), ClusterConfig: mgr.GetConfig()}
+	fatalIfError(workloadTrust.SetupWithManager(mgr), controllerSetupError, "controller", "HankoWorkloadTrust")
 	fatalIfError((&controller.HankoIAMProfileReconciler{Client: mgr.GetClient()}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoIAMProfile")
 	fatalIfError((&controller.HankoRealmReconciler{Client: mgr.GetClient(), ProtectedRealm: protectedRealm, Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName)}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoRealm")
 	fatalIfError((&controller.HankoEmailProviderReconciler{
@@ -221,6 +222,7 @@ func setupControllers(
 		Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName),
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoApplication")
 	fatalIfError((&controller.HankoServiceAccountReconciler{
+		APIReader: mgr.GetAPIReader(), RuntimeClient: applicationSecretProjectionClient, WorkloadTrust: workloadTrust,
 		Client: mgr.GetClient(), OwnershipReader: mgr.GetAPIReader(), Scheme: mgr.GetScheme(), Pool: pool,
 		Recorder: mgr.GetEventRecorder(operatorRecorderName), ProtectedClientIDs: protectedClientIDs, ProtectedRealm: protectedRealm,
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoServiceAccount")
@@ -232,8 +234,9 @@ func setupControllers(
 		organizationReconciler.Positions = projection.Client
 	}
 	fatalIfError(organizationReconciler.SetupWithManager(mgr), controllerSetupError, "controller", "HankoOrganization")
-	fatalIfError((&controller.HankoResourceServerReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName)}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoResourceServer")
+	fatalIfError((&controller.HankoResourceServerReconciler{Client: mgr.GetClient(), WorkloadTrust: workloadTrust, Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName)}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoResourceServer")
 	fatalIfError((&controller.HankoMeshServiceReconciler{
+		APIReader: mgr.GetAPIReader(), WorkloadTrust: workloadTrust,
 		Client: mgr.GetClient(), NodeReader: mgr.GetAPIReader(), EgressReader: mgr.GetAPIReader(),
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoMeshService")
 	imgValidator := imagevalidator.NewWithPolicy(os.Getenv("HANKO_IMAGE_POLICY_FILE"), &imagevalidator.CosignVerifier{

@@ -377,10 +377,10 @@ Helm signing key through `artifacthub.io/signKey`.
 **hankoShell Operator 0.1.0 is in initial development. No public release has been
 published yet.** Active chart/app/build metadata is `0.1.0-dev.0` (prerelease).
 The implemented foundation, IAM contracts, application identity, organizational
-authorization, adoption and canonical Attest hardening remain intact. Phases
-6–10 are required before first publication: Workload Identity, Delegation &
-Agent Identity, Provider Portability, Fleet Reconciliation and Initial Public
-Contract Stabilization. See the [roadmap](ROADMAP.md) and
+authorization, adoption and canonical Attest hardening remain intact. Workload
+Identity, Delegation & Agent Identity, Provider Portability, Fleet Reconciliation
+and Initial Public Contract Stabilization are required before first publication.
+See the [roadmap](ROADMAP.md) and
 [first-publication checklist](docs/release-public-0.1.0-preparation.md).
 The `hanko.sh/v1alpha1` APIs are experimental and may change across minor releases
 before 1.0. See the [curated release
@@ -400,7 +400,7 @@ API integration. A projection outage preserves provider success and does not
 block child Keycloak groups. See [organization configuration and migration](docs/secure-deployment.md#organization-provider-readiness-and-optional-projection).
 
 Existing Keycloak inventory produces bounded adoption candidates and typed diffs.
-Phase 5 source work adds reviewed leaf and aggregate ownership, followed by a
+Adopt Existing Keycloak source work adds reviewed leaf and aggregate ownership, followed by a
 separate explicit Manage decision. See the
 [adoption workflow](docs/architecture/existing-keycloak-adoption.md#administrator-workflow)
 and [native preservation boundaries](docs/architecture/existing-keycloak-adoption.md#milestone-native-coverage-audit).
@@ -408,7 +408,7 @@ and [native preservation boundaries](docs/architecture/existing-keycloak-adoptio
 writes, credential recovery/rotation or deletion.** Acquisition preserves UUIDs,
 writes only ownership checkpoints and remains Observe. Manage requires current
 exact ownership and qualified preservation; foreign dependencies hold cleanup.
-Existing realms and opaque brokers remain Observe-only. Phase 5
+Existing realms and opaque brokers remain Observe-only. Adopt Existing Keycloak
 completes reviewed adoption and qualified native preservation; public distribution
 remains independent in #21.
 
@@ -421,12 +421,15 @@ dedicated scoped writer where possible and review the
 
 ## Development
 
-Phase 5 — Adopt Existing Keycloak completes reviewed acquisition, native
+Adopt Existing Keycloak completes reviewed acquisition, native
 preservation and explicit Manage. Organizational Authorization retains explicit
-grants and bounded structural provenance. **Phase 6 — Workload Identity** starts
+grants and bounded structural provenance. **Workload Identity** starts
 with the [native qualification and architecture contract](docs/architecture/workload-identity.md).
-Its typed production APIs/controllers remain implementation work; all remaining
-phases lead to the same first public 0.1.0.
+Kubernetes workload trust ownership and Workload binding and mesh coherence have
+typed APIs and controllers. Passive binding delivers public configuration and
+contains confirmed UID replacements; it does not activate authentication.
+HankoServiceAccount federated authentication and Installed-system and migration
+qualification remain separate work toward the same first public 0.1.0.
 [#21](https://github.com/Alien6-Studio/hankoshell-operator/issues/21) remains
 open for transversal first-publication trust and readiness.
 For `HankoRole` and `HankoResourceServer`, status distinguishes the evaluated

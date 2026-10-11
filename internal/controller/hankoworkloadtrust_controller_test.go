@@ -51,7 +51,7 @@ func newTrustFixture(t *testing.T, mode string) *trustFixture {
 	for _, name := range []string{"observer", "writer", "reader"} {
 		objects = append(objects, &api.HankoKeycloakInstance{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "auth", UID: types.UID("instance-" + name), Generation: 1}, Spec: api.HankoKeycloakInstanceSpec{Mode: "external", AdminRef: corev1.LocalObjectReference{Name: name}, TLSCARef: "ca"}}, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "auth", UID: types.UID("secret-" + name)}, Data: map[string][]byte{"HANKO_KEYCLOAK_URL": []byte(f.server.URL), "HANKO_KC_CLIENT_ID": []byte(name), "HANKO_KC_CLIENT_SECRET": []byte("credential-sentinel-" + name)}})
 	}
-	f.kube = fake.NewClientBuilder().WithScheme(controllerTestScheme(t)).WithStatusSubresource(&api.HankoWorkloadTrust{}).WithObjects(objects...).Build()
+	f.kube = fake.NewClientBuilder().WithScheme(controllerTestScheme(t)).WithStatusSubresource(&api.HankoWorkloadTrust{}, &api.HankoServiceAccount{}, &api.HankoMeshService{}).WithObjects(objects...).Build()
 	f.r = &HankoWorkloadTrustReconciler{Client: f.kube, APIReader: f.kube, ClusterConfig: &rest.Config{Host: f.server.URL, TLSClientConfig: rest.TLSClientConfig{CAData: ca}}, DiscoveryCheck: func(_ context.Context, i workloadtrust.Intent) (workloadtrust.DiscoveryEvidence, error) {
 		return workloadtrust.DiscoveryEvidence{Issuer: i.Issuer, JWKSURL: i.Issuer + "/jwks", KeysHash: workloadtrust.Digest("public", 1)}, nil
 	}}

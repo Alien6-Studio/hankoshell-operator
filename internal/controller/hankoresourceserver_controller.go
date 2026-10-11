@@ -37,6 +37,7 @@ type AuthorizationDriverFactory func(namespace string, labels map[string]string)
 // +kubebuilder:rbac:groups=hanko.sh,resources=hankorealms;hankoapplications;hankoroles;hankoserviceaccounts;hankoorganizations,verbs=get;list;watch
 type HankoResourceServerReconciler struct {
 	client.Client
+	WorkloadTrust        *HankoWorkloadTrustReconciler
 	APIReader            client.Reader
 	organizationResolver *organizationGrantResolver
 	Scheme               *runtime.Scheme
@@ -346,6 +347,15 @@ func (r *HankoResourceServerReconciler) resolveAuthorizationPrincipal(ctx contex
 		}
 		if account.Spec.RealmRef != resourceServer.Spec.RealmRef {
 			return authorization.Principal{}, fmt.Errorf("service account %q belongs to realm %q", principal.Ref, account.Spec.RealmRef)
+		}
+		if account.Spec.Authentication != nil && account.Spec.Authentication.Mode == "Kubernetes" {
+			binding, err := r.WorkloadTrust.requireActiveWorkloadBinding(ctx, &account)
+			if err != nil {
+				return authorization.Principal{}, err
+			}
+			if references, ok := r.Client.(*contractReferenceReader); ok {
+				references.references = append(references.references, referenceIdentity{Namespace: account.Namespace, Name: account.Name + ":workload-binding", UID: binding.plan.Revision(), Generation: account.Generation})
+			}
 		}
 		resolvedRef = account.Spec.ClientID
 	}

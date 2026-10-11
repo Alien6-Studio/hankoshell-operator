@@ -32,12 +32,11 @@ unqualified. Snapshot and advanced lifecycle limitations are documented below.
 
 Production publication is blocked during development. Nonpublishable rehearsal
 uses ephemeral local trust, an isolated registry and in-memory GitHub storage.
-The first public release requires Phases 6–10: Workload Identity, Delegation &
-Agent Identity, Provider Portability, Fleet Reconciliation and Initial Public
-Contract Stabilization, plus #21's real trust/publication evidence. The entire
-original prelaunch capability trajectory belongs to 0.1.0; it is not reduced to
-the currently implemented phases. A later 1.0 decision depends on public use and
-a proven compatibility commitment.
+The first public release requires Workload Identity, Delegation & Agent Identity,
+Provider Portability, Fleet Reconciliation and Initial Public Contract
+Stabilization, plus #21's real trust/publication evidence. These are work subjects,
+not product versions. A later 1.0 decision depends on public use and a proven
+compatibility commitment.
 <!-- release-notes:end -->
 
 Early development used milestone-like version labels before the first public
@@ -45,11 +44,17 @@ release; those labels did not identify public packages or GitHub Releases.
 
 ### Release trust and delivery readiness
 
-- Introduce the seventeenth typed HankoWorkloadTrust API and independent native
-  Kubernetes provider ownership, current-cluster CA/UID/discovery qualification,
-  read-only flow prerequisites, explicit owner-only adoption, public durable
-  journals and exact complete-inventory age/deletion guards. Keep workload binding,
-  HankoServiceAccount federated activation and mesh authority outside P6.2.
+- Add Workload binding and mesh coherence: explicit live ServiceAccount UID and
+  current-cluster anchoring, freshly sealed trust/realm/client connection,
+  pre-existing ConfigMap UID consent and public-only runtime metadata with
+  recoverable field cleanup. Require the same workload anchor for mesh and grants;
+  passive binding remains Pending until dedicated authentication activation.
+  Contain confirmed missing/recreated workloads through enabled-only updates of
+  strictly owned native federated clients; never approve a replacement UID.
+- Retain Kubernetes workload trust ownership: the independent seventeenth typed
+  HankoWorkloadTrust API, current-cluster discovery, owner-only adoption and
+  complete-inventory age/deletion guards. HankoServiceAccount federated
+  authentication and Installed-system and migration qualification remain separate.
 - Retain the narrow trust-writer profile and use a distinct target-realm
   view-clients dependent reader. Document native client-secret exposure on
   26.7.5, stricter 26.8.0 denial, application route guards and the practical union
@@ -722,20 +727,20 @@ https://github.com/Alien6-Studio/hankoshell-operator/security/advisories/new.
 
 ### Remaining capabilities before first publication
 
-- **Phase 6 — Workload Identity:** Kubernetes identity federation, short-lived
+- **Workload Identity:** Kubernetes identity federation, short-lived
   authentication and explicit secret fallback; qualify issuer/audience/binding
   denials separately from transport registration.
-- **Phase 7 — Delegation & Agent Identity:** standards-based delegation/token
+- **Delegation & Agent Identity:** standards-based delegation/token
   exchange and constrained principal authority; qualify depth, audience, lifetime,
   revocation and capability intersection without a separate agent IAM stack.
-- **Phase 8 — Provider Portability:** qualify representative common intent with
+- **Provider Portability:** qualify representative common intent with
   a second adapter and explicit lossless/lossy/unsupported differences; retain
   deep Keycloak features without promising full provider parity.
-- **Phase 9 — Fleet Reconciliation:** RFC-selected cryptographically verifiable,
+- **Fleet Reconciliation:** RFC-selected cryptographically verifiable,
   versioned/replay-resistant plans, capability-aware rollout and bounded evidence;
   qualify tampering, replay, partial rollout, disconnection and safe reconnect
   under local authority with explicit external integration contracts.
-- **Phase 10 — Initial Public Contract Stabilization:** conformance/API review,
+- **Initial Public Contract Stabilization:** conformance/API review,
   portable/native boundaries, defaulting, versioning, round-trip/conversion and
   stored-object/ownership migration, deprecation and compatibility policy,
   reusable rollback fixtures and real first-publication trust in #21. Alpha APIs

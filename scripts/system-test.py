@@ -859,6 +859,7 @@ class System:
         wait("installed trust reconstructs after restart", lambda: self.ready("hankoworkloadtrust", "shared-workload"))
         if self.api("GET", path)["internalId"] != native["internalId"]:
             raise ValueError("Installed trust restart replaced native UUID")
+        self.workload_binding(realm)
         self.kubectl("patch", "hankoworkloadtrust", "shared-workload", "-n", "auth", "--type=merge", "-p", '{"spec":{"kubernetes":{"assertionMaxAgeSeconds":900}}}')
         def review_ready():
             value = self.get("hankoworkloadtrust", "shared-workload")
@@ -877,6 +878,77 @@ class System:
         if self.get("hankorealm", realm)["metadata"].get("finalizers"):
             raise ValueError("Trust controller acquired external realm lifecycle")
         self.api("GET", "/admin/realms/" + realm)
+
+    def workload_binding(self, realm):
+        namespace = "workload-binding"
+        self.apply({"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": namespace}},
+            {"apiVersion": "v1", "kind": "ServiceAccount", "metadata": {"name": "worker", "namespace": namespace}})
+        uid = self.get("serviceaccount", "worker", namespace)["metadata"]["uid"]
+        credential = self.adoption_identity("workload-client-writer", realm, ["manage-clients", "view-realm"])
+        self.apply(self.secret("workload-client-writer", {"HANKO_KEYCLOAK_URL": "https://keycloak.auth.svc:8443",
+            "HANKO_KC_CLIENT_ID": "workload-client-writer", "HANKO_KC_CLIENT_SECRET": credential}),
+            {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoKeycloakInstance", "metadata": {"name": "workload-client-writer", "namespace": "auth"},
+             "spec": {"mode": "external", "adminRef": {"name": "workload-client-writer"}, "tlsCARef": "operator-ca"}},
+            {"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "Role", "metadata": {"name": "workload-binding", "namespace": namespace},
+             "rules": [{"apiGroups": [""], "resources": ["serviceaccounts"], "resourceNames": ["worker"], "verbs": ["get"]},
+                       {"apiGroups": [""], "resources": ["configmaps"], "resourceNames": ["identity"], "verbs": ["get", "patch"]}]},
+            {"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "RoleBinding", "metadata": {"name": "workload-binding", "namespace": namespace},
+             "roleRef": {"apiGroup": "rbac.authorization.k8s.io", "kind": "Role", "name": "workload-binding"},
+             "subjects": [{"kind": "ServiceAccount", "name": "system-operator", "namespace": "auth"}]})
+        account = {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoServiceAccount", "metadata": {"name": "bound-worker", "namespace": "auth"},
+            "spec": {"realmRef": realm, "clientID": "bound-worker", "authentication": {"mode": "Kubernetes", "kubernetes": {
+                "trustRef": "shared-workload", "sourceRef": "workload-client-writer", "workload": {"namespace": namespace, "serviceAccountRef": "worker", "expectedUID": uid}, "expirationSeconds": 600}}}}
+        self.apply(account)
+        def bound():
+            current = self.get("hankoserviceaccount", "bound-worker")
+            return current.get("status", {}).get("observedGeneration") == current["metadata"]["generation"] and any(
+                c.get("type") == "WorkloadBindingReady" and c.get("status") == "True" for c in current.get("status", {}).get("conditions", []))
+        wait("installed passive workload binding", bound)
+        account = self.get("hankoserviceaccount", "bound-worker")
+        prefix = "hanko.sh/workload-runtime-"
+        consent = {prefix + "owner-kind": "HankoServiceAccount", prefix + "owner-namespace": "auth", prefix + "owner-name": account["metadata"]["name"],
+                   prefix + "owner-uid": account["metadata"]["uid"], prefix + "service-account": "worker", prefix + "service-account-uid": uid}
+        self.apply({"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "identity", "namespace": namespace,
+            "labels": {"hanko.sh/runtime-target": "workload-metadata"}, "annotations": consent}, "data": {"unrelated": "preserved"}})
+        target_uid = self.get("configmap", "identity", namespace)["metadata"]["uid"]
+        self.kubectl("patch", "hankoserviceaccount", "bound-worker", "-n", "auth", "--type=merge", "-p",
+            json.dumps({"spec": {"runtimeMetadata": {"configMapRef": "identity", "expectedUID": target_uid}}}))
+        def delivered():
+            current = self.get("hankoserviceaccount", "bound-worker")
+            return bound() and current.get("status", {}).get("runtimeMetadata", {}).get("configMapUID") == target_uid
+        wait("installed named public runtime metadata", delivered)
+        account = self.get("hankoserviceaccount", "bound-worker")
+        metadata = self.get("configmap", "identity", namespace)
+        document = json.loads(metadata["data"]["workload-identity.json"])
+        if account["status"]["phase"] != "Pending" or account["status"].get("secretRef") or document["workload"]["expectedUID"] != uid or document["bindingRevision"] != account["status"]["workloadBinding"]["bindingRevision"]:
+            raise ValueError("Passive workload metadata claimed authentication or lost exact UID/revision")
+        # Native activation is fixture-administrator setup, distinct from binding.
+        self.api("POST", "/admin/realms/" + realm + "/clients", {"clientId": "bound-worker", "protocol": "openid-connect", "enabled": True,
+            "clientAuthenticatorType": "federated-jwt", "serviceAccountsEnabled": True, "publicClient": False,
+            "standardFlowEnabled": False, "directAccessGrantsEnabled": False, "implicitFlowEnabled": False, "fullScopeAllowed": False,
+            "name": "Preserved display", "attributes": {"hanko.sh/client-owner-kind": "HankoServiceAccount", "hanko.sh/client-owner-uid": account["metadata"]["uid"],
+                "jwt.credential.issuer": "installed-cluster", "jwt.credential.sub": "system:serviceaccount:" + namespace + ":worker"}})
+        before = self.client(realm, "bound-worker")
+        wait("installed native client reference refresh", lambda: bound() and self.get("hankoserviceaccount", "bound-worker")["status"]["workloadBinding"]["bindingRevision"] != document["bindingRevision"])
+        metadata = self.get("configmap", "identity", namespace)
+        self.kubectl("delete", "serviceaccount", "worker", "-n", namespace, "--wait=true")
+        self.apply({"apiVersion": "v1", "kind": "ServiceAccount", "metadata": {"name": "worker", "namespace": namespace}})
+        if self.get("serviceaccount", "worker", namespace)["metadata"]["uid"] == uid:
+            raise ValueError("Workload recreation did not change immutable UID")
+        def contained():
+            current = self.get("hankoserviceaccount", "bound-worker")
+            return not current.get("status", {}).get("workloadBinding") and not current.get("status", {}).get("runtimeMetadata") and self.client(realm, "bound-worker")["enabled"] is False
+        wait("installed UID replacement containment", contained)
+        after = self.client(realm, "bound-worker")
+        before["enabled"] = False
+        if before != after or self.get("configmap", "identity", namespace)["data"] != metadata["data"]:
+            raise ValueError("UID containment changed independent native fields or delivered stale metadata")
+        for verb, resource in (("list", "serviceaccounts"), ("create", "serviceaccounts/token"), ("create", "configmaps"), ("delete", "configmaps")):
+            result = subprocess.run([str(self.args.kubectl), "--kubeconfig", str(self.config), "auth", "can-i", verb, resource,
+                "-n", namespace, "--as=system:serviceaccount:auth:system-operator"], capture_output=True, timeout=30, check=False)
+            if result.returncode != 1 or result.stdout.decode().strip() != "no":
+                raise ValueError("Installed binding grant exceeds named get/patch boundary")
+        self.api("DELETE", "/admin/realms/" + realm + "/clients/" + after["id"])
 
     def organization_adoption(self):
         realm, namespace, name = "adopt-org-target", "adopt-org", "reviewed-root"
@@ -1153,6 +1225,7 @@ def main():
                            "Application acquisition followed by ResourceServer selective V2 journal, sibling receipt preservation, exact selected IDs, status-loss/restart recovery, drift repair, late shared dependency cleanup refusal and foreign graph survival",
                            "drift recovery after manager restart without duplicate client or credential rotation", "managed finalizer and Observe preservation", "runtime M2M projected-credential token and rotation", "SAML metadata binding and target-preserving cleanup",
                            "independent typed shared trust in external Observe realm; actual current kube-system UID/public API CA DER anchor and verified issuer/JWKS, three dedicated credentials, native UUID/journal, manager restart, explicit shared-age inventory review and zero-dependent provider-only cleanup",
+                           "workload binding: actual cross-namespace named SA/CM get/patch, explicit approved UID and target UID consent, public-only metadata with passive status, recreated-SA containment preserves complete native state except enabled=false; no TokenRequest/list/create/delete grant",
                            "no credentials in logs/events/CRDs"],
                 "organization_permissions": {"scope": "organization-target only", "roles": ["manage-realm", "manage-clients", "manage-events", "manage-users"],
                                              "denied": ["master administration", "managed realm administration", "realm creation", "identity providers"]},
