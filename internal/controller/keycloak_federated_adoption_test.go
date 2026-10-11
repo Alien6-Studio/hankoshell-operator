@@ -103,5 +103,20 @@ func TestRealKeycloakFederatedServiceAccountAdoption(t *testing.T) {
 			t.Fatal("federated Manage recovered a native credential")
 		}
 	}
+	account.Spec.Attributes = map[string]string{"locale": "en"}
+	account.Generation++
+	f.requireNoError(kube.Update(ctx, account))
+	for range 4 {
+		fixtureReconcile(f, ctx, r, account)
+	}
+	fixtureGet(f, ctx, kube, account)
+	if account.Status.Phase != "Ready" {
+		t.Fatal("qualified generic attributes did not converge")
+	}
+	native := f.client("managed", account.Spec.ClientID)
+	fixtureEqual(t, "typed attribute reconciled", native["attributes"].(map[string]any)["locale"], "en")
+	fixtureEqual(t, "native authenticator retained", native["clientAuthenticatorType"], "federated-jwt")
+	fixtureEqual(t, "native scopes retained", native["defaultClientScopes"], before["defaultClientScopes"])
+	fixtureEqual(t, "generic attribute has one partial PUT", routes()["PUT "+path], 2)
 	t.Logf("Keycloak %s: closed federated acquisition preserves native configuration, stays Observe, and requires explicit Manage", f.version)
 }

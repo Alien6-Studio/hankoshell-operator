@@ -287,6 +287,25 @@ func TestContainedClientRequiresNewReviewedActivation(t *testing.T) {
 	}
 }
 
+func TestFederatedGenericAttributeUpdateRecoversAcknowledgementWithoutMethodWrite(t *testing.T) {
+	f := newAuthenticationFixture(t)
+	f.runAuthentication(4)
+	f.account.Spec.Attributes = map[string]string{"locale": "fr"}
+	f.account.Generation++
+	if err := f.kube.Update(context.Background(), f.account); err != nil {
+		t.Fatal(err)
+	}
+	f.lostAck = true
+	f.runAuthentication(4)
+	if f.account.Status.Phase != "Ready" || f.creates != 1 || f.switches != 0 || f.credentialRoutes != 0 || f.clientWrites != 1 {
+		t.Fatal("generic attribute update repeated a native write or changed authentication")
+	}
+	attrs := f.dependents[0]["attributes"].(map[string]any)
+	if attrs["locale"] != "fr" || attrs["jwt.credential.issuer"] != "cluster" || attrs["jwt.credential.sub"] != workloadSubject(f.account) {
+		t.Fatal("partial generic update changed the qualified native mapping")
+	}
+}
+
 func TestAuthenticationTransitionFreshDependencyDriftStopsMutationAndCleanup(t *testing.T) {
 	for _, after := range []bool{false, true} {
 		for _, failure := range []string{"flow", "provider-uuid", "native-uuid", "native-state", "source", "reader", "trust-generation", "workload-uid", "consent"} {

@@ -405,6 +405,9 @@ func (r *HankoServiceAccountReconciler) reconcileWorkloadServiceAccount(ctx cont
 	if err != nil || s.native == nil || !s.native.Enabled || !keycloak.FederatedWorkloadOwned(s.native, string(sa.UID), s.trust.trust.Spec.KeycloakAlias, workloadSubject(sa)) {
 		return r.workloadAccountStatus(ctx, sa, nil, nil, "NativeAuthenticationUnconfirmed")
 	}
+	if err := s.source.client.SyncFederatedServiceAccountAttributesIfOwned(ctx, sa.Spec.RealmRef, sa.Spec.ClientID, string(sa.UID), s.trust.trust.Spec.KeycloakAlias, workloadSubject(sa), sa.Spec.Attributes, r.authenticationVerifier(sa, s)); err != nil {
+		return r.workloadAccountStatus(ctx, sa, nil, nil, "ClientAttributesUnconfirmed")
+	}
 	owner := tokenClaimOwner{kind: "HankoServiceAccount", uid: string(sa.UID), federatedAlias: s.trust.trust.Spec.KeycloakAlias, federatedSubject: workloadSubject(sa), validate: r.authenticationVerifier(sa, s), namespace: sa.Namespace, name: sa.Name, generation: sa.Generation, realm: sa.Spec.RealmRef, clientID: sa.Spec.ClientID}
 	claims, err := reconcileClientTokenClaims(ctx, s.source.client, owner, sa.Spec.TokenClaims, sa.Status.ManagedTokenClaims)
 	if err != nil {

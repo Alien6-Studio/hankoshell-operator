@@ -969,8 +969,11 @@ fresh trust/source/realm/flow/cluster/workload checks; flow prerequisites are re
 never repaired. Unknown security fields, competing ownership and stale references
 stop writes. A concurrent issuer/subject mapping is refused using a complete fresh
 inventory through the dedicated metadata-only dependent reader; its connection
-identity/version is sealed in the binding source hash. Generic attributes cannot supply `jwt.credential.*`, workload markers
-or ownership/adoption receipts.
+identity/version is sealed in the binding source hash. Generic attributes cannot
+supply `jwt.credential.*`, workload markers, ownership/adoption receipts or generated
+credential metadata. Qualified desired attributes converge through a partial
+update after fresh owned federated-client checks, with exact native read-back.
+Independent attributes, scopes, grants and authentication remain preserved.
 
 `WorkloadBindingReady` remains separate from `FederatedModeApplied`, `Synced` and
 `RuntimeMetadataReady`. Ready is verified configuration, never proof that a workload

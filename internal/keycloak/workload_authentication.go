@@ -90,7 +90,7 @@ func validFederatedCreate(uuid, uid, alias, subject string, attributes map[strin
 		return false
 	}
 	for key := range attributes {
-		if adoption.ReservedAttribute(key) || strings.HasPrefix(key, "jwt.credential.") || strings.HasPrefix(key, "hanko.sh/workload-") {
+		if adoption.ReservedAttribute(key) || strings.HasPrefix(key, "jwt.credential.") || strings.HasPrefix(key, "hanko.sh/workload-") || strings.HasPrefix(key, "client.secret.") || key == "saml.artifact.binding.identifier" {
 			return false
 		}
 	}
@@ -227,6 +227,51 @@ func (c *Client) CheckFederatedServiceAccountOwned(ctx context.Context, realm, c
 		}
 	}
 	return nil
+}
+
+// SyncFederatedServiceAccountAttributesIfOwned updates only explicitly desired,
+// qualified generic attributes. Native authentication, ownership, scopes and
+// generated credential metadata are never included in the partial payload.
+func (c *Client) SyncFederatedServiceAccountAttributesIfOwned(ctx context.Context, realm, clientID, uid, alias, subject string, attrs map[string]string, verify func(context.Context) error) error {
+	if len(attrs) == 0 {
+		return nil
+	}
+	if verify == nil || verify(ctx) != nil || !validFederatedCreate("attribute-update", uid, alias, subject, attrs) || !QualifiedClientAttributes(attrs) {
+		return ErrApplicationPrecondition
+	}
+	current, err := c.ReadClientOwnership(ctx, realm, clientID)
+	if err != nil || !qualifiedFederatedAttributeTarget(current, uid, alias, subject) {
+		return ErrApplicationPrecondition
+	}
+	target := *current
+	target.Application.Attributes = maps.Clone(current.Application.Attributes)
+	target.document = maps.Clone(current.document)
+	desired := map[string]any{}
+	for key, value := range target.Application.Attributes {
+		desired[key] = value
+	}
+	changed := false
+	for key, value := range attrs {
+		changed = changed || target.Application.Attributes[key] != value
+		target.Application.Attributes[key], desired[key] = value, value
+	}
+	if !changed {
+		return nil
+	}
+	target.document["attributes"] = desired
+	afterHash, err := target.AuthenticationStateHash()
+	if err != nil || verify(ctx) != nil {
+		return ErrApplicationPrecondition
+	}
+	_ = c.putJSON(ctx, applicationPath(realm, current.Application.ID), map[string]any{"id": current.Application.ID, "clientId": clientID, "attributes": attrs})
+	if verify(ctx) != nil {
+		return ErrApplicationPrecondition
+	}
+	return c.confirmServiceAccountAuthenticator(ctx, realm, clientID, uid, current.Application.ID, afterHash)
+}
+
+func qualifiedFederatedAttributeTarget(s *ClientOwnershipSnapshot, uid, alias, subject string) bool {
+	return s != nil && s.PreservationQualified() && s.Application.Enabled && FederatedWorkloadOwned(&s.Application, uid, alias, subject)
 }
 
 // DeleteFederatedServiceAccountIfOwned preserves foreign/adopted dependencies.
