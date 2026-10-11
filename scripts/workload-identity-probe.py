@@ -116,6 +116,13 @@ class Fixture(system.System):
             raise ValueError("The real Kubernetes server version differs from the requested qualification")
         self.report["node_image"] = node
         self.report["discovery"] = json.loads(self.kubectl("get", "--raw", "/.well-known/openid-configuration"))
+        self.report["cluster_namespace_uid"] = self.get("namespace", "kube-system")["metadata"]["uid"]
+        configuration = json.loads(self.kubectl("config", "view", "--raw", "-o", "json"))
+        ca = base64.b64decode(configuration["clusters"][0]["cluster"]["certificate-authority-data"])
+        self.report["cluster_ca_sha256"] = hashlib.sha256(ssl.PEM_cert_to_DER_cert(ca.decode())).hexdigest()
+        server = self.get("pod", "kube-apiserver-" + self.name + "-control-plane", "kube-system")
+        self.report["apiserver_token_flags"] = [arg for arg in server["spec"]["containers"][0]["command"]
+            if arg.startswith(("--service-account-max-token-expiration=", "--service-account-extend-token-expiration="))]
 
     def build_node(self):
         # No published kind node exists for 1.36.2. Build the exact official
@@ -464,7 +471,9 @@ except urllib.error.HTTPError as e:
         foreign = self.token_request(audiences=[REALM_ISSUER], foreign=True)
         self.check("wrong_issuer", self.assertion(foreign), (400, 401))
         self.report["token_lifetime_limits"] = {}
-        for seconds in (599, 600, 900, 3600, 7200, 86400, 172800):
+        # The deliberately excessive request measures the fixture's server
+        # ceiling; it is never a product recommendation or runtime fallback.
+        for seconds in (599, 600, 900, 3600, 7200, 86400, 172800, 1_000_000_000):
             minted = self.token_request(audiences=[REALM_ISSUER], seconds=seconds)
             if minted is None:
                 self.report["token_lifetime_limits"][str(seconds)] = {"token_request": "refused"}

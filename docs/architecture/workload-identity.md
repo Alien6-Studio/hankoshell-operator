@@ -200,6 +200,10 @@ native clock comparisons. Runtime metadata must not call this a cryptographic
 restriction on Kubernetes token lifetime. Kubernetes cluster-wide issuance
 limits and Keycloak access-token lifetimes remain independent; the fixture
 reports requested versus actual durations and observes real kubelet rotation.
+The server's token-expiration flags and an intentionally excessive TokenRequest
+are recorded to distinguish its configured ceiling from the tested product range.
+Long assertions in this limit probe stay only in fixture memory; they are never
+workload recommendations or persisted credentials.
 
 Assertions are reusable during their acceptance window. Access tokens already
 issued can outlive that window; urgent revocation requires independent client,
