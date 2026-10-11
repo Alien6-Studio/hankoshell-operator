@@ -12,7 +12,7 @@ def render(grants, invalid=False):
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml") as values:
         yaml.safe_dump({"workloadBinding": {"grants": grants}}, values)
         values.flush()
-        result = subprocess.run(["helm", "template", "binding", str(CHART), "--namespace", "auth",
+        result = subprocess.run(["helm", "template", "binding", str(CHART), "--namespace", "auth", "--kube-version", "1.37.0",
                                  "--set-string", "image.tag=fixture", "-f", values.name],
                                 text=True, capture_output=True, check=False)
     if invalid:
