@@ -346,9 +346,14 @@ Installation-time image admission remains an administrator-owned control; see
 <summary>Release configuration for maintainers</summary>
 
 Configure the release environment secret `HANKOSHELL_ATTEST_SIGNING_KEY`
-(PKCS#8 PEM) and variables `HANKOSHELL_ATTEST_KEY_ID`,
+(Ed25519 PKCS#8 PEM) and variables `HANKOSHELL_ATTEST_KEY_ID`,
 `HANKOSHELL_ATTEST_PUBLIC_KEY` (32 bytes as lowercase hex),
 `HANKOSHELL_ATTEST_TSA_URL`, and `HANKOSHELL_ATTEST_TSA_CERTIFICATE` (pinned PEM).
+Derive the Key ID with the pinned Attest 0.1.0 `keys import`/`keys list` commands
+using only the approved public key. It is the first 16 bytes of BLAKE3 of the raw
+32-byte public key, encoded as 32 lowercase hex characters, not a chosen label
+or a SHA-256 prefix. The release preflight checks the private/public pair, native
+Key ID and X.509 certificate parsing before staging any image.
 
 Register `oci://ghcr.io/alien6-studio/charts/hankoshell-operator` in Artifact Hub
 and set `HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID` to its assigned UUID. The workflow

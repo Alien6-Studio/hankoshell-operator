@@ -86,7 +86,8 @@ jobs:
           HANKOSHELL_ATTEST_TSA_CERTIFICATE: ${{ vars.HANKOSHELL_ATTEST_TSA_CERTIFICATE }}
           HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID: ${{ vars.HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID }}
         run: |
-          python3 scripts/attest-release.py --check-config
+          bash scripts/install-attest.sh "$RUNNER_TEMP/hankoshell-attest/attest"
+          python3 scripts/attest-release.py --check-config --attest "$RUNNER_TEMP/hankoshell-attest/attest"
           python3 scripts/release-metadata.py --check-config
           version="${TAG#v}"
           python3 scripts/release-contract.py check --version "$version"

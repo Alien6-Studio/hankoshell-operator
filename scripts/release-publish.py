@@ -182,6 +182,7 @@ def save(registry, reference, root, version, revision, image):
 
 
 def verify_attest(root, tool, config):
+    attest.validate_public_identity(config, tool)
     record = verify_checkpoint(root, contract.VERSION, json.loads((root / "checkpoint.json").read_text())["revision"])
     if (root / "dist" / attest.PUBLIC_KEY_FILE).read_text() != attest.public_key_pem(config["PUBLIC_KEY"]):
         raise ValueError("Checkpoint signer is not the configured trusted Attest signer")

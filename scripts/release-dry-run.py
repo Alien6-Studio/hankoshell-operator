@@ -73,6 +73,9 @@ def timestamp_authority(openssl, private):
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self):
+            if self.path != "/":
+                self.send_error(404)
+                return
             length = int(self.headers.get("Content-Length", "0"))
             if not 0 < length <= 1024 * 1024:
                 self.send_error(400)
@@ -132,7 +135,7 @@ def rehearse(args):
         run([args.openssl, "genpkey", "-algorithm", "ED25519", "-out", key])
         public_der = run([args.openssl, "pkey", "-in", key, "-pubout", "-outform", "DER"]).stdout
         public_key = public_der[-32:].hex()
-        key_id = hashlib.sha256(public_der[-32:]).hexdigest()[:32]
+        key_id = attest.key_id(args.attest, public_key)
         contract.prepare(args.version, image, args.revision, args.archive, args.evidence,
                          args.output / "chart/hankoshell-operator", dist, args.helm,
                          FIXTURE_REPOSITORY_ID, public_key)
@@ -156,14 +159,40 @@ def rehearse(args):
         with timestamp_authority(args.openssl, private) as (tsa_url, tsa_cert):
             shutil.copyfile(tsa_cert, args.output / "tsa-fixture.crt")
             workspace = args.output / "attest-workspace"
-            signing_args = SimpleNamespace(attest=args.attest, dist=dist, workspace=workspace,
+            signing_args = SimpleNamespace(attest=args.attest, openssl=args.openssl, dist=dist, workspace=workspace,
                                            output=args.output / "release-evidence", revision=args.revision,
                                            version=args.version, image=image,
                                            run_url="nonpublishable-local-release-rehearsal")
-            attest.sign_delivery(signing_args, {
+            config = {
                 "KEY_ID": key_id, "PUBLIC_KEY": public_key, "SIGNING_KEY": key.read_text(),
                 "TSA_URL": tsa_url, "TSA_CERTIFICATE": tsa_cert.read_text(),
-            })
+            }
+            other_private = run([args.openssl, "genpkey", "-algorithm", "ED25519"]).stdout.decode()
+            # Native trust checks must reject syntactically valid but unrelated
+            # identities, not just malformed/missing environment variables.
+            for field, wrong in (("KEY_ID", hashlib.sha256(public_der[-32:]).hexdigest()[:32]),
+                                 ("PUBLIC_KEY", "0" * 64),
+                                 ("SIGNING_KEY", other_private),
+                                 ("SIGNING_KEY", "-----BEGIN PRIVATE KEY-----\ninvalid\n"),
+                                 ("TSA_CERTIFICATE", "-----BEGIN CERTIFICATE-----\nAA==\n-----END CERTIFICATE-----")):
+                try:
+                    attest.validate_configuration(dict(config, **{field: wrong}), args.attest, args.openssl)
+                except ValueError:
+                    pass
+                else:
+                    raise ValueError("Invalid release trust was accepted: " + field)
+            attest.sign_delivery(signing_args, dict(config))
+            with tempfile.TemporaryDirectory(prefix="hankoshell-rejected-tsa-") as rejected:
+                failed = SimpleNamespace(**dict(vars(signing_args), workspace=Path(rejected) / "workspace",
+                                                output=Path(rejected) / "evidence"))
+                try:
+                    attest.sign_delivery(failed, dict(config, TSA_URL=tsa_url + "/wrong"))
+                except subprocess.CalledProcessError:
+                    pass
+                else:
+                    raise ValueError("Wrong TSA endpoint was accepted")
+                if list(Path(rejected).rglob("*.key")) or failed.output.exists():
+                    raise ValueError("Failed TSA left signing material or accepted delivery evidence")
             payload = workspace / "delivery/image-digest.txt"
             original = payload.read_bytes()
             payload.write_bytes(original + b"tamper\n")
@@ -179,6 +208,23 @@ def rehearse(args):
                                 args.oras, args.helm, args.attest, {
                 "KEY_ID": key_id, "PUBLIC_KEY": public_key, "TSA_CERTIFICATE": tsa_cert.read_text(),
             })
+            for wrong_id in ("0" * 32, hashlib.sha256(public_der[-32:]).hexdigest()[:32]):
+                try:
+                    publication.publish.verify_attest(args.output / "checkpoint", args.attest, dict(config, KEY_ID=wrong_id))
+                except ValueError:
+                    pass
+                else:
+                    raise ValueError("Checkpoint accepted a wrong Attest key ID")
+            other = private / "other-tsa"
+            other.mkdir()
+            with timestamp_authority(args.openssl, other) as (_, wrong_certificate):
+                try:
+                    publication.publish.verify_attest(args.output / "checkpoint", args.attest,
+                                                     dict(config, TSA_CERTIFICATE=wrong_certificate.read_text()))
+                except RuntimeError:
+                    pass
+                else:
+                    raise ValueError("Checkpoint timestamp accepted an unrelated TSA certificate")
         if list(args.output.rglob("*.key")):
             raise ValueError("Private signing material leaked into rehearsal artifacts")
     report = {
@@ -187,7 +233,8 @@ def rehearse(args):
         "signing_intent": {"oidc_issuer": "https://token.actions.githubusercontent.com",
                            "certificate_identity": f"https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v{args.version}"},
         "checks": {"archive_sbom_provenance_scan_binding": "pass", "chart_and_checksums": "pass",
-                   "cosign_local_signature_and_tamper": "pass", "attest_five_checks_and_tamper": "pass"},
+                   "cosign_local_signature_and_tamper": "pass", "attest_five_checks_and_tamper": "pass",
+                   "attest_trust_mismatch_and_failed_tsa_cleanup": "pass"},
         "artifacts": sorted(path.name for path in dist.iterdir()),
         "limitations": ["ephemeral local key/TSA and fixture Artifact Hub ID; not production trust",
                         "no production image signing, GitHub OIDC, GitHub API publication or Artifact Hub indexing",

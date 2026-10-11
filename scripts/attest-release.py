@@ -12,6 +12,7 @@ import shutil
 import ssl
 import subprocess
 import tarfile
+import tempfile
 from urllib.parse import urlsplit
 
 import yaml
@@ -55,6 +56,59 @@ def configuration():
         raise ValueError("TSA certificate is too large")
     ssl.PEM_cert_to_DER_cert(config["TSA_CERTIFICATE"])
     return config
+
+
+def trust_output(command, message, **kwargs):
+    """Keep key input and tool diagnostics out of logs, including on failure."""
+    try:
+        result = subprocess.run([str(value) for value in command], capture_output=True,
+                                timeout=30, check=False, **kwargs)
+    except (OSError, subprocess.TimeoutExpired):
+        raise ValueError(message) from None
+    if result.returncode:
+        raise ValueError(message)
+    return result.stdout
+
+
+def key_id(tool, public_key):
+    """Let pinned Attest derive its canonical ID from public material only."""
+    if not re.fullmatch(r"[0-9a-f]{64}", public_key):
+        raise ValueError("Invalid Attest public key")
+    if trust_output([tool, "--version"], "Cannot validate the pinned Attest tool").strip() != b"attest 0.1.0":
+        raise ValueError("Expected Attest 0.1.0")
+    with tempfile.TemporaryDirectory(prefix="hankoshell-public-trust-") as directory:
+        workspace = Path(directory)
+        public = workspace / "signer.pem"
+        public.write_text(public_key_pem(public_key))
+        trust_output([tool, "keys", "import", "--name", "hankoShell release preflight", public],
+                     "Cannot derive the Attest key ID", cwd=workspace)
+        output = trust_output([tool, "keys", "list", "--format", "json"],
+                              "Cannot read the derived Attest key ID", cwd=workspace)
+        try:
+            entry = json.loads(output)
+        except (ValueError, UnicodeDecodeError):
+            raise ValueError("Invalid native Attest key identity") from None
+        if (not isinstance(entry, dict) or not isinstance(entry.get("id"), str)
+                or not re.fullmatch(r"[0-9a-f]{32}", entry["id"])
+                or entry.get("status") != "trusted" or entry.get("private_key_present") is not False):
+            raise ValueError("Invalid native Attest key identity")
+        return entry["id"]
+
+
+def validate_public_identity(config, tool):
+    if config["KEY_ID"] != key_id(tool, config["PUBLIC_KEY"]):
+        raise ValueError("Attest key ID does not match the trusted public key")
+
+
+def validate_configuration(config, tool, openssl):
+    # Parse the actual private key over stdin, never argv or an exported file.
+    public_der = trust_output([openssl, "pkey", "-pubout", "-outform", "DER"],
+                              "Invalid Attest private key", input=config["SIGNING_KEY"].encode())
+    if public_der != bytes.fromhex("302a300506032b6570032100" + config["PUBLIC_KEY"]):
+        raise ValueError("Attest private key does not match the trusted Ed25519 public key")
+    validate_public_identity(config, tool)
+    trust_output([openssl, "x509", "-inform", "PEM", "-outform", "DER"],
+                 "Invalid TSA X.509 certificate", input=config["TSA_CERTIFICATE"].encode())
 
 
 def validate_verdict(report, signer, receipt):
@@ -110,6 +164,7 @@ def sign_delivery(args, config):
     files = delivery_files(args.dist, args.version, args.revision, args.image)
     if files[PUBLIC_KEY_FILE].read_text() != public_key_pem(config["PUBLIC_KEY"]):
         raise ValueError("Published Attest key must match the independently trusted delivery signer")
+    validate_configuration(config, args.attest, args.openssl)
     workspace = args.workspace.resolve()
     workspace.mkdir(mode=0o700, parents=True, exist_ok=False)
     shutil.copyfile(ROOT / "attest.yaml", workspace / "attest.yaml")
@@ -169,6 +224,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check-config", action="store_true")
     parser.add_argument("--attest", type=Path)
+    parser.add_argument("--openssl", type=Path, default=Path("/usr/bin/openssl"))
     parser.add_argument("--dist", type=Path)
     parser.add_argument("--workspace", type=Path)
     parser.add_argument("--output", type=Path)
@@ -179,6 +235,9 @@ def main():
     args = parser.parse_args()
     config = configuration()
     if args.check_config:
+        if args.attest is None:
+            parser.error("Configuration verification requires the pinned --attest tool")
+        validate_configuration(config, args.attest.resolve(), args.openssl)
         return
     if any(value is None for name, value in vars(args).items() if name != "check_config"):
         parser.error("All delivery arguments are required")
