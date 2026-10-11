@@ -2,10 +2,12 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/workloadauth"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/workloadbinding"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -284,6 +286,42 @@ func TestContainedClientRequiresNewReviewedActivation(t *testing.T) {
 	f.runAuthentication(3)
 	if f.account.Status.Phase != "Ready" || f.switches != 1 || f.creates != 1 || f.credentialRoutes != 0 || f.journal().Step != "Committed" {
 		t.Fatal("reviewed reactivation did not retain the native identity without credentials")
+	}
+}
+
+func TestRuntimeTargetAdditionRequiresCommittedAuthentication(t *testing.T) {
+	for _, committed := range []bool{false, true} {
+		t.Run(map[bool]string{false: "prepared", true: "committed"}[committed], func(t *testing.T) {
+			f := newAuthenticationFixture(t)
+			target := f.account.Spec.RuntimeMetadata
+			f.account.Spec.RuntimeMetadata = nil
+			if err := f.kube.Update(context.Background(), f.account); err != nil {
+				t.Fatal(err)
+			}
+			f.runAuthentication(1)
+			if committed {
+				f.runAuthentication(3)
+			}
+			f.account.Spec.RuntimeMetadata = target
+			f.account.Generation++
+			if err := f.kube.Update(context.Background(), f.account); err != nil {
+				t.Fatal(err)
+			}
+			f.runAuthentication(4)
+			if !committed {
+				if f.creates != 0 || f.journal().Step != "Prepared" || conditionReason(f.account.Status.Conditions, "Synced") != "AuthenticationTransactionStale" {
+					t.Fatal("runtime spec edit continued an uncommitted activation")
+				}
+				return
+			}
+			var document workloadbinding.Document
+			if f.account.Status.Phase != "Ready" || f.account.Status.RuntimeMetadata == nil || f.journal().Generation != f.account.Generation || f.journal().Step != "Committed" || json.Unmarshal([]byte(f.runtime.Data[workloadbinding.MetadataKey]), &document) != nil || document.AuthenticationActivation != "Federated" {
+				t.Fatal("post-commit runtime target did not converge with fresh active evidence")
+			}
+			if f.creates != 1 || f.switches != 0 || f.clientWrites != 0 || f.credentialRoutes != 0 {
+				t.Fatal("runtime target addition changed native authentication or recovered credentials")
+			}
+		})
 	}
 }
 

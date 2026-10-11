@@ -903,7 +903,10 @@ class System:
             current = self.get("hankoserviceaccount", "bound-worker")
             return current.get("status", {}).get("observedGeneration") == current["metadata"]["generation"] and any(
                 c.get("type") == "WorkloadBindingReady" and c.get("status") == "True" for c in current.get("status", {}).get("conditions", []))
-        wait("installed current workload binding", bound)
+        # BindingReady precedes the durable native activation commit. Editing
+        # spec during that transaction correctly invalidates its exact plan.
+        wait("installed current native federated activation",
+             lambda: bound() and self.ready("hankoserviceaccount", "bound-worker"))
         account = self.get("hankoserviceaccount", "bound-worker")
         prefix = "hanko.sh/workload-runtime-"
         consent = {prefix + "owner-kind": "HankoServiceAccount", prefix + "owner-namespace": "auth", prefix + "owner-name": account["metadata"]["name"],
