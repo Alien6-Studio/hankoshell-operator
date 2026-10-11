@@ -1,10 +1,10 @@
 # Existing Keycloak: explicit ownership adoption
 
 Accepted direction for [RFC #46](https://github.com/Alien6-Studio/hankoshell-operator/issues/46),
-completing engineering **E5 — Adopt Existing Keycloak** at historical checkpoint v0.5.0 after immutable v0.4.0.
+completing **Phase 5 — Adopt Existing Keycloak**.
 The source tree implements bounded discovery/diff, explicit reviewed ownership
 acquisition, Organization and ResourceServer checkpoints, and a separate qualified
-transition to Manage. Current source/chart metadata is 0.1.0; source freeze
+transition to Manage. Current source/chart metadata is `0.1.0-dev.0`; source freeze
 requires protected merge and exact-main qualification. The 16 v1alpha1 CRDs remain
 experimental; source completion does not publish production packages.
 
@@ -222,7 +222,7 @@ existing behavior; it is not reinterpreted as common candidate approval. Supplyi
 both syntaxes conflicts before provider writes. Ordinary created/legacy-owned
 resources without a common receipt retain their existing Manage lifecycle.
 
-**Pre-0.5 unmarked M2M clients no longer receive write/delete/credential authority
+**Legacy unmarked M2M clients no longer receive write/delete/credential authority
 from clientID alone.** Neither an existing Secret, status ID nor finalizer proves
 ownership. Existing declarations must remain/become Observe and follow the reviewed
 workflow when their leaf is qualified. If opaque native state blocks the candidate,
@@ -331,7 +331,7 @@ HankoRole Manage retains the documented [§117 credential-authority exception](#
 
 ### Milestone-native coverage audit
 
-| Native family | 0.5 outcome | Exact boundary |
+| Native family | Adoption outcome | Exact boundary |
 | --- | --- | --- |
 | Authentication flows / WebAuthn | Observe-only | Existing realm lifecycle is not acquired; custom client flow overrides block common client adoption. No authentication-flow migration or browser-credential import. |
 | Client scopes | Observe-only / unsupported for parent acquisition | Nonempty default/optional scope collections remain blocking, including `service_account`; acquisition never detaches or owns them. |
@@ -362,7 +362,7 @@ versioned candidate hash. Its public annotation keys are validated by the #48 ex
 HankoImport remains discovery/Observe orchestration. Import is not ownership.
 Adoption first writes only ownership metadata/journal, verifies it from the
 provider, and stops. **Enable Manage is a separate administrator decision** for
-the common 0.5 path. No new CRD or central adoption authority is needed.
+the common adoption path. No new CRD or central adoption authority is needed.
 
 Preserve the existing application migration annotations unchanged:
 
@@ -394,7 +394,7 @@ below means today's controller behavior, not complete discovery of arbitrary
 provider-native state. Import means generation of Kubernetes inventory objects;
 HankoImport's Applied count does not prove provider application or ownership.
 
-| Resource | Discover / import today | Observe today | Stable provider identity | Ownership / status-ID behavior today | Candidate 0.5 adoption |
+| Resource | Discover / import today | Observe today | Stable provider identity | Ownership / status-ID behavior today | Reviewed adoption |
 | --- | --- | --- | --- | --- | --- |
 | Realm | HankoImport lists available realms and creates HankoRealm | imported-by label forces read-only presence/display/theme/SMTP condition observation; no explicit mode | Internal realm `id`, with mutable URL realm name separate | Manage updates an existing named realm without a provider UID owner gate; finalizer can delete the realm and contents; status is not a new approval contract | **Arbitrary existing realm lifecycle stays Observe-only** |
 | Application OIDC SPA/web/M2M | Non-internal OIDC clients imported; service-account-enabled clients normally classified as HankoServiceAccount | Explicit Manage/Observe; imported label forces Observe; normalized application observation is bounded to modeled semantics | Client UUID + realm UUID/provider instance; clientID is a lookup | `hanko.sh/application-owner` UID; existing exact UUID/observation migration; fresh marker required for writes/deletion; mapper IDs are lookup hints | First leaf candidate; preserve legacy syntax |
@@ -635,7 +635,7 @@ unproven partial update, remain unsupported/Observe-only.
 | Organization | Merge current name/namespace/UID attributes plus receipt into exact group and optional native Organization | All expected UUIDs/parent boundaries read back; additive mappings/foreign children remain outside acquisition |
 | ResourceServer | Merge bounded selected-object journal/receipt into already owned backing client | Exact selected IDs and complete incoming/outgoing graph boundaries; preserve foreign/native policies/resources/permissions |
 | Application-owned mapper | Merge existing application UID config marker/receipt on one exact child UUID | Same type/config/parent UUID; no name-based replacement or acquisition of every mapper |
-| Realm / opaque IdP aggregate | No accepted general lifecycle acquisition recipe in 0.5 | Observe-only, despite experimental marker representation round-trip |
+| Realm / opaque IdP aggregate | No accepted general lifecycle acquisition recipe in the current contract | Observe-only, despite experimental marker representation round-trip |
 
 Remote receipt binds target kind/UID, contract version and approved candidate to
 the expected object set. It is an ownership checkpoint, not an executable plan.
@@ -767,6 +767,6 @@ transport or Continuum change is introduced.
 
 The source freeze requires exact protected-main qualification after these
 implementations. The accepted RFC and discovery/diff are #46/#47; leaf acquisition is #48.
-The completed 0.5 source contract is qualified through #49. The next development
-milestone is **E6 — Workload Identity**, with no assigned public version. Historical v0.1.0 through v0.5.0 remain immutable
-and production publication remains independent in #21.
+The completed adoption contract is qualified through #49. The next phase is
+**Phase 6 — Workload Identity**; Phases 6–10 are required before the first public
+0.1.0. Transversal first-publication trust/readiness remains open in #21.

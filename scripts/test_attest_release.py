@@ -173,7 +173,7 @@ class DeliveryArtifactTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.dist = Path(self.temp.name)
-        self.version = "0.1.0"
+        self.version = "0.1.0-dev.0"
         self.revision = "1" * 40
         self.image = "ghcr.io/alien6-studio/hankoshell-operator@sha256:" + "a" * 64
         self.chart = self.dist / f"hankoshell-operator-{self.version}.tgz"

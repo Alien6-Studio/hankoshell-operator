@@ -80,7 +80,7 @@ type CloneSpec struct {
 	// TargetNamespace is the namespace for the clone. Defaults to the source namespace.
 	TargetNamespace string `json:"targetNamespace,omitempty"`
 
-	// IncludeData is retained for API compatibility but has no effect in 0.5.0.
+	// IncludeData is retained for API compatibility but has no effect in the current operation contract.
 	IncludeData bool `json:"includeData,omitempty"`
 }
 

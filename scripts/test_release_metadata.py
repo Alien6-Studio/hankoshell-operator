@@ -27,7 +27,7 @@ class ReleaseMetadataTests(unittest.TestCase):
 
     def prepare(self, version=None, image=None):
         metadata.prepare(version or self.version, image or self.image, self.chart,
-                         self.dist, self.repository_id, self.public_key)
+                         self.dist, self.repository_id, self.public_key, "1" * 40)
 
     def test_release_chart_pins_image_and_links_the_delivered_public_key(self):
         source = (metadata.ROOT / "charts/hankoshell-operator/Chart.yaml").read_bytes()
@@ -37,12 +37,10 @@ class ReleaseMetadataTests(unittest.TestCase):
         self.assertEqual(yaml.safe_load(annotations["artifacthub.io/images"])[0]["image"], self.image)
         self.assertEqual(annotations["artifacthub.io/prerelease"], "true" if "-" in self.version else "false")
         self.assertNotIn("artifacthub.io/signKey", annotations)
-        key_link = next(link for link in yaml.safe_load(annotations["artifacthub.io/links"])
-                        if link["name"] == "Attest delivery verification key")
-        self.assertEqual(key_link["url"],
-                         f"{metadata.REPOSITORY}/releases/download/release%2Fv{self.version}/{metadata.PUBLIC_KEY_FILE}")
+        self.assertFalse(any(link["name"] == "Attest delivery verification key"
+                             for link in yaml.safe_load(annotations["artifacthub.io/links"])))
         self.assertEqual(chart["icon"],
-                         f"https://raw.githubusercontent.com/Alien6-Studio/hankoshell-operator/release%2Fv{self.version}/charts/hankoshell-operator/icon.svg")
+                         "https://raw.githubusercontent.com/Alien6-Studio/hankoshell-operator/" + "1" * 40 + "/charts/hankoshell-operator/icon.svg")
         self.assertEqual(yaml.safe_load((self.dist / "artifacthub-repo.yml").read_text()),
                          {"repositoryID": self.repository_id})
         self.assertTrue((self.dist / metadata.PUBLIC_KEY_FILE).read_text().startswith("-----BEGIN PUBLIC KEY-----\n"))
@@ -51,6 +49,32 @@ class ReleaseMetadataTests(unittest.TestCase):
         self.assertEqual(image_values["repository"] + "@" + image_values["digest"], self.image)
         self.assertEqual(image_values["tag"], "")
         self.assertEqual((metadata.ROOT / "charts/hankoshell-operator/Chart.yaml").read_bytes(), source)
+
+    def test_development_icon_cannot_use_an_uncreated_version_tag(self):
+        for revision in (None, "main", "v0.1.0-dev.0", "short"):
+            with self.subTest(revision=revision), self.assertRaisesRegex(ValueError, "source revision"):
+                metadata.prepare(self.version, self.image, self.chart, self.dist,
+                                 self.repository_id, self.public_key, revision)
+        self.assertFalse(self.chart.exists())
+
+    def test_future_stable_candidate_uses_normal_tag_assets(self):
+        source = self.root / "source"
+        import shutil
+        shutil.copytree(metadata.ROOT / "charts", source / "charts")
+        path = source / "charts/hankoshell-operator/Chart.yaml"
+        chart = yaml.safe_load(path.read_text())
+        chart.update(version="0.1.0", appVersion="0.1.0")
+        path.write_text(yaml.safe_dump(chart))
+        with patch.object(metadata, "ROOT", source), \
+                patch.object(metadata.versioning, "VERSION", "0.1.0"), \
+                patch.object(metadata.versioning, "RELEASE_STATUS", "candidate"):
+            metadata.prepare("0.1.0", self.image, self.chart, self.dist,
+                             self.repository_id, self.public_key, "1" * 40)
+        result = yaml.safe_load((self.chart / "Chart.yaml").read_text())
+        self.assertEqual(result["annotations"]["artifacthub.io/prerelease"], "false")
+        key = yaml.safe_load(result["annotations"]["artifacthub.io/links"])[0]
+        self.assertEqual(key["url"], metadata.REPOSITORY + "/releases/download/v0.1.0/" + metadata.PUBLIC_KEY_FILE)
+        self.assertIn("/v0.1.0/charts/", result["icon"])
 
     def test_unsigned_image_another_repository_and_version_drift_are_refused(self):
         for version, image in ((self.version, metadata.IMAGE + ":latest"),

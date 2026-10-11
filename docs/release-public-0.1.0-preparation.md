@@ -1,82 +1,79 @@
-# Public 0.1.0 preparation and administrator checklist
+# First public 0.1.0 readiness and administrator checklist
 
-Public product 0.1.0 consolidates the complete qualified E1–E5 capabilities:
-Trusted Keycloak Foundation, IAM Contract Engine, Application Identity,
-Organizational Authorization and Adopt Existing Keycloak, plus #54 release-trust
-hardening. The accepted target-realm HankoRole `manage-realm` exception is unchanged.
-This version-model correction does not roll back to historical checkpoint v0.1.0
-and makes no IAM, CRD, permission or dependency change. The earlier 0.5.1 source
-preparation and tag-readiness decision were canceled before any tag/publication.
-The 16 v1alpha1 APIs remain experimental in initial development.
+**Target public release: 0.1.0. Current status: development.** Technical
+metadata is `0.1.0-dev.0`, with Artifact Hub prerelease status true. No public
+release has been published yet. All implemented IAM and security behavior is
+retained; no permission, dependency or functional rollback accompanies this reset.
 
-[#54](https://github.com/Alien6-Studio/hankoshell-operator/pull/54) was merged as
-`7e0063704738ef9e63968b79d9e553555c2f2eb0`. Source qualification does not approve
-production trust or publication. [#21](https://github.com/Alien6-Studio/hankoshell-operator/issues/21)
-remains open until its real external evidence is available.
+Phases 1–5 are the implemented foundation. The complete original prelaunch
+trajectory, including Workload Identity, Delegation & Agent Identity, Provider
+Portability, Fleet Reconciliation and Initial Public Contract Stabilization
+(Phases 6–10), is required before the first 0.1.0. See the [roadmap](../ROADMAP.md).
+The 16 `v1alpha1` APIs may remain alpha with explicit initial-public contract and
+migration limits. A true later 1.0 decision depends on actual public use and a
+proven backward-compatibility policy; there is no predetermined 1.0 milestone.
 
-## Public version and historical checkpoints
+[#54](https://github.com/Alien6-Studio/hankoshell-operator/pull/54) merged as
+`7e0063704738ef9e63968b79d9e553555c2f2eb0` and its canonical Attest hardening is
+retained. [#21](https://github.com/Alien6-Studio/hankoshell-operator/issues/21)
+remains open for transversal first-publication trust/readiness and Phase 10.
+Source qualification and fixture trust do not supply that external evidence.
 
-| Public artifact/context | Value |
-| --- | --- |
-| Operator / chart / appVersion / OCI image tag / Artifact Hub version | 0.1.0 |
-| Git source release tag | release/v0.1.0 |
-| Workflow ref | refs/tags/release/v0.1.0 |
-| GitHub Release display name | v0.1.0 |
+## Version and publication contract
 
-Only release/v<SemVer> is accepted by the current publication tag parser. It
-rejects bare vX.Y.Z checkpoints, branch refs, other namespaces, leading zeroes,
-incomplete versions, suffix paths and invalid SemVer. Syntactic acceptance of
-release/v0.1.1 or release/v0.2.0 does not authorize those versions: the current
-source/chart/qualification contract supports only product 0.1.0. Extraction uses
-scripts/release-version.py, never ${TAG#v}. GitHub release lookup/asset and generated
-icon URLs encode the slash in the tag name; namespaced Git refs never become OCI
-tags or chart versions.
-
-All five signed annotated historical engineering/source checkpoints remain
-immutable and unpublished. They are not five public releases, and there is no
-public-package migration from them. Their retained identities are:
-
-| Historical tag | Signed tag object | Source commit |
+| Context | Development now | Future first public release |
 | --- | --- | --- |
-| v0.1.0 | 708303a0bffa1576b367e5bfdabb66866b9122b0 | f2c3d30f64db7d2bb18a621567dcc4a7f4edf07c |
-| v0.2.0 | 716746207cdfb65da4c7f7a961ad32212b66b81a | bb804bec80d867c300c16595950520019723b4e9 |
-| v0.3.0 | e6adf6f5ab59538d25388810ff727e061d779ec7 | d20fafd30c0e58802a672f6fc6b3c1d8b669fbce |
-| v0.4.0 | 64202aff99ad2db0a53333d2ad81e5d1ca7446fa | 7c255ff6fdbf38e7a7b26777d690968b5c670a62 |
-| v0.5.0 | 671250d37407f083d8717345d03ff1d2e9867415 | 335b88c98ac25ce288648a3414387f25d76c04ff |
+| Operator/chart/app/image/evidence metadata | 0.1.0-dev.0 | 0.1.0 |
+| Artifact Hub prerelease | true | false |
+| Source release tag | none created | v0.1.0 |
+| Workflow ref | source CI; nonpublishable rehearsal | refs/tags/v0.1.0 |
+| GitHub Release | none | v0.1.0, initially a verified draft |
 
-Public release/v0.1.0 will be a distinct ref on the fully qualified current main,
-not the same tag object or source as historical v0.1.0. Never move/delete/recreate
-any historical tag. No v0.5.1 tag will be created. Use milestones, issues, branches,
-protected commits and CI for engineering work; a separately approved source
-checkpoint may use checkpoint/E6, which cannot satisfy the release parser.
+`scripts/release-version.py` parses normal `v<SemVer>` tags. Namespace `release/`,
+branch refs, malformed versions and suffix paths are rejected. Parsing alone
+never grants permission to publish. `require_production` fails before external
+identity/API/registry operations while reviewed source status is `development`.
+Enabling production requires a separately reviewed source change setting stable
+metadata to the target and explicitly declaring `candidate`; no CLI/environment
+override exists. Neither development versions nor other stable versions pass.
+The future candidate still requires signed annotated GitHub-verified tag/source,
+exact protected-main ancestry, ref-movement checks, full CI, fresh scans and real
+native trust before publication.
 
-Before editing, the preparation inventoried every 0.5.1 occurrence and classified
-active product metadata, expected release identities, curated notes and superseded
-preparation history. Current metadata, build/scan/rehearsal fixtures and compatibility
-become 0.1.0. Historical CHANGELOG/API/CRD descriptions, generic registry fixtures,
-third-party dependency versions and the immutable v0.5.0 icon asset stay historical.
-Engineering milestones are E1–E9 in the [roadmap](../ROADMAP.md); existing GitHub
-milestone IDs/titles/states and issues are preserved under the documented
-[non-destructive title proposal](engineering-milestone-mapping.md).
+Development artifacts pin the icon to the actual source commit and include the
+fixture public key without inventing a public GitHub asset URL. Future stable
+candidate metadata uses normal `v0.1.0` icon and delivery-key asset links.
 
-Modern rejection does **not** alter the workflow frozen in any old tag. There is
-no main-workflow checkout/publish bypass: eligibility still requires
-`github.ref == refs/tags/<tag>`, with tag exclusively release/v<SemVer>.
+Early development used milestone-like SemVer labels. Their five tag refs are
+scheduled for deletion after this reset's protected merge and exact-main
+qualification; commits, SHA identities, signatures and PR/CI history remain.
+No alternate tags are created. GitHub milestones are renamed in place to
+[Phases 1–10](engineering-milestone-mapping.md), preserving IDs, issue links and
+states. The [reference inventory](version-reference-inventory.md) distinguishes
+active metadata, old phase labels, legacy migration contracts, generic fixtures
+and external dependency versions.
 
-## Authorization boundaries
+## Audit limits and authorization boundaries
 
-Complete source qualification and protected merge first. Stop before creating
-`release/v0.1.0`. A separate authorization must identify the exact qualified, GitHub
-Verified main commit for its signed annotated tag. Tag authorization is separate
-from production trust provisioning, a Release workflow dispatch and publication
-of the resulting GitHub draft. None of these actions is performed by preparation.
+The pre-mutation audit found zero GitHub Releases (including drafts), zero Release
+workflow runs, zero forks, no open release PR or remote release branch, and no
+Artifact Hub search result. GHCR package inspection returned 403 because the
+available token lacks `read:packages`; anonymous image/chart pull token requests
+also returned 403. These results do not prove private packages are absent.
+No actual public distribution or external consumer was discovered. If one is
+found before ref deletion, stop the affected deletion and record the conflict.
 
-The future certificate identity is
-`https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/release/v0.1.0`,
-with issuer `https://token.actions.githubusercontent.com`. The workflow uses the
-actual workflow/ref context; a main-ref run cannot satisfy tag eligibility or
-produce that tag-bound identity. Rehearsal reports only the signing intention,
-using ephemeral local trust and `publishable: false`.
+No tag, GitHub Release, production package, production trust secret, package ACL
+change or catalog registration is authorized by this preparation. Phase progress
+uses issues/RFCs, milestones, PRs, commits and CI, without SemVer/checkpoint tags.
+Any future tag/trust/dispatch/publication needs separate explicit authorization
+on the fully qualified ready source after all phases.
+
+The future Sigstore identity is
+`https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.1.0`,
+with issuer `https://token.actions.githubusercontent.com`. Nonpublishable rehearsal
+uses ephemeral local key/TSA, a loopback registry and in-memory GitHub storage,
+never production credentials, GHCR writes or public transparency services.
 
 ## Administrator actions for a separately authorized trust phase
 
@@ -141,50 +138,30 @@ using ephemeral local trust and `publishable: false`.
    the endpoint/fingerprint/challenge-verification evidence without private keys
    or credentials. A foreign certificate or bad endpoint must fail qualification.
 
-### GitHub environment and historical-tag guard
+### GitHub environment and tag protection
 
-Keep the `release` environment, required reviewer, no administrator bypass and
-tag-only deployment policy. Review whether independent approval requires
-preventing self-review; the observed policy currently permits self-review.
-All trust settings should be scoped to this reviewed environment:
+Keep the protected `release` environment, required reviewer, no administrator
+bypass and tag-only deployment policy. Review independent approval and prevention
+of self-review before first publication; the audited policy allows self-review.
+Production publication must remain blocked throughout development.
 
-| Kind | Name |
-| --- | --- |
-| Secret | `HANKOSHELL_ATTEST_SIGNING_KEY` |
-| Variable | `HANKOSHELL_ATTEST_PUBLIC_KEY` |
-| Variable | `HANKOSHELL_ATTEST_KEY_ID` |
-| Variable | `HANKOSHELL_ATTEST_TSA_URL` |
-| Variable | `HANKOSHELL_ATTEST_TSA_CERTIFICATE` |
-| Variable | `HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID` |
+The current active tag ruleset **Release tags** (ID `24645043`) covers
+`refs/tags/v*`, forbids deletion/non-fast-forward updates and has no bypass actors.
+It protects the future normal release namespace, but currently also prevents
+removal of the five erroneous prelaunch refs. Their deletion is authorized by
+the product reset after protected merge and exact-main qualification. If GitHub
+rejects deletion, report the exact rule and surviving refs; do not disable it,
+add an undocumented bypass or recreate those tags elsewhere. This reset changes
+no administrative protection.
 
-Reject every request to publish a bare historical v* checkpoint. Two existing
-administrative settings currently use only the legacy namespace: environment
-release has tag policy v*, and active tag ruleset "Release tags" (24645043)
-protects refs/tags/v* with deletion/non-fast-forward rules and no bypass actors.
-Neither setting should be assumed to protect or admit the new public namespace.
-No setting is changed by this source mission.
-
-Before separately authorized public tag creation/publication, an administrator
-must review and apply these non-destructive changes under separate authorization:
-
-1. Keep protection of historical refs/tags/v* unchanged. Extend the immutable tag
-   ruleset, or add an equally enforced tag ruleset, to refs/tags/release/v* with
-   no deletion, no update/force-push and no bypass. The public tag must remain
-   signed, annotated and GitHub Verified on the exact qualified main commit.
-2. Under Settings → Environments → release → Deployment branches and tags, use
-   selected **tags** and an exact allowlist initially release/v0.1.0. Remove the
-   legacy v* and any overlapping rule that admits historical checkpoints or
-   branches. Add later exact public tags only when separately approved. If a
-   broader reviewed future policy is chosen, its namespace must be release/v*.
-3. Retain required review and no administrator bypass. Review prevent-self-review
-   for independent approval; the observed policy currently allows self-review.
-   Trust provisioning, dispatch and publication remain distinct approvals.
-
-An environment allowlist gates the historical publication job without modifying
-Git or changing workflow/ref identity; read-only eligibility/qualification jobs
-may still start. A denylist in modern main cannot protect a frozen historical
-workflow. See [GitHub deployment environment policies](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments)
-and [tag rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets).
+Before a separately authorized first release, independently review the deployment
+tag allowlist and admit only the exact `v0.1.0` candidate on the qualified source.
+The audited policy is `v*`; current-source guards cannot alter workflows frozen in
+old refs. Required review and no administrator bypass remain mandatory. The trust
+secret `HANKOSHELL_ATTEST_SIGNING_KEY` and public variables
+`HANKOSHELL_ATTEST_PUBLIC_KEY`, `HANKOSHELL_ATTEST_KEY_ID`,
+`HANKOSHELL_ATTEST_TSA_URL`, `HANKOSHELL_ATTEST_TSA_CERTIFICATE` and
+`HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID` belong to that separately approved phase.
 
 ### GHCR
 

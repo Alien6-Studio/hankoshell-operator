@@ -23,7 +23,12 @@ class ReleaseEligibilityTests(unittest.TestCase):
         self.repository = "Alien6-Studio/hankoshell-operator"
         self.revision = "a" * 40
         self.tag_object = "b" * 40
-        self.tag = "release/v0.1.0"
+        # Preserve signature/ancestry tests for the separately reviewed future candidate.
+        for field, value in (("VERSION", "0.1.0"), ("RELEASE_STATUS", "candidate")):
+            patched = patch.object(eligibility.versioning, field, value)
+            patched.start()
+            self.addCleanup(patched.stop)
+        self.tag = "v0.1.0"
         self.ref = "refs/tags/" + self.tag
         self.base = "repos/" + self.repository
         self.ref_path = self.base + "/git/ref/tags/" + quote(self.tag, safe="")
@@ -166,21 +171,34 @@ class ReleaseEligibilityTests(unittest.TestCase):
             self.verify(git=off_main)
 
     def test_malformed_semver_is_rejected_before_api_access(self):
-        for tag in ("v0.1.0", "v0.2.0", "v0.3.0", "v0.4.0", "v0.5.0", "v0.5.1",
-                    "0.1.0", "main", "refs/heads/main", "public/v0.1.0", "release/0.1.0",
-                    "release/v01.0.0", "release/v0.01.0", "release/v0.1.00", "release/v0.1",
-                    "release/v0.1.0-01", "release/v0.1.0-rc..1", "release/v0.1.0+",
-                    "release/v0.1.0\n", "release/v0.1.0/foo", "release/v0.1.0%2Ffoo"):
+        for tag in ("release/v0.1.0", "0.1.0", "main", "refs/heads/main",
+                    "public/v0.1.0", "v01.0.0", "v0.01.0", "v0.1.00", "v0.1",
+                    "v0.1.0-01", "v0.1.0-rc..1", "v0.1.0+", "v0.1.0\n",
+                    "v0.1.0/foo", "v0.1.0%2Ffoo"):
             with self.subTest(tag=tag), self.assertRaisesRegex(ValueError, "SemVer"):
                 self.verify(tag=tag, ref="refs/tags/" + tag)
         self.assertEqual(self.api_calls, [])
-        for tag in ("release/v0.1.0", "release/v0.1.1", "release/v0.2.0",
-                    "release/v1.2.3-rc.1", "release/v1.2.3-alpha01+build.001"):
-            self.assertIsNotNone(eligibility.versioning.PUBLIC_TAG.fullmatch(tag))
+        for tag in ("v0.1.0", "v0.1.1", "v0.2.0", "v1.2.3-rc.1", "v1.2.3-alpha01+build.001"):
+            self.assertEqual(eligibility.versioning.from_tag(tag), tag[1:])
+
+    def test_development_blocks_every_production_tag_before_api_or_git_access(self):
+        with patch.object(eligibility.versioning, "VERSION", "0.1.0-dev.0"), \
+                patch.object(eligibility.versioning, "RELEASE_STATUS", "development"):
+            for tag in ("v0.1.0", "v0.1.0-dev.0", "v0.1.0-rc.1", "v0.2.0", "v0.3.0", "v0.4.0", "v0.5.0", "v0.5.1"):
+                with self.subTest(tag=tag), self.assertRaisesRegex(ValueError, "blocked.*development"):
+                    self.verify(tag=tag, ref="refs/tags/" + tag)
+        self.assertEqual(self.api_calls, [])
+        self.assertEqual(self.git_calls, [])
+
+    def test_candidate_flag_alone_or_other_versions_do_not_authorize_publication(self):
+        for active, requested in (("0.1.0-dev.0", "0.1.0"), ("0.1.0", "0.1.0-dev.0"),
+                                  ("0.1.0", "0.1.1"), ("0.1.0", "0.2.0"), ("0.1.0", "0.1.0+build.1")):
+            with patch.object(eligibility.versioning, "VERSION", active), \
+                    self.subTest(active=active, requested=requested), self.assertRaisesRegex(ValueError, "blocked"):
+                eligibility.versioning.require_production(requested)
 
     def test_branch_dispatch_cannot_substitute_for_the_tag(self):
-        for ref in ("main", "refs/heads/main", "refs/tags/v0.1.0",
-                    "refs/tags/release/v0.1.1"):
+        for ref in ("main", "refs/heads/main", "refs/tags/release/v0.1.0", "refs/tags/v0.1.1"):
             with self.subTest(ref=ref), self.assertRaisesRegex(ValueError, "tag itself"):
                 self.verify(ref=ref)
         self.assertEqual(self.api_calls, [])

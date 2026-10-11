@@ -1,9 +1,9 @@
-# Organizational authorization: accepted 0.4 direction
+# Organizational authorization: accepted organizational authorization contract
 
-This is the implemented **E4 Organizational Authorization** source contract, qualified at historical checkpoint v0.4.0,
+This is the implemented **Phase 4 — Organizational Authorization** source contract,
 accepted in [RFC #40](https://github.com/Alien6-Studio/hankoshell-operator/issues/40),
-with grants in #41 and bounded explanation in #42. Current packaging metadata is 0.1.0;
-public delivery remains independent in #21. Historical source tags are immutable.
+with grants in #41 and bounded explanation in #42. Current packaging metadata is `0.1.0-dev.0`; first-publication readiness
+remains transversal in #21 and Phase 10.
 
 ## Decision
 
@@ -69,7 +69,7 @@ The role name alone loses the organizational source of a grant.
 | Portability | Existing portable role intent with provider-qualified mapping. | Portable organization reference/semantics, capability-dependent implementation. | A new API is not evidence of provider parity. |
 | Migration/failure | No migration, but indirection and shared-role broadening remain. | Additive opt-in; stale group/ownership/permission failures fail closed. | New finalizers, ownership/conflicts, conversion and graduation burden. |
 
-A is retained as a valid composition path, but rejected as the **sole** 0.4
+A is retained as a valid composition path, but rejected as the **sole** organizational authorization
 model. C currently duplicates permission lifecycle/ownership inside
 HankoResourceServer. Independent delegated or cross-aggregate entitlement
 authority would need a separate RFC; a noun alone does not justify a 17th CRD.
@@ -285,7 +285,7 @@ server has groups, and it never auto-grants administrative privileges. Unsupport
 inheritance, missing read permission and foreign/native representation generate
 stable findings before execution. Organization ref + descendant intent is
 portable; its realization is capability-dependent. No second provider parity is
-claimed or required for 0.4.
+claimed or required for the organizational authorization contract.
 
 ## Bounded effective explanation
 

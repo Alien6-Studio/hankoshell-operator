@@ -22,25 +22,67 @@ class ReleaseResumeTests(unittest.TestCase):
     def test_public_tag_api_path_and_display_name_are_distinct(self):
         github = publish.GitHub("synthetic-fixture-token")
         with patch.object(github, "request") as request:
-            github.release("release/v0.1.0")
+            github.release("v0.1.0")
             request.assert_called_once_with("GET",
-                "/repos/Alien6-Studio/hankoshell-operator/releases/tags/release%2Fv0.1.0")
-        with patch.object(github, "request") as request:
-            github.create("release/v0.1.0", "a" * 40, "fixture notes")
+                "/repos/Alien6-Studio/hankoshell-operator/releases/tags/v0.1.0")
+        with patch.object(github, "request") as request, \
+                patch.object(publish.contract.versioning, "VERSION", "0.1.0"), \
+                patch.object(publish.contract.versioning, "RELEASE_STATUS", "candidate"):
+            github.create("v0.1.0", "a" * 40, "fixture notes")
             method, path, body = request.call_args.args
             self.assertEqual((method, path), ("POST", "/repos/Alien6-Studio/hankoshell-operator/releases"))
-            self.assertEqual(json.loads(body), {"tag_name": "release/v0.1.0", "name": "v0.1.0",
+            self.assertEqual(json.loads(body), {"tag_name": "v0.1.0", "name": "v0.1.0",
                 "target_commitish": "a" * 40, "body": "fixture notes", "draft": True, "prerelease": False})
 
-    def test_historical_tags_cannot_reach_release_api(self):
+    def test_malformed_or_namespaced_tags_cannot_reach_release_api(self):
         github = publish.GitHub("synthetic-fixture-token")
-        for tag in ("v0.1.0", "v0.2.0", "v0.5.0", "v0.5.1", "main", "release/0.1.0"):
+        for tag in ("release/v0.1.0", "v01.0.0", "v0.1", "main", "release/0.1.0"):
             with self.subTest(tag=tag), patch.object(github, "request") as request:
                 with self.assertRaises(ValueError):
                     github.release(tag)
                 with self.assertRaises(ValueError):
                     github.create(tag, "a" * 40, "fixture notes")
                 request.assert_not_called()
+
+    def test_development_publication_rejects_before_read_or_write(self):
+        from unittest.mock import Mock
+        registry, github = Mock(), publish.GitHub("synthetic-fixture-token")
+        with patch.object(github, "request") as request:
+            for version in ("0.1.0", "0.1.0-dev.0", "0.2.0", "0.5.0"):
+                with self.subTest(version=version), self.assertRaisesRegex(ValueError, "blocked.*development"):
+                    github.create("v" + version, "a" * 40, "fixture notes")
+            with self.assertRaisesRegex(ValueError, "blocked.*development"):
+                publish.promote(registry, github, Path("nonexistent-checkpoint"))
+            request.assert_not_called()
+            self.assertEqual(registry.mock_calls, [])
+
+    def test_rehearsal_cannot_target_production_or_real_github(self):
+        fixture = publish.NonpublishableGitHubFixture()
+        for registry, github, image, chart in (
+                (publish.Registry(Path("oras"), Path("helm"), plain_http=True), fixture,
+                 publish.IMAGE, publish.CHART),
+                (publish.Registry(Path("oras"), Path("helm"), plain_http=True), publish.GitHub("fixture"),
+                 "127.0.0.1:5000/operator", "127.0.0.1:5000/charts/operator"),
+                (publish.Registry(Path("oras"), Path("helm")), fixture,
+                 "127.0.0.1:5000/operator", "127.0.0.1:5000/charts/operator")):
+            with self.assertRaisesRegex(ValueError, "Nonpublishable rehearsal"), \
+                    patch.object(publish, "_promote") as mutation:
+                publish.rehearse_promotion(registry, github, Path("nonexistent"),
+                    image_repository=image, chart_repository=chart, fresh_evidence=Path("nonexistent"))
+            mutation.assert_not_called()
+
+    def test_production_cli_cannot_override_source_readiness(self):
+        import sys
+        for mode in ("restore", "save", "promote"):
+            for version in ("0.1.0-dev.0", "0.1.0"):
+                with self.subTest(mode=mode, version=version):
+                    result = subprocess.run([sys.executable, str(publish.ROOT / "scripts/release-publish.py"),
+                        mode, "--root", "/nonexistent/checkpoint", "--version", version,
+                        "--revision", "a" * 40, "--oras", "/nonexistent/oras", "--helm", "/nonexistent/helm"],
+                        capture_output=True, text=True, timeout=30)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("Production publication blocked", result.stderr)
+                    self.assertNotIn("FileNotFoundError", result.stderr)
 
     def test_installed_authorization_cleanup_requires_preserved_client_and_absent_server(self):
         fixture = object.__new__(system.System)
@@ -146,8 +188,8 @@ class ReleaseResumeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for version, revision, image in (("0.1.1", "a" * 40, publish.IMAGE + "@sha256:" + "b" * 64),
-                                            ("0.1.0", "main", publish.IMAGE + "@sha256:" + "b" * 64),
-                                            ("0.1.0", "a" * 40, publish.IMAGE + ":0.1.0")):
+                                            (publish.contract.VERSION, "main", publish.IMAGE + "@sha256:" + "b" * 64),
+                                            (publish.contract.VERSION, "a" * 40, publish.IMAGE + ":0.1.0")):
                 with self.assertRaises(ValueError):
                     publish.checkpoint(root, version, revision, image)
 
@@ -156,9 +198,9 @@ class ReleaseResumeTests(unittest.TestCase):
             root = Path(directory)
             file = root / "image.tar"
             file.write_bytes(b"original archive")
-            before = publish.checkpoint(root, "0.1.0", "a" * 40, publish.IMAGE + "@sha256:" + "b" * 64)
+            before = publish.checkpoint(root, publish.contract.VERSION, "a" * 40, publish.IMAGE + "@sha256:" + "b" * 64)
             file.write_bytes(b"changed archive")
-            after = publish.checkpoint(root, "0.1.0", "a" * 40, publish.IMAGE + "@sha256:" + "b" * 64)
+            after = publish.checkpoint(root, publish.contract.VERSION, "a" * 40, publish.IMAGE + "@sha256:" + "b" * 64)
             self.assertNotEqual(before["files"], after["files"])
             (root / "link").symlink_to(file)
             with self.assertRaises(ValueError):

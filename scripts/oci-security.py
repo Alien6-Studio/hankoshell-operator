@@ -10,6 +10,13 @@ import subprocess
 import tarfile
 import tempfile
 
+import importlib.util
+
+spec = importlib.util.spec_from_file_location("release_version", Path(__file__).with_name("release-version.py"))
+versioning = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(versioning)
+VERSION = versioning.VERSION
+
 ROOT = Path(__file__).resolve().parents[1]
 SCANNER_VERSION = "0.75.0"
 PLATFORMS = ("linux/amd64", "linux/arm64")
@@ -256,8 +263,8 @@ def main():
     parser.add_argument("--revision", required=True)
     parser.add_argument("--version", required=True)
     args = parser.parse_args()
-    if not DIGEST.fullmatch(args.digest) or not re.fullmatch(r"[0-9a-f]{40}", args.revision) or args.version != "0.1.0":
-        parser.error("Expected immutable digest, full revision and version 0.1.0")
+    if not DIGEST.fullmatch(args.digest) or not re.fullmatch(r"[0-9a-f]{40}", args.revision) or args.version != VERSION:
+        parser.error("Expected immutable digest, full revision and version " + VERSION)
     if args.mode == "scan":
         if args.archive is None or args.scanner is None:
             parser.error("Scanning requires the exact OCI archive and pinned scanner")

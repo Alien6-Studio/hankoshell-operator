@@ -290,6 +290,7 @@ class GitHub:
 
     def create(self, tag, revision, notes):
         version = contract.versioning.from_tag(tag)
+        contract.versioning.require_production(version)
         payload = {"tag_name": tag, "target_commitish": revision, "name": "v" + version,
                    "body": notes, "draft": True, "prerelease": False}
         return self.request("POST", f"/repos/{REPOSITORY}/releases", json.dumps(payload).encode())
@@ -314,7 +315,29 @@ def matching_file(registry, reference, expected):
     return True
 
 
+class NonpublishableGitHubFixture:
+    """Marker for in-memory rehearsal storage; never a credentialed GitHub client."""
+
+
+def rehearse_promotion(registry, github, root, *, image_repository, chart_repository, fresh_evidence):
+    # Rehearsals share retry logic, but cannot target GHCR or a real GitHub API.
+    if (not isinstance(github, NonpublishableGitHubFixture) or isinstance(github, GitHub)
+            or registry.flags != ["--plain-http"]
+            or not all(re.fullmatch(r"127\.0\.0\.1:[0-9]+/[a-z0-9/-]+", value)
+                       for value in (image_repository, chart_repository))
+            or image_repository.split("/")[0] != chart_repository.split("/")[0]):
+        raise ValueError("Nonpublishable rehearsal requires loopback registry and in-memory GitHub storage")
+    return _promote(registry, github, root, image_repository=image_repository,
+                    chart_repository=chart_repository, fresh_evidence=fresh_evidence)
+
+
 def promote(registry, github, root, *, image_repository=IMAGE, chart_repository=CHART, fresh_evidence=None):
+    contract.versioning.require_production(contract.VERSION)
+    return _promote(registry, github, root, image_repository=image_repository,
+                    chart_repository=chart_repository, fresh_evidence=fresh_evidence)
+
+
+def _promote(registry, github, root, *, image_repository, chart_repository, fresh_evidence):
     record = verify_checkpoint(root, contract.VERSION, json.loads((root / "checkpoint.json").read_text())["revision"])
     # A historical signed report is not a current security gate. Every attempt
     # must also pass a fresh scan of the committed archive under today's policy.
@@ -338,7 +361,7 @@ def promote(registry, github, root, *, image_repository=IMAGE, chart_repository=
     incomplete_assets = {}
     if release:
         if (release["tag_name"] != tag or release["target_commitish"] != record["revision"] or release["name"] != "v" + version
-                or release["body"] != contract.notes(version) or release["prerelease"]):
+                or release["body"] != contract.notes(version) or release["prerelease"] is not ("-" in version)):
             raise ValueError("Existing release metadata differs")
         for asset in github.assets(release):
             if asset["name"] not in files or asset["name"] in existing_assets or asset["name"] in incomplete_assets:
@@ -399,6 +422,8 @@ def main():
     parser.add_argument("--helm", type=Path, required=True)
     parser.add_argument("--attest", type=Path)
     args = parser.parse_args()
+    if args.mode in ("restore", "save", "promote"):
+        contract.versioning.require_production(args.version)
     registry = Registry(args.oras, args.helm)
     reference = IMAGE + ":delivery-candidate-" + args.version
     if args.mode == "restore":

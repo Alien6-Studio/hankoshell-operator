@@ -17,7 +17,7 @@ normal writer must identify the same endpoint and realm UUID. No client-secret
 endpoint is called by adoption. A provider receipt is a trusted-provider checkpoint,
 not a signature or semantic reconciliation/deletion permission.
 
-**Service-account upgrade:** existing unmarked pre-0.5 M2M clients cannot receive
+**Service-account upgrade:** existing unmarked legacy M2M clients cannot receive
 writes, recovered/rotated credentials or deletion merely because clientID, status,
 Secret or finalizer matches. Set Observe and obtain reviewed acquisition for a
 qualified leaf. Opaque/unqualified native state remains refused; do not
@@ -160,7 +160,7 @@ publisher signature with the pinned runtime cosign. It preserves its current
 image repository. Missing approval, revoked approval, failed verification or a
 concurrent Deployment change prevents the patch. Already-pinned images are checked
 again; a version string alone does not authorize an update.
-The Hub reference version must match the reviewed SemVer release, such as `0.1.0`.
+The Hub reference version must match the reviewed SemVer release, such as the future `0.1.0`. This example is unavailable during development.
 
 Configure `imageVerification.policyConfigMap: hanko-image-policy`, the independent
 [admission policy](../config/security/operator-image-policy-admission.yaml) and
@@ -184,7 +184,7 @@ approval. Replace the digest and source placeholders with the reviewed values:
     "image": "ghcr.io/alien6-studio/hankoshell-operator@sha256:<verified-digest>",
     "revision": "<full-source-revision>",
     "release_version": "0.1.0",
-    "certificate_identity": "https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/release/v0.1.0",
+    "certificate_identity": "https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.1.0",
     "certificate_oidc_issuer": "https://token.actions.githubusercontent.com"
   }]
 }
@@ -404,7 +404,7 @@ administrative HTTP exception above. Enterprise refuses this combination.
 
 ### Keycloak compatibility
 
-hankoShell Operator **0.1.0 is qualified against Keycloak 26.8.0 and 26.7.5**
+The current development operator **is qualified against Keycloak 26.8.0 and 26.7.5**
 using the HTTPS Admin API v1 and service-account `client_credentials` flow.
 The official images are pinned by immutable multi-architecture index digests
 in the [qualification fixture](../internal/controller/keycloak_fixture_test.go).
@@ -412,7 +412,7 @@ Both versions run in required PR/release CI and weekly CI; the aggregate require
 check fails on either matrix failure or startup failure. Qualification is a
 compatibility contract, not a recommendation to retain a vulnerable patch.
 
-| Version | 0.1.0 qualification |
+| Version | Current qualification |
 | --- | --- |
 | 26.8.0, 26.7.5 | Qualified by the real Admin API suite |
 | Other 26.x patches | May work; unqualified until the same suite passes |
@@ -451,7 +451,7 @@ credentials on both. Target-scoped master credentials do not receive the
 server version on either qualified version, so `status.keycloakVersion` can be empty.
 Do not broaden master permissions merely to fill this diagnostic field.
 
-Organization principals in 0.1.0 require the optional
+Organization principals require the optional
 target `manage-clients` + `view-users` profile. `view-users` also permits reading
 target-realm users; it is not group-only authority or part of the common profile.
 Fresh strict group ownership/hierarchy reads precede grant execution. Missing
@@ -476,7 +476,7 @@ installation acceptance tests. No runtime version rejection is added.
 The organization-grant suite qualifies fresh UMA decisions for its bounded
 group-policy fixtures on both versions; it does not qualify offline/RPT token
 revocation, external group-population flows or application enforcement.
-In 0.1.0, application discovery/metadata uses the configured
+Currently, application discovery/metadata uses the configured
 Keycloak CA transport with TLS verification and a 1 MiB response limit, without
 administrative bearer credentials. The additional protocol suite qualifies OIDC
 web/SPA authorization code + PKCE, M2M client credentials and signed SAML POST
@@ -487,13 +487,13 @@ See [application identity, ownership migration and protocol limits](architecture
 
 ### Application protocol ownership and migration
 
-`spec.protocol` defaults to OIDC; existing field paths remain valid. The 0.3
+`spec.protocol` defaults to OIDC; existing field paths remain valid. The protocol-aware application
 source supports a bounded SAML contract and never creates an OIDC Secret for a
 SAML application. Client roles are shared; OIDC token/broker mappings, role scopes,
 rotation and Secret projection cannot be requested for SAML. Protocol changes
 require reviewed deletion/recreation, not an in-place conversion.
 
-Existing 0.2 application clients lack UID ownership. Review the actual client UUID
+Legacy unmarked application clients lack UID ownership. Review the actual client UUID
 and independently observed non-secret state, then explicitly approve both through
 the migration annotations. A matching clientID, client Secret or status hash alone
 cannot authorize adoption. Review applications before deleting them: client
@@ -502,7 +502,7 @@ cleanup also removes its roles, mappers and credentials. See the
 
 ### Kubernetes compatibility and hardening
 
-The operator and chart keep their own SemVer (`0.1.0`); they do not share the
+The operator and chart keep their own development SemVer (`0.1.0-dev.0`); they do not share the
 cluster's version number. Kubernetes libraries are upgraded together:
 `k8s.io/{api,apimachinery,client-go,apiextensions-apiserver}` **v0.37.1** and
 `controller-runtime` **v0.25.2**, following its
@@ -857,7 +857,7 @@ a configuration snapshot and does not establish a database rollback point.
 ## Lifecycle operation qualification
 
 `HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are experimental
-and unqualified in 0.1.0. Existing unit tests exercise step transitions, but do
+and unqualified in the current lifecycle contract. Existing unit tests exercise step transitions, but do
 not qualify durable completion, interruption/retry, child ownership or recovery
 on real installations. Qualification is tracked in
 [issue #20](https://github.com/Alien6-Studio/hankoshell-operator/issues/20), with no
@@ -868,7 +868,7 @@ outside the first release's qualified core IAM contract.
 database upgrade compatibility. `Clone` creates an external instance alias
 reusing the source administrative connection and imports supported configuration;
 it does not provision a new
-database. `clone.includeData` has no effect in 0.1.0. A target namespace outside
+database. `clone.includeData` has no effect in the current operation contract. A target namespace outside
 the release namespace is outside the default watch/RBAC scope. `DBSwitch` changes
 the database Secret reference without migrating data. Operation `dryRun` skips
 planned steps; it does not validate provider compatibility or recoverability.
@@ -915,39 +915,30 @@ configuration, while installation-specific enforcement still needs qualification
 
 ## Release rehearsal and publication
 
-The first public product version is 0.1.0, consolidating the complete qualified
-E1–E5 capabilities and #54 release-trust hardening. There is no functional rollback.
-Signed `v0.1.0` through `v0.5.0` remain immutable historical engineering/source
-checkpoints, not public releases. The prior 0.5.1 preparation was canceled before
-tagging. Public distribution uses the distinct `release/v0.1.0` source tag;
-chart/app/image/Artifact Hub versions remain `0.1.0`, and the GitHub Release
-display name is `v0.1.0`.
+The first public 0.1.0 is in development; no public release has been published.
+Source/chart/app/build/rehearsal metadata is `0.1.0-dev.0`, with Artifact Hub
+`prerelease: true`. All implemented capabilities and canonical Attest hardening
+remain intact. Phases 6–10 and #21's real trust evidence are required before
+first publication; see the [roadmap](../ROADMAP.md) and
+[administrator checklist](release-public-0.1.0-preparation.md).
 
-The current parser exclusively accepts `release/v<SemVer>`; only product 0.1.0
-is supported by the current source contract. Historical workflows remain frozen,
-so current-source rejection cannot disable their execution. Publication review
-must reject all bare historical v* tags. The administrator checklist documents
-public-namespace tag protection and an exact release-environment tag allowlist;
-no administrative policy is changed here. See the
-[preparation status and administrator checklist](release-public-0.1.0-preparation.md).
+The parser accepts normal `v<SemVer>` tags and extracts `0.1.0` from `v0.1.0`.
+Parsing is separate from permission to publish: production eligibility and
+promotion fail closed while source maturity is development. Only reviewed source
+metadata declaring the target stable candidate can enable the future path.
+No environment variable or CLI option overrides that decision. Development
+rehearsal shares retry logic only with a loopback registry and in-memory GitHub
+storage; it cannot publish to GHCR or create a real GitHub Release.
 
-0.1.0 is a normal SemVer release in initial development. The experimental
-`hanko.sh/v1alpha1` APIs may change across minor releases before 1.0. Artifact Hub
-uses `prerelease: false`; the workflow creates a normal GitHub **draft**, with
-curated notes extracted from the tracked CHANGELOG release overview. Publication
-of that draft remains a separate manual action. The tag must already exist on
-protected main; the workflow does not create tags. Publication requires a
-GitHub-verified source commit and a GitHub-verified signed annotated `release/v<SemVer>` tag
-bound to that exact commit. Eligibility checks protected-main ancestry and rejects
-missing or unverified signatures, lightweight tags and conflicting or moved
-references. These identities are checked again immediately before publication
-using Git metadata responses limited to 1 MiB, without fetching the commit diff.
-The initial root must be signed and GitHub Verified; subsequent changes use
-protected, GitHub-signed squash merges. Signed-off-by trailers are not signatures.
-Delivered artifacts require separate Sigstore signatures and Continuum Attest
-verification. Historical v0.1.0 through v0.5.0 remain fixed, with their original
-objects and signatures. Public release/v0.1.0 identifies current qualified source,
-not the historical v0.1.0 checkpoint. Publication is a separate reviewed operation.
+The future normal release requires a GitHub-verified source commit and signed
+annotated `v0.1.0` tag bound to that exact commit on protected main. Eligibility
+checks ancestry, signatures, lightweight tags and moved/conflicting identities;
+these checks run again immediately before publication. Git metadata responses
+remain bounded to 1 MiB without fetching the commit diff. The signed root and
+GitHub-signed protected squash merges preserve the technical history; sign-off
+trailers are not signatures. Delivered artifacts additionally require Sigstore
+and native Continuum Attest verification. Publishing a verified GitHub draft
+remains a separate manual step. No tag is created by the workflow.
 
 Required CI builds one AMD64/ARM64 OCI archive with BuildKit SBOM/provenance,
 scans its exact manifests, and passes that immutable artifact ID to the release
@@ -984,7 +975,7 @@ artifacts. It writes only to its disposable loopback registry, never creates a t
 changes Artifact Hub. The local signature proves payload binding, **not** GitHub
 OIDC/Fulcio/Rekor trust. Production image signatures remain keyless Sigstore with
 issuer `https://token.actions.githubusercontent.com` and exact certificate identity
-`https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/release/v0.1.0`.
+`https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.1.0`.
 The workflow uses the actual `GITHUB_WORKFLOW_REF` and eligibility requires
 `github.ref == refs/tags/<tag>`; a main-ref run cannot claim this tag identity.
 

@@ -35,8 +35,16 @@ def configuration():
     return repository_id, public_key
 
 
-def prepare(version, image, chart_output, dist, repository_id, public_key):
-    tag = quote(versioning.public_tag(version), safe="")
+def prepare(version, image, chart_output, dist, repository_id, public_key, revision=None):
+    if "-" in version:
+        if not isinstance(revision, str) or not re.fullmatch(r"[0-9a-f]{40}", revision):
+            raise ValueError("Development metadata requires the actual source revision")
+        icon_ref = revision
+        tag = None
+    else:
+        versioning.require_production(version)
+        tag = quote(versioning.public_tag(version), safe="")
+        icon_ref = tag
     if not re.fullmatch(re.escape(IMAGE) + r"@sha256:[0-9a-f]{64}", image):
         raise ValueError("Expected the exact published operator image digest")
     source = ROOT / "charts/hankoshell-operator"
@@ -46,7 +54,7 @@ def prepare(version, image, chart_output, dist, repository_id, public_key):
     annotations = chart["annotations"]
     if not yaml.safe_load(annotations.get("artifacthub.io/changes", "")):
         raise ValueError("Describe this chart version in artifacthub.io/changes")
-    chart["icon"] = f"https://raw.githubusercontent.com/Alien6-Studio/hankoshell-operator/{tag}/charts/hankoshell-operator/icon.svg"
+    chart["icon"] = f"https://raw.githubusercontent.com/Alien6-Studio/hankoshell-operator/{icon_ref}/charts/hankoshell-operator/icon.svg"
     annotations["artifacthub.io/prerelease"] = "true" if "-" in version else "false"
     annotations["artifacthub.io/images"] = yaml.safe_dump([{
         "name": "hankoshell-operator", "image": image,
@@ -55,8 +63,9 @@ def prepare(version, image, chart_output, dist, repository_id, public_key):
     annotations.pop("artifacthub.io/signKey", None)
     links = yaml.safe_load(annotations.get("artifacthub.io/links", "[]"))
     links = [link for link in links if link["name"] != "Attest delivery verification key"]
-    links.insert(0, {"name": "Attest delivery verification key",
-                     "url": f"{REPOSITORY}/releases/download/{tag}/{PUBLIC_KEY_FILE}"})
+    if tag is not None:
+        links.insert(0, {"name": "Attest delivery verification key",
+                         "url": f"{REPOSITORY}/releases/download/{tag}/{PUBLIC_KEY_FILE}"})
     annotations["artifacthub.io/links"] = yaml.safe_dump(links, sort_keys=False)
     shutil.copytree(source, chart_output)
     (chart_output / "Chart.yaml").write_text(yaml.safe_dump(chart, sort_keys=False))
@@ -78,6 +87,7 @@ def main():
     parser.add_argument("--check-config", action="store_true")
     parser.add_argument("--version")
     parser.add_argument("--image")
+    parser.add_argument("--revision")
     parser.add_argument("--chart-output", type=Path)
     parser.add_argument("--dist", type=Path)
     args = parser.parse_args()
@@ -86,7 +96,7 @@ def main():
         return
     if any(value is None for name, value in vars(args).items() if name != "check_config"):
         parser.error("All metadata arguments are required")
-    prepare(args.version, args.image, args.chart_output, args.dist, repository_id, public_key)
+    prepare(args.version, args.image, args.chart_output, args.dist, repository_id, public_key, args.revision)
 
 
 if __name__ == "__main__":

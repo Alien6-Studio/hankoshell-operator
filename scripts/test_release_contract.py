@@ -29,7 +29,7 @@ class ReleaseContractTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             contract.check("0.5.0-beta.1")
         for version in ("0.1.1", "0.2.0", "0.5.0", "0.5.1"):
-            self.assertEqual(contract.versioning.from_tag("release/v" + version), version)
+            self.assertEqual(contract.versioning.from_tag("v" + version), version)
             with self.subTest(version=version), self.assertRaises(ValueError):
                 contract.check(version)
 
@@ -47,9 +47,9 @@ class ReleaseContractTests(unittest.TestCase):
             versions = []
             for job in jobs.values():
                 for step in job.get("steps", []):
-                    versions += re.findall(r"--version (\d+\.\d+\.\d+)", step.get("run", ""))
+                    versions += re.findall(r"--version (\d+\.\d+\.\d+(?:-[\w.]+)?)", step.get("run", ""))
                     if "build-args" in step.get("with", {}):
-                        versions += re.findall(r"VERSION=(\d+\.\d+\.\d+)", step["with"]["build-args"])
+                        versions += re.findall(r"VERSION=(\d+\.\d+\.\d+(?:-[\w.]+)?)", step["with"]["build-args"])
             self.assertTrue(versions, name)
             self.assertEqual(set(versions), {contract.VERSION}, name)
 

@@ -15,10 +15,10 @@ provider security patch within it; an end-of-life or provider-extended version
 does not receive additional project qualification. See the
 [Kubernetes compatibility and hardening matrix](docs/secure-deployment.md#kubernetes-compatibility-and-hardening).
 
-Version 0.1.0 is a normal SemVer release in initial development, not a beta or
-prerelease. The `v1alpha1` APIs are experimental and may change between minor
-versions before `1.0.0`. Reports against `main` are welcome; deploy reviewed
-tagged releases when available.
+The first public 0.1.0 is in initial development. No public release exists;
+current metadata `0.1.0-dev.0` is prerelease. The `v1alpha1` APIs remain
+experimental. Reports against `main` are welcome; the published-release support
+policy above applies once a public release exists.
 
 ## Final OCI image vulnerability gate
 
