@@ -501,7 +501,7 @@ repairs target drift; the operator does not watch target namespaces.
 
 The ServiceAccount UID is an authorization anchor, **not workload federation**.
 Projected ServiceAccount JWT login, SPIFFE, token exchange and short-lived workload
-identity are deferred to 0.6. There is no HankoMeshService coupling, live Hub
+identity are deferred to engineering E6, without an assigned public release version. There is no HankoMeshService coupling, live Hub
 binding execution or Continuum change.
 
 Qualification combines deterministic/adversarial/retry unit tests, real Kubernetes

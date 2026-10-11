@@ -19,6 +19,29 @@ system = publish.contract.module("installed_system", "system-test.py")
 
 
 class ReleaseResumeTests(unittest.TestCase):
+    def test_public_tag_api_path_and_display_name_are_distinct(self):
+        github = publish.GitHub("synthetic-fixture-token")
+        with patch.object(github, "request") as request:
+            github.release("release/v0.1.0")
+            request.assert_called_once_with("GET",
+                "/repos/Alien6-Studio/hankoshell-operator/releases/tags/release%2Fv0.1.0")
+        with patch.object(github, "request") as request:
+            github.create("release/v0.1.0", "a" * 40, "fixture notes")
+            method, path, body = request.call_args.args
+            self.assertEqual((method, path), ("POST", "/repos/Alien6-Studio/hankoshell-operator/releases"))
+            self.assertEqual(json.loads(body), {"tag_name": "release/v0.1.0", "name": "v0.1.0",
+                "target_commitish": "a" * 40, "body": "fixture notes", "draft": True, "prerelease": False})
+
+    def test_historical_tags_cannot_reach_release_api(self):
+        github = publish.GitHub("synthetic-fixture-token")
+        for tag in ("v0.1.0", "v0.2.0", "v0.5.0", "v0.5.1", "main", "release/0.1.0"):
+            with self.subTest(tag=tag), patch.object(github, "request") as request:
+                with self.assertRaises(ValueError):
+                    github.release(tag)
+                with self.assertRaises(ValueError):
+                    github.create(tag, "a" * 40, "fixture notes")
+                request.assert_not_called()
+
     def test_installed_authorization_cleanup_requires_preserved_client_and_absent_server(self):
         fixture = object.__new__(system.System)
         client = {"id": "fixture-id", "authorizationServicesEnabled": False, "attributes": {}}
@@ -123,8 +146,8 @@ class ReleaseResumeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for version, revision, image in (("0.1.1", "a" * 40, publish.IMAGE + "@sha256:" + "b" * 64),
-                                            ("0.5.1", "main", publish.IMAGE + "@sha256:" + "b" * 64),
-                                            ("0.5.1", "a" * 40, publish.IMAGE + ":0.5.1")):
+                                            ("0.1.0", "main", publish.IMAGE + "@sha256:" + "b" * 64),
+                                            ("0.1.0", "a" * 40, publish.IMAGE + ":0.1.0")):
                 with self.assertRaises(ValueError):
                     publish.checkpoint(root, version, revision, image)
 
@@ -133,9 +156,9 @@ class ReleaseResumeTests(unittest.TestCase):
             root = Path(directory)
             file = root / "image.tar"
             file.write_bytes(b"original archive")
-            before = publish.checkpoint(root, "0.5.1", "a" * 40, publish.IMAGE + "@sha256:" + "b" * 64)
+            before = publish.checkpoint(root, "0.1.0", "a" * 40, publish.IMAGE + "@sha256:" + "b" * 64)
             file.write_bytes(b"changed archive")
-            after = publish.checkpoint(root, "0.5.1", "a" * 40, publish.IMAGE + "@sha256:" + "b" * 64)
+            after = publish.checkpoint(root, "0.1.0", "a" * 40, publish.IMAGE + "@sha256:" + "b" * 64)
             self.assertNotEqual(before["files"], after["files"])
             (root / "link").symlink_to(file)
             with self.assertRaises(ValueError):

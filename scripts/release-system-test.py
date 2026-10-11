@@ -42,7 +42,8 @@ class Releases:
     def create(self, tag, revision, notes):
         if self.current is not None:
             raise AssertionError("Duplicate draft creation")
-        self.current = {"tag_name": tag, "target_commitish": revision, "name": f"hankoShell Operator {tag}",
+        self.current = {"tag_name": tag, "target_commitish": revision,
+                        "name": "v" + publish.contract.versioning.from_tag(tag),
                         "body": notes, "draft": True, "prerelease": False}
         self.wrote()
         return copy.deepcopy(self.current)
@@ -97,21 +98,21 @@ def qualify(output, archive, evidence, image, revision, oras, helm, attest, conf
         for directory in ("dist", "release-evidence"):
             shutil.copytree(output / directory, root / directory)
         shutil.copyfile(archive, root / "image.tar")
-        reference = local + "/operator:delivery-candidate-0.5.1"
-        publish.save(registry, reference, root, "0.5.1", revision, image)
+        reference = local + "/operator:delivery-candidate-0.1.0"
+        publish.save(registry, reference, root, "0.1.0", revision, image)
         committed = registry.resolve(reference)
         # Simulate an interrupted save whose registry acknowledgement was lost.
-        publish.save(registry, reference, root, "0.5.1", revision, image)
+        publish.save(registry, reference, root, "0.1.0", revision, image)
         if registry.resolve(reference) != committed:
             raise ValueError("Retry replaced the committed checkpoint")
         with tempfile.TemporaryDirectory() as temp:
             restored = Path(temp) / "delivery"
-            publish.restore(registry, reference, restored, "0.5.1", revision)
+            publish.restore(registry, reference, restored, "0.1.0", revision)
             publish.verify_attest(restored, attest, config)
             if publish.hashes(restored) != publish.hashes(root):
                 raise ValueError("Restored delivery differs from signed bytes")
             try:
-                publish.verify_checkpoint(restored, "0.5.1", "0" * 40)
+                publish.verify_checkpoint(restored, "0.1.0", "0" * 40)
             except ValueError:
                 pass
             else:
@@ -136,6 +137,8 @@ def qualify(output, archive, evidence, image, revision, oras, helm, attest, conf
                 releases.interrupted_after = None
                 publish.promote(transport, releases, restored, **args)
                 writes = releases.writes
+                if releases.current["tag_name"] != "release/v0.1.0" or releases.current["name"] != "v0.1.0":
+                    raise ValueError("Public release namespace or display name differs")
                 publish.promote(transport, releases, restored, **args)
                 if releases.writes != writes or writes != count:
                     raise ValueError("Retry repeated an already completed external write")
@@ -172,6 +175,20 @@ def qualify(output, archive, evidence, image, revision, oras, helm, attest, conf
                     raise ValueError("Incomplete upload recovery was not idempotent")
             # Conflicting existing asset must fail before any registry/GitHub write.
             releases.current["draft"] = True
+            for field, wrong in (("tag_name", "v0.1.0"), ("name", "release/v0.1.0"),
+                                 ("target_commitish", "0" * 40)):
+                original = releases.current[field]
+                releases.current[field] = wrong
+                try:
+                    publish.promote(transport, releases, restored, **args)
+                except ValueError:
+                    pass
+                else:
+                    raise ValueError("Conflicting release identity was accepted: " + field)
+                finally:
+                    releases.current[field] = original
+                if releases.writes != writes:
+                    raise ValueError("Release identity conflict produced a publication write")
             releases.stored["image-digest.txt"] = b"tampered\n"
             try:
                 publish.promote(transport, releases, restored, **args)
@@ -186,7 +203,7 @@ def qualify(output, archive, evidence, image, revision, oras, helm, attest, conf
             conflict = local + "/conflicting-operator"
             fake = Path(temp) / "fake-image"
             fake.write_bytes(b"unrelated OCI artifact")
-            registry.push_file(conflict + ":0.5.1", fake, "application/octet-stream")
+            registry.push_file(conflict + ":0.1.0", fake, "application/octet-stream")
             try:
                 publish.promote(transport, releases, restored, image_repository=conflict,
                                 chart_repository=chart_repo, fresh_evidence=evidence)
@@ -215,6 +232,10 @@ def qualify(output, archive, evidence, image, revision, oras, helm, attest, conf
             "native_registry_and_helm": "pass", "checkpoint_restore_and_attest_recompute": "pass",
             "lost_acknowledgement_points": count, "idempotent_retries": "pass", "conflict_rejection": "pass",
             "empty_starter_upload_and_interrupted_deletion_recovery": "pass",
+            "release_identity": {"product_version": "0.1.0", "git_ref": "refs/tags/release/v0.1.0",
+                                 "github_release_name": releases.current["name"], "chart_version": "0.1.0",
+                                 "image_tag": "0.1.0"},
+            "release_identity_conflict_rejection": "pass",
             "limitations": ["loopback OCI fixture; no public registry or Artifact Hub indexing",
                             "GitHub release/asset storage fixture; no production API or OIDC qualification"],
         }, indent=2) + "\n")

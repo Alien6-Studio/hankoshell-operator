@@ -1,35 +1,45 @@
 # Changelog
 
-## 0.5.1 — Unreleased
+## 0.1.0 — First public release (unreleased)
 
-- Retain the complete 0.5 functional IAM contract and its 16 experimental
-  v1alpha1 APIs without an IAM feature, CRD, permission or adoption change.
-- Bind the Ed25519 PKCS#8 private signer to the approved public key and derive
-  its canonical ID through checksum-pinned Attest 0.1.0 before GHCR staging.
-  Recheck that ID before trusting a restored delivery receipt. The corrected
-  rehearsal uses native BLAKE3 identity derivation instead of a SHA-256 prefix.
-- Parse the configured TSA X.509 certificate and qualify unrelated/malformed
-  keys, wrong IDs, malformed/unrelated TSA certificates, failing timestamp
-  endpoints and secret cleanup. This consistency hardening is not evidence of
-  a compromised signature or independent approval of production trust.
-- Make 0.5.1 the first intended public-distribution candidate. Keep v0.5.0
-  signed, immutable and unpublished; no migration from a public 0.5.0 package
-  is required. Real production trust/catalog evidence remains open in #21.
+- Establish the first public product version as 0.1.0, consolidating the complete
+  currently qualified product and #54 release-trust hardening without a functional
+  rollback, IAM change, CRD change, permission change or dependency change.
+- Require public release tags exclusively in the release/v<SemVer> namespace.
+  Derive exactly 0.1.0 from release/v0.1.0, bind workflow execution to the actual
+  tag ref and keep GitHub display names separate from source tag names.
+- Distinguish engineering milestones E1–E9 from public SemVer. Public 1.0.0
+  depends on an explicit stable-contract/compatibility/migration review, not
+  completion of a numbered milestone.
+- Keep all signed historical v0.1.0–v0.5.0 checkpoints immutable and unpublished.
+  The earlier 0.5.1 preparation and its tag-readiness decision are superseded;
+  neither v0.5.1 nor release/v0.1.0 is created by this source preparation.
 
 <!-- release-notes:start -->
 ### Release overview
 
-hankoShell Operator 0.5.1 manages declarative Keycloak IAM configuration from
+hankoShell Operator 0.1.0 manages declarative Keycloak IAM configuration from
 Kubernetes. Application identity can live beside deployment manifests. Hub,
 hankoShell API and Continuum are optional. Project: https://hanko.sh.
 
-This first public-distribution candidate retains the complete 0.5 IAM contract.
-The patch binds the Ed25519 private signer to the approved public key and native
-Attest identity before publication, validates TSA certificate structure and
-qualifies wrong identities, failed timestamps and cleanup. Production signer/TSA
-approval and catalog/public-access evidence remain separate requirements in #21.
-The signed v0.5.0 source tag was never distributed as a public release and remains
-immutable; no user needs to migrate from a public 0.5.0 package.
+This first public release candidate consolidates the engineering/source
+checkpoints historically tagged v0.1.0 through v0.5.0: Trusted Keycloak Foundation,
+IAM Contract Engine, Application Identity, Organizational Authorization and Adopt
+Existing Keycloak. Those immutable tags were development qualification checkpoints,
+never public GitHub Releases or distributed public packages. The public product
+version is 0.1.0, with a distinct Git source tag release/v0.1.0; it does not roll
+back to the old v0.1.0 checkpoint and requires no migration from a prior public
+package. GitHub displays v0.1.0, while chart/app/image/Artifact Hub versions are
+0.1.0. Future public tags use release/v<SemVer>, independently of engineering
+milestone numbers.
+
+The release-trust hardening from #54 binds the Ed25519 private signer to the
+approved public key and native Attest identity before publication, validates TSA
+certificate structure and qualifies wrong identities, failed timestamps and
+cleanup. This consistency fix is not evidence of a compromised signature or a
+CVE. Production signer/TSA approval and catalog/public-access evidence remain
+separate requirements in #21. The prior 0.5.1 preparation was canceled before
+any tag or publication.
 
 Adopt Existing Keycloak adds DISCOVER → OBSERVE → PLAN → DIFF → APPROVE → ADOPT
 → VERIFY OWNERSHIP → MANAGE for qualified existing resources. Bounded discovery
@@ -94,7 +104,7 @@ drift repair and cleanup/refusal for leaves and both aggregates. Cloud/CNI/CSI
 enforcement, enterprise fleets and production portable backup/restore remain
 unqualified; snapshot/lifecycle workflows remain experimental.
 
-The 16 v1alpha1 APIs remain experimental. 0.5.1 is a normal SemVer version in
+The 16 v1alpha1 APIs remain experimental. 0.1.0 is a normal SemVer version in
 initial development, not a prerelease. Use verified HTTPS, dedicated scoped
 Keycloak service accounts, referenced Secrets, namespace RBAC, Restricted pods
 and explicit default-deny networking. Source govulncheck and exact AMD64/ARM64
@@ -118,13 +128,28 @@ Report vulnerabilities privately at
 https://github.com/Alien6-Studio/hankoshell-operator/security/advisories/new.
 <!-- release-notes:end -->
 
-## 0.5.0 — Historical source tag (unpublished)
+## Historical source preparation 0.5.1 — Canceled before tagging
+
+PRs #54 and #55 qualified release-trust hardening and source metadata under the
+provisional 0.5.1 name. Main fac8b683e30453e980c5dec8ebab8e963be0d74c was qualified,
+but no v0.5.1 tag, package or GitHub Release was created. The proposed first-public
+0.5.1 model was canceled before tagging in favor of public 0.1.0 with the separate
+release/v0.1.0 source ref. The hardening remains included in the current product.
+
+## Historical engineering/source checkpoints
+
+The entries below preserve the technical development record at each checkpoint.
+References to release intent and then-current versions describe that historical
+source state, not public distribution. All five signed tag objects and signatures
+remain unchanged. These are not five public releases or a public upgrade path.
+
+## Engineering checkpoint v0.5.0 — Adopt Existing Keycloak (unpublished)
 
 The signed annotated `v0.5.0` tag is retained unchanged at commit
 `335b88c98ac25ce288648a3414387f25d76c04ff`, tag object
 `671250d37407f083d8717345d03ff1d2e9867415`. It was created during source
 qualification and will not be published. No public 0.5.0 package was distributed;
-0.5.1 carries its functional contract with the release-trust consistency fix.
+The first public 0.1.0 candidate carries its functional contract with the release-trust consistency fix.
 
 - Add #49 Organization Observe/Manage and target-local aggregate candidates.
   Bind live realm/group/path/parent and optional native Organization UUIDs;
@@ -321,7 +346,7 @@ https://github.com/Alien6-Studio/hankoshell-operator/security/advisories/new.
 
 
 
-## 0.4.0 — Source frozen (unpublished)
+## Engineering checkpoint v0.4.0 — Organizational Authorization (unpublished)
 
 - Accept the organizational authorization design: extend HankoResourceServer with
   an organization principal and explicit descendant semantics, preserving role
@@ -448,7 +473,7 @@ Report vulnerabilities privately at
 https://github.com/Alien6-Studio/hankoshell-operator/security/advisories/new;
 SECURITY.md describes supported versions and response times.
 
-## 0.3.0 — Unreleased
+## Engineering checkpoint v0.3.0 — Application Identity (unpublished)
 
 - Add protocol-aware HankoApplication intent, sealed local plans, Keycloak adapter
   and bounded evaluation/apply/observation evidence using the IAM contract engine.
@@ -474,7 +499,7 @@ SECURITY.md describes supported versions and response times.
 
 
 
-## 0.2.0 — Source frozen (unpublished)
+## Engineering checkpoint v0.2.0 — IAM Contract Engine (unpublished)
 
 ### Release overview
 
@@ -577,7 +602,7 @@ permissions and migration limits.
   administrator-reviewed migration before management.
 
 
-## 0.1.0 — Source frozen; publication pending
+## Engineering checkpoint v0.1.0 — Trusted Keycloak Foundation (unpublished)
 
 First standalone hankoShell Operator distribution, licensed under Apache-2.0.
 

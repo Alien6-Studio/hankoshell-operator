@@ -28,8 +28,10 @@ class ReleaseContractTests(unittest.TestCase):
             self.assertIn(requirement, notes)
         with self.assertRaises(ValueError):
             contract.check("0.5.0-beta.1")
-        with self.assertRaises(ValueError):
-            contract.check("0.5.0")
+        for version in ("0.1.1", "0.2.0", "0.5.0", "0.5.1"):
+            self.assertEqual(contract.versioning.from_tag("release/v" + version), version)
+            with self.subTest(version=version), self.assertRaises(ValueError):
+                contract.check(version)
 
     def test_note_drift_or_missing_markers_cannot_be_published(self):
         with patch.object(Path, "read_text", return_value="no curated release notes"), self.assertRaises(ValueError):
@@ -86,6 +88,13 @@ class ReleaseContractTests(unittest.TestCase):
         self.assertIn('--check-config --attest "$RUNNER_TEMP/hankoshell-attest/attest"', steps[trust]["run"])
         self.assertEqual(release["eligibility"]["outputs"]["tag_object"],
                          "${{ steps.identity.outputs.tag_object }}")
+        self.assertIn('version="$(python3 scripts/release-version.py "$TAG")"', steps[trust]["run"])
+        self.assertNotIn('${TAG#v}', yaml.safe_dump(release))
+        verifiers = [step["run"] for step in steps if "--certificate-identity" in step.get("run", "")]
+        self.assertEqual(len(verifiers), 2)
+        for verifier in verifiers:
+            self.assertIn('--certificate-identity "https://github.com/$GITHUB_WORKFLOW_REF"', verifier)
+            self.assertNotIn('refs/tags/v', verifier)
 
     def test_actions_are_immutable_checkouts_do_not_persist_and_writes_are_scoped(self):
         for path in (contract.ROOT / ".github/workflows").glob("*.yml"):

@@ -1,10 +1,10 @@
 # Existing Keycloak: explicit ownership adoption
 
 Accepted direction for [RFC #46](https://github.com/Alien6-Studio/hankoshell-operator/issues/46),
-completing milestone **0.5.0 — Adopt Existing Keycloak** after immutable v0.4.0.
+completing engineering **E5 — Adopt Existing Keycloak** at historical checkpoint v0.5.0 after immutable v0.4.0.
 The source tree implements bounded discovery/diff, explicit reviewed ownership
 acquisition, Organization and ResourceServer checkpoints, and a separate qualified
-transition to Manage. Current source/chart metadata is 0.5.1; source freeze
+transition to Manage. Current source/chart metadata is 0.1.0; source freeze
 requires protected merge and exact-main qualification. The 16 v1alpha1 CRDs remain
 experimental; source completion does not publish production packages.
 
@@ -768,5 +768,5 @@ transport or Continuum change is introduced.
 The source freeze requires exact protected-main qualification after these
 implementations. The accepted RFC and discovery/diff are #46/#47; leaf acquisition is #48.
 The completed 0.5 source contract is qualified through #49. The next development
-milestone is **0.6.0 — Workload Identity**. v0.1/v0.2/v0.3/v0.4 remain immutable
+milestone is **E6 — Workload Identity**, with no assigned public version. Historical v0.1.0 through v0.5.0 remain immutable
 and production publication remains independent in #21.

@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing GitHub-verified signed annotated SemVer tag on verified main (for example v0.5.1)
+        description: Existing GitHub-verified signed annotated public release tag on verified main (for example release/v0.1.0)
         required: true
         type: string
 permissions:
@@ -89,7 +89,7 @@ jobs:
           bash scripts/install-attest.sh "$RUNNER_TEMP/hankoshell-attest/attest"
           python3 scripts/attest-release.py --check-config --attest "$RUNNER_TEMP/hankoshell-attest/attest"
           python3 scripts/release-metadata.py --check-config
-          version="${TAG#v}"
+          version="$(python3 scripts/release-version.py "$TAG")"
           python3 scripts/release-contract.py check --version "$version"
           echo "VERSION=$version" >> "$GITHUB_ENV"
           echo 'IMAGE=ghcr.io/alien6-studio/hankoshell-operator' >> "$GITHUB_ENV"

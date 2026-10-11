@@ -19,17 +19,23 @@ ownership, deletion, adoption, or authentication need migration and rollback
 instructions. Use synthetic fixtures and keep credentials and tenant data out
 of the repository.
 
-Version 0.5.1 is a normal SemVer release in initial development, not a beta or
+Version 0.1.0 is a normal SemVer release in initial development, not a beta or
 SemVer prerelease. The `v1alpha1` APIs remain experimental and may change across
 minor versions before 1.0. Keep chart, release metadata and curated changelog
 notes consistent with that distinction.
 
 Changes use short-lived PR branches and protected squash merges, signed by GitHub.
 The initial root must be signed and GitHub Verified. Publication requires a
-GitHub-verified source commit and a GitHub-verified signed annotated SemVer tag
-bound to that exact commit on protected main. The immutable `v0.1.0` baseline
-and every finalized signed tag must remain fixed; never rewrite published
-source history or move/delete those tags. Full qualification, Sigstore
+GitHub-verified source commit and a GitHub-verified signed annotated
+`release/v<SemVer>` tag bound to that exact commit on protected main. Product
+0.1.0 uses `release/v0.1.0`; historical `v0.1.0` through `v0.5.0` are immutable
+engineering/source checkpoints, not public releases. Never move, delete or
+recreate them. Use milestones, issues, branches, protected commits and CI for
+engineering progress; do not create another bare `vX.Y.Z` development tag.
+A separately reviewed signed source checkpoint may use `checkpoint/E6`, which
+does not satisfy the public release parser. Engineering E-numbers do not assign
+future public versions. Public 1.0.0 needs an explicit stable-contract,
+compatibility and migration/conversion review. Full qualification, Sigstore
 artifact signatures and Continuum Attest verification remain required.
 
 Contributions are licensed under Apache-2.0. Maintainers review changes before

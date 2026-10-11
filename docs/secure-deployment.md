@@ -160,7 +160,7 @@ publisher signature with the pinned runtime cosign. It preserves its current
 image repository. Missing approval, revoked approval, failed verification or a
 concurrent Deployment change prevents the patch. Already-pinned images are checked
 again; a version string alone does not authorize an update.
-The Hub reference version must match the reviewed SemVer release, such as `0.5.1`.
+The Hub reference version must match the reviewed SemVer release, such as `0.1.0`.
 
 Configure `imageVerification.policyConfigMap: hanko-image-policy`, the independent
 [admission policy](../config/security/operator-image-policy-admission.yaml) and
@@ -183,8 +183,8 @@ approval. Replace the digest and source placeholders with the reviewed values:
     "purpose": "operator-update",
     "image": "ghcr.io/alien6-studio/hankoshell-operator@sha256:<verified-digest>",
     "revision": "<full-source-revision>",
-    "release_version": "0.5.1",
-    "certificate_identity": "https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.5.1",
+    "release_version": "0.1.0",
+    "certificate_identity": "https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/release/v0.1.0",
     "certificate_oidc_issuer": "https://token.actions.githubusercontent.com"
   }]
 }
@@ -404,7 +404,7 @@ administrative HTTP exception above. Enterprise refuses this combination.
 
 ### Keycloak compatibility
 
-hankoShell Operator **0.5.1 is qualified against Keycloak 26.8.0 and 26.7.5**
+hankoShell Operator **0.1.0 is qualified against Keycloak 26.8.0 and 26.7.5**
 using the HTTPS Admin API v1 and service-account `client_credentials` flow.
 The official images are pinned by immutable multi-architecture index digests
 in the [qualification fixture](../internal/controller/keycloak_fixture_test.go).
@@ -412,7 +412,7 @@ Both versions run in required PR/release CI and weekly CI; the aggregate require
 check fails on either matrix failure or startup failure. Qualification is a
 compatibility contract, not a recommendation to retain a vulnerable patch.
 
-| Version | 0.5.1 qualification |
+| Version | 0.1.0 qualification |
 | --- | --- |
 | 26.8.0, 26.7.5 | Qualified by the real Admin API suite |
 | Other 26.x patches | May work; unqualified until the same suite passes |
@@ -451,7 +451,7 @@ credentials on both. Target-scoped master credentials do not receive the
 server version on either qualified version, so `status.keycloakVersion` can be empty.
 Do not broaden master permissions merely to fill this diagnostic field.
 
-Organization principals in 0.5.1 require the optional
+Organization principals in 0.1.0 require the optional
 target `manage-clients` + `view-users` profile. `view-users` also permits reading
 target-realm users; it is not group-only authority or part of the common profile.
 Fresh strict group ownership/hierarchy reads precede grant execution. Missing
@@ -476,7 +476,7 @@ installation acceptance tests. No runtime version rejection is added.
 The organization-grant suite qualifies fresh UMA decisions for its bounded
 group-policy fixtures on both versions; it does not qualify offline/RPT token
 revocation, external group-population flows or application enforcement.
-In 0.5.1, application discovery/metadata uses the configured
+In 0.1.0, application discovery/metadata uses the configured
 Keycloak CA transport with TLS verification and a 1 MiB response limit, without
 administrative bearer credentials. The additional protocol suite qualifies OIDC
 web/SPA authorization code + PKCE, M2M client credentials and signed SAML POST
@@ -502,7 +502,7 @@ cleanup also removes its roles, mappers and credentials. See the
 
 ### Kubernetes compatibility and hardening
 
-The operator and chart keep their own SemVer (`0.5.1`); they do not share the
+The operator and chart keep their own SemVer (`0.1.0`); they do not share the
 cluster's version number. Kubernetes libraries are upgraded together:
 `k8s.io/{api,apimachinery,client-go,apiextensions-apiserver}` **v0.37.1** and
 `controller-runtime` **v0.25.2**, following its
@@ -857,7 +857,7 @@ a configuration snapshot and does not establish a database rollback point.
 ## Lifecycle operation qualification
 
 `HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are experimental
-and unqualified in 0.5.1. Existing unit tests exercise step transitions, but do
+and unqualified in 0.1.0. Existing unit tests exercise step transitions, but do
 not qualify durable completion, interruption/retry, child ownership or recovery
 on real installations. Qualification is tracked in
 [issue #20](https://github.com/Alien6-Studio/hankoshell-operator/issues/20), with no
@@ -868,7 +868,7 @@ outside the first release's qualified core IAM contract.
 database upgrade compatibility. `Clone` creates an external instance alias
 reusing the source administrative connection and imports supported configuration;
 it does not provision a new
-database. `clone.includeData` has no effect in 0.5.1. A target namespace outside
+database. `clone.includeData` has no effect in 0.1.0. A target namespace outside
 the release namespace is outside the default watch/RBAC scope. `DBSwitch` changes
 the database Secret reference without migrating data. Operation `dryRun` skips
 planned steps; it does not validate provider compatibility or recoverability.
@@ -915,22 +915,29 @@ configuration, while installation-specific enforcement still needs qualification
 
 ## Release rehearsal and publication
 
-The first intended public distribution is 0.5.1, retaining the complete 0.5 IAM
-contract with release-trust consistency hardening. Historical `v0.5.0` remains
-signed and immutable but will not be published. Its workflow is frozen: a rule
-added to current source cannot block that historical workflow. Publication
-approval must reject v0.5.0. An optional administrator-owned exact tag allowlist
-on the `release` environment can block its publication job without changing Git
-source or workflow/ref identity; no administrative policy is changed here.
-See the [preparation status and administrator checklist](release-0.5.1-preparation.md).
+The first public product version is 0.1.0, consolidating the complete qualified
+E1–E5 capabilities and #54 release-trust hardening. There is no functional rollback.
+Signed `v0.1.0` through `v0.5.0` remain immutable historical engineering/source
+checkpoints, not public releases. The prior 0.5.1 preparation was canceled before
+tagging. Public distribution uses the distinct `release/v0.1.0` source tag;
+chart/app/image/Artifact Hub versions remain `0.1.0`, and the GitHub Release
+display name is `v0.1.0`.
 
-0.5.1 is a normal SemVer release in initial development. The experimental
+The current parser exclusively accepts `release/v<SemVer>`; only product 0.1.0
+is supported by the current source contract. Historical workflows remain frozen,
+so current-source rejection cannot disable their execution. Publication review
+must reject all bare historical v* tags. The administrator checklist documents
+public-namespace tag protection and an exact release-environment tag allowlist;
+no administrative policy is changed here. See the
+[preparation status and administrator checklist](release-public-0.1.0-preparation.md).
+
+0.1.0 is a normal SemVer release in initial development. The experimental
 `hanko.sh/v1alpha1` APIs may change across minor releases before 1.0. Artifact Hub
 uses `prerelease: false`; the workflow creates a normal GitHub **draft**, with
 curated notes extracted from the tracked CHANGELOG release overview. Publication
 of that draft remains a separate manual action. The tag must already exist on
 protected main; the workflow does not create tags. Publication requires a
-GitHub-verified source commit and a GitHub-verified signed annotated SemVer tag
+GitHub-verified source commit and a GitHub-verified signed annotated `release/v<SemVer>` tag
 bound to that exact commit. Eligibility checks protected-main ancestry and rejects
 missing or unverified signatures, lightweight tags and conflicting or moved
 references. These identities are checked again immediately before publication
@@ -938,8 +945,9 @@ using Git metadata responses limited to 1 MiB, without fetching the commit diff.
 The initial root must be signed and GitHub Verified; subsequent changes use
 protected, GitHub-signed squash merges. Signed-off-by trailers are not signatures.
 Delivered artifacts require separate Sigstore signatures and Continuum Attest
-verification. The v0.1.0 baseline is immutable. Every finalized source tag, including v0.2.0,
-remains fixed; publication is a separate reviewed operation.
+verification. Historical v0.1.0 through v0.5.0 remain fixed, with their original
+objects and signatures. Public release/v0.1.0 identifies current qualified source,
+not the historical v0.1.0 checkpoint. Publication is a separate reviewed operation.
 
 Required CI builds one AMD64/ARM64 OCI archive with BuildKit SBOM/provenance,
 scans its exact manifests, and passes that immutable artifact ID to the release
@@ -976,7 +984,9 @@ artifacts. It writes only to its disposable loopback registry, never creates a t
 changes Artifact Hub. The local signature proves payload binding, **not** GitHub
 OIDC/Fulcio/Rekor trust. Production image signatures remain keyless Sigstore with
 issuer `https://token.actions.githubusercontent.com` and exact certificate identity
-`https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.5.1`.
+`https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/release/v0.1.0`.
+The workflow uses the actual `GITHUB_WORKFLOW_REF` and eligibility requires
+`github.ref == refs/tags/<tag>`; a main-ref run cannot claim this tag identity.
 
 Before publication, maintainers must configure the real Attest signing secret,
 trusted public key/ID, RFC 3161 endpoint and pinned TSA certificate in the
@@ -1003,7 +1013,7 @@ Publication consumes the same scanned archive without rebuilding, stages it unde
 a non-release reference, verifies real image/blob Sigstore signatures and strict
 Attest delivery evidence, then promotes the digest, chart and catalog metadata.
 Before promotion it commits the archive, packaged chart, signatures, checksums
-and Attest evidence under `delivery-candidate-0.5.1`, an explicitly non-release
+and Attest evidence under `delivery-candidate-0.1.0`, an explicitly non-release
 OCI checkpoint. Every retry resolves that reference once, restores it by digest
 and reuses its exact bytes rather than rebuilding/repackaging them. A different
 source revision or conflicting candidate is rejected. Do not delete or retag the

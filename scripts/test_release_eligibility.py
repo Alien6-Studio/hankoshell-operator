@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
+from urllib.parse import quote
 
 import yaml
 
@@ -22,10 +23,10 @@ class ReleaseEligibilityTests(unittest.TestCase):
         self.repository = "Alien6-Studio/hankoshell-operator"
         self.revision = "a" * 40
         self.tag_object = "b" * 40
-        self.tag = "v0.5.1"
+        self.tag = "release/v0.1.0"
         self.ref = "refs/tags/" + self.tag
         self.base = "repos/" + self.repository
-        self.ref_path = self.base + "/git/ref/tags/" + self.tag
+        self.ref_path = self.base + "/git/ref/tags/" + quote(self.tag, safe="")
         self.commit_path = self.base + "/git/commits/" + self.revision
         self.object_path = self.base + "/git/tags/" + self.tag_object
         self.responses = {
@@ -165,17 +166,23 @@ class ReleaseEligibilityTests(unittest.TestCase):
             self.verify(git=off_main)
 
     def test_malformed_semver_is_rejected_before_api_access(self):
-        for tag in ("0.1.0", "v01.1.0", "v0.01.0", "v0.1.00", "v0.1.0-01",
-                    "v0.1.0-rc..1", "v0.1.0+", "v0.1.0\n", "v0.1.0/other"):
+        for tag in ("v0.1.0", "v0.2.0", "v0.3.0", "v0.4.0", "v0.5.0", "v0.5.1",
+                    "0.1.0", "main", "refs/heads/main", "public/v0.1.0", "release/0.1.0",
+                    "release/v01.0.0", "release/v0.01.0", "release/v0.1.00", "release/v0.1",
+                    "release/v0.1.0-01", "release/v0.1.0-rc..1", "release/v0.1.0+",
+                    "release/v0.1.0\n", "release/v0.1.0/foo", "release/v0.1.0%2Ffoo"):
             with self.subTest(tag=tag), self.assertRaisesRegex(ValueError, "SemVer"):
                 self.verify(tag=tag, ref="refs/tags/" + tag)
         self.assertEqual(self.api_calls, [])
-        for tag in ("v0.1.0", "v1.2.3-rc.1", "v1.2.3-alpha01+build.001"):
-            self.assertIsNotNone(eligibility.SEMVER.fullmatch(tag))
+        for tag in ("release/v0.1.0", "release/v0.1.1", "release/v0.2.0",
+                    "release/v1.2.3-rc.1", "release/v1.2.3-alpha01+build.001"):
+            self.assertIsNotNone(eligibility.versioning.PUBLIC_TAG.fullmatch(tag))
 
     def test_branch_dispatch_cannot_substitute_for_the_tag(self):
-        with self.assertRaisesRegex(ValueError, "tag itself"):
-            self.verify(ref="refs/heads/main")
+        for ref in ("main", "refs/heads/main", "refs/tags/v0.1.0",
+                    "refs/tags/release/v0.1.1"):
+            with self.subTest(ref=ref), self.assertRaisesRegex(ValueError, "tag itself"):
+                self.verify(ref=ref)
         self.assertEqual(self.api_calls, [])
 
     def test_moved_ref_is_rejected_within_and_between_stages(self):
