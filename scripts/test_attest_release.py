@@ -26,7 +26,7 @@ class QualificationGateTests(unittest.TestCase):
         aggregate = workflow["jobs"]["checks"]
         self.assertEqual(aggregate["name"], "Source and chart checks")
         self.assertEqual(aggregate["if"], "always()")
-        self.assertEqual(set(aggregate["needs"]), {"source", "kubernetes", "keycloak", "oci", "rehearsal", "system"})
+        self.assertEqual(set(aggregate["needs"]), {"source", "kubernetes", "keycloak", "workload", "oci", "rehearsal", "system"})
         step = aggregate["steps"][0]
         dependencies = {f"${{{{ needs.{job}.result }}}}" for job in aggregate["needs"]}
         self.assertEqual(set(step["env"].values()), dependencies)
@@ -43,6 +43,9 @@ class QualificationGateTests(unittest.TestCase):
         delivery = yaml.safe_load((root / "release.yml").read_text())
         self.assertEqual(ci["jobs"]["keycloak"]["strategy"]["matrix"]["version"], ["26.8.0", "26.7.5"])
         self.assertFalse(ci["jobs"]["keycloak"].get("continue-on-error", False))
+        self.assertEqual(ci["jobs"]["workload"]["strategy"]["matrix"], {
+            "keycloak": ["26.7.5", "26.8.0"], "kubernetes": ["1.35.0", "1.36.2", "1.37.0"]})
+        self.assertFalse(ci["jobs"]["workload"].get("continue-on-error", False))
         self.assertEqual(delivery["jobs"]["quality"]["uses"], "./.github/workflows/ci.yml")
         self.assertEqual(delivery["jobs"]["publish"]["needs"], ["eligibility", "quality"])
 

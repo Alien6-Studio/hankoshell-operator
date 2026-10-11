@@ -60,6 +60,23 @@ targets. Protocol/runtime tests use only target-realm `manage-clients`; realm
 reconciliation and declared realm roles retain their existing additional grants.
 See [runtime target RBAC and consent](architecture/application-identity.md#runtime-bindings).
 
+## Workload identity qualification (Phase 6A)
+
+The [workload identity contract](architecture/workload-identity.md#13-permission-model)
+qualifies native Kubernetes trust CRUD with `manage-identity-providers`,
+federated client CRUD/method selection with `manage-clients`, and effective
+client-flow reads with `view-realm`. Dedicated `view-identity-providers` can
+observe trusts but cannot create/update/delete them. The activating federated
+client profile is `manage-clients` + `view-realm`; it needs no new `manage-realm`
+grant. An external administrator prepares missing client-flow prerequisites.
+
+These are future Phase 6 capability profiles, tested by disposable real accounts,
+not new production controllers or a change to existing common grants. The native
+trust writer can also mutate unrelated IdPs in its target realm. All constrained
+profiles refuse user management, realm deletion/security PUT, create-realm,
+master/unrelated-realm administration and impersonation. Ownership guards do not
+make either writer role narrower than the native realm-wide authority.
+
 ## Permission and capability matrix
 
 All target roles below belong to `<target-realm>-realm` in master. Management

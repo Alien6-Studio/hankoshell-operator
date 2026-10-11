@@ -14,7 +14,7 @@ KUBERNETES_VERSION ?= 1.37.0
 KEYCLOAK_VERSION ?= 26.8.0
 RELEASE_VERSION := 0.1.0-dev.0
 
-.PHONY: all check fmt-check generate manifests generated-check build vet test chart-test integration-test keycloak-integration-test lint arch vuln install-tools release-dry-run system-test
+.PHONY: all check fmt-check generate manifests generated-check build vet test chart-test integration-test keycloak-integration-test lint arch vuln install-tools release-dry-run system-test workload-identity-probe
 all: check build
 check: fmt-check vet test chart-test
 
@@ -82,3 +82,9 @@ system-test:
 		--digest "$(DIGEST)" --revision "$(REVISION)" --output "$(SYSTEM_OUTPUT)" \
 		--kind "$(KIND)" --kubectl "$(KUBECTL)" --helm "$$(command -v helm)" \
 		--oras "$(ORAS)" --openssl "$(OPENSSL)"
+
+# Native capability qualification only; no new operator production API is installed.
+workload-identity-probe:
+	python3 scripts/workload-identity-probe.py --keycloak-version $(KEYCLOAK_VERSION) \
+		--kubernetes-version $(KUBERNETES_VERSION) --output "$(WORKLOAD_OUTPUT)" \
+		--kind "$(KIND)" --kubectl "$(KUBECTL)" --openssl "$(OPENSSL)"
