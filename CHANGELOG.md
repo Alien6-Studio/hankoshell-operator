@@ -3,6 +3,15 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### HankoServiceAccount federated authentication
+
+- Native owned activation follows fresh workload binding proof. Durable
+  noncredential mode/rotation journals, exact external cutover and authentication
+  review, field-only credential output cleanup and explicit same-credential Secret
+  fallback preserve recovery boundaries. Closed federated adoption and actual
+  projected-assertion/controller qualification extend the existing gates. The
+  operator never issues or receives workload JWTs.
+
 ### Release overview
 
 hankoShell Operator 0.1.0-dev.0 is in initial development toward its first public
@@ -48,13 +57,13 @@ release; those labels did not identify public packages or GitHub Releases.
   current-cluster anchoring, freshly sealed trust/realm/client connection,
   pre-existing ConfigMap UID consent and public-only runtime metadata with
   recoverable field cleanup. Require the same workload anchor for mesh and grants;
-  passive binding remains Pending until dedicated authentication activation.
+  binding proof precedes the dedicated native authentication activation.
   Contain confirmed missing/recreated workloads through enabled-only updates of
   strictly owned native federated clients; never approve a replacement UID.
 - Retain Kubernetes workload trust ownership: the independent seventeenth typed
   HankoWorkloadTrust API, current-cluster discovery, owner-only adoption and
-  complete-inventory age/deletion guards. HankoServiceAccount federated
-  authentication and Installed-system and migration qualification remain separate.
+  complete-inventory age/deletion guards. Installed-system and migration
+  qualification remains separate from implemented native authentication.
 - Retain the narrow trust-writer profile and use a distinct target-realm
   view-clients dependent reader. Document native client-secret exposure on
   26.7.5, stricter 26.8.0 denial, application route guards and the practical union

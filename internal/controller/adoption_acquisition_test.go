@@ -43,6 +43,7 @@ func newAcquisitionFixture(t *testing.T, kind, protocol string) *acquisitionFixt
 	} else {
 		f.document = map[string]any{"id": "client-uuid", "clientId": "client", "name": "client", "protocol": "openid-connect", "enabled": true, "publicClient": true, "standardFlowEnabled": true, "serviceAccountsEnabled": false, "fullScopeAllowed": false, "directAccessGrantsEnabled": false, "implicitFlowEnabled": false, "redirectUris": []any{"https://app.example.test/cb"}, "webOrigins": []any{"+"}, "attributes": attrs}
 		if kind == "HankoServiceAccount" {
+			f.document["clientAuthenticatorType"] = "client-secret"
 			f.document["publicClient"], f.document["standardFlowEnabled"], f.document["serviceAccountsEnabled"] = false, false, true
 			f.document["redirectUris"] = []any{}
 			f.target = &api.HankoServiceAccount{ObjectMeta: meta, Spec: api.HankoServiceAccountSpec{Mode: ModeObserve, RealmRef: "realm", ClientID: "client"}}
@@ -196,6 +197,69 @@ func TestOwnershipAcquisitionLeafTransactions(t *testing.T) {
 			status, _ := json.Marshal(f.target)
 			if strings.Contains(string(status), "credential-sentinel") {
 				t.Fatal("credential in status")
+			}
+		})
+	}
+}
+
+func TestFederatedServiceAccountClosedOwnershipAcquisition(t *testing.T) {
+	f := newAcquisitionFixture(t, "HankoServiceAccount", "oidc")
+	f.document["clientAuthenticatorType"] = "federated-jwt"
+	f.document["webOrigins"] = []any{}
+	f.document["defaultClientScopes"] = []any{"service_account", "profile"}
+	f.document["optionalClientScopes"] = []any{"offline_access"}
+	attrs := f.document["attributes"].(map[string]any)
+	attrs["jwt.credential.issuer"], attrs["jwt.credential.sub"] = "cluster", "system:serviceaccount:workloads:worker"
+	account := f.target.(*api.HankoServiceAccount)
+	account.Spec.Authentication = &api.ServiceAccountAuthentication{Mode: "Kubernetes", Kubernetes: &api.KubernetesServiceAccountAuthentication{TrustRef: "trust", SourceRef: "source", Workload: api.KubernetesWorkloadBinding{ApplicationRuntimeWorkload: api.ApplicationRuntimeWorkload{Namespace: "workloads", ServiceAccountRef: "worker"}, ExpectedUID: "reviewed-uid"}}}
+	if f.kube.Update(context.Background(), account) != nil {
+		t.Fatal("fixture typed intent failed")
+	}
+	f.approve()
+	f.lostAck = true
+	if err := f.run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.run(); err != nil {
+		t.Fatal(err)
+	}
+	state, _ := f.status()
+	if state == nil || state.State != "Verified" || account.Spec.Mode != "Observe" || f.puts != 1 || f.credentialCalls != 0 || f.observerWrites != 0 {
+		t.Fatal("federated acquisition exceeded owner-only Observe transaction")
+	}
+	if f.document["clientAuthenticatorType"] != "federated-jwt" || attrs["jwt.credential.sub"] != "system:serviceaccount:workloads:worker" {
+		t.Fatal("acquisition changed authentication mapping")
+	}
+}
+
+func TestFederatedClientUnknownSecurityAndMethodMismatchBlockCandidate(t *testing.T) {
+	for _, failure := range []string{"method", "jwt", "root", "public", "scopes"} {
+		t.Run(failure, func(t *testing.T) {
+			f := newAcquisitionFixture(t, "HankoServiceAccount", "oidc")
+			f.document["clientAuthenticatorType"] = "federated-jwt"
+			f.document["webOrigins"] = []any{}
+			attrs := f.document["attributes"].(map[string]any)
+			attrs["jwt.credential.issuer"], attrs["jwt.credential.sub"] = "cluster", "system:serviceaccount:workloads:worker"
+			if failure != "method" {
+				a := f.target.(*api.HankoServiceAccount)
+				a.Spec.Authentication = &api.ServiceAccountAuthentication{Mode: "Kubernetes", Kubernetes: &api.KubernetesServiceAccountAuthentication{TrustRef: "trust", SourceRef: "source", Workload: api.KubernetesWorkloadBinding{ApplicationRuntimeWorkload: api.ApplicationRuntimeWorkload{Namespace: "workloads", ServiceAccountRef: "worker"}, ExpectedUID: "reviewed-uid"}}}
+				if f.kube.Update(context.Background(), a) != nil {
+					t.Fatal("fixture intent failed")
+				}
+			}
+			switch failure {
+			case "jwt":
+				attrs["jwt.credential.unreviewed"] = "unknown"
+			case "root":
+				f.document["unknownSecurityField"] = true
+			case "public":
+				f.document["publicClient"] = true
+			case "scopes":
+				f.document["defaultClientScopes"] = []any{"../unqualified"}
+			}
+			candidate := refreshTargetCandidate(context.Background(), f.kube, f.kube, f.target)
+			if candidate == nil || candidate.Approvable || f.puts != 0 || f.credentialCalls != 0 {
+				t.Fatal("unqualified federated native state admitted")
 			}
 		})
 	}

@@ -168,8 +168,9 @@ var fields = map[string]bool{
 	"scopes": true, "resources": true, "policies": true, "principals": true,
 	"logic": true, "decisionStrategy": true, "uris": true, "type": true,
 	"theme": true, "runtimeBindings": true, "mode": true, "realmRef": true, "importLatch": true, "claimSource": true,
-	"credentialRotation": true,
-	"workloadIssuer":     true, "workloadDiscovery": true, "workloadAge": true,
+	"credentialRotation":      true,
+	"clientAuthenticatorType": true, "federatedIssuer": true, "federatedSubject": true, "defaultClientScopes": true, "optionalClientScopes": true,
+	"workloadIssuer": true, "workloadDiscovery": true, "workloadAge": true,
 	"workloadSkew": true, "workloadAnchor": true, "workloadReferences": true,
 }
 
@@ -477,7 +478,7 @@ func classifyDiff(entry *DiffEntry, f Fact) {
 	if f.Field == "owner" && f.Value.Text == "unmarked" {
 		entry.Code = OwnershipTransition
 	}
-	if entry.Code == WouldChange && (slices.Contains([]string{"protocol", "container", "parent", "realmRoles", "clientRoles"}, f.Field) || f.Field == "composites" && f.Domain != "role") {
+	if entry.Code == WouldChange && (slices.Contains([]string{"protocol", "container", "parent", "realmRoles", "clientRoles", "clientAuthenticatorType", "federatedIssuer", "federatedSubject"}, f.Field) || f.Field == "composites" && f.Domain != "role") {
 		entry.Code = RecreationRequired
 	}
 	if f.Field == "credentialRotation" && f.Value.Flag != nil && *f.Value.Flag {

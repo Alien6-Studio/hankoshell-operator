@@ -1,11 +1,12 @@
-# Workload identity contract — Native workload qualification
+# Workload identity contract
 
 This document defines Workload Identity for the first public `0.1.0`.
 The technical version remains `0.1.0-dev.0`, development. Kubernetes workload
 trust ownership implements the shared native trust; Workload binding and mesh
-coherence adds passive UID validation and public metadata delivery.
-HankoServiceAccount federated authentication and Installed-system and migration
-qualification remain separate work. Production publication remains in #21.
+coherence adds UID validation and public metadata delivery. HankoServiceAccount
+federated authentication implements native activation and reviewed authentication
+transitions. Installed-system and migration qualification remains separate work.
+Production publication remains in #21.
 Disposable qualification fixtures do not change production infrastructure.
 
 ## 1. Problem statement
@@ -65,22 +66,24 @@ contracts, rather than treating similarly named fields as federation:
 | `HankoIssuer` | Public OIDC authority routed to a Hanko realm/API facade | Keep separate: it is not Kubernetes issuer trust. |
 | Adopt Existing Keycloak adoption | Exact source/realm/provider identity, explicit reviewed candidates and receipts, closed preservation, fresh UID checks, no ownership by name | Extend the closed schema before admitting federated clients or typed trusts. |
 
-The current service-account rotation path is not the application's durable
-checkpoint implementation: a provider rotation followed by a failed Secret write
-can currently be retried. Workload Identity migration must add a durable transaction to
-HankoServiceAccount; it must not describe current status as an exactly-once
-credential journal. Current native application observations also omit
-`clientAuthenticatorType`; adding typed federation requires extending their closed
-preservation boundaries, not setting generic client attributes as a shortcut.
+Service-account rotation now persists a bounded, noncredential intent before a
+native rotation. Read-back and an atomic canonical Secret checkpoint recover an
+accepted rotation without replaying it. An attempted rotation whose result cannot
+be distinguished from the retained credential stops for explicit resolution.
+Closed native observations include `clientAuthenticatorType`, the qualified
+issuer/subject mapping, scopes and owned mapper documents. Unknown security fields
+prevent acquisition or authentication changes.
 
 ## 4. Native Keycloak capability and qualification boundary
 
 The supported targets are **26.7.5 and 26.8.0**. Qualification uses their pinned
 official images and real Kubernetes **1.35.0, 1.36.2 and 1.37.0**. Run
-`scripts/workload-identity-probe.py`; its filtered JSON records exact native
-representations and observed decisions. Source and matrix evidence accompany
-this contract. Fixture success proves these native semantics, not a future
-installed HankoShell controller.
+`scripts/workload-identity-probe.py`; its uploaded JSON records bounded decisions,
+counts and fixture versions. It runs the production trust/identity reconcilers
+against native Keycloak, reads actual cluster/workload UIDs, and separately tests
+actual kubelet projections. Hanko CR storage in that native fixture is ephemeral.
+Installed regression separately checks controller activation and public metadata;
+complete installed workload-to-resource authorization and migration remain #63.
 
 Exact native mapping:
 
@@ -266,9 +269,10 @@ taking ownership of that realm. HankoServiceAccount remains the only M2M identit
 | D: extend RealmIdentityProvider.Config | Open broker config and existing realm lifecycle cannot establish closed workload semantics/independent ownership; rejected |
 | Reuse HankoIssuer | Public facade authority has different origin, lifecycle and security semantics; rejected |
 
-The trust and passive binding APIs below are implemented. Kubernetes mode seals
-configuration and optional public metadata; it does not yet activate a native
-client authenticator, create a client, issue an assertion or recover a secret.
+The trust and binding APIs below are implemented. Kubernetes mode seals fresh
+configuration, creates an owned native federated client, and optionally delivers
+public metadata after configuration read-back. It never issues an assertion.
+Explicit fallback alone may recover the native inactive credential.
 The explicit client `sourceRef` is required so the client connection can be freshly
 bound to the trust's endpoint, public CA and native realm without a pooled writer
 fallback. The ConfigMap's expected UID is separately pinned in desired state.
@@ -438,10 +442,12 @@ Cleanup requires an explicit administrator/workload-owner approval of the exact
 current plan and successful real workload test; status booleans cannot grant it.
 The operator does not collect or validate a stored workload JWT as proof.
 
-The future typed `authentication.transitionApproval` contains
-`strategy: CoordinatedCutover`, a bounded `requestID`, `expectedClientUUID`,
-`reviewedStateHash` and `preparedWorkloadRevision`. It is explicit authorization
-by a trusted spec writer, not proof that the operator tested a JWT. The initial
+The typed `authentication.transition` contains `strategy: CoordinatedCutover`,
+a bounded `requestID` and `preparedWorkloadRevision`. The canonical
+`hanko.sh/workload-auth-approval` annotation additionally binds `expectedClientUUID`,
+`reviewedStateHash`, generation, binding and the other current authority references
+listed below. It is explicit authorization by a trusted resource writer, not proof
+that the operator tested a JWT. The initial
 provider observation and sealed input/dependency hashes are captured before
 mutation; the durable journal distinguishes the expected before/after native
 states so a successful method change does not stale its own recovery. A separate
@@ -504,8 +510,8 @@ incomplete read authority prevents automatic Manage adoption.
 
 Existing federated clients likewise need the closed Adopt Existing Keycloak preservation schema
 extended for authenticator, exact provider/subject, service-account/grant settings
-and declared claims/scopes before adoption is supported. The current schema does
-not qualify such adoption. A matching clientID plus workload names is insufficient.
+and declared claims/scopes. This closed extension is implemented; unknown security
+fields remain unsupported. A matching clientID plus workload names is insufficient.
 No imported Observe object can retrieve an inactive secret or acquire ownership
 through a mode edit. Preserve foreign client fields and broker configuration or
 refuse unsupported preservation; do not replace an external client's attribute
@@ -796,13 +802,13 @@ unchanged. Any future delegation needs its own Delegation & Agent Identity contr
 
 ## Workload binding and mesh coherence
 
-`HankoServiceAccount.spec.authentication.mode: Kubernetes` currently validates a
-passive binding. `WorkloadBindingReady=True` means the approved live UID and
-trust/source were freshly verified. `Synced=False/AuthenticationActivationPending`
-and `FederatedModeApplied=False` keep `phase: Pending`; validation never activates
-an authenticator or makes metadata an IAM grant. Omitted authentication retains
-the historical Secret path. A native federated client cannot enter that Secret
-path through a mode edit; a reviewed authentication transition remains separate.
+`HankoServiceAccount.spec.authentication.mode: Kubernetes` first validates a
+binding. `WorkloadBindingReady=True` means the approved live UID and trust/source
+were freshly verified. Fresh native activation follows that proof, then exact
+enabled-client read-back establishes `FederatedModeApplied=True` and `Synced=True`.
+Binding status and public metadata never constitute an IAM grant or workload
+authentication proof. Omitted authentication retains the historical Secret path.
+Changing an existing client's method requires the reviewed transaction below.
 
 The direct reader resolves the source HankoServiceAccount, typed trust, realm,
 explicit client connection, credential/public-CA resource identities and versions,
@@ -915,12 +921,12 @@ replacement authority. Rollback of code/YAML is not provider or credential recov
 | Cluster lifetime bounds? | 599 is refused, 600 is issued exactly. The fixtures also measure long requests and server flags; unmodified 1.36.2 imposes no measured ceiling even at 1,000,000,000 seconds. Product projection remains 600–3,600 and no greater than shared trust age |
 | What authority is intrinsic? | IdP writer manage-identity-providers; client writer manage-clients; effective-flow reader view-realm. Scoped identities deny privileged user/realm/master/impersonation operations; unrelated IdP writes remain possible under the realm-wide trust-writer role |
 
-The required six-cell matrix retains exact statuses, native representations,
-minimal read/combined writer profiles, public cluster anchors and credential-free
-artifact checks. It gates the PR's completion; incomplete reports do not qualify
-the contract. Future controller-only freshness, adoption, containment and
-installed-system behavior remain acceptance criteria of #60–#63, not fabricated
-outcomes of the native fixture.
+The required six-cell matrix retains exact decisions, minimal permission tests,
+public cluster anchors and credential-free artifact checks. Uploaded reports contain
+bounded behavior/count/version/source evidence, without native or permission dumps.
+Incomplete reports do not qualify the contract. Production controller freshness,
+adoption and containment have separate source/native tests; complete installed
+workload-to-resource authorization remains #63.
 
 The selected public semantics deliberately retain the measured limits: local UID
 approval with asynchronous containment, reusable assertions with short age,
@@ -950,3 +956,166 @@ server version; no patch-version substitution or image publication is allowed.
 Only filtered JSON is retained/uploaded. Failed runs are explicitly incomplete
 and never substitute for successful evidence. Real expiry/rotation/age tests
 take at least ten minutes; no fabricated JWT/time shortcut is used.
+
+## HankoServiceAccount federated authentication
+
+A fresh managed Kubernetes identity requires a current binding before native
+creation. The controller reserves its UUID in the local durable journal, creates
+one private OIDC client with `federated-jwt`, service accounts enabled, Full Scope
+Allowed disabled and browser/direct/implicit flows disabled, then proves the exact
+UID owner, UUID, provider alias, subject and enabled state. Fresh activation neither
+retrieves nor rotates the generated inactive native credential. All writes repeat
+fresh trust/source/realm/flow/cluster/workload checks; flow prerequisites are read,
+never repaired. Unknown security fields, competing ownership and stale references
+stop writes. A concurrent issuer/subject mapping is refused using a complete fresh
+inventory through the dedicated metadata-only dependent reader; its connection
+identity/version is sealed in the binding source hash. Generic attributes cannot
+supply `jwt.credential.*`, workload markers, ownership/adoption receipts or generated
+credential metadata. Qualified desired attributes converge through a partial
+update after fresh owned federated-client checks, with exact native read-back.
+Independent attributes, scopes, grants and authentication remain preserved.
+
+`WorkloadBindingReady` remains separate from `FederatedModeApplied`, `Synced` and
+`RuntimeMetadataReady`. Ready is verified configuration, never proof that a workload
+has authenticated or that a resource API authorized it. Active public metadata uses
+`authenticationActivation: Federated`; the metadata schema, field, journal and
+finalizer stay unchanged. Kubernetes mode clears SecretRef, LastRotated and
+NextRotation. The common mesh/resource-principal gate still requires a fresh binding
+snapshot, current Ready/generation/revision/Synced/FederatedModeApplied and an actual
+enabled strictly owned native mapping. No status-only activation path is added.
+
+### Recommended two-client migration
+
+Keep the existing Secret client A active. Create an independent Kubernetes client B
+with its own declared scopes, claims and business grants; no grant is copied from A.
+The workload owner prepares its audience-bound projection, tests actual assertion
+exchange and declared API access for B, and deliberately changes consumers. Only
+then explicitly retire A. This allows authentication proof before deactivating A.
+Neither binding readiness nor a successful token exchange proves API authorization.
+The full installed Pod → Keycloak → resource API allow/undeclared-deny and migration
+restart proof belongs to Installed-system and migration qualification (#63).
+
+### Same-client coordinated cutover
+
+Changing the native authenticator can interrupt authentication. No zero-downtime or
+pre-switch federated authentication guarantee is made. Declare:
+
+```yaml
+authentication:
+  mode: Kubernetes
+  kubernetes: # the existing complete trust/source/workload UID binding
+    trustRef: cluster-one
+    sourceRef: client-writer
+    workload:
+      namespace: workloads
+      serviceAccountRef: worker
+      expectedUID: reviewed-live-uid
+    expirationSeconds: 600
+  transition:
+    strategy: CoordinatedCutover
+    requestID: cutover-one
+    preparedWorkloadRevision: deployment-reviewed-one
+```
+
+Preparation persists a closed canonical nonsecret journal on the Hanko identity at
+`hanko.sh/workload-auth-transition`, schema
+`hanko.sh/workload-auth-transition/v1alpha1`. Its immutable transaction binds owner
+UID and generation, request ID, native UUID, previous/desired method, trust UID and
+provider UUID, current binding revision/workload UID, prepared workload revision,
+closed noncredential native before/after hashes and the locally compiled plan hash.
+The bounded status `authenticationTransition` exposes only references, hashes and
+the durable step. Unknown/duplicate/noncanonical fields are refused. Status cannot
+reconstruct consent or authorize an operation.
+
+Approval is canonical JSON in `hanko.sh/workload-auth-approval`. Its exact fields
+are `strategy`, `ownerUID`, `generation`, `requestID`, `expectedClientUUID`,
+`reviewedStateHash`, `bindingRevision`, `preparedWorkloadRevision`, `previousMode`,
+`desiredMode`, `trustUID`, `providerID`, `workloadUID`, `planHash` and
+`preparationApproved: true`. Review the current journal and workload preparation
+before authoring these values. Approval annotations do not change spec generation;
+putting approval into spec would invalidate the generation it approves. Permissions
+to edit these annotations constitute administrator approval authority.
+
+| Durable step | Required current evidence |
+| --- | --- |
+| Prepared | Exact current binding and qualified native state; durable intent precedes CREATE/PUT |
+| ModeApplied | Exact reserved/approved native UUID and desired enabled mapping read back |
+| AuthReviewed | External workload-owner review binds request/client/binding/workload/plan |
+| OutputsCleaned | Explicit cleanup consent plus exact canonical Secret UID and current native/binding proof |
+| Committed | All required provider/output checkpoints read back |
+
+`hanko.sh/workload-auth-review` has `requestID`, `clientUUID`, `bindingRevision`,
+`workloadUID` and `planHash`. The external reviewer tests the current prepared
+workload and exact client before authoring it. The controller receives neither the
+assertion nor the resulting access token. Review is bounded external authorization,
+not a claim that the operator observed JWT authentication. Until review and separate
+`hanko.sh/workload-auth-cleanup` consent exist, the inactive owned canonical Secret
+is retained. Cleanup carries the same review fields plus `secretUID`; it removes
+only `data.client_secret`, preserving the object and unrelated fields. Native
+inactive credentials are not rotated/deleted. A changed/replaced/foreign Secret,
+revoked consent, stale review or unexpected native state blocks cleanup.
+
+Accepted native writes with lost acknowledgements are recovered from the same
+UUID, fresh ownership, complete expected before/after state and durable intent.
+Local checkpoint failures, manager restarts and status loss do not blindly repeat
+CREATE, rotate a credential or toggle the method back. A new generation during an
+unfinished transaction requires explicit resolution; completed coordinated changes
+need a new request ID for the next transaction. The historical M2M `webOrigins: ["+"]`
+placeholder alone is normalized to empty origins during an approved federated
+cutover; this is included in the reviewed before/after hashes. Browser origins or
+redirects beyond this exact legacy placeholder are unqualified.
+
+### Explicit same-credential fallback
+
+Set mode Secret with a new CoordinatedCutover request and retain the complete
+binding under `authentication.fallbackBinding` (omit `kubernetes` and runtimeMetadata).
+Admission refuses dropping an existing Kubernetes binding without this typed
+fallback. Fresh current ownership/binding/native-state checks precede recovery of
+the same inactive native credential. The controller stages the owned canonical
+Secret, proves its usable value and UID by read-back, then waits for the exact
+preparation approval before switching to client-secret. Failed/denied/missing
+credential reads, immutable or foreign/replaced outputs and write failures preserve
+the working federated authenticator. Missing recovery credentials never trigger
+rotation. Accepted switch/Secret writes with lost acknowledgements resume using the
+same credential and native UUID. Explicit approval is not an authentication test.
+The fallback retains its typed binding authority while its authentication journal
+exists. Removing those references stops reconciliation before the historical
+Secret path can select another connection, including after a committed fallback.
+
+A contained disabled client is not automatically reactivated by fallback or a UID
+edit. A new, complete reviewed federated transaction is required for reactivation.
+Returning from Secret to Kubernetes likewise requires a new request, native-state
+review, external authentication review and cleanup authorization.
+
+Legacy Secret behavior, claims and rotation remain available when authentication
+is omitted. Rotation records noncredential intent before its nonidempotent native
+operation and binds the canonical Secret UID. A failed canonical write retains the
+previous output and resumes the accepted native value without another rotation.
+If an attempted rotation cannot be proven accepted, or desired mode/generation
+changes while it is unfinished, it stops for explicit resolution. There is no
+credential-derived field in its journal, status, events, logs or evidence.
+
+### Federated existing-client acquisition
+
+Observe/imported resources do not create provider clients, authentication journals
+or output Secrets, retrieve/rotate credentials, or change authentication. The closed
+adoption inventory now qualifies the native UUID, OIDC method and all M2M flags,
+issuer/subject mapping, declared scopes, claims, ownership and qualified independent
+fields. Unknown JWT/security fields or a Secret/federated desired-state mismatch
+block candidate creation. Acquisition retains the existing exact candidate/approval,
+owner-only mutation and receipt/read-back protocol, remains Observe, and requires a
+separate explicit Manage transition. Names and matching mappings confer no owner.
+
+### Qualification and remaining installed proof
+
+The required matrix retains both Keycloak versions and all three real Kubernetes
+versions. Actual kubelet-projected assertions independently authenticate clients
+created by the production reconciler, while historical Secret clients still work
+and reject assertions. The same native UUID and retained credential survive a
+reviewed Secret → Kubernetes → Secret → Kubernetes round trip. Real workload UID
+replacement triggers enabled-only containment. Native tests use ephemeral Hanko CR
+storage and actual API UID reads; they are not a substitute for installed migration
+restarts or resource API authorization. Installed regression proves controller
+activation and active metadata only. #63 stays open for the complete installed
+system. Public qualification reports contain bounded behaviors/counts/versions,
+run links and exact source/image references, with no credential/native dumps.

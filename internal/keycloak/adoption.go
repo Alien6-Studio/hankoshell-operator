@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/url"
 	"reflect"
+	"regexp"
+	"strings"
 
 	"github.com/Alien6-Studio/hankoshell-operator/internal/adoption"
 )
@@ -108,30 +110,48 @@ func (s *ClientOwnershipSnapshot) QualifiedLeaf() bool {
 	if s == nil {
 		return false
 	}
-	projected := map[string]bool{"id": true, "clientId": true, "protocol": true, "enabled": true, "publicClient": true, "standardFlowEnabled": true, "serviceAccountsEnabled": true, "directAccessGrantsEnabled": true, "implicitFlowEnabled": true, "fullScopeAllowed": true, "redirectUris": true, "webOrigins": true, "attributes": true, "authorizationServicesEnabled": true}
-	defaults := map[string]any{"bearerOnly": false, "authorizationServicesEnabled": false, "rootUrl": "", "baseUrl": "", "adminUrl": "", "description": "", "surrogateAuthRequired": false, "alwaysDisplayInConsole": false, "consentRequired": false, "notBefore": float64(0), "nodeReRegistrationTimeout": float64(-1), "clientAuthenticatorType": "client-secret", "frontchannelLogout": true}
-	for key, value := range s.document {
-		if !qualifiedAuthorizationFlag(key, value) {
-			return false
-		}
-		if projected[key] {
-			continue
-		}
-		if key == "name" && (value == "" || value == s.Application.ClientID) {
-			continue
-		}
-		if want, ok := defaults[key]; ok && reflect.DeepEqual(value, want) {
-			continue
-		}
-		if key == "protocolMappers" && qualifiedMapperDocuments(value, s.mappers, &s.Application) {
-			continue
-		}
-		if qualifiedEmptyNativeCollection(key, value) {
-			continue
-		}
+	if s.Application.ClientAuthenticatorType == "federated-jwt" && (!federatedWorkloadEnvelope(&s.Application) || !QualifiedClientAttribute("jwt.credential.issuer", s.Application.Attributes["jwt.credential.issuer"]) || !QualifiedClientAttribute("jwt.credential.sub", s.Application.Attributes["jwt.credential.sub"])) {
 		return false
 	}
+	for key, value := range s.document {
+		if !s.qualifiedLeafField(key, value) {
+			return false
+		}
+	}
 	return true
+}
+func (s *ClientOwnershipSnapshot) qualifiedLeafField(key string, value any) bool {
+	projected := map[string]bool{"id": true, "clientId": true, "protocol": true, "enabled": true, "publicClient": true, "standardFlowEnabled": true, "serviceAccountsEnabled": true, "directAccessGrantsEnabled": true, "implicitFlowEnabled": true, "fullScopeAllowed": true, "redirectUris": true, "webOrigins": true, "attributes": true, "authorizationServicesEnabled": true, "clientAuthenticatorType": true}
+
+	if !qualifiedAuthorizationFlag(key, value) {
+		return false
+	}
+	if key == "clientAuthenticatorType" && value != "client-secret" && value != "federated-jwt" {
+		return false
+	}
+	if projected[key] {
+		return true
+	}
+	return s.qualifiedLeafDefault(key, value)
+}
+func (s *ClientOwnershipSnapshot) qualifiedLeafDefault(key string, value any) bool {
+	defaults := map[string]any{"bearerOnly": false, "authorizationServicesEnabled": false, "rootUrl": "", "baseUrl": "", "adminUrl": "", "description": "", "surrogateAuthRequired": false, "alwaysDisplayInConsole": false, "consentRequired": false, "notBefore": float64(0), "nodeReRegistrationTimeout": float64(-1), "frontchannelLogout": true}
+	if key == "name" && (value == "" || value == s.Application.ClientID) {
+		return true
+	}
+	if key == "frontchannelLogout" && s.Application.Protocol == "openid-connect" && s.Application.ServiceAccountsEnabled && value == false {
+		return true
+	}
+	if want, ok := defaults[key]; ok && reflect.DeepEqual(value, want) {
+		return true
+	}
+	if key == "protocolMappers" && qualifiedMapperDocuments(value, s.mappers, &s.Application) {
+		return true
+	}
+	if qualifiedEmptyNativeCollection(key, value) || (s.Application.ServiceAccountsEnabled && qualifiedClientScopeCollection(key, value)) {
+		return true
+	}
+	return false
 }
 func sameMapperDocuments(a, b []map[string]any) bool {
 	// Map by exact mapper UUID; response ordering has no semantic meaning.
@@ -359,4 +379,25 @@ func qualifiedAuthorizationFlag(key string, value any) bool {
 	}
 	_, valid := value.(bool)
 	return valid
+}
+
+var clientScopeReference = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$`)
+
+func qualifiedClientScopeCollection(key string, value any) bool {
+	if key != "defaultClientScopes" && key != "optionalClientScopes" {
+		return false
+	}
+	values, ok := value.([]any)
+	if !ok || len(values) > 64 {
+		return false
+	}
+	seen := map[string]bool{}
+	for _, v := range values {
+		name, ok := v.(string)
+		if !ok || !clientScopeReference.MatchString(name) || strings.HasPrefix(name, "eyJ") || seen[name] {
+			return false
+		}
+		seen[name] = true
+	}
+	return true
 }

@@ -231,7 +231,7 @@ func TestRealKeycloakWorkloadTrustController(t *testing.T) {
 	fixtureGet(f, ctx, kube, observed)
 	fixtureEqual(t, "native adoption needs explicit Manage", observed.Status.Phase, "Ready")
 	fixtureEqual(t, "normal reconciliation occurs only after explicit Manage", routes()["PUT "+observedPath], 2)
-	t.Logf("Keycloak %s: production controller exact UUID/journal, lost POST/PUT/DELETE ACK recovery without repeat, version-specific discovery override, unsupported-field refusal, reviewed age and actual foreign-dependent deletion guard; zero client credential/mutation routes", f.version)
+	t.Logf("Keycloak %s: production controller exact UUID/journal, lost POST/PUT/DELETE ACK recovery without repeat, version-specific discovery override, unsupported-field refusal, reviewed age and actual foreign-dependent deletion guard; separate trust and child-activation boundaries qualified", f.version)
 }
 
 func newWorkloadTrustACKProxy(t *testing.T, f *keycloakFixture) (string, []byte, func() map[string]int) {

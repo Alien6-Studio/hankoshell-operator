@@ -16,6 +16,8 @@ import (
 // Application is a non-secret projection of a complete provider client. Secret
 // fields are deliberately absent, including when Keycloak returns them on GET.
 type Application struct {
+	DefaultClientScopes       []string          `json:"defaultClientScopes,omitempty"`
+	OptionalClientScopes      []string          `json:"optionalClientScopes,omitempty"`
 	ID                        string            `json:"id,omitempty"`
 	ClientID                  string            `json:"clientId"`
 	Name                      string            `json:"name"`

@@ -10,6 +10,7 @@ import (
 	"github.com/Alien6-Studio/hankoshell-operator/internal/httpsecurity"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/workloadauth"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/workloadbinding"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/workloadtrust"
 	corev1 "k8s.io/api/core/v1"
@@ -28,11 +29,13 @@ type serviceAccountWorkloadSnapshot struct {
 	account         api.HankoServiceAccount
 	trust           *workloadSnapshot
 	source          workloadConnection
+	dependentReader *workloadConnection
 	native          *keycloak.Application
 	plan            workloadbinding.Plan
 	workloadInvalid bool
 	workloadUID     string
 	seal            string
+	authoritySeal   string
 }
 
 // serviceAccountWorkloadSnapshot uses the shared trust resolver and exact live
@@ -47,10 +50,10 @@ func (r *HankoWorkloadTrustReconciler) serviceAccountWorkloadSnapshot(ctx contex
 		return nil, workloadbinding.Failure("StaleSource")
 	}
 	sa := &s.account
-	if err := workloadbinding.Validate(sa); err != nil {
+	if err := workloadbinding.Validate(workloadBindingView(sa)); err != nil {
 		return s, err
 	}
-	k := sa.Spec.Authentication.Kubernetes
+	k := workloadBindingConfiguration(sa)
 	var err error
 	s.trust, err = r.workloadSnapshot(ctx, client.ObjectKey{Namespace: sa.Namespace, Name: k.TrustRef}, false, "")
 	if err != nil || s.trust.trust.Spec.RealmRef != sa.Spec.RealmRef || !s.trust.trust.DeletionTimestamp.IsZero() || !workloadOwnershipMatches(s.trust) || !workloadConfigurationMatches(s.trust) {
@@ -80,10 +83,10 @@ func (r *HankoWorkloadTrustReconciler) serviceAccountWorkloadSnapshot(ctx contex
 	if err != nil {
 		return s, workloadbinding.Failure("ProviderUnavailable")
 	}
-	if s.native != nil && !keycloak.ServiceAccountOwned(s.native, string(sa.UID)) {
+	if s.native != nil && effectiveServiceAccountMode(sa) != ModeObserve && !keycloak.ServiceAccountOwned(s.native, string(sa.UID)) {
 		return s, workloadbinding.Failure("OwnershipConflict")
 	}
-	if !containment && s.native != nil && s.native.ClientAuthenticatorType == "federated-jwt" && !keycloak.FederatedWorkloadOwned(s.native, string(sa.UID), s.trust.trust.Spec.KeycloakAlias, workloadSubject(sa)) {
+	if !containment && effectiveServiceAccountMode(sa) != ModeObserve && s.native != nil && s.native.ClientAuthenticatorType == "federated-jwt" && !keycloak.FederatedWorkloadOwned(s.native, string(sa.UID), s.trust.trust.Spec.KeycloakAlias, workloadSubject(sa)) {
 		return s, workloadbinding.Failure("NativeBindingMismatch")
 	}
 	w := k.Workload
@@ -94,7 +97,7 @@ func (r *HankoWorkloadTrustReconciler) serviceAccountWorkloadSnapshot(ctx contex
 	}
 	s.workloadUID = string(account.UID)
 	s.workloadInvalid = apierrors.IsNotFound(err) || !account.DeletionTimestamp.IsZero() || s.workloadUID != w.ExpectedUID
-	s.seal = workloadbinding.Digest("containment", struct {
+	s.authoritySeal = workloadbinding.Digest("containment-authority", struct {
 		UID                          string
 		Generation                   int64
 		Authentication               *api.ServiceAccountAuthentication
@@ -103,8 +106,8 @@ func (r *HankoWorkloadTrustReconciler) serviceAccountWorkloadSnapshot(ctx contex
 		Trust                        iamcontract.PlanIdentity
 		Source                       any
 		Flow                         any
-		NativeID                     string
-	}{string(sa.UID), sa.Generation, sa.Spec.Authentication, sa.Spec.RealmRef, sa.Spec.ClientID, s.workloadUID, sa.Labels, s.trust.plan.Identity(), workloadConnectionEvidence(s.source), flow, nativeWorkloadClientID(s.native)})
+	}{string(sa.UID), sa.Generation, sa.Spec.Authentication, sa.Spec.RealmRef, sa.Spec.ClientID, s.workloadUID, sa.Labels, s.trust.plan.Identity(), workloadConnectionEvidence(s.source), flow})
+	s.seal = workloadbinding.Digest("containment", struct{ Authority, NativeID string }{s.authoritySeal, nativeWorkloadClientID(s.native)})
 	if containment {
 		return s, r.verifyServiceAccountWorkloadReferences(ctx, s)
 	}
@@ -130,11 +133,46 @@ func (r *HankoWorkloadTrustReconciler) serviceAccountWorkloadSnapshot(ctx contex
 		refs.TargetUID = string(cm.UID)
 		refs.ConsentHash = workloadbinding.Digest("consent", workloadbinding.Authorization(sa, w))
 	}
-	s.plan, err = workloadbinding.Compile(sa, refs)
+	if s.native == nil {
+		if j, e := workloadauth.ParseJournal(sa.Annotations[workloadauth.JournalKey]); e == nil && j != nil && j.OwnerUID == string(sa.UID) && j.Generation == sa.Generation {
+			refs.NativeClientID = j.ClientUUID
+		}
+	}
+	if err := r.uniqueFederatedWorkloadMapping(ctx, s); err != nil {
+		return s, err
+	}
+	if s.dependentReader != nil {
+		refs.SourceHash = workloadbinding.Digest("source", struct{ Client, DependentReader any }{workloadConnectionEvidence(s.source), workloadConnectionEvidence(*s.dependentReader)})
+	}
+	s.plan, err = workloadbinding.Compile(workloadBindingView(sa), refs)
 	if err == nil {
 		err = r.verifyServiceAccountWorkloadReferences(ctx, s)
 	}
 	return s, err
+}
+
+// Native resolution uses issuer/subject. A concurrent mapping is ambiguous even
+// when the client ID supplied by the caller names a different client.
+func (r *HankoWorkloadTrustReconciler) uniqueFederatedWorkloadMapping(ctx context.Context, s *serviceAccountWorkloadSnapshot) error {
+	if authenticationMode(&s.account) != "Kubernetes" {
+		return nil
+	}
+	reader, err := r.workloadConnection(ctx, s.account.Namespace, s.trust.trust.Spec.DependentReaderRef)
+	if err != nil || !sameWorkloadConnection(reader, s.trust.source) || reader.client.CredentialClientID() == s.source.client.CredentialClientID() || reader.client.RestrictToDependentClients(s.account.Spec.RealmRef) != nil {
+		return workloadbinding.Failure("SourceUnavailable")
+	}
+	defer reader.client.CloseIdleConnections()
+	s.dependentReader = &reader
+	dependents, err := reader.client.ListKubernetesWorkloadTrustDependents(ctx, s.account.Spec.RealmRef)
+	if err != nil {
+		return workloadbinding.Failure("IncompleteProviderRead")
+	}
+	for _, dependent := range dependents {
+		if dependent.Authenticator == "federated-jwt" && dependent.Issuer == s.trust.trust.Spec.KeycloakAlias && dependent.Subject == workloadSubject(&s.account) && dependent.ID != nativeWorkloadClientID(s.native) {
+			return workloadbinding.Failure("AmbiguousFederatedWorkloadMapping")
+		}
+	}
+	return nil
 }
 
 type workloadPublicRealmMetadata struct {
@@ -159,13 +197,20 @@ func (r *HankoWorkloadTrustReconciler) verifyServiceAccountWorkloadReferences(ct
 	if r.verifyWorkloadReferences(ctx, s.trust, false) != nil {
 		return workloadbinding.Failure("StaleSource")
 	}
-	source, err := r.workloadConnection(ctx, current.Namespace, current.Spec.Authentication.Kubernetes.SourceRef)
+	source, err := r.workloadConnection(ctx, current.Namespace, workloadBindingConfiguration(&current).SourceRef)
 	if err != nil {
 		return workloadbinding.Failure("StaleSource")
 	}
 	defer source.client.CloseIdleConnections()
 	if !reflect.DeepEqual(workloadConnectionEvidence(source), workloadConnectionEvidence(s.source)) {
 		return workloadbinding.Failure("StaleSource")
+	}
+	if s.dependentReader != nil {
+		reader, err := r.workloadConnection(ctx, current.Namespace, s.trust.trust.Spec.DependentReaderRef)
+		if err != nil || !reflect.DeepEqual(workloadConnectionEvidence(reader), workloadConnectionEvidence(*s.dependentReader)) {
+			return workloadbinding.Failure("StaleSource")
+		}
+		reader.client.CloseIdleConnections()
 	}
 	if refs := s.plan.References(); refs.AssertionAudience != "" {
 		public, err := workloadRealmMetadata(ctx, source.client, current.Spec.RealmRef)
@@ -174,7 +219,7 @@ func (r *HankoWorkloadTrustReconciler) verifyServiceAccountWorkloadReferences(ct
 		}
 	}
 	var live corev1.ServiceAccount
-	w := current.Spec.Authentication.Kubernetes.Workload
+	w := workloadBindingConfiguration(&current).Workload
 	err = r.APIReader.Get(ctx, client.ObjectKey{Namespace: w.Namespace, Name: w.ServiceAccountRef}, &live)
 	if err != nil && !apierrors.IsNotFound(err) || string(live.UID) != s.workloadUID || (apierrors.IsNotFound(err) || !live.DeletionTimestamp.IsZero() || string(live.UID) != w.ExpectedUID) != s.workloadInvalid {
 		return workloadbinding.Failure("StaleSource")
@@ -195,7 +240,7 @@ func nativeWorkloadClientID(a *keycloak.Application) string {
 	return a.ID
 }
 func workloadSubject(sa *api.HankoServiceAccount) string {
-	w := sa.Spec.Authentication.Kubernetes.Workload
+	w := workloadBindingConfiguration(sa).Workload
 	return "system:serviceaccount:" + w.Namespace + ":" + w.ServiceAccountRef
 }
 
@@ -265,6 +310,16 @@ func (r *HankoServiceAccountReconciler) containInvalidWorkload(ctx context.Conte
 func (r *HankoServiceAccountReconciler) reconcileWorkloadServiceAccount(ctx context.Context, sa *api.HankoServiceAccount) (ctrl.Result, error) {
 	observe := effectiveServiceAccountMode(sa) == ModeObserve
 	if observe {
+		if r.WorkloadTrust != nil && workloadBindingConfiguration(sa) != nil {
+			source, err := r.WorkloadTrust.workloadConnection(ctx, sa.Namespace, workloadBindingConfiguration(sa).SourceRef)
+			if err == nil {
+				defer source.client.CloseIdleConnections()
+				if handled, result, err := reconcileOwnershipAcquisition(ctx, r.Client, r.APIReader, sa, source.client, r.serviceAccountAcquisitionGuard); handled {
+					return result, err
+				}
+			}
+		}
+		sa.Status.AdoptionCandidate = refreshTargetCandidate(ctx, r.Client, r.APIReader, sa)
 		return r.workloadAccountStatus(ctx, sa, nil, nil, "ObserveOnly")
 	}
 	// Containment precedes output cleanup. A missing/replaced workload can hold
@@ -287,7 +342,7 @@ func (r *HankoServiceAccountReconciler) reconcileWorkloadServiceAccount(ctx cont
 			}
 		}
 		if !sa.DeletionTimestamp.IsZero() {
-			return ctrl.Result{}, nil
+			return r.deleteFederatedServiceAccount(ctx, sa)
 		}
 	}
 	s, err := r.WorkloadTrust.serviceAccountWorkloadSnapshot(ctx, sa, false)
@@ -302,12 +357,63 @@ func (r *HankoServiceAccountReconciler) reconcileWorkloadServiceAccount(ctx cont
 	if conflict, err := r.serviceAccountOwnershipConflict(ctx, sa, s.source.client); err != nil || conflict != "" {
 		return r.workloadAccountStatus(ctx, sa, nil, nil, "OwnershipConflict")
 	}
+	if !controllerutil.ContainsFinalizer(sa, saFinalizerName) {
+		controllerutil.AddFinalizer(sa, saFinalizerName)
+		if err := r.Update(ctx, sa); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 	if sa.Spec.RuntimeMetadata != nil && !controllerutil.ContainsFinalizer(sa, workloadbinding.RuntimeFinalizer) {
 		controllerutil.AddFinalizer(sa, workloadbinding.RuntimeFinalizer)
 		if err := r.Update(ctx, sa); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
+	if _, err := preflightTokenClaims(sa.Namespace, sa.Name, sa.Generation, sa.Spec.TokenClaims, sa.Status.ManagedTokenClaims); err != nil {
+		return r.workloadAccountStatus(ctx, sa, nil, nil, "InvalidTokenClaims")
+	}
+	for key, value := range sa.Spec.Attributes {
+		if !keycloak.QualifiedClientAttribute(key, value) {
+			return r.workloadAccountStatus(ctx, sa, nil, nil, "NativeAuthenticationUnqualified")
+		}
+	}
+	if s.native != nil && (!currentWorkloadCondition(sa, "WorkloadBindingReady") || sa.Status.WorkloadBinding == nil || sa.Status.WorkloadBinding.BindingRevision != s.plan.Revision()) {
+		metadata, err := r.workloadDelivery(r.authenticationVerifier(sa, s)).Deliver(ctx, sa, s.plan)
+		if err != nil {
+			return r.workloadAccountStatus(ctx, sa, nil, nil, workloadbinding.Reason(err))
+		}
+		return r.workloadAccountStatus(ctx, sa, s, metadata, "BindingValidated")
+	}
+	j, err := r.prepareAuthenticationTransaction(ctx, sa, s)
+	if err != nil {
+		return r.authenticationTransitionResult(ctx, sa, s, j, workloadbinding.Reason(err))
+	}
+	// Persist current binding evidence before activation, then rebuild it on the
+	// next reconcile. Neither this status nor the journal replaces fresh reads.
+	if !currentWorkloadCondition(sa, "WorkloadBindingReady") || sa.Status.WorkloadBinding == nil || sa.Status.WorkloadBinding.BindingRevision != s.plan.Revision() {
+		metadata, err := r.workloadDelivery(r.authenticationVerifier(sa, s)).Deliver(ctx, sa, s.plan)
+		if err != nil {
+			return r.workloadAccountStatus(ctx, sa, nil, nil, workloadbinding.Reason(err))
+		}
+		sa.Status.AuthenticationTransition = transitionStatus(j)
+		return r.workloadAccountStatus(ctx, sa, s, metadata, "BindingValidated")
+	}
+	if err := r.applyAuthenticationTransaction(ctx, sa, s, j); err != nil {
+		return r.authenticationTransitionResult(ctx, sa, s, j, workloadbinding.Reason(err))
+	}
+	s, err = r.WorkloadTrust.serviceAccountWorkloadSnapshot(ctx, sa, false)
+	if err != nil || s.native == nil || !s.native.Enabled || !keycloak.FederatedWorkloadOwned(s.native, string(sa.UID), s.trust.trust.Spec.KeycloakAlias, workloadSubject(sa)) {
+		return r.workloadAccountStatus(ctx, sa, nil, nil, "NativeAuthenticationUnconfirmed")
+	}
+	if err := s.source.client.SyncFederatedServiceAccountAttributesIfOwned(ctx, sa.Spec.RealmRef, sa.Spec.ClientID, string(sa.UID), s.trust.trust.Spec.KeycloakAlias, workloadSubject(sa), sa.Spec.Attributes, r.authenticationVerifier(sa, s)); err != nil {
+		return r.workloadAccountStatus(ctx, sa, nil, nil, "ClientAttributesUnconfirmed")
+	}
+	owner := tokenClaimOwner{kind: "HankoServiceAccount", uid: string(sa.UID), federatedAlias: s.trust.trust.Spec.KeycloakAlias, federatedSubject: workloadSubject(sa), validate: r.authenticationVerifier(sa, s), namespace: sa.Namespace, name: sa.Name, generation: sa.Generation, realm: sa.Spec.RealmRef, clientID: sa.Spec.ClientID}
+	claims, err := reconcileClientTokenClaims(ctx, s.source.client, owner, sa.Spec.TokenClaims, sa.Status.ManagedTokenClaims)
+	if err != nil {
+		return r.workloadAccountStatus(ctx, sa, nil, nil, "TokenClaimsUnconfirmed")
+	}
+	sa.Status.ManagedTokenClaims = claims
 	verify := func(ctx context.Context) error {
 		fresh, err := r.WorkloadTrust.serviceAccountWorkloadSnapshot(ctx, sa, false)
 		if err != nil {
@@ -318,14 +424,15 @@ func (r *HankoServiceAccountReconciler) reconcileWorkloadServiceAccount(ctx cont
 		}
 		return s.plan.Validate(fresh.plan)
 	}
-	metadata, err := r.workloadDelivery(verify).Deliver(ctx, sa, s.plan)
+	sa.Status.AuthenticationTransition = transitionStatus(j)
+	metadata, err := r.workloadDelivery(verify).Deliver(ctx, sa, s.plan.WithActivation(true))
 	if err != nil {
 		return r.workloadAccountStatus(ctx, sa, nil, nil, workloadbinding.Reason(err))
 	}
 	if err := verify(ctx); err != nil {
 		return r.workloadAccountStatus(ctx, sa, nil, nil, "StaleSource")
 	}
-	return r.workloadAccountStatus(ctx, sa, s, metadata, "BindingValidated")
+	return r.workloadAccountStatus(ctx, sa, s, metadata, "FederatedConfigurationApplied")
 }
 
 func (r *HankoServiceAccountReconciler) recordInvalidWorkload(ctx context.Context, sa *api.HankoServiceAccount) (ctrl.Result, error) {
@@ -340,7 +447,7 @@ func (r *HankoServiceAccountReconciler) recordInvalidWorkload(ctx context.Contex
 }
 
 func (r *HankoServiceAccountReconciler) confirmedInvalidWorkload(ctx context.Context, sa *api.HankoServiceAccount) bool {
-	w := sa.Spec.Authentication.Kubernetes.Workload
+	w := workloadBindingConfiguration(sa).Workload
 	var live corev1.ServiceAccount
 	err := r.APIReader.Get(ctx, client.ObjectKey{Namespace: w.Namespace, Name: w.ServiceAccountRef}, &live)
 	return apierrors.IsNotFound(err) || err == nil && (!live.DeletionTimestamp.IsZero() || string(live.UID) != w.ExpectedUID)
@@ -380,7 +487,10 @@ func (r *HankoServiceAccountReconciler) workloadAccountStatus(ctx context.Contex
 	patch := client.MergeFromWithOptions(sa.DeepCopy(), client.MergeFromWithOptimisticLock{})
 	sa.Status.Phase, sa.Status.ObservedGeneration = "Pending", sa.Generation
 	sa.Status.WorkloadBinding, sa.Status.RuntimeMetadata = nil, nil
-	sa.Status.SecretRef, sa.Status.NextRotation = nil, nil
+	sa.Status.SecretRef, sa.Status.NextRotation, sa.Status.LastRotated = nil, nil, nil
+	sa.Status.AdoptionCandidate = expected.Status.AdoptionCandidate
+	sa.Status.AuthenticationTransition = expected.Status.AuthenticationTransition
+	sa.Status.ManagedTokenClaims = expected.Status.ManagedTokenClaims
 	status := metav1.ConditionFalse
 	if s != nil {
 		refs := s.plan.References()
@@ -396,10 +506,46 @@ func (r *HankoServiceAccountReconciler) workloadAccountStatus(ctx context.Contex
 	if sa.Spec.RuntimeMetadata == nil {
 		iamCondition(&sa.Status.Conditions, sa.Generation, "RuntimeMetadataReady", metav1.ConditionUnknown, "NotConfigured", "no runtime metadata target configured")
 	}
-	iamCondition(&sa.Status.Conditions, sa.Generation, "Synced", metav1.ConditionFalse, "AuthenticationActivationPending", "federated authentication activation requires its dedicated reconciliation contract")
-	iamCondition(&sa.Status.Conditions, sa.Generation, "FederatedModeApplied", metav1.ConditionFalse, "AuthenticationActivationPending", "binding validation does not apply a native authenticator")
+	activationReason := "AuthenticationActivationPending"
+	if s == nil {
+		activationReason = reason
+	}
+	iamCondition(&sa.Status.Conditions, sa.Generation, "Synced", metav1.ConditionFalse, activationReason, "federated authentication requires current native configuration and transaction proof")
+	iamCondition(&sa.Status.Conditions, sa.Generation, "FederatedModeApplied", metav1.ConditionFalse, activationReason, "binding validation does not apply a native authenticator")
+	if reason == "ObserveOnly" {
+		sa.Status.Phase = "Pending"
+		iamCondition(&sa.Status.Conditions, sa.Generation, "Synced", metav1.ConditionUnknown, reason, "native configuration is observed; authentication is not managed")
+		iamCondition(&sa.Status.Conditions, sa.Generation, "FederatedModeApplied", metav1.ConditionUnknown, reason, "Observe does not activate authentication")
+	}
+	if reason == "FederatedConfigurationApplied" && s != nil && keycloak.FederatedWorkloadOwned(s.native, string(sa.UID), s.trust.trust.Spec.KeycloakAlias, workloadSubject(&sa)) && s.native.Enabled {
+		sa.Status.Phase = "Ready"
+		iamCondition(&sa.Status.Conditions, sa.Generation, "FederatedModeApplied", metav1.ConditionTrue, reason, "native configuration read-back is current; no runtime authentication claim")
+		iamCondition(&sa.Status.Conditions, sa.Generation, "Synced", metav1.ConditionTrue, reason, "the current native authenticator and workload binding match")
+	}
 	if err := r.Status().Patch(ctx, &sa, patch); err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{RequeueAfter: workloadBindingPoll}, nil
+}
+
+func workloadBindingConfiguration(sa *api.HankoServiceAccount) *api.KubernetesServiceAccountAuthentication {
+	if sa.Spec.Authentication == nil {
+		return nil
+	}
+	if sa.Spec.Authentication.Mode == "Kubernetes" {
+		return sa.Spec.Authentication.Kubernetes
+	}
+	return sa.Spec.Authentication.FallbackBinding
+}
+func workloadBindingView(sa *api.HankoServiceAccount) *api.HankoServiceAccount {
+	v := sa.DeepCopy()
+	if v.Spec.Authentication != nil {
+		v.Spec.Authentication.Kubernetes = workloadBindingConfiguration(sa)
+		v.Spec.Authentication.Mode = "Kubernetes"
+		v.Spec.Authentication.FallbackBinding = nil
+	}
+	if !workloadbinding.KubernetesMode(sa) {
+		v.Spec.SecretRotationPolicy = nil
+	}
+	return v
 }

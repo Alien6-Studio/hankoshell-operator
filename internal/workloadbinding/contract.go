@@ -103,6 +103,7 @@ type Plan struct {
 	ownerUID   string
 	generation int64
 	revision   string
+	active     bool
 }
 
 func Digest(purpose string, value any) string {
@@ -179,11 +180,16 @@ type Document struct {
 	AuthenticationActivation string `json:"authenticationActivation"`
 }
 
+func (p Plan) WithActivation(active bool) Plan { p.active = active; return p }
+
 func (p Plan) Metadata(sa *api.HankoServiceAccount) ([]byte, string, error) {
 	if p.ownerUID != string(sa.UID) || p.generation != sa.Generation || !iamcontract.ValidDigest(p.revision) {
 		return nil, "", iamcontract.ErrStale
 	}
 	d := Document{SchemaVersion: Schema, ClientID: sa.Spec.ClientID, TokenEndpoint: p.refs.TokenEndpoint, AssertionType: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer", AssertionAudience: p.refs.AssertionAudience, RecommendedPath: "/var/run/hanko/assertion.jwt", ExpirationSeconds: Expiration(sa), TrustAssertionMaxAgeSeconds: p.refs.TrustMaxAge, Workload: sa.Spec.Authentication.Kubernetes.Workload, SourceNamespace: sa.Namespace, SourceName: sa.Name, SourceUID: string(sa.UID), SourceGeneration: sa.Generation, BindingRevision: p.revision, AuthenticationActivation: "ManagedSeparately"}
+	if p.active {
+		d.AuthenticationActivation = "Federated"
+	}
 	b, err := json.Marshal(d)
 	if err != nil || len(b) > 8192 {
 		return nil, "", Failure("OutputTooLarge")

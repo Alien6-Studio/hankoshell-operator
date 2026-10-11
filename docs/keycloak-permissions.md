@@ -709,3 +709,35 @@ deleting the provider role. An explicit return to Observe withdraws lifecycle
 participation and preserves the role. The exact reviewed candidate, target UID,
 provider UUID, receipt, qualified native preservation and explicit Observe →
 Manage transition remain required; neither status nor a matching name is authority.
+
+## HankoServiceAccount federated authentication
+
+Use an explicit dedicated target-realm client writer with only `manage-clients`
+and `view-realm`, Full Scope Allowed disabled and exact role scopes. It is distinct
+from the trust writer (`manage-identity-providers` plus `view-realm`) and the
+read-only dependent inventory identity. No `manage-realm`, `manage-users`,
+`realm-admin`, impersonation, master authority or unrelated-realm authority is
+required. Real HTTPS qualification checks those excluded boundaries on 26.7.5 and
+26.8.0. Reading a prerequisite does not authorize repairing the realm flow.
+
+`manage-clients` is native target-realm-wide client and credential authority. Owner
+UIDs, reserved clients, exact transitions and transport checks restrict controller
+behavior, not the cryptographic powers of a stolen credential. A compromised writer
+can affect other target-realm clients. Fresh federated creation does not call
+credential retrieval or rotation; explicit fallback alone reads its retained native
+credential. Imported/Observe and ownership acquisition remain credential-free.
+
+The separate `view-clients` dependent reader remains application-read-only on
+necessary metadata list/get routes and explicitly refuses credential endpoints.
+On **26.7.5 its credential can nevertheless read target-realm client secrets**;
+it is not credential-confidential. Compromising that reader can expose those
+secrets. The stricter native 26.8.0 boundary is separately qualified. No additional
+role is granted to the trust writer for inventory.
+
+The existing manager shares these separate credentials in one process/pod. A
+compromise of that process has their **practical union of authority**. The existing
+controllers depend on coordinated fresh in-process trust/binding reads; an isolated
+reader service/deployment would add a new transport and authority protocol. This
+change keeps credentials distinct and documents that limit, without describing
+route guards as reduced credential powers. Use deployment/realm isolation where
+operationally appropriate; complete installed isolation qualification is separate.

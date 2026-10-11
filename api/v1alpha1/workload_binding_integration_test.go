@@ -77,6 +77,39 @@ func checkWorkloadBindingAdmission(t *testing.T, ctx context.Context, admin clie
 	if err := admin.Get(ctx, client.ObjectKeyFromObject(base), &account); err != nil || account.Status.WorkloadBinding == nil || account.Status.WorkloadBinding.Workload.ExpectedUID != "approved-uid" {
 		t.Fatal("public binding status did not round-trip")
 	}
+	checkAuthenticationTransitionAdmission(t, ctx, admin, &account, hash)
+}
+
+func checkAuthenticationTransitionAdmission(t *testing.T, ctx context.Context, admin client.Client, account *api.HankoServiceAccount, hash string) {
+	t.Helper()
+	for _, authentication := range []*api.ServiceAccountAuthentication{nil, {Mode: "Secret"}, {Mode: "Secret", FallbackBinding: account.Spec.Authentication.Kubernetes}} {
+		changed := account.DeepCopy()
+		changed.Spec.RuntimeMetadata = nil
+		changed.Spec.Authentication = authentication
+		if err := admin.Update(ctx, changed); !apierrors.IsInvalid(err) {
+			t.Fatal("dropping Kubernetes authority without a typed fallback was admitted")
+		}
+	}
+	changed := account.DeepCopy()
+	changed.Spec.RuntimeMetadata = nil
+	changed.Spec.Authentication = &api.ServiceAccountAuthentication{Mode: "Secret", FallbackBinding: account.Spec.Authentication.Kubernetes, Transition: &api.ServiceAccountAuthenticationTransition{Strategy: "CoordinatedCutover", RequestID: "fallback-request", PreparedWorkloadRevision: "deployment-revision"}}
+	if err := admin.Update(ctx, changed); err != nil {
+		t.Fatalf("explicit fallback contract rejected: %v", err)
+	}
+	for _, invalid := range []api.ServiceAccountAuthenticationTransition{{Strategy: "Automatic", RequestID: "valid", PreparedWorkloadRevision: "valid"}, {Strategy: "CoordinatedCutover", RequestID: "", PreparedWorkloadRevision: "valid"}, {Strategy: "CoordinatedCutover", RequestID: "valid", PreparedWorkloadRevision: "../foreign"}} {
+		candidate := changed.DeepCopy()
+		candidate.Spec.Authentication.Transition = &invalid
+		if err := admin.Update(ctx, candidate); !apierrors.IsInvalid(err) {
+			t.Fatal("unqualified transition request admitted")
+		}
+	}
+	changed.Status.AuthenticationTransition = &api.AuthenticationTransitionStatus{RequestID: "fallback-request", ClientUUID: "native-client", PreviousMode: "Kubernetes", DesiredMode: "Secret", BindingRevision: hash, NativeStateHash: hash, PlanHash: hash, Step: "ModeApplied"}
+	if err := admin.Status().Update(ctx, changed); err != nil {
+		t.Fatal(err)
+	}
+	if err := admin.Get(ctx, client.ObjectKeyFromObject(changed), changed); err != nil || changed.Status.AuthenticationTransition == nil || changed.Status.AuthenticationTransition.Step != "ModeApplied" {
+		t.Fatal("bounded authentication status did not round-trip")
+	}
 }
 
 func checkWorkloadBindingDeliveryRBAC(t *testing.T, ctx context.Context, admin client.Client, operator client.WithWatch) {

@@ -426,10 +426,12 @@ preservation and explicit Manage. Organizational Authorization retains explicit
 grants and bounded structural provenance. **Workload Identity** starts
 with the [native qualification and architecture contract](docs/architecture/workload-identity.md).
 Kubernetes workload trust ownership and Workload binding and mesh coherence have
-typed APIs and controllers. Passive binding delivers public configuration and
-contains confirmed UID replacements; it does not activate authentication.
-HankoServiceAccount federated authentication and Installed-system and migration
-qualification remain separate work toward the same first public 0.1.0.
+typed APIs and controllers. HankoServiceAccount federated authentication adds
+owned native activation, durable reviewed mode changes and explicit Secret
+fallback. Public metadata follows verified configuration; the operator never
+receives workload JWTs. [The migration contract](docs/architecture/workload-identity.md#hankoserviceaccount-federated-authentication)
+retains two-client migration as the default. Installed-system and migration
+qualification remains separate work toward the same first public 0.1.0.
 [#21](https://github.com/Alien6-Studio/hankoshell-operator/issues/21) remains
 open for transversal first-publication trust and readiness.
 For `HankoRole` and `HankoResourceServer`, status distinguishes the evaluated

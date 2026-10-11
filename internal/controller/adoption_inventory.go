@@ -301,6 +301,13 @@ func (r *HankoImportReconciler) discoverClientInventory(ctx context.Context, kc 
 		}
 		item.fact("name", textValue(c.ClientID))
 		item.fact("protocol", textValue(c.Protocol))
+		item.fact("clientAuthenticatorType", textValue(c.ClientAuthenticatorType))
+		item.fact("defaultClientScopes", setValue(c.DefaultClientScopes))
+		item.fact("optionalClientScopes", setValue(c.OptionalClientScopes))
+		if c.ClientAuthenticatorType == "federated-jwt" {
+			item.fact("federatedIssuer", textValue(c.Attributes["jwt.credential.issuer"]))
+			item.fact("federatedSubject", textValue(c.Attributes["jwt.credential.sub"]))
+		}
 		item.fact("enabled", flagValue(c.Enabled))
 		item.fact("publicClient", flagValue(c.PublicClient))
 		item.fact("standardFlow", flagValue(c.StandardFlowEnabled))

@@ -62,6 +62,12 @@ func (r *HankoServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.
 	if r.APIReader == nil {
 		r.APIReader = r.Client
 	}
+	if authenticationTransitionAuthorityMissing(&sa) {
+		return r.authenticationTransitionResult(ctx, &sa, nil, nil, "AuthenticationAuthorityRequired")
+	}
+	if sa.Spec.Authentication != nil && sa.Spec.Authentication.Mode == "Secret" && sa.Spec.Authentication.FallbackBinding != nil {
+		return r.reconcileServiceAccountFallback(ctx, &sa)
+	}
 	if workloadbinding.KubernetesMode(&sa) {
 		return r.reconcileWorkloadServiceAccount(ctx, &sa)
 	}
@@ -464,33 +470,7 @@ func (r *HankoServiceAccountReconciler) ensureSASecret(ctx context.Context, sa *
 
 // maybeRotate rotates the client secret if the rotation policy demands it.
 func (r *HankoServiceAccountReconciler) maybeRotate(ctx context.Context, sa *hankoshv1alpha1.HankoServiceAccount, p *hankoshv1alpha1.SecretRotationPolicy, now *metav1.Time, kc *keycloak.Client) error {
-	if p == nil || !p.Enabled {
-		sa.Status.NextRotation = nil
-		return nil
-	}
-	if !serviceAccountRotationDue(sa, p, now) {
-		setServiceAccountNextRotation(sa, p)
-		return nil
-	}
-	logger := log.FromContext(ctx)
-	logger.Info("rotating M2M client secret", "clientID", sa.Spec.ClientID)
-	if err := r.validateServiceAccountExecution(ctx, sa, kc, true); err != nil {
-		return err
-	}
-	newSecret, err := kc.RotateServiceAccountSecretIfOwned(ctx, sa.Spec.RealmRef, sa.Spec.ClientID, string(sa.UID))
-	if err != nil {
-		return fmt.Errorf("rotate secret for %q: %w", sa.Spec.ClientID, err)
-	}
-	// Write K8s secret before updating status: if this fails the controller will
-	// retry rotation on the next reconcile (LastRotated not yet updated).
-	if err := r.upsertSASecret(ctx, sa, newSecret); err != nil {
-		return err
-	}
-	setServiceAccountSecretStatus(sa, now)
-	setServiceAccountNextRotation(sa, p)
-	r.Recorder.Eventf(sa, nil, corev1.EventTypeNormal, "SecretRotated", "Reconcile", "%s", fmt.Sprintf("M2M client secret rotated for %q", sa.Spec.ClientID))
-	logger.Info("M2M client secret rotated", "clientID", sa.Spec.ClientID)
-	return nil
+	return r.durableServiceAccountRotation(ctx, sa, p, now, kc)
 }
 
 func serviceAccountRotationDue(sa *hankoshv1alpha1.HankoServiceAccount, policy *hankoshv1alpha1.SecretRotationPolicy, now *metav1.Time) bool {
@@ -521,15 +501,22 @@ func (r *HankoServiceAccountReconciler) upsertSASecret(ctx context.Context, sa *
 				Namespace: sa.Namespace,
 				Labels:    map[string]string{"app.kubernetes.io/managed-by": "hanko-operator"},
 			},
-			StringData: map[string]string{"client_secret": secret},
+			Data: map[string][]byte{"client_secret": []byte(secret)},
 		}
 		if err := controllerutil.SetControllerReference(sa, s, r.Scheme); err != nil {
 			return fmt.Errorf("set owner reference on SA secret: %w", err)
 		}
 		return r.Create(ctx, s)
 	}
+	if !metav1.IsControlledBy(s, sa) || !s.DeletionTimestamp.IsZero() {
+		return keycloak.ErrApplicationPrecondition
+	}
 	p := client.MergeFrom(s.DeepCopy())
-	s.StringData = map[string]string{"client_secret": secret}
+	if s.Data == nil {
+		s.Data = map[string][]byte{}
+	}
+	s.Data["client_secret"] = []byte(secret)
+	s.StringData = nil
 	return r.Patch(ctx, s, p)
 }
 
