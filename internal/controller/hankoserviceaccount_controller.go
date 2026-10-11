@@ -20,6 +20,7 @@ import (
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/workloadbinding"
 )
 
 const saFinalizerName = "hanko.sh/sa-cleanup"
@@ -32,7 +33,9 @@ const saFinalizerName = "hanko.sh/sa-cleanup"
 // +kubebuilder:rbac:groups=hanko.sh,resources=hankoapplications,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
 type HankoServiceAccountReconciler struct {
-	APIReader client.Reader
+	APIReader     client.Reader
+	RuntimeClient client.Client
+	WorkloadTrust *HankoWorkloadTrustReconciler
 	client.Client
 	// OwnershipReader should be the manager's uncached API reader in production.
 	// An authoritative read closes the cache-staleness window before any client
@@ -55,6 +58,27 @@ func (r *HankoServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.
 	var sa hankoshv1alpha1.HankoServiceAccount
 	if err := r.Get(ctx, req.NamespacedName, &sa); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+	if r.APIReader == nil {
+		r.APIReader = r.Client
+	}
+	if workloadbinding.KubernetesMode(&sa) {
+		return r.reconcileWorkloadServiceAccount(ctx, &sa)
+	}
+	if sa.Annotations[workloadbinding.JournalKey] != "" || controllerutil.ContainsFinalizer(&sa, workloadbinding.RuntimeFinalizer) {
+		if effectiveServiceAccountMode(&sa) == ModeObserve {
+			return r.workloadAccountStatus(ctx, &sa, nil, nil, "ObserveOnly")
+		}
+		if err := r.workloadDelivery(nil).Cleanup(ctx, &sa); err != nil {
+			return r.workloadAccountStatus(ctx, &sa, nil, nil, workloadbinding.Reason(err))
+		}
+		if err := r.APIReader.Get(ctx, req.NamespacedName, &sa); err != nil {
+			return ctrl.Result{}, err
+		}
+		controllerutil.RemoveFinalizer(&sa, workloadbinding.RuntimeFinalizer)
+		if err := r.Update(ctx, &sa); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	kc := kcForObject(r.Pool, sa.Namespace, sa.Labels)
@@ -94,6 +118,9 @@ func (r *HankoServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 	if existing != nil && !keycloak.ServiceAccountOwned(existing, string(sa.UID)) {
 		return r.recordServiceAccountOwnershipConflict(ctx, &sa, "existing unmarked or foreign M2M client requires explicit reviewed acquisition")
+	}
+	if existing != nil && existing.ClientAuthenticatorType != "" && existing.ClientAuthenticatorType != "client-secret" {
+		return r.recordServiceAccountOwnershipConflict(ctx, &sa, "native authentication method requires a separately reviewed transition before Secret reconciliation")
 	}
 	if !controllerutil.ContainsFinalizer(&sa, saFinalizerName) {
 		controllerutil.AddFinalizer(&sa, saFinalizerName)
@@ -533,6 +560,8 @@ func (r *HankoServiceAccountReconciler) SetupWithManager(mgr ctrl.Manager) error
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoServiceAccount{}, builder.WithPredicates(generationOrReconcileRequestChanged())).
+		Watches(&hankoshv1alpha1.HankoWorkloadTrust{}, handler.EnqueueRequestsFromMapFunc(r.requestsForWorkloadBinding)).
+		Watches(&hankoshv1alpha1.HankoKeycloakInstance{}, handler.EnqueueRequestsFromMapFunc(r.requestsForWorkloadBinding)).
 		Watches(&hankoshv1alpha1.HankoApplication{}, handler.EnqueueRequestsFromMapFunc(r.requestsForApplicationOwnership)).
 		Watches(&hankoshv1alpha1.HankoRealm{}, handler.EnqueueRequestsFromMapFunc(
 			func(ctx context.Context, obj client.Object) []reconcile.Request {
@@ -546,7 +575,7 @@ func (r *HankoServiceAccountReconciler) SetupWithManager(mgr ctrl.Manager) error
 				}
 				requests := make([]reconcile.Request, 0)
 				for i := range accounts.Items {
-					if accounts.Items[i].Spec.RealmRef == realm.Name && accounts.Items[i].Spec.SecretRotationPolicy == nil {
+					if accounts.Items[i].Spec.RealmRef == realm.Name && (accounts.Items[i].Spec.SecretRotationPolicy == nil || workloadbinding.KubernetesMode(&accounts.Items[i])) {
 						requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Name: accounts.Items[i].Name, Namespace: accounts.Items[i].Namespace}})
 					}
 				}

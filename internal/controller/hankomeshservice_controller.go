@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/workloadbinding"
 )
 
 // HankoMeshServiceReconciler resolves mutable names to the immutable
@@ -33,6 +34,8 @@ import (
 // +kubebuilder:rbac:groups="",resources=nodes,verbs=get
 type HankoMeshServiceReconciler struct {
 	client.Client
+	APIReader     client.Reader
+	WorkloadTrust *HankoWorkloadTrustReconciler
 	// NodeReader deliberately bypasses controller-runtime's shared cache. A
 	// cached Get lazily starts a cluster-wide Node informer and therefore needs
 	// list/watch; the API reader preserves the reviewed nodes/get-only boundary.
@@ -64,6 +67,7 @@ type resolvedMeshService struct {
 	realm                     string
 	serviceUID                string
 	workloadServiceAccountUID string
+	workloadBindingRevision   string
 	selectorSHA256            string
 	enforcementMode           string
 	receiverNodeUIDs          []string
@@ -84,8 +88,27 @@ func (r *HankoMeshServiceReconciler) resolve(ctx context.Context, registration *
 	}
 
 	var identity hankoshv1alpha1.HankoServiceAccount
-	if err := r.Get(ctx, namespaced(registration.Spec.IdentityRef), &identity); err != nil {
+	identityReader := client.Reader(r.Client)
+	if r.APIReader != nil {
+		identityReader = r.APIReader
+	}
+	if err := identityReader.Get(ctx, namespaced(registration.Spec.IdentityRef), &identity); err != nil {
 		return resolvedMeshService{}, fmt.Errorf("resolve Hanko identity %q: %w", registration.Spec.IdentityRef, err)
+	}
+	bindingRevision := ""
+	if workloadbinding.KubernetesMode(&identity) {
+		if r.APIReader == nil || r.APIReader.Get(ctx, namespaced(registration.Spec.IdentityRef), &identity) != nil {
+			return resolvedMeshService{}, workloadbinding.Failure("StaleSource")
+		}
+		binding, err := r.WorkloadTrust.requireActiveWorkloadBinding(ctx, &identity)
+		if err != nil {
+			return resolvedMeshService{}, err
+		}
+		bindingRevision = binding.plan.Revision()
+		w := identity.Spec.Authentication.Kubernetes.Workload
+		if w.Namespace != registration.Namespace || w.ServiceAccountRef != registration.Spec.WorkloadServiceAccountRef {
+			return resolvedMeshService{}, workloadbinding.Failure("MeshWorkloadMismatch")
+		}
 	}
 	if identity.Status.Phase != "Ready" || identity.Status.ObservedGeneration != identity.Generation {
 		return resolvedMeshService{}, fmt.Errorf("hanko identity %q has no Ready status for generation %d", identity.Name, identity.Generation)
@@ -144,8 +167,15 @@ func (r *HankoMeshServiceReconciler) resolve(ctx context.Context, registration *
 	}
 
 	var workloadAccount corev1.ServiceAccount
-	if err := r.Get(ctx, namespaced(registration.Spec.WorkloadServiceAccountRef), &workloadAccount); err != nil {
+	reader := client.Reader(r.Client)
+	if workloadbinding.KubernetesMode(&identity) {
+		reader = r.APIReader
+	}
+	if err := reader.Get(ctx, namespaced(registration.Spec.WorkloadServiceAccountRef), &workloadAccount); err != nil {
 		return resolvedMeshService{}, fmt.Errorf("resolve Kubernetes ServiceAccount %q: %w", registration.Spec.WorkloadServiceAccountRef, err)
+	}
+	if workloadbinding.KubernetesMode(&identity) && string(workloadAccount.UID) != identity.Spec.Authentication.Kubernetes.Workload.ExpectedUID {
+		return resolvedMeshService{}, workloadbinding.Failure("WorkloadUIDMismatch")
 	}
 	if workloadAccount.UID == "" {
 		return resolvedMeshService{}, fmt.Errorf("kubernetes ServiceAccount %q has no immutable UID", workloadAccount.Name)
@@ -220,6 +250,7 @@ func (r *HankoMeshServiceReconciler) resolve(ctx context.Context, registration *
 		realm:                     identity.Spec.RealmRef,
 		serviceUID:                string(service.UID),
 		workloadServiceAccountUID: string(workloadAccount.UID),
+		workloadBindingRevision:   bindingRevision,
 		selectorSHA256:            hashServiceSelector(service.Spec.Selector),
 		enforcementMode:           enforcementMode,
 		receiverNodeUIDs:          receiverNodeUIDs,
@@ -410,6 +441,21 @@ func (r *HankoMeshServiceReconciler) statusError(ctx context.Context, registrati
 }
 
 func (r *HankoMeshServiceReconciler) statusReady(ctx context.Context, registration *hankoshv1alpha1.HankoMeshService, resolved resolvedMeshService) (ctrl.Result, error) {
+	if r.APIReader != nil {
+		var identity hankoshv1alpha1.HankoServiceAccount
+		if err := r.APIReader.Get(ctx, client.ObjectKey{Namespace: registration.Namespace, Name: registration.Spec.IdentityRef}, &identity); err != nil {
+			return ctrl.Result{RequeueAfter: workloadBindingPoll}, r.statusError(ctx, registration, workloadbinding.Failure("StaleSource"))
+		}
+		if (resolved.workloadBindingRevision != "") != workloadbinding.KubernetesMode(&identity) {
+			return ctrl.Result{RequeueAfter: workloadBindingPoll}, r.statusError(ctx, registration, workloadbinding.Failure("StaleSource"))
+		}
+		if workloadbinding.KubernetesMode(&identity) {
+			s, err := r.WorkloadTrust.requireActiveWorkloadBinding(ctx, &identity)
+			if err != nil || s.plan.Revision() != resolved.workloadBindingRevision || s.account.Spec.ClientID != resolved.workloadID || s.workloadUID != resolved.workloadServiceAccountUID || identity.Spec.Authentication.Kubernetes.Workload.Namespace != registration.Namespace || identity.Spec.Authentication.Kubernetes.Workload.ServiceAccountRef != registration.Spec.WorkloadServiceAccountRef {
+				return ctrl.Result{RequeueAfter: workloadBindingPoll}, r.statusError(ctx, registration, workloadbinding.Failure("StaleSource"))
+			}
+		}
+	}
 	patch := client.MergeFrom(registration.DeepCopy())
 	now := metav1.Now()
 	registration.Status.Phase = "Ready"
@@ -432,7 +478,7 @@ func (r *HankoMeshServiceReconciler) statusReady(ctx context.Context, registrati
 		return ctrl.Result{}, err
 	}
 	log.FromContext(ctx).Info("HankoMeshService binding resolved", "name", registration.Name, "workloadID", resolved.workloadID, "audience", resolved.audience)
-	return ctrl.Result{RequeueAfter: requeueWithJitter()}, nil
+	return ctrl.Result{RequeueAfter: workloadBindingPoll}, nil
 }
 
 func (r *HankoMeshServiceReconciler) enqueueNamespaceRegistrations(ctx context.Context, object client.Object) []reconcile.Request {
@@ -450,6 +496,9 @@ func (r *HankoMeshServiceReconciler) enqueueNamespaceRegistrations(ctx context.C
 }
 
 func (r *HankoMeshServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.APIReader == nil {
+		r.APIReader = mgr.GetAPIReader()
+	}
 	requeueNamespace := handler.EnqueueRequestsFromMapFunc(r.enqueueNamespaceRegistrations)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoMeshService{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).

@@ -29,6 +29,8 @@ components:
     in: "/internal/roles"
   workloadtrust:
     in: "/internal/workloadtrust"
+  workloadbinding:
+    in: "/internal/workloadbinding"
   applications:
     in: "/internal/applications"
   applicationbinding:
@@ -65,6 +67,7 @@ deps:
     mayDependOn:
       - httpsecurity
       - workloadtrust
+      - workloadbinding
       - keycloak
       - authorization
       - organization
@@ -116,6 +119,10 @@ deps:
     mayDependOn:
       - iamcontract
       - httpsecurity
+  workloadbinding:
+    mayDependOn:
+      - api_types
+      - iamcontract
 
   applications:
     mayDependOn:

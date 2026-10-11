@@ -100,6 +100,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 	t.Run("application protocols admission and status", func(t *testing.T) { checkApplicationProtocols(t, ctx, admin) })
 	t.Run("standalone organization status and finalizers", func(t *testing.T) { checkOrganizationStandaloneStatus(t, ctx, admin) })
 	t.Run("typed workload trust admission and status", func(t *testing.T) { checkWorkloadTrustAdmission(t, ctx, admin) })
+	t.Run("workload binding admission and status", func(t *testing.T) { checkWorkloadBindingAdmission(t, ctx, admin) })
 
 	t.Run("instance-administrative-capability-contract", func(t *testing.T) {
 		instance := &unstructured.Unstructured{Object: map[string]any{
@@ -265,6 +266,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Run("runtime bindings and exact cross-namespace RBAC", func(t *testing.T) { checkRuntimeBindings(t, ctx, admin, operator) })
+	t.Run("workload binding named read/patch RBAC", func(t *testing.T) { checkWorkloadBindingDeliveryRBAC(t, ctx, admin, operator) })
 	t.Run("server-side-apply-and-status", func(t *testing.T) {
 		checkRealmApplyAndStatus(t, ctx, operator)
 	})

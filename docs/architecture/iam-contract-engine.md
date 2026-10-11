@@ -198,7 +198,9 @@ running manager and checks the ownership marker, description and finalizer clean
 All existing Kubernetes, provider, OCI, supply-chain and release rehearsal gates
 remain mandatory. The IAM Contract Engine is complete for the qualified Keycloak surface.
 Current chart/app metadata is `0.1.0-dev.0`; first-publication readiness includes
-Phases 6–10 and transversal trust evidence in #21.
+Workload Identity, Delegation & Agent Identity, Provider Portability, Fleet
+Reconciliation, Initial Public Contract Stabilization and transversal trust
+evidence in #21.
 
 [#28](https://github.com/Alien6-Studio/hankoshell-operator/issues/28) completes
 standalone organization readiness versus configured optional projection. Provider

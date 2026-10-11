@@ -1,9 +1,9 @@
 # Organizational authorization: accepted organizational authorization contract
 
-This is the implemented **Phase 4 — Organizational Authorization** source contract,
+This is the implemented **Organizational Authorization** source contract,
 accepted in [RFC #40](https://github.com/Alien6-Studio/hankoshell-operator/issues/40),
 with grants in #41 and bounded explanation in #42. Current packaging metadata is `0.1.0-dev.0`; first-publication readiness
-remains transversal in #21 and Phase 10.
+remains transversal in #21 and Initial Public Contract Stabilization.
 
 ## Decision
 

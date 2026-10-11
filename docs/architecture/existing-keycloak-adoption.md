@@ -1,7 +1,7 @@
 # Existing Keycloak: explicit ownership adoption
 
 Accepted direction for [RFC #46](https://github.com/Alien6-Studio/hankoshell-operator/issues/46),
-completing **Phase 5 — Adopt Existing Keycloak**.
+completing **Adopt Existing Keycloak**.
 The source tree implements bounded discovery/diff, explicit reviewed ownership
 acquisition, Organization and ResourceServer checkpoints, and a separate qualified
 transition to Manage. Current source/chart metadata is `0.1.0-dev.0`; source freeze
@@ -767,6 +767,8 @@ transport or Continuum change is introduced.
 
 The source freeze requires exact protected-main qualification after these
 implementations. The accepted RFC and discovery/diff are #46/#47; leaf acquisition is #48.
-The completed adoption contract is qualified through #49. The next phase is
-**Phase 6 — Workload Identity**; Phases 6–10 are required before the first public
-0.1.0. Transversal first-publication trust/readiness remains open in #21.
+The completed adoption contract is qualified through #49. The next work subject is
+**Workload Identity**. Workload Identity, Delegation & Agent Identity, Provider
+Portability, Fleet Reconciliation and Initial Public Contract Stabilization are
+required before the first public 0.1.0. Transversal first-publication trust/readiness
+remains open in #21.

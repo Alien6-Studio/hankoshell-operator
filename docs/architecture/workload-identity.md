@@ -1,11 +1,12 @@
-# Workload identity contract — Phase 6A
+# Workload identity contract — Native workload qualification
 
-This document selects an implementation contract for Phase 6 of the first public
-`0.1.0` roadmap. The active version remains `0.1.0-dev.0`, development. P6.2
-implements the independent trust API; service-account authentication and
-binding examples remain future work. The qualification fixture changes only
-uniquely named disposable clusters and servers. Production trust (#21), release
-publication, existing IAM grants and Phase 7 remain separate work.
+This document defines Workload Identity for the first public `0.1.0`.
+The technical version remains `0.1.0-dev.0`, development. Kubernetes workload
+trust ownership implements the shared native trust; Workload binding and mesh
+coherence adds passive UID validation and public metadata delivery.
+HankoServiceAccount federated authentication and Installed-system and migration
+qualification remain separate work. Production publication remains in #21.
+Disposable qualification fixtures do not change production infrastructure.
 
 ## 1. Problem statement
 
@@ -52,7 +53,7 @@ remain authoritative.
 The inventory covers the complete types/controllers and their integration
 contracts, rather than treating similarly named fields as federation:
 
-| Foundation | Existing behavior | Phase 6 consequence |
+| Foundation | Existing behavior | Workload Identity consequence |
 | --- | --- | --- |
 | `api/v1alpha1/hankoserviceaccount_types.go`, `internal/controller/hankoserviceaccount_controller.go` | M2M client creation, secret retrieval/recovery/rotation, UID ownership, reserved-client and cross-kind guards, claims, imported Observe latch, adoption and finalizers | Extend this identity; omitted authentication still means Secret. Do not create a second machine identity CRD. |
 | `api/v1alpha1/hankomeshservice_types.go`, `internal/controller/hankomeshservice_controller.go` | identityRef to HankoServiceAccount, named Kubernetes SA, selected ready Pods, Service/SA/node UIDs, tenant/realm checks and transport audit projection | Match the same approved workload UID when federation is explicit; retain mesh audience as resource audience. |
@@ -62,11 +63,11 @@ contracts, rather than treating similarly named fields as federation:
 | `docs/architecture/iam-contract-engine.md`, `internal/iamcontract` | Domain intent → local sealed provider plan → bounded observation; status/hashes are evidence, not executable authority | Add domain capabilities and complete read-back; no universal provider interface or remote plan execution. |
 | `docs/keycloak-permissions.md`, `docs/secure-deployment.md` | Explicit per-capability authority, TLS/response bounds, named Kubernetes grants, actual-provider and installed-system gates | Preserve every security gate. Existing envtest API matrices do not contain kubelets or prove projected-token rotation. |
 | `HankoIssuer` | Public OIDC authority routed to a Hanko realm/API facade | Keep separate: it is not Kubernetes issuer trust. |
-| Phase 5 adoption | Exact source/realm/provider identity, explicit reviewed candidates and receipts, closed preservation, fresh UID checks, no ownership by name | Extend the closed schema before admitting federated clients or typed trusts. |
+| Adopt Existing Keycloak adoption | Exact source/realm/provider identity, explicit reviewed candidates and receipts, closed preservation, fresh UID checks, no ownership by name | Extend the closed schema before admitting federated clients or typed trusts. |
 
 The current service-account rotation path is not the application's durable
 checkpoint implementation: a provider rotation followed by a failed Secret write
-can currently be retried. Phase 6 migration must add a durable transaction to
+can currently be retried. Workload Identity migration must add a durable transaction to
 HankoServiceAccount; it must not describe current status as an exactly-once
 credential journal. Current native application observations also omit
 `clientAuthenticatorType`; adding typed federation requires extending their closed
@@ -252,7 +253,7 @@ claim this native contract satisfies it.
 ## 7. API decision and capability model
 
 **Choose B: a namespaced, typed `HankoWorkloadTrust`**, scoped to one exact realm
-and native provider. P6.2 introduces this seventeenth CRD after the accepted
+and native provider. Kubernetes workload trust ownership introduces this seventeenth CRD after the accepted
 contract. It is justified because several M2M clients share one realm-wide
 trust and because a managed trust must work with an external/Observe realm without
 taking ownership of that realm. HankoServiceAccount remains the only M2M identity.
@@ -265,9 +266,12 @@ taking ownership of that realm. HankoServiceAccount remains the only M2M identit
 | D: extend RealmIdentityProvider.Config | Open broker config and existing realm lifecycle cannot establish closed workload semantics/independent ownership; rejected |
 | Reuse HankoIssuer | Public facade authority has different origin, lifecycle and security semantics; rejected |
 
-The trust API is implemented by P6.2. The service-account authentication and
-runtime-metadata example after the separator remains **future API**, outside
-P6.2 and not accepted by the current HankoServiceAccount schema:
+The trust and passive binding APIs below are implemented. Kubernetes mode seals
+configuration and optional public metadata; it does not yet activate a native
+client authenticator, create a client, issue an assertion or recover a secret.
+The explicit client `sourceRef` is required so the client connection can be freshly
+bound to the trust's endpoint, public CA and native realm without a pooled writer
+fallback. The ConfigMap's expected UID is separately pinned in desired state.
 
 ```yaml
 kind: HankoWorkloadTrust
@@ -296,6 +300,7 @@ spec:
     mode: Kubernetes
     kubernetes:
       trustRef: cluster-one
+      sourceRef: workload-client-writer
       workload:
         namespace: workloads
         serviceAccountRef: worker
@@ -304,6 +309,7 @@ spec:
   # Optional delivery into an existing, explicitly authorized target:
   runtimeMetadata:
     configMapRef: worker-identity
+    expectedUID: <independently-reviewed-current-configmap-uid>
 ```
 
 Authentication omitted, or `mode: Secret`, preserves historical secret-based
@@ -314,7 +320,7 @@ subject, trust or native authenticator. Do not silently convert legacy generic
 federation attributes; surface reviewed migration requirements.
 
 Only the operator's current cluster is a qualified workload binding source in
-Phase 6. Foreign issuers in fixtures are negative/external-provider evidence,
+Workload Identity. Foreign issuers in fixtures are negative/external-provider evidence,
 not a remote-cluster binding API. Trust/realm references stay in the Hanko
 namespace; workload namespace is explicit and requires named direct-read grants.
 Reject `default`, missing namespace, malformed names and absent expectedUID.
@@ -414,7 +420,7 @@ must be independently declared/reviewed for the new client. Failure preserves th
 old working client; explicit rollback points consumers back to it before retirement.
 
 **Same-client transition:** supported only as an explicitly reviewed coordinated
-cutover, with workload preparation and an acknowledged interruption risk. P6.3
+cutover, with workload preparation and an acknowledged interruption risk. HankoServiceAccount federated authentication
 must reject an ordinary mode edit on an existing active Secret client unless
 such exact-identity approval exists. Preflight can prove configuration/prerequisites,
 but authentication proof happens **after** native activation and **before** Secret
@@ -457,7 +463,7 @@ UID consent. Return to Kubernetes uses the same explicit preparation/approval
 and post-activation proof-before-cleanup rule, or a two-client migration.
 
 Rotation is Secret-only. Kubernetes mode clears schedules without changing
-inactive secret material. P6.3 must extend the durable checkpoint before rotation,
+inactive secret material. HankoServiceAccount federated authentication must extend the durable checkpoint before rotation,
 and qualify lost provider acknowledgement, Secret write failure, lost status,
 restart and deletion after every step. No lost status write may remove the only
 prepared functional method. External outages or an explicitly coordinated
@@ -491,12 +497,12 @@ closed observation.
 A matching existing Kubernetes IdP is Observe first, or a typed candidate with
 exact native internalId, providerId, alias, realm/connection identity, approved
 issuer/discovery/JWKS source, cluster anchor and complete preservation hash.
-Explicit reviewed Phase 5-style adoption checks fresh identity/hash/UID ownership
+Explicit reviewed Adopt Existing Keycloak-style adoption checks fresh identity/hash/UID ownership
 absence and establishes a durable receipt. Name/issuer coincidence cannot approve
 it. Unknown or credential-shaped config, foreign mappers, issuer collision or
 incomplete read authority prevents automatic Manage adoption.
 
-Existing federated clients likewise need the closed Phase 5 preservation schema
+Existing federated clients likewise need the closed Adopt Existing Keycloak preservation schema
 extended for authenticator, exact provider/subject, service-account/grant settings
 and declared claims/scopes before adoption is supported. The current schema does
 not qualify such adoption. A matching clientID plus workload names is insufficient.
@@ -529,9 +535,9 @@ explicitly denied to the constrained test profiles. A trust writer's unrelated
 IdP write succeeds because that native role is realm-wide; code ownership checks
 do not reduce stolen-credential authority.
 
-### P6.2 dependency-inventory permission boundary
+### Dependency-inventory permission boundary
 
-The P6.2 controller uses these three separate credentials. The real-provider
+The Kubernetes workload trust ownership controller uses these three separate credentials. The real-provider
 test `TestRealKeycloakWorkloadTrustRequiredInventoryPermissions` separately
 qualifies the requested two-role profiles on real HTTPS Keycloak 26.7.5 and
 26.8.0. Both `manage-identity-providers` + `view-realm` and
@@ -542,7 +548,7 @@ The existing production inventory reader returns an error, never an empty
 successful dependency inventory. A separate `view-clients` control observes the
 actual native `federated-jwt` dependent and is denied client PUT.
 
-The accepted P6.2 exception requires a dedicated `dependent-client-reader` with
+The accepted Kubernetes workload trust ownership exception requires a dedicated `dependent-client-reader` with
 only target-realm `view-clients`, Full Scope Allowed disabled, and exact service
 account mappings and client scopes. The trust writer retains only
 `manage-identity-providers` + `view-realm`; the observer retains
@@ -568,7 +574,7 @@ requires `manage-clients` at the client-secret endpoint. Application route
 restrictions do not cryptographically narrow either credential's native powers.
 
 The existing operator uses one manager process. A separate inventory deployment
-would require a new authenticated freshness/execution protocol; P6.2 keeps
+would require a new authenticated freshness/execution protocol; Kubernetes workload trust ownership keeps
 credentials and transports distinct in that process instead. Compromise of its
 process/pod gives the practical union of writer and dependent-reader powers,
 including the 26.7.5 credential-exposure risk. Deployments requiring a stronger
@@ -577,7 +583,7 @@ this implementation does not claim process isolation. Other credentials held
 by the same operator process also belong to that practical union. Permission
 characterization and controller/installed qualification remain separate proofs.
 
-### P6.2 implemented trust ownership
+### Implemented Kubernetes workload trust ownership
 
 `HankoWorkloadTrust` and its list are registered in `hanko.sh/v1alpha1`, with
 generated deepcopy/OpenAPI, status subresource and chart RBAC. `realmRef`,
@@ -599,7 +605,7 @@ issuer/JWKS with its normal API transport, then verifies public approved HTTPS
 discovery/keysets without credentials, redirects or foreign unapproved authority.
 No workload JWT, TokenRequest, TokenReview or runtime Secret is involved.
 
-The effective client-authentication graph is read rather than repaired. P6.2
+The effective client-authentication graph is read rather than repaired. Kubernetes workload trust ownership
 qualifies only the measured native flat `clients` flow: builtIn/topLevel flags,
 client-flow provider, known alternative execution providers and exactly one
 active `federated-jwt`. Disabled, nested, custom, duplicate, missing, malformed,
@@ -711,16 +717,16 @@ retained instead of requiring all errors to use 401.
 | Missing client execution / serviceAccountsEnabled=false | Reject; capability flag alone is insufficient |
 | Replayed valid assertion | **Accepted**; reusable bearer credential, not replay-resistant |
 | Old assertion after SA deletion/recreation | **Accepted until age/expiry** by offline Keycloak; TokenReview rejects original UID |
-| New same-name SA, different UID | **Accepted natively**; future local expectedUID guard and containment required |
+| New same-name SA, different UID | **Accepted natively**; local expectedUID guard and containment required |
 | Fresh long JWT under max-age setting | **Accepted**; native maximum age is not JWT lifespan enforcement |
 
 Fixture source and safe matrix JSON are the evidence for observed native results.
 Future Hanko-only refusal/recovery criteria are implementation requirements, not
-claimed outcomes of this Phase 6A script.
+claimed outcomes of this Native workload qualification script.
 
 ## 15. Installed-system qualification plan
 
-P6.5 installs the scanned operator/chart, future typed trust and SA controllers,
+Installed-system and migration qualification extends the scanned operator/chart and typed trust/SA controllers,
 and an independently authorized resource on actual supported Kubernetes and real
 HTTPS Keycloak. A dedicated Pod projects a 600-second single-audience JWT, obtains
 an access token without a secret and exercises a declared allow plus an
@@ -739,14 +745,14 @@ provider drift, foreign preservation, lost acknowledgements after each write,
 lost status/restart, failed Secret/ConfigMap patch, removed/recreated consent,
 adoption and finalizer ordering with shared/foreign dependents. Verify no workload
 JWT in CRs, Secrets, ConfigMaps, logs, Events, Hub payloads or artifacts and no
-TokenRequest/token mutation privilege on the operator SA. Phase 6A's native
+TokenRequest/token mutation privilege on the operator SA. Native workload qualification's native
 fixture is necessary but does not claim this future installed-system proof.
 
 Optional runtime metadata is a bounded versioned `workload-identity.json` document
 (new `hanko.sh/workload-runtime/v1alpha1` delivery semantics), containing client_id,
 token endpoint, realm issuer, assertion type, exact assertion audience, recommended
 path and expiration, approved workload identity and source/binding revision.
-It contains no JWT, access token, secret or token request result. Reuse Phase 3's
+It contains no JWT, access token, secret or token request result. Reuse Application Identity's
 pre-existing target consent, exact owner and target/SA UIDs, current-generation
 sealed proof, deterministic hash, named read/patch RBAC and field-only cleanup.
 No target creation or workload injection is performed. Publication of metadata
@@ -779,32 +785,113 @@ This is a source-based comparison, not an experimental SPIFFE qualification.
 This contract adds no SPIFFE API, issuer adapter, trust bundle or workload
 attestation claim.
 
-## 17. Phase 7 boundary
+## 17. Delegation & Agent Identity boundary
 
 The grant is `client_credentials` authenticating a machine client through a
 Kubernetes assertion. It is **not** OAuth token exchange, JWT authorization grant,
 on-behalf-of delegation, user impersonation, agent authority, an `act`/`may_act`
 claim or a generic delegated credential service. Existing reserved authority
 markers, user/realm isolation and organizational/resource-server semantics remain
-unchanged. Any future delegation needs its own Phase 7 contract and qualification.
+unchanged. Any future delegation needs its own Delegation & Agent Identity contract and qualification.
+
+## Workload binding and mesh coherence
+
+`HankoServiceAccount.spec.authentication.mode: Kubernetes` currently validates a
+passive binding. `WorkloadBindingReady=True` means the approved live UID and
+trust/source were freshly verified. `Synced=False/AuthenticationActivationPending`
+and `FederatedModeApplied=False` keep `phase: Pending`; validation never activates
+an authenticator or makes metadata an IAM grant. Omitted authentication retains
+the historical Secret path. A native federated client cannot enter that Secret
+path through a mode edit; a reviewed authentication transition remains separate.
+
+The direct reader resolves the source HankoServiceAccount, typed trust, realm,
+explicit client connection, credential/public-CA resource identities and versions,
+actual current-cluster anchor, effective client flow, native provider ownership and
+native client UUID. Named uncached ServiceAccount reads compare the live UID with
+`expectedUID`. Status, a name, an old journal or copied consent cannot approve a
+replacement UID. A bounded 30-second requeue and Hanko configuration watches
+recheck references; cross-namespace binding adds no ServiceAccount informer.
+Plans seal generation, approved workload and target UIDs, trust/source/flow and
+public consent. Verification repeats immediately around output/containment writes.
+Independent Kubernetes/provider APIs do not offer an atomic joint transaction.
+
+Optional `runtimeMetadata` targets an existing ConfigMap in the approved workload
+namespace, with its UID pinned by `runtimeMetadata.expectedUID`. The owner sets
+`hanko.sh/runtime-target: workload-metadata` and these annotations:
+
+```yaml
+hanko.sh/workload-runtime-owner-kind: HankoServiceAccount
+hanko.sh/workload-runtime-owner-namespace: auth
+hanko.sh/workload-runtime-owner-name: worker
+hanko.sh/workload-runtime-owner-uid: <current-hanko-serviceaccount-uid>
+hanko.sh/workload-runtime-service-account: worker
+hanko.sh/workload-runtime-service-account-uid: <approved-live-serviceaccount-uid>
+```
+
+Only `data.workload-identity.json` and the four delivered schema/source-UID/revision/
+metadata-hash annotations are managed. The versioned public document contains
+client ID, token endpoint, exact realm assertion audience/type, recommended
+assertion file path, projection duration, shared trust assertion age, approved
+workload UID and binding revision/source identity. `authenticationActivation:
+ManagedSeparately` explicitly preserves the activation boundary. Arbitrary client
+attributes, JWTs, client secrets and secret-derived hashes never enter this document,
+plan, status, event or evidence. ConfigMaps, ServiceAccounts and Pods are not created.
+Existing application runtime metadata/credential semantics remain unchanged.
+
+A bounded canonical journal is persisted on the HankoServiceAccount before output
+patches. It contains only public lookup identities, UID approvals and hashes.
+Retries perform read-back even after an acknowledgement is lost. Cleanup uses the
+journal only to locate the target; current target UID, consent, delivered source/
+revision/hash and approved live workload UID independently authorize field removal.
+Removing consent, replacing a target, or losing the approved workload holds cleanup
+and the cleanup finalizer for administrator resolution. Last-known public metadata
+may remain, but current binding/output status is cleared and no refreshed metadata
+is delivered. Unrelated fields are preserved; targets are never deleted.
+
+Confirmed missing, terminating or replaced ServiceAccounts clear current binding
+and authentication readiness before containment. Only a freshly checked, exactly
+UID-owned native OIDC `federated-jwt` client with the expected alias/subject and
+qualified M2M flags can receive a partial `enabled=false` PUT. Foreign/mixed owners,
+unsupported envelopes, replacement native UUIDs and uncertain reads deny this
+write. Native field/retained-secret preservation is qualified on both supported
+Keycloak versions. The controller never reads/rotates that secret or automatically
+re-enables a disabled client. Source/provider outages can extend the asynchronous
+containment interval beyond the normal poll, and disabling a client does not
+revoke already-issued access tokens. Native assertions still do not cryptographically
+bind ServiceAccount UIDs and can remain reusable until native expiry.
+
+Mesh and ResourceServer service-account principals freshly verify the same binding
+and actual enabled, owned native federated configuration. They also require current
+activation/readiness evidence; passive metadata does not satisfy it. Mesh registration
+must use the same workload namespace, ServiceAccount name and explicitly approved
+current UID. Drift clears mesh attestation. Its audience remains the resource-server
+audience, distinct from the realm assertion audience; audit projection proves neither
+IAM issuance nor network enforcement. `ProjectionExceedsTrustAge` refuses a recommended
+projection duration above the current shared assertion age, independently of JWT
+lifespan semantics.
+
+Helm's optional `workloadBinding.grants` provisions reviewed Roles/RoleBindings for
+exact ServiceAccount `get` and named ConfigMap `get/patch` in workload namespaces.
+It creates no runtime targets and grants no TokenRequest, TokenReview, list/watch,
+credential access or workload mutation there. The operator's existing home-namespace
+permissions for other controllers remain broader; the grant does not claim isolation
+of the manager or attenuation of its native client credential.
 
 ## 18. Implementation and migration order
 
-[P6.1 #59](https://github.com/Alien6-Studio/hankoshell-operator/issues/59) is this
+[Workload identity contract #59](https://github.com/Alien6-Studio/hankoshell-operator/issues/59) is this
 contract, primary-source/native qualification, threat model and safe matrix gates.
-[P6.2 #60](https://github.com/Alien6-Studio/hankoshell-operator/issues/60) implements
+[Kubernetes workload trust ownership #60](https://github.com/Alien6-Studio/hankoshell-operator/issues/60) implements
 typed trust ownership, capabilities, read-only prerequisite validation and
-explicit adoption. [P6.4 #61](https://github.com/Alien6-Studio/hankoshell-operator/issues/61) implements binding UID
+explicit adoption. [Workload binding and mesh coherence #61](https://github.com/Alien6-Studio/hankoshell-operator/issues/61) implements binding UID
 freshness/containment, runtime metadata consent and mesh coherence **before**
-[P6.3 #62](https://github.com/Alien6-Studio/hankoshell-operator/issues/62) enables
-federated activation. P6.3 extends HankoServiceAccount typed
-authentication, durable credential/mode transitions and explicit fallback.
-[P6.5 #63](https://github.com/Alien6-Studio/hankoshell-operator/issues/63) proves
-the complete installed/migration system. Phase 6 remains open until
-all implementation and installed proofs pass; the roadmap retains every later
-phase required for the first public 0.1.0.
+[HankoServiceAccount federated authentication #62](https://github.com/Alien6-Studio/hankoshell-operator/issues/62) enables
+federated activation. HankoServiceAccount federated authentication uses the binding API and adds native activation, durable credential/mode transitions and explicit fallback.
+[Installed-system and migration qualification #63](https://github.com/Alien6-Studio/hankoshell-operator/issues/63) proves
+the complete installed/migration system. Workload Identity remains open until
+all implementation and installed proofs pass; the roadmap retains every other work subject required for the first public 0.1.0.
 
-Apply future schemas before upgraded controllers; old manifests retain Secret
+Apply the binding schemas before upgraded controllers; old manifests retain Secret
 mode. Inventory/review existing opaque `kubernetes` brokers and generic federated
 client settings, qualify closed candidates and approvals, prepare dedicated
 workload SAs/UID consent and reachable discovery/CA. Prefer the two-client path

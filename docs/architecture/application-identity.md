@@ -1,6 +1,6 @@
 # Application identity: OIDC and SAML
 
-The **Phase 3 — Application Identity** source contract resolves
+The **Application Identity** source contract resolves
 [RFC #24](https://github.com/Alien6-Studio/hankoshell-operator/issues/24) for protocols
 and [RFC #25](https://github.com/Alien6-Studio/hankoshell-operator/issues/25) for runtime
 bindings. Public artifacts are pending; active development metadata is `0.1.0-dev.0`.
