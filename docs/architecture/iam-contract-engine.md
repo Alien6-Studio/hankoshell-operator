@@ -197,8 +197,9 @@ The exact-image installed-system suite also reconciles a HankoRole through the
 running manager and checks the ownership marker, description and finalizer cleanup.
 All existing Kubernetes, provider, OCI, supply-chain and release rehearsal gates
 remain mandatory. The IAM Contract Engine was completed at the immutable v0.2.0 source boundary.
-Current chart/app metadata is **0.5.1**, completing Adopt Existing Keycloak after
-Organizational Authorization in 0.4.0. The immutable v0.1.0 tag keeps its original source/workflow;
+Current chart/app metadata is public **0.1.0**, consolidating E1–E5 including
+Adopt Existing Keycloak and Organizational Authorization at historical checkpoint v0.4.0.
+The public source ref is release/v0.1.0. The distinct immutable v0.1.0 checkpoint keeps its original source/workflow;
 source completion does not imply production publication.
 
 [#28](https://github.com/Alien6-Studio/hankoshell-operator/issues/28) completes

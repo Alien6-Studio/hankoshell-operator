@@ -1,19 +1,18 @@
 """Fail-closed GitHub identity and ancestry checks before release work."""
 
 import json
+import importlib.util
 import os
+from pathlib import Path
 import re
 import subprocess
 from urllib.parse import quote
 
 
-NUMBER = r"(?:0|[1-9][0-9]*)"
-IDENTIFIER = r"(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
-SEMVER = re.compile(
-    rf"v{NUMBER}\.{NUMBER}\.{NUMBER}"
-    rf"(?:-{IDENTIFIER}(?:\.{IDENTIFIER})*)?"
-    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
-)
+spec = importlib.util.spec_from_file_location(
+    "release_version", Path(__file__).with_name("release-version.py"))
+versioning = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(versioning)
 SHA = re.compile(r"[0-9a-f]{40}")
 
 
@@ -33,7 +32,7 @@ def verify(repository, tag, revision, ref, api, git, expected_tag_object=None):
     """
     require(isinstance(repository, str) and
             re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository), "Invalid repository identity")
-    require(isinstance(tag, str) and len(tag) <= 256 and SEMVER.fullmatch(tag), "Invalid SemVer release tag")
+    versioning.from_tag(tag)
     require(isinstance(revision, str) and SHA.fullmatch(revision), "Invalid release commit identity")
     require(ref == "refs/tags/" + tag, "Run the workflow from the reviewed tag itself")
     base = "repos/" + repository

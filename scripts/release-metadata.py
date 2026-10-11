@@ -2,10 +2,12 @@
 
 import argparse
 import base64
+import importlib.util
 import os
 from pathlib import Path
 import re
 import shutil
+from urllib.parse import quote
 from uuid import UUID
 
 import yaml
@@ -14,6 +16,9 @@ ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = "https://github.com/Alien6-Studio/hankoshell-operator"
 IMAGE = "ghcr.io/alien6-studio/hankoshell-operator"
 PUBLIC_KEY_FILE = "hankoshell-operator-attest-public-key.pem"
+spec = importlib.util.spec_from_file_location("release_version", ROOT / "scripts/release-version.py")
+versioning = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(versioning)
 
 
 def configuration():
@@ -31,8 +36,7 @@ def configuration():
 
 
 def prepare(version, image, chart_output, dist, repository_id, public_key):
-    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?", version):
-        raise ValueError("Expected the release version")
+    tag = quote(versioning.public_tag(version), safe="")
     if not re.fullmatch(re.escape(IMAGE) + r"@sha256:[0-9a-f]{64}", image):
         raise ValueError("Expected the exact published operator image digest")
     source = ROOT / "charts/hankoshell-operator"
@@ -42,7 +46,7 @@ def prepare(version, image, chart_output, dist, repository_id, public_key):
     annotations = chart["annotations"]
     if not yaml.safe_load(annotations.get("artifacthub.io/changes", "")):
         raise ValueError("Describe this chart version in artifacthub.io/changes")
-    chart["icon"] = f"https://raw.githubusercontent.com/Alien6-Studio/hankoshell-operator/v{version}/charts/hankoshell-operator/icon.svg"
+    chart["icon"] = f"https://raw.githubusercontent.com/Alien6-Studio/hankoshell-operator/{tag}/charts/hankoshell-operator/icon.svg"
     annotations["artifacthub.io/prerelease"] = "true" if "-" in version else "false"
     annotations["artifacthub.io/images"] = yaml.safe_dump([{
         "name": "hankoshell-operator", "image": image,
@@ -52,7 +56,7 @@ def prepare(version, image, chart_output, dist, repository_id, public_key):
     links = yaml.safe_load(annotations.get("artifacthub.io/links", "[]"))
     links = [link for link in links if link["name"] != "Attest delivery verification key"]
     links.insert(0, {"name": "Attest delivery verification key",
-                     "url": f"{REPOSITORY}/releases/download/v{version}/{PUBLIC_KEY_FILE}"})
+                     "url": f"{REPOSITORY}/releases/download/{tag}/{PUBLIC_KEY_FILE}"})
     annotations["artifacthub.io/links"] = yaml.safe_dump(links, sort_keys=False)
     shutil.copytree(source, chart_output)
     (chart_output / "Chart.yaml").write_text(yaml.safe_dump(chart, sort_keys=False))

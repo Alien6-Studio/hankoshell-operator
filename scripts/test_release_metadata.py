@@ -40,7 +40,9 @@ class ReleaseMetadataTests(unittest.TestCase):
         key_link = next(link for link in yaml.safe_load(annotations["artifacthub.io/links"])
                         if link["name"] == "Attest delivery verification key")
         self.assertEqual(key_link["url"],
-                         f"{metadata.REPOSITORY}/releases/download/v{self.version}/{metadata.PUBLIC_KEY_FILE}")
+                         f"{metadata.REPOSITORY}/releases/download/release%2Fv{self.version}/{metadata.PUBLIC_KEY_FILE}")
+        self.assertEqual(chart["icon"],
+                         f"https://raw.githubusercontent.com/Alien6-Studio/hankoshell-operator/release%2Fv{self.version}/charts/hankoshell-operator/icon.svg")
         self.assertEqual(yaml.safe_load((self.dist / "artifacthub-repo.yml").read_text()),
                          {"repositoryID": self.repository_id})
         self.assertTrue((self.dist / metadata.PUBLIC_KEY_FILE).read_text().startswith("-----BEGIN PUBLIC KEY-----\n"))

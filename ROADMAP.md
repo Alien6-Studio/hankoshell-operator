@@ -44,36 +44,40 @@ ownership remain separate.
 
 ## Current status
 
-The **v0.1.0, v0.2.0, v0.3.0, v0.4.0 and v0.5.0 sources and signed tags are frozen and immutable**.
-`v0.5.0` is a historical source tag and will not be published. **0.5.1** retains
-the completed 0.5 adoption contract and adds only release-trust consistency
-hardening; it becomes the first public-distribution candidate. Its tag and
-publication require separate authorization after exact-main qualification.
-Publication work remains independent in [#21](https://github.com/Alien6-Studio/hankoshell-operator/issues/21);
-no public artifacts are claimed published. Milestone **0.2.0 — IAM Contract Engine**
-is complete and closed. **0.3.0 — Application Identity** is complete and closed,
-including the protocol and runtime delivery contract. **0.4.0 — Organizational
-Authorization** is complete and closed, with organization grants and bounded structural provenance
-under the [accepted contract](docs/architecture/organizational-authorization.md),
-implemented by #41 and #42. **0.5.0 — Adopt Existing Keycloak** completes the
-source implementation under the [accepted adoption contract](docs/architecture/existing-keycloak-adoption.md)
-and [RFC #46](https://github.com/Alien6-Studio/hankoshell-operator/issues/46).
+The active product version is **0.1.0**, the first intended public distribution.
+It consolidates the qualified E1–E5 capabilities and #54 release-trust hardening;
+there is no rollback to the old foundation-only source. Public tags use
+`release/v<SemVer>`, starting with `release/v0.1.0`. No public release tag, package
+or GitHub Release is created by source preparation. The earlier 0.5.1 model was
+canceled before tagging.
+
+Signed `v0.1.0`, `v0.2.0`, `v0.3.0`, `v0.4.0` and `v0.5.0` are immutable
+**historical engineering/source checkpoints**, not five public releases. Their
+Git objects and signatures stay fixed. Public `release/v0.1.0` is a distinct ref
+on the fully qualified current source, not an alias of historical `v0.1.0`.
+
+E2 — IAM Contract Engine, E3 — Application Identity, E4 — Organizational
+Authorization and E5 — Adopt Existing Keycloak have completed source milestones.
+E1's existing GitHub milestone remains open for production trust in
+[#21](https://github.com/Alien6-Studio/hankoshell-operator/issues/21), separately
+from its delivered foundation code. E4 follows the
+[accepted contract](docs/architecture/organizational-authorization.md) in #41/#42.
+E5 follows the [accepted adoption contract](docs/architecture/existing-keycloak-adoption.md)
+and [RFC #46](https://github.com/Alien6-Studio/hankoshell-operator/issues/46), with
 [#47](https://github.com/Alien6-Studio/hankoshell-operator/issues/47),
 [#48](https://github.com/Alien6-Studio/hankoshell-operator/issues/48) and
-[#49](https://github.com/Alien6-Studio/hankoshell-operator/issues/49) implement discovery/diff,
-explicit ownership and aggregate/native qualification in that order. The source implements reviewed leaf/aggregate acquisition and explicit Manage
-with native preservation and the documented target-realm HankoRole credential
-exception. The next active development milestone is **0.6.0 — Workload Identity**.
-Final source freeze requires protected merge and exact-main qualification;
-no 0.6 work is started. Production publication
-remains independent in #21.
-[#24](https://github.com/Alien6-Studio/hankoshell-operator/issues/24) is resolved by
-the [qualified OIDC/SAML application contract](docs/architecture/application-identity.md).
-[#25](https://github.com/Alien6-Studio/hankoshell-operator/issues/25) defines
-[UID-bound runtime delivery](docs/architecture/application-identity.md#runtime-bindings),
-implemented on HankoApplication without another CRD. Chart/app source metadata is
-0.5.0. The 16 `hanko.sh/v1alpha1` APIs remain experimental before 1.0. Later
-milestones are proposed scope, not additional current support or scheduled delivery.
+[#49](https://github.com/Alien6-Studio/hankoshell-operator/issues/49) supplying
+discovery/diff, reviewed ownership and aggregate/native qualification. The
+accepted target-realm HankoRole `manage-realm` exception is unchanged.
+
+The next engineering milestone is **E6 — Workload Identity**. No E6 work or
+future public version is included in this version-model correction. The
+[qualified OIDC/SAML application contract](docs/architecture/application-identity.md)
+resolves #24; [UID-bound runtime delivery](docs/architecture/application-identity.md#runtime-bindings)
+implements #25 without another CRD. Current chart/app metadata is 0.1.0. All 16
+`hanko.sh/v1alpha1` APIs remain experimental during public initial development.
+Later engineering milestones describe proposed scope, not current support or a
+SemVer release schedule.
 
 The current foundation already includes:
 
@@ -98,7 +102,7 @@ The current foundation already includes:
   enrollment, credential rotation, supervision and guarded operator updates.
 
 `HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are experimental
-and unqualified in 0.5.1. Their interruption/retry, child ownership and completion
+and unqualified in public 0.1.0. Their interruption/retry, child ownership and completion
 qualification remains in [lifecycle backlog issue #20](https://github.com/Alien6-Studio/hankoshell-operator/issues/20),
 not a prerequisite for the first core IAM delivery. They do not provide a tested
 database migration or disaster-recovery path; see the
@@ -129,30 +133,52 @@ installation qualification and portable database recovery are not implied by
 passing those checks. `HankoEmailProvider` is deprecated; platform messaging
 belongs to the API.
 
-## Milestones
+## Engineering roadmap
 
-Milestones are design and qualification goals, with no arbitrary due dates.
+Engineering milestones are design and qualification goals, with no assigned public versions or arbitrary due dates.
 Their descriptions contain scope, existing foundations, non-goals, standalone
 and connected impact, success criteria and community questions. Later milestones
 will be refined through RFCs and real use; they are not promises of provider parity.
 
-| Milestone | Next outcome, building on current functionality | Completion evidence |
+| Engineering milestone | Outcome, building on current functionality | Completion evidence |
 | --- | --- | --- |
-| [0.1.0 — Trusted Keycloak Foundation](https://github.com/Alien6-Studio/hankoshell-operator/milestone/1) | Complete trusted first publication of the reviewed IAM core. Experimental lifecycle qualification remains separate, without a scheduled version. | Passing core gates and independently verified production delivery prerequisites. |
-| [0.2.0 — IAM Contract Engine](https://github.com/Alien6-Studio/hankoshell-operator/milestone/2) | Extend resource-server capabilities/ownership and IAM-profile hashing into locally validated plans, observations, portability findings and internal Keycloak adapters. Separate optional projection readiness. | Deterministic identity, stale/unsupported-plan rejection, adapter conformance and standalone reconciliation. No second provider. |
-| [0.3.0 — Application Identity](https://github.com/Alien6-Studio/hankoshell-operator/milestone/3) | Mature existing OIDC applications into protocol-aware runtime contracts; design and qualify SAML and explicit workload bindings. | Usable metadata/credential references, migration tests and real protocol qualification. |
-| [0.4.0 — Organizational Authorization](https://github.com/Alien6-Studio/hankoshell-operator/milestone/4) | Implement the accepted ResourceServer organization principal with explicit descendants, preserving role composition; add bounded effective authorization and provenance. No new CRD. | Grant reconciliation, bounded provenance and real HTTPS/Kubernetes qualification complete. |
-| [0.5.0 — Adopt Existing Keycloak](https://github.com/Alien6-Studio/hankoshell-operator/milestone/5) | Consolidate Keycloak configurator coverage into discover → observe → plan → diff → adopt → manage, with typed native findings. Deep Keycloak development continues across milestones. | Selective adoption, no secret export, preservation of foreign objects and native-feature qualification. |
-| [0.6.0 — Workload Identity](https://github.com/Alien6-Studio/hankoshell-operator/milestone/6) | Extend service-account clients and mesh identity resolution with qualified Kubernetes identity federation, short-lived authentication and explicit secret fallback. | Real audience/issuer/binding denials; IAM identity remains separate from transport registration. |
-| [0.7.0 — Delegation & Agent Identity](https://github.com/Alien6-Studio/hankoshell-operator/milestone/7) | Extend the same principal model with standards-based delegation, token exchange and constrained agent/workload authority. | Depth, audience, lifetime, revocation and capability-intersection tests; no separate agent IAM stack. |
-| [0.8.0 — Provider Portability Preview](https://github.com/Alien6-Studio/hankoshell-operator/milestone/8) | Prove representative identical intent with a second experimental adapter while retaining deep Keycloak features. Provider selection remains open. | Shared conformance and explicit lossless/lossy/unsupported differences; no full-parity claim. |
-| [0.9.0 — Fleet Reconciliation](https://github.com/Alien6-Studio/hankoshell-operator/milestone/9) | Build on enrollment, supervision and lifecycle guards with cryptographically verifiable, versioned and replay-resistant desired-state plans, capability-aware rollout and bounded fleet evidence. The verification mechanism remains an RFC decision. | Tamper/replay rejection, capability validation, partial rollout, disconnection and safe reconnect under local authority; versioned external integration contracts. |
-| [1.0.0 — Stable Hanko IAM Contract](https://github.com/Alien6-Studio/hankoshell-operator/milestone/10) | Stabilize the proven portable IAM core, with explicit native boundaries, conversions and compatibility guarantees. | Accepted API graduation review, conversion/migration tests and public conformance fixtures. Operational/platform resources may remain alpha. |
+| [E1 — Trusted Keycloak Foundation](https://github.com/Alien6-Studio/hankoshell-operator/milestone/1) | Deliver the trusted Keycloak foundation; production trust/publication is separately tracked in #21. Experimental lifecycle qualification remains separate. | Passing core gates and independently verified production delivery prerequisites. |
+| [E2 — IAM Contract Engine](https://github.com/Alien6-Studio/hankoshell-operator/milestone/2) | Extend resource-server capabilities/ownership and IAM-profile hashing into locally validated plans, observations, portability findings and internal Keycloak adapters. Separate optional projection readiness. | Deterministic identity, stale/unsupported-plan rejection, adapter conformance and standalone reconciliation. No second provider. |
+| [E3 — Application Identity](https://github.com/Alien6-Studio/hankoshell-operator/milestone/3) | Mature existing OIDC applications into protocol-aware runtime contracts; design and qualify SAML and explicit workload bindings. | Usable metadata/credential references, migration tests and real protocol qualification. |
+| [E4 — Organizational Authorization](https://github.com/Alien6-Studio/hankoshell-operator/milestone/4) | Implement the accepted ResourceServer organization principal with explicit descendants, preserving role composition; add bounded effective authorization and provenance. No new CRD. | Grant reconciliation, bounded provenance and real HTTPS/Kubernetes qualification complete. |
+| [E5 — Adopt Existing Keycloak](https://github.com/Alien6-Studio/hankoshell-operator/milestone/5) | Consolidate Keycloak configurator coverage into discover → observe → plan → diff → adopt → manage, with typed native findings. Deep Keycloak development continues across milestones. | Selective adoption, no secret export, preservation of foreign objects and native-feature qualification. |
+| [E6 — Workload Identity](https://github.com/Alien6-Studio/hankoshell-operator/milestone/6) | Extend service-account clients and mesh identity resolution with qualified Kubernetes identity federation, short-lived authentication and explicit secret fallback. | Real audience/issuer/binding denials; IAM identity remains separate from transport registration. |
+| [E7 — Delegation & Agent Identity](https://github.com/Alien6-Studio/hankoshell-operator/milestone/7) | Extend the same principal model with standards-based delegation, token exchange and constrained agent/workload authority. | Depth, audience, lifetime, revocation and capability-intersection tests; no separate agent IAM stack. |
+| [E8 — Provider Portability Preview](https://github.com/Alien6-Studio/hankoshell-operator/milestone/8) | Prove representative identical intent with a second experimental adapter while retaining deep Keycloak features. Provider selection remains open. | Shared conformance and explicit lossless/lossy/unsupported differences; no full-parity claim. |
+| [E9 — Fleet Reconciliation](https://github.com/Alien6-Studio/hankoshell-operator/milestone/9) | Build on enrollment, supervision and lifecycle guards with cryptographically verifiable, versioned and replay-resistant desired-state plans, capability-aware rollout and bounded fleet evidence. The verification mechanism remains an RFC decision. | Tamper/replay rejection, capability validation, partial rollout, disconnection and safe reconnect under local authority; versioned external integration contracts. |
 
-For 1.0, likely review candidates are realm/identity domain, IAM profile,
-application, role, organization, resource server and service-account/workload
-identity. Entitlement and delegation primitives join only if mature enough.
-Promoting all current `v1alpha1` resources is not the goal.
+The existing GitHub milestones retain their historical SemVer-shaped titles,
+IDs, issue associations, links and open/closed states. The proposed non-destructive
+[E1–E9 title mapping](docs/engineering-milestone-mapping.md) is documented; no
+GitHub milestone was renamed because dependencies on titles in external/project
+automation have not been excluded. The numeric titles mean historical engineering
+milestones, not a public release promise.
+
+Track future engineering work through milestones, issues, branches, protected
+commits and CI. Do not create bare `vX.Y.Z` tags for development milestones.
+A separately reviewed signed source checkpoint can use an explicitly non-release
+namespace such as `checkpoint/E6`, which the public release parser rejects.
+
+## Product releases
+
+| Public version | Meaning | Release decision |
+| --- | --- | --- |
+| 0.1.0 | First public product distribution: all currently qualified E1–E5 capabilities and release-trust hardening. | Source preparation first; signed annotated release/v0.1.0, production trust and publication each require separate authorization. |
+| Future 0.x | Product and public compatibility changes during initial development. | Decide the SemVer version when a distribution is reviewed; no E-number-to-version mapping. |
+| 1.0.0 | An explicit commitment to a stable public IAM/API contract and compatibility policy. | Only after a stability/graduation review, mature migration/conversion strategy and evidence that the chosen API surface is stable. No date or mechanical milestone count. |
+
+The [existing stability-review milestone](https://github.com/Alien6-Studio/hankoshell-operator/milestone/10)
+is a qualification gate, not a tenth-step release calendar. It may occur much
+later than the listed engineering work. Likely review candidates are
+realm/identity domain, IAM profile, application, role, organization, resource server
+and service-account/workload identity. Entitlement/delegation join only if mature.
+Resources may remain `v1alpha1` throughout the public 0.x series; promoting all
+operational/platform resources is not the goal.
 
 ## Design principles
 
@@ -170,8 +196,8 @@ Promoting all current `v1alpha1` resources is not the goal.
   clear validation, permission and qualification contracts.
 - **Keycloak capability evolves continuously:** abstraction must never freeze or
   reduce Keycloak coverage. Each milestone may deepen the adapter for real IAM
-  needs: SAML in 0.3, authorization mappings in 0.4, adoption coverage in 0.5 and
-  workload federation in 0.6 are part of that direction.
+  needs: SAML in E3, authorization mappings in E4, adoption coverage in E5 and
+  workload federation in E6 are part of that direction.
 - **Standalone OSS usefulness:** IAM reconciliation remains useful without Hub,
   the platform API or Continuum; optional projection has its own status.
 - **Complementary operators:** keep Keycloak runtime lifecycle separate from IAM
@@ -183,8 +209,8 @@ Promoting all current `v1alpha1` resources is not the goal.
 
 Bring concrete application authentication, authorization, adoption and workload
 identity scenarios to the [roadmap issues](https://github.com/Alien6-Studio/hankoshell-operator/issues?q=is%3Aissue%20is%3Aopen%20label%3Aroadmap).
-The next active development milestone is **0.6.0 — Workload Identity**; production
-publication trust is tracked independently in #21. The resolved 0.2 architecture and selected 0.3
+The next active engineering milestone is **E6 — Workload Identity**, with no public version assigned; production
+publication trust is tracked independently in #21. The resolved E2 architecture and selected E3
 RFCs guide subsequent development; later milestone
 descriptions carry direction until their design window opens.
 

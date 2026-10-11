@@ -11,7 +11,7 @@ import subprocess
 import tarfile
 import tempfile
 from urllib.error import HTTPError
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
 
 
@@ -270,7 +270,8 @@ class GitHub:
         return body if headers["Accept"] == "application/octet-stream" else json.loads(body) if body else None
 
     def release(self, tag):
-        return self.request("GET", f"/repos/{REPOSITORY}/releases/tags/{tag}")
+        contract.versioning.from_tag(tag)
+        return self.request("GET", f"/repos/{REPOSITORY}/releases/tags/{quote(tag, safe='')}")
 
     def assets(self, release):
         result = []
@@ -288,7 +289,8 @@ class GitHub:
         return self.request("GET", f'/repos/{REPOSITORY}/releases/assets/{asset["id"]}', content_type="application/octet-stream")
 
     def create(self, tag, revision, notes):
-        payload = {"tag_name": tag, "target_commitish": revision, "name": f"hankoShell Operator {tag}",
+        version = contract.versioning.from_tag(tag)
+        payload = {"tag_name": tag, "target_commitish": revision, "name": "v" + version,
                    "body": notes, "draft": True, "prerelease": False}
         return self.request("POST", f"/repos/{REPOSITORY}/releases", json.dumps(payload).encode())
 
@@ -319,7 +321,7 @@ def promote(registry, github, root, *, image_repository=IMAGE, chart_repository=
     digest = record["image"].split("@")[1]
     contract.security.verify(fresh_evidence or root.parent / "fresh-scan", record["revision"], record["version"], digest, root / "image.tar")
     version, dist = record["version"], root / "dist"
-    tag = "v" + version
+    tag = contract.versioning.public_tag(version)
     image_tag, chart_tag = image_repository + ":" + version, chart_repository + ":" + version
     metadata_tag = chart_repository + ":artifacthub.io"
     chart = dist / f"hankoshell-operator-{version}.tgz"
@@ -335,7 +337,7 @@ def promote(registry, github, root, *, image_repository=IMAGE, chart_repository=
     existing_assets = {}
     incomplete_assets = {}
     if release:
-        if (release["tag_name"] != tag or release["target_commitish"] != record["revision"] or release["name"] != f"hankoShell Operator {tag}"
+        if (release["tag_name"] != tag or release["target_commitish"] != record["revision"] or release["name"] != "v" + version
                 or release["body"] != contract.notes(version) or release["prerelease"]):
             raise ValueError("Existing release metadata differs")
         for asset in github.assets(release):
