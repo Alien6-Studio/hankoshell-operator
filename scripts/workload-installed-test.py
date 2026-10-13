@@ -729,7 +729,10 @@ class Installed(native.Fixture):
         self.record("deleted_client_not_recreated", not self.api("GET", "/admin/realms/managed/clients?clientId=" + name)
             and counts.get("DELETE " + native_path) == 1 and state["attempted_counts"].get("DELETE " + native_path) == 1
             and counts.get("POST /admin/realms/managed/clients", 0) == 0 and counts.get("POST " + native_path + "/client-secret", 0) == 0
-            and api_state["counts"].get("PUT " + path) == 1 and api_state["attempted_counts"].get("PUT " + path) == 1)
+            and api_state["counts"].get("PUT " + path) == 1
+            # Rejected resourceVersion attempts before acceptance are ordinary
+            # retries. No further PUT may occur after the accepted lost ACK.
+            and api_state["attempted_counts"].get("PUT " + path) == fault["attempted_counts"].get("PUT " + path))
         self.record("foreign_preservation", self.client("managed", "foreign-client") == self.foreign_client
             and self.api("GET", "/admin/realms/managed/identity-provider/instances/foreign-idp") == self.foreign_idp)
         self.recovery_record(name, "finalizer UPDATE accepted; downstream response dropped; restart", "Committed", "Kubernetes", "Absent", counts)
@@ -816,7 +819,11 @@ class Installed(native.Fixture):
                 return json.load(response)["triggered"]
         wait("external deterministic fault", triggered, 180)
         with urlopen(url, context=context, timeout=10) as response:
-            return json.load(response)
+            state = json.load(response)
+        # Bounded diagnostic: no request/response body, token or native path.
+        print("External fault: " + target + " " + state["rule"]["action"]
+              + " upstream_status=" + str(state["upstream_status"]), flush=True)
+        return state
 
     def containment(self, client):
         self.pod_probe(client)

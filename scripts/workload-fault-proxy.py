@@ -104,7 +104,12 @@ class Proxy(BaseHTTPRequestHandler):
         except Exception:
             self.reply(502, b"{}")
             return
+        # A conflict/rejection is not an accepted write with a lost ACK. Relay
+        # it normally and keep the rule armed for the successful retry. Only
+        # the explicit resource-version-conflict scenario gates a rejection.
         with LOCK:
+            selected = (selected and STATE["rule"] is rule and not STATE["triggered"]
+                        and (200 <= status < 300 or rule["action"] == "resource-version-conflict"))
             if self.command in ("POST", "PUT", "PATCH", "DELETE") and 200 <= status < 300:
                 key = self.command + " " + self.path.split("?")[0]
                 STATE["counts"][key] = STATE["counts"].get(key, 0) + 1

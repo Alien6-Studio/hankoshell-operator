@@ -8,6 +8,7 @@ from pathlib import Path
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+from urllib.error import HTTPError
 
 
 def module(name, filename):
@@ -107,6 +108,91 @@ class InstalledEvidenceTests(unittest.TestCase):
             self.assertEqual(proxy.STATE["upstream_status"], 201)
         self.assertEqual(events, ["upstream-accepted", "downstream-dropped"])
         handler.reply.assert_not_called()
+
+    def test_rejected_write_does_not_consume_ack_loss_or_checkpoint_gate(self):
+        for action in ("lost-ack", "gate"):
+            with self.subTest(action=action):
+                handler = proxy.Proxy.__new__(proxy.Proxy)
+                handler.headers = Message()
+                handler.headers["Content-Length"] = "2"
+                handler.command, handler.path = "PUT", "/fixture/hsa"
+                handler.server = SimpleNamespace(upstream="https://fixture", context=None)
+                handler.reply, handler.connection = MagicMock(), MagicMock()
+                response = MagicMock()
+                response.__enter__.return_value = response
+                response.status, response.headers = 200, {"Content-Type": "application/json"}
+                response.read.return_value = b"{}"
+                rule = {"method": "PUT", "path": "/fixture/hsa", "action": action}
+                conflict = HTTPError("https://fixture/hsa", 409, "Conflict", response.headers, BytesIO(b"{}"))
+                with patch.dict(proxy.STATE, {"rule": rule, "blocked": False, "triggered": False, "counts": {}, "attempted_counts": {}, "upstream_status": None}, clear=True), \
+                     patch.object(proxy, "urlopen", side_effect=[conflict, response]):
+                    handler.rfile = BytesIO(b"{}")
+                    handler.handle_request()
+                    handler.reply.assert_called_once_with(409, b"{}", "application/json")
+                    handler.connection.shutdown.assert_not_called()
+                    self.assertFalse(proxy.STATE["triggered"] or proxy.STATE["blocked"])
+                    self.assertEqual(proxy.STATE["counts"], {})
+                    handler.reply.reset_mock()
+                    handler.rfile = BytesIO(b"{}")
+                    handler.handle_request()
+                    self.assertTrue(proxy.STATE["triggered"] and proxy.STATE["blocked"])
+                    self.assertEqual(proxy.STATE["upstream_status"], 200)
+                    self.assertEqual(proxy.STATE["counts"], {"PUT /fixture/hsa": 1})
+                    self.assertEqual(proxy.STATE["attempted_counts"], {"PUT /fixture/hsa": 2})
+                    if action == "lost-ack":
+                        handler.reply.assert_not_called()
+                        handler.connection.shutdown.assert_called_once()
+                    else:
+                        handler.reply.assert_called_once_with(200, b"{}", "application/json")
+                        handler.connection.shutdown.assert_not_called()
+
+    def test_explicit_resource_version_conflict_still_gates_the_real_rejection(self):
+        handler = proxy.Proxy.__new__(proxy.Proxy)
+        handler.headers = Message()
+        handler.headers["Content-Length"] = "2"
+        handler.rfile = BytesIO(b"{}")
+        handler.command, handler.path = "PATCH", "/fixture/configmap"
+        handler.server = SimpleNamespace(upstream="https://fixture", context=None)
+        handler.reply, handler.connection = MagicMock(), MagicMock()
+        rule = {"method": "PATCH", "path": handler.path, "action": "resource-version-conflict"}
+        conflict = HTTPError("https://fixture/configmap", 409, "Conflict", {"Content-Type": "application/json"}, BytesIO(b"{}"))
+        with patch.dict(proxy.STATE, {"rule": rule, "blocked": False, "triggered": False, "counts": {}, "attempted_counts": {}, "upstream_status": None}, clear=True), \
+             patch.object(proxy, "urlopen", side_effect=conflict) as upstream:
+            handler.handle_request()
+            self.assertEqual(json.loads(upstream.call_args.args[0].data)["metadata"]["resourceVersion"], "1")
+            self.assertEqual(proxy.STATE["upstream_status"], 409)
+            self.assertTrue(proxy.STATE["triggered"] and proxy.STATE["blocked"])
+            self.assertEqual(proxy.STATE["counts"], {})
+            handler.reply.assert_called_once_with(409, b"{}", "application/json")
+            handler.connection.shutdown.assert_not_called()
+
+    def test_late_response_cannot_retrigger_or_consume_a_replacement_rule(self):
+        for replaced in (False, True):
+            with self.subTest(replaced=replaced):
+                handler = proxy.Proxy.__new__(proxy.Proxy)
+                handler.headers = Message()
+                handler.headers["Content-Length"] = "2"
+                handler.rfile = BytesIO(b"{}")
+                handler.command, handler.path = "PUT", "/fixture/hsa"
+                handler.server = SimpleNamespace(upstream="https://fixture", context=None)
+                handler.reply, handler.connection = MagicMock(), MagicMock()
+                response = MagicMock()
+                response.__enter__.return_value = response
+                response.status, response.headers = 200, {"Content-Type": "application/json"}
+                rule = {"method": "PUT", "path": handler.path, "action": "lost-ack"}
+                def finish_upstream(*_):
+                    # A concurrent response consumed this rule, or control
+                    # replaced it, while this request was still upstream.
+                    proxy.STATE.update({"rule": dict(rule) if replaced else rule, "triggered": not replaced, "blocked": not replaced})
+                    return b"{}"
+                response.read.side_effect = finish_upstream
+                with patch.dict(proxy.STATE, {"rule": rule, "blocked": False, "triggered": False, "counts": {}, "attempted_counts": {}, "upstream_status": None}, clear=True), \
+                     patch.object(proxy, "urlopen", return_value=response):
+                    handler.handle_request()
+                    self.assertEqual(proxy.STATE["triggered"], not replaced)
+                    self.assertIsNone(proxy.STATE["upstream_status"])
+                handler.reply.assert_called_once_with(200, b"{}", "application/json")
+                handler.connection.shutdown.assert_not_called()
 
 
 if __name__ == "__main__":
