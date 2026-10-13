@@ -60,6 +60,31 @@ targets. Protocol/runtime tests use only target-realm `manage-clients`; realm
 reconciliation and declared realm roles retain their existing additional grants.
 See [runtime target RBAC and consent](architecture/application-identity.md#runtime-bindings).
 
+## Delegation characterization
+
+[RFC #68](architecture/delegation-and-agent-identity.md) adds provider tests only;
+there is no production delegation API, controller or additional operator grant.
+The standard exchange fixture qualifies these operations on both pinned versions:
+
+| Operation | Endpoint in `/admin/realms/{realm}` | Qualified authority |
+| --- | --- | --- |
+| Exchange switch / client token lifetime | `PUT /clients/{id}` | `manage-clients`; `view-clients` and no-role writes denied |
+| Audience mapper create/delete | `POST /clients/{id}/protocol-mappers/models`, `DELETE .../{mapper}` | `manage-clients`; reader deletion denied |
+| Client scope create/delete | `POST /client-scopes`, `DELETE /client-scopes/{id}` | `manage-clients` |
+| Optional scope attach/detach | `PUT,DELETE /clients/{id}/optional-client-scopes/{scope}` | `manage-clients` |
+| User/role/composite setup for negative experiments | Existing users, roles, composites and scope-mapping endpoints | Disposable administrator fixture setup; no new production role-mapping profile qualified |
+| Native preview FGAP enablement | `PUT /` with `adminPermissionsEnabled` | External administrator prerequisite; no added `manage-realm` grant |
+| Preview actor policy and delegate permission | `POST /clients/{admin-permissions}/authz/resource-server/policy/client`, `POST,GET,DELETE .../permission/scope[/...]` | External administrator fixture; scoped FGAP administration remains unqualified |
+| Preview hardcoded `may_act` mapper | `POST /clients/{id}/protocol-mappers/models` | `manage-clients`; this can bypass native consent/FGAP claim issuance without an additional client policy |
+| `may-act` client-policy enforcement | Not exercised | Unqualified; no production operation or grant |
+
+Runtime `client_credentials`, authorization-code + PKCE and token-exchange requests
+use the realm's `/protocol/openid-connect/token` endpoint with their own client
+authentication; they need no Admin REST roles. The preview server features and
+FGAP policy are isolated test prerequisites. The writer's inability to modify
+realm security, create users and impersonate is verified independently. Its
+realm-wide client/mapper powers remain a material trust boundary.
+
 ## Workload identity qualification
 
 The [workload identity contract](architecture/workload-identity.md#13-permission-model)

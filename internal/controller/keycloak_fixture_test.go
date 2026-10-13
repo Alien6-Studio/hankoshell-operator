@@ -117,7 +117,7 @@ func newKeycloakFixtureWithTransport(t *testing.T, managed, publicIP bool) *keyc
 	return newKeycloakFixtureWithTransportAndDiscovery(t, managed, publicIP, false)
 }
 
-func newKeycloakFixtureWithTransportAndDiscovery(t *testing.T, managed, publicIP, selfDiscovery bool) *keycloakFixture {
+func newKeycloakFixtureWithTransportAndDiscovery(t *testing.T, managed, publicIP, selfDiscovery bool, features ...string) *keycloakFixture {
 	t.Helper()
 	// Use exactly the same reviewed image indexes as the installed qualification.
 	var pins struct {
@@ -161,6 +161,12 @@ func newKeycloakFixtureWithTransportAndDiscovery(t *testing.T, managed, publicIP
 	}
 	serverArgs := []string{"start", "--db=dev-file", "--http-enabled=false", "--hostname-strict=false",
 		"--https-certificate-file=/fixture-tls/tls.crt", "--https-certificate-key-file=/fixture-tls/tls.key", "--https-protocols=TLSv1.3"}
+	if len(features) > 0 {
+		if managed {
+			t.Fatal("preview features are only allowed in isolated characterization fixtures")
+		}
+		serverArgs = append(serverArgs, "--features="+strings.Join(features, ","))
+	}
 	if selfDiscovery {
 		serverArgs = append(serverArgs, "--truststore-paths=/fixture-tls/tls.crt")
 	}
