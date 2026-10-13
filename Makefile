@@ -9,6 +9,10 @@ LINT_BUILD_TAGS ?=
 GOLANGCI_LINT := $(CURDIR)/.tools/golangci-lint-$(GOLANGCI_LINT_VERSION)-$(shell go env GOVERSION)/golangci-lint
 GO_ARCH_LINT_VERSION := $(shell python3 scripts/versions.py get tools go_arch_lint)
 GOVULNCHECK_VERSION := $(shell python3 scripts/versions.py get tools govulncheck)
+GOTESTSUM_VERSION := $(shell python3 scripts/versions.py get tools gotestsum)
+GOTESTSUM := $(CURDIR)/.tools/gotestsum-$(GOTESTSUM_VERSION)/gotestsum
+TEST_REPORT_DIR ?= $(CURDIR)/.tools/test-results
+KEYCLOAK_SHARD ?= all
 CHART := charts/hankoshell-operator
 KUBERNETES_VERSION ?= $(shell python3 scripts/versions.py get kubernetes default)
 KEYCLOAK_VERSION ?= $(shell python3 scripts/versions.py get keycloak default)
@@ -41,8 +45,8 @@ build:
 		-o /tmp/$(BINARY)-$(GOOS)-$(GOARCH) ./cmd/operator
 vet:
 	go vet ./...
-test:
-	go test -race -count=1 ./...
+test: $(GOTESTSUM)
+	python3 scripts/go-tests.py unit --gotestsum "$(GOTESTSUM)" --output "$(TEST_REPORT_DIR)/unit"
 security-mutations:
 	python3 scripts/security-mutations.py $(if $(MUTATION_OUTPUT),--output "$(MUTATION_OUTPUT)")
 chart-test:
@@ -55,13 +59,16 @@ chart-test:
 	python3 $(CHART)/tests/organization-projection.py
 	python3 $(CHART)/tests/kubernetes-compatibility.py
 	python3 $(CHART)/tests/workload-binding.py
-integration-test:
+integration-test: $(GOTESTSUM)
 	@assets="$$(bash scripts/install-envtest.sh $(KUBERNETES_VERSION))" && \
 		KUBEBUILDER_ASSETS="$$assets" KUBERNETES_VERSION=$(KUBERNETES_VERSION) \
-		go test -tags=integration -race -count=1 -timeout=5m -v ./api/v1alpha1
-keycloak-integration-test:
-	# Budget the complete serial provider and recovery matrices; request/startup deadlines remain bounded.
-	KEYCLOAK_VERSION=$(KEYCLOAK_VERSION) go test -tags=keycloak_integration -race -count=1 -timeout=25m -v ./internal/controller
+		python3 scripts/go-tests.py kubernetes --gotestsum "$(GOTESTSUM)" --output "$(TEST_REPORT_DIR)/kubernetes-$(KUBERNETES_VERSION)"
+keycloak-integration-test: $(GOTESTSUM)
+	KEYCLOAK_VERSION=$(KEYCLOAK_VERSION) python3 scripts/go-tests.py keycloak --shard "$(KEYCLOAK_SHARD)" \
+		--gotestsum "$(GOTESTSUM)" --output "$(TEST_REPORT_DIR)/keycloak-$(KEYCLOAK_VERSION)-$(KEYCLOAK_SHARD)"
+$(GOTESTSUM):
+	@mkdir -p "$(@D)"
+	GOBIN="$(@D)" go install gotest.tools/gotestsum@$(GOTESTSUM_VERSION)
 $(GOLANGCI_LINT):
 	@mkdir -p "$(@D)"
 	GOBIN="$(@D)" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
@@ -76,7 +83,7 @@ vuln:
 	govulncheck ./...
 install-preflight-tools:
 	go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
-install-tools: install-preflight-tools $(GOLANGCI_LINT)
+install-tools: install-preflight-tools $(GOLANGCI_LINT) $(GOTESTSUM)
 	go install github.com/fe3dback/go-arch-lint@$(GO_ARCH_LINT_VERSION)
 	go install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
 

@@ -2,8 +2,8 @@
 
 Docker base images and Go modules stay visible to Dependabot. Their reviewed
 toolchain must agree with the manifest. Generated literals are checked in
-preflight; executable consumers read the manifest directly. An unused tool
-(currently gotestsum) has a null pin and cannot be installed through this API.
+preflight; executable consumers read the manifest directly. A disabled tool
+has a null pin and cannot be installed through this API.
 """
 
 import argparse
@@ -87,7 +87,7 @@ def generated(root=ROOT, data=None):
         replace(ci, rf"^(        (?:version|keycloak|kubernetes): ).+(?= # versions:{name}$)",
                 json.dumps(values), count)
     for family in ("kubernetes", "keycloak"):
-        replace(ci, rf"^(        if: matrix.version == ).+(?= # versions:{family}-lint$)",
+        replace(ci, rf"^(        if: matrix.version == )'[^']+'(?=(?: && matrix.shard == 'core')? # versions:{family}-lint$)",
                 "'" + data[family]["default"] + "'")
 
     cosign = data["tools"]["cosign"]
@@ -169,7 +169,7 @@ def check_consumers(root):
             raise ValueError("Cosign builders must share the generated module pins")
     makefile = (root / "Makefile").read_text()
     for variable in ("VERSION", "RELEASE_VERSION", "CONTROLLER_GEN_VERSION", "GOLANGCI_LINT_VERSION",
-                     "GO_ARCH_LINT_VERSION", "GOVULNCHECK_VERSION", "KUBERNETES_VERSION", "KEYCLOAK_VERSION"):
+                     "GO_ARCH_LINT_VERSION", "GOVULNCHECK_VERSION", "GOTESTSUM_VERSION", "KUBERNETES_VERSION", "KEYCLOAK_VERSION"):
         if not re.search(r"^" + variable + r" [?:]= \$\(shell python3 scripts/versions.py get [a-z_ ]+\)$", makefile, re.M):
             raise ValueError("Makefile must read the reviewed pin: " + variable)
     # Qualification-specific protocol expectations remain explicit tests. Active

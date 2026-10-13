@@ -480,6 +480,41 @@ Both versions run in required PR/release CI and weekly CI; the aggregate require
 check fails on either matrix failure or startup failure. Qualification is a
 compatibility contract, not a recommendation to retain a vulnerable patch.
 
+The Keycloak job runs three independent, serial shards per version: `core`,
+`adoption` and `protocols`. The runner compares the compiled tagged and ordinary
+test inventories with [the reviewed partition](../scripts/keycloak-shards.json),
+rejecting missing, duplicate or obsolete assignments. Ordinary controller tests
+remain in `core`, so the partition retains the previous tagged suite in full.
+Each shard has a ten-minute test deadline and a fifteen-minute job deadline.
+Run one locally with `make keycloak-integration-test KEYCLOAK_VERSION=26.7.5
+KEYCLOAK_SHARD=adoption`; omitting the shard still runs the full suite.
+
+`make test`, `make integration-test` and `make keycloak-integration-test` use
+the pinned gotestsum version from `versions.json` and write JUnit, outcome JSON
+and a Markdown summary under `.tools/test-results/` (`TEST_REPORT_DIR` overrides
+the directory). CI uploads these on success or failure and lists failed tests
+in the job summary. Reports do not trigger retries, skips or weaker assertions.
+The outcome JSON contains names, status and timing, without test output payloads.
+
+The 2026-10-11 application flow and 2026-10-12 adoption failures exhausted the
+fixture's five-second bootstrap HTTP deadline on client-creation POSTs. Fixture
+HTTP calls now have a bounded fifteen-second budget, with no retry of ambiguous
+writes; production client deadlines are unchanged. Failures preserve the last
+64 fixture HTTP methods/routes/statuses/timings and redacted container logs;
+headers, query values and bodies are excluded from the HTTP trace. Shard timings
+on GitHub runners and twenty consecutive runs of both historically failing
+tests remain qualification evidence to collect for #110, not a stability claim.
+
+The weekly `Go test history` workflow reads the last twenty completed `main` CI
+runs and compares outcomes only for the same commit, test and suite/version.
+Earlier attempts remain visible when a job is manually rerun; a successful retry
+cannot erase a recorded failure. Reports from modified local checkouts are marked
+as such and are refused by the history collector.
+Its artifact and job summary distinguish mixed pass/fail results from missing or
+expired reports. It has read-only permissions and does not publish issue comments;
+tracking-issue automation is handled separately in #111. Historical runs without
+JUnit outcome artifacts cannot count toward a twenty-run stability qualification.
+
 | Version | Current qualification |
 | --- | --- |
 | 26.8.0, 26.7.5 | Qualified by the real Admin API suite |

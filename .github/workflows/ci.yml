@@ -80,6 +80,15 @@ jobs:
         run: python3 scripts/check-rulesets.py --live --allow-hidden-bypass
       - name: Validate unit tests, chart, architecture, lint and vulnerabilities
         run: make test chart-test arch lint vuln
+      - name: Preserve Go test outcomes
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: go-tests-unit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .tools/test-results/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
       - name: Cross-compile both Linux architectures
         run: |
           make build GOARCH=amd64
@@ -112,18 +121,28 @@ jobs:
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
       - name: Qualify CRDs, server-side apply, RBAC and Restricted admission
         run: make integration-test KUBERNETES_VERSION=${{ matrix.version }}
+      - name: Preserve Go test outcomes
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: go-tests-kubernetes-${{ matrix.version }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .tools/test-results/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
       - name: Lint integration test code
         if: matrix.version == '1.37.0' # versions:kubernetes-lint
         run: make lint LINT_BUILD_TAGS=integration
   keycloak:
-    name: Keycloak ${{ matrix.version }} Admin API and security
+    name: Keycloak ${{ matrix.version }} / ${{ matrix.shard }} Admin API and security
     needs: [preflight]
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         version: ["26.8.0", "26.7.5"] # versions:keycloak
+        shard: [core, adoption, protocols]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -133,9 +152,18 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: Qualify reconcilers against the real HTTPS Admin API
-        run: make keycloak-integration-test KEYCLOAK_VERSION=${{ matrix.version }}
+        run: make keycloak-integration-test KEYCLOAK_VERSION=${{ matrix.version }} KEYCLOAK_SHARD=${{ matrix.shard }}
+      - name: Preserve Go test outcomes
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: go-tests-keycloak-${{ matrix.version }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .tools/test-results/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
       - name: Vet and lint Keycloak integration test code
-        if: matrix.version == '26.8.0' # versions:keycloak-lint
+        if: matrix.version == '26.8.0' && matrix.shard == 'core' # versions:keycloak-lint
         run: |
           go vet -tags=keycloak_integration ./...
           make lint LINT_BUILD_TAGS=keycloak_integration

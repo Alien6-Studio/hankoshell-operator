@@ -18,7 +18,7 @@
     "golangci_lint": "v2.14.0",
     "go_arch_lint": "v1.19.0",
     "govulncheck": "v1.8.0",
-    "gotestsum": null,
+    "gotestsum": "v1.13.0",
     "oras": "v1.3.4",
     "cosign": {
       "version": "v3.1.3",

@@ -41,8 +41,9 @@ class VersionContractTests(unittest.TestCase):
         self.assertEqual(result["crd_count"], len(result["kinds"]))
         self.assertGreater(result["crd_count"], 0)
         self.assertEqual(versions.get("release", "version"), versions.DATA["release"]["version"])
+        self.assertRegex(versions.get("tools", "gotestsum"), r"^v\d+\.\d+\.\d+$")
         with self.assertRaisesRegex(ValueError, "not enabled/pinned"):
-            versions.get("tools", "gotestsum")
+            versions.get("disabled", data={"disabled": None})
 
     def test_drift_is_rejected_at_each_build_entry_point(self):
         mutations = {

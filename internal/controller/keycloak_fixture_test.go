@@ -46,6 +46,7 @@ type keycloakFixture struct {
 	kc         *keycloak.Client
 	credential string
 	logs       bytes.Buffer
+	httpTrace  *fixtureHTTPTrace
 }
 
 func fixtureSecret(t *testing.T) string {
@@ -180,6 +181,9 @@ func newKeycloakFixtureWithTransportAndDiscovery(t *testing.T, managed, publicIP
 	// created the container. Never prune or touch developer-owned containers.
 	t.Cleanup(func() {
 		if t.Failed() {
+			if f.httpTrace != nil {
+				t.Logf("Fixture HTTP exchanges (bounded; no headers, queries or bodies):\n%s", f.redact(f.httpTrace.snapshot()))
+			}
 			output, _ := f.docker(10*time.Second, nil, "logs", "--tail", "100", name)
 			t.Logf("Keycloak %s diagnostics (redacted):\n%s", version, f.redact(output))
 			output, _ = f.docker(10*time.Second, nil, "inspect", "--format", "{{.State.Status}} {{.State.ExitCode}} {{.State.Error}} {{json .Config.Cmd}}", name)
@@ -227,9 +231,14 @@ func newKeycloakFixtureWithTransportAndDiscovery(t *testing.T, managed, publicIP
 	}
 	roots := x509.NewCertPool()
 	roots.AppendCertsFromPEM(cert)
-	f.http = &http.Client{Timeout: 5 * time.Second, Transport: &http.Transport{
+	f.httpTrace = &fixtureHTTPTrace{next: &http.Transport{
 		TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS13},
-	}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	}}
+	// Bootstrap POSTs can exceed five seconds while the disposable JVM warms
+	// up on shared runners (#110). Keep them bounded and never retry a POST
+	// whose acknowledgement was lost. Production clients retain their deadlines.
+	f.http = &http.Client{Timeout: 15 * time.Second, Transport: f.httpTrace,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	t.Cleanup(f.http.CloseIdleConnections)
 	deadline := time.Now().Add(2 * time.Minute)
 	for {
@@ -362,6 +371,7 @@ func (f *keycloakFixture) credentialsPresent(data []byte) bool {
 }
 
 func TestKeycloakFixtureRedactsAndDetectsCredentials(t *testing.T) {
+	t.Run("bounded HTTP diagnostics", testFixtureHTTPDiagnostics)
 	secret := fixtureSecret(t)
 	token := "eyJ" + strings.Repeat("a", 10) + "." + strings.Repeat("b", 10) + ".fixture"
 	f := &keycloakFixture{t: t, secrets: []string{"", secret}}
