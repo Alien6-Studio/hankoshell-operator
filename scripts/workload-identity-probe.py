@@ -52,7 +52,7 @@ def run(args, input=None, timeout=240, include_stderr=False):
     try:
         result = subprocess.run([str(a) for a in args], input=input, capture_output=True, timeout=timeout)
     except subprocess.TimeoutExpired:
-        raise RuntimeError("Disposable workload fixture command timed out (diagnostics withheld)") from None
+        raise system.diagnostics.DeadlineExceeded("Disposable workload fixture command", timeout, timeout) from None
     if result.returncode:
         # Never render arguments, stdout, stderr, or stdin: a failed token read or
         # TokenReview could otherwise disclose a credential through diagnostics.
@@ -783,6 +783,8 @@ except urllib.error.HTTPError as e:
         # Hold assertions only in memory and leave a real live Pod running so
         # kubelet rotation is measured, rather than forging dates or signatures.
         deadline = rotation_claims["exp"] + 15
+        rotation_started = time.monotonic()
+        rotation_seconds = max(0, deadline - time.time())
         while time.time() < deadline:
             current = self.projected("rotation")
             if current != rotation:
@@ -792,7 +794,7 @@ except urllib.error.HTTPError as e:
                 break
             time.sleep(5)
         if "projected_rotation" not in self.report:
-            raise ValueError("Kubelet did not rotate the actual projected token")
+            raise system.diagnostics.DeadlineExceeded("Kubelet projected token rotation", rotation_seconds, time.monotonic() - rotation_started)
         while time.time() <= self.report["projected_claims"]["exp"] + 2:
             time.sleep(1)
         self.check("expired", self.assertion(token), (400, 401))
@@ -835,6 +837,9 @@ def main():
         fixture = Fixture(args, Path(temp))
         try:
             report = fixture.qualify()
+        except Exception as error:
+            system.diagnostics.capture(fixture, error)
+            raise
         finally:
             report = fixture.report
             try:

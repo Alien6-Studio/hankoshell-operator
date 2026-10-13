@@ -5,6 +5,7 @@ import json
 from io import BytesIO
 from email.message import Message
 from pathlib import Path
+import tempfile
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -24,6 +25,27 @@ proxy = module("fault_proxy", "workload-fault-proxy.py")
 
 
 class InstalledEvidenceTests(unittest.TestCase):
+    def test_failure_status_reuses_bounded_snapshot_without_new_api_waits(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "installed.json"
+            snapshot = output.with_suffix(".diagnostics")
+            snapshot.mkdir()
+            (snapshot / "hankoserviceaccounts.hanko.sh.yaml").write_text(json.dumps({"items": [{
+                "metadata": {"name": "same-client", "namespace": "auth", "generation": 4},
+                "status": {"phase": "Pending", "observedGeneration": 3,
+                           "conditions": [{"type": "Synced", "status": "False", "reason": "StatusWriteFailed", "message": "private-detail"}]},
+            }]}))
+            fixture = installed.Installed.__new__(installed.Installed)
+            fixture.args = SimpleNamespace(output=output)
+            fixture.sensitive, fixture.report = ["private-detail"], {}
+            fixture.kubectl = MagicMock(side_effect=AssertionError("must not query a failed cluster again"))
+            fixture.failure_evidence()
+            fixture.kubectl.assert_not_called()
+            self.assertEqual(fixture.report["failure_status"]["same-client"]["phase"], "Pending")
+            self.assertEqual(fixture.report["failure_status"]["same-client"]["conditions"][0]["reason"], "StatusWriteFailed")
+            self.assertEqual(fixture.report["failure_status"]["secret-a"], {"unavailable": True})
+            self.assertNotIn("private-detail", json.dumps(fixture.report))
+
     def test_evidence_never_includes_native_representations_or_private_inputs(self):
         fixture = installed.Installed.__new__(installed.Installed)
         fixture.report = {"checks": {"real_pod": True}, "complete": False,

@@ -906,45 +906,33 @@ class Installed(native.Fixture):
         return {key: self.report[key] for key in keys if key in self.report}
 
     def failure_evidence(self):
-        # Only diagnostic statuses/reasons from fixed fixture names, never raw
-        # status, native bodies, error responses, annotations or Secret data.
+        # Reuse the bounded, redacted snapshot already collected before teardown.
+        # Do not start another series of API waits while the cluster is failing.
+        directory = self.args.output.with_suffix(".diagnostics")
         records = {}
-        for kind, names in (("hankorealm", ("managed",)), ("hankoworkloadtrust", ("shared-workload",)),
-                            ("hankoserviceaccount", ("secret-a", "federated-b", "same-client", "blocked-flow")),
-                            ("hankoresourceserver", ("installed-server",))):
+        for kind, names in (("hankorealms", ("managed",)), ("hankoworkloadtrusts", ("shared-workload",)),
+                            ("hankoserviceaccounts", ("secret-a", "federated-b", "same-client", "blocked-flow")),
+                            ("hankoresourceservers", ("installed-server",))):
+            try:
+                path = directory / (kind + ".hanko.sh.yaml")
+                if path.stat().st_size > system.diagnostics.FILE_LIMIT:
+                    raise ValueError("Diagnostic file exceeds budget")
+                items = yaml.safe_load(path.read_text()).get("items", [])
+            except Exception:
+                items = []
             for name in names:
-                try:
-                    value = self.get(kind, name)
-                    status = value.get("status", {})
-                    records[name] = {"generation": value["metadata"]["generation"], "observed_generation": status.get("observedGeneration", 0),
-                        "phase": status.get("phase", "Pending"), "conditions": [{"type": item.get("type"), "status": item.get("status"),
-                            "reason": item.get("reason") if re.fullmatch(r"[A-Za-z0-9]{1,64}", item.get("reason", "")) else "Withheld"}
-                            for item in status.get("conditions", [])]}
-                except Exception:
+                value = next((item for item in items if item.get("metadata", {}).get("name") == name
+                              and item["metadata"].get("namespace") == "auth"), None)
+                if value is None:
                     records[name] = {"unavailable": True}
+                    continue
+                status = value.get("status", {})
+                records[name] = {"generation": value["metadata"].get("generation", 0), "observed_generation": status.get("observedGeneration", 0),
+                    "phase": status.get("phase", "Pending"), "conditions": [{"type": item.get("type"), "status": item.get("status"),
+                        "reason": item.get("reason") if re.fullmatch(r"[A-Za-z0-9]{1,64}", item.get("reason", "")) else "Withheld"}
+                        for item in status.get("conditions", [])]}
         native.safe_report(records, self.sensitive)
         self.report["failure_status"] = records
-        try:
-            text = self.kubectl("logs", "deployment/system-operator", "-n", "auth", "--tail=100")
-            sensitive = self.sensitive + [base64.b64encode(value.encode()).decode() for value in self.sensitive if value]
-            for value in sensitive:
-                if value:
-                    text = text.replace(value, "[REDACTED]")
-            text = re.sub(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", "[REDACTED JWT]", text)
-            errors = []
-            for line in text.splitlines():
-                try:
-                    entry = json.loads(line)
-                    if "error" in entry:
-                        errors.append({key: entry[key] for key in ("msg", "error") if key in entry})
-                except ValueError:
-                    continue
-            # This path is never selected by CI upload-artifact. Keep diagnostic
-            # detail local/nonpublishable and only counts in public evidence.
-            self.args.output.with_suffix(".private-errors.json").write_text(native.safe_report(errors, sensitive))
-            self.report["failure_status"]["operator_error_count"] = len(errors)
-        except Exception:
-            self.report["failure_status"]["operator_diagnostics_unavailable"] = True
 
     def qualify_installed(self):
         self.create_cluster()
@@ -1035,9 +1023,13 @@ def main():
         fixture = Installed(args, Path(temp))
         try:
             fixture.qualify_installed()
-        except Exception:
+        except Exception as error:
+            system.diagnostics.capture(fixture, error)
             if fixture.config.exists():
-                fixture.failure_evidence()
+                try:
+                    fixture.failure_evidence()
+                except Exception:
+                    fixture.report["failure_status"] = {"unavailable": True}
             raise
         finally:
             try:

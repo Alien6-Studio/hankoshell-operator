@@ -16,6 +16,7 @@ from importlib.util import module_from_spec, spec_from_file_location
 spec = spec_from_file_location("release_publish", Path(__file__).with_name("release-publish.py"))
 publish = module_from_spec(spec)
 spec.loader.exec_module(publish)
+diagnostics = publish.contract.module("qualification_diagnostics", "qualification-diagnostics.py")
 REGISTRY_IMAGE = "registry:3.0.0@sha256:6c5666b861f3505b116bb9aa9b25175e71210414bd010d92035ff64018f9457e"
 
 
@@ -251,5 +252,8 @@ def qualify(output, archive, evidence, image, revision, oras, helm, attest, conf
             "limitations": ["loopback OCI fixture; no public registry or Artifact Hub indexing",
                             "GitHub release/asset storage fixture; no production API or OIDC qualification"],
         }, indent=2) + "\n")
+    except Exception as error:
+        diagnostics.capture_registry(output, name, error)
+        raise
     finally:
         publish.run(["docker", "rm", "--force", name])

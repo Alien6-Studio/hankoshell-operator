@@ -26,6 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("release_system", ROOT / "scripts/release-system-test.py")
 publication = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(publication)
+diagnostics = publication.publish.contract.module("qualification_diagnostics", "qualification-diagnostics.py")
 run = publication.publish.run
 NODE = "kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5"
 KEYCLOAK = "quay.io/keycloak/keycloak:26.8.0@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc"
@@ -33,12 +34,13 @@ KIND_VERSION = "v0.33.0"
 
 
 def wait(label, check, seconds=120):
-    deadline = time.monotonic() + seconds
+    started = time.monotonic()
+    deadline = started + seconds
     while time.monotonic() < deadline:
         if check():
             return
         time.sleep(1)
-    raise RuntimeError(label + " deadline exceeded")
+    raise diagnostics.DeadlineExceeded(label, seconds, time.monotonic() - started)
 
 
 class System:
@@ -1256,18 +1258,8 @@ def main():
                                 "single disposable kind node and Keycloak dev-file database",
                                 "kindnet does not enforce NetworkPolicy; CNI, CSI/cloud, enterprise fleet and DB recovery unqualified"]}, indent=2) + "\n")
             print("System qualification passed", flush=True)
-        except Exception:
-            if system.config.exists():
-                for command in (("get", "pods", "-n", "auth"), ("logs", "deployment/keycloak", "-n", "auth", "--tail=50"),
-                                ("logs", "deployment/system-operator", "-n", "auth", "--tail=50")):
-                    try:
-                        diagnostic = system.kubectl(*command)
-                        for value in system.sensitive:
-                            diagnostic = diagnostic.replace(value, "[REDACTED]")
-                        diagnostic = re.sub(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", "[REDACTED JWT]", diagnostic)
-                        print(diagnostic, flush=True)
-                    except RuntimeError:
-                        pass
+        except Exception as error:
+            diagnostics.capture(system, error)
             raise
         finally:
             system.cleanup()

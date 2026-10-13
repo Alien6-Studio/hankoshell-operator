@@ -178,6 +178,14 @@ jobs:
           path: ${{ runner.temp }}/workload-identity.json
           if-no-files-found: error
           retention-days: 14
+      - name: Preserve bounded workload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: NONPUBLISHABLE-diagnostics-workload-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/workload-identity.diagnostics
+          if-no-files-found: warn
+          retention-days: 7
   oci:
     needs: [preflight]
     permissions:
@@ -231,6 +239,14 @@ jobs:
           path: ${{ runner.temp }}/hankoshell-release-dry-run
           if-no-files-found: error
           retention-days: 14
+      - name: Preserve bounded release fixture failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: NONPUBLISHABLE-diagnostics-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/hankoshell-release-dry-run/NONPUBLISHABLE-diagnostics
+          if-no-files-found: warn
+          retention-days: 7
   system:
     name: Installed operator system test
     needs: [source, oci]
@@ -274,6 +290,14 @@ jobs:
           path: ${{ runner.temp }}/system-test.json
           if-no-files-found: error
           retention-days: 14
+      - name: Preserve bounded installed system failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: NONPUBLISHABLE-diagnostics-system-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/system-test.diagnostics
+          if-no-files-found: warn
+          retention-days: 7
   installed-workload:
     name: Installed workload KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
     needs: [source, oci]
@@ -331,6 +355,14 @@ jobs:
           path: ${{ runner.temp }}/installed-workload.json
           if-no-files-found: error
           retention-days: 14
+      - name: Preserve bounded installed workload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: NONPUBLISHABLE-diagnostics-installed-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/installed-workload.diagnostics
+          if-no-files-found: warn
+          retention-days: 7
   checks:
     name: Source and chart checks
     needs: [preflight, source, kubernetes, keycloak, workload, oci, rehearsal, system, installed-workload]
