@@ -30,7 +30,7 @@ enterprise fleet. Project website: **[hanko.sh](https://hanko.sh)**.
 [Secure deployment and trust model](docs/secure-deployment.md) ·
 [Keycloak permissions](docs/keycloak-permissions.md) ·
 [OIDC/SAML application model and migration](docs/architecture/application-identity.md) ·
-[Changes](CHANGELOG.md) · **[Roadmap](ROADMAP.md)** · [IAM contract architecture](docs/architecture/iam-contract-engine.md) ·
+[Changes](CHANGELOG.md) · **[Release 1.0.0 milestone](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11)** · [IAM contract architecture](docs/architecture/iam-contract-engine.md) ·
 [Organizational grants and provenance](docs/architecture/organizational-authorization.md)
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml)
@@ -380,7 +380,7 @@ The implemented foundation, IAM contracts, application identity, organizational
 authorization, adoption and canonical Attest hardening remain intact. Workload
 Identity, Delegation & Agent Identity, Provider Portability, Fleet Reconciliation
 and Initial Public Contract Stabilization are required before first publication.
-See the [roadmap](ROADMAP.md) and
+Remaining work is tracked in the single [Release 1.0.0 milestone](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11); see the
 [first-publication checklist](docs/release-public-0.1.0-preparation.md).
 The `hanko.sh/v1alpha1` APIs are experimental and may change across minor releases
 before 1.0. See the [curated release

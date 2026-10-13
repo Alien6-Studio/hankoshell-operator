@@ -941,7 +941,7 @@ The first public 0.1.0 is in development; no public release has been published.
 Source/chart/app/build/rehearsal metadata is `0.1.0-dev.0`, with Artifact Hub
 `prerelease: true`. All implemented capabilities and canonical Attest hardening
 remain intact. Workload Identity, Delegation & Agent Identity, Provider Portability, Fleet Reconciliation and Initial Public Contract Stabilization and #21's real trust evidence are required before
-first publication; see the [roadmap](../ROADMAP.md) and
+first publication; see the [Release 1.0.0 milestone](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11) and
 [administrator checklist](release-public-0.1.0-preparation.md).
 
 The parser accepts normal `v<SemVer>` tags and extracts `0.1.0` from `v0.1.0`.
