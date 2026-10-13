@@ -17,6 +17,7 @@ import re
 import ssl
 import subprocess
 import tempfile
+import threading
 import time
 from urllib.request import Request, urlopen
 
@@ -49,11 +50,16 @@ class Installed(native.Fixture):
                             "recovery": [], "migrations": {}, "checks": {}})
         self.proxy_forwards = []
         self.rotation_process = None
+        self.operator_log_process = None
+        self.operator_log_thread = None
+        self.operator_log_failed = False
+        self.operator_log_bytes = 0
+        self.preserved_names = {}
 
     def record(self, name, valid=True):
+        self.report["checks"][name] = bool(valid)
         if not valid:
             raise ValueError("Installed qualification failed: " + name)
-        self.report["checks"][name] = True
         print("Installed workload: " + name + " passed", flush=True)
 
     def patch(self, kind, name, value, namespace="auth", subresource=None):
@@ -77,8 +83,35 @@ class Installed(native.Fixture):
     def stage(self, name, step):
         wait("installed journal " + step, lambda: self.journal(name).get("step") == step, 180)
 
-    def restart(self, status_loss=None):
+    def start_log_capture(self):
+        self.stop_log_capture()
+        process = subprocess.Popen([str(self.args.kubectl), "--kubeconfig", str(self.config), "logs", "-f", "deployment/system-operator", "-n", "auth"],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        self.operator_log_process = process
+        def scan():
+            for line in process.stdout:
+                text = line.decode(errors="replace")
+                self.operator_log_bytes += len(line)
+                if any(value and value in text for value in self.sensitive) or re.search(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", text):
+                    self.operator_log_failed = True
+        self.operator_log_thread = threading.Thread(target=scan, daemon=True)
+        self.operator_log_thread.start()
+
+    def stop_log_capture(self):
+        if self.operator_log_process:
+            self.operator_log_process.terminate()
+            try:
+                self.operator_log_process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self.operator_log_process.kill()
+                self.operator_log_process.wait(timeout=10)
+            self.operator_log_thread.join(timeout=10)
+            self.operator_log_process.stdout.close()
+            self.operator_log_process = None
+
+    def restart(self, status_loss=None, fault=None):
         # Stop first so no previous process can repair the removed status.
+        self.stop_log_capture()
         self.kubectl("scale", "deployment/system-operator", "-n", "auth", "--replicas=0")
         self.kubectl("wait", "--for=delete", "pods", "-n", "auth", "-l", "app.kubernetes.io/instance=system", "--timeout=90s")
         if status_loss:
@@ -86,8 +119,11 @@ class Installed(native.Fixture):
         if hasattr(self, "api_proxy"):
             self.control("api", None)
             self.control("keycloak", None)
+            if fault:
+                self.control(fault[0], fault[1], reset=True)
         self.kubectl("scale", "deployment/system-operator", "-n", "auth", "--replicas=1")
         self.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=180s")
+        self.start_log_capture()
 
     def identities(self):
         self.api("POST", "/admin/realms", {"realm": "unrelated", "enabled": True})
@@ -354,7 +390,8 @@ class Installed(native.Fixture):
     def stable_native(self, name, uuid, secret, method):
         current = self.client("managed", name)
         self.record("preserved_uuid_credential_" + name, current["id"] == uuid and current["clientAuthenticatorType"] == method
-                    and current["enabled"] is True and self.native_secret(name) == secret)
+                    and current["enabled"] is True and self.native_secret(name) == secret
+                    and (name not in self.preserved_names or current.get("name") == self.preserved_names[name]))
 
     def recovery_record(self, name, fault, step, before, after, counts=None):
         self.report["recovery"].append({"case": name, "fault": fault, "journal_state": step, "native_before": before,
@@ -364,6 +401,8 @@ class Installed(native.Fixture):
         name = "same-client"
         self.create_hsa(name, False)
         uuid, secret = self.client("managed", name)["id"], self.secret_value(name)
+        self.preserved_names[name] = "Independent display name"
+        self.api("PUT", "/admin/realms/managed/clients/" + uuid, {"name": self.preserved_names[name]})
         self.expect_auth("same_client_secret_before", self.secret_auth(name, secret), True)
         # Explicit permission, independent from the two-client migration grant.
         server = self.get("hankoresourceserver", "installed-server")
@@ -400,8 +439,12 @@ class Installed(native.Fixture):
         self.stable_native(name, uuid, secret, "federated-jwt")
         self.recovery_record(name, "manager restart", "AuthReviewed", "Kubernetes", "Kubernetes")
         secret_path = "/api/v1/namespaces/auth/secrets/hanko-sa-" + name
-        self.control("api", {"method": "PATCH", "path": secret_path, "action": "lost-ack"}, reset=True)
+        self.control("api", {"method": "PATCH", "path": secret_path, "action": "deny"}, reset=True)
         self.approve(name, "cleanup")
+        self.await_fault("api")
+        self.record("cleanup_patch_denied_preserves_inactive_secret", self.secret_value(name) == secret)
+        self.stable_native(name, uuid, secret, "federated-jwt")
+        self.restart(fault=("api", {"method": "PATCH", "path": secret_path, "action": "lost-ack"}))
         fault = self.await_fault("api")
         self.record("output_cleanup_ack_loss", fault["upstream_status"] == 200 and "client_secret" not in self.get("secret", "hanko-sa-" + name).get("data", {}))
         self.restart()
@@ -521,7 +564,12 @@ class Installed(native.Fixture):
             and self.get("hankoworkloadtrust", "shared-workload")["spec"]["kubernetes"]["assertionMaxAgeSeconds"] == 900
             and self.get("hankoserviceaccount", name)["spec"]["authentication"]["kubernetes"]["expirationSeconds"] == 600)
         self.patch("hankoworkloadtrust", "shared-workload", {"spec": {"kubernetes": {"assertionMaxAgeSeconds": 600}}})
-        wait("restored shared trust", lambda: self.ready("hankoworkloadtrust", "shared-workload") and self.hsa_ready(name), 180)
+        wait("restored shared trust", lambda: self.ready("hankoworkloadtrust", "shared-workload"), 180)
+        # Reaffirm the same workload UID with an explicit owner spec generation;
+        # the old generation's sealed authentication journal is stale after a
+        # shared trust generation change, even if its values are restored.
+        self.patch("hankoserviceaccount", name, {"spec": {"attributes": {"qualification": "restored-trust-generation"}}})
+        wait("owner reaffirmed binding after trust restoration", lambda: self.hsa_ready(name), 180)
         executions = self.api("GET", "/admin/realms/managed/authentication/flows/clients/executions")
         execution = next(item for item in executions if item.get("providerId") == "federated-jwt")
         disabled = {**execution, "requirement": "DISABLED"}
@@ -620,6 +668,7 @@ class Installed(native.Fixture):
     def configure_api_proxy(self):
         # Test-only transport configuration supplied externally after Helm install.
         # No new API, chart field or production environment feature is introduced.
+        self.stop_log_capture()
         config = {"apiVersion": "v1", "kind": "Config", "clusters": [{"name": "fixture", "cluster": {
             "server": "https://fault-api.auth.svc:8444", "certificate-authority": "/fixture-api/ca.crt"}}],
             "contexts": [{"name": "fixture", "context": {"cluster": "fixture", "user": "operator"}}], "current-context": "fixture",
@@ -633,6 +682,7 @@ class Installed(native.Fixture):
         pod["containers"][0]["volumeMounts"].append({"name": "fixture-api", "mountPath": "/fixture-api", "readOnly": True})
         self.patch("deployment", "system-operator", {"spec": {"template": {"spec": pod}}})
         self.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=180s")
+        self.start_log_capture()
 
     def control(self, target, rule, reset=False):
         url = getattr(self, target + "_proxy") + "/__fixture/control"
@@ -659,6 +709,7 @@ class Installed(native.Fixture):
         old_uid = self.worker_uid
         # Freeze reconciliation to measure Keycloak's native name-based limit
         # independently before allowing Hanko asynchronous containment.
+        self.stop_log_capture()
         self.kubectl("scale", "deployment/system-operator", "-n", "auth", "--replicas=0")
         self.kubectl("wait", "--for=delete", "pods", "-n", "auth", "-l", "app.kubernetes.io/instance=system", "--timeout=90s")
         old = self.projected()
@@ -671,6 +722,7 @@ class Installed(native.Fixture):
         self.expect_auth("native_new_uid_name_acceptance", self.assertion(new, client), True)
         self.kubectl("scale", "deployment/system-operator", "-n", "auth", "--replicas=1")
         self.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=180s")
+        self.start_log_capture()
         def contained():
             current = self.get("hankoserviceaccount", client)
             generation = current["metadata"]["generation"]
@@ -690,6 +742,8 @@ class Installed(native.Fixture):
         self.report["uid_hashes"] = {"before": hashlib.sha256(old_uid.encode()).hexdigest(), "after": hashlib.sha256(new_uid.encode()).hexdigest()}
 
     def leak_scan(self):
+        self.stop_log_capture()
+        self.record("operator_logs_including_retired_pods_no_credentials", not self.operator_log_failed and self.operator_log_bytes > 0)
         for namespace in ("auth", "workload", "other"):
             text = self.kubectl("get", "events,configmaps", "-n", namespace, "-o", "json")
             pods = json.loads(self.kubectl("get", "pods", "-n", namespace, "-o", "json"))["items"]
@@ -732,6 +786,7 @@ class Installed(native.Fixture):
             self.fault_proxies()
         self.identities()
         self.install()
+        self.start_log_capture()
         self.record("exact_scanned_image_installed")
         if self.args.deep_migration:
             self.configure_api_proxy()
@@ -765,6 +820,7 @@ class Installed(native.Fixture):
         self.report["completed_at"] = datetime.now(timezone.utc).isoformat()
 
     def cleanup(self):
+        self.stop_log_capture()
         if self.rotation_process and self.rotation_process.poll() is None:
             self.rotation_process.terminate()
             try:
