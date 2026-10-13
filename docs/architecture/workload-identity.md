@@ -5,7 +5,8 @@ The technical version remains `0.1.0-dev.0`, development. Kubernetes workload
 trust ownership implements the shared native trust; Workload binding and mesh
 coherence adds UID validation and public metadata delivery. HankoServiceAccount
 federated authentication implements native activation and reviewed authentication
-transitions. Installed-system and migration qualification remains separate work.
+transitions. Installed-system runtime and deep migration/recovery are qualified
+within the supported scope described below.
 Production publication remains in #21.
 Disposable qualification fixtures do not change production infrastructure.
 
@@ -1106,16 +1107,43 @@ block candidate creation. Acquisition retains the existing exact candidate/appro
 owner-only mutation and receipt/read-back protocol, remains Observe, and requires a
 separate explicit Manage transition. Names and matching mappings confer no owner.
 
-### Qualification and remaining installed proof
+### Installed-system and migration qualification
 
-The required matrix retains both Keycloak versions and all three real Kubernetes
-versions. Actual kubelet-projected assertions independently authenticate clients
-created by the production reconciler, while historical Secret clients still work
-and reject assertions. The same native UUID and retained credential survive a
-reviewed Secret → Kubernetes → Secret → Kubernetes round trip. Real workload UID
-replacement triggers enabled-only containment. Native tests use ephemeral Hanko CR
-storage and actual API UID reads; they are not a substitute for installed migration
-restarts or resource API authorization. Installed regression proves controller
-activation and active metadata only. #63 stays open for the complete installed
-system. Public qualification reports contain bounded behaviors/counts/versions,
-run links and exact source/image references, with no credential/native dumps.
+Workload Identity is qualified for Kubernetes **1.35.0 / 1.36.2 / 1.37.0** and
+Keycloak **26.7.5 / 26.8.0** within these separate required layers:
+
+| Layer | Cells | Proof |
+|---|---|---|
+| Native capability | Both Keycloak versions × all three Kubernetes versions, 57 checks per cell | Native assertion, authenticator, permission and controller contract behavior |
+| General installed regression | Kubernetes 1.37.0 / Keycloak 26.8.0, 19 checks | Existing full Helm/scanned-image lifecycle regression |
+| Installed workload runtime | Both Keycloak versions × all three Kubernetes versions | Real Pod projection, controller trust/binding, live client_assertion token grant, same-token native UMA resource ALLOW/DENY, kubelet rotation, real expiry, SA UID replacement, owned-client containment, no automatic reactivation and leakage inspection |
+| Deep installed migration/recovery | Kubernetes 1.37.0 with each Keycloak version | Reviewed same-client cutover, unchanged UUID/credential, Secret fallback, return, all five journal checkpoints and external fault recovery |
+
+Two-client migration runs in all six installed cells. Deep cases additionally
+exercise provider outage, trust age drift and effective-flow prerequisites,
+ConfigMap denial/immutable/replaced UID/revoked consent/version conflict,
+accepted provider CREATE/PUT and Secret/ConfigMap/status/finalizer writes whose
+responses are dropped. Manager restart and externally removed status are named
+separately from actual lost acknowledgements. Canonical review annotations come
+from `internal/workloadauth`; the fixture adds no production hook or token broker.
+Native clients, inactive credentials and qualified independent fields survive
+reviewed round trips; foreign clients and IdPs remain untouched.
+
+The resource fixture is independent Keycloak UMA authorization, not a local
+client-ID allowlist. One valid workload bearer must obtain the declared resource
+ALLOW and an authenticated `access_denied` for the undeclared resource. Network
+failures and invalid-token responses cannot satisfy DENY. Installed cells consume
+the exact OCI index/digest and revision verified by the same CI run, including
+both runtime platform scans, SBOM and provenance. Public reports contain only
+bounded decisions, hashes, timestamps/counts and source/image references.
+
+Qualification does not add cryptographic ServiceAccount UID matching to native
+Keycloak, single-use assertions or immediate revocation. Assertions are replayable
+until age/expiry, issued access tokens can outlive assertion acceptance, and
+containment is asynchronous with polling/outage windows. Same-client cutover has
+no atomic pre-authentication proof or zero-downtime guarantee. No TokenReview
+based authenticator, remote-cluster binding, SPIFFE, delegation/token exchange or
+Pod injection is implemented. Single-node/dev-file fixtures do not qualify cloud,
+CNI policy enforcement, production databases or disaster recovery. Version stays
+`0.1.0-dev.0`; #21 and the other functional roadmap subjects still block initial
+public release preparation.

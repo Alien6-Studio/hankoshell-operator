@@ -46,6 +46,7 @@ class System:
         self.args, self.private = args, private
         self.name = "hankoshell-system-" + secrets.token_hex(6)
         self.registry_name = self.name + "-registry"
+        self.registry_created = False
         self.config = private / "kubeconfig"
         self.forward = None
         self.password, self.credential = secrets.token_hex(32), secrets.token_hex(32)
@@ -132,10 +133,18 @@ class System:
     def create_cluster(self):
         if not run([self.args.kind, "version"]).startswith("kind " + KIND_VERSION + " "):
             raise ValueError("Use the pinned kind 0.33.0 fixture")
-        run(["docker", "run", "--detach", "--name", self.registry_name, "--publish", "127.0.0.1::5000",
-             "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", publication.REGISTRY_IMAGE])
         run([self.args.kind, "create", "cluster", "--name", self.name, "--image", NODE,
              "--kubeconfig", self.config, "--wait", "120s"])
+        self.mirror_scanned_image()
+        version = json.loads(self.kubectl("version", "-o", "json"))["serverVersion"]["gitVersion"]
+        if version != "v1.37.0":
+            raise ValueError("Unexpected system Kubernetes version")
+
+    def mirror_scanned_image(self):
+        """Mirror the verified multiarch graph without rebuilding the operator."""
+        run(["docker", "run", "--detach", "--name", self.registry_name, "--publish", "127.0.0.1::5000",
+             "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", publication.REGISTRY_IMAGE])
+        self.registry_created = True
         node = self.name + "-control-plane"
         run(["docker", "network", "connect", "kind", self.registry_name])
         # Docker can reassign an ephemeral published port when attaching a
@@ -159,9 +168,6 @@ class System:
             raise RuntimeError("Local OCI mirror copy failed: " + diagnostic)
         if publication.publish.Registry(self.args.oras, self.args.helm, plain_http=True).resolve(self.registry + "/hankoshell-operator:scanned") != self.args.digest:
             raise ValueError("System-test mirror changed the scanned OCI graph")
-        version = json.loads(self.kubectl("version", "-o", "json"))["serverVersion"]["gitVersion"]
-        if version != "v1.37.0":
-            raise ValueError("Unexpected system Kubernetes version")
 
     def secret(self, name, values, namespace="auth"):
         return {"apiVersion": "v1", "kind": "Secret", "metadata": {"name": name, "namespace": namespace},
@@ -246,6 +252,8 @@ class System:
                   "keycloak": {"url": "https://keycloak.auth.svc:8443", "credentialsSecret": "operator-credentials", "caSecret": "operator-ca"},
                   "networkPolicy": {"kubernetesAPIServiceCIDRs": [service + "/32"],
                                     "kubernetesAPIEndpointCIDRs": [item["ip"] + "/32" for item in endpoints]}}
+        if getattr(self, "workload_grants", None):
+            values["workloadBinding"] = {"grants": self.workload_grants}
         file = self.private / "values.yaml"
         file.write_text(yaml.safe_dump(values))
         run([self.args.helm, "install", "system", ROOT / "charts/hankoshell-operator", "--namespace", "auth",
@@ -1193,7 +1201,8 @@ class System:
             self.forward_log.close()
         run([self.args.kind, "delete", "cluster", "--name", self.name])
         # No prune: never touch developer-owned clusters or containers.
-        run(["docker", "rm", "--force", self.registry_name])
+        if self.registry_created:
+            run(["docker", "rm", "--force", self.registry_name])
         if hasattr(self, "keycloak_image"):
             run(["docker", "image", "rm", self.keycloak_image])
 

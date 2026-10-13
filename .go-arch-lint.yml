@@ -13,6 +13,8 @@ excludeFiles:
 components:
   cmd:
     in: "/cmd/operator"
+  fixture_review:
+    in: "/scripts/workload-auth-review"
   controller:
     in: "/internal/controller"
   keycloak:
@@ -62,6 +64,9 @@ deps:
   # cmd/ wires everything — no restriction.
   cmd:
     anyProjectDeps: true
+  fixture_review:
+    mayDependOn:
+      - workloadauth
 
   # ADR-009: Reconcilers may use the Keycloak client, Hub client, CRD types,
   # and the image validator (ADR-017).

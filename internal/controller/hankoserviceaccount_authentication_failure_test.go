@@ -176,15 +176,28 @@ func TestAuthenticationCleanupRecoversPartialPatchAndManagerRestart(t *testing.T
 			f.runAuthentication(1)
 			f.review(true)
 			original := f.kube
+			acceptedSecretPatches := 0
+			observed := interceptor.NewClient(original.(client.WithWatch), interceptor.Funcs{Patch: func(ctx context.Context, c client.WithWatch, o client.Object, p client.Patch, opts ...client.PatchOption) error {
+				err := c.Patch(ctx, o, p, opts...)
+				if _, ok := o.(*corev1.Secret); ok && err == nil {
+					acceptedSecretPatches++
+				}
+				return err
+			}})
 			once := true
-			f.reconciler.Client = interceptor.NewClient(original.(client.WithWatch), interceptor.Funcs{Patch: func(ctx context.Context, c client.WithWatch, o client.Object, p client.Patch, opts ...client.PatchOption) error {
+			holdCheckpoint := false
+			f.reconciler.Client = interceptor.NewClient(observed, interceptor.Funcs{Patch: func(ctx context.Context, c client.WithWatch, o client.Object, p client.Patch, opts ...client.PatchOption) error {
 				if _, ok := o.(*corev1.Secret); ok && once {
 					once = false
 					if lost {
 						if err := c.Patch(ctx, o, p, opts...); err != nil {
 							return err
 						}
+						holdCheckpoint = true
 					}
+					return workloadauth.ErrPrecondition
+				}
+				if _, ok := o.(*api.HankoServiceAccount); ok && holdCheckpoint {
 					return workloadauth.ErrPrecondition
 				}
 				return c.Patch(ctx, o, p, opts...)
@@ -194,10 +207,13 @@ func TestAuthenticationCleanupRecoversPartialPatchAndManagerRestart(t *testing.T
 			if original.Status().Update(context.Background(), f.account) != nil {
 				t.Fatal("status loss simulation failed")
 			}
-			f.reconciler = &HankoServiceAccountReconciler{Client: original, APIReader: original, OwnershipReader: original, RuntimeClient: original, WorkloadTrust: f.r, Scheme: original.Scheme()}
+			f.reconciler = &HankoServiceAccountReconciler{Client: observed, APIReader: original, OwnershipReader: original, RuntimeClient: original, WorkloadTrust: f.r, Scheme: original.Scheme()}
 			f.runAuthentication(5)
 			if f.account.Status.Phase != "Ready" || f.switches != 1 || f.rotations != 0 || canonicalServiceAccountSecret(f.canonical()) != "" || string(f.canonical().Data["unrelated"]) != "preserved" {
 				t.Fatal("partial cleanup/restart recovery changed unrelated data or repeated switch")
+			}
+			if acceptedSecretPatches != 1 {
+				t.Fatalf("cleanup recovery repeated an accepted Secret patch: %d", acceptedSecretPatches)
 			}
 		})
 	}

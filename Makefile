@@ -14,7 +14,7 @@ KUBERNETES_VERSION ?= 1.37.0
 KEYCLOAK_VERSION ?= 26.8.0
 RELEASE_VERSION := 0.1.0-dev.0
 
-.PHONY: all check fmt-check generate manifests generated-check build vet test chart-test integration-test keycloak-integration-test lint arch vuln install-tools release-dry-run system-test workload-identity-probe
+.PHONY: all check fmt-check generate manifests generated-check build vet test chart-test integration-test keycloak-integration-test lint arch vuln install-tools release-dry-run system-test workload-identity-probe workload-installed-test
 all: check build
 check: fmt-check vet test chart-test
 
@@ -89,3 +89,11 @@ workload-identity-probe:
 	python3 scripts/workload-identity-probe.py --keycloak-version $(KEYCLOAK_VERSION) \
 		--kubernetes-version $(KUBERNETES_VERSION) --output "$(WORKLOAD_OUTPUT)" \
 		--kind "$(KIND)" --kubectl "$(KUBECTL)" --openssl "$(OPENSSL)"
+
+# Additive installed qualification; deep migration runs on 1.37.0 for both KC versions.
+workload-installed-test:
+	python3 scripts/workload-installed-test.py --keycloak-version $(KEYCLOAK_VERSION) \
+		--kubernetes-version $(KUBERNETES_VERSION) $(if $(filter 1.37.0,$(KUBERNETES_VERSION)),--deep-migration) \
+		--archive "$(OCI_ARCHIVE)" --evidence "$(OCI_EVIDENCE)" --digest "$(DIGEST)" --revision "$(REVISION)" \
+		--kind "$(KIND)" --kubectl "$(KUBECTL)" --openssl "$(OPENSSL)" --helm "$$(command -v helm)" \
+		--oras "$(ORAS)" --output "$(WORKLOAD_OUTPUT)"

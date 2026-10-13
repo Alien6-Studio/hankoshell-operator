@@ -1181,7 +1181,8 @@ and adds a required real kubelet/Keycloak matrix for 1.35.0/1.36.2/1.37.0 and
 rotation/expiry, native permissions, method exclusivity and negative inputs.
 The native fixture uses production reconcilers with ephemeral Hanko storage and
 real workload API UID reads; installed regression separately proves activation.
-Complete installed workload-to-resource authorization remains separate work.
+The installed workload qualification below proves workload-to-resource
+authorization separately and retains both earlier layers.
 Existing application runtime anchors remain credential delivery, not federation.
 
 Native Keycloak accepts same-name recreated SAs and reusable assertions, without
@@ -1191,6 +1192,60 @@ Use the contract's two-client migration when authentication proof must precede
 secret deactivation. The operator will configure trust/metadata without storing
 workload JWTs or injecting PodSpec projections. #21 production trust and the
 first-publication release gate remain unchanged.
+
+## Installed workload identity qualification
+
+Workload Identity is qualified on Kubernetes **1.35.0 / 1.36.2 / 1.37.0** with
+Keycloak **26.7.5 / 26.8.0**. The required `installed-workload` matrix installs
+Helm with the exact scanned OCI index/digest from its CI revision; it does not
+rebuild a manager or substitute a different artifact. All six cells run real
+restricted Pods with dedicated SAs, automount disabled and read-only projected
+600-second assertions for the exact Keycloak realm audience. A Pod exchanges its
+assertion for a live access token, then submits that same token to native UMA for
+declared resource ALLOW and undeclared resource DENY. Authentication failures and
+network errors never count as authorization denials.
+
+The six cells also prove retained-secret refusal, negative assertion inputs,
+actual kubelet rotation and expiry, same-name SA recreation, native name-based
+acceptance while reconciliation is stopped, asynchronous owned-client containment,
+no automatic reactivation, exact named RBAC and credential/JWT leakage inspection.
+Two-client migration retains the old working Secret client until explicit consumer
+cutover and retirement. The native 6×57 capability matrix and general installed
+19-check regression remain mandatory.
+
+The two deep cases use **Kubernetes 1.37.0 with each Keycloak version**. They
+exercise typed CoordinatedCutover and canonical approval/review/cleanup, same UUID
+and credential across Secret → Kubernetes → Secret → Kubernetes, five journal
+restart boundaries and external provider/API fault proxies. Accepted CREATE/PUT,
+Secret/ConfigMap patches, status and finalizer responses are genuinely dropped;
+externally removed status is separately identified. Output consent/UID/immutable/
+version conflicts, provider outage, trust drift, effective flow refusal and foreign
+preservation are exercised without production test hooks. These deeper scenarios
+are qualified on two cells, not all six.
+
+Reproduce a single cell using a fresh OCI archive and evidence from its CI run:
+
+```sh
+make workload-installed-test \
+  KEYCLOAK_VERSION=26.8.0 KUBERNETES_VERSION=1.37.0 \
+  OCI_ARCHIVE="$archive_path" OCI_EVIDENCE="$evidence_directory" \
+  DIGEST="$scanned_digest" REVISION="$source_revision"
+```
+
+Kubernetes 1.37.0 enables the deep scenarios. Required source, API/native matrices,
+OCI security on AMD64/ARM64, CodeQL Go/Python/Actions, general installed regression
+and nonpublishing release rehearsal all remain gates. Uploaded evidence is a
+public allowlist of versions, revision/digest, case decisions, UID hashes, times
+and counts; detailed diagnostics remain local/nonpublishable. No credentials,
+assertions, raw native/Secret bodies, kubeconfig or private keys are uploaded.
+
+Native UID matching is still name based and assertions are replayable. Access
+tokens can outlive assertion acceptance; disabling a client does not instantly
+revoke them. Polling and outages extend asynchronous containment. Same-client
+cutover has no zero-downtime guarantee. This adds no TokenReview authenticator,
+remote binding, SPIFFE, delegation/token exchange or Pod injection, and does not
+qualify production CNI/database/cloud recovery. Development version/status and #21
+initial-publication trust requirements remain unchanged.
 
 ## Workload binding configuration
 
@@ -1270,5 +1325,5 @@ or replaced outputs, unexpected native fields and unfinished rotations stop the
 transaction. Resolve ambiguous attempted rotations explicitly; replay is refused.
 Issued access tokens retain their own lifetime after containment or authenticator
 changes. The existing native UID/replay limitations and residual revocation interval
-still apply. Installed-system and migration qualification remains open for complete
-Pod-to-resource authorization and restart recovery; no release/publication is added.
+still apply. Installed-system qualification proves Pod-to-resource authorization
+and deep restart/recovery on the documented matrix; no release/publication is added.

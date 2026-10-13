@@ -69,13 +69,16 @@ client-flow reads with `view-realm`. Dedicated `view-identity-providers` can
 observe trusts but cannot create/update/delete them. The dedicated client connection profile is `manage-clients` + `view-realm`; it needs no new `manage-realm`
 grant. An external administrator prepares missing client-flow prerequisites.
 
-The trust profiles serve the independent trust controller; federated
-client activation remains separate work. The passive binding controller uses an
+The trust profiles serve the independent trust controller. Binding validation
+and metadata delivery use an
 explicit `authentication.kubernetes.sourceRef` client connection with target-realm
-`manage-clients` + `view-realm`. It reads metadata/flow only, except that confirmed
+`manage-clients` + `view-realm`. This boundary reads metadata/flow only, except that confirmed
 workload UID loss may disable a strictly owned federated client through a partial
 `enabled=false` update. It never creates/deletes clients, reads/rotates secrets,
-changes authentication methods or repairs flows. Full Scope Allowed remains off.
+changes authentication methods or repairs flows. The separately validated
+[authentication boundary](#hankoserviceaccount-federated-authentication) uses the
+same constrained client connection for activation and explicitly approved fallback.
+Full Scope Allowed remains off.
 The credential still has native realm-wide client administration, including secret
 access; this narrow application path does not attenuate that credential. These
 client powers also join the practical union of credentials in the manager process. Disposable real accounts qualify each
@@ -718,7 +721,12 @@ from the trust writer (`manage-identity-providers` plus `view-realm`) and the
 read-only dependent inventory identity. No `manage-realm`, `manage-users`,
 `realm-admin`, impersonation, master authority or unrelated-realm authority is
 required. Real HTTPS qualification checks those excluded boundaries on 26.7.5 and
-26.8.0. Reading a prerequisite does not authorize repairing the realm flow.
+26.8.0. The separate installed matrix exercises these identities on all six
+supported Kubernetes/Keycloak combinations; deep migration/recovery runs on
+Kubernetes 1.37.0 with each Keycloak version. Runtime workloads obtain tokens
+without a client secret, and independent native UMA resource decisions prove
+both declared ALLOW and undeclared DENY. Reading a prerequisite does not authorize
+repairing the realm flow.
 
 `manage-clients` is native target-realm-wide client and credential authority. Owner
 UIDs, reserved clients, exact transitions and transport checks restrict controller
