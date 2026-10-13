@@ -16,7 +16,7 @@ RELEASE_VERSION := $(shell python3 scripts/versions.py get release version)
 
 .DEFAULT_GOAL := all
 
-.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test chart-test integration-test keycloak-integration-test lint arch vuln install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test
+.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test chart-test integration-test keycloak-integration-test security-mutations lint arch vuln install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test
 versions-sync:
 	python3 scripts/versions.py sync
 
@@ -43,6 +43,8 @@ vet:
 	go vet ./...
 test:
 	go test -race -count=1 ./...
+security-mutations:
+	python3 scripts/security-mutations.py $(if $(MUTATION_OUTPUT),--output "$(MUTATION_OUTPUT)")
 chart-test:
 	helm lint $(CHART) --kube-version $(KUBERNETES_VERSION) --set-string image.tag=lint
 	bash $(CHART)/tests/image-verification.sh

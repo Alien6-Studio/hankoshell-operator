@@ -21,8 +21,8 @@ class ReleaseContractTests(unittest.TestCase):
     def test_ci_preflight_blocks_every_expensive_job_and_remains_required(self):
         ci = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
         self.assertEqual(set(ci), {"preflight", "source", "kubernetes", "keycloak", "workload", "oci",
-                                   "rehearsal", "system", "installed-workload", "checks"})
-        for job in ("source", "kubernetes", "keycloak", "workload", "oci"):
+                                   "rehearsal", "system", "installed-workload", "security-mutations", "checks"})
+        for job in ("source", "kubernetes", "keycloak", "workload", "security-mutations", "oci"):
             with self.subTest(job=job):
                 self.assertEqual(ci[job].get("needs"), ["preflight"])
                 self.assertNotIn("if", ci[job])  # Keep implicit success(), including for reusable OCI.
@@ -40,6 +40,18 @@ class ReleaseContractTests(unittest.TestCase):
         makefile = (contract.ROOT / "Makefile").read_text()
         self.assertRegex(makefile, r"(?m)^preflight: fmt-check vet generated-check\n\tpython3 -m unittest discover -s scripts -p 'test_\*\.py'$")
         self.assertIn("make test chart-test arch lint vuln", [step.get("run") for step in ci["source"]["steps"]])
+
+    def test_security_mutation_job_runs_the_complete_catalog_and_preserves_results(self):
+        jobs = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
+        job = jobs["security-mutations"]
+        self.assertLessEqual(job["timeout-minutes"], 10)
+        self.assertIn("security-mutations", jobs["checks"]["needs"])
+        self.assertEqual([step["run"] for step in job["steps"] if "run" in step],
+                         ['make security-mutations MUTATION_OUTPUT="$RUNNER_TEMP/security-mutations.json"'])
+        artifact = next(step for step in job["steps"] if "upload-artifact@" in step.get("uses", ""))
+        self.assertEqual(artifact["if"], "always()")
+        self.assertEqual(artifact["with"]["path"], "${{ runner.temp }}/security-mutations.json")
+        self.assertEqual(artifact["with"]["if-no-files-found"], "error")
 
     def test_ci_preflight_preserves_release_call_interface(self):
         ci = yaml.load((contract.ROOT / ".github/workflows/ci.yml").read_text(), Loader=yaml.BaseLoader)

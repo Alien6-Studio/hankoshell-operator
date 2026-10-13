@@ -180,6 +180,32 @@ jobs:
           path: ${{ runner.temp }}/workload-identity.diagnostics
           if-no-files-found: warn
           retention-days: 7
+  security-mutations:
+    name: Security mutation checks
+    needs: [preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Require every removed protection to fail its targeted test
+        run: make security-mutations MUTATION_OUTPUT="$RUNNER_TEMP/security-mutations.json"
+      - name: Preserve assertion outcomes without test payloads
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: security-mutations-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/security-mutations.json
+          if-no-files-found: error
+          retention-days: 14
   oci:
     needs: [preflight]
     permissions:
@@ -353,7 +379,7 @@ jobs:
           retention-days: 7
   checks:
     name: Source and chart checks
-    needs: [preflight, source, kubernetes, keycloak, workload, oci, rehearsal, system, installed-workload]
+    needs: [preflight, source, kubernetes, keycloak, workload, security-mutations, oci, rehearsal, system, installed-workload]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -364,8 +390,9 @@ jobs:
           KUBERNETES_RESULT: ${{ needs.kubernetes.result }}
           KEYCLOAK_RESULT: ${{ needs.keycloak.result }}
           WORKLOAD_RESULT: ${{ needs.workload.result }}
+          MUTATIONS_RESULT: ${{ needs.security-mutations.result }}
           OCI_RESULT: ${{ needs.oci.result }}
           REHEARSAL_RESULT: ${{ needs.rehearsal.result }}
           SYSTEM_RESULT: ${{ needs.system.result }}
           INSTALLED_WORKLOAD_RESULT: ${{ needs.installed-workload.result }}
-        run: test "$PREFLIGHT_RESULT" = success && test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success
+        run: test "$PREFLIGHT_RESULT" = success && test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$MUTATIONS_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success

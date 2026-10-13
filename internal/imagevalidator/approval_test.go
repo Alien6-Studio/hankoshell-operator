@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	_ "crypto/sha512" // Register a valid OCI digest algorithm that policy must still deny.
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
@@ -88,6 +89,35 @@ func TestWorkloadApprovalRequiresDigestPurposeAndPublisher(t *testing.T) {
 	verifier.err = errors.New("registry unavailable: password=do-not-disclose")
 	if err := v.VerifyImage(context.Background(), ThemeBuilder, approvedImage); err != ErrVerificationDenied || strings.Contains(err.Error(), "do-not-disclose") {
 		t.Fatalf("verification did not fail closed/redact: %v", err)
+	}
+}
+
+func TestApprovalCannotAuthorizeMutableOrUnsupportedDigest(t *testing.T) {
+	path, approval := policyFixture(t)
+	for _, image := range []string{
+		"registry.example/hanko/theme-builder",
+		"registry.example/hanko/theme-builder:latest",
+		"registry.example/hanko/theme-builder:v1@sha256:" + strings.Repeat("a", 64),
+		"registry.example/hanko/theme-builder@sha256:" + strings.Repeat("a", 63),
+		"registry.example/hanko/theme-builder@sha512:" + strings.Repeat("a", 128),
+	} {
+		t.Run(image, func(t *testing.T) {
+			// Even an exact policy entry cannot relax structural image identity.
+			approval.Image = image
+			writeApprovalPolicy(t, path, approval)
+			verifier := &recordingVerifier{}
+			if NewWithPolicy(path, verifier).VerifyImage(context.Background(), ThemeBuilder, image) == nil {
+				t.Fatal("policy authorized a mutable or unsupported digest")
+			}
+			if verifier.calls != 0 {
+				t.Fatal("invalid image identity reached the signature verifier")
+			}
+		})
+	}
+	approval.Image = approvedImage
+	writeApprovalPolicy(t, path, approval)
+	if err := NewWithPolicy(path, &recordingVerifier{}).VerifyImage(context.Background(), ThemeBuilder, approvedImage); err != nil {
+		t.Fatalf("approved SHA-256 image was rejected: %v", err)
 	}
 }
 
