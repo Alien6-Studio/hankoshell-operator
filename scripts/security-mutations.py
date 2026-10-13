@@ -119,12 +119,14 @@ def run_command(command, root, seconds):
         raise GateError("total mutation budget exhausted")
     # A file avoids retaining arbitrary compiler/test output in memory. Kill the
     # process group on expiry/overflow, including test servers started by Go.
-    with tempfile.TemporaryFile() as output:
-        process = subprocess.Popen(command, cwd=root, stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
+    # Go emits module downloads and tool diagnostics on stderr, outside the
+    # stdout JSON protocol. Bound both streams but parse only test events.
+    with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as diagnostics:
+        process = subprocess.Popen(command, cwd=root, stdout=output, stderr=diagnostics, start_new_session=True)
         deadline = time.monotonic() + seconds
         try:
             while True:
-                if os.fstat(output.fileno()).st_size > OUTPUT_LIMIT:
+                if os.fstat(output.fileno()).st_size + os.fstat(diagnostics.fileno()).st_size > OUTPUT_LIMIT:
                     raise GateError("test command exceeded output budget")
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
@@ -136,7 +138,7 @@ def run_command(command, root, seconds):
                     pass
             output.seek(0)
             data = output.read(OUTPUT_LIMIT + 1)
-            if len(data) > OUTPUT_LIMIT:
+            if len(data) + os.fstat(diagnostics.fileno()).st_size > OUTPUT_LIMIT:
                 raise GateError("test command exceeded output budget")
             return process.returncode, data.decode("utf-8", errors="replace")
         finally:

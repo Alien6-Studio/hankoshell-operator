@@ -117,6 +117,22 @@ class MutationRunnerTests(unittest.TestCase):
             with patch.object(gate, "OUTPUT_LIMIT", 100), self.assertRaisesRegex(gate.GateError, "output budget"):
                 gate.run_command([sys.executable, "-c", "print('x' * 200)"], root, 5)
 
+    def test_stderr_downloads_do_not_corrupt_events_and_share_the_output_budget(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for result, returncode in (("pass", 0), ("fail", 1)):
+                script = "import sys; sys.stderr.write('go: downloading example.com/module v1.0.0\\n'); "
+                script += "sys.stdout.write(" + repr(events(result)) + "); sys.exit(" + str(returncode) + ")"
+                code, output = gate.run_command([sys.executable, "-c", script], root, 5)
+                self.assertEqual(gate.outcome(code, output, item()), result)
+            for script in ("import sys; sys.stderr.write('x' * 101)",
+                           "import sys; sys.stdout.write('x' * 60); sys.stderr.write('x' * 60)"):
+                with patch.object(gate, "OUTPUT_LIMIT", 100), self.assertRaisesRegex(gate.GateError, "output budget"):
+                    gate.run_command([sys.executable, "-c", script], root, 5)
+            code, output = gate.run_command([sys.executable, "-c", "import sys; sys.stderr.write('build failed'); sys.exit(1)"], root, 5)
+            with self.assertRaises(gate.GateError):
+                gate.outcome(code, output, item())
+
     def test_mutant_timeout_restores_source_before_the_next_mutation(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory)
