@@ -238,7 +238,10 @@ func kcForObject(pool *keycloak.Pool, namespace string, labels map[string]string
 	if pool == nil {
 		return nil
 	}
-	tenantName := labels["hanko.sh/tenant"]
+	tenantName, labelled := labels["hanko.sh/tenant"]
+	if !labelled {
+		return pool.Get("")
+	}
 	return pool.Get(namespace + "/" + tenantName)
 }
 

@@ -58,6 +58,11 @@ func (r *HankoRealmReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 
+	kc := kcForObject(r.Pool, realm.Namespace, realm.Labels)
+	if handled, result, err := reconcileTenantClient(ctx, r.Client, &realm, kc); handled {
+		return result, err
+	}
+
 	observe := isImported(realm.Labels)
 	if !observe {
 		if err := validateRealmAuthorityRoles(&realm, r.ProtectedRealm); err != nil {
@@ -74,7 +79,6 @@ func (r *HankoRealmReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			return ctrl.Result{RequeueAfter: requeueWithJitter()}, nil
 		}
 	}
-	kc := kcForObject(r.Pool, realm.Namespace, realm.Labels)
 	if !observe && !realm.DeletionTimestamp.IsZero() && strings.TrimSpace(r.ProtectedRealm) != "" && realm.Name == strings.TrimSpace(r.ProtectedRealm) {
 		return r.releaseProtectedAuthorityRealm(ctx, &realm)
 	}

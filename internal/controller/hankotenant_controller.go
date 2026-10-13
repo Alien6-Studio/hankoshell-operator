@@ -57,6 +57,8 @@ type HankoTenantReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Pool   *keycloak.Pool
+	// APIReader bypasses cached tenant and dedicated credential state before registration.
+	APIReader client.Reader
 	// ClusterIdentityReader bypasses the namespace-scoped cache for the one
 	// permitted GET of the kube-system Namespace during initial enrollment.
 	ClusterIdentityReader client.Reader
@@ -138,8 +140,16 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	log := log.FromContext(ctx)
 
 	var tenant hankoshv1alpha1.HankoTenant
-	if err := r.Get(ctx, req.NamespacedName, &tenant); err != nil {
+	if err := r.tenantReader().Get(ctx, req.NamespacedName, &tenant); err != nil {
+		if apierrors.IsNotFound(err) {
+			r.Pool.Remove(req.Namespace + "/" + req.Name)
+		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+	if !tenant.DeletionTimestamp.IsZero() {
+		r.Pool.Remove(tenant.Namespace + "/" + tenant.Name)
+		r.clearDegraded(&tenant)
+		return ctrl.Result{}, nil
 	}
 
 	patch := client.MergeFrom(tenant.DeepCopy())
@@ -148,8 +158,15 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if r.HubTransportPolicy != nil {
 		if err := r.HubTransportPolicy.Validate(tenant.Spec.HubEndpoint, tenant.Spec.HubTransport,
 			tenant.Spec.HubEnrollmentEndpoint, tenant.Spec.HubEnrollSecretRef != nil); err != nil {
+			r.Pool.Remove(tenant.Namespace + "/" + tenant.Name)
 			return r.setError(ctx, nil, &tenant, patch, "EnterpriseTransportRequired", err)
 		}
+	}
+
+	// Register provider routing before enrollment, credential rotation or any Hub
+	// request. Hub availability must never decide which Keycloak owns a tenant.
+	if reason, err := r.registerTenantKeycloak(ctx, &tenant); err != nil {
+		return r.setError(ctx, nil, &tenant, patch, reason, err)
 	}
 
 	// ── Read Hub credential (self-enroll only when the Secret is absent) ───────
@@ -232,11 +249,6 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if !hubClient.VerifyBundle(sb) {
 		return r.setError(ctx, hubClient, &tenant, patch, "BundleSignatureInvalid",
 			fmt.Errorf("HMAC-SHA256 signature mismatch for bundle version %q", sb.Bundle.Version))
-	}
-
-	// ── Dedicated Keycloak client (keycloak / cluster isolation) ──────────────
-	if reason, err := r.registerTenantKeycloak(ctx, &tenant); err != nil {
-		return r.setError(ctx, hubClient, &tenant, patch, reason, err)
 	}
 
 	// ── Apply bundle resources ────────────────────────────────────────────────
@@ -797,23 +809,46 @@ func newRotationID() (string, error) {
 	return "rot_" + hex.EncodeToString(raw), nil
 }
 
-func (r *HankoTenantReconciler) registerTenantKeycloak(ctx context.Context, tenant *hankoshv1alpha1.HankoTenant) (string, error) {
-	if tenant.Spec.IsolationMode != "keycloak" && tenant.Spec.IsolationMode != "cluster" {
-		return "", nil
+func (r *HankoTenantReconciler) tenantReader() client.Reader {
+	if r.APIReader != nil {
+		return r.APIReader
 	}
-	if tenant.Spec.KeycloakSecretRef == nil {
+	return r.Client
+}
+
+func (r *HankoTenantReconciler) registerTenantKeycloak(ctx context.Context, tenant *hankoshv1alpha1.HankoTenant) (reason string, err error) {
+	tenantKey := tenant.Namespace + "/" + tenant.Name
+	// Invalid current credentials must not retain a previously valid connection.
+	defer func() {
+		if err != nil {
+			r.Pool.Remove(tenantKey)
+		}
+	}()
+	switch tenant.Spec.IsolationMode {
+	case "", "realm":
+		r.Pool.RegisterShared(tenantKey)
+		return "", nil
+	case "keycloak", "cluster":
+	default:
+		return "KeycloakIsolationInvalid", fmt.Errorf("unsupported Keycloak isolation mode")
+	}
+	if r.Pool == nil {
+		return "TenantClientUnavailable", fmt.Errorf("keycloak client registry is unavailable")
+	}
+	if tenant.Spec.KeycloakSecretRef == nil || tenant.Spec.KeycloakSecretRef.Name == "" {
 		return "KeycloakSecretRefMissing", fmt.Errorf("isolationMode %q requires keycloakSecretRef", tenant.Spec.IsolationMode)
 	}
-	secretName := tenant.Spec.KeycloakSecretRef.Name
+	var secret corev1.Secret
+	if err := r.tenantReader().Get(ctx, types.NamespacedName{Namespace: tenant.Namespace, Name: tenant.Spec.KeycloakSecretRef.Name}, &secret); err != nil {
+		return "KeycloakSecretReadFailed", fmt.Errorf("cannot read dedicated Keycloak credential Secret")
+	}
 	values := make([]string, 3)
 	for index, key := range []string{"HANKO_KEYCLOAK_URL", "HANKO_KC_CLIENT_ID", "HANKO_KC_CLIENT_SECRET"} {
-		value, err := r.readSecret(ctx, tenant.Namespace, secretName, key)
-		if err != nil {
-			return "KeycloakSecretReadFailed", err
+		if len(secret.Data[key]) == 0 {
+			return "KeycloakSecretReadFailed", fmt.Errorf("dedicated Keycloak credential Secret requires nonempty %s", key)
 		}
-		values[index] = value
+		values[index] = string(secret.Data[key])
 	}
-	tenantKey := tenant.Namespace + "/" + tenant.Name
 	kc, err := keycloak.NewForOperator(values[0], values[1], values[2], nil)
 	if err != nil {
 		return "KeycloakTransportInvalid", err
@@ -996,6 +1031,9 @@ func mergeLabels(dst *map[string]string, src map[string]string) {
 
 // SetupWithManager registers the reconciler with the controller manager.
 func (r *HankoTenantReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.APIReader == nil {
+		r.APIReader = mgr.GetAPIReader()
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoTenant{}).
 		Complete(r)

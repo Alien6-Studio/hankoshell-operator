@@ -151,6 +151,23 @@ Independent bundle publisher verification would require a coordinated Hub
 protocol with a separately trusted signing key and explicit tenant, freshness
 and key-rotation bindings. The current bundle wire contract remains HMAC.
 
+Tenant Keycloak routing is registered before Hub enrollment, credential rotation
+or bundle requests. An unavailable Hub therefore does not prevent reconstruction
+of a dedicated connection after an operator restart. Dedicated credentials are
+read as one current Secret; invalid credentials or a deleted tenant remove its
+registration. Resources carrying `hanko.sh/tenant` never implicitly use the
+installation's default client. Until their tenant is registered, the pooled IAM
+controllers report `TenantClientUnavailable`, defer provider reads/writes and
+retain cleanup finalizers. Realm isolation explicitly registers the shared client;
+unlabelled resources continue to use the installation default. Secretless workload
+authentication and imports retain their separate explicit instance references.
+
+This routing boundary is tested with Kubernetes API servers and real HTTPS
+Keycloak. It does not establish a last-verified signed plan, disconnected validity
+window, replay protection or rollback authority; that qualification remains open
+in [issue #79](https://github.com/Alien6-Studio/hankoshell-operator/issues/79) and
+its prerequisite plan-protocol issues.
+
 Ed25519 mesh-policy envelopes are a different protocol. The operator carries
 the exact bounded response bytes and requires the `audit-only` mode binding;
 Continuum is responsible for signature and trust-context verification. This

@@ -51,6 +51,9 @@ func (r *HankoResourceServerReconciler) Reconcile(ctx context.Context, req ctrl.
 	if err := r.Get(ctx, req.NamespacedName, &resourceServer); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	if handled, result, err := reconcileTenantClient(ctx, r.Client, &resourceServer, kcForObject(r.Pool, resourceServer.Namespace, resourceServer.Labels)); handled {
+		return result, err
+	}
 	// Adoption and deletion must not bypass unsupported desired semantics.
 	// This gate performs only local validation and Kubernetes reference reads.
 	if resourceServerHasDelegation(&resourceServer) {

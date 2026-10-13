@@ -210,7 +210,12 @@ type App struct {
 }
 
 // BaseURL returns the configured Keycloak base URL (used to derive OIDC endpoints).
-func (c *Client) BaseURL() string { return c.baseURL }
+func (c *Client) BaseURL() string {
+	if c == nil {
+		return ""
+	}
+	return c.baseURL
+}
 
 // CloseIdleConnections releases connections owned by a short-lived snapshot.
 func (c *Client) CloseIdleConnections() { c.httpClient.CloseIdleConnections() }
@@ -1889,6 +1894,9 @@ func (c *Client) get(ctx context.Context, path string, out any) error {
 // The mutex is held only for cache reads and writes, not during the HTTP call,
 // to avoid blocking all reconcile goroutines on a single token refresh.
 func (c *Client) bearerToken(ctx context.Context) (string, error) {
+	if c == nil {
+		return "", errors.New("keycloak client is unavailable")
+	}
 	if c.endpointError != nil {
 		return "", c.endpointError
 	}

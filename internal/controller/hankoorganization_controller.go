@@ -61,6 +61,9 @@ func (r *HankoOrganizationReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	kc := kcForObject(r.Pool, org.Namespace, org.Labels)
+	if handled, result, err := reconcileTenantClient(ctx, r.Client, &org, kc); handled {
+		return result, err
+	}
 	if handled, result, err := r.reconcileOrganizationAcquisition(ctx, &org, kc); handled {
 		return result, err
 	}

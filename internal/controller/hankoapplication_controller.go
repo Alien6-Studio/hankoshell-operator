@@ -106,6 +106,9 @@ func (r *HankoApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	kc := kcForObject(r.Pool, app.Namespace, app.Labels)
+	if handled, result, err := reconcileTenantClient(ctx, r.Client, &app, kc); handled {
+		return result, err
+	}
 	mode := effectiveMode(&app)
 	if mode == ModeObserve && app.Annotations[applicationbinding.JournalAnnotation] != "" {
 		return r.runtimeCleanupFailure(ctx, &app, &applicationbinding.Failure{Reason: "CleanupConflict"})

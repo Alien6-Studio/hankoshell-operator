@@ -42,6 +42,9 @@ func (r *HankoRoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err := r.Get(ctx, req.NamespacedName, &role); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	if handled, result, err := reconcileTenantClient(ctx, r.Client, &role, kcForObject(r.Pool, role.Namespace, role.Labels)); handled {
+		return result, err
+	}
 	if err := validateStandaloneAuthorityRole(&role, r.ProtectedRealm); err != nil {
 		if !role.DeletionTimestamp.IsZero() {
 			return r.releaseInvalidRole(ctx, &role, err.Error())

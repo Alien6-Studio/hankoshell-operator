@@ -88,6 +88,9 @@ func (r *HankoServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	kc := kcForObject(r.Pool, sa.Namespace, sa.Labels)
+	if handled, result, err := reconcileTenantClient(ctx, r.Client, &sa, kc); handled {
+		return result, err
+	}
 	observe := effectiveServiceAccountMode(&sa) == ModeObserve
 	if !observe {
 		ownershipConflict, err := r.serviceAccountOwnershipConflict(ctx, &sa, kc)
