@@ -96,6 +96,70 @@ spec:
                   description: AuthorizationPermission grants scopes over optional
                     resources to principals.
                   properties:
+                    delegation:
+                      description: |-
+                        Delegation constrains this grant to an explicit actor and subject identity.
+                        Current Keycloak profiles refuse this capability before provider writes.
+                        Omitting it preserves ordinary authorization semantics.
+                      properties:
+                        actor:
+                          description: Actor is the software identity acting on behalf
+                            of Subject.
+                          properties:
+                            kind:
+                              enum:
+                              - application
+                              - service_account
+                              type: string
+                            ref:
+                              maxLength: 253
+                              pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
+                              type: string
+                          required:
+                          - kind
+                          - ref
+                          type: object
+                        maxDepth:
+                          default: 1
+                          description: MaxDepth bounds the complete delegation chain,
+                            including this actor.
+                          format: int32
+                          maximum: 4
+                          minimum: 1
+                          type: integer
+                        maxTTLSeconds:
+                          default: 120
+                          description: MaxTTLSeconds also remains bounded by both
+                            input token expirations.
+                          format: int32
+                          maximum: 600
+                          minimum: 1
+                          type: integer
+                        subject:
+                          description: Subject is the software identity whose authority
+                            is delegated.
+                          properties:
+                            kind:
+                              enum:
+                              - application
+                              - service_account
+                              type: string
+                            ref:
+                              maxLength: 253
+                              pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
+                              type: string
+                          required:
+                          - kind
+                          - ref
+                          type: object
+                      required:
+                      - actor
+                      - subject
+                      type: object
+                      x-kubernetes-validations:
+                      - message: delegation actor and subject must be different identities
+                        rule: self.actor.kind != self.subject.kind || self.actor.ref
+                          != self.subject.ref
                     name:
                       maxLength: 255
                       pattern: ^[A-Za-z0-9][A-Za-z0-9:._/-]*$
@@ -158,6 +222,10 @@ spec:
                   - principals
                   - scopes
                   type: object
+                  x-kubernetes-validations:
+                  - message: delegation requires explicit declared resources
+                    rule: '!has(self.delegation) || (has(self.resources) && size(self.resources)
+                      > 0)'
                 maxItems: 128
                 type: array
                 x-kubernetes-list-map-keys:
@@ -671,6 +739,11 @@ spec:
                   contract used during reconciliation.
                 properties:
                   applicationPrincipals:
+                    type: boolean
+                  boundedDelegation:
+                    description: |-
+                      BoundedDelegation includes provider enforcement of actor/subject authority,
+                      audience, chain depth, lifetime and replay constraints, not just RFC 8693.
                     type: boolean
                   nativePermissionClaim:
                     type: boolean

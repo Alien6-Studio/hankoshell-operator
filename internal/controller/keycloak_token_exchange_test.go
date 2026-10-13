@@ -24,6 +24,7 @@ const (
 func TestRealKeycloakStandardTokenExchange(t *testing.T) {
 	f := newKeycloakFixture(t)
 	e := newExchangeExperiment(f)
+	qualifyDelegationRefusal(e)
 	f.run("configuration uses scoped client administration", func(t *testing.T) {
 		e.characterizePermissions()
 	})

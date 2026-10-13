@@ -105,6 +105,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 	}
 
 	t.Run("organization principal admission and capabilities", func(t *testing.T) { checkOrganizationPrincipalAdmission(t, ctx, admin) })
+	t.Run("delegation admission and capability refusal schema", func(t *testing.T) { checkDelegationAdmission(t, ctx, admin) })
 	t.Run("organization dependency watches", func(t *testing.T) { checkOrganizationDependencyWatch(t, ctx, admin, config) })
 	t.Run("authorization explanation schema", func(t *testing.T) { checkAuthorizationExplanationSchema(t, ctx, admin) })
 	t.Run("adoption candidate and import coverage schema", func(t *testing.T) { checkAdoptionStatusContract(t, ctx, admin) })

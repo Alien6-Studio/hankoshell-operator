@@ -109,6 +109,7 @@ type AuthorizationResource struct {
 }
 
 // AuthorizationPermission grants scopes over optional resources to principals.
+// +kubebuilder:validation:XValidation:rule="!has(self.delegation) || (has(self.resources) && size(self.resources) > 0)",message="delegation requires explicit declared resources"
 type AuthorizationPermission struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9][A-Za-z0-9:._/-]*$`
@@ -132,6 +133,45 @@ type AuthorizationPermission struct {
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=128
 	Principals []AuthorizationPrincipal `json:"principals"`
+
+	// Delegation constrains this grant to an explicit actor and subject identity.
+	// Current Keycloak profiles refuse this capability before provider writes.
+	// Omitting it preserves ordinary authorization semantics.
+	Delegation *AuthorizationDelegation `json:"delegation,omitempty"`
+}
+
+// AuthorizationDelegation declares bounded software delegation within this
+// ResourceServer's audience, resources, scopes and existing principal grants.
+// +kubebuilder:validation:XValidation:rule="self.actor.kind != self.subject.kind || self.actor.ref != self.subject.ref",message="delegation actor and subject must be different identities"
+type AuthorizationDelegation struct {
+	// Actor is the software identity acting on behalf of Subject.
+	Actor AuthorizationDelegationIdentity `json:"actor"`
+	// Subject is the software identity whose authority is delegated.
+	Subject AuthorizationDelegationIdentity `json:"subject"`
+
+	// MaxDepth bounds the complete delegation chain, including this actor.
+	// +kubebuilder:default=1
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4
+	MaxDepth *int32 `json:"maxDepth,omitempty"`
+
+	// MaxTTLSeconds also remains bounded by both input token expirations.
+	// +kubebuilder:default=120
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=600
+	MaxTTLSeconds *int32 `json:"maxTTLSeconds,omitempty"`
+}
+
+// AuthorizationDelegationIdentity is a namespace-local Hanko software identity.
+// Roles and organizations remain grant principals, not token identities. Human
+// impersonation, raw client IDs and realm/namespace overrides are not accepted.
+type AuthorizationDelegationIdentity struct {
+	// +kubebuilder:validation:Enum=application;service_account
+	Kind string `json:"kind"`
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`
+	Ref string `json:"ref"`
 }
 
 // AuthorizationPrincipal is a portable role, workload or organization principal. Ref is a
@@ -247,6 +287,10 @@ type HankoResourceServerStatus struct {
 
 // AuthorizationCapabilitySnapshot records the provider contract used during reconciliation.
 type AuthorizationCapabilitySnapshot struct {
+	// BoundedDelegation includes provider enforcement of actor/subject authority,
+	// audience, chain depth, lifetime and replay constraints, not just RFC 8693.
+	// +kubebuilder:validation:Optional
+	BoundedDelegation bool `json:"boundedDelegation"`
 	// +kubebuilder:validation:Optional
 	OrganizationPrincipals bool `json:"organizationPrincipals"`
 	// +kubebuilder:validation:Optional

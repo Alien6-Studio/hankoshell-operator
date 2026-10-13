@@ -51,6 +51,13 @@ func (r *HankoResourceServerReconciler) Reconcile(ctx context.Context, req ctrl.
 	if err := r.Get(ctx, req.NamespacedName, &resourceServer); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	// Adoption and deletion must not bypass unsupported desired semantics.
+	// This gate performs only local validation and Kubernetes reference reads.
+	if resourceServerHasDelegation(&resourceServer) {
+		if err := r.checkDelegationCapability(ctx, &resourceServer, r.driverFor(&resourceServer)); err != nil {
+			return ctrl.Result{RequeueAfter: requeueOnError}, r.statusError(ctx, &resourceServer, "PlanRejected", err)
+		}
+	}
 	var writer *keycloak.Client
 	if r.Pool != nil {
 		writer = kcForObject(r.Pool, resourceServer.Namespace, resourceServer.Labels)
@@ -109,7 +116,7 @@ func authorizationIntent(resourceServer *hankoshv1alpha1.HankoResourceServer) au
 		model.Resources = append(model.Resources, authorization.Resource{Name: v.Name, DisplayName: v.DisplayName, URIs: v.URIs, Type: v.Type, Scopes: v.Scopes})
 	}
 	for _, v := range s.Permissions {
-		p := authorization.Permission{Name: v.Name, Resources: v.Resources, Scopes: v.Scopes}
+		p := authorization.Permission{Name: v.Name, Resources: v.Resources, Scopes: v.Scopes, Delegation: portableDelegation(v.Delegation)}
 		for _, principal := range v.Principals {
 			p.Principals = append(p.Principals, authorization.Principal{Kind: principal.Kind, Ref: principal.Ref, IncludeDescendants: principal.IncludeDescendants})
 		}
@@ -118,6 +125,9 @@ func authorizationIntent(resourceServer *hankoshv1alpha1.HankoResourceServer) au
 	return authorization.Normalize(model)
 }
 func (r *HankoResourceServerReconciler) compileAuthorizationPlan(ctx context.Context, obj *hankoshv1alpha1.HankoResourceServer, driver authorization.Driver, mode string) (authorization.Plan, error) {
+	if err := r.checkDelegationCapability(ctx, obj, driver); err != nil {
+		return authorization.Plan{}, err
+	}
 	reader := &contractReferenceReader{Client: r.Client, Reader: r.authorityReader()}
 	resolver := *r
 	resolver.Client = reader
@@ -309,7 +319,16 @@ func (r *HankoResourceServerReconciler) resolveAuthorizationModel(ctx context.Co
 }
 
 func (r *HankoResourceServerReconciler) resolveAuthorizationPermission(ctx context.Context, resourceServer *hankoshv1alpha1.HankoResourceServer, realm *hankoshv1alpha1.HankoRealm, permission hankoshv1alpha1.AuthorizationPermission) (authorization.Permission, error) {
-	converted := authorization.Permission{Name: permission.Name, Resources: permission.Resources, Scopes: permission.Scopes}
+	converted := authorization.Permission{Name: permission.Name, Resources: permission.Resources, Scopes: permission.Scopes, Delegation: portableDelegation(permission.Delegation)}
+	if converted.Delegation != nil {
+		for _, identity := range []*authorization.Principal{&converted.Delegation.Actor, &converted.Delegation.Subject} {
+			resolved, err := r.resolveAuthorizationPrincipal(ctx, resourceServer, realm, hankoshv1alpha1.AuthorizationPrincipal{Kind: identity.Kind, Ref: identity.Ref})
+			if err != nil {
+				return authorization.Permission{}, err
+			}
+			*identity = resolved
+		}
+	}
 	for _, principal := range permission.Principals {
 		resolved, err := r.resolveAuthorizationPrincipal(ctx, resourceServer, realm, principal)
 		if err != nil {
@@ -456,7 +475,10 @@ func validateAuthorizationPermission(permission hankoshv1alpha1.AuthorizationPer
 	if err := validateAuthorizationReferences(permission.Name, "resource", permission.Resources, resources); err != nil {
 		return err
 	}
-	return validateAuthorizationPrincipals(permission)
+	if err := validateAuthorizationPrincipals(permission); err != nil {
+		return err
+	}
+	return validatePortableDelegation(permission)
 }
 
 func validateAuthorizationReferences(permissionName, referenceType string, references []string, known map[string]bool) error {
@@ -522,6 +544,13 @@ func (r *HankoResourceServerReconciler) statusPlanError(ctx context.Context, obj
 	if errors.As(err, &orgError) {
 		reason = orgError.Code
 		obj.Status.Findings = findingsStatus([]authorization.Finding{{Classification: iamcontract.Unsupported, ObjectKind: "organization", Code: orgError.Code, Message: orgError.Error()}})
+	}
+	var delegationError authorization.DelegationError
+	if errors.As(err, &delegationError) {
+		reason = "DelegationUnsupported"
+		obj.Status.AuthorizationExplanation = nil
+		obj.Status.Findings = findingsStatus([]authorization.Finding{{Classification: iamcontract.Unsupported, ObjectKind: "delegation", Code: reason, Message: delegationError.Error()}})
+		iamCondition(&obj.Status.Conditions, obj.Generation, "CapabilitiesSatisfied", metav1.ConditionFalse, reason, delegationError.Error())
 	}
 	safe := iamcontract.SafeError(err)
 	for _, kind := range []string{"Synced", "DriftFree"} {
@@ -623,7 +652,8 @@ func managedRefsStatus(refs []authorization.ManagedReference) []hankoshv1alpha1.
 
 func capabilityStatus(value authorization.Capabilities) hankoshv1alpha1.AuthorizationCapabilitySnapshot {
 	return hankoshv1alpha1.AuthorizationCapabilitySnapshot{
-		ScopeGrants: value.ScopeGrants, RolePrincipals: value.RolePrincipals, OrganizationPrincipals: value.OrganizationPrincipals, OrganizationDescendants: value.OrganizationDescendants,
+		BoundedDelegation: value.BoundedDelegation,
+		ScopeGrants:       value.ScopeGrants, RolePrincipals: value.RolePrincipals, OrganizationPrincipals: value.OrganizationPrincipals, OrganizationDescendants: value.OrganizationDescendants,
 		ApplicationPrincipals: value.ApplicationPrincipals, ServiceAccountPrincipals: value.ServiceAccountPrincipals,
 		ResourceObjects: value.ResourceObjects, ResourceURIMatching: value.ResourceURIMatching,
 		UMARPT: value.UMARPT, NativePermissionClaim: value.NativePermissionClaim,
@@ -649,9 +679,15 @@ func (r *HankoResourceServerReconciler) SetupWithManager(mgr ctrl.Manager) error
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &hankoshv1alpha1.HankoResourceServer{}, organizationPrincipalIndex, authorizationProvenanceIndexValues); err != nil {
 		return err
 	}
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &hankoshv1alpha1.HankoResourceServer{}, delegationReferenceIndex, delegationIndexValues); err != nil {
+		return err
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoResourceServer{}, builder.WithPredicates(resourceServerAuthorityChanged())).
 		Watches(&hankoshv1alpha1.HankoOrganization{}, handler.EnqueueRequestsFromMapFunc(r.organizationRequests)).
 		Watches(&hankoshv1alpha1.HankoRole{}, handler.EnqueueRequestsFromMapFunc(r.organizationRequests)).
+		Watches(&hankoshv1alpha1.HankoRealm{}, handler.EnqueueRequestsFromMapFunc(r.delegationRequests)).
+		Watches(&hankoshv1alpha1.HankoApplication{}, handler.EnqueueRequestsFromMapFunc(r.delegationRequests)).
+		Watches(&hankoshv1alpha1.HankoServiceAccount{}, handler.EnqueueRequestsFromMapFunc(r.delegationRequests)).
 		Complete(r)
 }

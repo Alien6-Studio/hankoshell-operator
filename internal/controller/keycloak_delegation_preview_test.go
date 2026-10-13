@@ -24,6 +24,7 @@ func TestRealKeycloakDelegationPreview(t *testing.T) {
 	}
 	f := newKeycloakFixtureWithTransportAndDiscovery(t, false, false, false, "token-exchange-delegation", "parameterized-scopes")
 	e := newExchangeExperiment(f)
+	qualifyDelegationRefusal(e)
 	username, password := fixtureProtocolUser(f)
 	human := e.client("human", false, e.actor.name)
 	f.admin(http.MethodPut, human.path(), map[string]any{

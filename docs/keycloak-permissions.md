@@ -62,9 +62,12 @@ See [runtime target RBAC and consent](architecture/application-identity.md#runti
 
 ## Delegation characterization
 
-[RFC #68](architecture/delegation-and-agent-identity.md) adds provider tests only;
-there is no production delegation API, controller or additional operator grant.
-The standard exchange fixture qualifies these operations on both pinned versions:
+[RFC #68](architecture/delegation-and-agent-identity.md) characterizes provider
+behavior. The first #69 implementation adds typed intent and a refusal before
+provider execution, with no additional operator grant. Manage, Observe and import
+refusals leave native client state and Admin Event counts unchanged on both pinned
+versions, including the isolated 26.8.0 preview profile. The standard exchange
+fixture qualifies these operations for characterization only:
 
 | Operation | Endpoint in `/admin/realms/{realm}` | Qualified authority |
 | --- | --- | --- |

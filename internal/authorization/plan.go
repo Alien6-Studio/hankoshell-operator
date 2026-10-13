@@ -16,6 +16,9 @@ type ResolvedReferences struct{ model Model }
 func Normalize(model Model) Intent {
 	model = canonicalModel(model)
 	for i := range model.Permissions {
+		if d := model.Permissions[i].Delegation; d != nil {
+			portableDelegationReferences(d)
+		}
 		for j := range model.Permissions[i].Principals {
 			model.Permissions[i].Principals[j].Organization = nil
 			model.Permissions[i].Principals[j].PortableRef = ""
@@ -37,26 +40,40 @@ func Resolve(intent Intent, model Model) (ResolvedReferences, error) {
 	return ResolvedReferences{model: canonicalModel(model)}, nil
 }
 func sameGraph(a, b Model) bool {
-	a = canonicalModel(a)
-	b = canonicalModel(b)
-	for _, m := range []*Model{&a, &b} {
-		m.Realm = ""
-		m.ApplicationRef = ""
-		for i := range m.Permissions {
-			for j := range m.Permissions[i].Principals {
-				p := &m.Permissions[i].Principals[j]
-				if p.Kind != "organization" {
-					p.Ref = ""
-				}
-				p.Organization = nil
-				p.PortableRef = ""
-			}
-			slices.SortFunc(m.Permissions[i].Principals, comparePrincipal)
-		}
-	}
-	x, _ := json.Marshal(a)
-	y, _ := json.Marshal(b)
+	x, _ := json.Marshal(relationshipModel(a))
+	y, _ := json.Marshal(relationshipModel(b))
 	return string(x) == string(y)
+}
+
+func relationshipModel(model Model) Model {
+	m := canonicalModel(model)
+	m.Realm = ""
+	m.ApplicationRef = ""
+	for i := range m.Permissions {
+		if d := m.Permissions[i].Delegation; d != nil {
+			// Keep portable identity relationships when substituting native IDs.
+			portableDelegationReferences(d)
+		}
+		for j := range m.Permissions[i].Principals {
+			p := &m.Permissions[i].Principals[j]
+			if p.Kind != "organization" {
+				p.Ref = ""
+			}
+			p.Organization = nil
+			p.PortableRef = ""
+		}
+		slices.SortFunc(m.Permissions[i].Principals, comparePrincipal)
+	}
+	return m
+}
+
+func portableDelegationReferences(d *Delegation) {
+	for _, identity := range []*Principal{&d.Actor, &d.Subject} {
+		if identity.PortableRef != "" {
+			identity.Ref = identity.PortableRef
+		}
+		identity.PortableRef = ""
+	}
 }
 
 // CapabilityEvidence distinguishes adapter semantics, tested qualification and
@@ -135,7 +152,8 @@ func requiredCapabilities(m Model) Capabilities {
 		c.ResourceURIMatching = c.ResourceURIMatching || len(r.URIs) > 0
 	}
 	for _, p := range m.Permissions {
-		for _, v := range p.Principals {
+		c.BoundedDelegation = c.BoundedDelegation || p.Delegation != nil
+		for _, v := range capabilityPrincipals(p) {
 			switch v.Kind {
 			case "realm_role":
 				c.RolePrincipals = true
@@ -173,6 +191,10 @@ func canonicalModel(m Model) Model {
 	result.Permissions = append([]Permission{}, m.Permissions...)
 	for i := range result.Permissions {
 		p := &result.Permissions[i]
+		if p.Delegation != nil {
+			delegation := *p.Delegation
+			p.Delegation = &delegation
+		}
 		p.Resources = stringSet(p.Resources)
 		p.Scopes = stringSet(p.Scopes)
 		p.Principals = append([]Principal{}, p.Principals...)
@@ -232,6 +254,9 @@ func validateModel(m Model) error {
 }
 func validatePermissions(desired []Permission, scopes, resources, permissions map[string]bool) error {
 	for _, p := range desired {
+		if err := validateDelegation(p); err != nil {
+			return err
+		}
 		if p.Name == "" || permissions[p.Name] || len(p.Principals) == 0 || len(p.Scopes) == 0 {
 			return iamcontract.ErrRejected
 		}

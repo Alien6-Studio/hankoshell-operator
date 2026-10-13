@@ -1,10 +1,11 @@
 # Delegation and agent authority
 
-This is the provider characterization and proposed authority contract for
+This is the provider characterization and authority contract for
 [RFC #68](https://github.com/Alien6-Studio/hankoshell-operator/issues/68).
-It adds real HTTPS tests, not a production API or controller. **Neither supported
-Keycloak version currently qualifies bounded delegated authority.** Successful
-OAuth token exchange alone must not enable that capability.
+The first implementation of #69 accepts typed intent and refuses unqualified
+execution. **Neither supported Keycloak version currently qualifies bounded
+delegated authority.** Successful OAuth token exchange alone must not enable that
+capability.
 
 ## Existing identity model
 
@@ -109,10 +110,10 @@ output expiry ≤ min(subject expiry, actor expiry, now + declared maximum TTL)
 chain depth ≤ declared maximum depth
 ```
 
-The proposed initial profile defaults to one hop, with an explicit maximum of
+The typed intent defaults to one hop, with an explicit maximum of
 four, a default maximum TTL of 120 seconds and an absolute maximum of 600 seconds.
-These are proposed validation bounds, not provider guarantees or implemented API
-defaults. No native realm/session/assertion lifetime is raised to satisfy them.
+These are admission/compiler validation bounds, not provider guarantees.
+No native realm/session/assertion lifetime is raised to satisfy them.
 An expired or replayed actor token must be refused for new issuance. Revocation
 must stop new grants and bound use of already issued tokens by the declared TTL;
 immediate revocation may only be advertised with separately proven online resource
@@ -139,10 +140,31 @@ proprietary claims are proposed to conceal these gaps.
 | HankoServiceAccount / HankoApplication fields | Can describe authentication prerequisites but cannot own the target server's grants | Keep identity/authentication there; do not duplicate authorization |
 | Dedicated delegation CRD | Adds independent ownership, deletion and cross-controller transactions over the same grants | Unnecessary without an independently justified lifecycle |
 
-The preferred extension would select actor and subject principals explicitly and
-attach depth/TTL bounds to an existing resource-server permission. Existing grants
-remain unchanged unless delegation is explicitly requested. It does not expose
-arbitrary client IDs, raw token templates, mapper JSON or a claim-editing escape hatch.
+`spec.permissions[].delegation` selects `actor` and `subject` with typed
+`kind: application|service_account` and namespace-local `ref` fields. Roles and
+organizations remain the permission's existing grant principals; they are not
+token identities. Human token identities are outside this software-only API.
+`maxDepth` and `maxTTLSeconds` bound the permission's explicit declared resources
+and scopes, using its ResourceServer's audience and backing Application reference.
+No arbitrary client IDs, token templates, mapper JSON or target-realm overrides
+are exposed. Omitted delegation preserves existing intent and plan hashes.
+
+The controller validates bounds, different resolved identities, namespace,
+realm, tenant, UID and deletion state before checking provider support. Current
+profiles report `capabilities.boundedDelegation: false` and a non-secret
+`DelegationUnsupported` finding wrapping `ErrCapabilityUnsupported`. No executable
+plan, finalizer or provider write is created. Adoption, Observe/import and cleanup
+entry points also refuse unsupported delegation; the native conversion cannot
+silently turn it into an ordinary permission. Existing applied evidence remains
+historical rather than being advanced. Actor/subject and backing application/realm
+changes trigger indexed dependency reconciliation.
+
+The native tests additionally compare complete client snapshots and bounded Admin
+Event counts across Manage, Observe, import and controller restart. A unit test
+asserts zero provider transport calls even if a synthetic plan advertises support.
+Admission/defaulting and legacy status compatibility run on all three Kubernetes
+versions. Runtime delegation writes and their durable transaction remain
+unimplemented until provider enforcement is qualified.
 
 Future provider objects must bind their ownership to the ResourceServer UID and
 the resolved Application/ServiceAccount UIDs. Observe performs no writes. Managed

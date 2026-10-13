@@ -31,7 +31,11 @@ func (d *KeycloakDriver) Observe(ctx context.Context, plan Plan) (State, error) 
 		return State{}, err
 	}
 	model := plan.resolved.model
-	state, err := d.client.ObserveAuthorization(ctx, modelForPlan(plan))
+	native, err := modelForPlan(plan)
+	if err != nil {
+		return State{}, err
+	}
+	state, err := d.client.ObserveAuthorization(ctx, native)
 	if err != nil {
 		return State{}, boundedAuthorizationError(err)
 	}
@@ -67,9 +71,13 @@ func (d *KeycloakDriver) Reconcile(ctx context.Context, plan Plan, owned Managed
 		return State{}, iamcontract.SafeError(err)
 	}
 	if err := ValidateCapabilities(model, capabilities); err != nil {
-		return State{}, iamcontract.SafeError(err)
+		return State{}, errors.Join(ErrCapabilityUnsupported, iamcontract.SafeError(err))
 	}
-	state, err := d.client.ReconcileAuthorization(ctx, modelForPlan(plan), toKeycloakManaged(owned))
+	native, err := modelForPlan(plan)
+	if err != nil {
+		return State{}, err
+	}
+	state, err := d.client.ReconcileAuthorization(ctx, native, toKeycloakManaged(owned))
 	if err != nil {
 		if errors.Is(err, keycloak.ErrAuthorizationReadBack) {
 			return State{ProviderResourceServerID: state.ResourceServerID, ManagedObjects: fromKeycloakManaged(state.ManagedObjects)}, errors.Join(iamcontract.ErrDrift, iamcontract.SafeError(err))
@@ -92,7 +100,10 @@ func (d *KeycloakDriver) DeleteOwned(ctx context.Context, model Model, owned Man
 	if ownerUID == "" {
 		return iamcontract.ErrRejected
 	}
-	native := toKeycloakModel(model)
+	native, err := toKeycloakModel(model)
+	if err != nil {
+		return err
+	}
 	native.OwnerUID = ownerUID
 	return boundedAuthorizationError(d.client.DeleteAuthorizationOwned(ctx, native, owned.ResourceServerID, toKeycloakManaged(owned)))
 }
@@ -107,7 +118,12 @@ func boundedAuthorizationError(err error) error {
 	return iamcontract.SafeError(err)
 }
 
-func toKeycloakModel(model Model) keycloak.AuthorizationModel {
+func toKeycloakModel(model Model) (keycloak.AuthorizationModel, error) {
+	// No supported Keycloak profile enforces this contract. Refuse rather than
+	// discarding delegation and accidentally creating an ordinary permission.
+	if HasDelegation(model) {
+		return keycloak.AuthorizationModel{}, DelegationUnsupported()
+	}
 	result := keycloak.AuthorizationModel{
 		Name: model.Name, Realm: model.Realm, Audience: model.Audience,
 		DisplayName: model.DisplayName, ApplicationRef: model.ApplicationRef,
@@ -127,15 +143,18 @@ func toKeycloakModel(model Model) keycloak.AuthorizationModel {
 		}
 		result.Permissions = append(result.Permissions, converted)
 	}
-	return result
+	return result, nil
 }
 
 // KeycloakAdoptionModel uses the same semantic conversion as reconciliation.
 // Provider ownership must be proved separately by the aggregate transaction.
-func KeycloakAdoptionModel(model Model, uid string) keycloak.AuthorizationModel {
-	result := toKeycloakModel(model)
+func KeycloakAdoptionModel(model Model, uid string) (keycloak.AuthorizationModel, error) {
+	result, err := toKeycloakModel(model)
+	if err != nil {
+		return keycloak.AuthorizationModel{}, err
+	}
 	result.OwnerUID = uid
-	return result
+	return result, nil
 }
 
 func toKeycloakManaged(owned ManagedObjects) keycloak.AuthorizationManagedObjects {
@@ -174,10 +193,13 @@ func fromKeycloakRefs(refs []keycloak.AuthorizationManagedReference) []ManagedRe
 	return result
 }
 
-func modelForPlan(plan Plan) keycloak.AuthorizationModel {
-	model := toKeycloakModel(plan.resolved.model)
+func modelForPlan(plan Plan) (keycloak.AuthorizationModel, error) {
+	model, err := toKeycloakModel(plan.resolved.model)
+	if err != nil {
+		return keycloak.AuthorizationModel{}, err
+	}
 	model.OwnerUID = plan.preconditions.ResourceUID
-	return model
+	return model, nil
 }
 func observationState(state keycloak.AuthorizationState, caps Capabilities) State {
 	data, _ := json.Marshal(state.Observation)
