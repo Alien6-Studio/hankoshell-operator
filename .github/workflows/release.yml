@@ -60,17 +60,15 @@ jobs:
         run: python3 scripts/release-eligibility.py
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.27.2'
+          go-version-file: go.mod
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
       - name: Install metadata dependencies and pinned OCI publisher
         run: |
           python3 -m pip install -r scripts/requirements.txt
-          GOBIN="$RUNNER_TEMP/hankoshell-release-tools" go install oras.land/oras/cmd/oras@v1.3.4
-          curl -fLsS https://get.helm.sh/helm-v3.17.0-linux-amd64.tar.gz -o /tmp/helm.tgz
-          echo 'fb5d12662fde6eeff36ac4ccacbf3abed96b0ee2de07afdde4edb14e613aee24  /tmp/helm.tgz' | sha256sum -c -
-          tar -xzf /tmp/helm.tgz -C /tmp
+          GOBIN="$RUNNER_TEMP/hankoshell-release-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"
+          python3 scripts/install-helm.py /tmp/linux-amd64/helm
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io

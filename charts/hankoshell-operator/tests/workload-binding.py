@@ -1,18 +1,21 @@
 """Qualify exact workload-owner grants without token or workload authority."""
 from pathlib import Path
 import subprocess
+import json
 import tempfile
 
 import yaml
 
 CHART = Path(__file__).resolve().parents[1]
+PINS = json.loads((CHART.parents[1] / "versions.json").read_text())
+KUBERNETES_VERSION = PINS["kubernetes"]["default"]
 
 
 def render(grants, invalid=False):
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml") as values:
         yaml.safe_dump({"workloadBinding": {"grants": grants}}, values)
         values.flush()
-        result = subprocess.run(["helm", "template", "binding", str(CHART), "--namespace", "auth", "--kube-version", "1.37.0",
+        result = subprocess.run(["helm", "template", "binding", str(CHART), "--namespace", "auth", "--kube-version", KUBERNETES_VERSION,
                                  "--set-string", "image.tag=fixture", "-f", values.name],
                                 text=True, capture_output=True, check=False)
     if invalid:

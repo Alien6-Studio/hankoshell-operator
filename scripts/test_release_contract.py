@@ -18,6 +18,52 @@ dry_run = contract.module("release_dry_run", "release-dry-run.py")
 
 
 class ReleaseContractTests(unittest.TestCase):
+    def test_ci_preflight_blocks_every_expensive_job_and_remains_required(self):
+        ci = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
+        self.assertEqual(set(ci), {"preflight", "source", "kubernetes", "keycloak", "workload", "oci",
+                                   "rehearsal", "system", "installed-workload", "security-mutations", "checks"})
+        for job in ("source", "kubernetes", "keycloak", "workload", "security-mutations", "oci"):
+            with self.subTest(job=job):
+                self.assertEqual(ci[job].get("needs"), ["preflight"])
+                self.assertNotIn("if", ci[job])  # Keep implicit success(), including for reusable OCI.
+                self.assertFalse(ci[job].get("continue-on-error", False))
+        for job in ("rehearsal", "system", "installed-workload"):
+            self.assertEqual(ci[job]["needs"], ["source", "oci"])
+            self.assertNotIn("if", ci[job])
+        self.assertNotIn("needs", ci["preflight"])
+        self.assertNotIn("if", ci["preflight"])
+        self.assertFalse(ci["preflight"].get("continue-on-error", False))
+        self.assertEqual(set(ci["checks"]["needs"]), set(ci) - {"checks"})
+        self.assertEqual(ci["checks"]["name"], "Source and chart checks")
+        self.assertEqual(ci["checks"]["if"], "always()")
+        self.assertIn("make preflight", [step.get("run") for step in ci["preflight"]["steps"]])
+        makefile = (contract.ROOT / "Makefile").read_text()
+        self.assertRegex(makefile, r"(?m)^preflight: fmt-check vet generated-check\n\tpython3 -m unittest discover -s scripts -p 'test_\*\.py'$")
+        self.assertIn("make test chart-test arch lint vuln", [step.get("run") for step in ci["source"]["steps"]])
+
+    def test_security_mutation_job_runs_the_complete_catalog_and_preserves_results(self):
+        jobs = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
+        job = jobs["security-mutations"]
+        self.assertLessEqual(job["timeout-minutes"], 10)
+        self.assertIn("security-mutations", jobs["checks"]["needs"])
+        self.assertEqual([step["run"] for step in job["steps"] if "run" in step],
+                         ['make security-mutations MUTATION_OUTPUT="$RUNNER_TEMP/security-mutations.json"'])
+        artifact = next(step for step in job["steps"] if "upload-artifact@" in step.get("uses", ""))
+        self.assertEqual(artifact["if"], "always()")
+        self.assertEqual(artifact["with"]["path"], "${{ runner.temp }}/security-mutations.json")
+        self.assertEqual(artifact["with"]["if-no-files-found"], "error")
+
+    def test_ci_preflight_preserves_release_call_interface(self):
+        ci = yaml.load((contract.ROOT / ".github/workflows/ci.yml").read_text(), Loader=yaml.BaseLoader)
+        call = ci["on"]["workflow_call"]
+        self.assertEqual(call["inputs"], {"release": {"type": "boolean", "default": "false"}})
+        self.assertEqual(call["outputs"], {
+            "oci_digest": {"value": "${{ jobs.oci.outputs.digest }}"},
+            "oci_artifact_id": {"value": "${{ jobs.oci.outputs.artifact_id }}"},
+            "release_candidate": {"value": "${{ jobs.oci.outputs.candidate_digest }}"},
+        })
+        self.assertEqual(ci["jobs"]["oci"]["with"], {"release": "${{ inputs.release == true }}"})
+
     def test_reviewed_versions_maturity_and_curated_notes(self):
         notes = contract.check()
         self.assertNotIn("Unreleased", notes)
@@ -40,18 +86,23 @@ class ReleaseContractTests(unittest.TestCase):
             contract.notes("99.0.0")
 
     def test_active_image_scan_and_rehearsal_versions_match_chart_contract(self):
-        makefile = (contract.ROOT / "Makefile").read_text()
-        self.assertEqual(re.search(r"^RELEASE_VERSION := (.+)$", makefile, re.M)[1], contract.VERSION)
+        contract.pins.check()
+        result = subprocess.check_output(["make", "--no-print-directory", "-f", "Makefile", "-f", "-", "show-version"],
+            cwd=contract.ROOT, input="show-version:\n\t@echo $(VERSION) $(RELEASE_VERSION)\n", text=True)
+        self.assertEqual(result.strip(), contract.VERSION + " " + contract.VERSION)
+        jobs = yaml.safe_load((contract.ROOT / ".github/workflows/oci-security.yml").read_text())["jobs"]
+        steps = jobs["image"]["steps"]
+        build = next(step for step in steps if "build-args" in step.get("with", {}))
+        self.assertEqual(build["with"]["build-args"], "VERSION=${{ steps.versions.outputs.version }}")
+        reader = next(step for step in steps if step.get("id") == "versions")
+        self.assertIn('version=$(python3 scripts/versions.py get release version)', reader["run"])
         for name in ("oci-security.yml", "ci.yml"):
             jobs = yaml.safe_load((contract.ROOT / ".github/workflows" / name).read_text())["jobs"]
-            versions = []
-            for job in jobs.values():
-                for step in job.get("steps", []):
-                    versions += re.findall(r"--version (\d+\.\d+\.\d+(?:-[\w.]+)?)", step.get("run", ""))
-                    if "build-args" in step.get("with", {}):
-                        versions += re.findall(r"VERSION=(\d+\.\d+\.\d+(?:-[\w.]+)?)", step["with"]["build-args"])
-            self.assertTrue(versions, name)
-            self.assertEqual(set(versions), {contract.VERSION}, name)
+            consumers = [step["run"] for job in jobs.values() for step in job.get("steps", [])
+                         if "--version " in step.get("run", "")]
+            self.assertTrue(consumers, name)
+            for command in consumers:
+                self.assertIn('--version "$(python3 scripts/versions.py get release version)"', command)
 
     def test_release_and_rehearsal_use_the_same_packaging_and_immutable_image(self):
         workflows = contract.ROOT / ".github/workflows"
@@ -118,12 +169,17 @@ class ReleaseContractTests(unittest.TestCase):
         self.assertNotIn("secrets.", yaml.safe_dump(ci["rehearsal"]))
 
     def test_embedded_cosign_and_native_verifier_use_the_same_reviewed_dependency_pins(self):
-        dockerfile = (contract.ROOT / "Dockerfile").read_text()
-        installer = (contract.ROOT / "scripts/install-cosign.sh").read_text()
-        pins = re.findall(r"[a-zA-Z0-9./-]+@v[0-9][a-zA-Z0-9.+-]*", dockerfile)
-        self.assertIn("github.com/sigstore/cosign/v3/cmd/cosign@v3.1.3", pins)
-        for pin in pins:
-            self.assertIn(pin, installer)
+        contract.pins.check()
+        pins = contract.pins.DATA["tools"]["cosign"]
+        result = subprocess.check_output(["sh", "-c", '. ./scripts/cosign-pins.sh; printf "%s\\n%s\\n" "$COSIGN_VERSION" "$COSIGN_DEPENDENCIES"'],
+                                         cwd=contract.ROOT, text=True).splitlines()
+        self.assertEqual(result[0], pins["version"])
+        self.assertEqual(result[1].split(), [module + "@" + version for module, version in pins["dependencies"].items()])
+        for filename in ("Dockerfile", "scripts/install-cosign.sh"):
+            source = (contract.ROOT / filename).read_text()
+            self.assertIn('go get "github.com/sigstore/cosign/v3/cmd/cosign@$COSIGN_VERSION"', source)
+            self.assertIn('go get $COSIGN_DEPENDENCIES', source)
+            self.assertIn('sigs.k8s.io/release-utils/version.gitVersion=$COSIGN_VERSION', source)
 
     def test_packaging_dependencies_require_committed_archive_hashes(self):
         requirements = (contract.ROOT / "scripts/requirements.txt").read_text()
@@ -134,12 +190,12 @@ class ReleaseContractTests(unittest.TestCase):
     def test_leader_election_boolean_reaches_the_manager(self):
         chart = contract.ROOT / "charts/hankoshell-operator"
         for value in ("true", "false"):
-            rendered = subprocess.check_output(["helm", "template", "test", str(chart), "--kube-version", "1.37.0",
+            rendered = subprocess.check_output(["helm", "template", "test", str(chart), "--kube-version", contract.pins.DATA["kubernetes"]["default"],
                 "--set-string", "image.tag=test", "--set", "leaderElect=" + value], text=True)
             deployment = next(item for item in yaml.safe_load_all(rendered) if item and item["kind"] == "Deployment")
             args = deployment["spec"]["template"]["spec"]["containers"][0]["args"]
             self.assertIn("--leader-elect=" + value, args)
-        result = subprocess.run(["helm", "template", "test", str(chart), "--kube-version", "1.37.0",
+        result = subprocess.run(["helm", "template", "test", str(chart), "--kube-version", contract.pins.DATA["kubernetes"]["default"],
             "--set-string", "image.tag=test", "--set-string", "leaderElect=false"], capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("leaderElect must be a boolean", result.stderr)

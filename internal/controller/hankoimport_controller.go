@@ -91,12 +91,14 @@ func (r *HankoImportReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	patch := client.MergeFrom(operation.DeepCopy())
 	operation.Status.Phase = "Scanning"
-	if err := r.Status().Patch(ctx, &operation, patch); err != nil {
-		log.FromContext(ctx).Error(err, "patch status to Scanning")
+	// Persist the full initial status, including required false/zero coverage
+	// fields. A typed merge baseline contains those zero values even when the
+	// API object has no status, so a merge patch would omit their initialization.
+	if err := r.Status().Update(ctx, &operation); err != nil {
+		return ctrl.Result{}, fmt.Errorf("initialize import scanning status: %w", err)
 	}
-	patch = client.MergeFrom(operation.DeepCopy())
+	patch := client.MergeFrom(operation.DeepCopy())
 
 	kc, handled := r.importKeycloakClient(ctx, &operation, patch)
 	if handled {

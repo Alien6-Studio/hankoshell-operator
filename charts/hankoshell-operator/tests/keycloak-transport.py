@@ -10,8 +10,10 @@ import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 CHART = ROOT / "charts/hankoshell-operator"
+PINS = json.loads((CHART.parents[1] / "versions.json").read_text())
+KUBERNETES_VERSION = PINS["kubernetes"]["default"]
 BASE = ["helm", "template", "transport-test", str(CHART), "--namespace", "auth",
-        "--kube-version", "1.37.0", "--set-string", "image.tag=fixture"]
+        "--kube-version", KUBERNETES_VERSION, "--set-string", "image.tag=fixture"]
 
 
 def render(values, valid):

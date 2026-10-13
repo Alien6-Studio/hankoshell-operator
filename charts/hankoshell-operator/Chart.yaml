@@ -2,7 +2,7 @@ apiVersion: v2
 name: hankoshell-operator
 description: Declarative IAM reconciliation for Keycloak and hankoShell platform integrations
 type: application
-version: 0.1.0-dev.0
+version: "0.1.0-dev.0"
 appVersion: "0.1.0-dev.0"
 kubeVersion: ">=1.35.0-0 <1.38.0-0"
 keywords:

@@ -5,6 +5,7 @@ import json
 from io import BytesIO
 from email.message import Message
 from pathlib import Path
+import tempfile
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -24,6 +25,50 @@ proxy = module("fault_proxy", "workload-fault-proxy.py")
 
 
 class InstalledEvidenceTests(unittest.TestCase):
+    def test_outage_waits_past_partial_and_stale_status_until_binding_is_invalidated(self):
+        def account(binding, runtime, generation=2, binding_status="False"):
+            return {"metadata": {"generation": 2}, "status": {
+                "phase": "Pending", "workloadBinding": binding, "runtimeMetadata": runtime,
+                "conditions": [{"type": name, "status": binding_status if name == "WorkloadBindingReady" else "False",
+                                "observedGeneration": generation}
+                               for name in ("WorkloadBindingReady", "FederatedModeApplied", "Synced")]}}
+        fixture = installed.Installed.__new__(installed.Installed)
+        # Reproduce the failed CI snapshot: Synced=False with a previously
+        # validated binding, then stale and partially cleared status snapshots.
+        pending = [account({"bindingRevision": "old"}, {"metadataHash": "old"}, binding_status="True"),
+                   account(None, None, generation=1), account(None, {"metadataHash": "old"}),
+                   account(None, None, binding_status="True")]
+        fixture.get = MagicMock(side_effect=pending + [account(None, None)])
+        with patch.object(installed.system.time, "sleep"):
+            fixture.wait_binding_invalidated("federated-b")
+        self.assertEqual(fixture.get.call_count, 5)
+        fixture.get = MagicMock(return_value=pending[0])
+        with patch.object(installed.system.time, "sleep"), \
+             patch.object(installed.system.time, "monotonic", side_effect=[0, 0, 181, 181]), \
+             self.assertRaises(installed.system.diagnostics.DeadlineExceeded):
+            fixture.wait_binding_invalidated("federated-b")
+
+    def test_failure_status_reuses_bounded_snapshot_without_new_api_waits(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "installed.json"
+            snapshot = output.with_suffix(".diagnostics")
+            snapshot.mkdir()
+            (snapshot / "hankoserviceaccounts.hanko.sh.yaml").write_text(json.dumps({"items": [{
+                "metadata": {"name": "same-client", "namespace": "auth", "generation": 4},
+                "status": {"phase": "Pending", "observedGeneration": 3,
+                           "conditions": [{"type": "Synced", "status": "False", "reason": "StatusWriteFailed", "message": "private-detail"}]},
+            }]}))
+            fixture = installed.Installed.__new__(installed.Installed)
+            fixture.args = SimpleNamespace(output=output)
+            fixture.sensitive, fixture.report = ["private-detail"], {}
+            fixture.kubectl = MagicMock(side_effect=AssertionError("must not query a failed cluster again"))
+            fixture.failure_evidence()
+            fixture.kubectl.assert_not_called()
+            self.assertEqual(fixture.report["failure_status"]["same-client"]["phase"], "Pending")
+            self.assertEqual(fixture.report["failure_status"]["same-client"]["conditions"][0]["reason"], "StatusWriteFailed")
+            self.assertEqual(fixture.report["failure_status"]["secret-a"], {"unavailable": True})
+            self.assertNotIn("private-detail", json.dumps(fixture.report))
+
     def test_evidence_never_includes_native_representations_or_private_inputs(self):
         fixture = installed.Installed.__new__(installed.Installed)
         fixture.report = {"checks": {"real_pod": True}, "complete": False,

@@ -30,18 +30,12 @@ spec = importlib.util.spec_from_file_location("system_fixture", ROOT / "scripts/
 system = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(system)
 
-KEYCLOAK_IMAGES = {
-    "26.7.5": "quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85",
-    "26.8.0": "quay.io/keycloak/keycloak:26.8.0@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc",
-}
-NODE_IMAGES = {
-    "1.35.0": "kindest/node:v1.35.0@sha256:4613778f3cfcd10e615029370f5786704559103cf27bef934597ba562b269661",
-    "1.37.0": "kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5",
-}
+KEYCLOAK_IMAGES = system.PINS["keycloak"]["images"]
+NODE_IMAGES = system.PINS["kubernetes"]["node_images"]
+BUILT_NODE = system.PINS["kubernetes"]["built_node"]
 POD_IMAGE = "python:3.12-alpine@sha256:1b668429b3511ab407d8e00648891631b0b1a4d7e15e3ca70f38ab5b91ad4ab4"
-NODE_BASE = "docker.io/kindest/base:v20260820-69b56db7@sha256:8098fa3cae05bc15d9c4b93a566d19e1f8e65a25e26ebeb993b6cb41142cf791"
-NODE_ARCHIVES = {"arm64": "fb072af40057be271d3a7175b7c7689c719b02fb8bb00027b4a03821cd37e9bb",
-                 "amd64": "a87298665748685c6ea595f6cb1dd8b437b4148cb7f40ab9dc7d88d2da18e7df"}
+NODE_BASE = BUILT_NODE["base_image"]
+NODE_ARCHIVES = BUILT_NODE["sha256"]
 ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
 REALM_ISSUER = "https://keycloak.auth.svc:8443/realms/managed"
 CONTROLLER_REALM = "controller-managed"
@@ -52,7 +46,7 @@ def run(args, input=None, timeout=240, include_stderr=False):
     try:
         result = subprocess.run([str(a) for a in args], input=input, capture_output=True, timeout=timeout)
     except subprocess.TimeoutExpired:
-        raise RuntimeError("Disposable workload fixture command timed out (diagnostics withheld)") from None
+        raise system.diagnostics.DeadlineExceeded("Disposable workload fixture command", timeout, timeout) from None
     if result.returncode:
         # Never render arguments, stdout, stderr, or stdin: a failed token read or
         # TokenReview could otherwise disclose a credential through diagnostics.
@@ -116,9 +110,9 @@ class Fixture(system.System):
         return run([self.args.kubectl, "--kubeconfig", self.config, *args], **kwargs)
 
     def create_cluster(self):
-        if not run([self.args.kind, "version"]).startswith("kind v0.33.0 "):
+        if not run([self.args.kind, "version"]).startswith("kind " + system.KIND_VERSION + " "):
             raise ValueError("Use the pinned kind fixture")
-        if self.args.kubernetes_version == "1.36.2":
+        if self.args.kubernetes_version == BUILT_NODE["version"]:
             self.build_node()
         else:
             self.node_image = NODE_IMAGES[self.args.kubernetes_version]
@@ -148,7 +142,7 @@ class Fixture(system.System):
             raise ValueError("Unqualified Docker architecture")
         archive = self.args.node_archive or self.private / "kubernetes-server.tar.gz"
         if self.args.node_archive is None:
-            url = f"https://dl.k8s.io/release/v1.36.2/kubernetes-server-linux-{architecture}.tar.gz"
+            url = f"https://dl.k8s.io/release/v{BUILT_NODE['version']}/kubernetes-server-linux-{architecture}.tar.gz"
             total = 0
             with urlopen(url, timeout=120) as response, archive.open("wb") as destination:
                 while chunk := response.read(1024 * 1024):
@@ -160,8 +154,8 @@ class Fixture(system.System):
             digest = hashlib.file_digest(source, "sha256").hexdigest()
         if digest != NODE_ARCHIVES[architecture]:
             raise ValueError("Kubernetes server archive checksum mismatch")
-        self.built_node_image = self.name + "-node:v1.36.2"
-        print("Building checksum-verified Kubernetes v1.36.2 node", flush=True)
+        self.built_node_image = self.name + "-node:v" + BUILT_NODE["version"]
+        print(f"Building checksum-verified Kubernetes v{BUILT_NODE['version']} node", flush=True)
         run([self.args.kind, "build", "node-image", "--type", "file", "--base-image", NODE_BASE,
              "--image", self.built_node_image, archive], timeout=600)
         self.node_image = self.built_node_image
@@ -783,6 +777,8 @@ except urllib.error.HTTPError as e:
         # Hold assertions only in memory and leave a real live Pod running so
         # kubelet rotation is measured, rather than forging dates or signatures.
         deadline = rotation_claims["exp"] + 15
+        rotation_started = time.monotonic()
+        rotation_seconds = max(0, deadline - time.time())
         while time.time() < deadline:
             current = self.projected("rotation")
             if current != rotation:
@@ -792,7 +788,7 @@ except urllib.error.HTTPError as e:
                 break
             time.sleep(5)
         if "projected_rotation" not in self.report:
-            raise ValueError("Kubelet did not rotate the actual projected token")
+            raise system.diagnostics.DeadlineExceeded("Kubelet projected token rotation", rotation_seconds, time.monotonic() - rotation_started)
         while time.time() <= self.report["projected_claims"]["exp"] + 2:
             time.sleep(1)
         self.check("expired", self.assertion(token), (400, 401))
@@ -824,8 +820,8 @@ except urllib.error.HTTPError as e:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--keycloak-version", choices=KEYCLOAK_IMAGES, required=True)
-    parser.add_argument("--kubernetes-version", choices=("1.35.0", "1.36.2", "1.37.0"), required=True)
-    parser.add_argument("--node-archive", type=Path, help="Optional cached official 1.36.2 archive; checksum is still mandatory")
+    parser.add_argument("--kubernetes-version", choices=system.PINS["kubernetes"]["versions"], required=True)
+    parser.add_argument("--node-archive", type=Path, help="Optional cached official server archive; checksum is still mandatory")
     parser.add_argument("--kind", type=Path, required=True)
     parser.add_argument("--kubectl", type=Path, required=True)
     parser.add_argument("--openssl", type=Path, required=True)
@@ -835,6 +831,9 @@ def main():
         fixture = Fixture(args, Path(temp))
         try:
             report = fixture.qualify()
+        except Exception as error:
+            system.diagnostics.capture(fixture, error)
+            raise
         finally:
             report = fixture.report
             try:

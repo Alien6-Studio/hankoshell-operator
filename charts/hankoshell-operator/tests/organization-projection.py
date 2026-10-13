@@ -3,11 +3,14 @@
 import copy
 from pathlib import Path
 import subprocess
+import json
 import tempfile
 
 import yaml
 
 CHART = Path(__file__).resolve().parents[1]
+PINS = json.loads((CHART.parents[1] / "versions.json").read_text())
+KUBERNETES_VERSION = PINS["kubernetes"]["default"]
 
 
 def render(values=None, valid=True):
@@ -15,7 +18,7 @@ def render(values=None, valid=True):
         yaml.safe_dump(values or {}, config)
         config.flush()
         result = subprocess.run(["helm", "template", "projection-test", str(CHART), "--namespace", "auth",
-                                 "--kube-version", "1.37.0", "--set-string", "image.tag=fixture", "-f", config.name],
+                                 "--kube-version", KUBERNETES_VERSION, "--set-string", "image.tag=fixture", "-f", config.name],
                                 capture_output=True, text=True)
     assert (result.returncode == 0) == valid, result.stderr
     return [doc for doc in yaml.safe_load_all(result.stdout) if doc] if valid else []

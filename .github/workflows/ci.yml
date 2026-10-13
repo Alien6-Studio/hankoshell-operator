@@ -24,8 +24,34 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  preflight:
+    name: Fast source preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned preflight dependencies
+        run: |
+          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+          sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
+          python -m pip install -r scripts/requirements.txt
+          make install-preflight-tools
+      - name: Validate formatting, vet, generated schemas and delivery contracts
+        run: make preflight
   source:
     name: Source checks
+    needs: [preflight]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -36,23 +62,19 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.27.2'
+          go-version-file: go.mod
           cache: true
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
       - name: Install pinned Helm and test dependencies
         run: |
-          curl -fLsS https://get.helm.sh/helm-v3.17.0-linux-amd64.tar.gz -o /tmp/helm.tgz
-          echo 'fb5d12662fde6eeff36ac4ccacbf3abed96b0ee2de07afdde4edb14e613aee24  /tmp/helm.tgz' | sha256sum -c -
-          tar -xzf /tmp/helm.tgz -C /tmp
+          python3 scripts/install-helm.py /tmp/linux-amd64/helm
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
           python -m pip install -r scripts/requirements.txt
           make install-tools
-      - name: Validate source, contracts and generated schemas
-        run: make check arch lint generated-check vuln
-      - name: Validate Attest delivery gates
-        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: Validate unit tests, chart, architecture, lint and vulnerabilities
+        run: make test chart-test arch lint vuln
       - name: Cross-compile both Linux architectures
         run: |
           make build GOARCH=amd64
@@ -64,63 +86,64 @@ jobs:
             dir /src --no-banner --redact
   kubernetes:
     name: Kubernetes ${{ matrix.version }} API and security
+    needs: [preflight]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        version: ['1.35.0', '1.36.2', '1.37.0']
+        version: ["1.35.0", "1.36.2", "1.37.0"] # versions:kubernetes
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.27.2'
+          go-version-file: go.mod
           cache: true
       - name: Install pinned Helm
         run: |
-          curl -fLsS https://get.helm.sh/helm-v3.17.0-linux-amd64.tar.gz -o /tmp/helm.tgz
-          echo 'fb5d12662fde6eeff36ac4ccacbf3abed96b0ee2de07afdde4edb14e613aee24  /tmp/helm.tgz' | sha256sum -c -
-          tar -xzf /tmp/helm.tgz -C /tmp
+          python3 scripts/install-helm.py /tmp/linux-amd64/helm
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
       - name: Qualify CRDs, server-side apply, RBAC and Restricted admission
         run: make integration-test KUBERNETES_VERSION=${{ matrix.version }}
       - name: Lint integration test code
-        if: matrix.version == '1.37.0'
+        if: matrix.version == '1.37.0' # versions:kubernetes-lint
         run: make lint LINT_BUILD_TAGS=integration
   keycloak:
     name: Keycloak ${{ matrix.version }} Admin API and security
+    needs: [preflight]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        version: ['26.8.0', '26.7.5']
+        version: ["26.8.0", "26.7.5"] # versions:keycloak
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.27.2'
+          go-version-file: go.mod
           cache: true
       - name: Qualify reconcilers against the real HTTPS Admin API
         run: make keycloak-integration-test KEYCLOAK_VERSION=${{ matrix.version }}
       - name: Vet and lint Keycloak integration test code
-        if: matrix.version == '26.8.0'
+        if: matrix.version == '26.8.0' # versions:keycloak-lint
         run: |
           go vet -tags=keycloak_integration ./...
           make lint LINT_BUILD_TAGS=keycloak_integration
   workload:
     name: Workload identity KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
+    needs: [preflight]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        keycloak: ['26.7.5', '26.8.0']
-        kubernetes: ['1.35.0', '1.36.2', '1.37.0']
+        keycloak: ["26.7.5", "26.8.0"] # versions:workload-keycloak
+        kubernetes: ["1.35.0", "1.36.2", "1.37.0"] # versions:kubernetes
     env:
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
@@ -132,7 +155,7 @@ jobs:
           python-version: '3.12'
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.27.2'
+          go-version-file: go.mod
       - name: Install checksum-pinned Kubernetes fixture tools
         run: |
           python3 -m pip install -r scripts/requirements.txt
@@ -149,7 +172,42 @@ jobs:
           path: ${{ runner.temp }}/workload-identity.json
           if-no-files-found: error
           retention-days: 14
+      - name: Preserve bounded workload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: NONPUBLISHABLE-diagnostics-workload-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/workload-identity.diagnostics
+          if-no-files-found: warn
+          retention-days: 7
+  security-mutations:
+    name: Security mutation checks
+    needs: [preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Require every removed protection to fail its targeted test
+        run: make security-mutations MUTATION_OUTPUT="$RUNNER_TEMP/security-mutations.json"
+      - name: Preserve assertion outcomes without test payloads
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: security-mutations-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/security-mutations.json
+          if-no-files-found: error
+          retention-days: 14
   oci:
+    needs: [preflight]
     permissions:
       contents: read
       packages: read
@@ -167,7 +225,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.27.2'
+          go-version-file: go.mod
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
@@ -179,17 +237,15 @@ jobs:
       - name: Install verified release rehearsal tools
         run: |
           python3 -m pip install -r scripts/requirements.txt
-          curl -fLsS https://get.helm.sh/helm-v3.17.0-linux-amd64.tar.gz -o /tmp/helm.tgz
-          echo 'fb5d12662fde6eeff36ac4ccacbf3abed96b0ee2de07afdde4edb14e613aee24  /tmp/helm.tgz' | sha256sum -c -
-          tar -xzf /tmp/helm.tgz -C /tmp
+          python3 scripts/install-helm.py /tmp/linux-amd64/helm
           bash scripts/install-cosign.sh "$RUNNER_TEMP/rehearsal-tools/cosign"
           bash scripts/install-attest.sh "$RUNNER_TEMP/rehearsal-tools/attest"
-          GOBIN="$RUNNER_TEMP/rehearsal-tools" go install oras.land/oras/cmd/oras@v1.3.4
+          GOBIN="$RUNNER_TEMP/rehearsal-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"
       - name: Rehearse the exact scanned delivery without publication
         env:
           DIGEST: ${{ needs.oci.outputs.digest }}
         run: |
-          python3 scripts/release-dry-run.py --version 0.1.0-dev.0 --revision "$GITHUB_SHA" --digest "$DIGEST" \
+          python3 scripts/release-dry-run.py --version "$(python3 scripts/versions.py get release version)" --revision "$GITHUB_SHA" --digest "$DIGEST" \
             --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
             --evidence "$RUNNER_TEMP/hankoshell-scanned-oci/evidence" \
             --output "$RUNNER_TEMP/hankoshell-release-dry-run" --helm /tmp/linux-amd64/helm \
@@ -201,6 +257,14 @@ jobs:
           path: ${{ runner.temp }}/hankoshell-release-dry-run
           if-no-files-found: error
           retention-days: 14
+      - name: Preserve bounded release fixture failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: NONPUBLISHABLE-diagnostics-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/hankoshell-release-dry-run/NONPUBLISHABLE-diagnostics
+          if-no-files-found: warn
+          retention-days: 7
   system:
     name: Installed operator system test
     needs: [source, oci]
@@ -212,7 +276,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.27.2'
+          go-version-file: go.mod
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
@@ -225,10 +289,8 @@ jobs:
         run: |
           python3 -m pip install -r scripts/requirements.txt
           python3 scripts/install-system-tools.py "$RUNNER_TEMP/system-tools"
-          GOBIN="$RUNNER_TEMP/system-tools" go install oras.land/oras/cmd/oras@v1.3.4
-          curl -fLsS https://get.helm.sh/helm-v3.17.0-linux-amd64.tar.gz -o /tmp/helm.tgz
-          echo 'fb5d12662fde6eeff36ac4ccacbf3abed96b0ee2de07afdde4edb14e613aee24  /tmp/helm.tgz' | sha256sum -c -
-          tar -xzf /tmp/helm.tgz -C /tmp
+          GOBIN="$RUNNER_TEMP/system-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"
+          python3 scripts/install-helm.py /tmp/linux-amd64/helm
       - name: Install and exercise the exact scanned operator with real Kubernetes and HTTPS Keycloak
         env:
           DIGEST: ${{ needs.oci.outputs.digest }}
@@ -244,6 +306,14 @@ jobs:
           path: ${{ runner.temp }}/system-test.json
           if-no-files-found: error
           retention-days: 14
+      - name: Preserve bounded installed system failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: NONPUBLISHABLE-diagnostics-system-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/system-test.diagnostics
+          if-no-files-found: warn
+          retention-days: 7
   installed-workload:
     name: Installed workload KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
     needs: [source, oci]
@@ -252,8 +322,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        keycloak: ['26.7.5', '26.8.0']
-        kubernetes: ['1.35.0', '1.36.2', '1.37.0']
+        keycloak: ["26.7.5", "26.8.0"] # versions:workload-keycloak
+        kubernetes: ["1.35.0", "1.36.2", "1.37.0"] # versions:kubernetes
     env:
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
@@ -262,7 +332,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.27.2'
+          go-version-file: go.mod
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
@@ -275,10 +345,8 @@ jobs:
         run: |
           python3 -m pip install -r scripts/requirements.txt
           python3 scripts/install-system-tools.py "$RUNNER_TEMP/workload-tools"
-          GOBIN="$RUNNER_TEMP/workload-tools" go install oras.land/oras/cmd/oras@v1.3.4
-          curl -fLsS https://get.helm.sh/helm-v3.17.0-linux-amd64.tar.gz -o /tmp/helm.tgz
-          echo 'fb5d12662fde6eeff36ac4ccacbf3abed96b0ee2de07afdde4edb14e613aee24  /tmp/helm.tgz' | sha256sum -c -
-          tar -xzf /tmp/helm.tgz -C /tmp
+          GOBIN="$RUNNER_TEMP/workload-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"
+          python3 scripts/install-helm.py /tmp/linux-amd64/helm
       - name: Qualify installed Pod authentication, independent UMA decisions and recovery
         env:
           DIGEST: ${{ needs.oci.outputs.digest }}
@@ -286,7 +354,7 @@ jobs:
           KUBERNETES_VERSION: ${{ matrix.kubernetes }}
         run: |
           deep=()
-          if test "$KUBERNETES_VERSION" = '1.37.0'; then deep=(--deep-migration); fi
+          if test "$KUBERNETES_VERSION" = "$(python3 scripts/versions.py get kubernetes deep_migration)"; then deep=(--deep-migration); fi
           python3 scripts/workload-installed-test.py \
             --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
             --evidence "$RUNNER_TEMP/hankoshell-scanned-oci/evidence" --digest "$DIGEST" --revision "$GITHUB_SHA" \
@@ -301,20 +369,30 @@ jobs:
           path: ${{ runner.temp }}/installed-workload.json
           if-no-files-found: error
           retention-days: 14
+      - name: Preserve bounded installed workload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: NONPUBLISHABLE-diagnostics-installed-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/installed-workload.diagnostics
+          if-no-files-found: warn
+          retention-days: 7
   checks:
     name: Source and chart checks
-    needs: [source, kubernetes, keycloak, workload, oci, rehearsal, system, installed-workload]
+    needs: [preflight, source, kubernetes, keycloak, workload, security-mutations, oci, rehearsal, system, installed-workload]
     if: always()
     runs-on: ubuntu-24.04
     steps:
-      - name: Require source, Kubernetes, Keycloak, final OCI, installed system and release rehearsal checks
+      - name: Require preflight, source, Kubernetes, Keycloak, final OCI, installed system and release rehearsal checks
         env:
+          PREFLIGHT_RESULT: ${{ needs.preflight.result }}
           SOURCE_RESULT: ${{ needs.source.result }}
           KUBERNETES_RESULT: ${{ needs.kubernetes.result }}
           KEYCLOAK_RESULT: ${{ needs.keycloak.result }}
           WORKLOAD_RESULT: ${{ needs.workload.result }}
+          MUTATIONS_RESULT: ${{ needs.security-mutations.result }}
           OCI_RESULT: ${{ needs.oci.result }}
           REHEARSAL_RESULT: ${{ needs.rehearsal.result }}
           SYSTEM_RESULT: ${{ needs.system.result }}
           INSTALLED_WORKLOAD_RESULT: ${{ needs.installed-workload.result }}
-        run: test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success
+        run: test "$PREFLIGHT_RESULT" = success && test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$MUTATIONS_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success

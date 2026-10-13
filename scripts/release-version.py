@@ -2,11 +2,14 @@
 
 import argparse
 import re
+import json
+from pathlib import Path
 
 
-VERSION = "0.1.0-dev.0"
-TARGET_VERSION = "0.1.0"
-RELEASE_STATUS = "development"
+_RELEASE = json.loads((Path(__file__).resolve().parents[1] / "versions.json").read_text())["release"]
+VERSION = _RELEASE["version"]
+TARGET_VERSION = _RELEASE["target"]
+RELEASE_STATUS = _RELEASE["status"]
 
 
 NUMBER = r"(?:0|[1-9][0-9]*)"

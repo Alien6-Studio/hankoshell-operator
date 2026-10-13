@@ -13,10 +13,47 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 )
+
+func TestImportDoesNotDiscoverBeforeStatusInitializationSucceeds(t *testing.T) {
+	ctx := context.Background()
+	operation := &hankoshv1alpha1.HankoImport{ObjectMeta: metav1.ObjectMeta{Name: "initial-status", Namespace: "test"}, Spec: hankoshv1alpha1.HankoImportSpec{SourceRef: "absent", DryRun: true}}
+	kube := fake.NewClientBuilder().WithScheme(controllerTestScheme(t)).WithStatusSubresource(operation).WithObjects(operation).Build()
+	failure := errors.New("status write unavailable")
+	blocked := interceptor.NewClient(kube, interceptor.Funcs{
+		SubResourceUpdate: func(_ context.Context, _ client.Client, subresource string, _ client.Object, _ ...client.SubResourceUpdateOption) error {
+			if subresource != "status" {
+				t.Fatalf("unexpected subresource write: %s", subresource)
+			}
+			return failure
+		},
+	})
+	reader := interceptor.NewClient(kube, interceptor.Funcs{
+		Get: func(_ context.Context, _ client.WithWatch, _ client.ObjectKey, _ client.Object, _ ...client.GetOption) error {
+			t.Error("source discovery started before a durable valid status")
+			return failure
+		},
+	})
+	reconciler := &HankoImportReconciler{Client: blocked, APIReader: reader}
+	if _, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(operation)}); !errors.Is(err, failure) {
+		t.Fatalf("initial status failure must be retried: %v", err)
+	}
+	if err := kube.Get(ctx, client.ObjectKeyFromObject(operation), operation); err != nil || operation.Status.Phase != "" {
+		t.Fatal("failed status initialization changed the persisted import")
+	}
+	reconciler.Client, reconciler.APIReader = kube, kube
+	if _, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(operation)}); err != nil {
+		t.Fatal("initialization did not recover", err)
+	}
+	if err := kube.Get(ctx, client.ObjectKeyFromObject(operation), operation); err != nil || operation.Status.Phase != "Failed" || conditionReason(operation.Status.Conditions, "ImportReady") != "SourceNotFound" {
+		t.Fatal("recovered initialization did not persist the source failure")
+	}
+}
 
 func TestImportDryRunDiscoversSelectedRealmWithoutMutation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {

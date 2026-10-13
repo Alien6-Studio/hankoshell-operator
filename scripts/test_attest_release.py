@@ -26,25 +26,45 @@ class QualificationGateTests(unittest.TestCase):
         aggregate = workflow["jobs"]["checks"]
         self.assertEqual(aggregate["name"], "Source and chart checks")
         self.assertEqual(aggregate["if"], "always()")
-        self.assertEqual(set(aggregate["needs"]), {"source", "kubernetes", "keycloak", "workload", "oci", "rehearsal", "system", "installed-workload"})
+        self.assertEqual(set(aggregate["needs"]), set(workflow["jobs"]) - {"checks"})
         step = aggregate["steps"][0]
         dependencies = {f"${{{{ needs.{job}.result }}}}" for job in aggregate["needs"]}
         self.assertEqual(set(step["env"].values()), dependencies)
-        for results in itertools.product(("success", "failure", "cancelled", "skipped"), repeat=len(aggregate["needs"])):
-            with self.subTest(results=results):
-                environment = dict(os.environ, **dict(zip(step["env"], results)))
-                result = subprocess.run(["bash", "-c", step["run"]], env=environment,
-                                        capture_output=True, check=False)
-                self.assertEqual(result.returncode == 0, all(value == "success" for value in results))
+        # Execute the actual gate for every combination, using one shell instead
+        # of spawning 4**N processes. Adding preflight must not quadruple forks.
+        for name in step["env"]:
+            self.assertRegex(name, r"^[A-Z][A-Z_]*_RESULT$")
+        cases = "".join(
+            " ".join(results) + (" success\n" if all(value == "success" for value in results) else " failure\n")
+            for results in itertools.product(("success", "failure", "cancelled", "skipped"),
+                                             repeat=len(aggregate["needs"]))
+        )
+        script = "set -eu\nqualification_gate() {\n" + step["run"] + "\n}\nchecked=0\n"
+        script += "while read -r " + " ".join(step["env"]) + " expected; do\n"
+        script += '''
+          if qualification_gate; then actual=success; else actual=failure; fi
+          if test "$actual" != "$expected"; then
+            printf 'gate mismatch at case %s: expected %s, got %s\\n' "$checked" "$expected" "$actual" >&2
+            exit 1
+          fi
+          checked=$((checked + 1))
+        done
+        printf '%s\\n' "$checked"
+        '''
+        result = subprocess.run(["bash", "-c", script], input=cases, text=True,
+                                capture_output=True, check=False, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), str(4 ** len(aggregate["needs"])))
 
     def test_release_reuses_the_full_required_qualification_gate(self):
         root = Path(__file__).parents[1] / ".github/workflows"
         ci = yaml.safe_load((root / "ci.yml").read_text())
         delivery = yaml.safe_load((root / "release.yml").read_text())
-        self.assertEqual(ci["jobs"]["keycloak"]["strategy"]["matrix"]["version"], ["26.8.0", "26.7.5"])
+        pins = json.loads((root.parents[1] / "versions.json").read_text())
+        self.assertEqual(ci["jobs"]["keycloak"]["strategy"]["matrix"]["version"], pins["keycloak"]["versions"])
         self.assertFalse(ci["jobs"]["keycloak"].get("continue-on-error", False))
         self.assertEqual(ci["jobs"]["workload"]["strategy"]["matrix"], {
-            "keycloak": ["26.7.5", "26.8.0"], "kubernetes": ["1.35.0", "1.36.2", "1.37.0"]})
+            "keycloak": sorted(pins["keycloak"]["versions"]), "kubernetes": pins["kubernetes"]["versions"]})
         self.assertFalse(ci["jobs"]["workload"].get("continue-on-error", False))
         installed = ci["jobs"]["installed-workload"]
         self.assertEqual(installed["strategy"]["matrix"], ci["jobs"]["workload"]["strategy"]["matrix"])

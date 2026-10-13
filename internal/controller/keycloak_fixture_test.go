@@ -31,13 +31,6 @@ import (
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 )
 
-// Pin the official multi-architecture image indexes, including on Apple Silicon.
-// Deliberately reject unknown versions rather than silently testing another image.
-var qualifiedKeycloakImages = map[string]string{
-	"26.8.0": "quay.io/keycloak/keycloak:26.8.0@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc",
-	"26.7.5": "quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85",
-}
-
 type keycloakFixture struct {
 	t          *testing.T
 	version    string
@@ -126,12 +119,26 @@ func newKeycloakFixtureWithTransport(t *testing.T, managed, publicIP bool) *keyc
 
 func newKeycloakFixtureWithTransportAndDiscovery(t *testing.T, managed, publicIP, selfDiscovery bool) *keycloakFixture {
 	t.Helper()
+	// Use exactly the same reviewed image indexes as the installed qualification.
+	var pins struct {
+		Keycloak struct {
+			Default string            `json:"default"`
+			Images  map[string]string `json:"images"`
+		} `json:"keycloak"`
+	}
+	data, err := os.ReadFile(filepath.Join("..", "..", "versions.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(data, &pins); err != nil {
+		t.Fatal(err)
+	}
 	version := os.Getenv("KEYCLOAK_VERSION")
 	if version == "" {
-		version = "26.8.0"
+		version = pins.Keycloak.Default
 	}
-	image, ok := qualifiedKeycloakImages[version]
-	if !ok {
+	image, ok := pins.Keycloak.Images[version]
+	if !ok || !regexp.MustCompile(`^quay\.io/keycloak/keycloak:`+regexp.QuoteMeta(version)+`@sha256:[0-9a-f]{64}$`).MatchString(image) {
 		t.Fatalf("no pinned fixture for Keycloak %q", version)
 	}
 	f := &keycloakFixture{t: t, version: version}

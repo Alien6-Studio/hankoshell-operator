@@ -1,7 +1,7 @@
 """Qualify installed workload identity using the exact scanned OCI graph.
 
 Six runtime cells are mandatory. Deep migration/fault scenarios additionally run
-on Kubernetes 1.37.0 with each supported Keycloak version. No production test hook
+on the reviewed deep-migration Kubernetes version with each supported Keycloak version. No production test hook
 or controller-side workload assertion is involved. Evidence is an allowlist of
 public decisions, hashes, counts and versions, including on failure.
 """
@@ -608,6 +608,20 @@ class Installed(native.Fixture):
         self.validate_metadata(name)
         self.record("runtime_failures_no_auth_switch_rotation")
 
+    def wait_binding_invalidated(self, name):
+        def invalidated():
+            account = self.get("hankoserviceaccount", name)
+            status = account.get("status", {})
+            rejected = {condition["type"] for condition in status.get("conditions", [])
+                        if condition.get("status") == "False"
+                        and condition.get("observedGeneration") == account["metadata"]["generation"]}
+            return (not status.get("workloadBinding") and not status.get("runtimeMetadata")
+                    and {"WorkloadBindingReady", "FederatedModeApplied", "Synced"} <= rejected)
+        # A reconcile already in flight can first mark its authentication
+        # transaction stale while retaining binding evidence from its snapshot.
+        # Wait for the next fresh read to invalidate that evidence completely.
+        wait("outage invalidates fresh binding evidence", invalidated, 180)
+
     def prerequisites(self, name, old, old_secret):
         before = self.client("managed", name)
         secret = self.native_secret(name)
@@ -615,7 +629,7 @@ class Installed(native.Fixture):
         # A controlled upstream Service outage leaves administrator access on
         # its original Pod port-forward available for independent inspection.
         self.patch("service", "keycloak-upstream", {"spec": {"selector": {"app": "provider-outage"}}})
-        wait("outage invalidates fresh binding evidence", lambda: not self.hsa_ready(name), 180)
+        self.wait_binding_invalidated(name)
         self.record("provider_outage_fail_closed", not self.get("hankoserviceaccount", name).get("status", {}).get("workloadBinding")
             and self.get("configmap", "identity", "workload")["data"] == output)
         self.expect_auth("pre_retirement_failure_keeps_secret_a", self.secret_auth(old, old_secret), True)
@@ -906,45 +920,33 @@ class Installed(native.Fixture):
         return {key: self.report[key] for key in keys if key in self.report}
 
     def failure_evidence(self):
-        # Only diagnostic statuses/reasons from fixed fixture names, never raw
-        # status, native bodies, error responses, annotations or Secret data.
+        # Reuse the bounded, redacted snapshot already collected before teardown.
+        # Do not start another series of API waits while the cluster is failing.
+        directory = self.args.output.with_suffix(".diagnostics")
         records = {}
-        for kind, names in (("hankorealm", ("managed",)), ("hankoworkloadtrust", ("shared-workload",)),
-                            ("hankoserviceaccount", ("secret-a", "federated-b", "same-client", "blocked-flow")),
-                            ("hankoresourceserver", ("installed-server",))):
+        for kind, names in (("hankorealms", ("managed",)), ("hankoworkloadtrusts", ("shared-workload",)),
+                            ("hankoserviceaccounts", ("secret-a", "federated-b", "same-client", "blocked-flow")),
+                            ("hankoresourceservers", ("installed-server",))):
+            try:
+                path = directory / (kind + ".hanko.sh.yaml")
+                if path.stat().st_size > system.diagnostics.FILE_LIMIT:
+                    raise ValueError("Diagnostic file exceeds budget")
+                items = yaml.safe_load(path.read_text()).get("items", [])
+            except Exception:
+                items = []
             for name in names:
-                try:
-                    value = self.get(kind, name)
-                    status = value.get("status", {})
-                    records[name] = {"generation": value["metadata"]["generation"], "observed_generation": status.get("observedGeneration", 0),
-                        "phase": status.get("phase", "Pending"), "conditions": [{"type": item.get("type"), "status": item.get("status"),
-                            "reason": item.get("reason") if re.fullmatch(r"[A-Za-z0-9]{1,64}", item.get("reason", "")) else "Withheld"}
-                            for item in status.get("conditions", [])]}
-                except Exception:
+                value = next((item for item in items if item.get("metadata", {}).get("name") == name
+                              and item["metadata"].get("namespace") == "auth"), None)
+                if value is None:
                     records[name] = {"unavailable": True}
+                    continue
+                status = value.get("status", {})
+                records[name] = {"generation": value["metadata"].get("generation", 0), "observed_generation": status.get("observedGeneration", 0),
+                    "phase": status.get("phase", "Pending"), "conditions": [{"type": item.get("type"), "status": item.get("status"),
+                        "reason": item.get("reason") if re.fullmatch(r"[A-Za-z0-9]{1,64}", item.get("reason", "")) else "Withheld"}
+                        for item in status.get("conditions", [])]}
         native.safe_report(records, self.sensitive)
         self.report["failure_status"] = records
-        try:
-            text = self.kubectl("logs", "deployment/system-operator", "-n", "auth", "--tail=100")
-            sensitive = self.sensitive + [base64.b64encode(value.encode()).decode() for value in self.sensitive if value]
-            for value in sensitive:
-                if value:
-                    text = text.replace(value, "[REDACTED]")
-            text = re.sub(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", "[REDACTED JWT]", text)
-            errors = []
-            for line in text.splitlines():
-                try:
-                    entry = json.loads(line)
-                    if "error" in entry:
-                        errors.append({key: entry[key] for key in ("msg", "error") if key in entry})
-                except ValueError:
-                    continue
-            # This path is never selected by CI upload-artifact. Keep diagnostic
-            # detail local/nonpublishable and only counts in public evidence.
-            self.args.output.with_suffix(".private-errors.json").write_text(native.safe_report(errors, sensitive))
-            self.report["failure_status"]["operator_error_count"] = len(errors)
-        except Exception:
-            self.report["failure_status"]["operator_diagnostics_unavailable"] = True
 
     def qualify_installed(self):
         self.create_cluster()
@@ -1024,20 +1026,24 @@ def main():
     for name in ("digest", "revision"):
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--keycloak-version", choices=native.KEYCLOAK_IMAGES, required=True)
-    parser.add_argument("--kubernetes-version", choices=("1.35.0", "1.36.2", "1.37.0"), required=True)
+    parser.add_argument("--kubernetes-version", choices=system.PINS["kubernetes"]["versions"], required=True)
     parser.add_argument("--node-archive", type=Path)
     parser.add_argument("--deep-migration", action="store_true")
     args = parser.parse_args()
-    if args.deep_migration and args.kubernetes_version != "1.37.0":
-        parser.error("Deep migration is qualified separately on Kubernetes 1.37.0")
-    system.publication.publish.contract.security.verify(args.evidence, args.revision, "0.1.0-dev.0", args.digest, args.archive)
+    if args.deep_migration and args.kubernetes_version != system.PINS["kubernetes"]["deep_migration"]:
+        parser.error("Deep migration requires Kubernetes " + system.PINS["kubernetes"]["deep_migration"])
+    system.publication.publish.contract.security.verify(args.evidence, args.revision, system.VERSION, args.digest, args.archive)
     with tempfile.TemporaryDirectory(prefix="hankoshell-installed-workload-private-") as temp:
         fixture = Installed(args, Path(temp))
         try:
             fixture.qualify_installed()
-        except Exception:
+        except Exception as error:
+            system.diagnostics.capture(fixture, error)
             if fixture.config.exists():
-                fixture.failure_evidence()
+                try:
+                    fixture.failure_evidence()
+                except Exception:
+                    fixture.report["failure_status"] = {"unavailable": True}
             raise
         finally:
             try:
