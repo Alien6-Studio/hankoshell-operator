@@ -18,6 +18,23 @@ dry_run = contract.module("release_dry_run", "release-dry-run.py")
 
 
 class ReleaseContractTests(unittest.TestCase):
+    def test_development_pushes_run_preflight_without_weakening_full_qualification(self):
+        workflows = contract.ROOT / ".github/workflows"
+        development = yaml.safe_load((workflows / "development.yml").read_text())
+        ci = yaml.safe_load((workflows / "ci.yml").read_text())
+        # PyYAML's YAML 1.1 loader represents the Actions "on" key as True.
+        self.assertEqual(development[True], {"push": {"branches": ["feat/1.0.0-dev"]}})
+        self.assertEqual(set(development["jobs"]), {"preflight"})
+        expected = dict(ci["jobs"]["preflight"], name="Development source preflight")
+        self.assertEqual(development["jobs"]["preflight"], expected)
+        self.assertTrue(development["concurrency"]["cancel-in-progress"])
+        self.assertNotEqual(development["concurrency"]["group"], ci["concurrency"]["group"])
+        self.assertEqual(ci[True]["push"], {"branches": ["main"]})
+        self.assertIn("pull_request", ci[True])
+        self.assertIsNone(ci[True]["pull_request"])
+        self.assertIn("workflow_dispatch", ci[True])
+        self.assertIn("schedule", ci[True])
+
     def test_ci_preflight_blocks_every_expensive_job_and_remains_required(self):
         ci = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
         self.assertEqual(set(ci), {"preflight", "source", "kubernetes", "keycloak", "workload", "oci",
