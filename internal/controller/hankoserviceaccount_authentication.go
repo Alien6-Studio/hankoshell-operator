@@ -430,9 +430,13 @@ func (r *HankoServiceAccountReconciler) reviewAndCleanupAuthentication(ctx conte
 		}
 		// Remove only the canonical owned credential field, preserving unrelated
 		// output keys and the object. UID preconditions reject a replacement.
-		patch := client.MergeFromWithOptions(secret.DeepCopy(), client.MergeFromWithOptimisticLock{})
-		delete(secret.Data, "client_secret")
-		_ = r.Patch(ctx, &secret, patch)
+		// An accepted field cleanup can precede a failed checkpoint. Fresh
+		// read-back of the same owned output recovers it without another write.
+		if hasCredential {
+			patch := client.MergeFromWithOptions(secret.DeepCopy(), client.MergeFromWithOptimisticLock{})
+			delete(secret.Data, "client_secret")
+			_ = r.Patch(ctx, &secret, patch)
+		}
 		if r.APIReader.Get(ctx, key, &secret) != nil || string(secret.UID) != j.SecretUID || !metav1.IsControlledBy(&secret, sa) {
 			return workloadbinding.Failure("AuthenticationCleanupConflict")
 		}
