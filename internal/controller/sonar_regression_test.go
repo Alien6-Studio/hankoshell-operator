@@ -83,7 +83,7 @@ func TestSnapshotReconcileConfigOnly(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "config", Namespace: "test"},
 		Spec:       hankoshv1alpha1.HankoSnapshotSpec{InstanceRef: instance.Name},
 	}
-	k8sClient := controllerTestClient(scheme, instance, snapshot)
+	k8sClient := snapshotTestClient(t, instance, snapshot)
 	reconciler := &HankoSnapshotReconciler{Client: k8sClient, Scheme: scheme}
 
 	if _, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: snapshot.Name, Namespace: snapshot.Namespace}}); err != nil {
@@ -116,7 +116,7 @@ func TestSnapshotReconcileCreatesHardenedDataJob(t *testing.T) {
 			BackupImage: approvedBackupImage, BackupSecretRef: "backup-credentials",
 		},
 	}
-	k8sClient := controllerTestClient(scheme, instance, snapshot, snapshotBackupSecret(snapshot))
+	k8sClient := snapshotTestClient(t, instance, snapshot, snapshotBackupSecret(snapshot))
 	reconciler := &HankoSnapshotReconciler{Client: k8sClient, Scheme: scheme, ImageValidator: approvedFixtureValidator(t)}
 
 	result, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(snapshot)})
@@ -146,7 +146,7 @@ func TestSnapshotReconcileFailsClosedWithoutInstance(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "missing", Namespace: "test"},
 		Spec:       hankoshv1alpha1.HankoSnapshotSpec{InstanceRef: "absent"},
 	}
-	k8sClient := controllerTestClient(scheme, snapshot)
+	k8sClient := snapshotTestClient(t, snapshot)
 	reconciler := &HankoSnapshotReconciler{Client: k8sClient, Scheme: scheme}
 	if _, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(snapshot)}); err != nil {
 		t.Fatalf("missing instance should be reported in status: %v", err)
@@ -173,7 +173,7 @@ func TestSnapshotDataJobTerminalStatePrecedence(t *testing.T) {
 		{name: "pending", handled: true},
 		{name: "failed", conditions: []batchv1.JobCondition{{Type: batchv1.JobFailed, Status: corev1.ConditionTrue}}, handled: true, expectedPhase: "Failed"},
 		{name: "complete", conditions: []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}}},
-		{name: "complete wins over stale failure", conditions: []batchv1.JobCondition{
+		{name: "contradictory completion fails closed", handled: true, expectedPhase: "Failed", conditions: []batchv1.JobCondition{
 			{Type: batchv1.JobFailed, Status: corev1.ConditionTrue}, {Type: batchv1.JobComplete, Status: corev1.ConditionTrue},
 		}},
 	} {
@@ -188,9 +188,12 @@ func TestSnapshotDataJobTerminalStatePrecedence(t *testing.T) {
 			reconciler := &HankoSnapshotReconciler{Scheme: scheme, ImageValidator: approvedFixtureValidator(t)}
 			job := snapshotOwnedJob(t, reconciler, snapshot)
 			job.Status.Conditions = testCase.conditions
-			k8sClient := controllerTestClient(scheme, snapshot, job, snapshotBackupSecret(snapshot))
+			k8sClient := snapshotTestClient(t, snapshot, job, snapshotBackupSecret(snapshot))
 			reconciler.Client = k8sClient
-			result, handled := reconciler.reconcileSnapshotData(ctx, snapshot, instance, client.MergeFrom(snapshot.DeepCopy()))
+			result, handled, err := reconciler.reconcileSnapshotData(ctx, snapshot, instance, client.MergeFrom(snapshot.DeepCopy()))
+			if err != nil {
+				t.Fatal(err)
+			}
 			if handled != testCase.handled {
 				t.Fatalf("handled=%t, want %t", handled, testCase.handled)
 			}

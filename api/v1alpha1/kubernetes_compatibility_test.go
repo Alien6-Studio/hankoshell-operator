@@ -111,6 +111,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 	t.Run("adoption candidate and import coverage schema", func(t *testing.T) { checkAdoptionStatusContract(t, ctx, admin) })
 	t.Run("initial import status with partial inventory", func(t *testing.T) { checkInitialImportStatus(t, ctx, admin) })
 	t.Run("operation checkpoints and child recovery", func(t *testing.T) { checkOperationRecovery(t, ctx, admin) })
+	t.Run("snapshot checkpoints and child recovery", func(t *testing.T) { checkSnapshotRecovery(t, ctx, admin) })
 	t.Run("IAM evidence status schema", func(t *testing.T) { checkIAMStatusEvidence(t, ctx, admin) })
 	t.Run("application protocols admission and status", func(t *testing.T) { checkApplicationProtocols(t, ctx, admin) })
 	t.Run("standalone organization status and finalizers", func(t *testing.T) { checkOrganizationStandaloneStatus(t, ctx, admin) })

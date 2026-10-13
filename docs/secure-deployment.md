@@ -837,6 +837,18 @@ submitted on those paths. Existing Jobs must be controlled by this snapshot and
 match its image, command, credentials, volumes and security settings; even a
 completed Job is not accepted by name alone. Changes to the recorded Job template,
 including extra containers or altered execution settings, fail this check.
+Before creating children, the snapshot records its generation, specification/tenant
+hash and source instance UID. Configuration is captured in an immutable ConfigMap;
+status records its UID and content hash before submitting a database Job. Retries
+reuse that stored capture without enumerating live configuration again. Each child
+must retain this snapshot's owner UID and intent marker. Status also records the
+Job UID; deleted or replaced checkpointed children are refused rather than recreated.
+Transient errors reading the source, listing configuration or reading/creating
+children, and status-write failures are retried, including lost acknowledgements.
+A failed Job cannot yield a successful snapshot, even with a
+contradictory completion condition. These paths are tested against the supported
+Kubernetes API servers; the tests do not execute a database backup or qualify restore.
+
 An approval removal does not kill
 an already-running pod; suspend/delete it and revoke its DB credential during an
 incident. Kubernetes admission and administrator control remain necessary.
@@ -872,6 +884,11 @@ qualify certificate-verifying database TLS in the installation.
 and create a new snapshot. Old mutable Jobs are not adopted or silently replaced;
 inspect and stop them before enabling the new path. Previously terminal snapshots
 remain historical records, not retroactive evidence of verified execution.
+In-flight snapshots without identity checkpoints, changed specifications or tenant
+labels, and recreated source instances are refused. Inspect their children and
+backup PVC before starting a new snapshot; do not clear checkpoints to force replay.
+Deletion stops further reconciliation and permits child garbage collection; it
+does not undo a database dump or make concurrent snapshots transactionally consistent.
 Portable backup/restore, consistency and recovery across database versions or
 cloud providers are not qualified. `HankoOperation.snapshotBefore` creates only
 a configuration snapshot and does not establish a database rollback point.
