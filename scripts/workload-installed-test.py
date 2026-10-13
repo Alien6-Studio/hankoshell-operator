@@ -49,6 +49,7 @@ class Installed(native.Fixture):
             self.workload_grants[0]["serviceAccounts"] += ["migration-worker", "creation-worker", "flow-worker"]
         self.report.update({"schema_version": 1, "layer": "installed-workload", "revision": args.revision,
                             "image_digest": args.digest, "deep_migration": args.deep_migration,
+                            "fixture_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                             "recovery": [], "migrations": {}, "checks": {}})
         self.proxy_forwards = []
         self.rotation_process = None
@@ -56,8 +57,9 @@ class Installed(native.Fixture):
         self.operator_log_thread = None
         self.operator_log_failed = False
         self.operator_log_bytes = 0
-        self.preserved_names = {}
+        self.preserved_themes = {}
         self.workload_anchors = {}
+        self.federated_secrets = {}
 
     def kubectl(self, *args, **kwargs):
         # Match the installed System helpers' text contract, while retaining
@@ -279,9 +281,15 @@ class Installed(native.Fixture):
 
     def pod_probe(self, client):
         pod = self.workload_anchors.get(client, {"pod": "probe"})["pod"]
-        body = self.kubectl("exec", "-i", "-n", "workload", pod, "--", "python", "/probe/probe.py",
-                            input=json.dumps(self.probe_settings(client)).encode(), timeout=60)
-        results = json.loads(body)
+        process = subprocess.run([str(self.args.kubectl), "--kubeconfig", str(self.config), "exec", "-i", "-n", "workload", pod,
+            "--", "python", "/probe/probe.py"], input=json.dumps(self.probe_settings(client)).encode(), capture_output=True, timeout=60)
+        results = json.loads(process.stdout[:16385])
+        if process.returncode:
+            decision = results.get("decision", "transport_or_input_failure")
+            if not re.fullmatch(r"[a-z_]{1,64}", decision):
+                decision = "withheld"
+            status = results.get("http_status")
+            raise ValueError("In-Pod " + decision + " (HTTP " + str(status if isinstance(status, int) else "unavailable") + ")")
         self.record("pod_client_assertion_allow_deny_" + client, all(results.get(key) is True for key in (
             "client_assertion", "access_token", "public_claims_valid", "projection_600_seconds", "resource_allowed", "resource_denied")))
 
@@ -302,8 +310,8 @@ class Installed(native.Fixture):
         self.record("kubelet_rotation_real_expiry", all(results.get(key) is True for key in ("rotation", "old_assertion_expired_refused", "rotated_assertion_accepted")))
         self.report["rotation"] = {key: results[key] for key in ("first_iat", "first_exp", "checked_at", "elapsed_seconds")}
 
-    def expect_auth(self, name, result, accepted=False):
-        self.record(name, result["http_status"] == 200 if accepted else result["http_status"] in (400, 401) and result.get("oauth_error") == "invalid_client")
+    def expect_auth(self, name, result, accepted=False, refused_errors=("invalid_client",)):
+        self.record(name, result["http_status"] == 200 if accepted else result["http_status"] in (400, 401) and result.get("oauth_error") in refused_errors)
 
     def secret_value(self, client):
         value = base64.b64decode(self.get("secret", "hanko-sa-" + client)["data"]["client_secret"]).decode()
@@ -311,8 +319,11 @@ class Installed(native.Fixture):
         return value
 
     def native_secret(self, client):
-        value = self.api("GET", f'/admin/realms/managed/clients/{self.client("managed", client)["id"]}/client-secret')["value"]
+        native_client = self.client("managed", client)
+        value = self.api("GET", f'/admin/realms/managed/clients/{native_client["id"]}/client-secret')["value"]
         self.sensitive.append(value)
+        if native_client["clientAuthenticatorType"] == "federated-jwt":
+            self.federated_secrets[client] = value
         return value
 
     def secret_auth(self, client, value):
@@ -340,6 +351,7 @@ class Installed(native.Fixture):
                    object_value("HankoServiceAccount", "other-client", {"realmRef": "managed", "clientID": "other-client",
                        "authentication": {"mode": "Kubernetes", "kubernetes": binding}}))
         wait("wrong-client positive control", lambda: self.hsa_ready("other-client"), 180)
+        self.native_secret("other-client")  # Administrator-only leakage sentinel.
         self.expect_auth("wrong_client", self.assertion(token, "other-client"))
         self.expect_auth("other_client_positive_control", self.assertion(self.token_request("other", audiences=[native.REALM_ISSUER]), "other-client"), True)
         self.api("POST", "/admin/realms", {"realm": "realm-b", "enabled": True})
@@ -409,11 +421,13 @@ class Installed(native.Fixture):
         current = self.client("managed", name)
         self.record("preserved_uuid_credential_" + name, current["id"] == uuid and current["clientAuthenticatorType"] == method
                     and current["enabled"] is True and self.native_secret(name) == secret
-                    and (name not in self.preserved_names or current.get("name") == self.preserved_names[name]))
+                    and (name not in self.preserved_themes or current.get("attributes", {}).get("login_theme") == self.preserved_themes[name]))
 
     def recovery_record(self, name, fault, step, before, after, counts=None):
         public_counts = {}
         for route, count in (counts or {}).items():
+            if "/protocol/openid-connect/token" in route:
+                continue  # Token issuance is not a provider configuration write.
             method = route.split(" ", 1)[0]
             public_counts[method] = public_counts.get(method, 0) + count
         self.report["recovery"].append({"case": name, "fault": fault, "journal_state": step, "native_before": before,
@@ -439,13 +453,17 @@ class Installed(native.Fixture):
         self.workload_anchors[name] = self.workload_pod("migration-probe", "migration-worker")
         self.create_hsa(name, False)
         uuid, secret = self.client("managed", name)["id"], self.secret_value(name)
-        self.preserved_names[name] = "Independent display name"
-        self.api("PUT", "/admin/realms/managed/clients/" + uuid, {"name": self.preserved_names[name]})
+        # Use the existing closed preservation schema. A nondefault display name
+        # is deliberately outside QualifiedLeaf and blocks authentication plans.
+        self.preserved_themes[name] = "keycloak.v2"
+        self.api("PUT", "/admin/realms/managed/clients/" + uuid, {"attributes": {"login_theme": self.preserved_themes[name]}})
         self.expect_auth("same_client_secret_before", self.secret_auth(name, secret), True)
         # Explicit permission, independent from the two-client migration grant.
         server = self.get("hankoresourceserver", "installed-server")
-        permissions = server["spec"]["permissions"] + [{"name": "same-client-read", "resources": ["allowed"], "scopes": ["read"],
-                                                      "principals": [{"kind": "service_account", "ref": name}]}]
+        # One client policy explicitly permits either workload. Two overlapping
+        # scope permissions would both participate in native UNANIMOUS evaluation.
+        permissions = server["spec"]["permissions"]
+        permissions[0]["principals"].append({"kind": "service_account", "ref": name})
         self.patch("hankoresourceserver", "installed-server", {"spec": {"permissions": permissions}})
         self.resource_ready()
         self.transition(name, "Kubernetes", "same-client-federated")
@@ -503,7 +521,8 @@ class Installed(native.Fixture):
         wait("reviewed Secret fallback", lambda: self.ready("hankoserviceaccount", name), 180)
         self.stable_native(name, uuid, secret, "client-secret")
         self.expect_auth("fallback_secret_accepted", self.secret_auth(name, secret), True)
-        self.expect_auth("fallback_assertion_refused", self.assertion(self.projected(name="migration-probe"), name))
+        self.expect_auth("fallback_assertion_refused", self.assertion(self.projected(name="migration-probe"), name),
+                         refused_errors=("invalid_client", "unauthorized_client"))
         self.report["migrations"]["secret_fallback"] = True
         self.transition(name, "Kubernetes", "same-client-return")
         self.approve(name, "approval")
@@ -634,6 +653,7 @@ class Installed(native.Fixture):
             and not self.api("GET", "/admin/realms/managed/clients?clientId=blocked-flow"))
         self.api("PUT", "/admin/realms/managed/authentication/flows/clients/executions", execution)
         wait("administrator-restored flow converges", lambda: self.hsa_ready(name) and self.hsa_ready("blocked-flow"), 180)
+        self.native_secret("blocked-flow")
         self.pod_probe(name)
         self.record("effective_flow_prerequisite_recovery")
 
@@ -670,7 +690,9 @@ class Installed(native.Fixture):
         name = "same-client"
         uuid = self.client("managed", name)["id"]
         server = self.get("hankoresourceserver", "installed-server")
-        permissions = [p for p in server["spec"]["permissions"] if p["name"] != "same-client-read"]
+        permissions = server["spec"]["permissions"]
+        for permission in permissions:
+            permission["principals"] = [p for p in permission["principals"] if p["ref"] != name]
         self.patch("hankoresourceserver", "installed-server", {"spec": {"permissions": permissions}})
         self.resource_ready()
         # Status acknowledgement loss is an actual successful API PATCH whose
@@ -844,8 +866,12 @@ class Installed(native.Fixture):
         for item in objects:
             values = [base64.b64decode(value).decode(errors="replace") for value in item.get("data", {}).values()] if item["kind"] == "Secret" else list(item.get("data", {}).values())
             values += [base64.b64decode(value).decode(errors="replace") for value in item.get("binaryData", {}).values()]
+            values += [json.dumps(item.get("metadata", {})), json.dumps(item.get("stringData", {}))]
             if any(re.search(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", value) for value in values):
                 raise ValueError("JWT stored in Kubernetes fixture object (withheld)")
+            if any(credential in value or base64.b64encode(credential.encode()).decode() in value
+                   for credential in self.federated_secrets.values() for value in values):
+                raise ValueError("Kubernetes-mode native credential stored in fixture object (withheld)")
         for pod in json.loads(self.kubectl("get", "pods", "-n", "workload", "-o", "json"))["items"]:
             self.record("no_workload_credential_mount", all("secret" not in volume for volume in pod["spec"]["volumes"])
                 and all(not container.get("env") and not container.get("envFrom") for container in pod["spec"]["containers"]))

@@ -11,6 +11,11 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 
+class ProbeFailure(ValueError):
+    def __init__(self, decision, status=None):
+        self.decision, self.status = decision, status
+
+
 def decode(token):
     part = token.split(".")[1]
     return json.loads(base64.urlsafe_b64decode(part + "=" * (-len(part) % 4)))
@@ -33,11 +38,11 @@ def authenticate(assertion, settings, context):
 def decisions(assertion, settings, context):
     status, body = authenticate(assertion, settings, context)
     if status != 200 or not body.get("access_token"):
-        raise ValueError("authentication refused")
+        raise ProbeFailure("authentication_refused", status)
     token = body["access_token"]
     claims = decode(token)
     if claims.get("iss") != settings["issuer"] or claims.get("azp") != settings["client"] or claims.get("exp", 0) <= time.time():
-        raise ValueError("access token claims differ")
+        raise ProbeFailure("access_token_claims_differ")
     results = {"client_assertion": True, "access_token": True, "public_claims_valid": True}
     # The same still-valid bearer is independently evaluated for both objects.
     for resource, expected in (("allowed", 200), ("denied", 403)):
@@ -46,7 +51,7 @@ def decisions(assertion, settings, context):
             "response_mode": "decision"}, context, token)
         valid = (status == expected and (response.get("result") is True if expected == 200 else response.get("error") == "access_denied"))
         if not valid:
-            raise ValueError("native UMA decision differs")
+            raise ProbeFailure("resource_" + resource + "_differs", status)
         results["resource_" + resource] = True
     return results
 
@@ -60,7 +65,7 @@ def probe(settings):
     if (claims.get("aud") != [settings["issuer"]] or claims["exp"] - claims["iat"] != 600
             or claims["sub"] != "system:serviceaccount:" + settings["namespace"] + ":" + settings["account"]
             or claims["kubernetes.io"]["serviceaccount"]["uid"] != settings["uid"]):
-        raise ValueError("projected identity differs")
+        raise ProbeFailure("projected_identity_differs")
     results = decisions(first, settings, context)
     results["projection_600_seconds"] = True
     if settings.get("rotation"):
@@ -72,11 +77,11 @@ def probe(settings):
             time.sleep(min(5, max(0.1, deadline - time.time())))
         old_status, body = authenticate(first, settings, context)
         if old_status not in (400, 401) or body.get("error") != "invalid_client":
-            raise ValueError("expired projected assertion accepted")
+            raise ProbeFailure("expired_assertion_accepted", old_status)
         # A fresh authentication always rereads the kubelet-managed file.
         fresh = path.read_text().strip()
         if not rotated or fresh == first or decode(fresh)["exp"] <= time.time():
-            raise ValueError("kubelet rotation not observed")
+            raise ProbeFailure("rotation_not_observed")
         decisions(fresh, settings, context)
         results.update({"rotation": True, "old_assertion_expired_refused": True, "rotated_assertion_accepted": True,
             "first_iat": claims["iat"], "first_exp": claims["exp"], "checked_at": int(time.time()),
@@ -87,6 +92,9 @@ def probe(settings):
 if __name__ == "__main__":
     try:
         print(json.dumps(probe(json.loads(sys.stdin.read(16385)))))
+    except ProbeFailure as error:
+        print(json.dumps({"probe_failed": True, "decision": error.decision, "http_status": error.status}))
+        sys.exit(1)
     except Exception:
         # Never emit a traceback or raw OAuth response containing a token.
         print(json.dumps({"probe_failed": True}))
