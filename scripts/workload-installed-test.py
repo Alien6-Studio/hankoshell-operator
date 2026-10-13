@@ -689,6 +689,8 @@ class Installed(native.Fixture):
     def cleanup_recovery(self):
         name = "same-client"
         uuid = self.client("managed", name)["id"]
+        secret = self.native_secret(name)
+        native_path = "/admin/realms/managed/clients/" + uuid
         server = self.get("hankoresourceserver", "installed-server")
         permissions = server["spec"]["permissions"]
         for permission in permissions:
@@ -698,6 +700,7 @@ class Installed(native.Fixture):
         # Status acknowledgement loss is an actual successful API PATCH whose
         # downstream response is dropped; it differs from status removal.
         path = "/apis/hanko.sh/v1alpha1/namespaces/auth/hankoserviceaccounts/" + name
+        self.control("keycloak", None, reset=True)
         self.control("api", {"method": "PATCH", "path": path + "/status", "action": "lost-ack"}, reset=True)
         self.patch("hankoserviceaccount", name, {"status": None}, subresource="status")
         self.stop_log_capture()
@@ -707,19 +710,29 @@ class Installed(native.Fixture):
         self.await_fault("api")
         self.restart()
         wait("accepted status patch recovery", lambda: self.hsa_ready(name), 180)
-        self.record("status_patch_ack_loss_recovered", self.client("managed", name)["id"] == uuid)
-        self.recovery_record(name, "status PATCH accepted; downstream response dropped; restart", "Committed", "Kubernetes", "Kubernetes")
+        self.stable_native(name, uuid, secret, "federated-jwt")
+        counts = self.control("keycloak", None)["counts"]
+        self.record("status_patch_ack_loss_recovered", counts.get("PUT " + native_path, 0) == 0
+            and counts.get("POST " + native_path + "/client-secret", 0) == 0 and counts.get("POST /admin/realms/managed/clients", 0) == 0)
+        self.recovery_record(name, "status PATCH accepted; downstream response dropped; restart", "Committed", "Kubernetes", "Kubernetes", counts)
         # Block finalizer response after upstream accepted the finalizer UPDATE.
+        self.control("keycloak", None, reset=True)
         self.control("api", {"method": "PUT", "path": path, "action": "lost-ack"}, reset=True)
         self.kubectl("delete", "hankoserviceaccount", name, "-n", "auth", "--wait=false")
         fault = self.await_fault("api")
         self.record("finalizer_update_ack_lost", fault["upstream_status"] == 200)
         self.restart()
         wait("finalizer recovery removes child", lambda: not self.exists("hankoserviceaccount", name), 180)
-        self.record("deleted_client_not_recreated", not self.api("GET", "/admin/realms/managed/clients?clientId=" + name))
+        state = self.control("keycloak", None)
+        counts = state["counts"]
+        api_state = self.control("api", None)
+        self.record("deleted_client_not_recreated", not self.api("GET", "/admin/realms/managed/clients?clientId=" + name)
+            and counts.get("DELETE " + native_path) == 1 and state["attempted_counts"].get("DELETE " + native_path) == 1
+            and counts.get("POST /admin/realms/managed/clients", 0) == 0 and counts.get("POST " + native_path + "/client-secret", 0) == 0
+            and api_state["counts"].get("PUT " + path) == 1 and api_state["attempted_counts"].get("PUT " + path) == 1)
         self.record("foreign_preservation", self.client("managed", "foreign-client") == self.foreign_client
             and self.api("GET", "/admin/realms/managed/identity-provider/instances/foreign-idp") == self.foreign_idp)
-        self.recovery_record(name, "finalizer UPDATE accepted; downstream response dropped; restart", "Committed", "Kubernetes", "Absent")
+        self.recovery_record(name, "finalizer UPDATE accepted; downstream response dropped; restart", "Committed", "Kubernetes", "Absent", counts)
 
     def setup_proxy(self, name, upstream, ca, port, tls_secret="keycloak-tls"):
         settings = {"port": port, "upstream": upstream, "ca": "/fixture/ca.crt"}

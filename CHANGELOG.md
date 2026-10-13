@@ -3,6 +3,24 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Installed workload identity and migration qualification
+
+- Qualify the exact scanned operator image with real installed Pods on Kubernetes
+  1.35.0/1.36.2/1.37.0 and Keycloak 26.7.5/26.8.0. Required native 6×57 checks
+  and the general installed 19 checks remain separate gates. Projected assertions
+  obtain access tokens and independently exercise native resource ALLOW/DENY;
+  real rotation, expiry, UID replacement, containment and leakage checks run in
+  all six installed cells.
+- Deep migration/recovery on both Keycloak versions with Kubernetes 1.37.0 covers
+  two-client overlap, reviewed same-client cutover, same-credential Secret
+  fallback, return, every durable journal boundary and externally injected
+  provider/output/status/finalizer response loss. Recover accepted Secret cleanup
+  after checkpoint failure without sending a second field patch.
+- Preserve separate constrained identities, foreign objects, explicit authority
+  and asynchronous revocation limits. This completes the supported Workload
+  Identity qualification; development publication remains blocked and the other
+  functional roadmap and #21 trust requirements remain separate.
+
 ### HankoServiceAccount federated authentication
 
 - Native owned activation follows fresh workload binding proof. Durable
@@ -62,8 +80,8 @@ release; those labels did not identify public packages or GitHub Releases.
   strictly owned native federated clients; never approve a replacement UID.
 - Retain Kubernetes workload trust ownership: the independent seventeenth typed
   HankoWorkloadTrust API, current-cluster discovery, owner-only adoption and
-  complete-inventory age/deletion guards. Installed-system and migration
-  qualification remains separate from implemented native authentication.
+  complete-inventory age/deletion guards. Installed-system runtime qualification
+  and the deeper migration/recovery qualification remain distinct layers.
 - Retain the narrow trust-writer profile and use a distinct target-realm
   view-clients dependent reader. Document native client-secret exposure on
   26.7.5, stricter 26.8.0 denial, application route guards and the practical union

@@ -166,8 +166,12 @@ The chart targets Kubernetes **1.35–1.37** on Linux nodes. Required CI checks
 qualify all 17 CRDs, server-side apply, namespace/credential RBAC boundaries and
 Restricted Pod Security admission against each minor version. Optional AppArmor
 and stable user namespaces extend the baseline when supported by the nodes.
-An installed-system test also runs the scanned image through Helm on Kubernetes
-1.37.0 with real HTTPS Keycloak 26.8.0, including drift recovery after restart.
+An installed-system test retains its 19 general checks on Kubernetes 1.37.0
+with HTTPS Keycloak 26.8.0. A separate installed workload matrix qualifies the
+exact scanned image across **1.35.0 / 1.36.2 / 1.37.0 × 26.7.5 / 26.8.0**:
+real projected 600-second Pod assertions, client credentials grants, independent
+native resource ALLOW/DENY, kubelet rotation/expiry and UID containment.
+Deep reviewed migration/recovery runs on both Keycloak versions with 1.37.0.
 See the [compatibility and hardening matrix](docs/secure-deployment.md#kubernetes-compatibility-and-hardening).
 Published artifacts and evidence are listed in the
 [release history](https://github.com/Alien6-Studio/hankoshell-operator/releases).
@@ -423,15 +427,17 @@ dedicated scoped writer where possible and review the
 
 Adopt Existing Keycloak completes reviewed acquisition, native
 preservation and explicit Manage. Organizational Authorization retains explicit
-grants and bounded structural provenance. **Workload Identity** starts
-with the [native qualification and architecture contract](docs/architecture/workload-identity.md).
+grants and bounded structural provenance. **Workload Identity is implemented and
+qualified as an installed system** within the [supported contract](docs/architecture/workload-identity.md#installed-system-and-migration-qualification).
 Kubernetes workload trust ownership and Workload binding and mesh coherence have
 typed APIs and controllers. HankoServiceAccount federated authentication adds
 owned native activation, durable reviewed mode changes and explicit Secret
 fallback. Public metadata follows verified configuration; the operator never
 receives workload JWTs. [The migration contract](docs/architecture/workload-identity.md#hankoserviceaccount-federated-authentication)
-retains two-client migration as the default. Installed-system and migration
-qualification remains separate work toward the same first public 0.1.0.
+retains two-client migration as the default. Same-client cutover, same-credential
+Secret fallback, return and journal recovery are qualified on both Keycloak
+versions with Kubernetes 1.37.0. Same-client cutover has no zero-downtime guarantee;
+containment is asynchronous and does not revoke already issued access tokens.
 [#21](https://github.com/Alien6-Studio/hankoshell-operator/issues/21) remains
 open for transversal first-publication trust and readiness.
 For `HankoRole` and `HankoResourceServer`, status distinguishes the evaluated
@@ -473,7 +479,10 @@ scoped RBAC, realm/application/role reconciliation, observation, restart/drift
 recovery and finalizer deletion. It requires Docker, checksum-pinned kind/kubectl,
 Helm 3.17.0, pinned ORAS and the fresh OCI archive/evidence from CI; see the
 [reproduction command](docs/secure-deployment.md#installed-system-test).
-The single-node/dev-file fixture does not qualify CNI policy enforcement, cloud
+`make workload-installed-test` consumes the same fresh scanned archive, revision
+and digest. CI requires six runtime cells and two deep migration/recovery cases;
+see [stratification and reproduction](docs/secure-deployment.md#installed-workload-identity-qualification).
+The single-node/dev-file fixtures do not qualify CNI policy enforcement, cloud
 providers, production databases, enterprise fleet integration or disaster recovery.
 
 [Contributing](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md) ·
