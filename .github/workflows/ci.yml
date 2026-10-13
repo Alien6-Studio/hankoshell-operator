@@ -24,8 +24,36 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  preflight:
+    name: Fast source preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.2'
+          cache: true
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned preflight dependencies
+        run: |
+          curl -fLsS https://get.helm.sh/helm-v3.17.0-linux-amd64.tar.gz -o /tmp/helm.tgz
+          echo 'fb5d12662fde6eeff36ac4ccacbf3abed96b0ee2de07afdde4edb14e613aee24  /tmp/helm.tgz' | sha256sum -c -
+          tar -xzf /tmp/helm.tgz -C /tmp
+          sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
+          python -m pip install -r scripts/requirements.txt
+          make install-preflight-tools
+      - name: Validate formatting, vet, generated schemas and delivery contracts
+        run: make preflight
   source:
     name: Source checks
+    needs: [preflight]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -49,10 +77,8 @@ jobs:
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
           python -m pip install -r scripts/requirements.txt
           make install-tools
-      - name: Validate source, contracts and generated schemas
-        run: make check arch lint generated-check vuln
-      - name: Validate Attest delivery gates
-        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: Validate unit tests, chart, architecture, lint and vulnerabilities
+        run: make test chart-test arch lint vuln
       - name: Cross-compile both Linux architectures
         run: |
           make build GOARCH=amd64
@@ -64,6 +90,7 @@ jobs:
             dir /src --no-banner --redact
   kubernetes:
     name: Kubernetes ${{ matrix.version }} API and security
+    needs: [preflight]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
@@ -91,6 +118,7 @@ jobs:
         run: make lint LINT_BUILD_TAGS=integration
   keycloak:
     name: Keycloak ${{ matrix.version }} Admin API and security
+    needs: [preflight]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
@@ -114,6 +142,7 @@ jobs:
           make lint LINT_BUILD_TAGS=keycloak_integration
   workload:
     name: Workload identity KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
+    needs: [preflight]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
@@ -150,6 +179,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   oci:
+    needs: [preflight]
     permissions:
       contents: read
       packages: read
@@ -303,12 +333,13 @@ jobs:
           retention-days: 14
   checks:
     name: Source and chart checks
-    needs: [source, kubernetes, keycloak, workload, oci, rehearsal, system, installed-workload]
+    needs: [preflight, source, kubernetes, keycloak, workload, oci, rehearsal, system, installed-workload]
     if: always()
     runs-on: ubuntu-24.04
     steps:
-      - name: Require source, Kubernetes, Keycloak, final OCI, installed system and release rehearsal checks
+      - name: Require preflight, source, Kubernetes, Keycloak, final OCI, installed system and release rehearsal checks
         env:
+          PREFLIGHT_RESULT: ${{ needs.preflight.result }}
           SOURCE_RESULT: ${{ needs.source.result }}
           KUBERNETES_RESULT: ${{ needs.kubernetes.result }}
           KEYCLOAK_RESULT: ${{ needs.keycloak.result }}
@@ -317,4 +348,4 @@ jobs:
           REHEARSAL_RESULT: ${{ needs.rehearsal.result }}
           SYSTEM_RESULT: ${{ needs.system.result }}
           INSTALLED_WORKLOAD_RESULT: ${{ needs.installed-workload.result }}
-        run: test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success
+        run: test "$PREFLIGHT_RESULT" = success && test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success

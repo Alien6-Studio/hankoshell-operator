@@ -14,9 +14,11 @@ KUBERNETES_VERSION ?= 1.37.0
 KEYCLOAK_VERSION ?= 26.8.0
 RELEASE_VERSION := 0.1.0-dev.0
 
-.PHONY: all check fmt-check generate manifests generated-check build vet test chart-test integration-test keycloak-integration-test lint arch vuln install-tools release-dry-run system-test workload-identity-probe workload-installed-test
+.PHONY: all check preflight fmt-check generate manifests generated-check build vet test chart-test integration-test keycloak-integration-test lint arch vuln install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test
 all: check build
 check: fmt-check vet test chart-test
+preflight: fmt-check vet generated-check
+	python3 -m unittest discover -s scripts -p 'test_*.py'
 
 fmt-check:
 	@test -z "$$(gofmt -l $$(find api cmd internal -name '*.go'))" || { gofmt -l $$(find api cmd internal -name '*.go'); exit 1; }
@@ -65,8 +67,9 @@ arch:
 	go-arch-lint check
 vuln:
 	govulncheck ./...
-install-tools: $(GOLANGCI_LINT)
+install-preflight-tools:
 	go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
+install-tools: install-preflight-tools $(GOLANGCI_LINT)
 	go install github.com/fe3dback/go-arch-lint@$(GO_ARCH_LINT_VERSION)
 	go install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
 

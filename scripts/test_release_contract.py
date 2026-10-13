@@ -18,6 +18,40 @@ dry_run = contract.module("release_dry_run", "release-dry-run.py")
 
 
 class ReleaseContractTests(unittest.TestCase):
+    def test_ci_preflight_blocks_every_expensive_job_and_remains_required(self):
+        ci = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
+        self.assertEqual(set(ci), {"preflight", "source", "kubernetes", "keycloak", "workload", "oci",
+                                   "rehearsal", "system", "installed-workload", "checks"})
+        for job in ("source", "kubernetes", "keycloak", "workload", "oci"):
+            with self.subTest(job=job):
+                self.assertEqual(ci[job].get("needs"), ["preflight"])
+                self.assertNotIn("if", ci[job])  # Keep implicit success(), including for reusable OCI.
+                self.assertFalse(ci[job].get("continue-on-error", False))
+        for job in ("rehearsal", "system", "installed-workload"):
+            self.assertEqual(ci[job]["needs"], ["source", "oci"])
+            self.assertNotIn("if", ci[job])
+        self.assertNotIn("needs", ci["preflight"])
+        self.assertNotIn("if", ci["preflight"])
+        self.assertFalse(ci["preflight"].get("continue-on-error", False))
+        self.assertEqual(set(ci["checks"]["needs"]), set(ci) - {"checks"})
+        self.assertEqual(ci["checks"]["name"], "Source and chart checks")
+        self.assertEqual(ci["checks"]["if"], "always()")
+        self.assertIn("make preflight", [step.get("run") for step in ci["preflight"]["steps"]])
+        makefile = (contract.ROOT / "Makefile").read_text()
+        self.assertRegex(makefile, r"(?m)^preflight: fmt-check vet generated-check\n\tpython3 -m unittest discover -s scripts -p 'test_\*\.py'$")
+        self.assertIn("make test chart-test arch lint vuln", [step.get("run") for step in ci["source"]["steps"]])
+
+    def test_ci_preflight_preserves_release_call_interface(self):
+        ci = yaml.load((contract.ROOT / ".github/workflows/ci.yml").read_text(), Loader=yaml.BaseLoader)
+        call = ci["on"]["workflow_call"]
+        self.assertEqual(call["inputs"], {"release": {"type": "boolean", "default": "false"}})
+        self.assertEqual(call["outputs"], {
+            "oci_digest": {"value": "${{ jobs.oci.outputs.digest }}"},
+            "oci_artifact_id": {"value": "${{ jobs.oci.outputs.artifact_id }}"},
+            "release_candidate": {"value": "${{ jobs.oci.outputs.candidate_digest }}"},
+        })
+        self.assertEqual(ci["jobs"]["oci"]["with"], {"release": "${{ inputs.release == true }}"})
+
     def test_reviewed_versions_maturity_and_curated_notes(self):
         notes = contract.check()
         self.assertNotIn("Unreleased", notes)
