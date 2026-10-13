@@ -2,9 +2,12 @@
 
 import importlib.util
 import json
+from io import BytesIO
+from email.message import Message
 from pathlib import Path
 import unittest
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 
 def module(name, filename):
@@ -61,6 +64,49 @@ class InstalledEvidenceTests(unittest.TestCase):
         self.assertTrue(proxy.matches(rule, "PATCH", "/fixture/hsa", body))
         self.assertFalse(proxy.matches(rule, "PUT", "/fixture/hsa", body))
         self.assertFalse(proxy.matches(rule, "PATCH", "/other/hsa", body))
+
+    def test_proxy_preserves_native_media_type_without_forwarding_gzip(self):
+        handler = proxy.Proxy.__new__(proxy.Proxy)
+        handler.headers = Message()
+        handler.headers["Accept-Encoding"] = "gzip"
+        handler.headers["Accept"] = "application/vnd.kubernetes.protobuf"
+        handler.rfile = BytesIO()
+        handler.command, handler.path = "GET", "/api/v1/namespaces"
+        handler.server = SimpleNamespace(upstream="https://fixture", context=None)
+        handler.reply = MagicMock()
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.status = 200
+        response.headers = {"Content-Type": "application/vnd.kubernetes.protobuf"}
+        response.read.return_value = b"protobuf-fixture"
+        with patch.dict(proxy.STATE, {"rule": None, "blocked": False, "triggered": False, "counts": {}, "upstream_status": None}, clear=True), \
+             patch.object(proxy, "urlopen", return_value=response) as upstream:
+            handler.handle_request()
+        self.assertNotIn("accept-encoding", {key.lower() for key, _ in upstream.call_args.args[0].header_items()})
+        handler.reply.assert_called_once_with(200, b"protobuf-fixture", "application/vnd.kubernetes.protobuf")
+
+    def test_lost_ack_requires_upstream_acceptance_before_downstream_drop(self):
+        handler = proxy.Proxy.__new__(proxy.Proxy)
+        handler.headers = Message()
+        handler.headers["Content-Length"] = "2"
+        handler.rfile = BytesIO(b"{}")
+        handler.command, handler.path = "POST", "/fixture/clients"
+        handler.server = SimpleNamespace(upstream="https://fixture", context=None)
+        handler.reply, handler.connection = MagicMock(), MagicMock()
+        events = []
+        handler.connection.shutdown.side_effect = lambda *_: events.append("downstream-dropped")
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.status, response.headers = 201, {"Content-Type": "application/json"}
+        response.read.side_effect = lambda *_: events.append("upstream-accepted") or b"{}"
+        rule = {"method": "POST", "path": "/fixture/clients", "action": "lost-ack"}
+        with patch.dict(proxy.STATE, {"rule": rule, "blocked": False, "triggered": False, "counts": {}, "upstream_status": None}, clear=True), \
+             patch.object(proxy, "urlopen", return_value=response):
+            handler.handle_request()
+            self.assertEqual(proxy.STATE["counts"], {"POST /fixture/clients": 1})
+            self.assertEqual(proxy.STATE["upstream_status"], 201)
+        self.assertEqual(events, ["upstream-accepted", "downstream-dropped"])
+        handler.reply.assert_not_called()
 
 
 if __name__ == "__main__":

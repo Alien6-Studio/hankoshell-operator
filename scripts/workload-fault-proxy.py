@@ -31,9 +31,9 @@ class Proxy(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
-    def reply(self, status, body):
+    def reply(self, status, body, content_type="application/json"):
         self.send_response(status)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -67,7 +67,10 @@ class Proxy(BaseHTTPRequestHandler):
         if selected and rule["action"] in ("deny", "conflict"):
             self.reply(403 if rule["action"] == "deny" else 409, b"{}")
             return
-        headers = {k: v for k, v in self.headers.items() if k.lower() not in ("host", "connection", "content-length")}
+        # Go automatically requests gzip. This relay asks upstream for identity
+        # bytes and preserves the actual media type (including Kubernetes
+        # protobuf); otherwise valid token/API responses become decode errors.
+        headers = {k: v for k, v in self.headers.items() if k.lower() not in ("host", "connection", "content-length", "accept-encoding")}
         if selected and rule["action"] == "resource-version-conflict":
             value = json.loads(body)
             value.setdefault("metadata", {})["resourceVersion"] = "1"
@@ -76,9 +79,10 @@ class Proxy(BaseHTTPRequestHandler):
         request = Request(self.server.upstream + self.path, data=payload, method=self.command, headers=headers)
         try:
             with urlopen(request, context=self.server.context, timeout=35) as response:
+                content_type = response.headers.get("Content-Type", "application/json")
                 if self.command == "GET" and "watch=true" in self.path:
                     self.send_response(response.status)
-                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Type", content_type)
                     self.send_header("Connection", "close")
                     self.end_headers()
                     while chunk := response.read1(65536):
@@ -88,6 +92,7 @@ class Proxy(BaseHTTPRequestHandler):
                     return
                 status, response_body = response.status, response.read(8 * 2**20)
         except HTTPError as error:
+            content_type = error.headers.get("Content-Type", "application/json")
             status, response_body = error.code, error.read(2**20)
         except Exception:
             self.reply(502, b"{}")
@@ -103,7 +108,7 @@ class Proxy(BaseHTTPRequestHandler):
             self.connection.shutdown(socket.SHUT_RDWR)
             self.connection.close()
             return
-        self.reply(status, response_body)
+        self.reply(status, response_body, content_type)
 
     do_GET = handle_request
     do_POST = handle_request

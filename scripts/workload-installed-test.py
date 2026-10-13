@@ -56,6 +56,11 @@ class Installed(native.Fixture):
         self.operator_log_bytes = 0
         self.preserved_names = {}
 
+    def kubectl(self, *args, **kwargs):
+        # Match the installed System helpers' text contract, while retaining
+        # the native fixture's redacted command-failure boundary.
+        return super().kubectl(*args, **kwargs).strip()
+
     def record(self, name, valid=True):
         self.report["checks"][name] = bool(valid)
         if not valid:
@@ -142,6 +147,9 @@ class Installed(native.Fixture):
                 self.apply(self.secret(name, {"HANKO_KEYCLOAK_URL": self.provider_url,
                     "HANKO_KC_CLIENT_ID": name, "HANKO_KC_CLIENT_SECRET": credential}))
             token = self.access_token({"client_id": name, "client_secret": credential, "grant_type": "client_credentials"})
+            if name == "system-operator":
+                self.api("GET", "/admin/serverinfo", token=token)
+                self.record("scoped_chart_identity_serverinfo_read")
             denied = [("POST", "/admin/realms/managed/users", {"username": "forbidden"}),
                       ("GET", "/admin/realms/master/clients", None),
                       ("GET", "/admin/realms/unrelated/clients", None),
@@ -394,8 +402,27 @@ class Installed(native.Fixture):
                     and (name not in self.preserved_names or current.get("name") == self.preserved_names[name]))
 
     def recovery_record(self, name, fault, step, before, after, counts=None):
+        public_counts = {}
+        for route, count in (counts or {}).items():
+            method = route.split(" ", 1)[0]
+            public_counts[method] = public_counts.get(method, 0) + count
         self.report["recovery"].append({"case": name, "fault": fault, "journal_state": step, "native_before": before,
-            "native_after": after, "duplicate_writes": False, "rotation": False, "result": True, "accepted_write_counts": counts or {}})
+            "native_after": after, "duplicate_writes": False, "rotation": False, "result": True, "accepted_write_counts": public_counts})
+
+    def checkpoint_restart(self, name, step, uuid, secret, method, status_loss=False):
+        self.control("keycloak", None, reset=True)
+        self.restart(status_loss=name if status_loss else None)
+        self.stage(name, step)
+        if step == "Committed":
+            wait("committed current-generation readiness", lambda: self.hsa_ready(name), 180)
+        self.stable_native(name, uuid, secret, method)
+        counts = self.control("keycloak", None)["counts"]
+        path = "/admin/realms/managed/clients/" + uuid
+        self.record("restart_no_native_write_" + step, not any(count for key, count in counts.items()
+            if key.split(" ", 1)[1] in (path, path + "/client-secret", "/admin/realms/managed/clients")))
+        mode = "Kubernetes" if method == "federated-jwt" else "Secret"
+        self.recovery_record(name, "status removed externally after stop; manager restart (not ACK loss)" if status_loss else "manager restart",
+                             step, mode, mode, counts)
 
     def migration_roundtrip(self):
         name = "same-client"
@@ -411,10 +438,7 @@ class Installed(native.Fixture):
         self.patch("hankoresourceserver", "installed-server", {"spec": {"permissions": permissions}})
         self.resource_ready()
         self.transition(name, "Kubernetes", "same-client-federated")
-        self.restart()
-        self.stage(name, "Prepared")
-        self.stable_native(name, uuid, secret, "client-secret")
-        self.recovery_record(name, "manager restart", "Prepared", "Secret", "Secret")
+        self.checkpoint_restart(name, "Prepared", uuid, secret, "client-secret")
         path = "/admin/realms/managed/clients/" + uuid
         self.control("keycloak", {"method": "PUT", "path": path, "action": "lost-ack"}, reset=True)
         self.approve(name, "approval")
@@ -426,18 +450,13 @@ class Installed(native.Fixture):
         counts = self.control("keycloak", None)["counts"]
         self.record("provider_lost_ack_no_duplicate_toggle", counts.get("PUT " + path) == 1)
         self.recovery_record(name, "provider write accepted; downstream response dropped; manager restart", "Prepared", "Secret", "Kubernetes", counts)
-        self.restart()
-        self.stage(name, "ModeApplied")
+        self.checkpoint_restart(name, "ModeApplied", uuid, secret, "federated-jwt")
         self.pod_probe(name)
         self.expect_auth("same_client_secret_inactive", self.secret_auth(name, secret))
         self.record("same_client_cleanup_waits_review", self.secret_value(name) == secret)
-        self.recovery_record(name, "manager restart", "ModeApplied", "Kubernetes", "Kubernetes")
         self.approve(name, "review")
         self.stage(name, "AuthReviewed")
-        self.restart()
-        self.stage(name, "AuthReviewed")
-        self.stable_native(name, uuid, secret, "federated-jwt")
-        self.recovery_record(name, "manager restart", "AuthReviewed", "Kubernetes", "Kubernetes")
+        self.checkpoint_restart(name, "AuthReviewed", uuid, secret, "federated-jwt")
         secret_path = "/api/v1/namespaces/auth/secrets/hanko-sa-" + name
         self.control("api", {"method": "PATCH", "path": secret_path, "action": "deny"}, reset=True)
         self.approve(name, "cleanup")
@@ -452,10 +471,7 @@ class Installed(native.Fixture):
         counts = self.control("api", None)["counts"]
         self.record("cleanup_ack_loss_no_duplicate_write", counts.get("PATCH " + secret_path) == 1)
         self.recovery_record(name, "Secret field patch accepted; downstream response dropped; manager restart", "AuthReviewed", "Kubernetes", "Kubernetes", counts)
-        self.restart(status_loss=name)
-        wait("committed status removal recovery", lambda: self.hsa_ready(name), 180)
-        self.stable_native(name, uuid, secret, "federated-jwt")
-        self.recovery_record(name, "status removed externally after stop; manager restart (not ACK loss)", "Committed", "Kubernetes", "Kubernetes")
+        self.checkpoint_restart(name, "Committed", uuid, secret, "federated-jwt", True)
         self.report["migrations"]["coordinated_cutover"] = True
         # Fallback stages the SAME inactive native secret before approval.
         self.control("api", {"method": "PATCH", "path": secret_path, "action": "lost-ack"}, reset=True)
@@ -486,11 +502,15 @@ class Installed(native.Fixture):
         self.approve(name, "cleanup")
         self.await_fault("api")
         self.stage(name, "OutputsCleaned")
+        self.control("keycloak", None, reset=True)
         self.restart()
         wait("OutputsCleaned restart commits", lambda: self.hsa_ready(name), 180)
         self.stable_native(name, uuid, secret, "federated-jwt")
+        counts = self.control("keycloak", None)["counts"]
+        self.record("restart_no_native_write_OutputsCleaned", counts.get("PUT " + path, 0) == 0
+            and counts.get("POST " + path + "/client-secret", 0) == 0 and counts.get("POST /admin/realms/managed/clients", 0) == 0)
         self.pod_probe(name)
-        self.recovery_record(name, "accepted OutputsCleaned checkpoint; external API gate; manager restart", "OutputsCleaned", "Kubernetes", "Kubernetes")
+        self.recovery_record(name, "accepted OutputsCleaned checkpoint; external API gate; manager restart", "OutputsCleaned", "Kubernetes", "Kubernetes", counts)
         self.report["migrations"].update({"return_to_kubernetes": True, "uuid_preservation": True, "credential_continuity": True})
 
     def binding_failures(self, name):
@@ -592,6 +612,26 @@ class Installed(native.Fixture):
         self.foreign_client = self.client("managed", "foreign-client")
         self.foreign_idp = self.api("GET", "/admin/realms/managed/identity-provider/instances/foreign-idp")
 
+    def provider_create_ack_loss(self):
+        name, path = "create-ack-client", "/admin/realms/managed/clients"
+        self.control("keycloak", {"method": "POST", "path": path, "action": "lost-ack"}, reset=True)
+        self.apply(object_value("HankoServiceAccount", name, {"realmRef": "managed", "clientID": name,
+            "authentication": {"mode": "Kubernetes", "kubernetes": self.binding()}}))
+        fault = self.await_fault("keycloak")
+        journal = self.journal(name)
+        uuid = self.client("managed", name)["id"]
+        self.record("provider_create_accepted_ack_lost", fault["upstream_status"] == 201 and journal["step"] == "Prepared"
+                    and journal["attempted"] is True and journal["clientUUID"] == uuid)
+        secret = self.native_secret(name)
+        self.restart()
+        wait("reserved provider CREATE recovery", lambda: self.hsa_ready(name), 180)
+        counts = self.control("keycloak", None)["counts"]
+        self.record("no_duplicate_create_or_rotation", counts.get("POST " + path) == 1
+                    and counts.get("POST " + path + "/" + uuid + "/client-secret", 0) == 0)
+        self.stable_native(name, uuid, secret, "federated-jwt")
+        self.expect_auth("created_client_real_projected_assertion", self.assertion(self.projected(), name), True)
+        self.recovery_record(name, "provider CREATE accepted; downstream response dropped; reserved-UUID restart recovery", "Prepared", "Absent", "Kubernetes", counts)
+
     def cleanup_recovery(self):
         name = "same-client"
         uuid = self.client("managed", name)["id"]
@@ -604,7 +644,10 @@ class Installed(native.Fixture):
         path = "/apis/hanko.sh/v1alpha1/namespaces/auth/hankoserviceaccounts/" + name
         self.control("api", {"method": "PATCH", "path": path + "/status", "action": "lost-ack"}, reset=True)
         self.patch("hankoserviceaccount", name, {"status": None}, subresource="status")
+        self.stop_log_capture()
         self.kubectl("rollout", "restart", "deployment/system-operator", "-n", "auth")
+        self.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=180s")
+        self.start_log_capture()
         self.await_fault("api")
         self.restart()
         wait("accepted status patch recovery", lambda: self.hsa_ready(name), 180)
@@ -624,16 +667,17 @@ class Installed(native.Fixture):
 
     def setup_proxy(self, name, upstream, ca, port, tls_secret="keycloak-tls"):
         settings = {"port": port, "upstream": upstream, "ca": "/fixture/ca.crt"}
+        labels = {"app": "keycloak", "hanko-fixture": name} if name == "fault-keycloak" else {"app": name}
         self.apply({"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": name, "namespace": "auth"}, "data": {
             "proxy.py": (ROOT / "scripts/workload-fault-proxy.py").read_text(), "settings.json": json.dumps(settings), "ca.crt": ca}},
-            {"apiVersion": "v1", "kind": "Pod", "metadata": {"name": name, "namespace": "auth", "labels": {"app": name}}, "spec": {
+            {"apiVersion": "v1", "kind": "Pod", "metadata": {"name": name, "namespace": "auth", "labels": labels}, "spec": {
                 "automountServiceAccountToken": False, "securityContext": {"runAsNonRoot": True, "runAsUser": 1000, "fsGroup": 1000, "seccompProfile": {"type": "RuntimeDefault"}},
                 "containers": [{"name": "proxy", "image": native.POD_IMAGE, "command": ["python", "/fixture/proxy.py"],
                     "securityContext": {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True, "capabilities": {"drop": ["ALL"]}},
                     "volumeMounts": [{"name": "fixture", "mountPath": "/fixture", "readOnly": True}, {"name": "tls", "mountPath": "/tls", "readOnly": True}]}],
                 "volumes": [{"name": "fixture", "configMap": {"name": name}}, {"name": "tls", "secret": {"secretName": tls_secret, "defaultMode": 288}}]}},
             {"apiVersion": "v1", "kind": "Service", "metadata": {"name": name, "namespace": "auth"},
-             "spec": {"selector": {"app": name}, "ports": [{"port": port, "targetPort": port}]}})
+             "spec": {"selector": labels, "ports": [{"port": port, "targetPort": port}]}})
         self.kubectl("wait", "--for=condition=Ready", "pod/" + name, "-n", "auth", "--timeout=180s")
         log = self.private / (name + "-forward.log")
         stream = log.open("wb")
@@ -644,10 +688,12 @@ class Installed(native.Fixture):
         return "https://localhost:" + re.search(r"Forwarding from 127.0.0.1:(\d+)", log.read_text())[1]
 
     def fault_proxies(self):
+        provider = json.loads(self.kubectl("get", "pods", "-n", "auth", "-l", "app=keycloak", "-o", "json"))["items"][0]
+        self.patch("pod", provider["metadata"]["name"], {"metadata": {"labels": {"hanko-fixture": "keycloak-upstream"}}})
         self.apply({"apiVersion": "v1", "kind": "Service", "metadata": {"name": "keycloak-upstream", "namespace": "auth"},
-            "spec": {"selector": {"app": "keycloak"}, "ports": [{"port": 8443, "targetPort": 8443}]}})
+            "spec": {"selector": {"app": "keycloak", "hanko-fixture": "keycloak-upstream"}, "ports": [{"port": 8443, "targetPort": 8443}]}})
         self.keycloak_proxy = self.setup_proxy("fault-keycloak", "https://keycloak-upstream.auth.svc:8443", (self.private / "tls.crt").read_text(), 8443)
-        self.patch("service", "keycloak", {"spec": {"selector": {"app": "fault-keycloak"}}})
+        self.patch("service", "keycloak", {"spec": {"selector": {"app": "keycloak", "hanko-fixture": "fault-keycloak"}}})
         ca = self.get("configmap", "kube-root-ca.crt")["data"]["ca.crt"]
         # The proxy endpoint uses a disposable cluster-CA-signed certificate so
         # the actual API CA DER anchor remains unchanged. Keys are private temp
@@ -669,6 +715,9 @@ class Installed(native.Fixture):
         # Test-only transport configuration supplied externally after Helm install.
         # No new API, chart field or production environment feature is introduced.
         self.stop_log_capture()
+        self.apply({"apiVersion": "networking.k8s.io/v1", "kind": "NetworkPolicy", "metadata": {"name": "fixture-api-proxy", "namespace": "auth"},
+            "spec": {"podSelector": {"matchLabels": {"app.kubernetes.io/instance": "system"}}, "policyTypes": ["Egress"],
+                "egress": [{"to": [{"podSelector": {"matchLabels": {"app": "fault-api"}}}], "ports": [{"protocol": "TCP", "port": 8444}]}]}})
         config = {"apiVersion": "v1", "kind": "Config", "clusters": [{"name": "fixture", "cluster": {
             "server": "https://fault-api.auth.svc:8444", "certificate-authority": "/fixture-api/ca.crt"}}],
             "contexts": [{"name": "fixture", "context": {"cluster": "fixture", "user": "operator"}}], "current-context": "fixture",
@@ -753,7 +802,8 @@ class Installed(native.Fixture):
             for crd in json.loads(self.kubectl("get", "crds", "-o", "json"))["items"]:
                 if crd["spec"]["group"] == "hanko.sh":
                     text += self.kubectl("get", crd["metadata"]["name"], "-n", namespace, "-o", "json")
-            native.safe_report({"surface": text}, self.sensitive)
+            sensitive = self.sensitive + [base64.b64encode(value.encode()).decode() for value in self.sensitive if value]
+            native.safe_report({"surface": text}, sensitive)
         # Never dump Secrets. Decode only in memory, reject any workload Secret.
         self.record("no_workload_secret", not json.loads(self.kubectl("get", "secrets", "-n", "workload", "-o", "json"))["items"])
         objects = json.loads(self.kubectl("get", "secrets,configmaps", "-A", "-o", "json"))["items"]
@@ -772,11 +822,53 @@ class Installed(native.Fixture):
     def public_evidence(self):
         keys = ("schema_version", "layer", "keycloak_version", "kubernetes_version", "publishable", "complete", "started_at", "completed_at",
                 "fixture_sha256", "node_image", "node_build", "keycloak_image", "revision", "image_digest", "checks", "deep_migration", "recovery",
-                "migrations", "keycloak_profiles", "rotation", "uid_hashes", "hub_payloads_inspected")
+                "migrations", "keycloak_profiles", "rotation", "uid_hashes", "hub_payloads_inspected", "failure_status")
         return {key: self.report[key] for key in keys if key in self.report}
+
+    def failure_evidence(self):
+        # Only diagnostic statuses/reasons from fixed fixture names, never raw
+        # status, native bodies, error responses, annotations or Secret data.
+        records = {}
+        for kind, names in (("hankorealm", ("managed",)), ("hankoworkloadtrust", ("shared-workload",)),
+                            ("hankoserviceaccount", ("secret-a", "federated-b", "same-client", "blocked-flow")),
+                            ("hankoresourceserver", ("installed-server",))):
+            for name in names:
+                try:
+                    value = self.get(kind, name)
+                    status = value.get("status", {})
+                    records[name] = {"generation": value["metadata"]["generation"], "observed_generation": status.get("observedGeneration", 0),
+                        "phase": status.get("phase", "Pending"), "conditions": [{"type": item.get("type"), "status": item.get("status"),
+                            "reason": item.get("reason") if re.fullmatch(r"[A-Za-z0-9]{1,64}", item.get("reason", "")) else "Withheld"}
+                            for item in status.get("conditions", [])]}
+                except Exception:
+                    records[name] = {"unavailable": True}
+        native.safe_report(records, self.sensitive)
+        self.report["failure_status"] = records
+        try:
+            text = self.kubectl("logs", "deployment/system-operator", "-n", "auth", "--tail=100")
+            sensitive = self.sensitive + [base64.b64encode(value.encode()).decode() for value in self.sensitive if value]
+            for value in sensitive:
+                if value:
+                    text = text.replace(value, "[REDACTED]")
+            text = re.sub(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", "[REDACTED JWT]", text)
+            errors = []
+            for line in text.splitlines():
+                try:
+                    entry = json.loads(line)
+                    if "error" in entry:
+                        errors.append({key: entry[key] for key in ("msg", "error") if key in entry})
+                except ValueError:
+                    continue
+            # This path is never selected by CI upload-artifact. Keep diagnostic
+            # detail local/nonpublishable and only counts in public evidence.
+            self.args.output.with_suffix(".private-errors.json").write_text(native.safe_report(errors, sensitive))
+            self.report["failure_status"]["operator_error_count"] = len(errors)
+        except Exception:
+            self.report["failure_status"]["operator_diagnostics_unavailable"] = True
 
     def qualify_installed(self):
         self.create_cluster()
+        self.record("exact_kubernetes_version")
         self.mirror_scanned_image()
         self.keycloak()
         info = self.api("GET", "/admin/serverinfo")
@@ -806,6 +898,7 @@ class Installed(native.Fixture):
             self.foreign_objects()
             self.prerequisites("federated-b", "secret-a", old_secret)
             self.binding_failures("federated-b")
+            self.provider_create_ack_loss()
         self.two_client("secret-a", old_secret, "federated-b")
         if self.args.deep_migration:
             self.review_tool = self.private / "workload-auth-review"
@@ -861,6 +954,10 @@ def main():
         fixture = Installed(args, Path(temp))
         try:
             fixture.qualify_installed()
+        except Exception:
+            if fixture.config.exists():
+                fixture.failure_evidence()
+            raise
         finally:
             try:
                 args.output.parent.mkdir(parents=True, exist_ok=True)
