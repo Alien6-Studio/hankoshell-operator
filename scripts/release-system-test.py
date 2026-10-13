@@ -17,6 +17,8 @@ spec = spec_from_file_location("release_publish", Path(__file__).with_name("rele
 publish = module_from_spec(spec)
 spec.loader.exec_module(publish)
 diagnostics = publish.contract.module("qualification_diagnostics", "qualification-diagnostics.py")
+VERSION = publish.contract.VERSION
+TAG = publish.contract.versioning.public_tag(VERSION)
 REGISTRY_IMAGE = "registry:3.0.0@sha256:6c5666b861f3505b116bb9aa9b25175e71210414bd010d92035ff64018f9457e"
 
 
@@ -99,21 +101,21 @@ def qualify(output, archive, evidence, image, revision, oras, helm, attest, conf
         for directory in ("dist", "release-evidence"):
             shutil.copytree(output / directory, root / directory)
         shutil.copyfile(archive, root / "image.tar")
-        reference = local + "/operator:delivery-candidate-0.1.0-dev.0"
-        publish.save(registry, reference, root, "0.1.0-dev.0", revision, image)
+        reference = local + "/operator:delivery-candidate-" + VERSION
+        publish.save(registry, reference, root, VERSION, revision, image)
         committed = registry.resolve(reference)
         # Simulate an interrupted save whose registry acknowledgement was lost.
-        publish.save(registry, reference, root, "0.1.0-dev.0", revision, image)
+        publish.save(registry, reference, root, VERSION, revision, image)
         if registry.resolve(reference) != committed:
             raise ValueError("Retry replaced the committed checkpoint")
         with tempfile.TemporaryDirectory() as temp:
             restored = Path(temp) / "delivery"
-            publish.restore(registry, reference, restored, "0.1.0-dev.0", revision)
+            publish.restore(registry, reference, restored, VERSION, revision)
             publish.verify_attest(restored, attest, config)
             if publish.hashes(restored) != publish.hashes(root):
                 raise ValueError("Restored delivery differs from signed bytes")
             try:
-                publish.verify_checkpoint(restored, "0.1.0-dev.0", "0" * 40)
+                publish.verify_checkpoint(restored, VERSION, "0" * 40)
             except ValueError:
                 pass
             else:
@@ -148,7 +150,7 @@ def qualify(output, archive, evidence, image, revision, oras, helm, attest, conf
                 releases.interrupted_after = None
                 publish.rehearse_promotion(transport, releases, restored, **args)
                 writes = releases.writes
-                if releases.current["tag_name"] != "v0.1.0-dev.0" or releases.current["name"] != "v0.1.0-dev.0":
+                if releases.current["tag_name"] != TAG or releases.current["name"] != TAG:
                     raise ValueError("Development fixture tag or display name differs")
                 publish.rehearse_promotion(transport, releases, restored, **args)
                 if releases.writes != writes or writes != count:
@@ -186,7 +188,7 @@ def qualify(output, archive, evidence, image, revision, oras, helm, attest, conf
                     raise ValueError("Incomplete upload recovery was not idempotent")
             # Conflicting existing asset must fail before any registry/GitHub write.
             releases.current["draft"] = True
-            for field, wrong in (("tag_name", "v0.1.0"), ("name", "release/v0.1.0-dev.0"),
+            for field, wrong in (("tag_name", "v0.1.0"), ("name", "release/" + TAG),
                                  ("target_commitish", "0" * 40)):
                 original = releases.current[field]
                 releases.current[field] = wrong
@@ -214,7 +216,7 @@ def qualify(output, archive, evidence, image, revision, oras, helm, attest, conf
             conflict = local + "/conflicting-operator"
             fake = Path(temp) / "fake-image"
             fake.write_bytes(b"unrelated OCI artifact")
-            registry.push_file(conflict + ":0.1.0-dev.0", fake, "application/octet-stream")
+            registry.push_file(conflict + ":" + VERSION, fake, "application/octet-stream")
             try:
                 publish.rehearse_promotion(transport, releases, restored, image_repository=conflict,
                                 chart_repository=chart_repo, fresh_evidence=evidence)
@@ -243,10 +245,11 @@ def qualify(output, archive, evidence, image, revision, oras, helm, attest, conf
             "native_registry_and_helm": "pass", "checkpoint_restore_and_attest_recompute": "pass",
             "lost_acknowledgement_points": count, "idempotent_retries": "pass", "conflict_rejection": "pass",
             "empty_starter_upload_and_interrupted_deletion_recovery": "pass",
-            "release_identity": {"product_version": "0.1.0-dev.0", "fixture_tag": "v0.1.0-dev.0", "prerelease": True,
-                                 "target_public_version": "0.1.0", "future_git_ref": "refs/tags/v0.1.0",
-                                 "github_release_name": releases.current["name"], "chart_version": "0.1.0-dev.0",
-                                 "image_tag": "0.1.0-dev.0"},
+            "release_identity": {"product_version": VERSION, "fixture_tag": TAG, "prerelease": True,
+                                 "target_public_version": publish.contract.versioning.TARGET_VERSION,
+                                 "future_git_ref": "refs/tags/" + publish.contract.versioning.public_tag(publish.contract.versioning.TARGET_VERSION),
+                                 "github_release_name": releases.current["name"], "chart_version": VERSION,
+                                 "image_tag": VERSION},
             "release_identity_conflict_rejection": "pass",
             "production_development_rejection": "pass",
             "limitations": ["loopback OCI fixture; no public registry or Artifact Hub indexing",

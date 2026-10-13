@@ -1,7 +1,7 @@
 """Qualify installed workload identity using the exact scanned OCI graph.
 
 Six runtime cells are mandatory. Deep migration/fault scenarios additionally run
-on Kubernetes 1.37.0 with each supported Keycloak version. No production test hook
+on the reviewed deep-migration Kubernetes version with each supported Keycloak version. No production test hook
 or controller-side workload assertion is involved. Evidence is an allowlist of
 public decisions, hashes, counts and versions, including on failure.
 """
@@ -1012,13 +1012,13 @@ def main():
     for name in ("digest", "revision"):
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--keycloak-version", choices=native.KEYCLOAK_IMAGES, required=True)
-    parser.add_argument("--kubernetes-version", choices=("1.35.0", "1.36.2", "1.37.0"), required=True)
+    parser.add_argument("--kubernetes-version", choices=system.PINS["kubernetes"]["versions"], required=True)
     parser.add_argument("--node-archive", type=Path)
     parser.add_argument("--deep-migration", action="store_true")
     args = parser.parse_args()
-    if args.deep_migration and args.kubernetes_version != "1.37.0":
-        parser.error("Deep migration is qualified separately on Kubernetes 1.37.0")
-    system.publication.publish.contract.security.verify(args.evidence, args.revision, "0.1.0-dev.0", args.digest, args.archive)
+    if args.deep_migration and args.kubernetes_version != system.PINS["kubernetes"]["deep_migration"]:
+        parser.error("Deep migration requires Kubernetes " + system.PINS["kubernetes"]["deep_migration"])
+    system.publication.publish.contract.security.verify(args.evidence, args.revision, system.VERSION, args.digest, args.archive)
     with tempfile.TemporaryDirectory(prefix="hankoshell-installed-workload-private-") as temp:
         fixture = Installed(args, Path(temp))
         try:

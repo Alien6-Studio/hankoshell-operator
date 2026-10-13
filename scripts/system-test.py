@@ -28,9 +28,13 @@ publication = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(publication)
 diagnostics = publication.publish.contract.module("qualification_diagnostics", "qualification-diagnostics.py")
 run = publication.publish.run
-NODE = "kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5"
-KEYCLOAK = "quay.io/keycloak/keycloak:26.8.0@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc"
-KIND_VERSION = "v0.33.0"
+PINS = publication.publish.contract.pins.DATA
+VERSION = PINS["release"]["version"]
+KUBERNETES_VERSION = PINS["kubernetes"]["default"]
+KEYCLOAK_VERSION = PINS["keycloak"]["default"]
+NODE = PINS["kubernetes"]["node_images"][KUBERNETES_VERSION]
+KEYCLOAK = PINS["keycloak"]["images"][KEYCLOAK_VERSION]
+KIND_VERSION = PINS["tools"]["kind"]["version"]
 
 
 def wait(label, check, seconds=120):
@@ -139,7 +143,7 @@ class System:
              "--kubeconfig", self.config, "--wait", "120s"])
         self.mirror_scanned_image()
         version = json.loads(self.kubectl("version", "-o", "json"))["serverVersion"]["gitVersion"]
-        if version != "v1.37.0":
+        if version != "v" + KUBERNETES_VERSION:
             raise ValueError("Unexpected system Kubernetes version")
 
     def mirror_scanned_image(self):
@@ -1216,19 +1220,19 @@ def main():
     for name in ("digest", "revision"):
         parser.add_argument("--" + name, required=True)
     args = parser.parse_args()
-    publication.publish.contract.security.verify(args.evidence, args.revision, "0.1.0-dev.0", args.digest, args.archive)
+    publication.publish.contract.security.verify(args.evidence, args.revision, VERSION, args.digest, args.archive)
     with tempfile.TemporaryDirectory(prefix="hankoshell-system-private-") as temp:
         system = System(args, Path(temp))
         try:
             system.create_cluster()
-            print("System: Kubernetes 1.37.0 running", flush=True)
+            print(f"System: Kubernetes {KUBERNETES_VERSION} running", flush=True)
             system.keycloak()
-            print("System: HTTPS Keycloak 26.8.0 and constrained identity running", flush=True)
+            print(f"System: HTTPS Keycloak {KEYCLOAK_VERSION} and constrained identity running", flush=True)
             system.install()
             print("System: scanned operator installed through Helm", flush=True)
             system.reconcile()
-            args.output.write_text(json.dumps({"version": "0.1.0-dev.0", "revision": args.revision, "image_digest": args.digest,
-                "kubernetes": "1.37.0", "keycloak": "26.8.0", "result": "pass",
+            args.output.write_text(json.dumps({"version": VERSION, "revision": args.revision, "image_digest": args.digest,
+                "kubernetes": KUBERNETES_VERSION, "keycloak": KEYCLOAK_VERSION, "result": "pass",
                 "checks": ["Helm installation and real pod startup under Restricted admission", "namespace RBAC and current-API event recording",
                            "verified private-CA HTTPS, wrong-CA readiness/write denial and trust repair", "scoped Keycloak identity and denied authority", "realm/client/roles/Secret reconciliation",
                            "IAM role and authorization evaluated/applied/read-back evidence, UID ownership and finalizer cleanup",

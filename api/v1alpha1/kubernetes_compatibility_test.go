@@ -53,9 +53,6 @@ func TestKubernetesCompatibility(t *testing.T) {
 			t.Errorf("stop Kubernetes: %v", err)
 		}
 	})
-	if len(environment.CRDs) != 17 {
-		t.Fatalf("installed %d CRDs, want 17", len(environment.CRDs))
-	}
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +64,6 @@ func TestKubernetesCompatibility(t *testing.T) {
 	if strings.TrimPrefix(server.GitVersion, "v") != version {
 		t.Fatalf("server version = %v, want %s: %v", server, version, err)
 	}
-	t.Logf("qualifying Kubernetes %s with all 17 CRDs", server.GitVersion)
 	scheme := runtime.NewScheme()
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
@@ -75,6 +71,22 @@ func TestKubernetesCompatibility(t *testing.T) {
 	if err := hankoshv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
+	expectedKinds := make(map[string]bool)
+	for kind, typ := range scheme.KnownTypes(hankoshv1alpha1.GroupVersion) {
+		if _, ok := reflect.New(typ).Interface().(client.Object); ok {
+			expectedKinds[kind] = true
+		}
+	}
+	if len(expectedKinds) == 0 || len(environment.CRDs) != len(expectedKinds) {
+		t.Fatalf("installed %d CRDs, want %d registered API kinds", len(environment.CRDs), len(expectedKinds))
+	}
+	for _, crd := range environment.CRDs {
+		if crd.Spec.Group != hankoshv1alpha1.GroupVersion.Group || !expectedKinds[crd.Spec.Names.Kind] {
+			t.Fatalf("unexpected or duplicate installed CRD %s", crd.Name)
+		}
+		delete(expectedKinds, crd.Spec.Names.Kind)
+	}
+	t.Logf("qualifying Kubernetes %s with all %d registered CRDs", server.GitVersion, len(environment.CRDs))
 	admin, err := client.New(config, client.Options{Scheme: scheme})
 	if err != nil {
 		t.Fatal(err)

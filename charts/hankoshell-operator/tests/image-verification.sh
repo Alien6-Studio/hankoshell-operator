@@ -5,12 +5,15 @@ ROOT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && cd ../../.. && pwd -P)"
 python3 - "$ROOT_DIR" <<'PY'
 import pathlib
 import subprocess
+import json
 import sys
 import yaml
 
 root = pathlib.Path(sys.argv[1])
 chart = root / 'charts/hankoshell-operator'
-base = ['helm', 'template', 'image-policy-test', str(chart), '--namespace', 'auth', '--kube-version', '1.37.0',
+PINS = json.loads((chart.parents[1] / "versions.json").read_text())
+KUBERNETES_VERSION = PINS["kubernetes"]["default"]
+base = ['helm', 'template', 'image-policy-test', str(chart), '--namespace', 'auth', '--kube-version', KUBERNETES_VERSION,
         '--set-string', 'image.tag=fixture']
 def render(*values):
     args = base.copy()

@@ -5,14 +5,17 @@ ROOT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && cd ../../.. && pwd -P)"
 python3 - "$ROOT_DIR" <<'PY'
 import pathlib
 import subprocess
+import json
 import sys
 import yaml
 
 root = pathlib.Path(sys.argv[1])
 chart = root / 'charts/hankoshell-operator'
+PINS = json.loads((chart.parents[1] / "versions.json").read_text())
+KUBERNETES_VERSION = PINS["kubernetes"]["default"]
 
 def render(*values):
-    command = ['helm', 'template', 'identity-test', str(chart), '--namespace', 'auth', '--kube-version', '1.37.0',
+    command = ['helm', 'template', 'identity-test', str(chart), '--namespace', 'auth', '--kube-version', KUBERNETES_VERSION,
                '--set-string', 'fullnameOverride=hanko-operator', '--set-string', 'image.tag=test']
     for value in values:
         command.extend(['--set-string', value])

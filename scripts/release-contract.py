@@ -22,6 +22,7 @@ def module(name, filename):
 
 metadata = module("release_metadata", "release-metadata.py")
 security = module("oci_security", "oci-security.py")
+pins = module("versions", "versions.py")
 versioning = metadata.versioning
 VERSION = versioning.VERSION
 
@@ -46,15 +47,10 @@ def check(version=VERSION):
     if "artifacthub.io/signKey" in chart["annotations"]:
         raise ValueError("The Attest receipt key is not a Helm chart signing key")
     ci = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
-    expected = {"kubernetes": ["1.35.0", "1.36.2", "1.37.0"],
-                "keycloak": ["26.8.0", "26.7.5"]}
-    for job, versions in expected.items():
-        if ci[job]["strategy"]["matrix"]["version"] != versions:
-            raise ValueError("Update the release contract when changing qualification fixtures")
-    crds = list((ROOT / "charts/hankoshell-operator/crds").glob("*.yaml"))
-    if len(crds) != 17 or any([version["name"] for version in yaml.safe_load(path.read_text())["spec"]["versions"]]
-                             != ["v1alpha1"] for path in crds):
-        raise ValueError("The reviewed release exposes 17 experimental v1alpha1 APIs")
+    pins.check(ROOT)
+    for job in ("kubernetes", "keycloak"):
+        if ci[job]["strategy"]["matrix"]["version"] != pins.DATA[job]["versions"]:
+            raise ValueError("Qualification matrix differs from versions.json")
     for path in ("README.md", "CONTRIBUTING.md", "SECURITY.md", "charts/hankoshell-operator/README.md"):
         text = (ROOT / path).read_text()
         if "initial development" not in text or "v1alpha1" not in text:
@@ -70,15 +66,15 @@ def prepare(version, image, revision, archive, evidence, chart_output, dist, hel
     if not re.fullmatch(re.escape(metadata.IMAGE) + r"@sha256:[0-9a-f]{64}", image):
         raise ValueError("Expected the scanned image's immutable identity")
     security.verify(evidence, revision, version, image.split("@")[1], archive)
-    if subprocess.check_output([str(helm), "version", "--template", "{{.Version}}"], text=True, timeout=30) != "v3.17.0":
-        raise ValueError("Release packaging requires the reviewed Helm 3.17.0")
+    if subprocess.check_output([str(helm), "version", "--template", "{{.Version}}"], text=True, timeout=30) != "v" + pins.DATA["tools"]["helm"]["version"]:
+        raise ValueError("Release packaging requires the reviewed Helm " + pins.DATA["tools"]["helm"]["version"])
     if dist.exists() or chart_output.exists():
         raise ValueError("Delivery output must be fresh")
     metadata.prepare(version, image, chart_output, dist, repository_id, public_key, revision)
     for name in ("oci-security.json", "trivy-amd64.json", "trivy-arm64.json"):
         shutil.copyfile(evidence / name, dist / name)
     shutil.copyfile(security.POLICY, dist / security.POLICY.name)
-    subprocess.run([str(helm), "lint", str(chart_output), "--kube-version", "1.37.0"], check=True, timeout=60)
+    subprocess.run([str(helm), "lint", str(chart_output), "--kube-version", pins.DATA["kubernetes"]["default"]], check=True, timeout=60)
     subprocess.run([str(helm), "package", str(chart_output), "-d", str(dist)], check=True, timeout=60)
     (dist / "image-digest.txt").write_text(image + "\n")
     (dist / "source-revision.txt").write_text(revision + "\n")

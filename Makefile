@@ -1,20 +1,25 @@
 BINARY ?= hankoshell-operator
-VERSION ?= 0.1.0-dev.0
+VERSION ?= $(shell python3 scripts/versions.py get release version)
 GOOS ?= linux
 GOARCH ?= amd64
 CONTROLLER_GEN ?= controller-gen
-CONTROLLER_GEN_VERSION := v0.21.0
-GOLANGCI_LINT_VERSION := v2.14.0
+CONTROLLER_GEN_VERSION := $(shell python3 scripts/versions.py get tools controller_gen)
+GOLANGCI_LINT_VERSION := $(shell python3 scripts/versions.py get tools golangci_lint)
 LINT_BUILD_TAGS ?=
 GOLANGCI_LINT := $(CURDIR)/.tools/golangci-lint-$(GOLANGCI_LINT_VERSION)-$(shell go env GOVERSION)/golangci-lint
-GO_ARCH_LINT_VERSION := v1.19.0
-GOVULNCHECK_VERSION := v1.8.0
+GO_ARCH_LINT_VERSION := $(shell python3 scripts/versions.py get tools go_arch_lint)
+GOVULNCHECK_VERSION := $(shell python3 scripts/versions.py get tools govulncheck)
 CHART := charts/hankoshell-operator
-KUBERNETES_VERSION ?= 1.37.0
-KEYCLOAK_VERSION ?= 26.8.0
-RELEASE_VERSION := 0.1.0-dev.0
+KUBERNETES_VERSION ?= $(shell python3 scripts/versions.py get kubernetes default)
+KEYCLOAK_VERSION ?= $(shell python3 scripts/versions.py get keycloak default)
+RELEASE_VERSION := $(shell python3 scripts/versions.py get release version)
 
-.PHONY: all check preflight fmt-check generate manifests generated-check build vet test chart-test integration-test keycloak-integration-test lint arch vuln install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test
+.DEFAULT_GOAL := all
+
+.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test chart-test integration-test keycloak-integration-test lint arch vuln install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test
+versions-sync:
+	python3 scripts/versions.py sync
+
 all: check build
 check: fmt-check vet test chart-test
 preflight: fmt-check vet generated-check
@@ -93,10 +98,10 @@ workload-identity-probe:
 		--kubernetes-version $(KUBERNETES_VERSION) --output "$(WORKLOAD_OUTPUT)" \
 		--kind "$(KIND)" --kubectl "$(KUBECTL)" --openssl "$(OPENSSL)"
 
-# Additive installed qualification; deep migration runs on 1.37.0 for both KC versions.
+# Additive installed qualification; deep migration uses the reviewed matrix entry.
 workload-installed-test:
 	python3 scripts/workload-installed-test.py --keycloak-version $(KEYCLOAK_VERSION) \
-		--kubernetes-version $(KUBERNETES_VERSION) $(if $(filter 1.37.0,$(KUBERNETES_VERSION)),--deep-migration) \
+		--kubernetes-version $(KUBERNETES_VERSION) $(if $(filter $(shell python3 scripts/versions.py get kubernetes deep_migration),$(KUBERNETES_VERSION)),--deep-migration) \
 		--archive "$(OCI_ARCHIVE)" --evidence "$(OCI_EVIDENCE)" --digest "$(DIGEST)" --revision "$(REVISION)" \
 		--kind "$(KIND)" --kubectl "$(KUBECTL)" --openssl "$(OPENSSL)" --helm "$$(command -v helm)" \
 		--oras "$(ORAS)" --output "$(WORKLOAD_OUTPUT)"

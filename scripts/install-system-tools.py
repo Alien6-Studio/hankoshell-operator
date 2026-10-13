@@ -7,16 +7,13 @@ from pathlib import Path
 import subprocess
 from urllib.request import urlopen
 
-KIND = "v0.33.0"
-KUBECTL = "v1.37.0"
-KIND_HASHES = {
-    "linux-amd64": "aee6151561422756b764a4ae28e7f44cda5af5a9eead3cc9985112b1de8d8e0d",
-    "darwin-arm64": "0c8c7dbe5e23594a198b786c4bc13dacc101fa6196b0cb0b23a1ca44e61f4b4f",
-}
-KUBECTL_HASHES = {
-    "linux-amd64": "6129359f4e1f3848a5572ccb0b26cf28b8ca08cef38c95a765b2f64a2c961a2f",
-    "darwin-arm64": "583beedaebe422e71d3f1a96acef8b1fef86ea2f09a45ad01aa6c9ce287c1380",
-}
+import json
+
+PINS = json.loads((Path(__file__).resolve().parents[1] / "versions.json").read_text())["tools"]
+KIND = PINS["kind"]["version"]
+KUBECTL = PINS["kubectl"]["version"]
+KIND_HASHES = PINS["kind"]["sha256"]
+KUBECTL_HASHES = PINS["kubectl"]["sha256"]
 
 
 def acquire(url, digest, path):
@@ -41,7 +38,6 @@ def main():
     acquire(f"https://dl.k8s.io/release/{KUBECTL}/bin/{system}/{arch}/kubectl", KUBECTL_HASHES[target], args.output / "kubectl")
     if not subprocess.check_output([args.output / "kind", "version"], text=True).startswith("kind " + KIND + " "):
         raise ValueError("Unexpected kind version")
-    import json
     version = json.loads(subprocess.check_output([args.output / "kubectl", "version", "--client", "-o", "json"], text=True))
     if version["clientVersion"]["gitVersion"] != KUBECTL:
         raise ValueError("Unexpected kubectl version")

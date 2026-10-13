@@ -60,10 +60,11 @@ class QualificationGateTests(unittest.TestCase):
         root = Path(__file__).parents[1] / ".github/workflows"
         ci = yaml.safe_load((root / "ci.yml").read_text())
         delivery = yaml.safe_load((root / "release.yml").read_text())
-        self.assertEqual(ci["jobs"]["keycloak"]["strategy"]["matrix"]["version"], ["26.8.0", "26.7.5"])
+        pins = json.loads((root.parents[1] / "versions.json").read_text())
+        self.assertEqual(ci["jobs"]["keycloak"]["strategy"]["matrix"]["version"], pins["keycloak"]["versions"])
         self.assertFalse(ci["jobs"]["keycloak"].get("continue-on-error", False))
         self.assertEqual(ci["jobs"]["workload"]["strategy"]["matrix"], {
-            "keycloak": ["26.7.5", "26.8.0"], "kubernetes": ["1.35.0", "1.36.2", "1.37.0"]})
+            "keycloak": sorted(pins["keycloak"]["versions"]), "kubernetes": pins["kubernetes"]["versions"]})
         self.assertFalse(ci["jobs"]["workload"].get("continue-on-error", False))
         installed = ci["jobs"]["installed-workload"]
         self.assertEqual(installed["strategy"]["matrix"], ci["jobs"]["workload"]["strategy"]["matrix"])
