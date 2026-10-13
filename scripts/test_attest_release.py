@@ -26,7 +26,7 @@ class QualificationGateTests(unittest.TestCase):
         aggregate = workflow["jobs"]["checks"]
         self.assertEqual(aggregate["name"], "Source and chart checks")
         self.assertEqual(aggregate["if"], "always()")
-        self.assertEqual(set(aggregate["needs"]), {"source", "kubernetes", "keycloak", "workload", "oci", "rehearsal", "system"})
+        self.assertEqual(set(aggregate["needs"]), {"source", "kubernetes", "keycloak", "workload", "oci", "rehearsal", "system", "installed-workload"})
         step = aggregate["steps"][0]
         dependencies = {f"${{{{ needs.{job}.result }}}}" for job in aggregate["needs"]}
         self.assertEqual(set(step["env"].values()), dependencies)
@@ -46,6 +46,15 @@ class QualificationGateTests(unittest.TestCase):
         self.assertEqual(ci["jobs"]["workload"]["strategy"]["matrix"], {
             "keycloak": ["26.7.5", "26.8.0"], "kubernetes": ["1.35.0", "1.36.2", "1.37.0"]})
         self.assertFalse(ci["jobs"]["workload"].get("continue-on-error", False))
+        installed = ci["jobs"]["installed-workload"]
+        self.assertEqual(installed["strategy"]["matrix"], ci["jobs"]["workload"]["strategy"]["matrix"])
+        self.assertFalse(installed.get("continue-on-error", False))
+        self.assertEqual(installed["needs"], ["source", "oci"])
+        download = next(step for step in installed["steps"] if "download-artifact@" in step.get("uses", ""))
+        self.assertEqual(download["with"]["artifact-ids"], "${{ needs.oci.outputs.artifact_id }}")
+        command = next(step for step in installed["steps"] if "scripts/workload-installed-test.py" in step.get("run", ""))
+        self.assertEqual(command["env"]["DIGEST"], "${{ needs.oci.outputs.digest }}")
+        self.assertIn('--revision "$GITHUB_SHA"', command["run"])
         self.assertEqual(delivery["jobs"]["quality"]["uses"], "./.github/workflows/ci.yml")
         self.assertEqual(delivery["jobs"]["publish"]["needs"], ["eligibility", "quality"])
 
