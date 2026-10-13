@@ -25,6 +25,29 @@ proxy = module("fault_proxy", "workload-fault-proxy.py")
 
 
 class InstalledEvidenceTests(unittest.TestCase):
+    def test_outage_waits_past_partial_and_stale_status_until_binding_is_invalidated(self):
+        def account(binding, runtime, generation=2, binding_status="False"):
+            return {"metadata": {"generation": 2}, "status": {
+                "phase": "Pending", "workloadBinding": binding, "runtimeMetadata": runtime,
+                "conditions": [{"type": name, "status": binding_status if name == "WorkloadBindingReady" else "False",
+                                "observedGeneration": generation}
+                               for name in ("WorkloadBindingReady", "FederatedModeApplied", "Synced")]}}
+        fixture = installed.Installed.__new__(installed.Installed)
+        # Reproduce the failed CI snapshot: Synced=False with a previously
+        # validated binding, then stale and partially cleared status snapshots.
+        pending = [account({"bindingRevision": "old"}, {"metadataHash": "old"}, binding_status="True"),
+                   account(None, None, generation=1), account(None, {"metadataHash": "old"}),
+                   account(None, None, binding_status="True")]
+        fixture.get = MagicMock(side_effect=pending + [account(None, None)])
+        with patch.object(installed.system.time, "sleep"):
+            fixture.wait_binding_invalidated("federated-b")
+        self.assertEqual(fixture.get.call_count, 5)
+        fixture.get = MagicMock(return_value=pending[0])
+        with patch.object(installed.system.time, "sleep"), \
+             patch.object(installed.system.time, "monotonic", side_effect=[0, 0, 181, 181]), \
+             self.assertRaises(installed.system.diagnostics.DeadlineExceeded):
+            fixture.wait_binding_invalidated("federated-b")
+
     def test_failure_status_reuses_bounded_snapshot_without_new_api_waits(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "installed.json"

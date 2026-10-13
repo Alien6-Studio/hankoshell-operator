@@ -608,6 +608,20 @@ class Installed(native.Fixture):
         self.validate_metadata(name)
         self.record("runtime_failures_no_auth_switch_rotation")
 
+    def wait_binding_invalidated(self, name):
+        def invalidated():
+            account = self.get("hankoserviceaccount", name)
+            status = account.get("status", {})
+            rejected = {condition["type"] for condition in status.get("conditions", [])
+                        if condition.get("status") == "False"
+                        and condition.get("observedGeneration") == account["metadata"]["generation"]}
+            return (not status.get("workloadBinding") and not status.get("runtimeMetadata")
+                    and {"WorkloadBindingReady", "FederatedModeApplied", "Synced"} <= rejected)
+        # A reconcile already in flight can first mark its authentication
+        # transaction stale while retaining binding evidence from its snapshot.
+        # Wait for the next fresh read to invalidate that evidence completely.
+        wait("outage invalidates fresh binding evidence", invalidated, 180)
+
     def prerequisites(self, name, old, old_secret):
         before = self.client("managed", name)
         secret = self.native_secret(name)
@@ -615,7 +629,7 @@ class Installed(native.Fixture):
         # A controlled upstream Service outage leaves administrator access on
         # its original Pod port-forward available for independent inspection.
         self.patch("service", "keycloak-upstream", {"spec": {"selector": {"app": "provider-outage"}}})
-        wait("outage invalidates fresh binding evidence", lambda: not self.hsa_ready(name), 180)
+        self.wait_binding_invalidated(name)
         self.record("provider_outage_fail_closed", not self.get("hankoserviceaccount", name).get("status", {}).get("workloadBinding")
             and self.get("configmap", "identity", "workload")["data"] == output)
         self.expect_auth("pre_retirement_failure_keeps_secret_a", self.secret_auth(old, old_secret), True)
