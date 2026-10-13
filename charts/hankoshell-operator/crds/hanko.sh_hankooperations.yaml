@@ -61,15 +61,17 @@ spec:
                 description: Clone holds parameters for the Clone operation.
                 properties:
                   includeData:
-                    description: IncludeData is retained for API compatibility but
-                      has no effect in the current operation contract.
+                    description: |-
+                      IncludeData is retained for API compatibility; true is refused because
+                      this operation does not copy a database.
                     type: boolean
                   targetName:
                     description: TargetName is the name for the new HankoKeycloakInstance.
                     type: string
                   targetNamespace:
-                    description: TargetNamespace is the namespace for the clone. Defaults
-                      to the source namespace.
+                    description: |-
+                      TargetNamespace defaults to the source namespace. Cross-namespace cloning
+                      is refused because administrative and TLS Secret references are local.
                     type: string
                 required:
                 - targetName
@@ -185,6 +187,15 @@ spec:
                   - type
                   type: object
                 type: array
+              instanceUID:
+                description: InstanceUID prevents a replacement source from inheriting
+                  an operation.
+                type: string
+              intentHash:
+                description: IntentHash binds the complete operation specification
+                  and tenant.
+                pattern: ^sha256:[a-f0-9]{64}$
+                type: string
               lastReconciled:
                 description: LastReconciled is the timestamp of the last reconcile
                   loop.
@@ -210,6 +221,12 @@ spec:
                 description: StartedAt is when the operation began.
                 format: date-time
                 type: string
+              startedGeneration:
+                description: StartedGeneration binds the operation generation at the
+                  first checkpoint.
+                format: int64
+                minimum: 1
+                type: integer
               steps:
                 description: Steps is the ordered list of operation steps with their
                   current status.
@@ -217,6 +234,16 @@ spec:
                   description: OperationStep tracks the status of a single step within
                     the operation.
                   properties:
+                    childGeneration:
+                      description: ChildGeneration refuses child specification changes
+                        during recovery.
+                      format: int64
+                      minimum: 1
+                      type: integer
+                    childUID:
+                      description: ChildUID binds the exact child accepted by this
+                        step.
+                      type: string
                     completedAt:
                       description: CompletedAt is when this step finished.
                       format: date-time

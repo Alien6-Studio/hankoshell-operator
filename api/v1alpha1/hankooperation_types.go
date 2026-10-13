@@ -77,10 +77,12 @@ type CloneSpec struct {
 	// +kubebuilder:validation:Required
 	TargetName string `json:"targetName"`
 
-	// TargetNamespace is the namespace for the clone. Defaults to the source namespace.
+	// TargetNamespace defaults to the source namespace. Cross-namespace cloning
+	// is refused because administrative and TLS Secret references are local.
 	TargetNamespace string `json:"targetNamespace,omitempty"`
 
-	// IncludeData is retained for API compatibility but has no effect in the current operation contract.
+	// IncludeData is retained for API compatibility; true is refused because
+	// this operation does not copy a database.
 	IncludeData bool `json:"includeData,omitempty"`
 }
 
@@ -103,6 +105,12 @@ type OperationStep struct {
 	// Message holds a human-readable description or error.
 	Message string `json:"message,omitempty"`
 
+	// ChildUID binds the exact child accepted by this step.
+	ChildUID string `json:"childUID,omitempty"`
+	// ChildGeneration refuses child specification changes during recovery.
+	// +kubebuilder:validation:Minimum=1
+	ChildGeneration int64 `json:"childGeneration,omitempty"`
+
 	// StartedAt is when this step began.
 	StartedAt *metav1.Time `json:"startedAt,omitempty"`
 
@@ -112,6 +120,14 @@ type OperationStep struct {
 
 // HankoOperationStatus describes the observed state of the operation.
 type HankoOperationStatus struct {
+	// StartedGeneration binds the operation generation at the first checkpoint.
+	// +kubebuilder:validation:Minimum=1
+	StartedGeneration int64 `json:"startedGeneration,omitempty"`
+	// IntentHash binds the complete operation specification and tenant.
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	IntentHash string `json:"intentHash,omitempty"`
+	// InstanceUID prevents a replacement source from inheriting an operation.
+	InstanceUID string `json:"instanceUID,omitempty"`
 	// Phase: Pending | Snapshotting | Running | Validating | Done | Failed | RolledBack
 	// +kubebuilder:validation:Enum=Pending;Snapshotting;Running;Validating;Done;Failed;RolledBack
 	Phase string `json:"phase,omitempty"`

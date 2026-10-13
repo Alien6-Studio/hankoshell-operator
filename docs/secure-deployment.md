@@ -879,9 +879,11 @@ a configuration snapshot and does not establish a database rollback point.
 ## Lifecycle operation qualification
 
 `HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are experimental
-and unqualified in the current lifecycle contract. Existing unit tests exercise step transitions, but do
-not qualify durable completion, interruption/retry, child ownership or recovery
-on real installations. Qualification is tracked in
+and unqualified as installed provider workflows. Unit tests and tests against
+the three supported Kubernetes API servers exercise identity checkpoints,
+interruption/retry, child provenance, failed children and stale completion.
+They do not qualify actual kubelet rollouts, database transitions or provider
+upgrade compatibility. Installed qualification remains tracked in
 [issue #20](https://github.com/Alien6-Studio/hankoshell-operator/issues/20), with no
 future release version scheduled. These workflows are available, but are
 outside the first release's qualified core IAM contract.
@@ -890,11 +892,36 @@ outside the first release's qualified core IAM contract.
 database upgrade compatibility. `Clone` creates an external instance alias
 reusing the source administrative connection and imports supported configuration;
 it does not provision a new
-database. `clone.includeData` has no effect in the current operation contract. A target namespace outside
-the release namespace is outside the default watch/RBAC scope. `DBSwitch` changes
+database. `clone.includeData: true` and cross-namespace targets are refused;
+administrative and TLS CA Secret references remain in the source namespace.
+The alias retains the source TLS CA reference without enabling master hardening
+or credential rotation. `DBSwitch` changes
 the database Secret reference without migrating data. Operation `dryRun` skips
 planned steps; it does not validate provider compatibility or recoverability.
 These operations are not a tested disaster-recovery workflow.
+
+Before the first mutation, status records the operation generation, intent hash
+and source instance UID. Each child carries the operation's UID ownership and
+intent marker; status records its UID and generation before consuming its result.
+An acknowledged or lost-acknowledgement create is recovered by reading the exact
+owned child. Foreign, replaced, edited or deleted checkpointed children fail the
+operation; failed snapshots and incomplete/failed imports never advance it.
+Database/image patches are idempotent on retry, and status-write errors propagate.
+
+Completion requires the owned Deployment's current generation, desired image and
+database reference, all desired replicas updated/ready/available with no old
+replicas, and current-generation Admin API observation. Clone validates the
+target alias, not the source. These observations are not an atomic transaction
+with Kubernetes or Keycloak and do not prove database consistency.
+
+Do not edit an in-flight specification to retarget or cancel it. A changed intent,
+recreated source or legacy in-flight status without identity checkpoints is
+refused. Inspect the source and children before creating a new operation; do not
+clear checkpoints to force replay. Deleting an operation stops further steps and
+permits Kubernetes garbage collection of its owned children, but does not undo
+instance patches, imported resources or external effects. No automatic rollback,
+deadline or mutual exclusion between administrator-submitted operations is
+provided by this checkpoint contract.
 
 ## Installed system test
 

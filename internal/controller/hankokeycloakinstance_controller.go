@@ -256,7 +256,7 @@ func (r *HankoKeycloakInstanceReconciler) completeKeycloakInstance(ctx context.C
 	instance.Status.RealmCount = realmCount
 	instance.Status.LastProbed = &now
 	instance.Status.LastReconciled = &now
-	setCondition(&instance.Status.Conditions, "AdminAPIReachable", metav1.ConditionTrue, "ProbeSucceeded", "Keycloak Admin API is reachable")
+	iamCondition(&instance.Status.Conditions, instance.Generation, "AdminAPIReachable", metav1.ConditionTrue, "ProbeSucceeded", "Keycloak Admin API is reachable")
 	if err := r.Status().Patch(ctx, instance, patch); err != nil {
 		return ctrl.Result{}, fmt.Errorf("patch HankoKeycloakInstance status: %w", err)
 	}

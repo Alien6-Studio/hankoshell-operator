@@ -212,7 +212,9 @@ func TestOperationReconcileLifecycleBookends(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "dry", Namespace: "test"},
 			Spec:       hankoshv1alpha1.HankoOperationSpec{Type: hankoshv1alpha1.OperationUpgrade, DryRun: true},
 		}
-		k8sClient := controllerTestClient(scheme, operation)
+		source := managedTestInstance("test", "source")
+		source.UID = "source-uid"
+		k8sClient := controllerTestClient(scheme, operation, source)
 		reconciler := &HankoOperationReconciler{Client: k8sClient, Scheme: scheme}
 		if _, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(operation)}); err != nil {
 			t.Fatal(err)
@@ -225,13 +227,15 @@ func TestOperationReconcileLifecycleBookends(t *testing.T) {
 	})
 	t.Run("initializes steps", func(t *testing.T) {
 		operation := &hankoshv1alpha1.HankoOperation{
-			ObjectMeta: metav1.ObjectMeta{Name: "init", Namespace: "test"},
-			Spec:       hankoshv1alpha1.HankoOperationSpec{Type: hankoshv1alpha1.OperationClone},
+			ObjectMeta: metav1.ObjectMeta{Name: "init", Namespace: "test", UID: "operation-uid"},
+			Spec:       hankoshv1alpha1.HankoOperationSpec{Type: hankoshv1alpha1.OperationClone, InstanceRef: "source", Clone: &hankoshv1alpha1.CloneSpec{TargetName: "target"}},
 		}
-		k8sClient := controllerTestClient(scheme, operation)
+		source := managedTestInstance("test", "source")
+		source.UID = "source-uid"
+		k8sClient := controllerTestClient(scheme, operation, source)
 		reconciler := &HankoOperationReconciler{Client: k8sClient, Scheme: scheme}
 		result, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(operation)})
-		if err != nil || result.RequeueAfter != requeueOnError {
+		if err != nil || result.RequeueAfter != requeueImmediately {
 			t.Fatalf("initialize operation: result=%v err=%v", result, err)
 		}
 	})
@@ -254,11 +258,11 @@ func TestOperationStepHandlers(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: instance.Name, Namespace: instance.Namespace},
 		Status:     appsv1.DeploymentStatus{ReadyReplicas: 2},
 	}
-	k8sClient := controllerTestClient(scheme, instance, snapshot, importOperation, deployment)
+	k8sClient := operationChildTestClient(t, instance, snapshot, importOperation, deployment)
 	reconciler := &HankoOperationReconciler{Client: k8sClient, Scheme: scheme}
 	now := metav1.Now()
 	operation := &hankoshv1alpha1.HankoOperation{
-		ObjectMeta: metav1.ObjectMeta{Name: "work", Namespace: "test"},
+		ObjectMeta: metav1.ObjectMeta{Name: "work", Namespace: "test", UID: "operation-uid"},
 		Spec: hankoshv1alpha1.HankoOperationSpec{
 			InstanceRef: instance.Name,
 			Upgrade:     &hankoshv1alpha1.UpgradeSpec{ToImage: instance.Spec.Managed.Image},
@@ -267,6 +271,7 @@ func TestOperationStepHandlers(t *testing.T) {
 		},
 	}
 
+	operation.Status.IntentHash = operationIntentHash(operation)
 	steps := []string{"Snapshot", "UpdateImage", "UpdateDatabase", "CreateTarget", "ImportConfig", "WaitRollout", "Validate"}
 	for _, name := range steps {
 		t.Run(name, func(t *testing.T) {
