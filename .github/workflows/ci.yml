@@ -73,6 +73,11 @@ jobs:
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
           python -m pip install -r scripts/requirements.txt
           make install-tools
+      - name: Compare visible GitHub protections with reviewed exports
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/check-rulesets.py --live --allow-hidden-bypass
       - name: Validate unit tests, chart, architecture, lint and vulnerabilities
         run: make test chart-test arch lint vuln
       - name: Cross-compile both Linux architectures

@@ -18,6 +18,25 @@ dry_run = contract.module("release_dry_run", "release-dry-run.py")
 
 
 class ReleaseContractTests(unittest.TestCase):
+    def test_exported_rulesets_match_the_required_gate_and_weekly_audit_is_read_only(self):
+        rulesets = contract.module("rulesets_contract", "check-rulesets.py")
+        exports = rulesets.check_contract()
+        self.assertEqual(set(exports), {"default-branch.json", "release-tags.json"})
+        ci = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())
+        source = ci["jobs"]["source"]
+        audit = next(step for step in source["steps"] if "check-rulesets.py" in step.get("run", ""))
+        self.assertEqual(audit["if"], "github.event_name == 'schedule'")
+        self.assertEqual(audit["env"], {"GH_TOKEN": "${{ github.token }}"})
+        self.assertEqual(audit["run"], "python3 scripts/check-rulesets.py --live --allow-hidden-bypass")
+        self.assertFalse(audit.get("continue-on-error", False))
+        self.assertEqual(source.get("permissions", ci["permissions"]), {"contents": "read"})
+        self.assertIn("source", ci["jobs"]["checks"]["needs"])
+        security = (contract.ROOT / "SECURITY.md").read_text()
+        for statement in (".github/rulesets/default-branch.json", ".github/rulesets/release-tags.json",
+                          "zero mandatory approving reviews", "resolved review threads", "verified signatures",
+                          "linear", "squash", "refs/tags/v*", "UNVERIFIED", "--allow-hidden-bypass"):
+            self.assertIn(statement, security)
+
     def test_development_pushes_run_preflight_without_weakening_full_qualification(self):
         workflows = contract.ROOT / ".github/workflows"
         development = yaml.safe_load((workflows / "development.yml").read_text())
