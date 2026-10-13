@@ -30,7 +30,8 @@ class MutationRunnerTests(unittest.TestCase):
     def test_all_reviewed_anchors_are_unique_and_commands_select_real_tests(self):
         required = {"hub-hmac", "image-sha256", "image-keyless-identity", "tls-peer-verification", "tls-minimum",
                     "keycloak-redirect", "unowned-realm-deletion", "unowned-client-role-deletion",
-                    "bundle-tenant-namespace", "secret-cache-exclusion"}
+                    "bundle-tenant-namespace", "bundle-live-tenant-ownership", "bundle-forced-ownership",
+                    "bundle-write-version-precondition", "secret-cache-exclusion"}
         self.assertEqual({entry["name"] for entry in gate.MUTATIONS}, required)
         self.assertEqual(len(gate.MUTATIONS), len(required))
         for entry in gate.MUTATIONS:

@@ -135,7 +135,7 @@ func TestTenantBundleApplyPreservesExplicitValuesAndTenantBoundary(t *testing.T)
 		t.Run(typeMeta, func(t *testing.T) {
 			var applied unstructured.Unstructured
 			var applyOptions client.ApplyOptions
-			k8sClient := fake.NewClientBuilder().WithScheme(controllerTestScheme(t)).WithInterceptorFuncs(interceptor.Funcs{
+			k8sClient := fake.NewClientBuilder().WithScheme(controllerTestScheme(t)).WithObjects(&hankoshv1alpha1.HankoRealm{ObjectMeta: metav1.ObjectMeta{Name: "realm", Namespace: "test", UID: "existing-realm", Labels: map[string]string{"hanko.sh/tenant": "tenant"}}}).WithInterceptorFuncs(interceptor.Funcs{
 				Apply: func(_ context.Context, _ client.WithWatch, configuration runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
 					payload, err := json.Marshal(configuration)
 					if err != nil {
@@ -147,7 +147,7 @@ func TestTenantBundleApplyPreservesExplicitValuesAndTenantBoundary(t *testing.T)
 			}).Build()
 			reconciler := &HankoTenantReconciler{Client: k8sClient}
 			tenant := &hankoshv1alpha1.HankoTenant{ObjectMeta: metav1.ObjectMeta{Name: "tenant", Namespace: "test"}}
-			raw := json.RawMessage(`{` + typeMeta + `"metadata":{"name":"realm","namespace":"other","labels":{"hanko.sh/tenant":"other","team":"auth"}},"spec":{"otpRequired":false,"securityProfile":{"passwordExpiryDays":0}}}`)
+			raw := json.RawMessage(`{` + typeMeta + `"metadata":{"name":"realm","labels":{"team":"auth"}},"spec":{"otpRequired":false,"securityProfile":{"passwordExpiryDays":0}}}`)
 			counts, err := reconciler.applyBundle(context.Background(), tenant, &hub.Bundle{Realms: []json.RawMessage{raw}})
 			if err != nil || counts["realms"] != 1 {
 				t.Fatalf("apply bundle: counts=%v err=%v", counts, err)
@@ -155,13 +155,16 @@ func TestTenantBundleApplyPreservesExplicitValuesAndTenantBoundary(t *testing.T)
 			if applied.GetAPIVersion() != "hanko.sh/v1alpha1" || applied.GetKind() != "HankoRealm" || applied.GetNamespace() != "test" || applied.GetLabels()["hanko.sh/tenant"] != "tenant" || applied.GetLabels()["team"] != "auth" {
 				t.Fatalf("unexpected apply identity: %#v", applied.Object)
 			}
+			if applied.GetUID() != "existing-realm" || applied.GetResourceVersion() == "" {
+				t.Fatal("apply did not bind the observed object version")
+			}
 			if value, found, err := unstructured.NestedBool(applied.Object, "spec", "otpRequired"); err != nil || !found || value {
 				t.Fatalf("explicit false lost: value=%v found=%v err=%v", value, found, err)
 			}
 			if value, found, err := unstructured.NestedInt64(applied.Object, "spec", "securityProfile", "passwordExpiryDays"); err != nil || !found || value != 0 {
 				t.Fatalf("explicit zero lost: value=%v found=%v err=%v", value, found, err)
 			}
-			if applyOptions.FieldManager != hankoOperatorFieldManager || applyOptions.Force == nil || !*applyOptions.Force {
+			if applyOptions.FieldManager != bundleFieldManager || (applyOptions.Force != nil && *applyOptions.Force) {
 				t.Fatalf("unexpected apply ownership: %#v", applyOptions)
 			}
 		})

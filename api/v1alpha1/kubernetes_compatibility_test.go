@@ -112,6 +112,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 	t.Run("initial import status with partial inventory", func(t *testing.T) { checkInitialImportStatus(t, ctx, admin) })
 	t.Run("operation checkpoints and child recovery", func(t *testing.T) { checkOperationRecovery(t, ctx, admin) })
 	t.Run("snapshot checkpoints and child recovery", func(t *testing.T) { checkSnapshotRecovery(t, ctx, admin) })
+	t.Run("tenant bundle ownership and concurrent writes", func(t *testing.T) { checkTenantBundleBoundary(t, ctx, admin) })
 	t.Run("tenant client routing and disconnected registration", func(t *testing.T) { checkTenantClientIsolation(t, ctx, admin) })
 	t.Run("IAM evidence status schema", func(t *testing.T) { checkIAMStatusEvidence(t, ctx, admin) })
 	t.Run("application protocols admission and status", func(t *testing.T) { checkApplicationProtocols(t, ctx, admin) })

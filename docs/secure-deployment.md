@@ -151,6 +151,35 @@ Independent bundle publisher verification would require a coordinated Hub
 protocol with a separately trusted signing key and explicit tenant, freshness
 and key-rotation bindings. The current bundle wire contract remains HMAC.
 
+Bundle application preflights object identity, metadata and current tenant labels
+before any resource write. A declared foreign namespace or tenant is refused,
+as is an existing object without the exact local `hanko.sh/tenant` label.
+`BundleTenantConflict` reports these collisions. Bundle metadata permits only
+name, namespace, ordinary labels and annotations; server metadata, owner references,
+finalizers, status and reserved `hanko.sh/`, `hanko.io/` or `mesh.hanko.io/` metadata
+(except the exact tenant label) cannot be supplied by Hub. This prevents a bundle
+from injecting local adoption approvals or import/ownership markers.
+
+New targets use create-only writes. Existing targets use server-side apply with
+the observed UID/resource version and without forced ownership. Concurrent
+creation, transfer, replacement or edits are refused with `BundleObjectConflict`.
+The dedicated `hanko-hub-bundle` field manager preserves local lifecycle and
+approval metadata, including fields owned by the previous `hanko-operator`
+manager. The create-to-apply transition conditionally converts only the new
+manager's own creation entry; other managers' fields are retained, and a lost
+acknowledgement resumes from the stored entry. A spec field still owned by that
+legacy manager or a local administrator can block a changed bundle: a local
+administrator must review and explicitly resolve that field ownership conflict. The operator never force-transfers it.
+
+These checks are exercised against HTTPS Hub fixtures and all supported Kubernetes
+API versions, including lost creation acknowledgements. They do not make a bundle
+transactional: API admission or concurrent conflicts during later writes can leave
+earlier resources applied. A retry rechecks current ownership; no rollback or
+successful bundle version is recorded for a failed apply. Signed plan verification,
+anti-replay and rollout policy remain open in issues
+[#77](https://github.com/Alien6-Studio/hankoshell-operator/issues/77) and
+[#78](https://github.com/Alien6-Studio/hankoshell-operator/issues/78).
+
 Tenant Keycloak routing is registered before Hub enrollment, credential rotation
 or bundle requests. An unavailable Hub therefore does not prevent reconstruction
 of a dedicated connection after an operator restart. Dedicated credentials are

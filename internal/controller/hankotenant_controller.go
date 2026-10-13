@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"net/http"
 	"sort"
 	"strings"
@@ -19,10 +18,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	kubejson "k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/validation"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -57,7 +54,7 @@ type HankoTenantReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Pool   *keycloak.Pool
-	// APIReader bypasses cached tenant and dedicated credential state before registration.
+	// APIReader bypasses cached tenant, dedicated credential and bundle target state.
 	APIReader client.Reader
 	// ClusterIdentityReader bypasses the namespace-scoped cache for the one
 	// permitted GET of the kube-system Namespace during initial enrollment.
@@ -254,7 +251,7 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// ── Apply bundle resources ────────────────────────────────────────────────
 	counts, err := r.applyBundle(ctx, &tenant, &sb.Bundle)
 	if err != nil {
-		return r.setError(ctx, hubClient, &tenant, patch, "BundleApplyFailed", err)
+		return r.setError(ctx, hubClient, &tenant, patch, bundleApplyReason(err), err)
 	}
 	meshRegistrations, err := r.collectMeshRegistrations(ctx, &tenant, tenantID, credentials.ClusterID)
 	if err != nil {
@@ -863,99 +860,6 @@ func (r *HankoTenantReconciler) registerTenantKeycloak(ctx context.Context, tena
 	return "", nil
 }
 
-// applyBundle patches each resource from the bundle into Kubernetes using
-// server-side apply. It returns the count of applied resources per type.
-func (r *HankoTenantReconciler) applyBundle(
-	ctx context.Context,
-	tenant *hankoshv1alpha1.HankoTenant,
-	bundle *hub.Bundle,
-) (map[string]int, error) {
-	counts := map[string]int{
-		"iamProfiles":     0,
-		"realms":          0,
-		"apps":            0,
-		"themes":          0,
-		"serviceAccounts": 0,
-	}
-	ssaOpts := []client.ApplyOption{
-		client.FieldOwner(hankoOperatorFieldManager),
-		client.ForceOwnership,
-	}
-	tenantLabel := map[string]string{"hanko.sh/tenant": tenant.Name}
-
-	var err error
-	base := bundleApplyOptions{client: r.Client, namespace: tenant.Namespace, labels: tenantLabel, applyOptions: ssaOpts}
-	counts["iamProfiles"], err = applyBundleObjects(ctx, bundle.IAMProfiles, base.withType("IAM profile", func() client.Object { return &hankoshv1alpha1.HankoIAMProfile{} }))
-	if err != nil {
-		return counts, err
-	}
-	counts["realms"], err = applyBundleObjects(ctx, bundle.Realms, base.withType("realm", func() client.Object { return &hankoshv1alpha1.HankoRealm{} }))
-	if err != nil {
-		return counts, err
-	}
-	counts["apps"], err = applyBundleObjects(ctx, bundle.Apps, base.withType("application", func() client.Object { return &hankoshv1alpha1.HankoApplication{} }))
-	if err != nil {
-		return counts, err
-	}
-	counts["themes"], err = applyBundleObjects(ctx, bundle.Themes, base.withType("theme", func() client.Object { return &hankoshv1alpha1.HankoTheme{} }))
-	if err != nil {
-		return counts, err
-	}
-	counts["serviceAccounts"], err = applyBundleObjects(ctx, bundle.ServiceAccounts, base.withType("service account", func() client.Object { return &hankoshv1alpha1.HankoServiceAccount{} }))
-	if err != nil {
-		return counts, err
-	}
-
-	return counts, nil
-}
-
-type bundleApplyOptions struct {
-	client       client.Client
-	namespace    string
-	labels       map[string]string
-	applyOptions []client.ApplyOption
-	newObject    func() client.Object
-	kind         string
-}
-
-func (options bundleApplyOptions) withType(kind string, newObject func() client.Object) bundleApplyOptions {
-	options.kind = kind
-	options.newObject = newObject
-	return options
-}
-
-func applyBundleObjects(ctx context.Context, objects []json.RawMessage, options bundleApplyOptions) (int, error) {
-	for index, raw := range objects {
-		object := options.newObject()
-		expectedGVK, err := options.client.GroupVersionKindFor(object)
-		if err != nil {
-			return index, fmt.Errorf("resolve %s kind: %w", options.kind, err)
-		}
-		if err := json.Unmarshal(raw, object); err != nil {
-			return index, fmt.Errorf("unmarshal %s: %w", options.kind, err)
-		}
-		// Decode the original payload, not the typed object: apply must preserve
-		// explicitly supplied zero values that typed JSON omitempty would lose.
-		var desired unstructured.Unstructured
-		if err := kubejson.Unmarshal(raw, &desired.Object); err != nil {
-			return index, fmt.Errorf("decode %s apply configuration: %w", options.kind, err)
-		}
-		if (desired.GetAPIVersion() != "" && desired.GetAPIVersion() != expectedGVK.GroupVersion().String()) ||
-			(desired.GetKind() != "" && desired.GetKind() != expectedGVK.Kind) {
-			return index, fmt.Errorf("unexpected API version or kind for %s %q", options.kind, desired.GetName())
-		}
-		desired.SetGroupVersionKind(expectedGVK)
-		desired.SetNamespace(options.namespace)
-		mergedLabels := desired.GetLabels()
-		mergeLabels(&mergedLabels, options.labels)
-		desired.SetLabels(mergedLabels)
-		if err := options.client.Apply(ctx, client.ApplyConfigurationFromUnstructured(&desired), options.applyOptions...); err != nil {
-			return index, fmt.Errorf("apply %s %q: %w", options.kind, desired.GetName(), err)
-		}
-	}
-	return len(objects), nil
-}
-
 func (r *HankoTenantReconciler) setError(
 	ctx context.Context,
 	hubClient *hub.Client,
@@ -1020,13 +924,6 @@ func (r *HankoTenantReconciler) readSecret(ctx context.Context, namespace, name,
 		return "", fmt.Errorf("secret %q has no key %q", name, key)
 	}
 	return string(val), nil
-}
-
-func mergeLabels(dst *map[string]string, src map[string]string) {
-	if *dst == nil {
-		*dst = make(map[string]string, len(src))
-	}
-	maps.Copy(*dst, src)
 }
 
 // SetupWithManager registers the reconciler with the controller manager.
