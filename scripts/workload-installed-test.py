@@ -573,6 +573,17 @@ class Installed(native.Fixture):
         self.record("no_implicit_target_acquisition", "workload-identity.json" not in self.get("configmap", "identity", "workload").get("data", {}))
         self.stable_native(name, uuid, secret, "federated-jwt")
         self.patch("hankoserviceaccount", name, {"spec": {"runtimeMetadata": {"expectedUID": replacement_uid}}})
+        wait("replacement edit retains cleanup conflict", lambda: any(c.get("reason") == "CleanupConflict" for c in self.get("hankoserviceaccount", name).get("status", {}).get("conditions", [])), 180)
+        self.record("replacement_uid_edit_does_not_erase_old_cleanup_authority", "workload-identity.json" not in self.get("configmap", "identity", "workload").get("data", {}))
+        # Retire the absent old target through the controller's normal cleanup
+        # path, then obtain fresh consent for a new object. Never delete or forge
+        # its durable journal to bypass a replacement conflict.
+        self.kubectl("delete", "configmap", "identity", "-n", "workload", "--wait=true")
+        self.patch("hankoserviceaccount", name, {"spec": {"runtimeMetadata": None}})
+        wait("absent runtime target journal retires safely", lambda: "hanko.sh/workload-runtime-journal" not in self.get("hankoserviceaccount", name)["metadata"].get("annotations", {}) and self.hsa_ready(name), 180)
+        self.apply(replacement)
+        replacement_uid = self.get("configmap", "identity", "workload")["metadata"]["uid"]
+        self.patch("hankoserviceaccount", name, {"spec": {"runtimeMetadata": {"configMapRef": "identity", "expectedUID": replacement_uid}}})
         wait("explicit replacement target approval", lambda: self.hsa_ready(name), 180)
         self.target_uid = replacement_uid
         self.validate_metadata(name)
