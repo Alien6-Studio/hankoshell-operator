@@ -58,7 +58,7 @@ def probe(settings):
     first = path.read_text().strip()
     claims = decode(first)
     if (claims.get("aud") != [settings["issuer"]] or claims["exp"] - claims["iat"] != 600
-            or claims["sub"] != "system:serviceaccount:workload:worker"
+            or claims["sub"] != "system:serviceaccount:" + settings["namespace"] + ":" + settings["account"]
             or claims["kubernetes.io"]["serviceaccount"]["uid"] != settings["uid"]):
         raise ValueError("projected identity differs")
     results = decisions(first, settings, context)

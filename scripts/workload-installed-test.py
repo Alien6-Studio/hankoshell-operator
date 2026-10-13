@@ -45,6 +45,8 @@ class Installed(native.Fixture):
         self.registry_name = self.name + "-registry"
         self.extra_certificate_names = ",DNS:fault-keycloak.auth.svc,DNS:keycloak-upstream.auth.svc"
         self.workload_grants = [{"namespace": "workload", "serviceAccounts": ["worker"], "configMaps": ["identity"]}]
+        if args.deep_migration:
+            self.workload_grants[0]["serviceAccounts"] += ["migration-worker", "creation-worker", "flow-worker"]
         self.report.update({"schema_version": 1, "layer": "installed-workload", "revision": args.revision,
                             "image_digest": args.digest, "deep_migration": args.deep_migration,
                             "recovery": [], "migrations": {}, "checks": {}})
@@ -55,6 +57,7 @@ class Installed(native.Fixture):
         self.operator_log_failed = False
         self.operator_log_bytes = 0
         self.preserved_names = {}
+        self.workload_anchors = {}
 
     def kubectl(self, *args, **kwargs):
         # Match the installed System helpers' text contract, while retaining
@@ -184,29 +187,30 @@ class Installed(native.Fixture):
         wait("installed trust Ready", lambda: self.ready("hankoworkloadtrust", "shared-workload"), 180)
         self.record("controller_trust_ready")
 
-    def binding(self):
+    def binding(self, client=None):
+        anchor = self.workload_anchors.get(client, {"account": "worker", "uid": self.worker_uid})
         return {"trustRef": "shared-workload", "sourceRef": "workload-client-writer", "workload": {
-            "namespace": "workload", "serviceAccountRef": "worker", "expectedUID": self.worker_uid}, "expirationSeconds": 600}
+            "namespace": "workload", "serviceAccountRef": anchor["account"], "expectedUID": anchor["uid"]}, "expirationSeconds": 600}
 
     def create_hsa(self, name, kubernetes=True):
         value = {"realmRef": "managed", "clientID": name,
                  "tokenClaims": [{"name": "resource-audience", "claim": "aud", "value": "installed-api"}]}
         if kubernetes:
-            value["authentication"] = {"mode": "Kubernetes", "kubernetes": self.binding()}
+            value["authentication"] = {"mode": "Kubernetes", "kubernetes": self.binding(name)}
         self.apply(object_value("HankoServiceAccount", name, value))
         wait("installed HSA " + name, lambda: self.hsa_ready(name) if kubernetes else self.ready("hankoserviceaccount", name), 180)
         return self.client("managed", name)
 
-    def workload_pod(self, name="probe"):
+    def workload_pod(self, name="probe", account="worker"):
         self.apply({"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": "workload", "labels": {
             "pod-security.kubernetes.io/enforce": "restricted", "pod-security.kubernetes.io/enforce-version": "v" + self.args.kubernetes_version.rsplit(".", 1)[0]}}},
-            {"apiVersion": "v1", "kind": "ServiceAccount", "metadata": {"name": "worker", "namespace": "workload"}, "automountServiceAccountToken": False},
+            {"apiVersion": "v1", "kind": "ServiceAccount", "metadata": {"name": account, "namespace": "workload"}, "automountServiceAccountToken": False},
             {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "keycloak-ca", "namespace": "workload"},
              "data": {"ca.crt": (self.private / "tls.crt").read_text()}},
             {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "probe-code", "namespace": "workload"},
              "data": {"probe.py": (ROOT / "scripts/workload-pod-probe.py").read_text()}},
             {"apiVersion": "v1", "kind": "Pod", "metadata": {"name": name, "namespace": "workload"}, "spec": {
-                "serviceAccountName": "worker", "automountServiceAccountToken": False,
+                "serviceAccountName": account, "automountServiceAccountToken": False,
                 "securityContext": {"runAsNonRoot": True, "runAsUser": 1000, "runAsGroup": 1000, "fsGroup": 1000, "seccompProfile": {"type": "RuntimeDefault"}},
                 "containers": [{"name": "probe", "image": native.POD_IMAGE, "command": ["python", "-c", "import time; time.sleep(10800)"],
                     "securityContext": {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True, "capabilities": {"drop": ["ALL"]}},
@@ -216,7 +220,10 @@ class Installed(native.Fixture):
                     "audience": native.REALM_ISSUER, "expirationSeconds": 600, "path": "assertion.jwt"}}]}},
                     {"name": "ca", "configMap": {"name": "keycloak-ca"}}, {"name": "code", "configMap": {"name": "probe-code"}}]}})
         self.kubectl("wait", "--for=condition=Ready", "pod/" + name, "-n", "workload", "--timeout=180s")
-        self.worker_uid = self.get("serviceaccount", "worker", "workload")["metadata"]["uid"]
+        uid = self.get("serviceaccount", account, "workload")["metadata"]["uid"]
+        if account == "worker":
+            self.worker_uid = uid
+        return {"account": account, "uid": uid, "pod": name}
 
     def projected(self, name="probe", namespace="workload", path="assertion.jwt"):
         token = self.kubectl("exec", "-n", namespace, name, "--", "cat", "/var/run/hanko/" + path).strip()
@@ -266,11 +273,13 @@ class Installed(native.Fixture):
         self.record("resource_ready_readback", set(self.resource_ids) == {"allowed", "denied"})
 
     def probe_settings(self, client, rotation=False):
+        anchor = self.workload_anchors.get(client, {"account": "worker", "uid": self.worker_uid, "pod": "probe"})
         return {"issuer": native.REALM_ISSUER, "endpoint": native.REALM_ISSUER + "/protocol/openid-connect/token", "client": client,
-                "uid": self.worker_uid, "audience": "installed-api", "resources": self.resource_ids, "rotation": rotation}
+                "namespace": "workload", "account": anchor["account"], "uid": anchor["uid"], "audience": "installed-api", "resources": self.resource_ids, "rotation": rotation}
 
     def pod_probe(self, client):
-        body = self.kubectl("exec", "-i", "-n", "workload", "probe", "--", "python", "/probe/probe.py",
+        pod = self.workload_anchors.get(client, {"pod": "probe"})["pod"]
+        body = self.kubectl("exec", "-i", "-n", "workload", pod, "--", "python", "/probe/probe.py",
                             input=json.dumps(self.probe_settings(client)).encode(), timeout=60)
         results = json.loads(body)
         self.record("pod_client_assertion_allow_deny_" + client, all(results.get(key) is True for key in (
@@ -278,7 +287,7 @@ class Installed(native.Fixture):
 
     def start_rotation(self, client):
         self.rotation_process = subprocess.Popen([str(self.args.kubectl), "--kubeconfig", str(self.config), "exec", "-i", "-n", "workload",
-            "probe", "--", "python", "/probe/probe.py"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.workload_anchors.get(client, {"pod": "probe"})["pod"], "--", "python", "/probe/probe.py"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.rotation_process.stdin.write(json.dumps(self.probe_settings(client, True)).encode())
         self.rotation_process.stdin.close()
 
@@ -384,7 +393,7 @@ class Installed(native.Fixture):
         self.patch("hankoserviceaccount", name, {"metadata": {"annotations": annotation}})
 
     def transition(self, name, desired, request):
-        authentication = {"mode": desired, "kubernetes" if desired == "Kubernetes" else "fallbackBinding": self.binding(),
+        authentication = {"mode": desired, "kubernetes" if desired == "Kubernetes" else "fallbackBinding": self.binding(name),
             "transition": {"strategy": "CoordinatedCutover", "requestID": request, "preparedWorkloadRevision": "installed-pod-v1"}}
         annotations = self.get("hankoserviceaccount", name)["metadata"].get("annotations", {})
         for key in ("approval", "review", "cleanup"):
@@ -426,6 +435,7 @@ class Installed(native.Fixture):
 
     def migration_roundtrip(self):
         name = "same-client"
+        self.workload_anchors[name] = self.workload_pod("migration-probe", "migration-worker")
         self.create_hsa(name, False)
         uuid, secret = self.client("managed", name)["id"], self.secret_value(name)
         self.preserved_names[name] = "Independent display name"
@@ -489,7 +499,7 @@ class Installed(native.Fixture):
         wait("reviewed Secret fallback", lambda: self.ready("hankoserviceaccount", name), 180)
         self.stable_native(name, uuid, secret, "client-secret")
         self.expect_auth("fallback_secret_accepted", self.secret_auth(name, secret), True)
-        self.expect_auth("fallback_assertion_refused", self.assertion(self.projected(), name))
+        self.expect_auth("fallback_assertion_refused", self.assertion(self.projected(name="migration-probe"), name))
         self.report["migrations"]["secret_fallback"] = True
         self.transition(name, "Kubernetes", "same-client-return")
         self.approve(name, "approval")
@@ -588,14 +598,15 @@ class Installed(native.Fixture):
         # Reaffirm the same workload UID with an explicit owner spec generation;
         # the old generation's sealed authentication journal is stale after a
         # shared trust generation change, even if its values are restored.
-        self.patch("hankoserviceaccount", name, {"spec": {"attributes": {"qualification": "restored-trust-generation"}}})
+        self.patch("hankoserviceaccount", name, {"spec": {"attributes": {"login_theme": "keycloak"}}})
         wait("owner reaffirmed binding after trust restoration", lambda: self.hsa_ready(name), 180)
         executions = self.api("GET", "/admin/realms/managed/authentication/flows/clients/executions")
         execution = next(item for item in executions if item.get("providerId") == "federated-jwt")
+        self.workload_anchors["blocked-flow"] = self.workload_pod("flow-probe", "flow-worker")
         disabled = {**execution, "requirement": "DISABLED"}
         self.api("PUT", "/admin/realms/managed/authentication/flows/clients/executions", disabled)
         self.apply(object_value("HankoServiceAccount", "blocked-flow", {"realmRef": "managed", "clientID": "blocked-flow",
-            "authentication": {"mode": "Kubernetes", "kubernetes": self.binding()}}))
+            "authentication": {"mode": "Kubernetes", "kubernetes": self.binding("blocked-flow")}}))
         wait("effective flow blocks activation", lambda: self.get("hankoserviceaccount", "blocked-flow").get("status", {}).get("phase") == "Error", 180)
         self.record("controller_does_not_repair_flow", next(item for item in self.api("GET", "/admin/realms/managed/authentication/flows/clients/executions")
             if item.get("providerId") == "federated-jwt")["requirement"] == "DISABLED"
@@ -614,9 +625,10 @@ class Installed(native.Fixture):
 
     def provider_create_ack_loss(self):
         name, path = "create-ack-client", "/admin/realms/managed/clients"
+        self.workload_anchors[name] = self.workload_pod("creation-probe", "creation-worker")
         self.control("keycloak", {"method": "POST", "path": path, "action": "lost-ack"}, reset=True)
         self.apply(object_value("HankoServiceAccount", name, {"realmRef": "managed", "clientID": name,
-            "authentication": {"mode": "Kubernetes", "kubernetes": self.binding()}}))
+            "authentication": {"mode": "Kubernetes", "kubernetes": self.binding(name)}}))
         fault = self.await_fault("keycloak")
         journal = self.journal(name)
         uuid = self.client("managed", name)["id"]
@@ -629,7 +641,7 @@ class Installed(native.Fixture):
         self.record("no_duplicate_create_or_rotation", counts.get("POST " + path) == 1
                     and counts.get("POST " + path + "/" + uuid + "/client-secret", 0) == 0)
         self.stable_native(name, uuid, secret, "federated-jwt")
-        self.expect_auth("created_client_real_projected_assertion", self.assertion(self.projected(), name), True)
+        self.expect_auth("created_client_real_projected_assertion", self.assertion(self.projected(name="creation-probe"), name), True)
         self.recovery_record(name, "provider CREATE accepted; downstream response dropped; reserved-UUID restart recovery", "Prepared", "Absent", "Kubernetes", counts)
 
     def cleanup_recovery(self):
@@ -882,8 +894,9 @@ class Installed(native.Fixture):
         self.record("exact_scanned_image_installed")
         if self.args.deep_migration:
             self.configure_api_proxy()
+            self.foreign_objects()
         self.trust()
-        self.workload_pod()
+        self.workload_anchors["federated-b"] = self.workload_pod()
         self.create_hsa("secret-a", False)
         old_secret = self.secret_value("secret-a")
         self.expect_auth("secret_a_before_migration", self.secret_auth("secret-a", old_secret), True)
@@ -895,7 +908,6 @@ class Installed(native.Fixture):
         self.negatives("federated-b")
         self.kubernetes_permissions()
         if self.args.deep_migration:
-            self.foreign_objects()
             self.prerequisites("federated-b", "secret-a", old_secret)
             self.binding_failures("federated-b")
             self.provider_create_ack_loss()
