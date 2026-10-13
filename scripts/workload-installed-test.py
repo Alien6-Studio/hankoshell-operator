@@ -100,7 +100,7 @@ class Installed(native.Fixture):
             for line in process.stdout:
                 text = line.decode(errors="replace")
                 self.operator_log_bytes += len(line)
-                if any(value and value in text for value in self.sensitive) or re.search(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", text):
+                if any(value and (value in text or base64.b64encode(value.encode()).decode() in text) for value in self.sensitive) or re.search(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", text):
                     self.operator_log_failed = True
         self.operator_log_thread = threading.Thread(target=scan, daemon=True)
         self.operator_log_thread.start()
@@ -380,6 +380,7 @@ class Installed(native.Fixture):
         self.apply({"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "consumer", "namespace": "workload"}, "data": {"clientID": current}})
         self.record("two_client_consumer_cutover_review", self.get("configmap", "consumer", "workload")["data"]["clientID"] == current)
         self.kubectl("delete", "hankoserviceaccount", old, "-n", "auth", "--wait=true", "--timeout=180s")
+        wait("retired canonical Secret garbage collection", lambda: not self.exists("secret", "hanko-sa-" + old), 120)
         self.record("two_client_retired_old", not self.api("GET", "/admin/realms/managed/clients?clientId=" + old))
         self.pod_probe(current)
         self.report["migrations"]["two_client"] = True
@@ -457,8 +458,9 @@ class Installed(native.Fixture):
         self.restart()
         self.stage(name, "ModeApplied")
         self.stable_native(name, uuid, secret, "federated-jwt")
-        counts = self.control("keycloak", None)["counts"]
-        self.record("provider_lost_ack_no_duplicate_toggle", counts.get("PUT " + path) == 1)
+        state = self.control("keycloak", None)
+        counts = state["counts"]
+        self.record("provider_lost_ack_no_duplicate_toggle", counts.get("PUT " + path) == 1 and state["attempted_counts"].get("PUT " + path) == 1)
         self.recovery_record(name, "provider write accepted; downstream response dropped; manager restart", "Prepared", "Secret", "Kubernetes", counts)
         self.checkpoint_restart(name, "ModeApplied", uuid, secret, "federated-jwt")
         self.pod_probe(name)
@@ -478,8 +480,9 @@ class Installed(native.Fixture):
         self.record("output_cleanup_ack_loss", fault["upstream_status"] == 200 and "client_secret" not in self.get("secret", "hanko-sa-" + name).get("data", {}))
         self.restart()
         wait("lost cleanup acknowledgement recovery", lambda: self.hsa_ready(name), 180)
-        counts = self.control("api", None)["counts"]
-        self.record("cleanup_ack_loss_no_duplicate_write", counts.get("PATCH " + secret_path) == 1)
+        state = self.control("api", None)
+        counts = state["counts"]
+        self.record("cleanup_ack_loss_no_duplicate_write", counts.get("PATCH " + secret_path) == 1 and state["attempted_counts"].get("PATCH " + secret_path) == 1)
         self.recovery_record(name, "Secret field patch accepted; downstream response dropped; manager restart", "AuthReviewed", "Kubernetes", "Kubernetes", counts)
         self.checkpoint_restart(name, "Committed", uuid, secret, "federated-jwt", True)
         self.report["migrations"]["coordinated_cutover"] = True
@@ -490,8 +493,9 @@ class Installed(native.Fixture):
         self.record("fallback_output_accepted_ack_lost", fault["upstream_status"] == 200 and self.secret_value(name) == secret)
         self.restart()
         self.stage(name, "Prepared")
-        counts = self.control("api", None)["counts"]
-        self.record("fallback_stage_no_duplicate_write", counts.get("PATCH " + secret_path) == 1)
+        state = self.control("api", None)
+        counts = state["counts"]
+        self.record("fallback_stage_no_duplicate_write", counts.get("PATCH " + secret_path) == 1 and state["attempted_counts"].get("PATCH " + secret_path) == 1)
         self.recovery_record(name, "fallback Secret patch accepted; downstream response dropped; manager restart", "Prepared", "Kubernetes", "Kubernetes", counts)
         wait("fallback staged canonical read-back", lambda: self.get("secret", "hanko-sa-" + name).get("data", {}).get("client_secret") is not None, 180)
         self.record("fallback_same_secret_staged_before_switch", self.secret_value(name) == secret and self.client("managed", name)["clientAuthenticatorType"] == "federated-jwt")
@@ -534,8 +538,14 @@ class Installed(native.Fixture):
             self.stable_native(name, uuid, secret, "federated-jwt")
             self.restart()
             wait("ConfigMap transport recovery", lambda: self.hsa_ready(name) and self.get("configmap", "identity", "workload")["data"].get("workload-identity.json") != "{}", 180)
-            counts = self.control("api", None)["counts"]
-            self.record("configmap_single_accepted_write_" + action, counts.get("PATCH " + path) == 1)
+            state = self.control("api", None)
+            counts = state["counts"]
+            phases = state["metadata_activations"].get("PATCH " + path, {})
+            # Invalidated binding evidence may require a passive document before
+            # active read-back. Those two distinct publications are not a replay
+            # of the same output write, and neither changes native authentication.
+            self.record("configmap_no_duplicate_activation_write_" + action, phases.get("Federated") == 1
+                and phases.get("ManagedSeparately", 0) <= 1 and counts.get("PATCH " + path) == sum(phases.values()))
             self.validate_metadata(name)
             self.recovery_record(name, "runtime ConfigMap " + action + "; manager restart", "Committed", "Kubernetes", "Kubernetes", counts)
         before = self.get("configmap", "identity", "workload")
@@ -637,8 +647,9 @@ class Installed(native.Fixture):
         secret = self.native_secret(name)
         self.restart()
         wait("reserved provider CREATE recovery", lambda: self.hsa_ready(name), 180)
-        counts = self.control("keycloak", None)["counts"]
-        self.record("no_duplicate_create_or_rotation", counts.get("POST " + path) == 1
+        state = self.control("keycloak", None)
+        counts = state["counts"]
+        self.record("no_duplicate_create_or_rotation", counts.get("POST " + path) == 1 and state["attempted_counts"].get("POST " + path) == 1
                     and counts.get("POST " + path + "/" + uuid + "/client-secret", 0) == 0)
         self.stable_native(name, uuid, secret, "federated-jwt")
         self.expect_auth("created_client_real_projected_assertion", self.assertion(self.projected(name="creation-probe"), name), True)
@@ -945,7 +956,8 @@ class Installed(native.Fixture):
             super().cleanup()
         finally:
             # Unique fixture names only; never prune developer images/containers.
-            subprocess.run(["docker", "rm", "--force", self.registry_name], capture_output=True, timeout=60, check=False)
+            if self.registry_created:
+                subprocess.run(["docker", "rm", "--force", self.registry_name], capture_output=True, timeout=60, check=False)
 
 
 def main():

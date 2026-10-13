@@ -46,6 +46,7 @@ class System:
         self.args, self.private = args, private
         self.name = "hankoshell-system-" + secrets.token_hex(6)
         self.registry_name = self.name + "-registry"
+        self.registry_created = False
         self.config = private / "kubeconfig"
         self.forward = None
         self.password, self.credential = secrets.token_hex(32), secrets.token_hex(32)
@@ -143,6 +144,7 @@ class System:
         """Mirror the verified multiarch graph without rebuilding the operator."""
         run(["docker", "run", "--detach", "--name", self.registry_name, "--publish", "127.0.0.1::5000",
              "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", publication.REGISTRY_IMAGE])
+        self.registry_created = True
         node = self.name + "-control-plane"
         run(["docker", "network", "connect", "kind", self.registry_name])
         # Docker can reassign an ephemeral published port when attaching a
@@ -1199,7 +1201,8 @@ class System:
             self.forward_log.close()
         run([self.args.kind, "delete", "cluster", "--name", self.name])
         # No prune: never touch developer-owned clusters or containers.
-        run(["docker", "rm", "--force", self.registry_name])
+        if self.registry_created:
+            run(["docker", "rm", "--force", self.registry_name])
         if hasattr(self, "keycloak_image"):
             run(["docker", "image", "rm", self.keycloak_image])
 

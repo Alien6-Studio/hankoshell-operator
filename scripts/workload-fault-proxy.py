@@ -15,7 +15,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 LOCK = threading.Lock()
-STATE = {"rule": None, "blocked": False, "triggered": False, "counts": {}, "upstream_status": None}
+STATE = {"rule": None, "blocked": False, "triggered": False, "counts": {}, "attempted_counts": {}, "metadata_activations": {}, "upstream_status": None}
 
 
 def matches(rule, method, path, body):
@@ -51,6 +51,8 @@ class Proxy(BaseHTTPRequestHandler):
                     STATE.update({"rule": value.get("rule"), "blocked": False, "triggered": False, "upstream_status": None})
                     if value.get("reset_counts"):
                         STATE["counts"] = {}
+                        STATE["attempted_counts"] = {}
+                        STATE["metadata_activations"] = {}
                 result = json.dumps(STATE).encode()
             self.reply(200, result)
             return
@@ -77,6 +79,11 @@ class Proxy(BaseHTTPRequestHandler):
             body = json.dumps(value).encode()
         payload = body if size else None
         request = Request(self.server.upstream + self.path, data=payload, method=self.command, headers=headers)
+        if self.command in ("POST", "PUT", "PATCH", "DELETE"):
+            with LOCK:
+                key = self.command + " " + self.path.split("?")[0]
+                attempts = STATE.setdefault("attempted_counts", {})
+                attempts[key] = attempts.get(key, 0) + 1
         try:
             with urlopen(request, context=self.server.context, timeout=35) as response:
                 content_type = response.headers.get("Content-Type", "application/json")
@@ -101,6 +108,15 @@ class Proxy(BaseHTTPRequestHandler):
             if self.command in ("POST", "PUT", "PATCH", "DELETE") and 200 <= status < 300:
                 key = self.command + " " + self.path.split("?")[0]
                 STATE["counts"][key] = STATE["counts"].get(key, 0) + 1
+                if self.command == "PATCH" and "/configmaps/" in self.path:
+                    try:
+                        document = json.loads(json.loads(body).get("data", {}).get("workload-identity.json", "{}"))
+                        activation = document.get("authenticationActivation")
+                        if document.get("schemaVersion") == "hanko.sh/workload-runtime/v1alpha1" and activation in ("ManagedSeparately", "Federated"):
+                            phases = STATE.setdefault("metadata_activations", {}).setdefault(key, {})
+                            phases[activation] = phases.get(activation, 0) + 1
+                    except (ValueError, TypeError):
+                        pass
             if selected:
                 STATE.update({"triggered": True, "blocked": True, "upstream_status": status})
         if selected and rule["action"] == "lost-ack":
