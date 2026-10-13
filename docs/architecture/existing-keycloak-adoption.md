@@ -77,6 +77,22 @@ constitute central approval or membership authorization. Existing declarations a
 read directly rather than overwritten. Generated targets retain imported-by and
 Observe authority; no runtime bindings or credential projections are inferred.
 
+Each attempt reads the current import directly and initializes its status before
+discovery. A resource-version-conditional discovery checkpoint must succeed before
+creating targets or publishing candidate status, including during dry-run. Every
+import status-write failure is returned for retry; concurrent edits, replacement
+or deletion invalidate the pending checkpoint. Already deleting imports do no work.
+Retries rediscover and report counts for the current attempt: previously created
+targets are skipped, not counted again as newly applied. A target creation or
+mapping error ends in `Failed` with `ImportReady=False/PartialFailure`; inspect the
+report and retained Observe targets before submitting a new import.
+
+These boundaries are not a multi-object transaction. An interruption after target
+creation can leave Observe objects or candidate evidence before import completion
+is recorded. There is no rollback or frozen inventory across attempts; do not edit
+an in-flight import to retarget it. Dry-run creates no targets but may refresh
+candidate evidence on existing declarations.
+
 Imported Observe reconciliation refreshes target evidence from the current import
 source identity. The source reader is independent of the normal writer identity.
 A missing target/import/source/read produces non-approvable evidence. Status itself
@@ -422,7 +438,8 @@ HankoImport is one-shot: Done/Failed is terminal. It generates Observe inventory
 skips built-in/protected clients and already governed client identities, and never
 calls provider mutation/credential routes. Qualified SAML is generated with its
 protocol-aware declaration; unsupported SAML/protocols produce bounded findings
-and can finish Done with ImportReady/PartialFailure. Done is independent of
+and finish Failed with ImportReady=False/PartialFailure when target mapping fails.
+Done is independent of
 InventoryComplete. Brokers use a typed safe configuration allowlist, and opaque
 credentials remain excluded. Group/native Organization inventory never generates
 HankoOrganization or reads members. Runtime binding consent/ServiceAccount/target

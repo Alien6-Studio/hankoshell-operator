@@ -256,7 +256,7 @@ func TestImportSummaryIdentityBudgetFailsClosed(t *testing.T) {
 	item := newInventoryItem("realm", strings.Repeat("r", adoption.MaxReferenceBytes+1), strings.Repeat("i", adoption.MaxProviderIDBytes+1), "safe")
 	inventory := &realmAdoptionInventory{complete: true, items: []*adoptionInventoryItem{item}, provider: adoption.ProviderIdentity{Instance: adoption.TargetIdentity{UID: "instance"}, Origin: "https://keycloak.example.test", RealmID: "realm", Trust: "public-ca"}}
 	reconciler := &HankoImportReconciler{Client: controllerTestClient(controllerTestScheme(t))}
-	reconciler.publishImportEvidence(context.Background(), operation, []importedRealmData{{inventory: inventory}})
+	reconciler.updateImportEvidence(context.Background(), operation, []importedRealmData{{inventory: inventory}}, false)
 	if operation.Status.Coverage.Complete || !operation.Status.Coverage.Truncated || len(operation.Status.Inventory) != 1 {
 		t.Fatal("oversized identity was not classified as truncated coverage")
 	}

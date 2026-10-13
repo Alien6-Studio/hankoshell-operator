@@ -693,7 +693,10 @@ func candidateStatus(c adoption.Candidate) *api.AdoptionCandidateStatus {
 	_ = json.Unmarshal(b, &result)
 	return &result
 }
-func (r *HankoImportReconciler) publishImportEvidence(ctx context.Context, operation *api.HankoImport, realms []importedRealmData) {
+
+// updateImportEvidence always prepares the bounded import report. Target status
+// may be published only after the discovery checkpoint has been acknowledged.
+func (r *HankoImportReconciler) updateImportEvidence(ctx context.Context, operation *api.HankoImport, realms []importedRealmData, publishCandidates bool) {
 	coverage := operation.Status.Coverage
 	operation.Status.Inventory = nil
 	coverage.InventoryCount = 0
@@ -737,7 +740,7 @@ func (r *HankoImportReconciler) publishImportEvidence(ctx context.Context, opera
 				coverage.CandidateCount++
 				summary.Target = &candidateStatus(c).Target
 				summary.CandidateHash = c.CandidateHash
-				if !r.patchInventoryCandidate(ctx, target, c) {
+				if publishCandidates && !r.patchInventoryCandidate(ctx, target, c) {
 					coverage.Complete = false
 					summary.Complete = false
 					summary.Approvable = false
