@@ -5,6 +5,50 @@ Participation follows [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 Keep a pull request focused and describe the problem, resulting behavior,
 validation, and operational impact. Add a sign-off with `git commit -s`.
 
+## Developer Certificate of Origin
+
+Each contributor commit must carry a final `Signed-off-by: Name <email>` trailer
+certifying the [Developer Certificate of Origin 1.1](https://developercertificate.org/).
+Use `git commit -s`; the trailer must match the commit's author name and email
+(email comparison ignores case). Coauthor or maintainer trailers may accompany
+the author's trailer. A sign-off is a contribution certification; the separate
+protected-branch signature requirement authenticates the commit.
+
+The required CI source gate checks every commit in the PR's base-to-head range,
+including merge commits, with `scripts/check-dco.py`. It checks the actual PR
+head, not GitHub's generated test merge. Missing or mismatched author sign-offs
+fail with the affected commit SHAs. Correct contributor commits with
+`git commit --amend -s` or a reviewed history rewrite; preserve other contributors'
+sign-offs and signatures when updating their work.
+
+Two narrow automation exceptions apply when the author-matching trailer is absent:
+the canonical `dependabot[bot]` author authenticated as GitHub's Dependabot bot,
+and commits made by the authenticated GitHub `web-flow` committer
+(`GitHub <noreply@github.com>`). Both require GitHub API confirmation of the exact
+commit SHA, author and committer, plus a `Verified` signature with reason `valid`.
+Local bot names, committer names or signatures alone grant no exception. An API
+failure or unverified signature rejects the exception. Other bots use sign-offs.
+
+Before a protected squash merge, maintainers must edit the squash message to
+retain the contribution sign-offs and include a trailer matching the resulting
+squash author. GitHub can use the author's account display name rather than the
+local Git name; check both the resulting name and email. The web-flow exception
+allows the generated signed commit through automated checks; it does not remove
+this maintainer squash-message rule. After merging, verify the squash commit's
+sign-offs and GitHub `Verified` signature before resolving the issue.
+
+To reproduce the PR check locally after fetching both full commit SHAs:
+
+```sh
+python3 scripts/check-dco.py --base "$base_sha" --head "$head_sha" \
+  --repository Alien6-Studio/hankoshell-operator
+```
+
+Ordinary signed-off commits require only Git. Automation exceptions also require
+the authenticated `gh` CLI with read access to the repository.
+
+## Validation and release workflow
+
 Run `make check arch lint generated-check vuln` with the pinned tools.
 Run `python3 -m unittest discover -s scripts -p 'test_*.py'`, both real Keycloak
 versions and the three Kubernetes fixtures listed in CI. The final OCI scan
