@@ -396,6 +396,7 @@ func (r *HankoKeycloakInstanceReconciler) ensureDeployment(ctx context.Context, 
 	err = r.Get(ctx, types.NamespacedName{Name: ki.Name, Namespace: ki.Namespace}, &existing)
 	if errors.IsNotFound(err) {
 		podSpec := corev1.PodSpec{
+			AutomountServiceAccountToken: boolPtr(false),
 			SecurityContext: &corev1.PodSecurityContext{
 				RunAsNonRoot: &trueVal,
 				RunAsUser:    &runAsUser,
@@ -437,6 +438,7 @@ func (r *HankoKeycloakInstanceReconciler) ensureDeployment(ctx context.Context, 
 	// changes to replica count are reflected in scheduling constraints.
 	patchBase := client.MergeFrom(existing.DeepCopy())
 	existing.Spec.Replicas = &replicas
+	existing.Spec.Template.Spec.AutomountServiceAccountToken = boolPtr(false)
 	existing.Spec.Template.Spec.Containers = []corev1.Container{container}
 	existing.Spec.Template.Spec.Volumes = volumes
 	existing.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{

@@ -249,3 +249,25 @@ func TestSnapshotExistingJobStillRequiresLiveSignature(t *testing.T) {
 		t.Fatalf("completed Job bypassed publisher verification: %+v", snapshot.Status)
 	}
 }
+
+func TestSnapshotBackupJobsWriteDistinctDumpFiles(t *testing.T) {
+	first := snapshotDataFixture()
+	sibling := snapshotDataFixture()
+	sibling.Name, sibling.UID = "data-2", "snapshot-uid-2"
+	recreated := snapshotDataFixture()
+	recreated.UID = "snapshot-uid-recreated"
+	r := &HankoSnapshotReconciler{Scheme: controllerTestScheme(t)}
+	files := map[string]bool{}
+	for _, snapshot := range []*hankoshv1alpha1.HankoSnapshot{first, sibling, recreated} {
+		command := snapshotOwnedJob(t, r, snapshot).Spec.Template.Spec.Containers[0].Command
+		file := command[len(command)-1]
+		name := strings.TrimPrefix(file, "--file=/backup/")
+		if name == file || strings.Contains(name, "/") || !strings.HasSuffix(name, ".dump") {
+			t.Fatalf("dump file escapes the backup volume: %q", file)
+		}
+		files[file] = true
+	}
+	if len(files) != 3 {
+		t.Fatalf("snapshots sharing a backup PVC would overwrite each other's archive: %v", files)
+	}
+}

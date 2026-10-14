@@ -12,6 +12,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -74,6 +75,16 @@ func (r *HankoThemeReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 	if err == nil {
+		// Existing Jobs are not adopted by name. Check ownership and the
+		// execution contract, then re-verify the build image signature, before
+		// trusting even a completed Job; foreign or altered Jobs fail closed.
+		if !r.themeBuildJobMatches(&theme, &job) {
+			return r.failTheme(ctx, &theme, "JobContractMismatch",
+				fmt.Errorf("existing Job %q is not controlled by this HankoTheme or differs from its build contract; inspect it manually", build.jobName))
+		}
+		if verifyErr := r.ImageValidator.VerifyImage(ctx, imagevalidator.ThemeBuilder, theme.Spec.BuildImage); verifyErr != nil {
+			return r.failTheme(ctx, &theme, "UntrustedImageRef", verifyErr)
+		}
 		return r.reconcileExistingThemeBuild(ctx, &theme, &job, build)
 	}
 	if themeBuildInstalled(&theme, build) {
@@ -135,6 +146,31 @@ func themeBuildInstalled(theme *hankoshv1alpha1.HankoTheme, build *themeBuildSta
 		theme.Status.ObservedGeneration == theme.Generation &&
 		theme.Status.BuildJob == build.jobName &&
 		theme.Status.JarPath == build.jarPath
+}
+
+func (r *HankoThemeReconciler) themeBuildJobMatches(theme *hankoshv1alpha1.HankoTheme, job *batchv1.Job) bool {
+	return themeChildMatches(theme, job) && themeJobSpecMatches(job, r.buildJob(theme, job.Name))
+}
+
+func themeChildMatches(theme *hankoshv1alpha1.HankoTheme, job *batchv1.Job) bool {
+	owner := metav1.GetControllerOf(job)
+	return theme.UID != "" && owner != nil &&
+		owner.UID == theme.UID && owner.Name == theme.Name &&
+		owner.Kind == "HankoTheme" && owner.APIVersion == hankoshv1alpha1.GroupVersion.String() &&
+		job.DeletionTimestamp.IsZero() && job.Namespace == theme.Namespace &&
+		job.Labels[themeLabel] == theme.Name
+}
+
+func themeJobSpecMatches(job, expected *batchv1.Job) bool {
+	actual := job.Spec.Template.Spec
+	want := expected.Spec.Template.Spec
+	return !actual.HostNetwork && !actual.HostPID && !actual.HostIPC &&
+		len(actual.InitContainers) == 0 && len(actual.EphemeralContainers) == 0 &&
+		apiequality.Semantic.DeepEqual(actual.Containers, want.Containers) &&
+		apiequality.Semantic.DeepEqual(actual.Volumes, want.Volumes) &&
+		apiequality.Semantic.DeepEqual(actual.SecurityContext, want.SecurityContext) &&
+		apiequality.Semantic.DeepEqual(actual.AutomountServiceAccountToken, want.AutomountServiceAccountToken) &&
+		actual.RestartPolicy == want.RestartPolicy
 }
 
 func (r *HankoThemeReconciler) reconcileExistingThemeBuild(ctx context.Context, theme *hankoshv1alpha1.HankoTheme, job *batchv1.Job, build *themeBuildState) (ctrl.Result, error) {
@@ -410,6 +446,15 @@ func (r *HankoThemeReconciler) reconcileThemeCleanupJob(ctx context.Context, the
 		}
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, true, nil
 	}
+	// The cleanup Job is intentionally unowned (a deleting owner's garbage
+	// collection must not remove it), so acceptance relies on its labels and
+	// hardened pod-spec contract instead of a controller reference.
+	if metav1.GetControllerOf(&job) != nil || !job.DeletionTimestamp.IsZero() ||
+		job.Labels[themeLabel] != theme.Name || !themeJobSpecMatches(&job, r.cleanupJob(theme, jobName, jarName)) {
+		result, failErr := r.failTheme(ctx, theme, "JobContractMismatch",
+			fmt.Errorf("existing cleanup Job %q differs from this HankoTheme's cleanup contract; inspect it manually", jobName))
+		return result, true, failErr
+	}
 	if isJobFailed(&job) {
 		result, failErr := r.failTheme(ctx, theme, "CleanupFailed", fmt.Errorf("theme cleanup Job %q failed", jobName))
 		return result, true, failErr
@@ -468,6 +513,10 @@ func (r *HankoThemeReconciler) reconcilePruneJob(
 			return false, fmt.Errorf("create previous JAR cleanup Job: %w", err)
 		}
 		return false, nil
+	}
+	expected := r.cleanupJobForStorage(theme, jobName, oldJarName, oldPVC, oldBuildImage, installedThemeImagePullSecrets(theme))
+	if !themeChildMatches(theme, &job) || !themeJobSpecMatches(&job, expected) {
+		return false, fmt.Errorf("previous JAR cleanup Job %q is not controlled by this HankoTheme or differs from its contract; inspect it manually", jobName)
 	}
 	if isJobFailed(&job) {
 		return false, fmt.Errorf("previous JAR cleanup Job %q failed", jobName)
@@ -532,6 +581,10 @@ func (r *HankoThemeReconciler) themeJob(
 	deadline := int64(1200)
 	fsPolicy := corev1.FSGroupChangeOnRootMismatch
 	container.ImagePullPolicy = corev1.PullIfNotPresent
+	// Explicit API-server defaults keep the pod-spec contract comparison exact
+	// against live Jobs.
+	container.TerminationMessagePath = "/dev/termination-log"
+	container.TerminationMessagePolicy = corev1.TerminationMessageReadFile
 	container.SecurityContext = &corev1.SecurityContext{
 		AllowPrivilegeEscalation: boolPtr(false),
 		RunAsNonRoot:             boolPtr(true),
@@ -560,8 +613,9 @@ func (r *HankoThemeReconciler) themeJob(
 					themeLabel:                     theme.Name,
 				}},
 				Spec: corev1.PodSpec{
-					RestartPolicy:    corev1.RestartPolicyNever,
-					ImagePullSecrets: append([]corev1.LocalObjectReference(nil), imagePullSecrets...),
+					RestartPolicy:                corev1.RestartPolicyNever,
+					AutomountServiceAccountToken: boolPtr(false),
+					ImagePullSecrets:             append([]corev1.LocalObjectReference(nil), imagePullSecrets...),
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsNonRoot:        boolPtr(true),
 						RunAsUser:           int64Ptr(themeBuildUserID),

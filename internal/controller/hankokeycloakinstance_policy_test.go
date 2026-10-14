@@ -121,3 +121,40 @@ func TestManagedInstanceScaleDownRemovesStaleDisruptionBudget(t *testing.T) {
 		t.Fatalf("Deployment was not scaled down: %#v", deployment.Spec.Replicas)
 	}
 }
+
+func TestManagedKeycloakPodsDisableServiceAccountTokenAutomount(t *testing.T) {
+	ctx := context.Background()
+	scheme := controllerTestScheme(t)
+	instance := managedTestInstance("test", "keycloak")
+	kube := controllerTestClient(scheme, append([]client.Object{instance}, managedTestSecrets(t, instance)...)...)
+	reconciler := &HankoKeycloakInstanceReconciler{Client: kube, Scheme: scheme, ImageValidator: approvedFixtureValidator(t)}
+	assertNoToken := func(step string) {
+		var deployment appsv1.Deployment
+		if err := kube.Get(ctx, client.ObjectKeyFromObject(instance), &deployment); err != nil {
+			t.Fatal(err)
+		}
+		automount := deployment.Spec.Template.Spec.AutomountServiceAccountToken
+		if automount == nil || *automount {
+			t.Fatalf("%s: Keycloak pods mount a Kubernetes token by default", step)
+		}
+	}
+
+	if err := reconciler.ensureDeployment(ctx, instance); err != nil {
+		t.Fatal(err)
+	}
+	assertNoToken("create")
+
+	// A legacy Deployment predating this control is corrected on update.
+	var legacy appsv1.Deployment
+	if err := kube.Get(ctx, client.ObjectKeyFromObject(instance), &legacy); err != nil {
+		t.Fatal(err)
+	}
+	legacy.Spec.Template.Spec.AutomountServiceAccountToken = nil
+	if err := kube.Update(ctx, &legacy); err != nil {
+		t.Fatal(err)
+	}
+	if err := reconciler.ensureDeployment(ctx, instance); err != nil {
+		t.Fatal(err)
+	}
+	assertNoToken("patch")
+}

@@ -258,6 +258,17 @@ func (r *HankoSnapshotReconciler) completeSnapshot(ctx context.Context, snapshot
 	return ctrl.Result{}, nil
 }
 
+// snapshotDumpPath names a dump file unique to this snapshot so snapshots
+// sharing one backup PVC never overwrite each other's archive. The UID digest
+// also separates archives when a snapshot is deleted and recreated by name.
+func snapshotDumpPath(snapshot *hankoshv1alpha1.HankoSnapshot) string {
+	suffix := ""
+	if snapshot.UID != "" {
+		suffix = "-" + snapshotHash([]byte(snapshot.UID))[:8]
+	}
+	return "/backup/snap-" + snapshot.Name + suffix + ".dump"
+}
+
 // buildPGDumpJob constructs a pg_dump Job that writes to a persistent PVC.
 func (r *HankoSnapshotReconciler) buildPGDumpJob(jobName string, snapshot *hankoshv1alpha1.HankoSnapshot) *batchv1.Job {
 	backoffLimit := int32(2)
@@ -292,7 +303,7 @@ func (r *HankoSnapshotReconciler) buildPGDumpJob(jobName string, snapshot *hanko
 								"--format=custom",
 								"--no-acl",
 								"--no-owner",
-								"--file=/backup/keycloak.dump",
+								"--file=" + snapshotDumpPath(snapshot),
 							},
 							Env: snapshotBackupEnv(snapshot.Spec.BackupSecretRef),
 							SecurityContext: &corev1.SecurityContext{
