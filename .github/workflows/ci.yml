@@ -166,7 +166,7 @@ jobs:
             --kubernetes-version '${{ matrix.kubernetes }}' --kind "$RUNNER_TEMP/workload-tools/kind" \
             --kubectl "$RUNNER_TEMP/workload-tools/kubectl" --openssl /usr/bin/openssl \
             --output "$RUNNER_TEMP/workload-identity.json"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: NONPUBLISHABLE-workload-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/workload-identity.json
@@ -174,7 +174,7 @@ jobs:
           retention-days: 14
       - name: Preserve bounded workload failure diagnostics
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: NONPUBLISHABLE-diagnostics-workload-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/workload-identity.diagnostics
@@ -200,7 +200,7 @@ jobs:
         run: make security-mutations MUTATION_OUTPUT="$RUNNER_TEMP/security-mutations.json"
       - name: Preserve assertion outcomes without test payloads
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: security-mutations-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/security-mutations.json
@@ -229,7 +229,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           artifact-ids: ${{ needs.oci.outputs.artifact_id }}
           path: ${{ runner.temp }}/hankoshell-scanned-oci
@@ -251,7 +251,7 @@ jobs:
             --output "$RUNNER_TEMP/hankoshell-release-dry-run" --helm /tmp/linux-amd64/helm \
             --cosign "$RUNNER_TEMP/rehearsal-tools/cosign" --attest "$RUNNER_TEMP/rehearsal-tools/attest" \
             --openssl /usr/bin/openssl --oras "$RUNNER_TEMP/rehearsal-tools/oras"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: NONPUBLISHABLE-release-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/hankoshell-release-dry-run
@@ -259,7 +259,7 @@ jobs:
           retention-days: 14
       - name: Preserve bounded release fixture failure diagnostics
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: NONPUBLISHABLE-diagnostics-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/hankoshell-release-dry-run/NONPUBLISHABLE-diagnostics
@@ -280,7 +280,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           artifact-ids: ${{ needs.oci.outputs.artifact_id }}
           path: ${{ runner.temp }}/hankoshell-scanned-oci
@@ -300,7 +300,7 @@ jobs:
             --output "$RUNNER_TEMP/system-test.json" --kind "$RUNNER_TEMP/system-tools/kind" \
             --kubectl "$RUNNER_TEMP/system-tools/kubectl" --oras "$RUNNER_TEMP/system-tools/oras" \
             --helm /tmp/linux-amd64/helm --openssl /usr/bin/openssl
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: system-test-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/system-test.json
@@ -308,7 +308,7 @@ jobs:
           retention-days: 14
       - name: Preserve bounded installed system failure diagnostics
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: NONPUBLISHABLE-diagnostics-system-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/system-test.diagnostics
@@ -336,7 +336,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           artifact-ids: ${{ needs.oci.outputs.artifact_id }}
           path: ${{ runner.temp }}/hankoshell-scanned-oci
@@ -362,7 +362,7 @@ jobs:
             --kind "$RUNNER_TEMP/workload-tools/kind" --kubectl "$RUNNER_TEMP/workload-tools/kubectl" \
             --oras "$RUNNER_TEMP/workload-tools/oras" --helm /tmp/linux-amd64/helm --openssl /usr/bin/openssl \
             --output "$RUNNER_TEMP/installed-workload.json"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: NONPUBLISHABLE-installed-workload-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -371,7 +371,7 @@ jobs:
           retention-days: 14
       - name: Preserve bounded installed workload failure diagnostics
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: NONPUBLISHABLE-diagnostics-installed-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/installed-workload.diagnostics
