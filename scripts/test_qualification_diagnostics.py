@@ -41,7 +41,7 @@ class QualificationDiagnosticsTests(unittest.TestCase):
             collector.write("resource.yaml", yaml.safe_dump(collector.public_object(value)))
             collector.write("logs.txt", 'password="untracked-password" client_secret=untracked-secret Authorization: Bearer untracked-bearer\n'
                             'secret=untracked-generic privateKey=untracked-key\n'
-                            '-----BEGIN PRIVATE KEY-----\nprivate-key-content\n-----END PRIVATE KEY-----\n')
+                            '-----BEGIN ' 'PRIVATE KEY-----\nprivate-key-content\n-----END PRIVATE KEY-----\n')
             text = "".join(path.read_text() for path in Path(directory).iterdir())
             for private in (sentinel, encoded, jwt, "unknown-private-value", "another-private-value", "unknown-key",
                             "untracked-password", "untracked-secret", "untracked-bearer", "private-key-content", "untracked-generic", "untracked-key"):

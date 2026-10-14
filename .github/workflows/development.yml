@@ -32,6 +32,6 @@ jobs:
           python3 scripts/install-helm.py /tmp/linux-amd64/helm
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
           python -m pip install -r scripts/requirements.txt
-          make install-preflight-tools
+          make install-preflight-tools install-hook-tools
       - name: Validate formatting, vet, generated schemas and delivery contracts
-        run: make preflight
+        run: make preflight hooks-check

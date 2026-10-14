@@ -1,4 +1,5 @@
 import base64
+import copy
 import hashlib
 import importlib.util
 import json
@@ -44,7 +45,14 @@ class ReleaseContractTests(unittest.TestCase):
         # PyYAML's YAML 1.1 loader represents the Actions "on" key as True.
         self.assertEqual(development[True], {"push": {"branches": ["feat/1.0.0-dev"]}})
         self.assertEqual(set(development["jobs"]), {"preflight"})
-        expected = dict(ci["jobs"]["preflight"], name="Development source preflight")
+        expected = copy.deepcopy(ci["jobs"]["preflight"])
+        expected["name"] = "Development source preflight"
+        # Development adds the same hooks enforced in source, retaining every
+        # existing preflight command and its permissions/timeout.
+        install = next(step for step in expected["steps"] if step.get("name") == "Install pinned preflight dependencies")
+        install["run"] = install["run"].replace("make install-preflight-tools\n", "make install-preflight-tools install-hook-tools\n")
+        validation = next(step for step in expected["steps"] if step.get("run") == "make preflight")
+        validation["run"] += " hooks-check"
         self.assertEqual(development["jobs"]["preflight"], expected)
         self.assertTrue(development["concurrency"]["cancel-in-progress"])
         self.assertNotEqual(development["concurrency"]["group"], ci["concurrency"]["group"])

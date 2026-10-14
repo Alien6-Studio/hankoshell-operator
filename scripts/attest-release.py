@@ -50,7 +50,7 @@ def configuration():
     if (url.scheme not in ("http", "https") or not url.hostname
             or url.username or url.password or url.query or url.fragment):
         raise ValueError("Expected an explicit RFC 3161 endpoint without credentials")
-    if len(config["SIGNING_KEY"]) > 16384 or not config["SIGNING_KEY"].startswith("-----BEGIN PRIVATE KEY-----"):
+    if len(config["SIGNING_KEY"]) > 16384 or not config["SIGNING_KEY"].startswith("-----BEGIN " "PRIVATE KEY-----"):
         raise ValueError("Expected a PKCS#8 signing key")
     if len(config["TSA_CERTIFICATE"]) > 32768:
         raise ValueError("TSA certificate is too large")

@@ -47,6 +47,53 @@ python3 scripts/check-dco.py --base "$base_sha" --head "$head_sha" \
 Ordinary signed-off commits require only Git. Automation exceptions also require
 the authenticated `gh` CLI with read access to the repository.
 
+## Optional local pre-commit checks
+
+Use Python 3.12, the reviewed Go toolchain and the tools installed by
+`make install-tools`. Activate a project Python environment and install
+`scripts/requirements.txt` before running the hooks:
+
+```sh
+python3 -m venv .tools/dev-python
+. .tools/dev-python/bin/activate
+python -m pip install -r scripts/requirements.txt
+make install-tools
+make hooks-check
+python3 .tools/hook-tools/pre-commit.pyz install
+```
+
+The final command optionally installs a client-side Git hook. If you use a
+shared `core.hooksPath`, preserve it and run `make hooks-check` manually or call
+the pinned runner from your existing hook. No shared Git configuration needs
+to change. CI remains authoritative and runs the same `--all-files` hook set
+in the source job and on development pushes.
+
+`.pre-commit-config.yaml` pins upstream hooks to an immutable commit SHA.
+`versions.json` pins the pre-commit zipapp and Gitleaks release archives by
+SHA-256; `make hook-tools` verifies cached downloads before using them.
+The hooks check large files, raw private-key markers, merge conflicts,
+YAML/TOML/JSON syntax, final newlines, Go formatting, architecture and staged
+secrets. Helm templates are excluded only from plain YAML parsing and remain
+covered by the chart gate. Synthetic private-key markers are assembled in
+tests so every source file remains eligible for raw-key detection.
+
+`go vet` runs once for the changed Go packages; a `go.mod` or `go.sum` change
+selects the complete module. Python tests run only when `scripts/` Python files
+or their requirements change. Warm-cache ordinary changes target less than
+30 seconds; first-time environment setup and the full Python fixture suite can
+take longer. Full qualification still runs the existing make and CI gates.
+Gitleaks checks the staged diff locally; the existing source-job directory scan
+also checks the complete checkout in CI. CI stores upstream hook repositories
+in the runner's temporary directory, so their own secret-detection fixtures are
+not confused with project source. `PRE_COMMIT_HOME` can override the local cache.
+
+Review hook updates weekly alongside Dependabot updates. Use
+`python3 .tools/hook-tools/pre-commit.pyz autoupdate --freeze`, review the exact
+upstream commit diff and retain the frozen SHA, then run `make hooks-check` and
+the Python tests. Update runner/Gitleaks versions and official release
+SHA-256 digests in `versions.json`, run `python3 scripts/versions.py sync`,
+and rerun the gates. Do not replace a SHA with a floating branch or tag.
+
 ## Architecture decisions
 
 The [decisions index](docs/architecture/decisions/README.md) records the accepted

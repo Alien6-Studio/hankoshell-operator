@@ -12,6 +12,7 @@ GOVULNCHECK_VERSION := $(shell python3 scripts/versions.py get tools govulncheck
 GOTESTSUM_VERSION := $(shell python3 scripts/versions.py get tools gotestsum)
 GOTESTSUM := $(CURDIR)/.tools/gotestsum-$(GOTESTSUM_VERSION)/gotestsum
 TEST_REPORT_DIR ?= $(CURDIR)/.tools/test-results
+PRE_COMMIT_HOME ?= $(CURDIR)/.tools/pre-commit-cache
 KEYCLOAK_SHARD ?= all
 CHART := charts/hankoshell-operator
 KUBERNETES_VERSION ?= $(shell python3 scripts/versions.py get kubernetes default)
@@ -20,7 +21,7 @@ RELEASE_VERSION := $(shell python3 scripts/versions.py get release version)
 
 .DEFAULT_GOAL := all
 
-.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-test integration-test keycloak-integration-test security-mutations lint arch vuln install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test
+.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-test integration-test keycloak-integration-test security-mutations lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test
 versions-sync:
 	python3 scripts/versions.py sync
 
@@ -83,9 +84,15 @@ arch:
 	go-arch-lint check
 vuln:
 	govulncheck ./...
+hook-tools:
+	python3 scripts/install-hook-tools.py "$(CURDIR)/.tools/hook-tools"
+hooks-check: hook-tools
+	PRE_COMMIT_HOME="$(PRE_COMMIT_HOME)" python3 .tools/hook-tools/pre-commit.pyz run --all-files --show-diff-on-failure
+install-hook-tools: hook-tools
+	go install github.com/fe3dback/go-arch-lint@$(GO_ARCH_LINT_VERSION)
 install-preflight-tools:
 	go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
-install-tools: install-preflight-tools $(GOLANGCI_LINT) $(GOTESTSUM)
+install-tools: install-preflight-tools $(GOLANGCI_LINT) $(GOTESTSUM) hook-tools
 	go install github.com/fe3dback/go-arch-lint@$(GO_ARCH_LINT_VERSION)
 	go install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
 

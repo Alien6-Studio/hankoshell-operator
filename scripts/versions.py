@@ -68,6 +68,8 @@ def generated(root=ROOT, data=None):
 
     release = data["release"]["version"]
     replace("go.mod", r"^(toolchain go)\S+$", data["go"]["toolchain"])
+    replace(".pre-commit-config.yaml", r"^(minimum_pre_commit_version: )'.+'$",
+            "'" + data["tools"]["pre_commit"]["version"] + "'")
     replace("Dockerfile", r"^(ARG VERSION=)\S+$", release)
     replace("internal/version/version.go", r'^(var Agent = ).+$', json.dumps(release))
     chart = "charts/hankoshell-operator/Chart.yaml"
@@ -139,7 +141,8 @@ def validate(data):
             if not re.fullmatch(re.escape(prefix + version) + r"@sha256:[0-9a-f]{64}", image):
                 raise ValueError("Fixture image version or checksum differs: " + version)
     hashes = [(values, 128) for values in kubernetes["envtest_sha512"].values()]
-    hashes += [(data["tools"][tool]["sha256"], 64) for tool in ("helm", "kind", "kubectl")]
+    hashes += [(data["tools"][tool]["sha256"], 64) for tool in ("helm", "kind", "kubectl", "gitleaks")]
+    hashes += [({"pyz": data["tools"]["pre_commit"]["sha256"]}, 64)]
     hashes += [(kubernetes["built_node"]["sha256"], 64)]
     for values, length in hashes:
         if not values or any(not re.fullmatch(r"[0-9a-f]{" + str(length) + "}", digest) for digest in values.values()):

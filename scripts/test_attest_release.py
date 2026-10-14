@@ -142,7 +142,7 @@ class AttestConfigurationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "TSA X.509"):
                 release.validate_configuration(self.config, Path("attest"), Path("openssl"))
             self.assertEqual(tool.call_count, 2)
-        for field, value, message in (("SIGNING_KEY", "-----BEGIN PRIVATE KEY-----\ninvalid\n", "private key"),
+        for field, value, message in (("SIGNING_KEY", "-----BEGIN " "PRIVATE KEY-----\ninvalid\n", "private key"),
                                      ("SIGNING_KEY", self.other_private, "does not match"),
                                      ("PUBLIC_KEY", "b" * 64, "does not match"),
                                      ("KEY_ID", "0" * 32, "key ID")):

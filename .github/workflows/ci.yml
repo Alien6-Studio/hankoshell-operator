@@ -85,6 +85,12 @@ jobs:
           make install-tools
       - name: Verify architecture decision references
         run: python3 scripts/check-adr-references.py
+      - name: Run the same pre-commit hooks as contributors
+        env:
+          # Upstream hook repositories contain their own synthetic secret tests.
+          # Keep dependency caches outside the source checkout scanned below.
+          PRE_COMMIT_HOME: ${{ runner.temp }}/hankoshell-pre-commit
+        run: make hooks-check
       - name: Compare visible GitHub protections with reviewed exports
         if: github.event_name == 'schedule'
         env:
