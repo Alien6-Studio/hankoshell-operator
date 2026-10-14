@@ -75,6 +75,17 @@ jobs:
           make install-tools
       - name: Validate unit tests, chart, architecture, lint and vulnerabilities
         run: make test chart-test arch lint vuln
+      - name: Enforce package and security function coverage floors
+        run: python3 scripts/check-coverage.py --profile .tools/test-results/unit/coverage.out
+      - name: Preserve Go coverage
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: go-coverage-unit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .tools/test-results/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
       - name: Cross-compile both Linux architectures
         run: |
           make build GOARCH=amd64
@@ -107,6 +118,15 @@ jobs:
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
       - name: Qualify CRDs, server-side apply, RBAC and Restricted admission
         run: make integration-test KUBERNETES_VERSION=${{ matrix.version }}
+      - name: Preserve Go coverage
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: go-coverage-kubernetes-${{ matrix.version }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .tools/test-results/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
       - name: Lint integration test code
         if: matrix.version == '1.37.0' # versions:kubernetes-lint
         run: make lint LINT_BUILD_TAGS=integration

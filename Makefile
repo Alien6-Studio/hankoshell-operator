@@ -9,6 +9,8 @@ LINT_BUILD_TAGS ?=
 GOLANGCI_LINT := $(CURDIR)/.tools/golangci-lint-$(GOLANGCI_LINT_VERSION)-$(shell go env GOVERSION)/golangci-lint
 GO_ARCH_LINT_VERSION := $(shell python3 scripts/versions.py get tools go_arch_lint)
 GOVULNCHECK_VERSION := $(shell python3 scripts/versions.py get tools govulncheck)
+TEST_REPORT_DIR ?= $(CURDIR)/.tools/test-results
+COVERAGE_REPORT_FILES := coverage.out coverage-functions.txt coverage-summary.md coverage.json
 CHART := charts/hankoshell-operator
 KUBERNETES_VERSION ?= $(shell python3 scripts/versions.py get kubernetes default)
 KEYCLOAK_VERSION ?= $(shell python3 scripts/versions.py get keycloak default)
@@ -16,12 +18,12 @@ RELEASE_VERSION := $(shell python3 scripts/versions.py get release version)
 
 .DEFAULT_GOAL := all
 
-.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test chart-test integration-test keycloak-integration-test security-mutations lint arch vuln install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test
+.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-test integration-test keycloak-integration-test security-mutations lint arch vuln install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test
 versions-sync:
 	python3 scripts/versions.py sync
 
 all: check build
-check: fmt-check vet test chart-test
+check: fmt-check vet test chart-test coverage
 preflight: fmt-check vet generated-check
 	python3 -m unittest discover -s scripts -p 'test_*.py'
 
@@ -42,7 +44,11 @@ build:
 vet:
 	go vet ./...
 test:
-	go test -race -count=1 ./...
+	@mkdir -p "$(TEST_REPORT_DIR)/unit"
+	@rm -f $(addprefix "$(TEST_REPORT_DIR)/unit/",$(COVERAGE_REPORT_FILES))
+	go test -race -count=1 -covermode=atomic -coverprofile="$(TEST_REPORT_DIR)/unit/coverage.out" ./...
+coverage: test
+	python3 scripts/check-coverage.py --profile "$(TEST_REPORT_DIR)/unit/coverage.out"
 security-mutations:
 	python3 scripts/security-mutations.py $(if $(MUTATION_OUTPUT),--output "$(MUTATION_OUTPUT)")
 chart-test:
@@ -56,9 +62,12 @@ chart-test:
 	python3 $(CHART)/tests/kubernetes-compatibility.py
 	python3 $(CHART)/tests/workload-binding.py
 integration-test:
+	@mkdir -p "$(TEST_REPORT_DIR)/kubernetes-$(KUBERNETES_VERSION)"
+	@rm -f $(addprefix "$(TEST_REPORT_DIR)/kubernetes-$(KUBERNETES_VERSION)/",$(COVERAGE_REPORT_FILES))
 	@assets="$$(bash scripts/install-envtest.sh $(KUBERNETES_VERSION))" && \
 		KUBEBUILDER_ASSETS="$$assets" KUBERNETES_VERSION=$(KUBERNETES_VERSION) \
-		go test -tags=integration -race -count=1 -timeout=5m -v ./api/v1alpha1
+		go test -tags=integration -race -count=1 -covermode=atomic \
+		-coverprofile="$(TEST_REPORT_DIR)/kubernetes-$(KUBERNETES_VERSION)/coverage.out" -timeout=5m -v ./api/v1alpha1
 keycloak-integration-test:
 	# Budget the complete serial provider and recovery matrices; request/startup deadlines remain bounded.
 	KEYCLOAK_VERSION=$(KEYCLOAK_VERSION) go test -tags=keycloak_integration -race -count=1 -timeout=25m -v ./internal/controller
