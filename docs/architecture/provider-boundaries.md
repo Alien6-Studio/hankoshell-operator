@@ -1,5 +1,8 @@
 # Portable IAM and provider-native boundaries
 
+See the [accepted architecture decisions](decisions/README.md) for the underlying
+operator, provider and trust boundaries.
+
 This classification resolves [RFC #23](https://github.com/Alien6-Studio/hankoshell-operator/issues/23).
 It describes current fields; it does not rename or remove the v1alpha1 API.
 

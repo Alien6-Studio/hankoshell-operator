@@ -47,6 +47,14 @@ python3 scripts/check-dco.py --base "$base_sha" --head "$head_sha" \
 Ordinary signed-off commits require only Git. Automation exceptions also require
 the authenticated `gh` CLI with read access to the repository.
 
+## Architecture decisions
+
+The [decisions index](docs/architecture/decisions/README.md) records the accepted
+architecture referenced by code and configuration. Follow its template and
+numbering rule when documenting a decision, and keep links to enforcing code and
+tests current. Run `python3 scripts/check-adr-references.py` before pushing changes
+to Go, YAML or Markdown. CI rejects unresolved references and orphan records.
+
 ## Validation and release workflow
 
 Run `make check arch lint generated-check vuln` with the pinned tools.

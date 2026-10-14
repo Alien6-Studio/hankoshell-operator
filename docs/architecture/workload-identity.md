@@ -1,5 +1,8 @@
 # Workload identity contract
 
+See the [accepted architecture decisions](decisions/README.md) for the underlying
+operator, provider and trust boundaries.
+
 This document defines Workload Identity for the first public `0.1.0`.
 The technical version remains `0.1.0-dev.0`, development. Kubernetes workload
 trust ownership implements the shared native trust; Workload binding and mesh

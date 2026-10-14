@@ -161,7 +161,7 @@ deps:
     mayDependOn:
       - supervision
 
-  # ADR-009/010: CRD type definitions have no runtime project dependencies.
+  # ADR-009 and ADR-010: CRD type definitions have no runtime project dependencies.
   api_types:
     anyVendorDeps: true
 

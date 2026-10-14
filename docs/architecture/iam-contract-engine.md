@@ -1,5 +1,8 @@
 # IAM contract engine and evidence
 
+See the [accepted architecture decisions](decisions/README.md) for the underlying
+operator, provider and trust boundaries.
+
 This implementation resolves [RFC #22](https://github.com/Alien6-Studio/hankoshell-operator/issues/22)
 and the execution boundary of [RFC #23](https://github.com/Alien6-Studio/hankoshell-operator/issues/23).
 It qualifies `HankoResourceServer` and `HankoRole`.

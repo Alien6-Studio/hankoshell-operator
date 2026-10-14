@@ -1,5 +1,8 @@
 # Application identity: OIDC and SAML
 
+See the [accepted architecture decisions](decisions/README.md) for the underlying
+operator, provider and trust boundaries.
+
 The **Application Identity** source contract resolves
 [RFC #24](https://github.com/Alien6-Studio/hankoshell-operator/issues/24) for protocols
 and [RFC #25](https://github.com/Alien6-Studio/hankoshell-operator/issues/25) for runtime

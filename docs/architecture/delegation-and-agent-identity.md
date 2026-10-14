@@ -1,5 +1,8 @@
 # Delegation and agent authority
 
+See the [accepted architecture decisions](decisions/README.md) for the underlying
+operator, provider and trust boundaries.
+
 This is the provider characterization and authority contract for
 [RFC #68](https://github.com/Alien6-Studio/hankoshell-operator/issues/68).
 The first implementation of #69 accepts typed intent and refuses unqualified

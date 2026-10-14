@@ -1,5 +1,8 @@
 # Existing Keycloak: explicit ownership adoption
 
+See the [accepted architecture decisions](decisions/README.md) for the underlying
+operator, provider and trust boundaries.
+
 Accepted direction for [RFC #46](https://github.com/Alien6-Studio/hankoshell-operator/issues/46),
 completing **Adopt Existing Keycloak**.
 The source tree implements bounded discovery/diff, explicit reviewed ownership
