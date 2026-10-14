@@ -30,6 +30,9 @@ func TestBundleHMACRejectsTamperingAndOtherCredentials(t *testing.T) {
 		"signature": func(b *SignedBundle) { b.Signature = strings.Repeat("0", 64) },
 		"truncated": func(b *SignedBundle) { b.Signature = b.Signature[:32] },
 		"empty":     func(b *SignedBundle) { b.Signature = "" },
+		"malformed-payload": func(b *SignedBundle) {
+			b.Bundle.Realms = []json.RawMessage{json.RawMessage(`{"metadata":`)}
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			changed := signed

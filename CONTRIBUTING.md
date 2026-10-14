@@ -58,6 +58,10 @@ to Go, YAML or Markdown. CI rejects unresolved references and orphan records.
 ## Validation and release workflow
 
 Run `make check arch lint generated-check vuln` with the pinned tools.
+`make check` includes the [coverage regression gate](docs/coverage.md); use
+`make coverage` for the unit suite and its reviewed package/security-function
+floors. Update thresholds explicitly with supporting measurements, never by
+automatically accepting a failing run as the new baseline.
 Run `python3 -m unittest discover -s scripts -p 'test_*.py'`, both real Keycloak
 versions and the three Kubernetes fixtures listed in CI. The final OCI scan
 and [nonpublishing release rehearsal](docs/secure-deployment.md#release-rehearsal-and-publication)

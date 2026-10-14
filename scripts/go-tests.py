@@ -139,13 +139,15 @@ def write_summary(output, label, returncode, selected=None):
 def run(suite, gotestsum, output, shard="all"):
     output.mkdir(parents=True, exist_ok=True)
     # Never publish stale success from an earlier local invocation.
-    for name in ("junit.xml", "results.json", "summary.md"):
+    for name in ("junit.xml", "results.json", "summary.md", "coverage.out", "coverage-functions.txt", "coverage-summary.md", "coverage.json"):
         (output / name).unlink(missing_ok=True)
     actual = subprocess.check_output([gotestsum, "--version"], text=True, timeout=10).strip()
     if actual != "gotestsum version " + versions.get("tools", "gotestsum"):
         raise ValueError("gotestsum does not match its reviewed version pin")
     selected = None
     args = ["-race", "-count=1"]
+    if suite in ("unit", "kubernetes"):
+        args += ["-covermode=atomic", "-coverprofile=" + str((output / "coverage.out").resolve())]
     label = suite
     if suite == "unit":
         args += ["./..."]

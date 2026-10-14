@@ -20,12 +20,12 @@ RELEASE_VERSION := $(shell python3 scripts/versions.py get release version)
 
 .DEFAULT_GOAL := all
 
-.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test chart-test integration-test keycloak-integration-test security-mutations lint arch vuln install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test
+.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-test integration-test keycloak-integration-test security-mutations lint arch vuln install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test
 versions-sync:
 	python3 scripts/versions.py sync
 
 all: check build
-check: fmt-check vet test chart-test
+check: fmt-check vet test chart-test coverage
 preflight: fmt-check vet generated-check
 	python3 -m unittest discover -s scripts -p 'test_*.py'
 
@@ -47,6 +47,8 @@ vet:
 	go vet ./...
 test: $(GOTESTSUM)
 	python3 scripts/go-tests.py unit --gotestsum "$(GOTESTSUM)" --output "$(TEST_REPORT_DIR)/unit"
+coverage: test
+	python3 scripts/check-coverage.py --profile "$(TEST_REPORT_DIR)/unit/coverage.out"
 security-mutations:
 	python3 scripts/security-mutations.py $(if $(MUTATION_OUTPUT),--output "$(MUTATION_OUTPUT)")
 chart-test:

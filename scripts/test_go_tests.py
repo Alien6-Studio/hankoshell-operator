@@ -111,15 +111,19 @@ class GoTestGateTests(unittest.TestCase):
         for exit_code in (0, 1, 23):
             with self.subTest(code=exit_code), tempfile.TemporaryDirectory() as directory:
                 output = Path(directory)
-                for name in ("junit.xml", "results.json", "summary.md"):
+                for name in ("junit.xml", "results.json", "summary.md", "coverage.out", "coverage-functions.txt", "coverage-summary.md", "coverage.json"):
                     (output / name).write_text("stale sentinel")
 
                 def execute(command, **kwargs):
                     self.assertFalse((output / "results.json").exists())
                     self.assertFalse((output / "junit.xml").exists())
+                    self.assertFalse((output / "coverage.out").exists())
+                    self.assertFalse((output / "coverage.json").exists())
                     self.assertNotIn("--rerun-fails", command)
                     self.assertIn("-count=1", command)
                     self.assertIn("-race", command)
+                    self.assertIn("-covermode=atomic", command)
+                    self.assertIn("-coverprofile=" + str((output / "coverage.out").resolve()), command)
                     failure = '<failure>withheld</failure>' if exit_code else ''
                     self.junit(output / "junit.xml", '<testcase classname="pkg" name="TestOne">' + failure + '</testcase>')
                     return subprocess.CompletedProcess(command, exit_code)
@@ -136,6 +140,32 @@ class GoTestGateTests(unittest.TestCase):
                         patch.dict(os.environ, {"GITHUB_STEP_SUMMARY": ""}):
                     self.assertEqual(runner.run("unit", "gotestsum", output), exit_code)
                     self.assertEqual(run.call_count, 1)
+
+    def test_envtest_records_coverage_and_keycloak_keeps_its_existing_scope(self):
+        for suite in ("kubernetes", "keycloak"):
+            with self.subTest(suite=suite), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory)
+
+                def execute(command, **kwargs):
+                    flags = [arg for arg in command if arg.startswith("-cover")]
+                    expected = ["-covermode=atomic", "-coverprofile=" + str((output / "coverage.out").resolve())] if suite == "kubernetes" else []
+                    self.assertEqual(flags, expected)
+                    self.assertIn("-race", command)
+                    self.assertIn("-count=1", command)
+                    self.junit(output / "junit.xml", '<testcase classname="pkg" name="TestOne"/>')
+                    return subprocess.CompletedProcess(command, 0)
+
+                def metadata(command, **kwargs):
+                    if command[0] == "gotestsum":
+                        return "gotestsum version " + runner.versions.get("tools", "gotestsum")
+                    return "a" * 40 if command[1] == "rev-parse" else ""
+
+                env = {"GITHUB_STEP_SUMMARY": "", "KUBERNETES_VERSION": runner.versions.get("kubernetes", "default"),
+                       "KUBEBUILDER_ASSETS": "fixture-assets", "KEYCLOAK_VERSION": runner.versions.get("keycloak", "default")}
+                with patch.object(runner.subprocess, "check_output", side_effect=metadata), \
+                        patch.object(runner.subprocess, "run", side_effect=execute), \
+                        patch.object(runner, "keycloak_selection", return_value=["TestOne"]), patch.dict(os.environ, env):
+                    self.assertEqual(runner.run(suite, "gotestsum", output), 0)
 
     def test_missing_report_and_wrong_tool_pin_fail_closed(self):
         with tempfile.TemporaryDirectory() as directory:

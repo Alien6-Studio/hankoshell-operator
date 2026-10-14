@@ -86,6 +86,15 @@ func TestAuthorizationPreconditionsAndCapabilitiesFailClosed(t *testing.T) {
 	}
 	e = p.evidence
 	e.Findings = []iamcontract.Finding{{Classification: iamcontract.Lossy}}
+	current := p
+	current.evidence = e
+	if !errors.Is(p.Validate(current), iamcontract.ErrRejected) {
+		t.Fatal("current lossy evidence authorized a previously compiled plan")
+	}
+	current.evidence = KeycloakEvidence(Capabilities{})
+	if !errors.Is(p.Validate(current), ErrCapabilityUnsupported) {
+		t.Fatal("revoked capabilities authorized a previously compiled plan")
+	}
 	if _, err := Compile(i, r, e, iamcontract.Preconditions{}); !errors.Is(err, iamcontract.ErrRejected) {
 		t.Fatal("loss silently accepted")
 	}
