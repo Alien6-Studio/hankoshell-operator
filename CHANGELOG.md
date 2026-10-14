@@ -773,4 +773,4 @@ https://github.com/Alien6-Studio/hankoshell-operator/security/advisories/new.
   reusable rollback fixtures and real first-publication trust in #21. Alpha APIs
   can remain alpha with documented limits; this is no SemVer 1.0 guarantee.
 
-See [ROADMAP.md](ROADMAP.md) for the complete scope and exit criteria.
+See the [Release 1.0.0 milestone](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11) for the remaining work and issue acceptance criteria.
