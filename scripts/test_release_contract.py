@@ -54,6 +54,23 @@ class ReleaseContractTests(unittest.TestCase):
         self.assertIn("workflow_dispatch", ci[True])
         self.assertIn("schedule", ci[True])
 
+    def test_dco_checks_the_pr_head_and_complete_commit_range_without_credentials_in_git(self):
+        jobs = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
+        steps = jobs["source"]["steps"]
+        checkout = next(step for step in steps if step.get("uses", "").startswith("actions/checkout@"))
+        self.assertIs(checkout["with"]["persist-credentials"], False)
+        self.assertEqual(checkout["with"]["fetch-depth"], 0)
+        self.assertNotIn("ref", checkout["with"])  # Other source checks still qualify the PR test merge.
+        check = next(step for step in steps if "scripts/check-dco.py" in step.get("run", ""))
+        self.assertEqual(check["if"], "github.event_name == 'pull_request'")
+        self.assertFalse(check.get("continue-on-error", False))
+        self.assertEqual(check["env"], {"DCO_BASE_SHA": "${{ github.event.pull_request.base.sha }}",
+                                       "DCO_HEAD_SHA": "${{ github.event.pull_request.head.sha }}",
+                                       "GH_TOKEN": "${{ github.token }}"})
+        self.assertIn('--base "$DCO_BASE_SHA" --head "$DCO_HEAD_SHA"', check["run"])
+        self.assertIn('--repository "$GITHUB_REPOSITORY"', check["run"])
+        self.assertLess(steps.index(check), next(i for i, step in enumerate(steps) if "make test" in step.get("run", "")))
+
     def test_ci_preflight_blocks_every_expensive_job_and_remains_required(self):
         ci = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
         self.assertEqual(set(ci), {"preflight", "source", "kubernetes", "keycloak", "workload", "oci",
