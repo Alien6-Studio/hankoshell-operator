@@ -10,6 +10,7 @@ import base64
 import copy
 from datetime import datetime, timedelta, timezone
 import hashlib
+import hmac
 import importlib.util
 import json
 from pathlib import Path
@@ -45,6 +46,18 @@ def digest(value):
 def command_identity(target, command):
     raw = json.dumps({"target": target, "requestedAt": command["requestedAt"], "deadline": command["deadline"]}, separators=(",", ":")).encode()
     return "sha256:" + hashlib.sha256(b"hanko.sh/fleet-decommission/v1alpha1\0" + raw).hexdigest()
+
+
+def inspected_envelope(raw):
+    # Invalid retained input remains inspectable; it is never execution authority.
+    try:
+        envelope = json.loads(raw)
+        payload = envelope.get("payload") if isinstance(envelope, dict) else None
+        if not isinstance(payload, str):
+            return ""
+        return base64.b64decode(payload + "=" * (-len(payload) % 4), altchars=b"-_", validate=True).decode()
+    except (ValueError, UnicodeError):
+        return ""
 
 
 def public_state(value):
@@ -309,6 +322,12 @@ class Fleet(installed.Installed):
         self.reject("duplicate_envelope_member", self.sign(base)[:-1]+',"version":"'+ENVELOPE+'"}', "FleetEnvelopeInvalid")
         self.reject("oversize_response", "x"*(1024**2+1), "FleetPlanFetchFailed")
         self.reject("unknown_envelope_field", json.dumps({**json.loads(self.sign(base)), "private": self.canary}), "FleetEnvelopeInvalid")
+        wire = json.loads(self.sign(base))
+        wire["payload"] = encoded(b"{")
+        self.reject("malformed_payload", json.dumps(wire), "FleetPayloadInvalid")
+        legacy = {"version": "99", "tenantID": "tenant-a", "realms": base["content"]["realms"], "apps": base["content"]["apps"]}
+        mac = hmac.new(hashlib.sha256(self.hub_token["tenant-a"].encode()).digest(), json.dumps(legacy, separators=(",", ":")).encode(), hashlib.sha256).hexdigest()
+        self.reject("bearer_hmac_cannot_restore_legacy_mode", json.dumps({"bundle": legacy, "signature": mac}), "FleetEnvelopeInvalid")
         revoked = copy.deepcopy(self.trust)
         self.trust["keys"][0]["publicKey"] = encoded(bytes(32))
         before = self.state()
@@ -373,6 +392,9 @@ class Fleet(installed.Installed):
     def boundaries(self):
         before = self.protected_state()
         update = {"ok": True, "agentUpdate": {"version": "99.0.0", "digest": "sha256:" + "c" * 64}}
+        self.hub("tenant-a", ack={"ok": True, "agentUpdate": {"version": self.canary, "digest": "sha256:" + "c" * 64}})
+        self.expect("tenant-a", "AgentUpdateFailed", event=True)
+        self.record("unapproved_command_fields_not_public_logs", self.protected_state() == before)
         self.hub("tenant-a", ack=update)
         self.expect("tenant-a", "AgentUpdateFailed", event=True)
         self.record("unsigned_update_cannot_change_image", self.protected_state() == before)
@@ -451,6 +473,45 @@ class Fleet(installed.Installed):
         self.converged("tenant-a", "Fleet baseline")
         self.record("fresh_signed_sequence_recovers_cache_loss")
 
+    def local_authority_negatives(self):
+        before = self.state()
+        original = copy.deepcopy(self.trust)
+        for label, mutate, reason in (
+            ("expired_local_key", lambda: self.trust["keys"][0].update(notAfter=timestamp(datetime.now(timezone.utc)-timedelta(seconds=1))), "FleetKeyExpired"),
+            ("invalid_local_trust", lambda: self.trust.update(keys=[]), "FleetTrustInvalid")):
+            mutate()
+            self.save_policy()
+            self.expect("tenant-a", reason, event=True)
+            self.record(label, self.state() == before)
+            self.trust = copy.deepcopy(original)
+            self.save_policy()
+            self.publish("tenant-a", self.plans["tenant-a"], "FleetPlanCurrent")
+        self.kubectl("delete", "configmap", "fleet-trust", "-n", "auth", "--timeout=30s")
+        self.expect("tenant-a", "FleetTrustUnavailable", event=True)
+        self.record("missing_local_trust", self.state() == before)
+        self.save_policy()
+        self.publish("tenant-a", self.plans["tenant-a"], "FleetPlanCurrent")
+        self.patch("hankotenant", "tenant-a", {"status": {"fleetPlan": {"tenantUID": "replaced-tenant"}}}, subresource="status")
+        self.expect("tenant-a", "FleetCheckpointInvalid", event=True)
+        self.record("checkpoint_bound_to_current_tenant_uid", self.state() == before)
+        self.patch("hankotenant", "tenant-a", {"status": {"fleetPlan": {"tenantUID": self.targets["tenant-a"]["tenantUID"]}}}, subresource="status")
+        self.publish("tenant-a", self.plans["tenant-a"], "FleetPlanCurrent")
+        self.process_trust("")
+        self.expect("tenant-a", "FleetLegacyDowngrade", event=True)
+        self.record("configuration_removal_cannot_restore_hmac", self.state() == before)
+        self.process_trust("fleet-trust")
+        self.publish("tenant-a", self.plans["tenant-a"], "FleetPlanCurrent")
+
+    def process_trust(self, name):
+        self.stop_log_capture()
+        pod = self.get("deployment", "system-operator")["spec"]["template"]["spec"]
+        for variable in pod["containers"][0]["env"]:
+            if variable["name"] == "HANKO_FLEET_TRUST_CONFIGMAP":
+                variable["value"] = name
+        self.patch("deployment", "system-operator", {"spec": {"template": {"spec": pod}}})
+        self.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=180s")
+        self.start_log_capture()
+
     def checkpoint_restart(self):
         # Externally lose the acknowledgement of the durable verification
         # checkpoint. All later API traffic is held until the process stops.
@@ -501,9 +562,10 @@ class Fleet(installed.Installed):
             for cm in json.loads(self.kubectl("get", "configmaps", "-n", namespace, "-o", "json"))["items"]:
                 raw = cm.get("data", {}).get("envelope.json")
                 if raw:
-                    payload = json.loads(raw)["payload"]
-                    text += base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)).decode()
-            native.safe_report({"surface": text}, self.sensitive)
+                    text += inspected_envelope(raw)
+            variants = self.sensitive + [base64.b64encode(value.encode()).decode() for value in self.sensitive]
+            variants += [encoded(value.encode()) for value in self.sensitive]
+            native.safe_report({"surface": text}, variants)
         hub = self.hub()
         self.record("hub_payloads_public_and_no_decommission_confirmation", all(t["reports_safe"] and t["reports"] > 0 and t["confirmations"] == 0 for t in hub.values()))
         self.report["hub_payloads_inspected"] = sum(t["reports"] for t in hub.values())
@@ -536,6 +598,7 @@ class Fleet(installed.Installed):
         self.record("two_dedicated_tenants_real_provider_converged")
         self.missing_registration()
         self.negatives()
+        self.local_authority_negatives()
         self.cache_clock_cases()
         self.rollout_reconnect()
         self.offline()

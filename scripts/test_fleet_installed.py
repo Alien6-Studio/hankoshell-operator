@@ -45,6 +45,12 @@ func main() {
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(fleet.command_identity(target, command), result.stdout)
 
+    def test_inspection_handles_replaced_or_malformed_cache_without_trusting_it(self):
+        for raw in ('{}', 'not-json', '{"payload":7}', '{"payload":"%%%"}', '[]'):
+            with self.subTest(raw=raw):
+                self.assertEqual(fleet.inspected_envelope(raw), "")
+        self.assertEqual(fleet.inspected_envelope(json.dumps({"payload": fleet.encoded(b"private-fixture")})), "private-fixture")
+
     def test_public_evidence_and_state_exclude_private_metadata(self):
         fixture = fleet.Fleet.__new__(fleet.Fleet)
         fixture.report = {"checks": {"authority": True}, "complete": False, "layer": "installed-fleet",

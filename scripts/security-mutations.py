@@ -31,6 +31,10 @@ def mutation(name, file, before, after, package, test):
 
 
 MUTATIONS = [
+    mutation("fleet-command-log-sanitization", "internal/controller/hankotenant_agent_update.go",
+             'logger.Info("hub requested agent self-update", "tenant", tenant.Name)',
+             'logger.Info("hub requested agent self-update", "tenant", tenant.Name, "version", command.Version)',
+             "internal/controller", "TestFleetUnapprovedCommandFieldsNeverReachLogs"),
     mutation("fleet-all-route-redirect", "internal/hub/fleet.go",
              'return errors.New("signed Fleet redirects refused")', 'return nil',
              "internal/hub", "TestFleetAuthenticatedRoutesNeverFollowRedirects"),
