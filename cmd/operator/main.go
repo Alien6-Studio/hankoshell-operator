@@ -254,6 +254,7 @@ func setupControllers(
 		Recorder:               mgr.GetEventRecorder(operatorRecorderName),
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoTheme")
 	fatalIfError((&controller.HankoTenantReconciler{
+		Recorder:                     mgr.GetEventRecorder(operatorRecorderName),
 		Client:                       mgr.GetClient(),
 		ClusterIdentityReader:        mgr.GetAPIReader(),
 		Scheme:                       mgr.GetScheme(),

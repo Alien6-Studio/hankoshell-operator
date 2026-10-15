@@ -139,6 +139,7 @@ func (r *HankoTenantReconciler) applyFleetPlan(ctx context.Context, tenant *api.
 			tenant.Status.FleetPlan = &api.FleetPlanStatus{Sequence: plan.Sequence, Identity: verified.Identity(), PreviousIdentity: previous, AppliedIdentity: applied, KeyID: plan.KeyID, TenantUID: string(tenant.UID), ExpiresAt: metav1.NewTime(plan.ExpiresAt), Cache: cacheRef, PreviousCache: previousCache, RollbackReference: rollbackRef, Journal: journal}
 		}
 		tenant.Status.FleetPlan.Cache = cacheRef
+		tenant.Status.FleetPlan.HubEndpointHash = fleetplan.EndpointIdentity(tenant.Spec.HubEndpoint)
 		verifiedAt := metav1.Now()
 		tenant.Status.FleetPlan.VerifiedAt = &verifiedAt
 		tenant.Status.FleetRollout = decision
@@ -182,6 +183,7 @@ func (r *HankoTenantReconciler) applyFleetPlan(ctx context.Context, tenant *api.
 	}
 	verifiedAt := metav1.Now()
 	tenant.Status.FleetPlan.VerifiedAt = &verifiedAt
+	tenant.Status.FleetPlan.HubEndpointHash = fleetplan.EndpointIdentity(tenant.Spec.HubEndpoint)
 	tenant.Status.FleetRollout = decision
 	if err := r.Status().Patch(ctx, tenant, patch); err != nil {
 		return "", nil, "", fmt.Errorf("%w: %w", errFleetCheckpointWrite, err)

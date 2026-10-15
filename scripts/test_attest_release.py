@@ -4,7 +4,6 @@ import importlib.util
 import io
 import json
 import os
-import itertools
 from pathlib import Path
 import subprocess
 import tarfile
@@ -31,15 +30,23 @@ class QualificationGateTests(unittest.TestCase):
         step = aggregate["steps"][0]
         dependencies = {f"${{{{ needs.{job}.result }}}}" for job in aggregate["needs"]}
         self.assertEqual(set(step["env"].values()), dependencies)
-        # Execute the actual gate for every combination, using one shell instead
-        # of spawning 4**N processes. Adding preflight must not quadruple forks.
+        # Validate the closed conjunction, then execute every single-input
+        # non-success. This proves each dependency is required without an
+        # exponentially growing 4**N input stream as the matrix gains jobs.
         for name in step["env"]:
             self.assertRegex(name, r"^[A-Z][A-Z_]*_RESULT$")
-        cases = "".join(
-            " ".join(results) + (" success\n" if all(value == "success" for value in results) else " failure\n")
-            for results in itertools.product(("success", "failure", "cancelled", "skipped"),
-                                             repeat=len(aggregate["needs"]))
-        )
+        self.assertEqual(step["run"].strip(), " && ".join(
+            'test "$' + name + '" = success' for name in step["env"]))
+        baseline = ["success"] * len(step["env"])
+        combinations = [baseline]
+        for index in range(len(baseline)):
+            for failure in ("failure", "cancelled", "skipped"):
+                changed = baseline.copy()
+                changed[index] = failure
+                combinations.append(changed)
+        combinations.append(["failure"] * len(baseline))
+        cases = "".join(" ".join(results) + (" success\n" if all(v == "success" for v in results) else " failure\n")
+                        for results in combinations)
         script = "set -eu\nqualification_gate() {\n" + step["run"] + "\n}\nchecked=0\n"
         script += "while read -r " + " ".join(step["env"]) + " expected; do\n"
         script += '''
@@ -55,7 +62,7 @@ class QualificationGateTests(unittest.TestCase):
         result = subprocess.run(["bash", "-c", script], input=cases, text=True,
                                 capture_output=True, check=False, timeout=120)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.strip(), str(4 ** len(aggregate["needs"])))
+        self.assertEqual(result.stdout.strip(), str(len(combinations)))
 
     def test_release_reuses_the_full_required_qualification_gate(self):
         root = Path(__file__).parents[1] / ".github/workflows"
@@ -74,6 +81,15 @@ class QualificationGateTests(unittest.TestCase):
         download = next(step for step in installed["steps"] if "download-artifact@" in step.get("uses", ""))
         self.assertEqual(download["with"]["artifact-ids"], "${{ needs.oci.outputs.artifact_id }}")
         command = next(step for step in installed["steps"] if "scripts/workload-installed-test.py" in step.get("run", ""))
+        self.assertEqual(command["env"]["DIGEST"], "${{ needs.oci.outputs.digest }}")
+        self.assertIn('--revision "$GITHUB_SHA"', command["run"])
+        fleet = ci["jobs"]["installed-fleet"]
+        self.assertEqual(fleet["strategy"]["matrix"], installed["strategy"]["matrix"])
+        self.assertEqual(fleet["needs"], ["source", "oci"])
+        self.assertFalse(fleet.get("continue-on-error", False))
+        download = next(step for step in fleet["steps"] if "download-artifact@" in step.get("uses", ""))
+        self.assertEqual(download["with"]["artifact-ids"], "${{ needs.oci.outputs.artifact_id }}")
+        command = next(step for step in fleet["steps"] if "scripts/fleet-installed-test.py" in step.get("run", ""))
         self.assertEqual(command["env"]["DIGEST"], "${{ needs.oci.outputs.digest }}")
         self.assertIn('--revision "$GITHUB_SHA"', command["run"])
         self.assertEqual(delivery["jobs"]["quality"]["uses"], "./.github/workflows/ci.yml")

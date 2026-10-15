@@ -21,10 +21,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/decommission"
@@ -53,8 +55,9 @@ const (
 // +kubebuilder:rbac:groups="",resources=namespaces,resourceNames=kube-system,verbs=get
 type HankoTenantReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Pool   *keycloak.Pool
+	Scheme   *runtime.Scheme
+	Recorder events.EventRecorder
+	Pool     *keycloak.Pool
 	// APIReader bypasses cached tenant, dedicated credential and bundle target state.
 	APIReader client.Reader
 	// ClusterIdentityReader bypasses the namespace-scoped cache for the one
@@ -172,6 +175,12 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	signed := r.fleetEnabled(&tenant)
+	if signed {
+		if err := r.fleetHubAuthority(ctx, &tenant); err != nil {
+			r.Pool.Remove(tenant.Namespace + "/" + tenant.Name)
+			return r.setError(ctx, nil, &tenant, patch, fleetplan.Reason(err), err)
+		}
+	}
 
 	// ── Read Hub credential (self-enroll only when the Secret is absent) ───────
 	credentials, err := r.readHubCredentials(ctx, tenant.Namespace, tenant.Spec.HubTokenSecretRef.Name)
@@ -236,6 +245,11 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		patch = client.MergeFrom(tenant.DeepCopy())
 	}
 
+	if signed {
+		if err := r.fleetHubAuthority(ctx, &tenant); err != nil {
+			return r.setError(ctx, nil, &tenant, patch, fleetplan.Reason(err), err)
+		}
+	}
 	if signed && tenant.Status.FleetPlan != nil && !credentials.ExpiresAt.IsZero() && !credentials.ExpiresAt.After(now.Time) {
 		return r.reconcileFleetDisconnected(ctx, &tenant)
 	}
@@ -408,6 +422,11 @@ func (r *HankoTenantReconciler) executeDecommission(
 			reason = "DecommissionExpired"
 		}
 		return r.setError(ctx, hubClient, tenant, patch, reason, err)
+	}
+	if r.fleetEnabled(tenant) {
+		if err := r.fleetDecommissionAuthority(ctx, tenant, command); err != nil {
+			return r.setError(ctx, hubClient, tenant, patch, fleetplan.Reason(err), err)
+		}
 	}
 	logger.Info("hub requested cluster decommission",
 		"tenant", tenant.Name, "requestedAt", command.RequestedAt, "deadline", command.Deadline)
@@ -911,7 +930,11 @@ func (r *HankoTenantReconciler) registerTenantKeycloak(ctx context.Context, tena
 		}
 		values[index] = string(secret.Data[key])
 	}
-	kc, err := keycloak.NewForOperator(values[0], values[1], values[2], nil)
+	caPEM, customCA := secret.Data["ca.crt"]
+	if customCA && len(caPEM) == 0 {
+		return "KeycloakTransportInvalid", errors.New("dedicated Keycloak CA must be nonempty")
+	}
+	kc, err := keycloak.NewForOperator(values[0], values[1], values[2], caPEM)
 	if err != nil {
 		return "KeycloakTransportInvalid", err
 	}
@@ -943,9 +966,17 @@ func (r *HankoTenantReconciler) setError(
 	r.quarantineMeshPolicyProjection(ctx, tenant)
 	tenant.Status.Phase = "Error"
 	tenant.Status.ObservedGeneration = tenant.Generation
+	changed := true
+	for _, c := range tenant.Status.Conditions {
+		if c.Type == "Synced" && c.Status == metav1.ConditionFalse && c.Reason == reason && c.ObservedGeneration == tenant.Generation {
+			changed = false
+		}
+	}
 	setCondition(&tenant.Status.Conditions, "Synced", metav1.ConditionFalse, reason, err.Error())
 	if patchErr := r.Status().Patch(ctx, tenant, patch); patchErr != nil {
 		log.FromContext(ctx).Error(patchErr, "patch tenant status after error")
+	} else if changed && r.Recorder != nil {
+		r.Recorder.Eventf(tenant, nil, corev1.EventTypeWarning, reason, "Reconcile", "%s", "Fleet authority refused; inspect tenant condition reason")
 	}
 	// Best-effort degraded report so the fleet view reflects the failure
 	// instead of showing the last successful phase until staleness kicks in.
@@ -1003,6 +1034,7 @@ func (r *HankoTenantReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoTenant{}).
+		WithEventFilter(tenantIntentPredicate()).
 		Complete(r)
 }
 
@@ -1013,4 +1045,8 @@ func (r *HankoTenantReconciler) fleetEnabled(tenant *hankoshv1alpha1.HankoTenant
 func (r *HankoTenantReconciler) guardedFleetClient(tenant *hankoshv1alpha1.HankoTenant, kc *keycloak.Client) *keycloak.Client {
 	registered := tenant.DeepCopy()
 	return kc.WithMutationGuard(func(ctx context.Context) error { return r.fleetProviderAuthority(ctx, registered) })
+}
+
+func tenantIntentPredicate() predicate.Predicate {
+	return predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}, predicate.LabelChangedPredicate{})
 }

@@ -140,8 +140,11 @@ type FleetPlanStatus struct {
 	KeyID string `json:"keyID"`
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=128
-	TenantUID         string              `json:"tenantUID"`
-	ExpiresAt         metav1.Time         `json:"expiresAt"`
+	TenantUID string      `json:"tenantUID"`
+	ExpiresAt metav1.Time `json:"expiresAt"`
+	// HubEndpointHash pins the last locally accepted credential destination.
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	HubEndpointHash   string              `json:"hubEndpointHash,omitempty"`
 	Cache             *FleetPlanReference `json:"cache,omitempty"`
 	PreviousCache     *FleetPlanReference `json:"previousCache,omitempty"`
 	RollbackReference *FleetPlanReference `json:"rollbackReference,omitempty"`

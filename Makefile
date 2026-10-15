@@ -23,7 +23,7 @@ RELEASE_VERSION := $(shell python3 scripts/versions.py get release version)
 
 .DEFAULT_GOAL := all
 
-.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-test integration-test keycloak-integration-test security-mutations licenses lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test
+.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-test integration-test keycloak-integration-test security-mutations licenses lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test fleet-installed-test
 versions-sync:
 	python3 scripts/versions.py sync
 
@@ -134,3 +134,7 @@ workload-installed-test:
 		--archive "$(OCI_ARCHIVE)" --evidence "$(OCI_EVIDENCE)" --digest "$(DIGEST)" --revision "$(REVISION)" \
 		--kind "$(KIND)" --kubectl "$(KUBECTL)" --openssl "$(OPENSSL)" --helm "$$(command -v helm)" \
 		--oras "$(ORAS)" --output "$(WORKLOAD_OUTPUT)"
+
+# Uses an already scanned immutable archive; never publishes a registry artifact.
+fleet-installed-test:
+	python3 scripts/fleet-installed-test.py --archive "$(OCI_ARCHIVE)" --evidence "$(OCI_EVIDENCE)" --digest "$(OCI_DIGEST)" --revision "$(REVISION)" --keycloak-version "$(KEYCLOAK_VERSION)" --kubernetes-version "$(KUBERNETES_VERSION)" --kind "$(KIND)" --kubectl "$(KUBECTL)" --helm "$(HELM)" --oras "$(ORAS)" --openssl "$(OPENSSL)" --output "$(FLEET_OUTPUT)"

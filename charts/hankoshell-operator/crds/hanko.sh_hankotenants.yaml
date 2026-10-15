@@ -280,6 +280,11 @@ spec:
                   expiresAt:
                     format: date-time
                     type: string
+                  hubEndpointHash:
+                    description: HubEndpointHash pins the last locally accepted credential
+                      destination.
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
                   identity:
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string

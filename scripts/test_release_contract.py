@@ -82,14 +82,14 @@ class ReleaseContractTests(unittest.TestCase):
     def test_ci_preflight_blocks_every_expensive_job_and_remains_required(self):
         ci = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
         self.assertEqual(set(ci), {"preflight", "source", "kubernetes", "keycloak", "workload", "oci",
-                                   "rehearsal", "system", "installed-workload", "security-mutations", "checks",
+                                   "rehearsal", "system", "installed-workload", "installed-fleet", "security-mutations", "checks",
                                    "schedule-report"})
         for job in ("source", "kubernetes", "keycloak", "workload", "security-mutations", "oci"):
             with self.subTest(job=job):
                 self.assertEqual(ci[job].get("needs"), ["preflight"])
                 self.assertNotIn("if", ci[job])  # Keep implicit success(), including for reusable OCI.
                 self.assertFalse(ci[job].get("continue-on-error", False))
-        for job in ("rehearsal", "system", "installed-workload"):
+        for job in ("rehearsal", "system", "installed-workload", "installed-fleet"):
             self.assertEqual(ci[job]["needs"], ["source", "oci"])
             self.assertNotIn("if", ci[job])
         self.assertNotIn("needs", ci["preflight"])

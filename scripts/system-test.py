@@ -260,6 +260,7 @@ class System:
                                     "kubernetesAPIEndpointCIDRs": [item["ip"] + "/32" for item in endpoints]}}
         if getattr(self, "workload_grants", None):
             values["workloadBinding"] = {"grants": self.workload_grants}
+        values.update(getattr(self, "install_values", {}))
         file = self.private / "values.yaml"
         file.write_text(yaml.safe_dump(values))
         run([self.args.helm, "install", "system", ROOT / "charts/hankoshell-operator", "--namespace", "auth",

@@ -308,6 +308,8 @@ type localConfig struct {
 	Version   string          `json:"version"`
 	Overrides []localOverride `json:"overrides,omitempty"`
 	Providers []localProvider `json:"providers,omitempty"`
+	Hubs      []localHub      `json:"hubs,omitempty"`
+	Commands  []localCommand  `json:"commands,omitempty"`
 }
 
 func localConfiguration(data []byte) (localConfig, error) {
@@ -326,6 +328,9 @@ func localConfiguration(data []byte) (localConfig, error) {
 		seen[o.Target] = true
 	}
 	if !validLocalProviders(config.Providers) {
+		return config, Refusal("FleetRolloutPolicyInvalid")
+	}
+	if !validLocalAuthorities(config.Hubs, config.Commands) {
 		return config, Refusal("FleetRolloutPolicyInvalid")
 	}
 	return config, nil

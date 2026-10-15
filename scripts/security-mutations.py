@@ -31,6 +31,12 @@ def mutation(name, file, before, after, package, test):
 
 
 MUTATIONS = [
+    mutation("fleet-independent-decommission", "internal/fleetplan/authority.go",
+             'return Refusal("FleetCommandUnapproved")', 'return nil',
+             "internal/fleetplan", "TestFleetIndependentHubAndCommandApproval"),
+    mutation("fleet-hub-destination", "internal/fleetplan/authority.go",
+             'return Refusal("FleetHubEndpointUnapproved")', 'return nil',
+             "internal/fleetplan", "TestFleetIndependentHubAndCommandApproval"),
     mutation("fleet-provider-mutation-guard", "internal/keycloak/permissions.go",
              "if err := c.authorizeMutation(req); err != nil {",
              "if err := c.authorizeMutation(req); false && err != nil {",

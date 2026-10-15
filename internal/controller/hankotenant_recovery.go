@@ -168,6 +168,9 @@ func (r *HankoTenantReconciler) fleetProviderAuthority(ctx context.Context, regi
 		return fleetplan.Refusal("FleetTrustUnavailable")
 	}
 	target := fleetplan.Target{Scope: fleetplan.Scope{TenantID: live.Status.TenantID, ClusterID: live.Status.ClusterID, Namespace: live.Namespace, TenantName: live.Name}, TenantUID: string(live.UID)}
+	if err := fleetplan.ApproveHub([]byte(trust.Data["rollout.json"]), target, live.Spec.HubEndpoint, s.HubEndpointHash); err != nil {
+		return err
+	}
 	if err := fleetplan.LocalOverride([]byte(trust.Data["rollout.json"]), target); err != nil {
 		return err
 	}
