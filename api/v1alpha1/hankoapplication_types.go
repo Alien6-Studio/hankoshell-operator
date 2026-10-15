@@ -383,6 +383,8 @@ type HankoApplicationStatus struct {
 	ManagedClientSecretProjections []ApplicationSecretProjection `json:"managedClientSecretProjections,omitempty"`
 
 	// Conditions holds standard Kubernetes condition objects.
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// ManagedIdentityMappings records realm-scoped identity-provider mappers
@@ -400,6 +402,8 @@ type ManagedIdentityMappingReference struct {
 	IdentityProvider string `json:"identityProvider"`
 	KeycloakID       string `json:"keycloakID"`
 	// Conditions reports this mapper's individual reconciliation state.
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
@@ -409,6 +413,8 @@ type ManagedTokenClaimReference struct {
 	Name       string `json:"name"`
 	KeycloakID string `json:"keycloakID"`
 	// Conditions reports this mapper's individual reconciliation state.
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 

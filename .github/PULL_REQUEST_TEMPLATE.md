@@ -5,7 +5,7 @@ Validation:
 - [ ] Required checks passed.
 - [ ] Behavior changes have meaningful regression coverage.
 - [ ] Configuration, schema, ownership or deletion changes include migration
-      and rollback notes.
+      and rollback notes following the [API migration policy](../docs/api-migration-policy.md).
 
 Related issue / decision:
 

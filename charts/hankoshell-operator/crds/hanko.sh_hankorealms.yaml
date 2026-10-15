@@ -522,6 +522,9 @@ spec:
                   - type
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
               effectiveIAMProfile:
                 description: |-
                   EffectiveIAMProfile is the resolved profile name, or "inline" for a legacy

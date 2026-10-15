@@ -282,6 +282,8 @@ type HankoResourceServerStatus struct {
 	LastReconciled *metav1.Time `json:"lastReconciled,omitempty"`
 
 	// +kubebuilder:validation:MaxItems=8
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 

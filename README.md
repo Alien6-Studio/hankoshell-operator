@@ -119,6 +119,43 @@ token issuance and its authentication emails.
 The API provides 17 `hanko.sh/v1alpha1` custom resources, including the deprecated
 `HankoEmailProvider`. See the [API definitions](api/v1alpha1) for supported fields.
 Integration flags configure clients and do not disable controller registration.
+
+<!-- api-support:start -->
+All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibility commitment has been selected.
+
+| Resource | Surface | Compatibility |
+| --- | --- | --- |
+| `HankoApplication` | standalone IAM | experimental |
+| `HankoEmailProvider` | deprecated | experimental |
+| `HankoIAMProfile` | standalone IAM | experimental |
+| `HankoImport` | instance and operations | experimental |
+| `HankoIssuer` | standalone IAM | experimental |
+| `HankoKeycloakInstance` | instance and operations | experimental |
+| `HankoMeshService` | connected | experimental |
+| `HankoOperation` | instance and operations | experimental |
+| `HankoOrganization` | standalone IAM | experimental |
+| `HankoRealm` | standalone IAM | experimental |
+| `HankoResourceServer` | standalone IAM | experimental |
+| `HankoRole` | standalone IAM | experimental |
+| `HankoServiceAccount` | standalone IAM | experimental |
+| `HankoSnapshot` | instance and operations | experimental |
+| `HankoTenant` | connected | experimental |
+| `HankoTheme` | instance and operations | experimental |
+| `HankoWorkloadTrust` | standalone IAM | experimental |
+
+| Additional surface | Compatibility |
+| --- | --- |
+| Delegation and agent identity | experimental |
+| Second IAM provider | experimental |
+| Hub and Continuum | alpha |
+| Mesh traffic enforcement | experimental |
+| Portable backup and restore | experimental |
+| Managed lifecycle | experimental |
+| Cloud, CNI and CSI | experimental |
+<!-- api-support:end -->
+
+See the [support and field-group inventory](docs/api-support.md) and
+[API migration policy](docs/api-migration-policy.md).
 Snapshot database Jobs require a locally approved, publisher-verified image digest
 and a dedicated backup credential Secret. PostgreSQL/PVC configuration and
 portable backup/restore remain installation-specific and unqualified; see the

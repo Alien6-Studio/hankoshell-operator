@@ -122,6 +122,17 @@ ownership, deletion, adoption, or authentication need migration and rollback
 instructions. Use synthetic fixtures and keep credentials and tenant data out
 of the repository.
 
+Follow the [API conversion and rollback policy](docs/api-migration-policy.md).
+The [development support inventory](docs/api-support.md) covers every resource
+and spec/status field group; update it explicitly when those groups change.
+Run `python3 scripts/api-support.py` after schema or classification changes.
+
+Develop related issues as one bounded batch. During implementation, run preflight
+and meaningful targeted regression tests, and continue independent work while CI
+runs. Run the full qualification matrix on the final batch revision before
+integration; it remains mandatory on every pull request. Track implemented-on-dev
+and remaining acceptance evidence separately from protected-main issue closure.
+
 Run `make licenses` after dependency updates. License classification and shipped
 notices use the union of Linux AMD64 and ARM64 dependency graphs with CGO disabled,
 matching the operator and embedded cosign builds. Both platform graphs are checked

@@ -94,7 +94,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	policyVersion := "v" + strings.Join(strings.Split(version, ".")[:2], ".")
-	for _, name := range []string{"auth", "other"} {
+	for _, name := range []string{"auth", "other", "condition-fixtures"} {
 		namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: map[string]string{
 			"pod-security.kubernetes.io/enforce":         "restricted",
 			"pod-security.kubernetes.io/enforce-version": policyVersion,
@@ -103,6 +103,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	t.Run("condition ownership across all CRDs", func(t *testing.T) { checkConditionApply(t, ctx, admin, environment.CRDs) })
 
 	t.Run("organization principal admission and capabilities", func(t *testing.T) { checkOrganizationPrincipalAdmission(t, ctx, admin) })
 	t.Run("delegation admission and capability refusal schema", func(t *testing.T) { checkDelegationAdmission(t, ctx, admin) })

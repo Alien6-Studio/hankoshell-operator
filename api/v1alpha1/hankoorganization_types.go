@@ -134,6 +134,8 @@ type HankoOrganizationStatus struct {
 
 	// Conditions separates provider Synced from optional platform Projection.
 	// Disabled projection is Unknown/Disabled, not a synchronization failure.
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 

@@ -14,6 +14,43 @@ The chart installs 17 experimental `hanko.sh/v1alpha1` CRDs. These APIs may chan
 between minor versions. All controllers are registered; integration flags
 configure their connections to optional services.
 
+<!-- api-support:start -->
+All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibility commitment has been selected.
+
+| Resource | Surface | Compatibility |
+| --- | --- | --- |
+| `HankoApplication` | standalone IAM | experimental |
+| `HankoEmailProvider` | deprecated | experimental |
+| `HankoIAMProfile` | standalone IAM | experimental |
+| `HankoImport` | instance and operations | experimental |
+| `HankoIssuer` | standalone IAM | experimental |
+| `HankoKeycloakInstance` | instance and operations | experimental |
+| `HankoMeshService` | connected | experimental |
+| `HankoOperation` | instance and operations | experimental |
+| `HankoOrganization` | standalone IAM | experimental |
+| `HankoRealm` | standalone IAM | experimental |
+| `HankoResourceServer` | standalone IAM | experimental |
+| `HankoRole` | standalone IAM | experimental |
+| `HankoServiceAccount` | standalone IAM | experimental |
+| `HankoSnapshot` | instance and operations | experimental |
+| `HankoTenant` | connected | experimental |
+| `HankoTheme` | instance and operations | experimental |
+| `HankoWorkloadTrust` | standalone IAM | experimental |
+
+| Additional surface | Compatibility |
+| --- | --- |
+| Delegation and agent identity | experimental |
+| Second IAM provider | experimental |
+| Hub and Continuum | alpha |
+| Mesh traffic enforcement | experimental |
+| Portable backup and restore | experimental |
+| Managed lifecycle | experimental |
+| Cloud, CNI and CSI | experimental |
+<!-- api-support:end -->
+
+See the [support and field-group inventory](../../docs/api-support.md) and
+[API migration policy](../../docs/api-migration-policy.md) before upgrading CRDs.
+
 Kubernetes **1.35–1.37** and Linux nodes are the qualification window. CI uses
 real API-server/etcd fixtures to check CRDs, server-side apply, RBAC and Restricted
 admission on each minor. Future minors and upstream alpha/beta/RC builds are rejected

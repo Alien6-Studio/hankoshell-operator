@@ -114,6 +114,8 @@ type HankoServiceAccountStatus struct {
 	LastReconciled *metav1.Time `json:"lastReconciled,omitempty"`
 
 	// Conditions holds standard Kubernetes condition objects.
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// ManagedTokenClaims records client-scoped protocol mappers managed for this service account.

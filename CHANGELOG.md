@@ -114,6 +114,13 @@ Provider Portability, Fleet Reconciliation and Initial Public Contract
 Stabilization, plus #21's real trust/publication evidence. These are work subjects,
 not product versions. A later 1.0 decision depends on public use and a proven
 compatibility commitment.
+All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibility commitment has been selected.
+
+Experimental surfaces: managed lifecycle, portable backup and restore, delegation
+and agent identity, a second IAM provider, mesh traffic enforcement and cloud/CNI/CSI
+remain unqualified beyond their named fixture subsets. Hub and Continuum remain
+optional alpha integrations. See [the support inventory](docs/api-support.md) and
+[API migration policy](docs/api-migration-policy.md).
 <!-- release-notes:end -->
 
 Early development used milestone-like version labels before the first public
@@ -153,6 +160,17 @@ release; those labels did not identify public packages or GitHub Releases.
 
 ### Keycloak foundation, operations and security
 
+- Key all CRD status Conditions by type, so independent top-level SSA status
+  managers preserve each other's entries. Nested mapper Conditions also declare
+  type keys; their containing lists retain the existing ownership topology.
+  Duplicate types are rejected; competing writes to the same type still conflict.
+  Existing atomic-list installations need the documented ownership migration;
+  changing the schema does not transfer old managedFields automatically.
+- Record all 17 resources and 350 spec/status field groups in a reviewed support
+  inventory, enforce matching README/chart/release-note classifications and
+  document CRD ordering, stored versions, journal formats and rollback limits.
+  This is development preparation for #82/#83/#85, not public surface selection.
+
 Apache-2.0 licensed standalone Keycloak IAM reconciliation.
 
 #### Capability and qualification details
@@ -163,7 +181,7 @@ and client-secret rotation. Keycloak still performs login, token issuance and
 authentication email delivery. The operator is not a general user-provisioning tool.
 
 Qualification covers Linux Kubernetes **1.35–1.37**, using API-server/etcd fixtures
-**1.35.0, 1.36.2 and 1.37.0** for all 16 CRDs, server-side apply, RBAC and Restricted
+**1.35.0, 1.36.2 and 1.37.0** for all 17 CRDs, server-side apply, RBAC and Restricted
 admission. Real HTTPS Keycloak Admin API v1 tests cover **26.8.0 and 26.7.5**,
 including reconciliation, least-privilege identities, denied operations and
 ownership/finalizers. Other Keycloak patches/major lines and Kubernetes minors
@@ -321,7 +339,7 @@ response targets and supported versions are in SECURITY.md.
   refuse redirects, require inventory updates and reject network-call bypasses
   in regression tests.
 
-- Qualify Kubernetes 1.35–1.37 with real API-server/etcd tests of all 16 CRDs,
+- Qualify Kubernetes 1.35–1.37 with real API-server/etcd tests of all 17 CRDs,
   server-side apply, CEL, status, RBAC and Restricted admission. Require every
   matrix result before merge or Attest delivery; reject unqualified cluster minors.
 - Schedule the operator on Linux nodes and add optional RuntimeDefault AppArmor

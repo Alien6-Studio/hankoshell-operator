@@ -23,6 +23,7 @@ def module(name, filename):
 metadata = module("release_metadata", "release-metadata.py")
 security = module("oci_security", "oci-security.py")
 pins = module("versions", "versions.py")
+support = module("api_support", "api-support.py")
 versioning = metadata.versioning
 VERSION = versioning.VERSION
 
@@ -48,6 +49,7 @@ def check(version=VERSION):
         raise ValueError("The Attest receipt key is not a Helm chart signing key")
     ci = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
     pins.check(ROOT)
+    support.check(ROOT)
     for job in ("kubernetes", "keycloak"):
         if ci[job]["strategy"]["matrix"]["version"] != pins.DATA[job]["versions"]:
             raise ValueError("Qualification matrix differs from versions.json")

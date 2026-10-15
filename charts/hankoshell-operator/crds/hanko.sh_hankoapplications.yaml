@@ -977,6 +977,9 @@ spec:
                   - type
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
               contractVersion:
                 description: ContractVersion identifies canonical evidence semantics,
                   not an executable API.
@@ -1159,6 +1162,9 @@ spec:
                         - type
                         type: object
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
                     identityProvider:
                       type: string
                     keycloakID:
@@ -1238,6 +1244,9 @@ spec:
                         - type
                         type: object
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
                     keycloakID:
                       type: string
                     name:

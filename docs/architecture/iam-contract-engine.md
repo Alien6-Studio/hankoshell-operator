@@ -310,3 +310,16 @@ The current supervision heartbeat schema is duplicated in the Hub store. No
 receiving-Hub qualification exists for the new IAM DTO, so live transport activation
 is deferred. The tested helper is available without Hub installation. The existing
 HMAC bundle authentication and Continuum transport/enforcement remain unchanged.
+
+## Development schema and compatibility preparation
+
+The [support inventory](../api-support.md) records every CRD spec/status field
+group and native extension boundary. It is checked against the generated CRDs;
+new groups require review. It does not freeze public normalization or ownership
+semantics before #81 selects the public contract and #82 supplies its goldens.
+
+All status Conditions use type-keyed map semantics, including nested mapper
+Conditions. The real API fixtures verify independent SSA writers, same-type
+conflicts and duplicate rejection on every CRD. Existing atomic-list field
+ownership requires the explicit [migration procedure](../api-migration-policy.md#conditions-list-migration);
+these tests do not establish an installed topology upgrade/downgrade.

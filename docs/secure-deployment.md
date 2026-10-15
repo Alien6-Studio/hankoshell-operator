@@ -1285,6 +1285,12 @@ are trusted administrators and must not race this workflow.
 
 ## Upgrade and rollback
 
+Apply the [API conversion, migration and rollback policy](api-migration-policy.md)
+and review the [per-resource support inventory](api-support.md). CRDs precede
+new operator fields; Helm rollback alone does not downgrade stored state.
+The Conditions topology change has a separate writer-ownership migration and
+does not establish public cross-version compatibility.
+
 Clusters below 1.35 must be upgraded and qualified before installing this chart;
 the previous unrestricted `>=1.30` declaration did not establish that support.
 When rolling back optional AppArmor or user namespace settings, disable the
