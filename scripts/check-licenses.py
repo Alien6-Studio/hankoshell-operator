@@ -23,6 +23,7 @@ LICENSE_NAME = re.compile(r"(?i)(license|licence|copying|notice)([-.].*)?")
 EXCLUDED_DIRS = {".git", "node_modules", "testdata", "vendor"}
 MODULE_SUM = re.compile(r"h1:[A-Za-z0-9+/]{43}=")
 EXCEPTION_FIELDS = {"module", "version", "sum", "license", "justification", "expires"}
+SHIPPED_PLATFORMS = (("linux", "amd64"), ("linux", "arm64"))
 
 
 def read_policy(path=POLICY, today=None):
@@ -61,9 +62,12 @@ def read_policy(path=POLICY, today=None):
     return policy
 
 
-def run(arguments, cwd):
+def run(arguments, cwd, platform=None):
     """Go commands under the reviewed toolchain so classification stays reproducible."""
     environment = dict(os.environ, GOTOOLCHAIN="local")
+    if platform:
+        environment.update(GOOS=platform[0], GOARCH=platform[1], CGO_ENABLED="0",
+                           GOAMD64="v1", GOARM64="v8.0")
     result = subprocess.run([str(a) for a in arguments], cwd=cwd, env=environment,
                             capture_output=True, text=True, timeout=1800)
     if result.returncode:
@@ -89,13 +93,13 @@ def source_rules(cwd, policy):
     run(["go", "mod", "verify"], cwd)
 
 
-def dependencies(cwd, target, tests=False):
+def dependencies(cwd, target, tests=False, platform=None):
     """Non-main modules the target depends on, bound to their sum-verified cache copies."""
     template = ("{{if .Module}}{{if not .Module.Main}}"
                 "{{.Module.Path}}|{{.Module.Version}}|{{.Module.Sum}}|{{.Module.Dir}}{{end}}{{end}}")
     arguments = ["go", "list", "-deps"] + (["-test"] if tests else []) + ["-f", template, target]
     modules = {}
-    for line in sorted(set(run(arguments, cwd).splitlines())):
+    for line in sorted(set(run(arguments, cwd, platform=platform).splitlines())):
         if not line:
             continue
         path, version, checksum, directory = line.split("|")
@@ -107,10 +111,30 @@ def dependencies(cwd, target, tests=False):
     return modules
 
 
-def classified(binary, cwd, target, tests=False):
+def classified(binary, cwd, target, tests=False, platform=None):
     """Package license identities from the pinned classifier as (prefix, identifier) rows."""
     arguments = [binary, "report"] + (["--include_tests"] if tests else []) + [target]
-    return [(row[0], row[2]) for row in csv.reader(io.StringIO(run(arguments, cwd))) if row]
+    return [(row[0], row[2]) for row in csv.reader(io.StringIO(run(arguments, cwd, platform=platform))) if row]
+
+
+def merge_modules(destination, current):
+    for path, record in current.items():
+        previous = destination.get(path)
+        if previous and any(previous[key] != record[key] for key in ("version", "sum")):
+            raise ValueError("Dependency identity differs across shipped platforms: " + path)
+        destination[path] = record
+
+
+def inventory(binary, cwd, target, main_module, tests=False):
+    """Union both shipped build graphs, independent of the developer's host OS."""
+    modules, licenses = {}, {}
+    for platform in SHIPPED_PLATFORMS:
+        current = dependencies(cwd, target, tests=tests, platform=platform)
+        identities = attribute(classified(binary, cwd, target, tests=tests, platform=platform), current, main_module)
+        merge_modules(modules, current)
+        for path, names in identities.items():
+            licenses.setdefault(path, set()).update(names)
+    return modules, licenses
 
 
 def attribute(rows, modules, main_module):
@@ -211,17 +235,15 @@ def main():
     used = set()
 
     source_rules(ROOT, policy)
-    reachable = dependencies(ROOT, "./...", tests=True)
-    identities = attribute(classified(args.go_licenses, ROOT, "./...", tests=True),
-                           reachable, run(["go", "list", "-m"], ROOT).strip())
+    reachable, identities = inventory(args.go_licenses, ROOT, "./...", run(["go", "list", "-m"], ROOT).strip(), tests=True)
     enforce(reachable, identities, policy, used)
-    shipped = dependencies(ROOT, "./cmd/operator")
+    shipped = {}
+    for platform in SHIPPED_PLATFORMS:
+        merge_modules(shipped, dependencies(ROOT, "./cmd/operator", platform=platform))
 
     workspace = cosign_workspace(args.workspace)
     source_rules(workspace, policy)
-    cosign_modules = dependencies(workspace, COSIGN_TARGET)
-    cosign_identities = attribute(classified(args.go_licenses, workspace, COSIGN_TARGET),
-                                  cosign_modules, "hankoshell.local/cosign-build")
+    cosign_modules, cosign_identities = inventory(args.go_licenses, workspace, COSIGN_TARGET, "hankoshell.local/cosign-build")
     enforce(cosign_modules, cosign_identities, policy, used)
 
     stale = [f"{e['module']}@{e['version']}" for e in policy["exceptions"]

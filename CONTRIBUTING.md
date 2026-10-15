@@ -122,6 +122,13 @@ ownership, deletion, adoption, or authentication need migration and rollback
 instructions. Use synthetic fixtures and keep credentials and tenant data out
 of the repository.
 
+Run `make licenses` after dependency updates. License classification and shipped
+notices use the union of Linux AMD64 and ARM64 dependency graphs with CGO disabled,
+matching the operator and embedded cosign builds. Both platform graphs are checked
+against the same license/source policy, including operator test dependencies.
+Generation uses these explicit targets on every developer host; commit both
+`THIRD_PARTY_NOTICES` files after reviewing the resulting inventory and texts.
+
 Target public release is 0.1.0; active technical metadata is `0.1.0-dev.0`
 in initial development. No public release has been published yet. The `v1alpha1`
 APIs remain experimental. Keep chart/build/rehearsal metadata, prerelease status

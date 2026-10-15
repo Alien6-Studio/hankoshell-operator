@@ -38,35 +38,36 @@ github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 — BSD-3-Cla
 github.com/prometheus/client_golang v1.24.0 — Apache-2.0, BSD-3-Clause — text-010 (LICENSE); text-021 (NOTICE); text-022 (internal/github.com/golang/gddo/LICENSE)
 github.com/prometheus/client_model v0.6.2 — Apache-2.0 — text-010 (LICENSE); text-023 (NOTICE)
 github.com/prometheus/common v0.70.0 — Apache-2.0 — text-010 (LICENSE); text-024 (NOTICE)
-github.com/spf13/pflag v1.0.10 — BSD-3-Clause — text-025 (LICENSE)
-github.com/x448/float16 v0.8.4 — MIT — text-026 (LICENSE)
-go.uber.org/multierr v1.11.0 — MIT — text-027 (LICENSE.txt)
-go.uber.org/zap v1.27.1 — MIT — text-028 (LICENSE)
-go.yaml.in/yaml/v2 v2.4.4 — Apache-2.0 — text-009 (LICENSE); text-029 (LICENSE.libyaml); text-030 (NOTICE)
-go.yaml.in/yaml/v3 v3.0.4 — MIT — text-031 (LICENSE); text-030 (NOTICE)
-golang.org/x/net v0.60.0 — BSD-3-Clause — text-032 (LICENSE)
-golang.org/x/oauth2 v0.36.0 — BSD-3-Clause — text-032 (LICENSE)
-golang.org/x/sync v0.23.0 — BSD-3-Clause — text-032 (LICENSE)
-golang.org/x/sys v0.48.0 — BSD-3-Clause — text-032 (LICENSE)
-golang.org/x/term v0.46.0 — BSD-3-Clause — text-032 (LICENSE)
-golang.org/x/text v0.42.0 — BSD-3-Clause — text-032 (LICENSE)
-golang.org/x/time v0.15.0 — BSD-3-Clause — text-032 (LICENSE)
-gomodules.xyz/jsonpatch/v2 v2.4.0 — Apache-2.0 — text-033 (LICENSE)
-google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af — BSD-3-Clause — text-034 (LICENSE)
+github.com/prometheus/procfs v0.21.1 — Apache-2.0 — text-010 (LICENSE); text-025 (NOTICE)
+github.com/spf13/pflag v1.0.10 — BSD-3-Clause — text-026 (LICENSE)
+github.com/x448/float16 v0.8.4 — MIT — text-027 (LICENSE)
+go.uber.org/multierr v1.11.0 — MIT — text-028 (LICENSE.txt)
+go.uber.org/zap v1.27.1 — MIT — text-029 (LICENSE)
+go.yaml.in/yaml/v2 v2.4.4 — Apache-2.0 — text-009 (LICENSE); text-030 (LICENSE.libyaml); text-031 (NOTICE)
+go.yaml.in/yaml/v3 v3.0.4 — MIT — text-032 (LICENSE); text-031 (NOTICE)
+golang.org/x/net v0.60.0 — BSD-3-Clause — text-033 (LICENSE)
+golang.org/x/oauth2 v0.36.0 — BSD-3-Clause — text-033 (LICENSE)
+golang.org/x/sync v0.23.0 — BSD-3-Clause — text-033 (LICENSE)
+golang.org/x/sys v0.48.0 — BSD-3-Clause — text-033 (LICENSE)
+golang.org/x/term v0.46.0 — BSD-3-Clause — text-033 (LICENSE)
+golang.org/x/text v0.42.0 — BSD-3-Clause — text-033 (LICENSE)
+golang.org/x/time v0.15.0 — BSD-3-Clause — text-033 (LICENSE)
+gomodules.xyz/jsonpatch/v2 v2.4.0 — Apache-2.0 — text-034 (LICENSE)
+google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af — BSD-3-Clause — text-035 (LICENSE)
 gopkg.in/evanphx/json-patch.v4 v4.13.0 — BSD-3-Clause — text-006 (LICENSE)
-gopkg.in/inf.v0 v0.9.1 — BSD-3-Clause — text-035 (LICENSE)
+gopkg.in/inf.v0 v0.9.1 — BSD-3-Clause — text-036 (LICENSE)
 k8s.io/api v0.37.1 — Apache-2.0 — text-012 (LICENSE)
 k8s.io/apiextensions-apiserver v0.37.1 — Apache-2.0 — text-012 (LICENSE)
-k8s.io/apimachinery v0.37.1 — Apache-2.0, BSD-3-Clause — text-012 (LICENSE); text-036 (third_party/forked/golang/LICENSE)
-k8s.io/client-go v0.37.1 — Apache-2.0 — text-012 (LICENSE); text-036 (third_party/forked/golang/LICENSE); text-037 (third_party/forked/httpcache/LICENSE)
-k8s.io/klog/v2 v2.140.0 — Apache-2.0 — text-038 (LICENSE)
-k8s.io/kube-openapi v0.0.0-20260721132016-d427ff9ee9ad — Apache-2.0, BSD-3-Clause — text-012 (LICENSE); text-039 (pkg/internal/third_party/go-json-experiment/json/LICENSE); text-040 (pkg/internal/third_party/govalidator/LICENSE); text-012 (pkg/validation/errors/LICENSE); text-012 (pkg/validation/spec/LICENSE); text-041 (pkg/validation/spec/license.go); text-012 (pkg/validation/strfmt/LICENSE); text-012 (pkg/validation/validate/LICENSE)
-k8s.io/utils v0.0.0-20260626114624-be93311217bd — Apache-2.0, BSD-3-Clause — text-012 (LICENSE); text-036 (inotify/LICENSE); text-042 (internal/third_party/forked/golang/LICENSE); text-042 (third_party/forked/golang/LICENSE); text-043 (third_party/forked/golang/btree/LICENSE)
+k8s.io/apimachinery v0.37.1 — Apache-2.0, BSD-3-Clause — text-012 (LICENSE); text-037 (third_party/forked/golang/LICENSE)
+k8s.io/client-go v0.37.1 — Apache-2.0 — text-012 (LICENSE); text-037 (third_party/forked/golang/LICENSE); text-038 (third_party/forked/httpcache/LICENSE)
+k8s.io/klog/v2 v2.140.0 — Apache-2.0 — text-039 (LICENSE)
+k8s.io/kube-openapi v0.0.0-20260721132016-d427ff9ee9ad — Apache-2.0, BSD-3-Clause — text-012 (LICENSE); text-040 (pkg/internal/third_party/go-json-experiment/json/LICENSE); text-041 (pkg/internal/third_party/govalidator/LICENSE); text-012 (pkg/validation/errors/LICENSE); text-012 (pkg/validation/spec/LICENSE); text-042 (pkg/validation/spec/license.go); text-012 (pkg/validation/strfmt/LICENSE); text-012 (pkg/validation/validate/LICENSE)
+k8s.io/utils v0.0.0-20260626114624-be93311217bd — Apache-2.0, BSD-3-Clause — text-012 (LICENSE); text-037 (inotify/LICENSE); text-043 (internal/third_party/forked/golang/LICENSE); text-043 (third_party/forked/golang/LICENSE); text-044 (third_party/forked/golang/btree/LICENSE)
 sigs.k8s.io/controller-runtime v0.25.2 — Apache-2.0 — text-009 (LICENSE)
-sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 — Apache-2.0, BSD-3-Clause — text-044 (LICENSE)
-sigs.k8s.io/randfill v1.0.0 — Apache-2.0 — text-045 (LICENSE); text-046 (NOTICE)
+sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 — Apache-2.0, BSD-3-Clause — text-045 (LICENSE)
+sigs.k8s.io/randfill v1.0.0 — Apache-2.0 — text-046 (LICENSE); text-047 (NOTICE)
 sigs.k8s.io/structured-merge-diff/v6 v6.4.2 — Apache-2.0 — text-009 (LICENSE)
-sigs.k8s.io/yaml v1.6.0 — Apache-2.0, BSD-3-Clause, MIT — text-047 (LICENSE)
+sigs.k8s.io/yaml v1.6.0 — Apache-2.0, BSD-3-Clause, MIT — text-048 (LICENSE)
 
 ========================================================================
 text-001
@@ -2180,6 +2181,17 @@ SoundCloud Ltd. (http://soundcloud.com/).
 ========================================================================
 text-025
 ========================================================================
+procfs provides functions to retrieve system, kernel and process
+metrics from the pseudo-filesystem proc.
+
+Copyright 2014-2015 The Prometheus Authors
+
+This product includes software developed at
+SoundCloud Ltd. (http://soundcloud.com/).
+
+========================================================================
+text-026
+========================================================================
 Copyright (c) 2012 Alex Ogier. All rights reserved.
 Copyright (c) 2012 The Go Authors. All rights reserved.
 
@@ -2210,7 +2222,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ========================================================================
-text-026
+text-027
 ========================================================================
 MIT License
 
@@ -2235,7 +2247,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ========================================================================
-text-027
+text-028
 ========================================================================
 Copyright (c) 2017-2021 Uber Technologies, Inc.
 
@@ -2258,7 +2270,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 ========================================================================
-text-028
+text-029
 ========================================================================
 Copyright (c) 2016-2024 Uber Technologies, Inc.
 
@@ -2281,7 +2293,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 ========================================================================
-text-029
+text-030
 ========================================================================
 The following files were ported to Go from C files of libyaml, and thus
 are still covered by their original copyright and license:
@@ -2316,7 +2328,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ========================================================================
-text-030
+text-031
 ========================================================================
 Copyright 2011-2016 Canonical Ltd.
 
@@ -2333,7 +2345,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 ========================================================================
-text-031
+text-032
 ========================================================================
 
 This project is covered by two different licenses: MIT and Apache.
@@ -2387,7 +2399,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 ========================================================================
-text-032
+text-033
 ========================================================================
 Copyright 2009 The Go Authors.
 
@@ -2418,7 +2430,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ========================================================================
-text-033
+text-034
 ========================================================================
                                  Apache License
                            Version 2.0, January 2004
@@ -2623,7 +2635,7 @@ text-033
    limitations under the License.
 
 ========================================================================
-text-034
+text-035
 ========================================================================
 Copyright (c) 2018 The Go Authors. All rights reserved.
 
@@ -2654,7 +2666,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ========================================================================
-text-035
+text-036
 ========================================================================
 Copyright (c) 2012 Péter Surányi. Portions Copyright (c) 2009 The Go
 Authors. All rights reserved.
@@ -2686,7 +2698,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ========================================================================
-text-036
+text-037
 ========================================================================
 Copyright (c) 2009 The Go Authors. All rights reserved.
 
@@ -2717,7 +2729,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ========================================================================
-text-037
+text-038
 ========================================================================
 Copyright © 2012 Greg Jones (greg.jones@gmail.com)
 
@@ -2728,7 +2740,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ========================================================================
-text-038
+text-039
 ========================================================================
 Apache License
 Version 2.0, January 2004
@@ -2923,7 +2935,7 @@ third-party archives.
    limitations under the License.
 
 ========================================================================
-text-039
+text-040
 ========================================================================
 Copyright (c) 2020 The Go Authors. All rights reserved.
 
@@ -2954,7 +2966,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ========================================================================
-text-040
+text-041
 ========================================================================
 The MIT License (MIT)
 
@@ -2979,7 +2991,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ========================================================================
-text-041
+text-042
 ========================================================================
 // Copyright 2015 go-swagger maintainers
 //
@@ -3006,7 +3018,7 @@ type License struct {
 }
 
 ========================================================================
-text-042
+text-043
 ========================================================================
 Copyright (c) 2012 The Go Authors. All rights reserved.
 
@@ -3037,7 +3049,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ========================================================================
-text-043
+text-044
 ========================================================================
 
                                  Apache License
@@ -3243,7 +3255,7 @@ text-043
    limitations under the License.
 
 ========================================================================
-text-044
+text-045
 ========================================================================
 Files other than internal/golang/* licensed under:
 
@@ -3485,7 +3497,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ========================================================================
-text-045
+text-046
 ========================================================================
                                  Apache License
                            Version 2.0, January 2004
@@ -3691,7 +3703,7 @@ text-045
    limitations under the License.
 
 ========================================================================
-text-046
+text-047
 ========================================================================
 When donating the randfill project to the CNCF, we could not reach all the
 gofuzz contributors to sign the CNCF CLA. As such, according to the CNCF rules
@@ -3719,7 +3731,7 @@ Submitted on behalf of a third-party: @STRRL (Zhiqiang ZHOU)
 Submitted on behalf of a third-party: @disconnect3d (Disconnect3d)
 
 ========================================================================
-text-047
+text-048
 ========================================================================
 The MIT License (MIT)
 

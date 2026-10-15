@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("check_licenses", Path(__file__).with_name("check-licenses.py"))
 checker = importlib.util.module_from_spec(spec)
@@ -125,6 +127,36 @@ class EnforcementTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             checker.enforce(self.modules(), {"example.com/fine": {"MIT"},
                                              "example.com/quirky": {"GPL-3.0"}}, POLICY, set())
+
+    def test_inventory_unions_both_shipped_platforms_and_license_identities(self):
+        first, second = self.modules(), {"example.com/fine": self.modules()["example.com/fine"]}
+        second["example.com/arm-only"] = {"version": "v1.0.0", "sum": SUM, "dir": Path("/arm")}
+        rows = [[("example.com/fine", "MIT"), ("example.com/quirky", "Apache-2.0")],
+                [("example.com/fine", "Apache-2.0"), ("example.com/arm-only", "MIT")]]
+        with patch.object(checker, "dependencies", side_effect=[first, second]) as dependencies, \
+                patch.object(checker, "classified", side_effect=rows) as classified:
+            modules, licenses = checker.inventory("classifier", Path("/module"), "./...", "example.com/app", tests=True)
+        self.assertEqual(set(modules), {"example.com/fine", "example.com/quirky", "example.com/arm-only"})
+        self.assertEqual(licenses["example.com/fine"], {"MIT", "Apache-2.0"})
+        self.assertEqual([call.kwargs["platform"] for call in dependencies.call_args_list], [("linux", "amd64"), ("linux", "arm64")])
+        self.assertTrue(all(call.kwargs["tests"] for call in dependencies.call_args_list))
+        self.assertEqual([call.kwargs["platform"] for call in classified.call_args_list], [("linux", "amd64"), ("linux", "arm64")])
+
+    def test_platform_union_refuses_version_or_sum_drift(self):
+        original = self.modules()
+        for key, replacement in (("version", "v9.0.0"), ("sum", "h1:" + "B" * 42 + "0=")):
+            current = copy.deepcopy(original)
+            current["example.com/fine"][key] = replacement
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, "identity differs"):
+                checker.merge_modules(copy.deepcopy(original), current)
+
+    def test_classifier_and_go_graph_use_the_shipped_target_even_on_a_foreign_host(self):
+        with patch.dict(checker.os.environ, {"GOOS": "darwin", "GOARCH": "arm64", "CGO_ENABLED": "1"}), \
+                patch.object(checker.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout="", stderr="")) as run:
+            checker.run(["classifier", "report", "./cmd/operator"], Path("/module"), platform=("linux", "amd64"))
+        environment = run.call_args.kwargs["env"]
+        self.assertEqual({key: environment[key] for key in ("GOOS", "GOARCH", "CGO_ENABLED", "GOTOOLCHAIN")},
+                         {"GOOS": "linux", "GOARCH": "amd64", "CGO_ENABLED": "0", "GOTOOLCHAIN": "local"})
 
 
 class RenderTest(unittest.TestCase):
