@@ -484,3 +484,8 @@ jobs:
           python3 scripts/schedule-report.py --repository "$GITHUB_REPOSITORY" \
             --run-id "$GITHUB_RUN_ID" --revision "$GITHUB_SHA" \
             --reports "$RUNNER_TEMP/qualification-reports"
+      - name: Report tests that both passed and failed over the recent runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/flaky-report.py --repository "$GITHUB_REPOSITORY" --branch main --runs 20 --post

@@ -122,6 +122,10 @@ class ReleaseContractTests(unittest.TestCase):
         for argument in ('--repository "$GITHUB_REPOSITORY"', '--run-id "$GITHUB_RUN_ID"',
                          '--revision "$GITHUB_SHA"', '--reports "$RUNNER_TEMP/qualification-reports"'):
             self.assertIn(argument, reconcile["run"])
+        weekly = next(step for step in job["steps"] if "flaky-report.py" in step.get("run", ""))
+        self.assertEqual(weekly["env"], {"GH_TOKEN": "${{ github.token }}"})
+        self.assertNotIn("${{", weekly["run"])
+        self.assertIn('--repository "$GITHUB_REPOSITORY" --branch main --runs 20 --post', weekly["run"])
 
     def test_security_mutation_job_runs_the_complete_catalog_and_preserves_results(self):
         jobs = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]

@@ -76,13 +76,13 @@ def failed_tests(reports, revision):
     return sorted(failures)
 
 
-def tracking_issue(repo, fetch):
+def tracking_issue(repo, fetch, title=TITLE):
     issues = fetch(f"repos/{repo}/issues?state=open&labels={LABEL}&per_page=100")
     # A full page cannot prove the matching issue was seen.
     if not isinstance(issues, list) or len(issues) >= 100:
         raise ValueError("Issue inventory was truncated or invalid")
     numbers = sorted(issue["number"] for issue in issues
-                     if isinstance(issue, dict) and issue.get("title") == TITLE
+                     if isinstance(issue, dict) and issue.get("title") == title
                      and "pull_request" not in issue
                      and type(issue.get("number")) is int and issue["number"] > 0)
     return numbers[0] if numbers else None

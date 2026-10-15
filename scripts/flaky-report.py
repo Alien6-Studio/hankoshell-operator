@@ -1,13 +1,15 @@
-"""Read recent main CI artifacts; distinguish mixed outcomes on the exact same SHA.
+"""List tests that both passed and failed across recent qualification runs.
 
-Only bounded outcome JSON is consumed from the JUnit artifact bundles. Nothing is
-extracted or executed, and this command never posts messages or changes test gates.
-Missing historical reports are explicit gaps, not evidence of stable tests.
+Bounded JUnit outcome reports from completed runs of the reviewed workflow are
+aggregated; a test is flaky when the same identity carries both outcomes inside
+the window. The GitHub token stays in the environment and never reaches a
+command line. The optional tracking issue carries test identities, run URLs and
+counts only. No failed test is retried or quarantined.
 """
 
 import argparse
-from collections import defaultdict
 import html
+import importlib.util
 import io
 import json
 import os
@@ -17,160 +19,146 @@ import subprocess
 import sys
 import zipfile
 
-import versions
+spec = importlib.util.spec_from_file_location("schedule_report", Path(__file__).with_name("schedule-report.py"))
+schedule_report = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(schedule_report)
 
-MAX_ARCHIVE = 32 * 1024 * 1024
+TITLE = "Flaky qualification tests on main"
+LABEL = "ci"
+MAX_RUNS = 50
+MAX_ARTIFACTS = 64
+MAX_ARCHIVE = 64 * 1024 * 1024
+MAX_REPORT = 16 * 1024 * 1024
+MAX_LISTED_TESTS = 50
 
 
-def github(endpoint, binary=False):
-    # GET-only. Never render gh stderr, which may contain remote payloads.
+def github_archive(endpoint):
+    # Artifact archives are binary; the response stays bounded below.
     result = subprocess.run(["gh", "api", "--hostname", "github.com", endpoint],
-                            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=45, check=False)
+                            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=300, check=False)
     if result.returncode or len(result.stdout) > MAX_ARCHIVE:
-        raise ValueError("GitHub report read failed or exceeded its budget")
-    return result.stdout if binary else json.loads(result.stdout)
+        raise ValueError("Artifact download failed or exceeded its budget")
+    return result.stdout
 
 
-def artifact_suites():
-    suites = {"unit": "unit"}
-    for version in versions.get("kubernetes", "versions"):
-        suites["kubernetes-" + version] = "kubernetes/" + version
-    for version in versions.get("keycloak", "versions"):
-        for shard in ("core", "adoption", "protocols"):
-            suites[f"keycloak-{version}-{shard}"] = f"keycloak/{version}/{shard}"
-    return suites
-
-
-def read_artifact(data, suite, revision):
-    if len(data) > MAX_ARCHIVE:
-        raise ValueError("Artifact exceeds archive budget")
-    with zipfile.ZipFile(io.BytesIO(data)) as archive:
-        members = [m for m in archive.infolist() if m.filename.endswith("/results.json") or m.filename == "results.json"]
-        if len(members) != 1 or members[0].file_size > 16 * 1024 * 1024:
-            raise ValueError("Missing, ambiguous or oversized outcome report")
-        report = json.loads(archive.read(members[0]))
-    if (type(report.get("schema")) is not int or report.get("schema") != 1 or report.get("suite") != suite or report.get("revision") != revision
-            or report.get("worktree_dirty") is not False):
-        raise ValueError("Outcome report is not bound to its run SHA and suite")
-    tests = report.get("tests")
-    if not isinstance(tests, list) or not tests or len(tests) > 50000 or type(report.get("returncode")) is not int:
-        raise ValueError("Invalid test outcome report")
-    seen = set()
-    for test in tests:
-        if not isinstance(test, dict):
-            raise ValueError("Invalid test outcome")
-        package, name, outcome = (test.get(field) for field in ("package", "name", "outcome"))
-        if (not isinstance(package, str) or not package.startswith("github.com/Alien6-Studio/hankoshell-operator/")
-                or len(package) > 512 or not isinstance(name, str) or not name or len(name) > 4096
-                or outcome not in ("passed", "failed", "skipped") or (package, name) in seen):
-            raise ValueError("Invalid or duplicate test identity/outcome")
-        if report["returncode"] == 0 and outcome == "failed":
-            raise ValueError("Successful report contains failed tests")
-        seen.add((package, name))
-    return report
-
-
-def collect(repo, count, fetch=github):
-    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo) or not 1 <= count <= 100:
-        raise ValueError("Invalid repository or run count")
-    prefix = "repos/" + repo + "/actions/"
-    result = fetch(prefix + f"workflows/ci.yml/runs?branch=main&status=completed&per_page={count}")
-    runs = result["workflow_runs"]
-    if len(runs) > count:
-        raise ValueError("Run inventory exceeded the requested bound")
-    records, gaps, seen_runs = [], [], set()
+def recent_runs(repo, branch, count, fetch):
+    page = fetch(f"repos/{repo}/actions/workflows/ci.yml/runs?branch={branch}"
+                 f"&status=completed&exclude_pull_requests=true&per_page={count}")
+    runs = page.get("workflow_runs") if isinstance(page, dict) else None
+    if not isinstance(runs, list) or len(runs) > count:
+        raise ValueError("Run inventory is invalid")
+    selected = []
     for run in runs:
-        run_id, attempt, revision = run["id"], run["run_attempt"], run["head_sha"]
-        if (type(run_id) is not int or run_id <= 0 or run_id in seen_runs or type(attempt) is not int or attempt <= 0
-                or run["head_branch"] != "main" or run["status"] != "completed" or not re.fullmatch(r"[0-9a-f]{40}", revision)):
-            raise ValueError("Unexpected or duplicate main run identity")
-        seen_runs.add(run_id)
-        inventory = fetch(prefix + f"runs/{run_id}/artifacts?per_page=100")
-        if inventory["total_count"] != len(inventory["artifacts"]) or inventory["total_count"] > 100:
-            raise ValueError("Artifact inventory was truncated")
-        by_name = defaultdict(list)
-        for artifact in inventory["artifacts"]:
-            by_name[artifact["name"]].append(artifact)
-        for suffix, suite in artifact_suites().items():
-            current_accounted = False
-            pattern = re.compile(re.escape(f"go-tests-{suffix}-{run_id}-") + r"([1-9][0-9]*)$")
-            for name, matches in by_name.items():
-                match = pattern.fullmatch(name)
-                if not match:
+        if (not isinstance(run, dict) or type(run.get("id")) is not int or run["id"] <= 0
+                or not isinstance(run.get("head_sha"), str) or not re.fullmatch(r"[0-9a-f]{40}", run["head_sha"])):
+            raise ValueError("Run identity is invalid")
+        selected.append((run["id"], run["head_sha"]))
+    return selected
+
+
+def outcome_reports(repo, run_id, revision, fetch, archive=None):
+    """Yield validated per-test outcomes from one run's Go test artifacts."""
+    archive = archive or github_archive
+    page = fetch(f"repos/{repo}/actions/runs/{run_id}/artifacts?per_page={MAX_ARTIFACTS}")
+    artifacts = page.get("artifacts") if isinstance(page, dict) else None
+    if not isinstance(artifacts, list) or len(artifacts) > MAX_ARTIFACTS:
+        raise ValueError("Artifact inventory is invalid")
+    for artifact in artifacts:
+        if not isinstance(artifact, dict) or type(artifact.get("id")) is not int:
+            raise ValueError("Artifact identity is invalid")
+        if not str(artifact.get("name", "")).startswith("go-tests-") or artifact.get("expired"):
+            continue
+        with zipfile.ZipFile(io.BytesIO(archive(f"repos/{repo}/actions/artifacts/{artifact['id']}/zip"))) as bundle:
+            for info in bundle.infolist():
+                if Path(info.filename).name != "results.json":
                     continue
-                artifact_attempt = int(match[1])
-                if len(matches) != 1 or artifact_attempt > attempt:
-                    raise ValueError("Ambiguous artifact for this run attempt")
-                artifact = matches[0]
-                if artifact["expired"]:
-                    gaps.append({"run": run_id, "attempt": artifact_attempt, "suite": suite, "reason": "expired"})
-                    current_accounted = current_accounted or artifact_attempt == attempt
-                    continue
-                if type(artifact["id"]) is not int or artifact["id"] <= 0 or artifact["size_in_bytes"] > MAX_ARCHIVE:
-                    raise ValueError("Invalid or oversized artifact")
-                report = read_artifact(fetch(prefix + f"artifacts/{artifact['id']}/zip", binary=True), suite, revision)
-                records.append({"run": run_id, "attempt": artifact_attempt, "report": report})
-                current_accounted = current_accounted or artifact_attempt == attempt
-            if not current_accounted:
-                gaps.append({"run": run_id, "attempt": attempt, "suite": suite, "reason": "missing or expired"})
-    return records, gaps, len(runs)
+                if info.file_size > MAX_REPORT:
+                    raise ValueError("Outcome report exceeds its budget")
+                report = json.loads(bundle.read(info).decode("utf-8"))
+                if (report.get("schema") != 1 or not isinstance(report.get("suite"), str)
+                        or report.get("revision") != revision or not isinstance(report.get("tests"), list)
+                        or len(report["tests"]) > 50000):
+                    raise ValueError("Outcome report is not bound to its run")
+                for test in report["tests"]:
+                    if (not isinstance(test, dict) or test.get("outcome") not in ("passed", "failed", "skipped")
+                            or not isinstance(test.get("package"), str) or len(test["package"]) > 512
+                            or not isinstance(test.get("name"), str) or not test["name"] or len(test["name"]) > 4096):
+                        raise ValueError("Invalid test outcome")
+                    yield report["suite"], test["package"], test["name"], test["outcome"], run_id
 
 
-def aggregate(records):
-    observations = defaultdict(lambda: {"passed": set(), "failed": set()})
-    for record in records:
-        report = record["report"]
-        for test in report["tests"]:
-            if test["outcome"] == "skipped":
-                continue
-            key = (report["revision"], report["suite"], test["package"], test["name"])
-            observations[key][test["outcome"]].add(f"{record['run']}/attempts/{record['attempt']}")
-    mixed = []
-    for (revision, suite, package, name), values in sorted(observations.items()):
-        if values["passed"] and values["failed"]:
-            mixed.append({"revision": revision, "suite": suite, "package": package, "name": name,
-                          "passed_runs": sorted(values["passed"]), "failed_runs": sorted(values["failed"])})
-    return mixed
+def flaky_tests(repo, branch, count, fetch):
+    """Identities that both passed and failed inside the inspected window."""
+    outcomes = {}
+    runs = recent_runs(repo, branch, count, fetch)
+    for run_id, revision in runs:
+        for suite, package, name, outcome, seen_run in outcome_reports(repo, run_id, revision, fetch):
+            record = outcomes.setdefault((suite, package, name), {"passed": set(), "failed": set()})
+            if outcome in record:
+                record[outcome].add(seen_run)
+    flaky = {identity: record for identity, record in sorted(outcomes.items())
+             if record["passed"] and record["failed"]}
+    return flaky, len(runs)
 
 
-def summarize(repo, records, gaps, runs, requested):
-    mixed = aggregate(records)
-    lines = ["### Recent main Go test outcomes", "",
-             f"Completed runs examined: {runs}/{requested}; suite reports: {len(records)}; missing reports: {len(gaps)}.", "",
-             "Mixed outcomes are compared only at the exact same commit and suite/version. "
-             "Missing reports, skipped tests and changed commits do not establish stability.", ""]
-    if not mixed:
-        lines.append("No mixed pass/fail outcome found in the available comparable reports.")
-    for item in mixed[:100]:
-        identity = html.escape(item["suite"] + " / " + item["package"] + " / " + item["name"]).replace("\n", " ").replace("\r", " ")
-        runs_text = ", ".join(f"[failed attempt {run}](https://github.com/{repo}/actions/runs/{run})" for run in item["failed_runs"])
-        lines.append(f"- <code>{identity}</code> at `{item['revision'][:12]}`: {runs_text}")
-    if len(mixed) > 100:
-        lines.append(f"Additional mixed outcomes in the JSON artifact: {len(mixed) - 100}.")
-    report = {"schema": 1, "requested_runs": requested, "examined_runs": runs, "reports": len(records),
-              "gaps": gaps, "mixed_outcomes": mixed}
-    return report, "\n".join(lines) + "\n"
+def render(repo, flaky, inspected):
+    lines = [f"Flaky-test window: the last {inspected} completed qualification runs.", ""]
+    if not flaky:
+        lines.append("No test both passed and failed inside the window.")
+        return "\n".join(lines) + "\n"
+    lines.append("Tests that both passed and failed on the same commit range:")
+    for (suite, package, name), record in list(flaky.items())[:MAX_LISTED_TESTS]:
+        identity = html.escape(f"{suite} / {package} / {name}").replace("\n", " ").replace("\r", " ")
+        failed = sorted(record["failed"])[-1]
+        lines.append(f"- <code>{identity}</code>: failed {len(record['failed'])}x, passed {len(record['passed'])}x; "
+                     f"last failed run https://github.com/{repo}/actions/runs/{failed}")
+    if len(flaky) > MAX_LISTED_TESTS:
+        lines.append(f"Additional flaky tests not listed: {len(flaky) - MAX_LISTED_TESTS}.")
+    return "\n".join(lines) + "\n"
+
+
+def reconcile(repo, text, flaky, fetch):
+    existing = schedule_report.tracking_issue(repo, fetch, title=TITLE)
+    if not flaky:
+        if existing is None:
+            return "clean"
+        fetch(f"repos/{repo}/issues/{existing}/comments", method="POST",
+              payload={"body": "The window no longer contains flaky tests; closing.\n\n" + text})
+        fetch(f"repos/{repo}/issues/{existing}", method="PATCH", payload={"state": "closed"})
+        return "closed"
+    if existing is None:
+        fetch(f"repos/{repo}/issues", method="POST",
+              payload={"title": TITLE, "body": text, "labels": [LABEL]})
+        return "opened"
+    fetch(f"repos/{repo}/issues/{existing}/comments", method="POST", payload={"body": text})
+    return "updated"
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", "Alien6-Studio/hankoshell-operator"))
+    parser.add_argument("--repository", required=True)
+    parser.add_argument("--branch", default="main")
     parser.add_argument("--runs", type=int, default=20)
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--post", action="store_true",
+                        help="maintain the tracking issue instead of only reporting")
     args = parser.parse_args()
     try:
-        records, gaps, count = collect(args.repo, args.runs)
-        report, summary = summarize(args.repo, records, gaps, count, args.runs)
-        args.output.mkdir(parents=True, exist_ok=True)
-        (args.output / "flaky.json").write_text(json.dumps(report, indent=2) + "\n")
-        (args.output / "summary.md").write_text(summary)
+        if (not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", args.repository)
+                or not re.fullmatch(r"[A-Za-z0-9._/-]{1,200}", args.branch) or not 1 <= args.runs <= MAX_RUNS):
+            raise ValueError("Invalid repository, branch or window")
+        flaky, inspected = flaky_tests(args.repository, args.branch, args.runs, schedule_report.github)
+        text = render(args.repository, flaky, inspected)
+        print(text, end="")
         if os.environ.get("GITHUB_STEP_SUMMARY"):
             with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as stream:
-                stream.write(summary)
-        print(summary)
+                stream.write("### Flaky tests\n\n" + text)
+        if args.post:
+            print("Flaky tracking issue outcome: "
+                  + reconcile(args.repository, text, flaky, schedule_report.github))
         return 0
-    except (OSError, ValueError, KeyError, TypeError, zipfile.BadZipFile, subprocess.SubprocessError):
-        print("Cannot verify recent test reports; no stability claim is available.", file=sys.stderr)
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError,
+            zipfile.BadZipFile, json.JSONDecodeError):
+        print("Cannot aggregate the flaky-test window.", file=sys.stderr)
         return 1
 
 
