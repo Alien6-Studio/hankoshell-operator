@@ -81,7 +81,7 @@ func TestSnapshotPayloadFailsClosedForEveryInventoryKind(t *testing.T) {
 	} {
 		t.Run(test.kind, func(t *testing.T) {
 			reconciler := &HankoSnapshotReconciler{Client: snapshotFaultClient{Client: base, failList: test.kind}}
-			raw, failure := reconciler.snapshotPayload(context.Background(), "test")
+			raw, failure := reconciler.snapshotPayload(context.Background(), snapshotDataFixture())
 			if raw != nil || failure == nil || !strings.Contains(failure.Error(), test.reason) {
 				t.Fatalf("snapshot list failure raw=%q failure=%#v", raw, failure)
 			}

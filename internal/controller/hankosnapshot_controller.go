@@ -110,25 +110,36 @@ func (r *HankoSnapshotReconciler) snapshotInstance(ctx context.Context, snapshot
 	})
 }
 
-func (r *HankoSnapshotReconciler) snapshotPayload(ctx context.Context, namespace string) ([]byte, error) {
+func (r *HankoSnapshotReconciler) snapshotPayload(ctx context.Context, snapshot *hankoshv1alpha1.HankoSnapshot) ([]byte, error) {
+	// An unlabelled snapshot belongs to the standalone scope, not every tenant
+	// in its namespace. Presence of an empty tenant label is also a distinct scope.
+	scope := &metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "hanko.sh/tenant", Operator: metav1.LabelSelectorOpDoesNotExist}}}
+	if tenant, present := snapshot.Labels["hanko.sh/tenant"]; present {
+		scope = &metav1.LabelSelector{MatchLabels: map[string]string{"hanko.sh/tenant": tenant}}
+	}
+	selector, err := metav1.LabelSelectorAsSelector(scope)
+	if err != nil {
+		return nil, fmt.Errorf("SnapshotScopeError: %w", err)
+	}
+	options := []client.ListOption{client.InNamespace(snapshot.Namespace), client.MatchingLabelsSelector{Selector: selector}}
 	var payload snapshotData
 	var realms hankoshv1alpha1.HankoRealmList
-	if err := r.snapshotReader().List(ctx, &realms, client.InNamespace(namespace)); err != nil {
+	if err := r.snapshotReader().List(ctx, &realms, options...); err != nil {
 		return nil, fmt.Errorf("ListRealmsError: %w", err)
 	}
 	payload.Realms = realms.Items
 	var applications hankoshv1alpha1.HankoApplicationList
-	if err := r.snapshotReader().List(ctx, &applications, client.InNamespace(namespace)); err != nil {
+	if err := r.snapshotReader().List(ctx, &applications, options...); err != nil {
 		return nil, fmt.Errorf("ListAppsError: %w", err)
 	}
 	payload.Applications = applications.Items
 	var serviceAccounts hankoshv1alpha1.HankoServiceAccountList
-	if err := r.snapshotReader().List(ctx, &serviceAccounts, client.InNamespace(namespace)); err != nil {
+	if err := r.snapshotReader().List(ctx, &serviceAccounts, options...); err != nil {
 		return nil, fmt.Errorf("ListSAsError: %w", err)
 	}
 	payload.ServiceAccounts = serviceAccounts.Items
 	var issuers hankoshv1alpha1.HankoIssuerList
-	if err := r.snapshotReader().List(ctx, &issuers, client.InNamespace(namespace)); err != nil {
+	if err := r.snapshotReader().List(ctx, &issuers, options...); err != nil {
 		return nil, fmt.Errorf("ListIssuersError: %w", err)
 	}
 	payload.Issuers = issuers.Items

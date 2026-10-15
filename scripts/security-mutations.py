@@ -83,6 +83,13 @@ MUTATIONS = [
              "DisableFor: []client.Object{&corev1.Secret{}},",
              "DisableFor: []client.Object{},",
              "cmd/operator", "TestManagerOptionsConfineCacheAndLeaderElection"),
+    mutation("snapshot-tenant-inventory", "internal/controller/hankosnapshot_controller.go",
+             "r.snapshotReader().List(ctx, &realms, options...)",
+             "r.snapshotReader().List(ctx, &realms, client.InNamespace(snapshot.Namespace))",
+             "internal/controller", "TestSnapshotCaptureIsTenantScoped"),
+    mutation("snapshot-stored-tenant-scope", "internal/controller/hankosnapshot_checkpoint.go",
+             "!snapshotPayloadInScope(snapshot, raw)", "false",
+             "internal/controller", "TestSnapshotRecoveryRejectsCrossScopeStoredCapture"),
 ]
 
 

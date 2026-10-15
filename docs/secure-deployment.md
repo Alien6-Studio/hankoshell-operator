@@ -930,6 +930,25 @@ A failed Job cannot yield a successful snapshot, even with a
 contradictory completion condition. These paths are tested against the supported
 Kubernetes API servers; the tests do not execute a database backup or qualify restore.
 
+Configuration capture includes only realms, applications, service accounts and
+issuers in the snapshot's namespace with the exact same `hanko.sh/tenant` label
+identity. An unlabelled snapshot captures only unlabelled resources; an explicitly
+empty tenant label is distinct from an absent label. The source instance must
+match this scope as well. Namespace-scoped RBAC still determines who can read
+the resulting ConfigMap; tenant labels are not a Kubernetes access-control boundary.
+Before accepting an existing capture after interruption, the controller verifies
+the tenant and namespace of every stored resource in addition to ownership and
+content hashes. A legacy namespace-wide capture containing another scope fails
+with `ConfigMapContractMismatch`, without rewriting the immutable capture or
+starting a database Job.
+The six installed workload cells also exercise this boundary with the scanned
+operator image. Both deep-migration cells inject loss of an accepted capture
+response, restart the manager and check exact UID/content preservation without
+another create. They separately seed an owned legacy cross-tenant capture after
+the authority checkpoint and require refusal without rewriting it or creating a
+backup Job. This qualifies configuration-capture recovery, not database recovery
+or the complete Upgrade/Clone/DBSwitch workflows.
+
 An approval removal does not kill
 an already-running pod; suspend/delete it and revoke its DB credential during an
 incident. Kubernetes admission and administrator control remain necessary.
@@ -965,6 +984,13 @@ qualify certificate-verifying database TLS in the installation.
 and create a new snapshot. Old mutable Jobs are not adopted or silently replaced;
 inspect and stop them before enabling the new path. Previously terminal snapshots
 remain historical records, not retroactive evidence of verified execution.
+For this tenant-isolation change, review existing snapshot ConfigMaps for
+configuration outside their intended scope using an administrator identity.
+Restrict access and retain or remove affected captures according to the local
+retention policy. Create a new snapshot after correcting the scope; do not copy
+foreign configuration into a replacement capture or clear a failed checkpoint.
+Rolling back to the older operator reintroduces namespace-wide capture, so
+suspend new snapshot operations before such a rollback.
 In-flight snapshots without identity checkpoints, changed specifications or tenant
 labels, and recreated source instances are refused. Inspect their children and
 backup PVC before starting a new snapshot; do not clear checkpoints to force replay.

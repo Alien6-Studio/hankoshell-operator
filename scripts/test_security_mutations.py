@@ -31,7 +31,8 @@ class MutationRunnerTests(unittest.TestCase):
         required = {"hub-hmac", "image-sha256", "image-keyless-identity", "tls-peer-verification", "tls-minimum",
                     "keycloak-redirect", "unowned-realm-deletion", "unowned-client-role-deletion",
                     "bundle-tenant-namespace", "bundle-live-tenant-ownership", "bundle-forced-ownership",
-                    "bundle-write-version-precondition", "secret-cache-exclusion"}
+                    "bundle-write-version-precondition", "secret-cache-exclusion",
+                    "snapshot-tenant-inventory", "snapshot-stored-tenant-scope"}
         self.assertEqual({entry["name"] for entry in gate.MUTATIONS}, required)
         self.assertEqual(len(gate.MUTATIONS), len(required))
         for entry in gate.MUTATIONS:

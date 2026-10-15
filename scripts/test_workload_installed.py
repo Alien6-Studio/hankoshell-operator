@@ -1,6 +1,8 @@
 """Protect installed evidence and require genuine independent UMA denials."""
 
 import importlib.util
+import copy
+import hashlib
 import json
 from io import BytesIO
 from email.message import Message
@@ -25,6 +27,57 @@ proxy = module("fault_proxy", "workload-fault-proxy.py")
 
 
 class InstalledEvidenceTests(unittest.TestCase):
+    def test_snapshot_evidence_requires_exact_scope_for_every_configuration_kind(self):
+        for scope in (None, "", "tenant-a"):
+            labels = {} if scope is None else {"hanko.sh/tenant": scope}
+            snapshot = {"metadata": {"namespace": "auth", "labels": labels},
+                        "status": {"phase": "Done", "configMapUID": "capture-uid"}}
+            payload = {kind: [{"metadata": {"name": "selected", "namespace": "auth", "labels": labels}}]
+                       for kind in ("realms", "applications", "serviceAccounts", "issuers")}
+
+            def capture(document):
+                raw = json.dumps(document)
+                snapshot["status"]["configHash"] = hashlib.sha256(raw.encode()).hexdigest()
+                return {"metadata": {"uid": "capture-uid"}, "immutable": True, "data": {"snapshot.json": raw}}
+
+            self.assertTrue(installed.snapshot_capture_valid(snapshot, capture(payload), "selected"))
+            for kind in payload:
+                for foreign in ({}, {"hanko.sh/tenant": ""}, {"hanko.sh/tenant": "tenant-b"}):
+                    if foreign == labels:
+                        continue
+                    document = copy.deepcopy(payload)
+                    document[kind].append({"metadata": {"name": "foreign", "namespace": "auth", "labels": foreign}})
+                    with self.subTest(scope=scope, kind=kind, foreign=foreign):
+                        self.assertFalse(installed.snapshot_capture_valid(snapshot, capture(document), "selected"))
+                document = copy.deepcopy(payload)
+                document[kind][0]["metadata"]["namespace"] = "another"
+                self.assertFalse(installed.snapshot_capture_valid(snapshot, capture(document), "selected"))
+                document = copy.deepcopy(payload)
+                document[kind] = []
+                self.assertFalse(installed.snapshot_capture_valid(snapshot, capture(document), "selected"))
+
+    def test_snapshot_evidence_rejects_stale_or_unbound_capture_even_with_safe_content(self):
+        raw = json.dumps({kind: [{"metadata": {"name": "selected", "namespace": "auth"}}]
+                          for kind in ("realms", "applications", "serviceAccounts", "issuers")})
+        snapshot = {"metadata": {"namespace": "auth"}, "status": {
+            "phase": "Done", "configMapUID": "capture-uid", "configHash": hashlib.sha256(raw.encode()).hexdigest()}}
+        capture = {"metadata": {"uid": "capture-uid"}, "immutable": True, "data": {"snapshot.json": raw}}
+        for change in ("phase", "uid", "digest", "mutable", "malformed", "missing-kind"):
+            current, stored = copy.deepcopy(snapshot), copy.deepcopy(capture)
+            if change == "phase":
+                current["status"]["phase"] = "Running"
+            elif change == "uid":
+                stored["metadata"]["uid"] = "replacement"
+            elif change == "digest":
+                current["status"]["configHash"] = "0" * 64
+            elif change == "mutable":
+                stored["immutable"] = False
+            else:
+                stored["data"]["snapshot.json"] = "invalid" if change == "malformed" else "{}"
+                current["status"]["configHash"] = hashlib.sha256(stored["data"]["snapshot.json"].encode()).hexdigest()
+            with self.subTest(change=change):
+                self.assertFalse(installed.snapshot_capture_valid(current, stored, "selected"))
+
     def test_outage_waits_past_partial_and_stale_status_until_binding_is_invalidated(self):
         def account(binding, runtime, generation=2, binding_status="False"):
             return {"metadata": {"generation": 2}, "status": {

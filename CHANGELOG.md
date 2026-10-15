@@ -3,6 +3,22 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Snapshot tenant isolation
+
+- Scope configuration captures to the exact namespace and tenant label identity,
+  including a distinct unlabelled standalone scope. Refuse recovery of owned,
+  correctly hashed legacy captures containing another tenant or namespace before
+  checkpoint acceptance or a database Job. Preserve immutable captures for
+  administrator review; existing terminal snapshots remain historical records.
+- Qualify all four configuration kinds, empty versus absent tenant labels,
+  restart preservation and rejection of legacy cross-scope captures. Retain the
+  experimental lifecycle and unqualified database backup/restore boundaries.
+- Extend all six installed workload cells with real configuration captures and
+  independent stored-content checks. On both deep-migration cells, interrupt an
+  accepted ConfigMap write, restart the manager and require the same UID/content
+  without a second create; seed an owned legacy cross-tenant capture and require
+  refusal without rewriting it or starting a backup Job.
+
 ### Installed workload identity and migration qualification
 
 - Qualify the exact scanned operator image with real installed Pods on Kubernetes

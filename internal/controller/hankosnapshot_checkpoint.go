@@ -44,7 +44,7 @@ func snapshotIntentHash(snapshot *api.HankoSnapshot) string {
 }
 
 func validateSnapshotCheckpoint(snapshot *api.HankoSnapshot, instance *api.HankoKeycloakInstance) string {
-	if snapshot.UID == "" || instance.UID == "" || !instance.DeletionTimestamp.IsZero() || snapshot.Labels["hanko.sh/tenant"] != instance.Labels["hanko.sh/tenant"] {
+	if snapshot.UID == "" || instance.UID == "" || !instance.DeletionTimestamp.IsZero() || !snapshotObjectInScope(snapshot, instance) {
 		return "snapshot requires a current instance in the same tenant"
 	}
 	s := snapshot.Status
@@ -87,7 +87,7 @@ func (r *HankoSnapshotReconciler) ensureSnapshotConfig(ctx context.Context, snap
 		if snapshot.Status.ConfigMapUID != "" {
 			return true, r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"ConfigMapContractMismatch", "checkpointed configuration disappeared; inspect it before creating a new snapshot", "configuration missing"})
 		}
-		raw, err := r.snapshotPayload(ctx, snapshot.Namespace)
+		raw, err := r.snapshotPayload(ctx, snapshot)
 		if err != nil {
 			return true, err
 		}
@@ -104,7 +104,7 @@ func (r *HankoSnapshotReconciler) ensureSnapshotConfig(ctx context.Context, snap
 	}
 	raw := []byte(cm.Data["snapshot.json"])
 	digest := snapshotHash(raw)
-	if !snapshotChildMatches(snapshot, cm) || cm.Immutable == nil || !*cm.Immutable || len(cm.Data) != 1 || len(cm.BinaryData) != 0 || !json.Valid(raw) || cm.Annotations[snapshotHashAnnotation] != digest ||
+	if !snapshotChildMatches(snapshot, cm) || cm.Immutable == nil || !*cm.Immutable || len(cm.Data) != 1 || len(cm.BinaryData) != 0 || !snapshotPayloadInScope(snapshot, raw) || cm.Annotations[snapshotHashAnnotation] != digest ||
 		(snapshot.Status.ConfigMapUID != "" && (snapshot.Status.ConfigMapUID != string(cm.UID) || snapshot.Status.ConfigHash != digest)) {
 		return true, r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"ConfigMapContractMismatch", "existing configuration differs from this snapshot's ownership, identity or immutable content; inspect it manually", "configuration contract mismatch"})
 	}
@@ -116,4 +116,40 @@ func (r *HankoSnapshotReconciler) ensureSnapshotConfig(ctx context.Context, snap
 		}
 	}
 	return false, nil
+}
+
+func snapshotObjectInScope(snapshot *api.HankoSnapshot, object client.Object) bool {
+	tenant, present := snapshot.Labels["hanko.sh/tenant"]
+	objectTenant, objectPresent := object.GetLabels()["hanko.sh/tenant"]
+	return object.GetNamespace() == snapshot.Namespace && present == objectPresent && tenant == objectTenant
+}
+
+// A valid digest and owner do not make an older namespace-wide capture safe to
+// resume. Inspect the stored capture without rewriting its point-in-time data.
+func snapshotPayloadInScope(snapshot *api.HankoSnapshot, raw []byte) bool {
+	var payload snapshotData
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return false
+	}
+	for i := range payload.Realms {
+		if !snapshotObjectInScope(snapshot, &payload.Realms[i]) {
+			return false
+		}
+	}
+	for i := range payload.Applications {
+		if !snapshotObjectInScope(snapshot, &payload.Applications[i]) {
+			return false
+		}
+	}
+	for i := range payload.ServiceAccounts {
+		if !snapshotObjectInScope(snapshot, &payload.ServiceAccounts[i]) {
+			return false
+		}
+	}
+	for i := range payload.Issuers {
+		if !snapshotObjectInScope(snapshot, &payload.Issuers[i]) {
+			return false
+		}
+	}
+	return true
 }
