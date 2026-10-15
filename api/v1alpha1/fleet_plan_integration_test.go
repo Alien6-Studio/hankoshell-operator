@@ -86,7 +86,7 @@ func (c *fleetAPIWriter) Create(ctx context.Context, obj client.Object, opts ...
 	var options client.CreateOptions
 	options.ApplyOptions(opts)
 	err := c.Client.Create(ctx, obj, opts...)
-	if err == nil && len(options.DryRun) == 0 {
+	if err == nil && len(options.DryRun) == 0 && obj.GetLabels()["hanko.sh/fleet-cache"] == "" {
 		c.writes++
 	}
 	return err
@@ -105,6 +105,8 @@ type fleetAPIFixture struct {
 	before        atomic.Pointer[func()]
 	nativeRoles   atomic.Pointer[[]string]
 	nativeVersion atomic.Pointer[string]
+	hubStatus     atomic.Int32
+	nativeWrites  atomic.Int64
 }
 
 func newFleetAPIFixture(t *testing.T, ctx context.Context, kube client.Client, name string) *fleetAPIFixture {
@@ -128,6 +130,11 @@ func newFleetAPIFixture(t *testing.T, ctx context.Context, kube client.Client, n
 			case "/admin/serverinfo":
 				_ = json.NewEncoder(w).Encode(map[string]any{"systemInfo": map[string]string{"version": *f.nativeVersion.Load()}})
 			case "/admin/realms/" + name:
+				if req.Method != http.MethodGet {
+					f.nativeWrites.Add(1)
+					w.WriteHeader(http.StatusNoContent)
+					return
+				}
 				_ = json.NewEncoder(w).Encode(map[string]string{"id": "fixture-realm-id", "realm": name})
 			default:
 				w.WriteHeader(http.StatusForbidden)
@@ -140,6 +147,10 @@ func newFleetAPIFixture(t *testing.T, ctx context.Context, kube client.Client, n
 		}
 		switch req.URL.Path {
 		case "/api/v1/bundles/latest":
+			if status := f.hubStatus.Load(); status != 0 {
+				w.WriteHeader(int(status))
+				return
+			}
 			if req.Header.Get("Accept") != "application/vnd.hanko.fleet-plan+json" {
 				w.WriteHeader(http.StatusNotAcceptable)
 				return
@@ -243,6 +254,7 @@ func checkSignedFleetPlans(t *testing.T, ctx context.Context, kube client.Client
 	if err := kube.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "fleet-fixtures"}}); err != nil {
 		t.Fatal(err)
 	}
+	t.Run("disconnected recovery and referenced rollback", func(t *testing.T) { checkFleetDisconnectedRecovery(t, ctx, kube) })
 	t.Run("capability rollout and local overrides", func(t *testing.T) { checkFleetCapabilityRollout(t, ctx, kube) })
 	t.Run("accepted-current-next-and-sticky-mode", func(t *testing.T) {
 		f := newFleetAPIFixture(t, ctx, kube, "accepted")

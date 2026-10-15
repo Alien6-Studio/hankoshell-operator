@@ -129,8 +129,8 @@ type FleetPlanStatus struct {
 	Sequence int64 `json:"sequence"`
 	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
 	Identity string `json:"identity"`
-	// PreviousIdentity retains a reference for future reviewed rollback; it
-	// does not authorize executing a rollback in this implementation.
+	// PreviousIdentity is evidence only; rollback also requires a retained,
+	// independently reverified envelope and a new monotonic signed plan.
 	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
 	PreviousIdentity string `json:"previousIdentity,omitempty"`
 	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
@@ -140,8 +140,45 @@ type FleetPlanStatus struct {
 	KeyID string `json:"keyID"`
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=128
-	TenantUID string      `json:"tenantUID"`
-	ExpiresAt metav1.Time `json:"expiresAt"`
+	TenantUID         string              `json:"tenantUID"`
+	ExpiresAt         metav1.Time         `json:"expiresAt"`
+	Cache             *FleetPlanReference `json:"cache,omitempty"`
+	PreviousCache     *FleetPlanReference `json:"previousCache,omitempty"`
+	RollbackReference *FleetPlanReference `json:"rollbackReference,omitempty"`
+	// VerifiedAt detects wall-clock regression across restarts. Expired is
+	// sticky for this identity; moving the clock back cannot revive it.
+	VerifiedAt *metav1.Time `json:"verifiedAt,omitempty"`
+	Expired    bool         `json:"expired,omitempty"`
+	// Journal retains the last sixteen accepted transitions, not provider
+	// completion attestations. Superseded objects are never pruned by rollback.
+	// +kubebuilder:validation:MaxItems=16
+	// +listType=atomic
+	Journal []FleetPlanTransition `json:"journal,omitempty"`
+}
+
+// FleetPlanReference binds an immutable envelope to its acknowledged acceptance.
+type FleetPlanReference struct {
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=128
+	UID string `json:"uid"`
+	// +kubebuilder:validation:Minimum=1
+	Sequence int64 `json:"sequence"`
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	Identity   string      `json:"identity"`
+	AcceptedAt metav1.Time `json:"acceptedAt"`
+}
+
+type FleetPlanTransition struct {
+	// +kubebuilder:validation:Minimum=1
+	Sequence int64 `json:"sequence"`
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	Identity string `json:"identity"`
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	RollbackOf string      `json:"rollbackOf,omitempty"`
+	AcceptedAt metav1.Time `json:"acceptedAt"`
 }
 
 // FleetRolloutStatus reports decisions without remote names or configuration.

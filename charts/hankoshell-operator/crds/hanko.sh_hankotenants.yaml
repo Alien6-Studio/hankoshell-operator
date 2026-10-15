@@ -246,22 +246,138 @@ spec:
                   appliedIdentity:
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
+                  cache:
+                    description: FleetPlanReference binds an immutable envelope to
+                      its acknowledged acceptance.
+                    properties:
+                      acceptedAt:
+                        format: date-time
+                        type: string
+                      identity:
+                        pattern: ^sha256:[a-f0-9]{64}$
+                        type: string
+                      name:
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                      sequence:
+                        format: int64
+                        minimum: 1
+                        type: integer
+                      uid:
+                        maxLength: 128
+                        minLength: 1
+                        type: string
+                    required:
+                    - acceptedAt
+                    - identity
+                    - name
+                    - sequence
+                    - uid
+                    type: object
+                  expired:
+                    type: boolean
                   expiresAt:
                     format: date-time
                     type: string
                   identity:
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
+                  journal:
+                    description: |-
+                      Journal retains the last sixteen accepted transitions, not provider
+                      completion attestations. Superseded objects are never pruned by rollback.
+                    items:
+                      properties:
+                        acceptedAt:
+                          format: date-time
+                          type: string
+                        identity:
+                          pattern: ^sha256:[a-f0-9]{64}$
+                          type: string
+                        rollbackOf:
+                          pattern: ^sha256:[a-f0-9]{64}$
+                          type: string
+                        sequence:
+                          format: int64
+                          minimum: 1
+                          type: integer
+                      required:
+                      - acceptedAt
+                      - identity
+                      - sequence
+                      type: object
+                    maxItems: 16
+                    type: array
+                    x-kubernetes-list-type: atomic
                   keyID:
                     maxLength: 128
                     minLength: 1
                     type: string
+                  previousCache:
+                    description: FleetPlanReference binds an immutable envelope to
+                      its acknowledged acceptance.
+                    properties:
+                      acceptedAt:
+                        format: date-time
+                        type: string
+                      identity:
+                        pattern: ^sha256:[a-f0-9]{64}$
+                        type: string
+                      name:
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                      sequence:
+                        format: int64
+                        minimum: 1
+                        type: integer
+                      uid:
+                        maxLength: 128
+                        minLength: 1
+                        type: string
+                    required:
+                    - acceptedAt
+                    - identity
+                    - name
+                    - sequence
+                    - uid
+                    type: object
                   previousIdentity:
                     description: |-
-                      PreviousIdentity retains a reference for future reviewed rollback; it
-                      does not authorize executing a rollback in this implementation.
+                      PreviousIdentity is evidence only; rollback also requires a retained,
+                      independently reverified envelope and a new monotonic signed plan.
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
+                  rollbackReference:
+                    description: FleetPlanReference binds an immutable envelope to
+                      its acknowledged acceptance.
+                    properties:
+                      acceptedAt:
+                        format: date-time
+                        type: string
+                      identity:
+                        pattern: ^sha256:[a-f0-9]{64}$
+                        type: string
+                      name:
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                      sequence:
+                        format: int64
+                        minimum: 1
+                        type: integer
+                      uid:
+                        maxLength: 128
+                        minLength: 1
+                        type: string
+                    required:
+                    - acceptedAt
+                    - identity
+                    - name
+                    - sequence
+                    - uid
+                    type: object
                   sequence:
                     format: int64
                     minimum: 1
@@ -269,6 +385,12 @@ spec:
                   tenantUID:
                     maxLength: 128
                     minLength: 1
+                    type: string
+                  verifiedAt:
+                    description: |-
+                      VerifiedAt detects wall-clock regression across restarts. Expired is
+                      sticky for this identity; moving the clock back cannot revive it.
+                    format: date-time
                     type: string
                 required:
                 - expiresAt

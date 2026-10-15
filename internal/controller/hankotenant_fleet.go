@@ -56,15 +56,25 @@ func (r *HankoTenantReconciler) applyFleetPlan(ctx context.Context, tenant *api.
 	if err := fleetplan.LocalOverride([]byte(trust.Data["rollout.json"]), target); err != nil {
 		return "", nil, "", err
 	}
-	envelope, err := hubClient.FetchFleetPlan(ctx)
+	envelope, disconnected, err := r.fleetEnvelope(ctx, tenant, hubClient)
 	if err != nil {
-		return "", nil, "", fleetplan.Refusal("FleetPlanFetchFailed")
+		return "", nil, "", err
 	}
 	checkpoint, err := fleetCheckpoint(tenant)
 	if err != nil {
 		return "", nil, "", err
 	}
 	verified, err := fleetplan.Verify(envelope, []byte(trust.Data["trust.json"]), target, time.Now(), checkpoint)
+	if err != nil {
+		return "", nil, "", err
+	}
+	if disconnected && (tenant.Status.FleetPlan.Cache.Identity != verified.Identity() || tenant.Status.FleetPlan.Identity != verified.Identity() || tenant.Status.FleetPlan.Cache.Sequence != verified.Plan().Sequence) {
+		return "", nil, "", fleetplan.Refusal("FleetCacheInvalid")
+	}
+	if err := fleetRecoveryTime(tenant, verified.Identity()); err != nil {
+		return "", nil, "", err
+	}
+	rollbackRef, err := r.fleetRollbackReference(ctx, tenant, verified, []byte(trust.Data["trust.json"]))
 	if err != nil {
 		return "", nil, "", err
 	}
@@ -97,11 +107,18 @@ func (r *HankoTenantReconciler) applyFleetPlan(ctx context.Context, tenant *api.
 		}
 		return "", nil, "", evaluationErr
 	}
+	cacheRef, err := r.retainFleetPlan(ctx, tenant, verified, envelope, []byte(trust.Data["trust.json"]))
+	if err != nil {
+		return "", nil, "", err
+	}
+	if err := guard(); err != nil {
+		return "", nil, "", err
+	}
 	selected := rollout.Content()
 	bundle = &hub.Bundle{Version: bundle.Version, TenantID: tenantID, IAMProfiles: selected.IAMProfiles, Realms: selected.Realms, Apps: selected.Apps, Themes: selected.Themes, ServiceAccounts: selected.ServiceAccounts}
 	previousDecision := tenant.Status.FleetRollout
 	delivered := verified.Current() || (checkpoint.Sequence == plan.Sequence && checkpoint.Identity == verified.Identity() && previousDecision != nil && previousDecision.Identity == decision.Identity && previousDecision.SelectionHash == decision.SelectionHash && previousDecision.Pending == 0 && (previousDecision.State == "Applied" || previousDecision.State == "Partial"))
-	if !delivered {
+	if !delivered || tenant.Status.FleetPlan.Cache == nil {
 		patch := fleetStatusPatch(tenant)
 		if checkpoint.Sequence != plan.Sequence || checkpoint.Identity != verified.Identity() {
 			previous, applied := "", ""
@@ -109,8 +126,21 @@ func (r *HankoTenantReconciler) applyFleetPlan(ctx context.Context, tenant *api.
 				previous = tenant.Status.FleetPlan.Identity
 				applied = tenant.Status.FleetPlan.AppliedIdentity
 			}
-			tenant.Status.FleetPlan = &api.FleetPlanStatus{Sequence: plan.Sequence, Identity: verified.Identity(), PreviousIdentity: previous, AppliedIdentity: applied, KeyID: plan.KeyID, TenantUID: string(tenant.UID), ExpiresAt: metav1.NewTime(plan.ExpiresAt)}
+			var previousCache *api.FleetPlanReference
+			var journal []api.FleetPlanTransition
+			if tenant.Status.FleetPlan != nil {
+				previousCache = tenant.Status.FleetPlan.Cache.DeepCopy()
+				journal = append(journal, tenant.Status.FleetPlan.Journal...)
+			}
+			journal = append(journal, api.FleetPlanTransition{Sequence: plan.Sequence, Identity: verified.Identity(), RollbackOf: plan.RollbackOf, AcceptedAt: cacheRef.AcceptedAt})
+			if len(journal) > 16 {
+				journal = journal[len(journal)-16:]
+			}
+			tenant.Status.FleetPlan = &api.FleetPlanStatus{Sequence: plan.Sequence, Identity: verified.Identity(), PreviousIdentity: previous, AppliedIdentity: applied, KeyID: plan.KeyID, TenantUID: string(tenant.UID), ExpiresAt: metav1.NewTime(plan.ExpiresAt), Cache: cacheRef, PreviousCache: previousCache, RollbackReference: rollbackRef, Journal: journal}
 		}
+		tenant.Status.FleetPlan.Cache = cacheRef
+		verifiedAt := metav1.Now()
+		tenant.Status.FleetPlan.VerifiedAt = &verifiedAt
 		tenant.Status.FleetRollout = decision
 		if err := r.Status().Patch(ctx, tenant, patch); err != nil {
 			return "", nil, "", fmt.Errorf("%w: %w", errFleetCheckpointWrite, err)
@@ -150,10 +180,16 @@ func (r *HankoTenantReconciler) applyFleetPlan(ctx context.Context, tenant *api.
 	} else {
 		tenant.Status.FleetPlan.AppliedIdentity = verified.Identity()
 	}
+	verifiedAt := metav1.Now()
+	tenant.Status.FleetPlan.VerifiedAt = &verifiedAt
 	tenant.Status.FleetRollout = decision
 	if err := r.Status().Patch(ctx, tenant, patch); err != nil {
 		return "", nil, "", fmt.Errorf("%w: %w", errFleetCheckpointWrite, err)
 	}
+	if disconnected {
+		reason = "FleetPlanDisconnected"
+	}
+	r.pruneFleetCaches(ctx, tenant)
 	return bundle.Version, fleetContentCounts(selected), reason, nil
 }
 
@@ -169,6 +205,9 @@ func (r *HankoTenantReconciler) fleetAuthorityCurrent(ctx context.Context, expec
 	if live.UID != expected.UID || live.Generation != expected.Generation || !live.DeletionTimestamp.IsZero() ||
 		!reflect.DeepEqual(live.Spec, expected.Spec) || !reflect.DeepEqual(live.Status.FleetPlan, expected.Status.FleetPlan) {
 		return fleetplan.Refusal("FleetAuthorityChanged")
+	}
+	if err := fleetRecoveryTime(live, identity); err != nil {
+		return err
 	}
 	current := &corev1.ConfigMap{}
 	if err := r.tenantReader().Get(ctx, client.ObjectKeyFromObject(trust), current); err != nil || current.UID != trust.UID || !current.DeletionTimestamp.IsZero() {

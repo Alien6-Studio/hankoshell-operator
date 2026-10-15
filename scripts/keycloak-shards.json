@@ -1,6 +1,7 @@
 {
   "core": [
     "TestKeycloakFixtureRedactsAndDetectsCredentials",
+    "TestRealKeycloakFleetDisconnectedAuthority",
     "TestRealKeycloakIAMContract",
     "TestRealKeycloakManagedTransport",
     "TestRealKeycloakTenantRouting"

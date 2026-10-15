@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -30,11 +31,12 @@ import (
 
 type fleetFaultClient struct {
 	client.Client
-	fail        string
-	after       bool
-	writes      int
-	applies     int
-	failApplyAt int
+	fail         string
+	after        bool
+	writes       int
+	applies      int
+	failApplyAt  int
+	cacheFailure string
 }
 
 func (c *fleetFaultClient) Status() client.SubResourceWriter {
@@ -74,8 +76,18 @@ func (c *fleetFaultClient) Create(ctx context.Context, obj client.Object, opts .
 	if len(options.DryRun) == 0 && obj.GetUID() == "" {
 		obj.SetUID(types.UID("fixture-" + obj.GetName()))
 	}
+	cacheFault := c.cacheFailure
+	isCache := obj.GetLabels()[fleetCacheLabel] != "" && len(options.DryRun) == 0
+	if isCache && cacheFault == "before" {
+		c.cacheFailure = ""
+		return errors.New("fixture cache storage unavailable")
+	}
 	err := c.Client.Create(ctx, obj, opts...)
-	if err == nil && len(options.DryRun) == 0 {
+	if err == nil && isCache && cacheFault == "after" {
+		c.cacheFailure = ""
+		return errors.New("fixture cache acknowledgement lost")
+	}
+	if err == nil && len(options.DryRun) == 0 && obj.GetLabels()["hanko.sh/fleet-cache"] == "" {
 		c.writes++
 	}
 	return err
@@ -107,6 +119,9 @@ type fleetUnitFixture struct {
 	beforeResponse func()
 	nativeRoles    []string
 	nativeVersion  string
+	hubStatus      int
+	hubCalls       atomic.Int64
+	nativeWrites   atomic.Int64
 }
 
 func newFleetUnitFixture(t *testing.T) *fleetUnitFixture {
@@ -128,6 +143,11 @@ func newFleetUnitFixture(t *testing.T) *fleetUnitFixture {
 			case "/admin/serverinfo":
 				_ = json.NewEncoder(w).Encode(map[string]any{"systemInfo": map[string]string{"version": f.nativeVersion}})
 			case "/admin/realms/fleet-realm":
+				if req.Method != http.MethodGet {
+					f.nativeWrites.Add(1)
+					w.WriteHeader(http.StatusNoContent)
+					return
+				}
 				_, _ = w.Write([]byte(`{"id":"fixture-realm-id","realm":"fleet-realm"}`))
 			default:
 				w.WriteHeader(http.StatusForbidden)
@@ -140,6 +160,11 @@ func newFleetUnitFixture(t *testing.T) *fleetUnitFixture {
 		}
 		if req.URL.Path != "/api/v1/bundles/latest" || req.Header.Get("Accept") != "application/vnd.hanko.fleet-plan+json" {
 			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		f.hubCalls.Add(1)
+		if f.hubStatus != 0 {
+			w.WriteHeader(f.hubStatus)
 			return
 		}
 		if f.beforeResponse != nil {

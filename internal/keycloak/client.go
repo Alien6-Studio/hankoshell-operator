@@ -67,6 +67,7 @@ type Client struct {
 	mu             sync.Mutex
 	token          string
 	tokenExpiry    time.Time
+	mutationGuard  func(context.Context) error
 }
 
 // New creates a Client with explicit credentials. Equivalent to NewFromEnv but

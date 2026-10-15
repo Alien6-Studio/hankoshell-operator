@@ -28,7 +28,7 @@ def events(result="pass", test="TestProtection", extra=None):
 
 class MutationRunnerTests(unittest.TestCase):
     def test_all_reviewed_anchors_are_unique_and_commands_select_real_tests(self):
-        required = {"fleet-native-permission", "fleet-atomic-refusal", "fleet-local-pause", "fleet-provider-version-scope", "fleet-provider-client-binding", "fleet-signature", "fleet-target", "fleet-sequence", "fleet-sticky-signature-mode", "hub-hmac", "image-sha256", "image-keyless-identity", "tls-peer-verification", "tls-minimum",
+        required = {"fleet-provider-mutation-guard", "fleet-cache-uid", "fleet-rollback-content", "fleet-sticky-expiry", "fleet-expiry", "fleet-native-permission", "fleet-atomic-refusal", "fleet-local-pause", "fleet-provider-version-scope", "fleet-provider-client-binding", "fleet-signature", "fleet-target", "fleet-sequence", "fleet-sticky-signature-mode", "hub-hmac", "image-sha256", "image-keyless-identity", "tls-peer-verification", "tls-minimum",
                     "keycloak-redirect", "unowned-realm-deletion", "unowned-client-role-deletion",
                     "bundle-tenant-namespace", "bundle-live-tenant-ownership", "bundle-forced-ownership",
                     "bundle-write-version-precondition", "secret-cache-exclusion",

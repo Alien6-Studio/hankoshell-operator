@@ -107,7 +107,7 @@ func TestFleetPlanRejectsUnqualifiedAuthorityAndFreshness(t *testing.T) {
 		{"expired", "FleetPlanExpired", func(f *fixture) { f.now = f.plan.ExpiresAt }},
 		{"mode", "FleetCapabilitiesUnsupported", func(f *fixture) { f.plan.Mode = "unknown" }},
 		{"capability", "FleetCapabilitiesUnsupported", func(f *fixture) { f.plan.Requirements = []string{"invalid/requirement"} }},
-		{"rollback", "FleetRollbackUnsupported", func(f *fixture) { f.plan.RollbackOf = "sha256:" + strings.Repeat("c", 64) }},
+		{"rollback", "FleetRollbackReferenceInvalid", func(f *fixture) { f.plan.RollbackOf = "unverified" }},
 		{"duplicate-key", "FleetTrustInvalid", func(f *fixture) { f.trust.Keys = append(f.trust.Keys, f.trust.Keys[0]) }},
 		{"bad-key", "FleetTrustInvalid", func(f *fixture) { f.trust.Keys[0].PublicKey = "invalid" }},
 		{"oversize-key", "FleetTrustInvalid", func(f *fixture) { f.trust.Keys[0].PublicKey = strings.Repeat("a", 100) }},

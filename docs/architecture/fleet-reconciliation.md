@@ -1,11 +1,11 @@
 # Signed fleet desired state
 
-This is the operator-side contract for #76–#78 and ADR-049. It does not implement
+This is the operator-side contract for #76–#79 and ADR-049. It does not implement
 Hub signing/distribution or qualify enterprise fleet operation. Keycloak retains
 all native extensions. #75 remains the provider-portability evidence boundary;
 this protocol binds a contract/source identity without inventing second-provider
-conformance. #79/#80 own disconnected provider authority, rollback and the
-installed fleet matrix.
+conformance. Disconnected provider authority and referenced rollback are implemented;
+#80 retains the installed fleet matrix and exact-image qualification.
 
 ## Threat model and mechanism decision
 
@@ -65,7 +65,7 @@ The signed payload binds:
 | requirements, mode | Global capability requirements are hard stop conditions for the target. `all-or-refuse` refuses every object if one is incompatible; explicit `partial` selects compatible objects and refuses their incompatible dependencies. Both modes preserve all cryptographic, metadata and tenant guards. |
 | minimumOperatorVersion | Optional semantic minimum, including prerelease ordering. A development binary does not satisfy the corresponding stable minimum. |
 | objectRequirements | Up to 200 unique exact kind/name references to objects in content, each with up to 32 additional bounded capability identifiers. These add requirements; they cannot remove capabilities derived from actual specs. |
-| rollbackOf | Future reference to previously verified content. Currently refused; retaining a previous identity is not permission to roll back. |
+| rollbackOf | Optional SHA-256 identity of retained previously accepted content. Requires a new higher-sequence signature and exact historical content, source and capability policy; a bare identity grants no authority. |
 | content | Finite arrays of IAMProfile, Realm, Application, Theme and ServiceAccount declarations, at most 200 objects, each at most 64 KiB. |
 
 Each object explicitly declares its API version, expected kind, name, target
@@ -153,7 +153,7 @@ invariants are exercised in the [pure verifier tests](../../internal/fleetplan/v
 | FleetPlanNotYetValid | Issuance/start exceeds allowed future skew. |
 | FleetPlanExpired | Current time is at or after signed expiry. |
 | FleetCapabilitiesUnsupported | Invalid requirement/reference bounds or mode other than all-or-refuse/partial. |
-| FleetRollbackUnsupported | A rollback reference is supplied before rollback execution is supported. |
+| FleetRollbackReferenceInvalid | Invalid, unretained or mismatched rollback reference/content/policy. |
 | FleetContentInvalid | Closed object/typed schema, size/count or API dry-run validation fails. |
 | FleetContentAuthorityInvalid | A reserved approval/ownership annotation or label is supplied. |
 | FleetCheckpointInvalid | Malformed persisted sequence/identity or checkpoint tenant UID differs. |
@@ -161,7 +161,10 @@ invariants are exercised in the [pure verifier tests](../../internal/fleetplan/v
 | FleetSequenceConflict | Same sequence identifies different signed bytes. |
 | FleetAuthorityChanged | Current tenant UID/generation/spec/checkpoint differs from the accepted observation; retry a fresh reconcile without overwriting that newer intent's condition. |
 | FleetLegacyDowngrade | Signed checkpoint exists but the local signed-mode setting was removed. |
-| FleetPlanFetchFailed | Exact HTTPS transport, response status/read or bounded-body contract fails. |
+| FleetPlanFetchFailed | Exact HTTPS endpoint, authentication/refusal, response/read contract fails, or Hub is unavailable without a retained plan. |
+| FleetPlanDisconnected | Hub unavailable; the retained plan remains verified and usable until expiry. Local phase/health are Error/degraded, not Synced. |
+| FleetCacheInvalid / FleetCacheWriteFailed / FleetCacheTooLarge | Missing/replaced/tampered retained envelope, unacknowledged storage or envelope above the 900 KiB storage budget. |
+| FleetClockRegression | Wall clock is more than 30 seconds behind the durable verified time. |
 
 Existing bundle tenant/object/metadata conflicts retain their distinct reasons.
 Public messages contain authored decisions, never remote payloads. Heartbeats
@@ -254,16 +257,17 @@ unique target profiles are allowed, and only the two qualified versions are
 accepted. Unmatched profiles grant no version assertion.
 The independent ConfigMap admission policy protects this key along with publisher
 trust. Hub cannot override it. Pause/refuse is checked before fetching a plan and
-again through uncached authority checks before conditional content writes, including
-a change after checkpoint acceptance. Status remains visible and credential
-maintenance/heartbeats can continue. Remove the pause through the same local
+again through uncached authority checks before conditional content writes and
+every native provider mutation, including a change after checkpoint acceptance.
+Status remains visible; pause prevents fetching a new plan. Remove the pause through the same local
 approval path; it never clears the accepted sequence.
 
 A provider-role observation is valid only until its token expiry; subsequent
 content guards refuse expired evidence. Native authorization remains authoritative
-at actual child-controller writes. Local pause stops new Fleet delivery, while
-previously delivered child declarations retain their own reconciliation authority.
-Stopping those provider mutations on plan expiry/offline restart remains #79.
+at actual child-controller writes. A tenant-specific client guard revalidates
+local authority immediately before each mutating Admin API request; local pause,
+revocation, altered intent/cache and expiry also fence in-flight connections.
+Token acquisition and reads remain available for diagnostics; they grant no writes.
 Trust/intent checks cannot form a distributed transaction: a change after the last
 read can leave an already applied prefix, and revocation does not undo effects.
 
@@ -275,20 +279,74 @@ FleetDependencyRefused, FleetPermissionEvidenceExpired and
 FleetRolloutPolicyInvalid/Paused/Refused. Findings distinguish incompatible
 capabilities, missing permissions, unavailable inventory and refused dependencies.
 
-## Disconnected and rollout design boundary
+## Disconnected recovery and referenced rollback
 
-The target #79 contract retains independently verified content for recovery,
-revalidates current local trust and time without Hub, continues authorized
-reconciliation only until expiry, then stops provider mutations and reports
-Degraded. Reconnect refuses older/conflicting plans and accepts only newer valid
-ones or a verified current identity. A controlled rollback must be a newly signed
-higher-sequence plan referencing retained, verified prior content and current
-scope; it is a forward desired-state change, not database/provider rollback.
+An accepted plan is retained BEFORE its status checkpoint in a same-namespace,
+immutable ConfigMap. Status binds its name, UID, signed identity, sequence and
+acceptance time. Each read checks exact controller ownership/tenant labels,
+immutability, bounded single-key content and current UID, then independently
+verifies the signature, target, source, time, current local trust and high-water
+mark. ConfigMap content is untrusted input, not execution authority. Plans up to
+900 KiB can be retained (the wire envelope ceiling remains 1 MiB); larger plans
+fail before acceptance or desired-state writes. Never place credentials in plans.
 
-Those offline retention/provider-expiry gates and rollback execution are not
-implemented by the current verifier. Existing child reconcilers may continue
-reconciling previously written declarations after Hub loss or plan expiry; do not
-advertise offline fleet authorization until #79 qualifies that behavior. The
-installed tamper/replay/expiry/reconnect matrix and artifact leak
-inspection remain #80. No production release or network enforcement follows from
-this contract.
+Only transport unavailability or HTTP 502/503/504 permits falling back to that
+EXACT accepted plan. Authentication errors, redirects, malformed/oversized bodies,
+wrong-target signatures and stale/conflicting returned plans are refused without
+using them as cache replacements. A valid same identity resumes/reports current;
+a newer valid sequence is checkpointed before conditional delivery. There is no
+forced ownership over local or foreign fields. Local edits retain their existing
+child-controller authority during valid offline operation; field conflicts on
+reconnect remain refusals. Rollback does not prune omitted objects.
+
+Registration of the tenant's Keycloak route happens before any Hub request,
+including on restart. A separately guarded client prevents one tenant's pause or
+expiry from affecting the installation client or another tenant. Missing named
+registrations keep the distinct TenantClientUnavailable reason and never fall
+back to the installation client. The guard reads current tenant/trust/cache from
+the uncached API before EVERY administrative mutation, including deletions and a
+second write in a running reconcile. It blocks absent authority, altered tenant
+intent, revoked keys, local stop controls and strict expiry. Reads and native
+token acquisition may still run; native Keycloak permissions remain authoritative.
+A request already dispatched before a local change cannot be recalled.
+
+Hub loss reports Error/degraded with FleetPlanDisconnected; it never updates
+LastSync or claims a live heartbeat. No mesh fetch, decommission or self-update
+is attempted on the offline path. A missing/expired Hub credential can use an
+already established exact tenant/cluster checkpoint locally; it never enrolls a
+replacement identity or rotates provider credentials offline. Restoring Hub
+credentials remains an administrator action. Invalid or mismatched identities
+are refused. With no accepted cache, first enrollment cannot proceed offline.
+
+The durable verified time rejects backward clock jumps beyond the 30-second
+skew. Once observed expired, that identity stays expired even if the wall clock
+moves back; only a newly signed higher sequence with fresh validity can renew
+authority. Availability depends on the local Kubernetes API, current local trust
+and the reachable provider; Hub HA is outside this contract.
+
+For rollback, the publisher signs a NEW higher-sequence plan with fresh validity
+and rollbackOf pointing at the retained previous envelope. Historical verification
+checks that envelope at its acknowledged acceptance time and also checks its key
+against CURRENT local trust/time. Candidate content, source, target, contract,
+mode and capability requirements must exactly equal the reference. Unretained or
+revoked references fail closed. The durable journal records the last sixteen
+accepted sequence/identity/time/rollback-reference transitions; replay does not
+append a transition. This is forward desired-state reconciliation, with no
+provider database rollback and no deletion of foreign or omitted objects.
+
+Current, previous and active rollback-reference caches are retained. After an
+acknowledged transition, best-effort garbage collection uses exact ownership and
+UID/resourceVersion preconditions, and considers only obsolete identities from
+the bounded accepted journal. Unacknowledged orphan caches are never trusted or
+overwritten; administrative cleanup may be needed after prolonged API failures.
+Status/cache write failures never substitute an error patch for acknowledgement.
+
+Unit tests cover cache corruption, stale/wrong-tenant/conflicting reconnect,
+rollback verification, clock regression, sticky expiry and mid-reconcile writes.
+Real API tests cover immutable/replaced cache UIDs, restart, pause, expiry after
+checkpoint and rollback preserving foreign/omitted objects on all three supported
+Kubernetes versions. A separate native HTTPS Keycloak fixture stops the actual
+Hub listener and reconstructs the controller; this does not replace installed
+image/chart evidence. The six-cell installed tamper/replay/expiry/reconnect matrix
+and artifact leak inspection remain #80. No production release or network
+enforcement follows from this contract.

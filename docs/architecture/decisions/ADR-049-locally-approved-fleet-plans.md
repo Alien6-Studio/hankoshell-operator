@@ -17,7 +17,7 @@ versioned closed JSON and administrator-approved public keys in a protected
 ConfigMap. No bearer-derived signing key, remote key discovery, algorithm
 negotiation or online verification service is accepted. The
 [fleet contract](../fleet-reconciliation.md) compares mechanisms and defines all
-bindings, refusal reasons, rotation, replay and future disconnected behavior.
+bindings, refusal reasons, rotation, replay and disconnected behavior.
 
 The operator deployment selects the trust ConfigMap. The tenant and Hub cannot
 choose a replacement trust root. Persist the verified sequence and payload
@@ -38,16 +38,21 @@ Current execution derives capability requirements from the finite bundle kinds,
 checks qualified provider/native permission evidence and honours independent local
 pause/refuse controls. Partial selection is explicit and retains every signature,
 tenant and field-ownership guard. Theme builds and realm creation are outside the
-current conservative rollout profile. Provider portability, offline provider
-expiry, controlled rollback and installed fleet qualification remain #75 and
-#79/#80. Accepting this verification contract does not qualify those behaviors or
-enable production publication.
+current conservative rollout profile. Retain immutable signed envelopes, recover
+without Hub and reverify local authority immediately before each native mutation.
+Strict/sticky expiry and clock regression fence disconnected writes. Rollback is
+a new monotonic signed plan bound to reverified historical content and journaled
+locally; it never prunes provider objects. Provider portability and installed
+fleet qualification remain #75/#80. This does not enable production publication.
 
 ## Enforcement
 
 - [Pure verifier](../../../internal/fleetplan/verify.go) and
   [cryptographic/negative tests](../../../internal/fleetplan/verify_test.go).
 - [Tenant checkpoint and conditional apply](../../../internal/controller/hankotenant_fleet.go).
+- [Offline retention and provider guard](../../../internal/controller/hankotenant_recovery.go),
+  [reference verification](../../../internal/fleetplan/recovery.go) and
+  [API recovery tests](../../../api/v1alpha1/fleet_recovery_integration_test.go).
 - [Bounded HTTPS transport](../../../internal/hub/fleet.go).
 - [API checkpoint schema](../../../api/v1alpha1/hankotenant_types.go).
 - [Capability selection](../../../internal/fleetplan/rollout.go),

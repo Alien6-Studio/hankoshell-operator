@@ -238,8 +238,8 @@ func validatePlan(p Plan, target Target, now time.Time) error {
 	if err := validateContent(p.Content, p.Target); err != nil {
 		return err
 	}
-	if p.RollbackOf != "" {
-		return Refusal("FleetRollbackUnsupported")
+	if p.RollbackOf != "" && !iamcontract.ValidDigest(p.RollbackOf) {
+		return Refusal("FleetRollbackReferenceInvalid")
 	}
 	return validateRollout(p)
 }

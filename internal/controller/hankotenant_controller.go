@@ -171,9 +171,14 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return r.setError(ctx, nil, &tenant, patch, reason, err)
 	}
 
+	signed := r.fleetEnabled(&tenant)
+
 	// ── Read Hub credential (self-enroll only when the Secret is absent) ───────
 	credentials, err := r.readHubCredentials(ctx, tenant.Namespace, tenant.Spec.HubTokenSecretRef.Name)
 	if apierrors.IsNotFound(err) {
+		if signed && tenant.Status.FleetPlan != nil {
+			return r.reconcileFleetDisconnected(ctx, &tenant)
+		}
 		if tenant.Status.ClusterID != "" {
 			return r.setError(ctx, nil, &tenant, patch, "HubIdentityRecoveryRequired",
 				fmt.Errorf("hub credential Secret %q is missing for registered cluster %q; recover credentials for this identity instead of enrolling again", tenant.Spec.HubTokenSecretRef.Name, tenant.Status.ClusterID))
@@ -198,7 +203,7 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// The tenant ID is either declared in the spec or learned at enrollment
 	// and persisted next to the short-lived token.
 	if r.HubTransportPolicy != nil && (credentials.ClusterID == "" || credentials.TenantID == "" ||
-		credentials.ExpiresAt.IsZero() || !credentials.ExpiresAt.After(now.Time)) {
+		credentials.ExpiresAt.IsZero() || (!credentials.ExpiresAt.After(now.Time) && (!signed || tenant.Status.FleetPlan == nil))) {
 		return r.setError(ctx, nil, &tenant, patch, "EnterpriseCredentialInvalid",
 			fmt.Errorf("enterprise Hub credentials require an identified tenant and cluster and a future expiration"))
 	}
@@ -231,8 +236,14 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		patch = client.MergeFrom(tenant.DeepCopy())
 	}
 
+	if signed && tenant.Status.FleetPlan != nil && !credentials.ExpiresAt.IsZero() && !credentials.ExpiresAt.After(now.Time) {
+		return r.reconcileFleetDisconnected(ctx, &tenant)
+	}
 	credentials, err = r.ensureHubCredential(ctx, &tenant, credentials, tenantID)
 	if err != nil {
+		if signed && tenant.Status.FleetPlan != nil {
+			return r.reconcileFleetDisconnected(ctx, &tenant)
+		}
 		return r.setError(ctx, nil, &tenant, patch, "HubCredentialRotationFailed", err)
 	}
 	// Legacy credentials may only acquire their bounded ID during rotation.
@@ -246,7 +257,6 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	var counts map[string]int
 	var bundleVersion string
 	appliedReason := "BundleApplied"
-	signed := r.FleetTrustConfigMapName != "" || tenant.Status.FleetPlan != nil
 	if signed {
 		bundleVersion, counts, appliedReason, err = r.applyFleetPlan(ctx, &tenant, hubClient, tenantID, credentials.ClusterID)
 		if errors.Is(err, errFleetCheckpointWrite) {
@@ -259,8 +269,14 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			if fleetplan.Reason(err) == "FleetAuthorityChanged" {
 				return ctrl.Result{}, err
 			}
+			if fleetplan.Reason(err) == "FleetPlanExpired" && fleetAcceptedExpired(&tenant) {
+				tenant.Status.FleetPlan.Expired = true
+			}
 			fleetRolloutRefusal(&tenant, fleetplan.Reason(err))
 			return r.setError(ctx, hubClient, &tenant, patch, fleetplan.Reason(err), err)
+		}
+		if appliedReason == "FleetPlanDisconnected" {
+			return r.fleetDisconnectedStatus(ctx, &tenant, nil)
 		}
 	} else {
 		sb, fetchErr := hubClient.FetchBundle(ctx)
@@ -868,7 +884,11 @@ func (r *HankoTenantReconciler) registerTenantKeycloak(ctx context.Context, tena
 	}()
 	switch tenant.Spec.IsolationMode {
 	case "", "realm":
-		r.Pool.RegisterShared(tenantKey)
+		if r.fleetEnabled(tenant) {
+			r.Pool.Register(tenantKey, r.guardedFleetClient(tenant, r.Pool.Get("")))
+		} else {
+			r.Pool.RegisterShared(tenantKey)
+		}
 		return "", nil
 	case "keycloak", "cluster":
 	default:
@@ -899,6 +919,9 @@ func (r *HankoTenantReconciler) registerTenantKeycloak(ctx context.Context, tena
 		if err := kc.RequireHTTPS(); err != nil {
 			return "EnterpriseKeycloakHTTPSRequired", err
 		}
+	}
+	if r.fleetEnabled(tenant) {
+		kc = r.guardedFleetClient(tenant, kc)
 	}
 	r.Pool.Register(tenantKey, kc)
 	log.FromContext(ctx).Info("registered dedicated Keycloak client", "tenantKey", tenantKey)
@@ -981,4 +1004,13 @@ func (r *HankoTenantReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoTenant{}).
 		Complete(r)
+}
+
+func (r *HankoTenantReconciler) fleetEnabled(tenant *hankoshv1alpha1.HankoTenant) bool {
+	return r.FleetTrustConfigMapName != "" || tenant.Status.FleetPlan != nil
+}
+
+func (r *HankoTenantReconciler) guardedFleetClient(tenant *hankoshv1alpha1.HankoTenant, kc *keycloak.Client) *keycloak.Client {
+	registered := tenant.DeepCopy()
+	return kc.WithMutationGuard(func(ctx context.Context) error { return r.fleetProviderAuthority(ctx, registered) })
 }

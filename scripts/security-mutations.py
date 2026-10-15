@@ -31,6 +31,22 @@ def mutation(name, file, before, after, package, test):
 
 
 MUTATIONS = [
+    mutation("fleet-provider-mutation-guard", "internal/keycloak/permissions.go",
+             "if err := c.authorizeMutation(req); err != nil {",
+             "if err := c.authorizeMutation(req); false && err != nil {",
+             "internal/keycloak", "TestMutationGuardRunsBeforeEveryProviderWrite"),
+    mutation("fleet-cache-uid", "internal/controller/hankotenant_recovery.go",
+             "string(cm.UID) != ref.UID", "false && string(cm.UID) != ref.UID",
+             "internal/controller", "TestFleetProviderAuthorityFailsClosed"),
+    mutation("fleet-rollback-content", "internal/fleetplan/recovery.go",
+             "!reflect.DeepEqual(p.Content, old.Content)", "false && !reflect.DeepEqual(p.Content, old.Content)",
+             "internal/fleetplan", "TestFleetReferencedRollback"),
+    mutation("fleet-sticky-expiry", "internal/fleetplan/recovery.go",
+             "if expired {", "if false && expired {",
+             "internal/fleetplan", "TestFleetRecoveryClockAndStickyExpiry"),
+    mutation("fleet-expiry", "internal/fleetplan/verify.go",
+             "if !now.Before(p.ExpiresAt) {", "if false && !now.Before(p.ExpiresAt) {",
+             "internal/fleetplan", "TestFleetPlanRejectsUnqualifiedAuthorityAndFreshness"),
     mutation("fleet-native-permission", "internal/fleetplan/rollout.go",
              "if !s.Permissions[r] {", "if false && !s.Permissions[r] {",
              "internal/fleetplan", "TestFleetRolloutCapabilityPermissionAndMode"),

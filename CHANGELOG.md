@@ -3,6 +3,19 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Disconnected Fleet authority and referenced rollback
+
+- Persist immutable signed envelopes before acceptance, recover the exact plan
+  after restart/Hub loss, and recheck current local trust, target and time before
+  every native tenant-provider mutation. Local pause/revocation, altered cache,
+  strict expiry and backward clock jumps fail closed without shared-client fallback.
+- Accept rollback only as a fresh higher-sequence signed plan bound to retained,
+  reverified historical content/source/policy. Journal bounded transitions; never
+  prune foreign or omitted desired-state/provider objects.
+- Add API recovery/expiry/rollback cases and real HTTPS Keycloak tests with an
+  actually stopped Hub listener. Installed six-cell Fleet qualification remains
+  #80; this does not claim exact-image conformance or publish a release.
+
 ### Capability-aware Fleet delivery
 
 - Evaluate inferred and explicitly signed capabilities against qualified provider
@@ -14,9 +27,8 @@
   findings, acknowledged delivery counts and selection identity without promoting
   a partial plan to Synced or full applied identity.
 - Honour independent protected local pause/refuse controls before fetch and before
-  conditional writes, including races after checkpoint acceptance. Existing child
-  reconciliation, disconnected expiry and verified rollback remain #79; installed
-  Fleet qualification remains #80. No publication or protected merge is implied.
+  conditional writes, including races after checkpoint acceptance. Disconnected provider authority and referenced rollback are described above;
+  installed Fleet qualification remains #80. No publication or protected merge is implied.
 
 ### Locally approved signed fleet plans
 
@@ -29,8 +41,8 @@
   Preflight all content with typed decoding and Kubernetes dry-run before child
   writes, preserving existing tenant and field ownership protections.
 - Add real HTTPS Hub/API fixtures and a local trust admission policy. Signing
-  and distribution require a compatible Hub. Disconnected provider authorization,
-  controlled rollback and installed fleet qualification remain #79/#80;
+  and distribution require a compatible Hub. Disconnected provider authorization and referenced rollback are described
+  above; installed fleet qualification remains #80;
   no production fleet contract or release publication is implied.
 
 ### Managed lifecycle provider observation

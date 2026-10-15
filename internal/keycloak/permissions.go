@@ -123,6 +123,9 @@ func (c *Client) do(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := c.authorizeMutation(req); err != nil {
+		return nil, err
+	}
 	response, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
