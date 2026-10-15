@@ -3,6 +3,18 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Managed lifecycle provider observation
+
+- Bind managed instance readiness to the UID and generation of an owned,
+  fully ready Deployment observed through the uncached API before and after
+  the Admin API probe. Invalidate the binding while probing or on failure;
+  a rollout changed during the probe cannot inherit its successful result.
+- Recheck the current rollout and its provider binding at Upgrade/DBSwitch
+  validation, including after a persisted `WaitRollout` step. Refuse legacy
+  Ready status, replacement Deployments and newer rollouts until a fresh
+  bound probe succeeds. These controller/API guards do not qualify installed
+  managed upgrades, database transitions or production recovery.
+
 ### Installed configuration-only Clone recovery
 
 - Preserve exact tenant-label presence on operation children and bind an explicit

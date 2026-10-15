@@ -1057,6 +1057,29 @@ replicas, and current-generation Admin API observation. Clone validates the
 target alias, not the source. These observations are not an atomic transaction
 with Kubernetes or Keycloak and do not prove database consistency.
 
+For managed instances, `status.managedObservation` binds a successful Admin API
+probe to the Deployment UID and generation. The instance controller requires an
+owned, fully ready rollout with the desired image/database/replicas through the
+uncached Kubernetes reader before probing, then verifies the same rollout again
+before persisting Ready. It clears the previous binding while probing and on
+failure. A successful response from old Pods during an in-progress rollout is
+therefore insufficient. Operation validation reads the rollout again and requires
+the identical binding, even when `WaitRollout` was already checkpointed as Done.
+Replacement, changed or no-longer-ready Deployments require a new bound probe.
+This fences the observations; it does not attest endpoint routing or create an
+atomic snapshot of Kubernetes, networking, Keycloak and the database.
+
+**Managed-status migration and rollback:** apply the updated CRD before the
+operator. Existing managed Ready records without this binding cannot complete
+in-flight Upgrade/DBSwitch operations; allow the instance controller to observe a
+ready rollout and probe again. Do not write the binding manually or clear an
+operation checkpoint. Existing terminal operation records remain historical.
+An older operator does not enforce this binding, so suspend managed lifecycle
+operations before rollback and inspect any in-flight effects before resuming on
+an operator that enforces it. The real API and TLS regression tests for these
+guards do not qualify installed managed rollouts, provider version compatibility,
+database switching/migration or recovery; those #20 requirements remain open.
+
 Do not edit an in-flight specification to retarget or cancel it. A changed intent,
 recreated source or legacy in-flight status without identity checkpoints is
 refused. Inspect the source and children before creating a new operation; do not

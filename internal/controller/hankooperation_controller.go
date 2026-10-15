@@ -338,6 +338,17 @@ func (r *HankoOperationReconciler) advanceValidationStep(ctx context.Context, op
 	}
 	condition := meta.FindStatusCondition(instance.Status.Conditions, "AdminAPIReachable")
 	if instance.Status.Phase == "Ready" && condition != nil && condition.Status == metav1.ConditionTrue && condition.ObservedGeneration == instance.Generation && instance.Generation > 0 {
+		if instance.Spec.Mode == "managed" {
+			current, err := managedDeploymentObservation(ctx, r.operationReader(), instance)
+			if err != nil && !errors.Is(err, errManagedRolloutPending) {
+				return ctrl.Result{RequeueAfter: requeueOnError}, false, err
+			}
+			if current == nil || instance.Status.ManagedObservation == nil || *instance.Status.ManagedObservation != *current {
+				setStepStatus(step, "Running", "waiting for a provider observation bound to the current managed rollout", now)
+				operation.Status.Phase = "Validating"
+				return ctrl.Result{RequeueAfter: requeueOnError}, false, nil
+			}
+		}
 		setStepStatus(step, "Done", "instance is Ready", now)
 		return ctrl.Result{RequeueAfter: requeueOnError}, false, nil
 	}

@@ -52,6 +52,7 @@ var (
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;update;patch
 type HankoKeycloakInstanceReconciler struct {
 	client.Client
+	APIReader               client.Reader
 	Scheme                  *runtime.Scheme
 	ImageValidator          *imagevalidator.Validator
 	Recorder                events.EventRecorder
@@ -79,8 +80,13 @@ func (r *HankoKeycloakInstanceReconciler) Reconcile(ctx context.Context, req ctr
 	if result, handled, err := r.reconcileServiceAccountCredential(ctx, &instance, kc, patch); err != nil || handled {
 		return result, err
 	}
+	observation, err := managedDeploymentObservation(ctx, r.instanceReader(), &instance)
+	if err != nil {
+		return r.deferManagedObservation(ctx, &instance, patch, err)
+	}
 
 	instance.Status.Phase = "Probing"
+	instance.Status.ManagedObservation = nil
 	if err := r.Status().Patch(ctx, &instance, patch); err != nil {
 		log.FromContext(ctx).Error(err, "patch status to Probing")
 	}
@@ -97,11 +103,12 @@ func (r *HankoKeycloakInstanceReconciler) Reconcile(ctx context.Context, req ctr
 		}
 		return ctrl.Result{RequeueAfter: requeueOnError}, nil
 	}
-	return r.completeKeycloakInstance(ctx, &instance, kc, patch, version, len(realms))
+	return r.completeKeycloakInstance(ctx, &instance, kc, patch, version, len(realms), observation)
 }
 
 func (r *HankoKeycloakInstanceReconciler) setInstanceFailure(ctx context.Context, instance *hankoshv1alpha1.HankoKeycloakInstance, patch client.Patch, phase, reason, message, logMessage string) {
 	instance.Status.Phase = phase
+	instance.Status.ManagedObservation = nil
 	setCondition(&instance.Status.Conditions, "AdminAPIReachable", metav1.ConditionFalse, reason, message)
 	if err := r.Status().Patch(ctx, instance, patch); err != nil {
 		log.FromContext(ctx).Error(err, logMessage)
@@ -248,9 +255,17 @@ func (r *HankoKeycloakInstanceReconciler) ensureManagedInstancePolicies(ctx cont
 	return r.ensurePDB(ctx, instance)
 }
 
-func (r *HankoKeycloakInstanceReconciler) completeKeycloakInstance(ctx context.Context, instance *hankoshv1alpha1.HankoKeycloakInstance, kc *keycloak.Client, patch client.Patch, version string, realmCount int) (ctrl.Result, error) {
+func (r *HankoKeycloakInstanceReconciler) completeKeycloakInstance(ctx context.Context, instance *hankoshv1alpha1.HankoKeycloakInstance, kc *keycloak.Client, patch client.Patch, version string, realmCount int, observation *hankoshv1alpha1.ManagedDeploymentObservation) (ctrl.Result, error) {
+	current, err := managedDeploymentObservation(ctx, r.instanceReader(), instance)
+	if err != nil {
+		return r.deferManagedObservation(ctx, instance, patch, err)
+	}
+	if instance.Spec.Mode == "managed" && (observation == nil || current == nil || *observation != *current) {
+		return r.deferManagedObservation(ctx, instance, patch, errManagedRolloutPending)
+	}
 	now := metav1.Now()
 	instance.Status.Phase = "Ready"
+	instance.Status.ManagedObservation = current
 	instance.Status.KeycloakVersion = version
 	instance.Status.AdminAPIURL = kc.BaseURL()
 	instance.Status.RealmCount = realmCount
@@ -674,6 +689,9 @@ func (r *HankoKeycloakInstanceReconciler) ensurePDB(ctx context.Context, ki *han
 // .metadata.generation) from re-triggering an immediate reconcile — without
 // it, every reconcile's status write requeues itself in a tight loop.
 func (r *HankoKeycloakInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.APIReader == nil {
+		r.APIReader = mgr.GetAPIReader()
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoKeycloakInstance{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Owns(&appsv1.Deployment{}).

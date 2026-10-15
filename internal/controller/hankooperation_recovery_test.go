@@ -173,7 +173,8 @@ func TestOperationCompletionNeedsCurrentProviderObservation(t *testing.T) {
 	instance.Generation = 4
 	instance.Status.Phase = "Ready"
 	iamCondition(&instance.Status.Conditions, 3, "AdminAPIReachable", metav1.ConditionTrue, "ProbeSucceeded", "previous generation")
-	backend := controllerTestClient(controllerTestScheme(t), instance)
+	deployment := readyManagedTestDeployment(instance)
+	backend := controllerTestClient(controllerTestScheme(t), instance, deployment)
 	opReconciler := &HankoOperationReconciler{Client: backend}
 	step := &api.OperationStep{Name: "Validate", Status: "Pending"}
 	now := metav1.Now()
@@ -181,7 +182,11 @@ func TestOperationCompletionNeedsCurrentProviderObservation(t *testing.T) {
 		t.Fatal("old provider observation completed the operation")
 	}
 	instanceReconciler := &HankoKeycloakInstanceReconciler{Client: backend}
-	if _, err := instanceReconciler.completeKeycloakInstance(ctx, instance, keycloak.New("https://provider.invalid", "", ""), client.MergeFrom(instance.DeepCopy()), "26.8.0", 1); err != nil {
+	observation, err := managedDeploymentObservation(ctx, backend, instance)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := instanceReconciler.completeKeycloakInstance(ctx, instance, keycloak.New("https://provider.invalid", "", ""), client.MergeFrom(instance.DeepCopy()), "26.8.0", 1, observation); err != nil {
 		t.Fatal(err)
 	}
 	if err := backend.Get(ctx, client.ObjectKeyFromObject(instance), instance); err != nil {

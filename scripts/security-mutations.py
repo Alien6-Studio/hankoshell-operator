@@ -94,6 +94,13 @@ MUTATIONS = [
              "child.SetLabels(tenantScopeLabels(op))",
              'child.SetLabels(map[string]string{"hanko.sh/tenant": op.Labels["hanko.sh/tenant"]})',
              "internal/controller", "TestOperationSnapshotRetainsExactTenantScope"),
+    mutation("operation-managed-provider-binding", "internal/controller/hankooperation_controller.go",
+             'if instance.Spec.Mode == "managed" {', 'if false && instance.Spec.Mode == "managed" {',
+             "internal/controller", "TestOperationProviderObservationBindsManagedRollout"),
+    mutation("managed-probe-rollout-fence", "internal/controller/hankokeycloakinstance_controller.go",
+             'observation == nil || current == nil || *observation != *current',
+             'observation == nil || current == nil',
+             "internal/controller", "TestManagedProbeRequiresStableDeployment"),
 ]
 
 
