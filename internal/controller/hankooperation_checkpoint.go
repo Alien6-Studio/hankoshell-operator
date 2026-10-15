@@ -16,15 +16,17 @@ import (
 const operationIntentAnnotation = "hanko.sh/operation-intent"
 
 func operationIntentHash(op *api.HankoOperation) string {
+	tenant, present := op.Labels["hanko.sh/tenant"]
 	data, _ := json.Marshal(struct {
-		Spec   api.HankoOperationSpec
-		Tenant string
-	}{op.Spec, op.Labels["hanko.sh/tenant"]})
+		Spec             api.HankoOperationSpec
+		Tenant           string
+		EmptyTenantLabel bool `json:",omitempty"`
+	}{op.Spec, tenant, present && tenant == ""})
 	return string(iamcontract.Hash(iamcontract.Version, "operation", "intent", data))
 }
 
 func validateOperationSource(op *api.HankoOperation, instance *api.HankoKeycloakInstance) string {
-	if op.UID == "" || instance.UID == "" || !instance.DeletionTimestamp.IsZero() || op.Labels["hanko.sh/tenant"] != instance.Labels["hanko.sh/tenant"] {
+	if op.UID == "" || instance.UID == "" || !instance.DeletionTimestamp.IsZero() || !sameTenantScope(op, instance) {
 		return "operation requires a current instance in the same tenant"
 	}
 	switch op.Spec.Type {
@@ -93,7 +95,7 @@ func (r *HankoOperationReconciler) operationChild(ctx context.Context, op *api.H
 		controller := true
 		child.SetOwnerReferences([]metav1.OwnerReference{{APIVersion: api.GroupVersion.String(), Kind: "HankoOperation", Name: op.Name, UID: op.UID, Controller: &controller}})
 		child.SetAnnotations(map[string]string{operationIntentAnnotation: op.Status.IntentHash})
-		child.SetLabels(map[string]string{"hanko.sh/tenant": op.Labels["hanko.sh/tenant"]})
+		child.SetLabels(tenantScopeLabels(op))
 		if err := r.Create(ctx, child); err != nil {
 			return false, err
 		}
@@ -116,7 +118,7 @@ func operationChildMatches(op *api.HankoOperation, step *api.OperationStep, chil
 	if owner == nil || owner.UID != op.UID || owner.Name != op.Name || owner.Kind != "HankoOperation" || owner.APIVersion != api.GroupVersion.String() {
 		return false
 	}
-	if child.GetUID() == "" || !child.GetDeletionTimestamp().IsZero() || child.GetNamespace() != op.Namespace || child.GetLabels()["hanko.sh/tenant"] != op.Labels["hanko.sh/tenant"] || child.GetAnnotations()[operationIntentAnnotation] != op.Status.IntentHash {
+	if child.GetUID() == "" || !child.GetDeletionTimestamp().IsZero() || child.GetNamespace() != op.Namespace || !sameTenantScope(op, child) || child.GetAnnotations()[operationIntentAnnotation] != op.Status.IntentHash {
 		return false
 	}
 	if step.ChildUID == "" {

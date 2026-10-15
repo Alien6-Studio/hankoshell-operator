@@ -5,6 +5,9 @@
 <!-- release-notes:start -->
 ### Installed configuration-only Clone recovery
 
+- Preserve exact tenant-label presence on operation children and bind an explicit
+  empty label in lifecycle intent hashes. Composed controller/API tests prevent
+  standalone operation snapshots from being misclassified into an empty tenant.
 - Exercise a same-namespace external-source Clone alias with the exact scanned
   operator on Kubernetes 1.37.0 / HTTPS Keycloak 26.8.0. Use read-only provider
   identities and real ConfigMap-create RBAC denial, persist operation/snapshot

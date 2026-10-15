@@ -11,6 +11,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+func tenantScopeLabels(object client.Object) map[string]string {
+	if tenant, present := object.GetLabels()["hanko.sh/tenant"]; present {
+		return map[string]string{"hanko.sh/tenant": tenant}
+	}
+	return nil
+}
+
+func sameTenantScope(first, second client.Object) bool {
+	tenant, present := first.GetLabels()["hanko.sh/tenant"]
+	other, otherPresent := second.GetLabels()["hanko.sh/tenant"]
+	return present == otherPresent && tenant == other
+}
+
 // Tenant-labelled resources must wait for explicit routing even in Observe and
 // deletion paths. In particular, retain finalizers until the right provider can
 // be reached instead of treating an unavailable tenant as an absent remote object.

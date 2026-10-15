@@ -1063,6 +1063,14 @@ instance patches, imported resources or external effects. No automatic rollback,
 deadline or mutual exclusion between administrator-submitted operations is
 provided by this checkpoint contract.
 
+Operation children preserve both the value and presence of the parent's tenant
+label. Standalone operations leave the label absent; they do not synthesize an
+empty label on snapshots, aliases or imports. Checkpoints also distinguish an
+explicit empty tenant label from an absent one. Existing in-flight children made
+by an older operator with a synthetic empty label may fail exact-scope validation;
+inspect their status and effects before creating a new operation. The controller
+does not relabel or reacquire such children to force continuation.
+
 ## Installed system test
 
 Required CI installs the source chart and the exact scanned multi-architecture

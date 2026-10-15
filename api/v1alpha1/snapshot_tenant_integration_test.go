@@ -92,7 +92,50 @@ func checkSnapshotTenantCapture(t *testing.T, ctx context.Context, kube client.C
 			if stored.UID != capture.UID || stored.Data["snapshot.json"] != capture.Data["snapshot.json"] {
 				t.Fatal("restart replaced or rewrote the capture")
 			}
+			checkOperationSnapshotTenantScope(t, ctx, kube, source, scope)
 		})
+	}
+}
+
+func checkOperationSnapshotTenantScope(t *testing.T, ctx context.Context, kube client.Client, source *api.HankoKeycloakInstance, scope string) {
+	t.Helper()
+	op := &api.HankoOperation{ObjectMeta: snapshotTenantMetadata(source.Namespace, scope),
+		Spec: api.HankoOperationSpec{Type: api.OperationClone, InstanceRef: source.Name, Clone: &api.CloneSpec{TargetName: "alias-" + scope}}}
+	op.Name = "chain-" + scope
+	if err := kube.Create(ctx, op); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err := reconcileOperationAPI(ctx, kube, op); err != nil {
+			t.Fatal(err)
+		}
+	}
+	snapshot := &api.HankoSnapshot{}
+	if err := kube.Get(ctx, client.ObjectKey{Namespace: op.Namespace, Name: "op-" + op.Name + "-snap"}, snapshot); err != nil {
+		t.Fatal(err)
+	}
+	parentTenant, parentPresent := op.Labels["hanko.sh/tenant"]
+	childTenant, childPresent := snapshot.Labels["hanko.sh/tenant"]
+	if parentTenant != childTenant || parentPresent != childPresent {
+		t.Fatal("operation changed its child tenant-label identity")
+	}
+	if err := snapshotAPIReconcile(t, ctx, kube, snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if err := kube.Get(ctx, client.ObjectKeyFromObject(snapshot), snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Status.Phase != "Done" {
+		t.Fatalf("composed operation/snapshot capture failed: %+v", snapshot.Status)
+	}
+	if err := reconcileOperationAPI(ctx, kube, op); err != nil {
+		t.Fatal(err)
+	}
+	if err := kube.Get(ctx, client.ObjectKeyFromObject(op), op); err != nil {
+		t.Fatal(err)
+	}
+	if op.Status.Steps[0].Status != "Done" || op.Status.Steps[0].ChildUID != string(snapshot.UID) {
+		t.Fatal("operation lost its completed snapshot identity")
 	}
 }
 

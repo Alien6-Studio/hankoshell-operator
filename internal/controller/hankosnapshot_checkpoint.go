@@ -36,10 +36,12 @@ func snapshotHash(data []byte) string {
 }
 
 func snapshotIntentHash(snapshot *api.HankoSnapshot) string {
+	tenant, present := snapshot.Labels["hanko.sh/tenant"]
 	data, _ := json.Marshal(struct {
-		Spec   api.HankoSnapshotSpec
-		Tenant string
-	}{snapshot.Spec, snapshot.Labels["hanko.sh/tenant"]})
+		Spec             api.HankoSnapshotSpec
+		Tenant           string
+		EmptyTenantLabel bool `json:",omitempty"`
+	}{snapshot.Spec, tenant, present && tenant == ""})
 	return snapshotHash(data)
 }
 
@@ -119,9 +121,7 @@ func (r *HankoSnapshotReconciler) ensureSnapshotConfig(ctx context.Context, snap
 }
 
 func snapshotObjectInScope(snapshot *api.HankoSnapshot, object client.Object) bool {
-	tenant, present := snapshot.Labels["hanko.sh/tenant"]
-	objectTenant, objectPresent := object.GetLabels()["hanko.sh/tenant"]
-	return object.GetNamespace() == snapshot.Namespace && present == objectPresent && tenant == objectTenant
+	return object.GetNamespace() == snapshot.Namespace && sameTenantScope(snapshot, object)
 }
 
 // A valid digest and owner do not make an older namespace-wide capture safe to

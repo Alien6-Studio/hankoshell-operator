@@ -90,6 +90,10 @@ MUTATIONS = [
     mutation("snapshot-stored-tenant-scope", "internal/controller/hankosnapshot_checkpoint.go",
              "!snapshotPayloadInScope(snapshot, raw)", "false",
              "internal/controller", "TestSnapshotRecoveryRejectsCrossScopeStoredCapture"),
+    mutation("operation-child-tenant-presence", "internal/controller/hankooperation_checkpoint.go",
+             "child.SetLabels(tenantScopeLabels(op))",
+             'child.SetLabels(map[string]string{"hanko.sh/tenant": op.Labels["hanko.sh/tenant"]})',
+             "internal/controller", "TestOperationSnapshotRetainsExactTenantScope"),
 ]
 
 

@@ -884,7 +884,8 @@ class System:
             raise ValueError("Installed Clone did not preserve exact durable child identities")
         capture = self.get("configmap", snapshot["status"]["configMapRef"], namespace)
         if (capture["metadata"]["uid"] != snapshot["status"].get("configMapUID") or capture.get("immutable") is not True
-                or hashlib.sha256(capture["data"]["snapshot.json"].encode()).hexdigest() != snapshot["status"].get("configHash")):
+                or hashlib.sha256(capture["data"]["snapshot.json"].encode()).hexdigest() != snapshot["status"].get("configHash")
+                or [item["metadata"]["name"] for item in json.loads(capture["data"]["snapshot.json"]).get("realms", [])] != [realm]):
             raise ValueError("Installed Clone did not validate its immutable configuration capture")
         if (target["spec"]["mode"] != "external" or target.get("status", {}).get("phase") != "Ready" or target["spec"]["adminRef"] != source["spec"]["adminRef"]
                 or target["spec"]["tlsCARef"] != source["spec"]["tlsCARef"] or target["spec"].get("hardenMasterRealm", False)

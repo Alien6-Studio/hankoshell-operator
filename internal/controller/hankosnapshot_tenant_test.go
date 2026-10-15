@@ -78,6 +78,66 @@ func snapshotScopeObjects(namespace, scope string) []client.Object {
 	}
 }
 
+func TestOperationSnapshotRetainsExactTenantScope(t *testing.T) {
+	for _, scope := range []string{"unlabelled", "empty", "tenant-a", "tenant-b"} {
+		t.Run(scope, func(t *testing.T) {
+			ctx := context.Background()
+			source := managedTestInstance("test", "keycloak")
+			source.Labels = snapshotScopeLabels(scope)
+			op := &api.HankoOperation{ObjectMeta: metav1.ObjectMeta{Name: "scope", Namespace: "test", Labels: snapshotScopeLabels(scope)},
+				Spec: api.HankoOperationSpec{Type: api.OperationClone, InstanceRef: source.Name, Clone: &api.CloneSpec{TargetName: "alias"}}}
+			kube := snapshotTestClient(t, source, op)
+			for range 2 {
+				if _, err := (&HankoOperationReconciler{Client: kube}).Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(op)}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			snapshot := &api.HankoSnapshot{}
+			if err := kube.Get(ctx, client.ObjectKey{Namespace: op.Namespace, Name: "op-scope-snap"}, snapshot); err != nil {
+				t.Fatal(err)
+			}
+			parentTenant, parentPresent := op.Labels["hanko.sh/tenant"]
+			childTenant, childPresent := snapshot.Labels["hanko.sh/tenant"]
+			if parentTenant != childTenant || parentPresent != childPresent {
+				t.Fatal("operation changed its snapshot's tenant-label identity")
+			}
+			if _, err := (&HankoSnapshotReconciler{Client: kube, Scheme: kube.Scheme()}).Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(snapshot)}); err != nil {
+				t.Fatal(err)
+			}
+			if err := kube.Get(ctx, client.ObjectKeyFromObject(snapshot), snapshot); err != nil {
+				t.Fatal(err)
+			}
+			if snapshot.Status.Phase != "Done" {
+				t.Fatalf("composed controllers failed capture: %+v", snapshot.Status)
+			}
+			if _, err := (&HankoOperationReconciler{Client: kube}).Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(op)}); err != nil {
+				t.Fatal(err)
+			}
+			if err := kube.Get(ctx, client.ObjectKeyFromObject(op), op); err != nil {
+				t.Fatal(err)
+			}
+			if op.Status.Steps[0].Status != "Done" || op.Status.Steps[0].ChildUID != string(snapshot.UID) {
+				t.Fatal("operation did not accept its exact completed snapshot")
+			}
+		})
+	}
+}
+
+func TestLifecycleIntentBindsEmptyTenantLabelPresence(t *testing.T) {
+	snapshot := snapshotDataFixture()
+	unlabelledSnapshot := snapshotIntentHash(snapshot)
+	snapshot.Labels = snapshotScopeLabels("empty")
+	if unlabelledSnapshot == snapshotIntentHash(snapshot) {
+		t.Fatal("snapshot checkpoint does not bind tenant-label presence")
+	}
+	op := &api.HankoOperation{Spec: api.HankoOperationSpec{Type: api.OperationClone, InstanceRef: "source", Clone: &api.CloneSpec{TargetName: "alias"}}}
+	unlabelledOperation := operationIntentHash(op)
+	op.Labels = snapshotScopeLabels("empty")
+	if unlabelledOperation == operationIntentHash(op) {
+		t.Fatal("operation checkpoint does not bind tenant-label presence")
+	}
+}
+
 func TestSnapshotRecoveryRejectsCrossScopeStoredCapture(t *testing.T) {
 	for _, kind := range []string{"realm", "application", "service-account", "issuer"} {
 		for _, scope := range []string{"unlabelled", "empty", "tenant-a"} {

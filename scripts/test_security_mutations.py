@@ -32,7 +32,7 @@ class MutationRunnerTests(unittest.TestCase):
                     "keycloak-redirect", "unowned-realm-deletion", "unowned-client-role-deletion",
                     "bundle-tenant-namespace", "bundle-live-tenant-ownership", "bundle-forced-ownership",
                     "bundle-write-version-precondition", "secret-cache-exclusion",
-                    "snapshot-tenant-inventory", "snapshot-stored-tenant-scope"}
+                    "snapshot-tenant-inventory", "snapshot-stored-tenant-scope", "operation-child-tenant-presence"}
         self.assertEqual({entry["name"] for entry in gate.MUTATIONS}, required)
         self.assertEqual(len(gate.MUTATIONS), len(required))
         for entry in gate.MUTATIONS:
