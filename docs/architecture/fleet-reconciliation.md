@@ -1,11 +1,11 @@
 # Signed fleet desired state
 
-This is the operator-side contract for #76–#79 and ADR-049. It does not implement
+This is the operator-side contract for #76–#80 and ADR-049. It does not implement
 Hub signing/distribution or qualify enterprise fleet operation. Keycloak retains
 all native extensions. #75 remains the provider-portability evidence boundary;
 this protocol binds a contract/source identity without inventing second-provider
 conformance. Disconnected provider authority and referenced rollback are implemented;
-#80 retains the installed fleet matrix and exact-image qualification.
+the installed Fleet matrix and its exact-image evidence are described below.
 
 ## Threat model and mechanism decision
 
@@ -348,7 +348,7 @@ checkpoint and rollback preserving foreign/omitted objects on all three supporte
 Kubernetes versions. A separate native HTTPS Keycloak fixture stops the actual
 Hub listener and reconstructs the controller; this does not replace installed
 image/chart evidence. The six-cell installed tamper/replay/expiry/reconnect matrix
-and artifact leak inspection remain #80. No production release or network
+and artifact inspection are described in the #80 qualification audit below. No production release or network
 enforcement follows from this contract.
 
 ## Installed Fleet qualification (#80)
@@ -375,7 +375,12 @@ schema/metadata/validity bounds, unsupported capabilities, partial selection,
 verified referenced rollback, cache immutability/replacement, durable clock
 regression, offline drift repair and strict/sticky expiry. It also checks missing
 tenant routing, overlapping objects, local trust write denial, refused image
-updates and unapproved/expired/tampered decommission acknowledgements. Failed
+updates and unapproved/expired/tampered decommission acknowledgements. Local key
+expiry, invalid/missing trust, checkpoint UID replacement and removal of signed
+configuration are exercised against the running manager. A held HTTPS response
+allows actual trust/tenant changes during fetch; API admission refuses cache
+creation independently of status writes. Oversized retained envelopes are also
+refused. Failed
 runs remain `complete: false`; an implemented harness alone is not evidence that
 these installed scenarios passed.
 
@@ -425,5 +430,37 @@ annotation and label changes plus the existing requeue cadence.
 
 ### Qualification audit
 
-No completed six-cell Fleet result is claimed by this recipe. Record exact image,
-revision, fixture hash and completed cell reports here after actual execution.
+On 2026-10-15 all six local installed cells completed with 69/69 assertions each
+(414 assertions). Each cell used a real Linux arm64 Kubernetes API, HTTPS
+Keycloak and Hub, and the installed chart/operator. The committed reports contain
+only the public evidence allowlist; they are nonpublishable qualification inputs.
+
+| Kubernetes | Keycloak 26.7.5 | Keycloak 26.8.0 |
+| --- | --- | --- |
+| 1.35.0 | [69/69](../qualification/fleet/2026-10-15/kubernetes-1.35.0-keycloak-26.7.5.json) | [69/69](../qualification/fleet/2026-10-15/kubernetes-1.35.0-keycloak-26.8.0.json) |
+| 1.36.2 | [69/69](../qualification/fleet/2026-10-15/kubernetes-1.36.2-keycloak-26.7.5.json) | [69/69](../qualification/fleet/2026-10-15/kubernetes-1.36.2-keycloak-26.8.0.json) |
+| 1.37.0 | [69/69](../qualification/fleet/2026-10-15/kubernetes-1.37.0-keycloak-26.7.5.json) | [69/69](../qualification/fleet/2026-10-15/kubernetes-1.37.0-keycloak-26.8.0.json) |
+
+- Image source: `248395147d5170d28ac12aca486c48b00ad3d7ba`.
+- Exact OCI index: `sha256:72ae648871a524c36fd2642b3fff808f4f7f2ed7faf69a04097495f218ee9e61`.
+- Archive SHA-256: `886e670e3cf4e25bbdbccb037c01c79a5c91501af37972af018789a9f9be6869`.
+- Harness revision: `de3f760af7f4b931a63ef34b6311c043e700e5bf`;
+  Fleet script SHA-256: `2a39cb170c072b53d22db492c3e35568c48df8513b2bb2d5dfd4b136d48d651a`.
+  This revision changes only the external fixture relative to the image source;
+  binary, chart and OCI build inputs are unchanged.
+- Trivy 0.75.0 scans passed for both linux/amd64 and linux/arm64 with the reviewed
+  policy and database updated on 2026-10-15. Scan evidence stays in the local
+  `.tools/fleet-installed-qualified-oci/evidence` directory.
+- Source regression: 2,173 Go tests, 264 script tests, 63.36% statement coverage
+  with every reviewed floor met. The preceding API qualification passed 231 cases
+  on each supported Kubernetes version; only command-log redaction changed
+  production code afterward, and its regression/mutation tests passed.
+
+These results qualify this local image/harness cut. Full CI on the final pushed
+revision remains required before merge, including its Linux amd64 installed cells
+and every existing source, CodeQL, OCI, workload, system and rehearsal gate.
+The preceding complete CI run
+[38796511058](https://github.com/Alien6-Studio/hankoshell-operator/actions/runs/38796511058)
+passed on `a6cd98d111b4bf5f672b305fef215cb8c3ab8235`.
+No production trust, enterprise topology, network enforcement or release is
+qualified by these disposable local cells.

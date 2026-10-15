@@ -10,7 +10,8 @@
   offline/reconnect/rollback and external checkpoint-loss/restart scenarios.
 - Pin accepted Hub destinations, refuse authenticated Fleet redirects and require
   independent exact command approval before Fleet decommission. Keep remote error
-  bodies out of signed status/logs/Events; preserve separate image-update trust.
+  bodies and unapproved command fields out of signed status/logs/Events;
+  preserve separate image-update trust.
 - Support explicit per-tenant CA bundles, generation-bound tenant conditions and
   status-only watch filtering. Keep public evidence bounded and private fixture
   inputs outside uploaded artifacts; qualification audit requires actual runs.
@@ -25,8 +26,8 @@
   reverified historical content/source/policy. Journal bounded transitions; never
   prune foreign or omitted desired-state/provider objects.
 - Add API recovery/expiry/rollback cases and real HTTPS Keycloak tests with an
-  actually stopped Hub listener. Installed six-cell Fleet qualification remains
-  #80; this does not claim exact-image conformance or publish a release.
+  actually stopped Hub listener. Installed six-cell Fleet qualification is
+  described above; no release is published.
 
 ### Capability-aware Fleet delivery
 
@@ -40,7 +41,7 @@
   a partial plan to Synced or full applied identity.
 - Honour independent protected local pause/refuse controls before fetch and before
   conditional writes, including races after checkpoint acceptance. Disconnected provider authority and referenced rollback are described above;
-  installed Fleet qualification remains #80. No publication or protected merge is implied.
+  installed Fleet qualification is described above. No publication or protected merge is implied.
 
 ### Locally approved signed fleet plans
 
@@ -54,7 +55,7 @@
   writes, preserving existing tenant and field ownership protections.
 - Add real HTTPS Hub/API fixtures and a local trust admission policy. Signing
   and distribution require a compatible Hub. Disconnected provider authorization and referenced rollback are described
-  above; installed fleet qualification remains #80;
+  above; installed fleet qualification is described above;
   no production fleet contract or release publication is implied.
 
 ### Managed lifecycle provider observation
