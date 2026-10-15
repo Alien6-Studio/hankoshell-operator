@@ -87,6 +87,12 @@ organizationProjection:
   apiSelector:
     app: hanko-api
 
+fleetPlanVerification:
+  # Optional administrator-provisioned/protected public trust ConfigMap.
+  # Empty retains HMAC only for tenants without a signed checkpoint. Configure
+  # the matching admission policy before enabling; no key is generated here.
+  trustConfigMap: ""
+
 # hankoShell Hub access for HankoTenant reconciliation. When enabled with a
 # private CA, the operator appends that CA to a dedicated synchronization
 # client. Public enrollment and other integrations keep the system trust store.

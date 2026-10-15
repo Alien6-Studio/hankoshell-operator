@@ -238,6 +238,45 @@ spec:
                 description: ConnectedHub is the Hub endpoint this tenant is currently
                   syncing from.
                 type: string
+              fleetPlan:
+                description: |-
+                  FleetPlan is the durable signed-plan high-water mark. Its presence forbids
+                  legacy HMAC fallback, including after restart or trust configuration loss.
+                properties:
+                  appliedIdentity:
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  expiresAt:
+                    format: date-time
+                    type: string
+                  identity:
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  keyID:
+                    maxLength: 128
+                    minLength: 1
+                    type: string
+                  previousIdentity:
+                    description: |-
+                      PreviousIdentity retains a reference for future reviewed rollback; it
+                      does not authorize executing a rollback in this implementation.
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  sequence:
+                    format: int64
+                    minimum: 1
+                    type: integer
+                  tenantUID:
+                    maxLength: 128
+                    minLength: 1
+                    type: string
+                required:
+                - expiresAt
+                - identity
+                - keyID
+                - sequence
+                - tenantUID
+                type: object
               lastReconciled:
                 description: LastReconciled is the timestamp of the last reconciliation
                   attempt.

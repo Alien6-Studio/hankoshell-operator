@@ -55,12 +55,21 @@ type bundleObject struct {
 // writing any object. Each write is conditional; this is not a transaction
 // across objects, and a later concurrent conflict can leave a partial apply.
 func (r *HankoTenantReconciler) applyBundle(ctx context.Context, tenant *api.HankoTenant, bundle *hub.Bundle) (map[string]int, error) {
+	return r.applyBundleGuarded(ctx, tenant, bundle, nil)
+}
+
+func (r *HankoTenantReconciler) applyBundleGuarded(ctx context.Context, tenant *api.HankoTenant, bundle *hub.Bundle, guard func() error) (map[string]int, error) {
 	counts := map[string]int{"iamProfiles": 0, "realms": 0, "apps": 0, "themes": 0, "serviceAccounts": 0}
 	objects, err := r.prepareBundle(ctx, tenant, bundle)
 	if err != nil {
 		return counts, err
 	}
 	for _, object := range objects {
+		if guard != nil {
+			if err := guard(); err != nil {
+				return counts, err
+			}
+		}
 		if !object.exists {
 			// SSA would upsert an object created by somebody else after our read.
 			object.current = object.desired.DeepCopy()
@@ -69,7 +78,12 @@ func (r *HankoTenantReconciler) applyBundle(ctx context.Context, tenant *api.Han
 				return counts, fmt.Errorf("create bundle %s %q: %w", object.desired.GetKind(), object.desired.GetName(), err)
 			}
 		}
-		err = r.applyBundleObject(ctx, object)
+		if guard != nil {
+			if err := guard(); err != nil {
+				return counts, err
+			}
+		}
+		err = r.applyBundleObject(ctx, object, guard)
 		if err != nil {
 			return counts, fmt.Errorf("write bundle %s %q: %w", object.desired.GetKind(), object.desired.GetName(), err)
 		}
@@ -211,7 +225,7 @@ func (r *HankoTenantReconciler) bindBundleObject(ctx context.Context, desired *u
 	return current, nil
 }
 
-func (r *HankoTenantReconciler) applyBundleObject(ctx context.Context, object bundleObject) error {
+func (r *HankoTenantReconciler) applyBundleObject(ctx context.Context, object bundleObject, guard func() error) error {
 	// Create records Update ownership. Transfer only this dedicated manager's
 	// entry to Apply; otherwise the first changed bundle conflicts with our own
 	// creation. Never clear managedFields or transfer another manager's fields.
@@ -240,11 +254,21 @@ func (r *HankoTenantReconciler) applyBundleObject(ctx context.Context, object bu
 		if err != nil {
 			return fmt.Errorf("encode bundle field manager transition: %w", err)
 		}
+		if guard != nil {
+			if err := guard(); err != nil {
+				return err
+			}
+		}
 		if err := r.Patch(ctx, current, client.RawPatch(types.MergePatchType, patch), client.FieldOwner(bundleFieldManager)); err != nil {
 			return fmt.Errorf("transition bundle creation ownership: %w", err)
 		}
 	}
 	object.desired.SetUID(current.GetUID())
 	object.desired.SetResourceVersion(current.GetResourceVersion())
+	if guard != nil {
+		if err := guard(); err != nil {
+			return err
+		}
+	}
 	return r.Apply(ctx, client.ApplyConfigurationFromUnstructured(object.desired), client.FieldOwner(bundleFieldManager))
 }

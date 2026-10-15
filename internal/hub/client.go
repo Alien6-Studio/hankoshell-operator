@@ -73,6 +73,14 @@ type OperatorStatus struct {
 	// a replacement snapshot on success and an empty snapshot on error so stale
 	// workload authority is revoked fail closed.
 	MeshRegistrations *[]MeshRegistration `json:"meshRegistrations,omitempty"`
+	// FleetPlan reports bounded public verification/application evidence only.
+	FleetPlan *FleetPlanEvidence `json:"fleetPlan,omitempty"`
+}
+
+type FleetPlanEvidence struct {
+	Sequence        int64  `json:"sequence"`
+	Identity        string `json:"identity"`
+	AppliedIdentity string `json:"appliedIdentity,omitempty"`
 }
 
 // MeshRegistration is the immutable Ready projection of HankoMeshService sent

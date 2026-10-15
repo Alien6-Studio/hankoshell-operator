@@ -19,6 +19,7 @@ does not imply public API stability or completed installed-system qualification.
 | [ADR-044](ADR-044-structural-image-trust.md) | Structural OCI registry and repository identity |
 | [ADR-047](ADR-047-signed-workload-approvals.md) | Signed immutable image approvals |
 | [ADR-048](ADR-048-full-pull-request-qualification.md) | Full qualification matrix on pull requests |
+| [ADR-049](ADR-049-locally-approved-fleet-plans.md) | Locally approved signed fleet plans |
 
 ## Adding or updating a decision
 

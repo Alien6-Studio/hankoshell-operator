@@ -89,6 +89,13 @@ optional; standalone Keycloak reconciliation does not depend on them. See the
 [qualification limits](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md#keycloak-compatibility)
 and project website [hanko.sh](https://hanko.sh).
 
+Signed fleet plans are opt-in: set `hub.enabled: true` and
+`fleetPlanVerification.trustConfigMap: hanko-fleet-plan-trust` only after a local
+policy administrator provisions and protects that ConfigMap and Hub supports the
+new signed media type. The chart does not create publisher trust or admission
+authority. See the [transition and rollback guide](../../docs/secure-deployment.md#signed-fleet-plan-transition).
+An accepted signed checkpoint forbids returning that tenant to legacy HMAC.
+
 Instance `spec.hardenMasterRealm` and `spec.rotateAdminCredentials` default to
 `false`, including in managed mode. Set them explicitly only when the operator
 owns those tasks and has the documented master permissions. Referencing an adopted

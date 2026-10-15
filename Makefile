@@ -58,6 +58,7 @@ chart-test:
 	helm lint $(CHART) --kube-version $(KUBERNETES_VERSION) --set-string image.tag=lint
 	bash $(CHART)/tests/image-verification.sh
 	bash $(CHART)/tests/cluster-identity.sh
+	python3 $(CHART)/tests/fleet-plan.py
 	bash $(CHART)/tests/network-policy.sh
 	python3 $(CHART)/tests/keycloak-transport.py
 	python3 $(CHART)/tests/observability.py

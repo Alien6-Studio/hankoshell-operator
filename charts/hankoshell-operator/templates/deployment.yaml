@@ -1,5 +1,11 @@
 {{- include "hanko-operator.validateProfile" . }}
 {{- include "hanko-operator.validateMetrics" . }}
+{{- if hasKey .Values.env "HANKO_FLEET_TRUST_CONFIGMAP" }}{{ fail "HANKO_FLEET_TRUST_CONFIGMAP is controlled by fleetPlanVerification values" }}{{ end }}
+{{- if not (kindIs "string" .Values.fleetPlanVerification.trustConfigMap) }}{{ fail "fleetPlanVerification.trustConfigMap must be a string" }}{{ end }}
+{{- if .Values.fleetPlanVerification.trustConfigMap }}
+{{- if or (gt (len .Values.fleetPlanVerification.trustConfigMap) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$" .Values.fleetPlanVerification.trustConfigMap)) }}{{ fail "fleetPlanVerification.trustConfigMap must be a ConfigMap name" }}{{ end }}
+{{- if not .Values.hub.enabled }}{{ fail "signed fleet plans require hub.enabled and independently provisioned trust" }}{{ end }}
+{{- end }}
 {{- if not (kindIs "bool" .Values.leaderElect) }}{{ fail "leaderElect must be a boolean" }}{{ end }}
 {{- if regexMatch "-(alpha|beta|rc)([.-]|$)" .Capabilities.KubeVersion.Version }}
 {{- fail "Kubernetes alpha, beta and release-candidate versions are incompatible with this chart's qualification policy" }}
@@ -242,6 +248,10 @@ spec:
               value: {{ .Values.meshPolicyAudit.configMapName | quote }}
             - name: HANKO_MESH_POLICY_CONFIGMAP_NAMESPACE
               value: {{ default .Release.Namespace .Values.meshPolicyAudit.targetNamespace | quote }}
+            {{- end }}
+            {{- if .Values.fleetPlanVerification.trustConfigMap }}
+            - name: HANKO_FLEET_TRUST_CONFIGMAP
+              value: {{ .Values.fleetPlanVerification.trustConfigMap | quote }}
             {{- end }}
             {{- range $key, $val := .Values.env }}
             - name: {{ $key }}

@@ -476,6 +476,7 @@
         "clusterID",
         "conditions",
         "connectedHub",
+        "fleetPlan",
         "lastReconciled",
         "lastSync",
         "observedGeneration",
@@ -577,7 +578,7 @@
     {
       "name": "Hub and Continuum",
       "compatibility": "alpha",
-      "limitation": "Optional connected integrations; fleet signing, replay protection and disconnected recovery are not qualified as an enterprise contract.",
+      "limitation": "Optional integrations with opt-in signed fleet verification and replay checkpoints; capability rollout, disconnected provider authorization and installed fleet operation remain unqualified.",
       "evidence": "docs/secure-deployment.md"
     },
     {

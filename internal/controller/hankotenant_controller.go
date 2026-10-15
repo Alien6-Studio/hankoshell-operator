@@ -28,6 +28,7 @@ import (
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/decommission"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/fleetplan"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/hub"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/imagevalidator"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
@@ -68,6 +69,10 @@ type HankoTenantReconciler struct {
 	// HubTransportPolicy pins enterprise reconciliation to its private relay.
 	// Nil retains the independently configurable standard installation.
 	HubTransportPolicy *hub.ContinuumPolicy
+	// FleetTrustConfigMapName is selected by the local operator deployment,
+	// never by a Hub plan or tenant spec. Empty retains legacy behavior only
+	// for tenants that have never accepted a signed plan.
+	FleetTrustConfigMapName string
 	// MeshPolicyConfigMapName enables the audit-only signed policy projection
 	// for the HankoTenant. Empty keeps the legacy heartbeat behavior.
 	MeshPolicyConfigMapName string
@@ -238,20 +243,38 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// ── Fetch bundle from Hub ─────────────────────────────────────────────────
 	hubClient := hub.NewWithHTTPClient(tenant.Spec.HubEndpoint, tenantID, credentials.Token, r.HubHTTPClient)
 
-	sb, err := hubClient.FetchBundle(ctx)
-	if err != nil {
-		return r.setError(ctx, hubClient, &tenant, patch, "BundleFetchFailed", err)
-	}
-
-	if !hubClient.VerifyBundle(sb) {
-		return r.setError(ctx, hubClient, &tenant, patch, "BundleSignatureInvalid",
-			fmt.Errorf("HMAC-SHA256 signature mismatch for bundle version %q", sb.Bundle.Version))
-	}
-
-	// ── Apply bundle resources ────────────────────────────────────────────────
-	counts, err := r.applyBundle(ctx, &tenant, &sb.Bundle)
-	if err != nil {
-		return r.setError(ctx, hubClient, &tenant, patch, bundleApplyReason(err), err)
+	var counts map[string]int
+	var bundleVersion string
+	appliedReason := "BundleApplied"
+	signed := r.FleetTrustConfigMapName != "" || tenant.Status.FleetPlan != nil
+	if signed {
+		bundleVersion, counts, appliedReason, err = r.applyFleetPlan(ctx, &tenant, hubClient, tenantID, credentials.ClusterID)
+		if errors.Is(err, errFleetCheckpointWrite) {
+			return ctrl.Result{}, err
+		}
+		patch = fleetStatusPatch(&tenant)
+		if err != nil {
+			// A changed local tenant belongs to a fresh reconcile. Do not publish
+			// an obsolete error condition over its new intent or checkpoint.
+			if fleetplan.Reason(err) == "FleetAuthorityChanged" {
+				return ctrl.Result{}, err
+			}
+			return r.setError(ctx, hubClient, &tenant, patch, fleetplan.Reason(err), err)
+		}
+	} else {
+		sb, fetchErr := hubClient.FetchBundle(ctx)
+		if fetchErr != nil {
+			return r.setError(ctx, hubClient, &tenant, patch, "BundleFetchFailed", fetchErr)
+		}
+		if !hubClient.VerifyBundle(sb) {
+			return r.setError(ctx, hubClient, &tenant, patch, "BundleSignatureInvalid",
+				fmt.Errorf("HMAC-SHA256 signature mismatch for bundle version %q", sb.Bundle.Version))
+		}
+		counts, err = r.applyBundle(ctx, &tenant, &sb.Bundle)
+		if err != nil {
+			return r.setError(ctx, hubClient, &tenant, patch, bundleApplyReason(err), err)
+		}
+		bundleVersion = sb.Bundle.Version
 	}
 	meshRegistrations, err := r.collectMeshRegistrations(ctx, &tenant, tenantID, credentials.ClusterID)
 	if err != nil {
@@ -270,7 +293,7 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 	status := hub.OperatorStatus{
 		TenantID:          tenantID,
-		BundleVersion:     sb.Bundle.Version,
+		BundleVersion:     bundleVersion,
 		Phase:             phase,
 		ResourceCount:     counts,
 		AgentVersion:      version.Agent,
@@ -278,6 +301,7 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		Health:            health,
 		Detail:            detail,
 		MeshRegistrations: &meshRegistrations,
+		FleetPlan:         fleetEvidence(&tenant),
 	}
 	if r.Supervision != nil {
 		// Collected only on the success path: the error path stays cheap and
@@ -314,18 +338,19 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	tenant.Status.ObservedGeneration = tenant.Generation
 	tenant.Status.TenantID = tenantID
 	tenant.Status.ClusterID = credentials.ClusterID
-	tenant.Status.BundleVersion = sb.Bundle.Version
+	tenant.Status.BundleVersion = bundleVersion
+	tenant.Status.LastReconciled = &now
 	tenant.Status.ConnectedHub = tenant.Spec.HubEndpoint
 	tenant.Status.LastSync = &syncTime
-	setCondition(&tenant.Status.Conditions, "Synced", metav1.ConditionTrue, "BundleApplied",
-		fmt.Sprintf("bundle %s applied successfully", sb.Bundle.Version))
+	setCondition(&tenant.Status.Conditions, "Synced", metav1.ConditionTrue, appliedReason,
+		fmt.Sprintf("bundle %s applied successfully", bundleVersion))
 
 	if err := r.Status().Patch(ctx, &tenant, patch); err != nil {
 		return ctrl.Result{}, fmt.Errorf("patch tenant status: %w", err)
 	}
 	r.clearDegraded(&tenant)
 
-	log.Info("HankoTenant reconciled", "tenant", tenant.Name, "bundle", sb.Bundle.Version)
+	log.Info("HankoTenant reconciled", "tenant", tenant.Name, "bundle", bundleVersion)
 	return ctrl.Result{RequeueAfter: requeueInterval}, nil
 }
 
@@ -896,6 +921,7 @@ func (r *HankoTenantReconciler) setError(
 			Health:            "degraded",
 			Detail:            reason,
 			MeshRegistrations: &emptyMeshRegistrations,
+			FleetPlan:         fleetEvidence(tenant),
 		}); reportErr != nil {
 			log.FromContext(ctx).Error(reportErr, "report degraded status to hub (non-fatal)")
 		}

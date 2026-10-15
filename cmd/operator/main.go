@@ -261,6 +261,7 @@ func setupControllers(
 		Supervision:                  supervision,
 		HubHTTPClient:                hubHTTPClient,
 		HubTransportPolicy:           hubPolicy,
+		FleetTrustConfigMapName:      os.Getenv("HANKO_FLEET_TRUST_CONFIGMAP"),
 		MeshPolicyConfigMapName:      os.Getenv("HANKO_MESH_POLICY_CONFIGMAP_NAME"),
 		MeshPolicyConfigMapNamespace: meshPolicyNamespace,
 		MeshPolicyProjectionClient:   meshPolicyClient,

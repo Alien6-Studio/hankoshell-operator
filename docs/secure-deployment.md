@@ -147,9 +147,48 @@ profile, synchronization is bound to the configured private relay and Hub TLS
 name. Those controls protect transport and destination; they do not convert
 the shared HMAC into an independent signature.
 
-Independent bundle publisher verification would require a coordinated Hub
-protocol with a separately trusted signing key and explicit tenant, freshness
-and key-rotation bindings. The current bundle wire contract remains HMAC.
+The default bundle wire contract remains HMAC. An explicit signed fleet
+transition adds independent publisher verification with the protocol below;
+the Hub must implement that protocol before it can be enabled.
+
+#### Signed fleet plan transition
+
+The [Fleet contract](architecture/fleet-reconciliation.md) and
+[ADR-049](architecture/decisions/ADR-049-locally-approved-fleet-plans.md) define
+the exact Ed25519 signing input, closed JSON, local key scopes, expiry and
+sequence rules. In a reviewed deployment:
+
+1. Provision publisher public keys and exact tenant/cluster/namespace/source
+   tuples in `trust.json` of the same-namespace `hanko-fleet-plan-trust` ConfigMap.
+   Obtain keys through the independent local approval process. The private signer
+   belongs outside the cluster; never put it or Hub credentials in that ConfigMap.
+2. Independently install [the trust admission policy](../config/security/fleet-plan-trust-admission.yaml)
+   before enabling verification. Its default target is namespace `auth` and that
+   exact ConfigMap name. Customize both if the deployment uses another location.
+   Only policy administrators with the separate `update` authorization on
+   `kube-system/hanko-fleet-trust-authority` may change this root. Do not grant
+   that authorization or policy/binding administration to the operator or CR
+   authors. The policy does not create or store a credential in that name.
+3. Require a compatible HTTPS Hub route serving
+   `application/vnd.hanko.fleet-plan+json`, an enrolled cluster identity and current
+   locally approved issuer keys. Enable `hub.enabled` and set
+   `fleetPlanVerification.trustConfigMap` to the protected name. The process uses
+   `HANKO_FLEET_TRUST_CONFIGMAP`; no tenant spec or remote plan selects it.
+4. Review `status.fleetPlan` and the Synced condition. Acceptance persists the
+   monotonic identity before child writes; applied identity describes Kubernetes
+   delivery, not provider convergence. Rotation needs a locally approved fresh
+   key ID and a higher-sequence plan. Revocation stops subsequent verification.
+
+Once a signed checkpoint exists, removing the setting, deleting trust or serving
+an old HMAC response fails closed. For binary rollback, suspend the operator and
+retain the newer CRD/status, then review actual child/provider state. An older
+binary cannot enforce this ratchet. Do not clear a checkpoint or prune/downgrade
+the CRD to bypass it. A previous identity is evidence for future reviewed rollback,
+not rollback execution. Capability-aware rollout, disconnected provider expiry
+and installed fleet qualification remain #78–#80. Current child reconcilers can
+continue acting on previously delivered declarations after a plan expires.
+
+#### Shared bundle object ownership
 
 Bundle application preflights object identity, metadata and current tenant labels
 before any resource write. A declared foreign namespace or tenant is refused,

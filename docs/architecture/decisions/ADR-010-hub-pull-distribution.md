@@ -30,7 +30,10 @@ responses cannot deliver commands. A token-derived HMAC is shared-secret integri
 not independent publisher identity or replay resistance. Multi-object apply can
 partially succeed. Signed fleet plans, disconnected validity and rollback still
 require the work tracked in the deployment guide; this record does not assert
-those guarantees from the existing bundle protocol.
+those guarantees from the existing bundle protocol. [ADR-049](ADR-049-locally-approved-fleet-plans.md)
+now adds opt-in independent publisher verification and a persistent anti-replay
+checkpoint. It supersedes the HMAC authentication decision for signed-mode
+tenants; disconnected execution and controlled rollback remain separate work.
 
 ## Enforcement
 

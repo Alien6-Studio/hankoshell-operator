@@ -110,10 +110,36 @@ type HankoTenantStatus struct {
 	// LastReconciled is the timestamp of the last reconciliation attempt.
 	LastReconciled *metav1.Time `json:"lastReconciled,omitempty"`
 
+	// FleetPlan is the durable signed-plan high-water mark. Its presence forbids
+	// legacy HMAC fallback, including after restart or trust configuration loss.
+	FleetPlan *FleetPlanStatus `json:"fleetPlan,omitempty"`
+
 	// Conditions holds standard Kubernetes condition objects.
 	// +listType=map
 	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
+// FleetPlanStatus contains only public verification/checkpoint evidence. It does
+// not store plan content, keys, tokens or a provider completion attestation.
+type FleetPlanStatus struct {
+	// +kubebuilder:validation:Minimum=1
+	Sequence int64 `json:"sequence"`
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	Identity string `json:"identity"`
+	// PreviousIdentity retains a reference for future reviewed rollback; it
+	// does not authorize executing a rollback in this implementation.
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	PreviousIdentity string `json:"previousIdentity,omitempty"`
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	AppliedIdentity string `json:"appliedIdentity,omitempty"`
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=128
+	KeyID string `json:"keyID"`
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=128
+	TenantUID string      `json:"tenantUID"`
+	ExpiresAt metav1.Time `json:"expiresAt"`
 }
 
 // +kubebuilder:object:root=true

@@ -31,6 +31,20 @@ def mutation(name, file, before, after, package, test):
 
 
 MUTATIONS = [
+    mutation("fleet-signature", "internal/fleetplan/verify.go",
+             "!ed25519.Verify(key, SigningInput(payload), signature)",
+             "false && !ed25519.Verify(key, SigningInput(payload), signature)",
+             "internal/fleetplan", "TestFleetPlanClosedDecodingAndSignature"),
+    mutation("fleet-target", "internal/fleetplan/verify.go",
+             "p.Target != target", "false && p.Target != target",
+             "internal/fleetplan", "TestFleetPlanClosedDecodingAndSignature"),
+    mutation("fleet-sequence", "internal/fleetplan/verify.go",
+             "sequence < checkpoint.Sequence", "false && sequence < checkpoint.Sequence",
+             "internal/fleetplan", "TestFleetDecodingAndCheckpointReasons"),
+    mutation("fleet-sticky-signature-mode", "internal/controller/hankotenant_controller.go",
+             'r.FleetTrustConfigMapName != "" || tenant.Status.FleetPlan != nil',
+             'r.FleetTrustConfigMapName != ""',
+             "internal/controller", "TestSignedFleetPlanControllerRecovery"),
     mutation("hub-hmac", "internal/hub/client.go",
              "return hmac.Equal([]byte(expected), []byte(sb.Signature))",
              "return hmac.Equal([]byte(expected), []byte(expected))",

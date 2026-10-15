@@ -3,6 +3,21 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Locally approved signed fleet plans
+
+- Add an explicit Ed25519 fleet transition with independently protected local
+  publisher keys, exact tenant/cluster/namespace/UID and source bindings, bounded
+  closed JSON, validity windows and monotonically increasing signed sequences.
+- Persist accepted and applied identities with optimistic concurrency; recover
+  after lost status acknowledgements, refuse lower/conflicting sequences and
+  retain the signed-mode requirement after restart or removal of configuration.
+  Preflight all content with typed decoding and Kubernetes dry-run before child
+  writes, preserving existing tenant and field ownership protections.
+- Add real HTTPS Hub/API fixtures and a local trust admission policy. Signing
+  and distribution require a compatible Hub. Partial rollout, disconnected
+  provider authorization and installed fleet qualification remain #78–#80;
+  no production fleet contract or release publication is implied.
+
 ### Managed lifecycle provider observation
 
 - Refuse existing managed Deployments, Services, NetworkPolicies and disruption

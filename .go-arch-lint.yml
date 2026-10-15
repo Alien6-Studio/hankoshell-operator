@@ -45,6 +45,8 @@ components:
     in: "/internal/authorization"
   hub:
     in: "/internal/hub"
+  fleetplan:
+    in: "/internal/fleetplan"
   api_types:
     in: "/api/v1alpha1"
   imagevalidator:
@@ -85,6 +87,7 @@ deps:
       - iamcontract
       - adoption
       - hub
+      - fleetplan
       - api_types
       - imagevalidator
       - supervision
@@ -160,6 +163,11 @@ deps:
   hub:
     mayDependOn:
       - supervision
+
+  fleetplan:
+    mayDependOn:
+      - httpsecurity
+      - iamcontract
 
   # ADR-009 and ADR-010: CRD type definitions have no runtime project dependencies.
   api_types:

@@ -348,10 +348,14 @@ Optional Cilium policies require the corresponding cluster capabilities;
 the operator runs without BPF privileges. Workload mesh policy projection is
 currently an audit path, not an enforcement claim.
 
-Hub bundles use a token-derived HMAC. Every holder of that token can produce
-the same authenticator; there is no independent bundle publisher signature.
-The [trust model](docs/secure-deployment.md#hub-bundle-authentication) explains
-the distinction from Ed25519 mesh policies and signed release evidence.
+Hub synchronization defaults to a token-derived HMAC. Signed fleet mode uses
+independently approved Ed25519 publisher keys, exact target/source bindings and
+a persisted sequence checkpoint. Enable it explicitly with
+`fleetPlanVerification.trustConfigMap` after provisioning local trust and a
+compatible Hub. See the [Fleet contract](docs/architecture/fleet-reconciliation.md)
+and [activation guide](docs/secure-deployment.md#signed-fleet-plan-transition).
+Capability rollout and disconnected provider authorization remain experimental
+work in #78–#80.
 
 Hub self-updates require an independently approved release and verified image
 signature. Remote decommission commands expire at their deadline. See
