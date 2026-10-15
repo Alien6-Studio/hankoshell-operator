@@ -54,13 +54,13 @@ func (c *managedOwnerRaceClient) matches(object client.Object) bool {
 func (c *managedOwnerRaceClient) changeOwner(ctx context.Context) {
 	c.t.Helper()
 	c.changed = c.target.DeepCopyObject().(client.Object)
-	if err := c.Client.Get(ctx, client.ObjectKeyFromObject(c.target), c.changed); err != nil {
+	if err := c.Get(ctx, client.ObjectKeyFromObject(c.target), c.changed); err != nil {
 		c.t.Fatal(err)
 	}
 	owners := c.changed.GetOwnerReferences()
 	owners[0].UID = "concurrent-foreign-owner"
 	c.changed.SetOwnerReferences(owners)
-	if err := c.Client.Update(ctx, c.changed); err != nil {
+	if err := c.Update(ctx, c.changed); err != nil {
 		c.t.Fatal(err)
 	}
 }
