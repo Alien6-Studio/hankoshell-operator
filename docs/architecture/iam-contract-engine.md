@@ -44,6 +44,11 @@ requires storage; it does not preselect a future Hub trust protocol.
 
 ## Canonicalization and identity
 
+The initial public candidate's exact defaults, ownership markers, evidence shape
+and reusable golden/API/installed corpus are frozen in
+[public contract semantics](../public-contract-semantics.md). Selection and
+qualification remain separate from publishing a public API commitment.
+
 The internal version is `hanko.sh/iam-contract/v1alpha1`. It versions normalization
 and execution semantics, independently of `hanko.sh/v1alpha1` Kubernetes APIs.
 Every digest is `sha256:<hex>`, with length-prefixed version/domain/purpose

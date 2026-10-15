@@ -1,0 +1,37 @@
+{
+  "applicationAttribute": "hanko.sh/application-owner",
+  "roleAttribute": "hanko.sh/role-owner",
+  "authorizationAttribute": "hanko.sh/resource-server-ownership",
+  "ownerUID": "public-contract-fixture-owner",
+  "legacyAuthorizationJournal": {
+    "version": 1,
+    "ownerUID": "public-contract-fixture-owner",
+    "objects": {
+      "resourceServerID": "fixture-client-uuid",
+      "scopes": [
+        {
+          "name": "read",
+          "id": "fixture-scope-uuid"
+        }
+      ],
+      "resources": [
+        {
+          "name": "record",
+          "id": "fixture-resource-uuid"
+        }
+      ],
+      "policies": [
+        {
+          "name": "reader",
+          "id": "fixture-policy-uuid"
+        }
+      ],
+      "permissions": [
+        {
+          "name": "read-record",
+          "id": "fixture-permission-uuid"
+        }
+      ]
+    }
+  }
+}

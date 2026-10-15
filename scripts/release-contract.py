@@ -24,6 +24,7 @@ metadata = module("release_metadata", "release-metadata.py")
 security = module("oci_security", "oci-security.py")
 pins = module("versions", "versions.py")
 support = module("api_support", "api-support.py")
+public = module("public_contract", "public-contract.py")
 versioning = metadata.versioning
 VERSION = versioning.VERSION
 
@@ -50,6 +51,7 @@ def check(version=VERSION):
     ci = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
     pins.check(ROOT)
     support.check(ROOT)
+    public.check(ROOT)
     for job in ("kubernetes", "keycloak"):
         if ci[job]["strategy"]["matrix"]["version"] != pins.DATA[job]["versions"]:
             raise ValueError("Qualification matrix differs from versions.json")

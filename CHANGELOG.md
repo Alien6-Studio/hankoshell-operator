@@ -3,6 +3,18 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Initial public contract candidate and reusable compatibility corpus
+
+- Review all 17 resources and 352 field groups; select application, role and
+  resource-server subsets for initial public qualification. Keep every deferred
+  standalone, operational, connected and native capability explicitly classified.
+- Freeze real compiler identities, stored schemas/defaults, public evidence and
+  UID ownership readers. Add corpus coverage, schema drift diagnostics and
+  adversarial gates to release validation without announcing a public API.
+- Reuse the corpus in all three real API cells and the exact-scanned installed
+  system. Verify SSA/round-trip ownership and restart without replacement.
+  Record `NoPublishedPredecessor`; cross-release qualification needs real artifacts.
+
 ### Installed Fleet qualification and local command authority
 
 - Add a required installed six-cell Fleet CI matrix consuming the exact scanned

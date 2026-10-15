@@ -1,0 +1,649 @@
+{
+  "schemaVersion": 1,
+  "release": "0.1.0-candidate",
+  "predecessor": "",
+  "limitation": "NoPublishedPredecessor",
+  "ownerUID": "public-contract-fixture-owner",
+  "fixtures": [
+    {
+      "name": "application-oidc",
+      "kind": "HankoApplication",
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "portal",
+        "type": "web",
+        "redirectURIs": [
+          "https://portal.example.test/b",
+          "https://portal.example.test/a"
+        ],
+        "postLogoutRedirectURIs": [
+          "https://portal.example.test/logout"
+        ],
+        "realmRoleScopes": [
+          "writer",
+          "reader"
+        ],
+        "roles": [
+          {
+            "name": "write",
+            "description": "Write"
+          },
+          {
+            "name": "read",
+            "description": "Read"
+          }
+        ]
+      },
+      "defaultedSpec": {
+        "realmRef": "realm",
+        "clientID": "portal",
+        "type": "web",
+        "redirectURIs": [
+          "https://portal.example.test/b",
+          "https://portal.example.test/a"
+        ],
+        "postLogoutRedirectURIs": [
+          "https://portal.example.test/logout"
+        ],
+        "realmRoleScopes": [
+          "writer",
+          "reader"
+        ],
+        "roles": [
+          {
+            "name": "write",
+            "description": "Write"
+          },
+          {
+            "name": "read",
+            "description": "Read"
+          }
+        ],
+        "mode": "Manage",
+        "protocol": "oidc"
+      },
+      "status": {
+        "appliedGeneration": 1,
+        "appliedPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "backendKind": "keycloak",
+        "capabilities": {
+          "clientRoles": true,
+          "confidentialClient": true,
+          "oidc": true,
+          "protocolMappers": true,
+          "publicClient": true,
+          "saml": true,
+          "samlACS": true,
+          "samlAssertionSigning": true,
+          "samlMetadata": true,
+          "samlResponseSigning": true
+        },
+        "capabilityEvidence": {
+          "source": "public-corpus-fixture",
+          "qualificationWindow": "26.7.5,26.8.0"
+        },
+        "conditions": [],
+        "contractVersion": "hanko.sh/iam-contract/v1alpha1",
+        "driftState": "InSync",
+        "evaluatedGeneration": 1,
+        "evaluatedPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "findings": [],
+        "intentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observationComplete": true,
+        "observationGeneration": 1,
+        "observationPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observedGeneration": 1,
+        "observedStateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "oidcEndpoints": {
+          "authorization": "https://issuer.example.test/authorization",
+          "issuer": "https://issuer.example.test/issuer",
+          "jwks": "https://issuer.example.test/jwks",
+          "token": "https://issuer.example.test/token",
+          "userInfo": "https://issuer.example.test/userInfo"
+        },
+        "phase": "Ready",
+        "protocol": "oidc"
+      },
+      "equivalent": [
+        {
+          "realmRef": "realm",
+          "clientID": "portal",
+          "type": "web",
+          "redirectURIs": [
+            "https://portal.example.test/a",
+            "https://portal.example.test/b"
+          ],
+          "postLogoutRedirectURIs": [
+            "https://portal.example.test/logout"
+          ],
+          "realmRoleScopes": [
+            "reader",
+            "writer"
+          ],
+          "roles": [
+            {
+              "name": "read",
+              "description": "Read"
+            },
+            {
+              "name": "write",
+              "description": "Write"
+            }
+          ]
+        }
+      ],
+      "identity": {
+        "contract": "hanko.sh/iam-contract/v1alpha1",
+        "backend": "keycloak",
+        "intent": "sha256:7818815fad310e6a9ba9f43165c62e55494e93265638e2457298156aeef06f09",
+        "plan": "sha256:5086c270f72ea8136eab7a405f1214258a0c93a043512ce2e1eb1b0f26c65b21"
+      }
+    },
+    {
+      "name": "application-defaults",
+      "kind": "HankoApplication",
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "default-portal"
+      },
+      "defaultedSpec": {
+        "realmRef": "realm",
+        "clientID": "default-portal",
+        "mode": "Manage",
+        "protocol": "oidc"
+      },
+      "status": {
+        "appliedGeneration": 1,
+        "appliedPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "backendKind": "keycloak",
+        "capabilities": {
+          "clientRoles": true,
+          "confidentialClient": true,
+          "oidc": true,
+          "protocolMappers": true,
+          "publicClient": true,
+          "saml": true,
+          "samlACS": true,
+          "samlAssertionSigning": true,
+          "samlMetadata": true,
+          "samlResponseSigning": true
+        },
+        "capabilityEvidence": {
+          "source": "public-corpus-fixture",
+          "qualificationWindow": "26.7.5,26.8.0"
+        },
+        "conditions": [],
+        "contractVersion": "hanko.sh/iam-contract/v1alpha1",
+        "driftState": "InSync",
+        "evaluatedGeneration": 1,
+        "evaluatedPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "findings": [],
+        "intentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observationComplete": true,
+        "observationGeneration": 1,
+        "observationPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observedGeneration": 1,
+        "observedStateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "oidcEndpoints": {
+          "authorization": "https://issuer.example.test/authorization",
+          "issuer": "https://issuer.example.test/issuer",
+          "jwks": "https://issuer.example.test/jwks",
+          "token": "https://issuer.example.test/token",
+          "userInfo": "https://issuer.example.test/userInfo"
+        },
+        "phase": "Ready",
+        "protocol": "oidc"
+      },
+      "equivalent": [
+        {
+          "realmRef": "realm",
+          "clientID": "default-portal",
+          "protocol": "oidc",
+          "type": "web"
+        }
+      ],
+      "identity": {
+        "contract": "hanko.sh/iam-contract/v1alpha1",
+        "backend": "keycloak",
+        "intent": "sha256:5d7677714b421d40bd1ca6abb0f241f488964af4a361d6b1703c95971f851e74",
+        "plan": "sha256:2a535a5f79d136ffd4eaabae87a2de54cd072af224457879c14b97ff6a1cb674"
+      }
+    },
+    {
+      "name": "application-saml",
+      "kind": "HankoApplication",
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "https://portal.example.test/entity",
+        "protocol": "saml",
+        "saml": {
+          "assertionConsumerServices": [
+            "https://portal.example.test/acs-b",
+            "https://portal.example.test/acs-a"
+          ]
+        }
+      },
+      "defaultedSpec": {
+        "realmRef": "realm",
+        "clientID": "https://portal.example.test/entity",
+        "protocol": "saml",
+        "saml": {
+          "assertionConsumerServices": [
+            "https://portal.example.test/acs-b",
+            "https://portal.example.test/acs-a"
+          ],
+          "requireSignedAssertions": true,
+          "nameIDFormat": "persistent"
+        },
+        "mode": "Manage"
+      },
+      "status": {
+        "appliedGeneration": 1,
+        "appliedPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "backendKind": "keycloak",
+        "capabilities": {
+          "clientRoles": true,
+          "confidentialClient": true,
+          "oidc": true,
+          "protocolMappers": true,
+          "publicClient": true,
+          "saml": true,
+          "samlACS": true,
+          "samlAssertionSigning": true,
+          "samlMetadata": true,
+          "samlResponseSigning": true
+        },
+        "capabilityEvidence": {
+          "source": "public-corpus-fixture",
+          "qualificationWindow": "26.7.5,26.8.0"
+        },
+        "conditions": [],
+        "contractVersion": "hanko.sh/iam-contract/v1alpha1",
+        "driftState": "InSync",
+        "evaluatedGeneration": 1,
+        "evaluatedPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "findings": [],
+        "intentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observationComplete": true,
+        "observationGeneration": 1,
+        "observationPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observedGeneration": 1,
+        "observedStateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "phase": "Ready",
+        "protocol": "saml",
+        "samlEndpoints": {
+          "issuer": "https://issuer.example.test/realm",
+          "sso": "https://issuer.example.test/saml",
+          "metadata": "https://issuer.example.test/metadata",
+          "responseBinding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+        }
+      },
+      "equivalent": [
+        {
+          "realmRef": "realm",
+          "clientID": "https://portal.example.test/entity",
+          "protocol": "saml",
+          "saml": {
+            "assertionConsumerServices": [
+              "https://portal.example.test/acs-a",
+              "https://portal.example.test/acs-b"
+            ]
+          }
+        }
+      ],
+      "identity": {
+        "contract": "hanko.sh/iam-contract/v1alpha1",
+        "backend": "keycloak",
+        "intent": "sha256:a5f9479ec113eb0159d4f50abc5e41ad2173ed887aa9c5ec9abc46f29e0b43d6",
+        "plan": "sha256:388c0783efe38c48d0a1020c3df38aa143394563368d69df08c0bed355942353"
+      }
+    },
+    {
+      "name": "application-m2m",
+      "kind": "HankoApplication",
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "api",
+        "type": "m2m"
+      },
+      "defaultedSpec": {
+        "realmRef": "realm",
+        "clientID": "api",
+        "type": "m2m",
+        "mode": "Manage",
+        "protocol": "oidc"
+      },
+      "status": {
+        "appliedGeneration": 1,
+        "appliedPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "backendKind": "keycloak",
+        "capabilities": {
+          "clientRoles": true,
+          "confidentialClient": true,
+          "oidc": true,
+          "protocolMappers": true,
+          "publicClient": true,
+          "saml": true,
+          "samlACS": true,
+          "samlAssertionSigning": true,
+          "samlMetadata": true,
+          "samlResponseSigning": true
+        },
+        "capabilityEvidence": {
+          "source": "public-corpus-fixture",
+          "qualificationWindow": "26.7.5,26.8.0"
+        },
+        "conditions": [],
+        "contractVersion": "hanko.sh/iam-contract/v1alpha1",
+        "driftState": "InSync",
+        "evaluatedGeneration": 1,
+        "evaluatedPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "findings": [],
+        "intentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observationComplete": true,
+        "observationGeneration": 1,
+        "observationPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observedGeneration": 1,
+        "observedStateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "oidcEndpoints": {
+          "authorization": "https://issuer.example.test/authorization",
+          "issuer": "https://issuer.example.test/issuer",
+          "jwks": "https://issuer.example.test/jwks",
+          "token": "https://issuer.example.test/token",
+          "userInfo": "https://issuer.example.test/userInfo"
+        },
+        "phase": "Ready",
+        "protocol": "oidc"
+      },
+      "equivalent": [
+        {
+          "realmRef": "realm",
+          "clientID": "api",
+          "type": "m2m",
+          "mode": "Manage",
+          "protocol": "oidc"
+        }
+      ],
+      "identity": {
+        "contract": "hanko.sh/iam-contract/v1alpha1",
+        "backend": "keycloak",
+        "intent": "sha256:3c15dc54bbee4ee9d0b3ecfb60bc998195a8c593a009cbd588c3b6e46ebd13b9",
+        "plan": "sha256:04e9beec43d9b51e15ea4b393e04a9d608487fa6c3e45fd745ec71b5bde13400"
+      }
+    },
+    {
+      "name": "role-composite",
+      "kind": "HankoRole",
+      "spec": {
+        "realmRef": "realm",
+        "name": "reader",
+        "description": "Read records",
+        "composite": false,
+        "composites": [
+          "writer",
+          "viewer"
+        ]
+      },
+      "defaultedSpec": {
+        "realmRef": "realm",
+        "name": "reader",
+        "description": "Read records",
+        "composite": false,
+        "composites": [
+          "writer",
+          "viewer"
+        ],
+        "mode": "Manage"
+      },
+      "status": {
+        "appliedGeneration": 1,
+        "appliedPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "backendKind": "keycloak",
+        "capabilities": {
+          "composites": true,
+          "nativeAttributes": true,
+          "realmRoles": true
+        },
+        "capabilityEvidence": {
+          "source": "public-corpus-fixture",
+          "qualificationWindow": "26.7.5,26.8.0"
+        },
+        "conditions": [],
+        "contractVersion": "hanko.sh/iam-contract/v1alpha1",
+        "driftState": "InSync",
+        "evaluatedGeneration": 1,
+        "evaluatedPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "findings": [],
+        "intentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observationComplete": true,
+        "observationGeneration": 1,
+        "observationPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observedGeneration": 1,
+        "observedStateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "phase": "Ready"
+      },
+      "equivalent": [
+        {
+          "realmRef": "realm",
+          "name": "reader",
+          "description": "Read records",
+          "composite": true,
+          "composites": [
+            "viewer",
+            "writer"
+          ]
+        }
+      ],
+      "identity": {
+        "contract": "hanko.sh/iam-contract/v1alpha1",
+        "backend": "keycloak",
+        "intent": "sha256:96aeeacc36bfc13398b0ae4cbdb684529f99adee30570bd72a2e88b80d22424d",
+        "plan": "sha256:61f70b194117778f8e700e55b216a3fd9bab9936f3dc1f1f398ffbdf2e5f12a7"
+      }
+    },
+    {
+      "name": "resource-server",
+      "kind": "HankoResourceServer",
+      "spec": {
+        "realmRef": "realm",
+        "applicationRef": "api",
+        "audience": "urn:public:api",
+        "displayName": "Public API",
+        "scopes": [
+          {
+            "name": "write",
+            "description": "Write"
+          },
+          {
+            "name": "read",
+            "description": "Read"
+          }
+        ],
+        "resources": [
+          {
+            "name": "records",
+            "displayName": "Records",
+            "type": "urn:records",
+            "uris": [
+              "/records/b",
+              "/records/a"
+            ],
+            "scopes": [
+              "write",
+              "read"
+            ]
+          }
+        ],
+        "permissions": [
+          {
+            "name": "read-records",
+            "resources": [
+              "records"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "principals": [
+              {
+                "kind": "application",
+                "ref": "portal"
+              },
+              {
+                "kind": "realm_role",
+                "ref": "reader"
+              }
+            ]
+          }
+        ]
+      },
+      "defaultedSpec": {
+        "realmRef": "realm",
+        "applicationRef": "api",
+        "audience": "urn:public:api",
+        "displayName": "Public API",
+        "scopes": [
+          {
+            "name": "write",
+            "description": "Write"
+          },
+          {
+            "name": "read",
+            "description": "Read"
+          }
+        ],
+        "resources": [
+          {
+            "name": "records",
+            "displayName": "Records",
+            "type": "urn:records",
+            "uris": [
+              "/records/b",
+              "/records/a"
+            ],
+            "scopes": [
+              "write",
+              "read"
+            ]
+          }
+        ],
+        "permissions": [
+          {
+            "name": "read-records",
+            "resources": [
+              "records"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "principals": [
+              {
+                "kind": "application",
+                "ref": "portal"
+              },
+              {
+                "kind": "realm_role",
+                "ref": "reader"
+              }
+            ]
+          }
+        ],
+        "mode": "Manage"
+      },
+      "status": {
+        "appliedGeneration": 1,
+        "appliedPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "backendKind": "keycloak",
+        "capabilities": {
+          "applicationPrincipals": true,
+          "boundedDelegation": false,
+          "nativePermissionClaim": true,
+          "organizationDescendants": false,
+          "organizationPrincipals": false,
+          "resourceObjects": true,
+          "resourceURIMatching": true,
+          "rolePrincipals": true,
+          "scopeGrants": true,
+          "serviceAccountPrincipals": true,
+          "umaRPT": true
+        },
+        "capabilityEvidence": {
+          "source": "public-corpus-fixture",
+          "qualificationWindow": "26.7.5,26.8.0"
+        },
+        "conditions": [],
+        "contractVersion": "hanko.sh/iam-contract/v1alpha1",
+        "driftState": "InSync",
+        "evaluatedGeneration": 1,
+        "evaluatedPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "findings": [],
+        "intentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observationComplete": true,
+        "observationGeneration": 1,
+        "observationPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "observedGeneration": 1,
+        "observedStateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "phase": "Ready"
+      },
+      "equivalent": [
+        {
+          "realmRef": "realm",
+          "applicationRef": "api",
+          "audience": "urn:public:api",
+          "displayName": "Public API",
+          "scopes": [
+            {
+              "name": "read",
+              "description": "Read"
+            },
+            {
+              "name": "write",
+              "description": "Write"
+            }
+          ],
+          "resources": [
+            {
+              "name": "records",
+              "displayName": "Records",
+              "type": "urn:records",
+              "uris": [
+                "/records/a",
+                "/records/b"
+              ],
+              "scopes": [
+                "read",
+                "write"
+              ]
+            }
+          ],
+          "permissions": [
+            {
+              "name": "read-records",
+              "resources": [
+                "records"
+              ],
+              "scopes": [
+                "read"
+              ],
+              "principals": [
+                {
+                  "kind": "realm_role",
+                  "ref": "reader"
+                },
+                {
+                  "kind": "application",
+                  "ref": "portal"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "identity": {
+        "contract": "hanko.sh/iam-contract/v1alpha1",
+        "backend": "keycloak",
+        "intent": "sha256:d3b66b906b099afe4c019fb87d7db968e31fe8343600048614737d5d9ec288e6",
+        "plan": "sha256:c9c34aa28c7151d3c17a664e202d8aff19f604e0eded0cecdfc2a0234183f2b9"
+      }
+    }
+  ]
+}

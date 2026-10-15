@@ -1,7 +1,9 @@
 # API conversion, migration and rollback policy
 
 This policy describes the current development schema and required review for its
-evolution. Public surface selection remains in #81. There is no published 0.x
+evolution. The [#81 candidate selection](public-contract-selection.md) and its
+[frozen corpus](public-contract-semantics.md) define the initial qualification
+scope; activation still requires qualification and first publication. There is no published 0.x
 predecessor, stable API version, conversion webhook or qualified cross-release
 rollback matrix. Tests of one development revision must not be described as
 N-1 → N public-release compatibility.

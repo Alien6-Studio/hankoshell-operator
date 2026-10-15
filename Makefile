@@ -30,6 +30,7 @@ versions-sync:
 all: check build
 check: fmt-check vet test chart-test coverage
 preflight: fmt-check vet generated-check
+	python3 scripts/public-contract.py check
 	python3 -m unittest discover -s scripts -p 'test_*.py'
 
 fmt-check:

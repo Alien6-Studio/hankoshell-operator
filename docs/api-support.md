@@ -5,6 +5,11 @@ ratify the initial public surface selected by #81 or close its prerequisites.
 No public release has been published. All planned capabilities remain in the
 backlog; an experimental classification is not removal from the roadmap.
 
+The separate [candidate selection](public-contract-selection.md) reviews all
+resource/field groups for #81. Its [frozen semantics and corpus](public-contract-semantics.md)
+feed #82/#84 qualification; they do not change the current development maturity
+table or authorize first publication.
+
 The reviewed [machine-readable inventory](api-support.json) lists every top-level
 spec/status field group for every CRD, plus explicit provider-native spec groups.
 Each classification applies to all nested fields in that group. Native groups

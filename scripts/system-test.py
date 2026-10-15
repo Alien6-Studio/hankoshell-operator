@@ -6,6 +6,7 @@ normal operator uses the chart service account and target-realm Keycloak roles.
 
 import argparse
 import base64
+import copy
 import hashlib
 import importlib.util
 import json
@@ -1226,6 +1227,75 @@ class System:
         if self.client(realm, "reviewed-api")["id"] != backing["id"] or self.api("GET", base) != realm_before:
             raise ValueError("Child cleanup replaced the client or changed the external realm")
 
+    def public_contract_corpus(self):
+        path = ROOT / "internal/iamconformance/testdata/public-0.1.0/corpus.json"
+        corpus = json.loads(path.read_text())
+        aliases = {"portal": "public-application-oidc", "api": "public-application-m2m", "reader": "public-role-composite"}
+        for name in ("writer", "viewer"):
+            self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoRole", "metadata": {"name": "public-" + name, "namespace": "auth"},
+                        "spec": {"realmRef": "managed", "name": "public-" + name}})
+            wait("public auxiliary owned role", lambda: self.role_reconciled("public-" + name))
+        # Parent roles precede scoped clients; the resource server follows its
+        # backing client. Logical fixture references are rebound explicitly.
+        ordered = sorted(corpus["fixtures"], key=lambda f: {"HankoRole": 0, "HankoApplication": 1, "HankoResourceServer": 2}[f["kind"]])
+        objects = []
+        clients = []
+        for fixture in ordered:
+            spec = copy.deepcopy(fixture["spec"])
+            spec["realmRef"] = "managed"
+            if fixture["kind"] == "HankoRole":
+                spec["name"] = "public-" + spec["name"]
+                spec["composites"] = ["public-" + name for name in spec.get("composites", [])]
+            elif fixture["kind"] == "HankoApplication":
+                if spec.get("protocol") == "saml":
+                    spec["clientID"] = "https://public-contract.example.test/entity"
+                else:
+                    spec["clientID"] = "public-" + spec["clientID"]
+                spec["realmRoleScopes"] = ["public-" + role for role in spec["realmRoleScopes"]] if "realmRoleScopes" in spec else None
+                if spec["realmRoleScopes"] is None:
+                    del spec["realmRoleScopes"]
+                clients.append(spec["clientID"])
+            else:
+                spec["applicationRef"] = aliases[spec["applicationRef"]]
+                for permission in spec["permissions"]:
+                    for principal in permission["principals"]:
+                        principal["ref"] = aliases[principal["ref"]]
+            name = "public-" + fixture["name"]
+            self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": fixture["kind"],
+                        "metadata": {"name": name, "namespace": "auth"}, "spec": spec})
+            wait("installed public corpus evaluated/applied/observed", lambda: self.iam_reconciled(fixture["kind"].lower(), name))
+            objects.append((fixture["kind"].lower(), name))
+            if fixture["kind"] == "HankoApplication" and spec.get("protocol", "oidc") == "oidc":
+                secret = self.get("secret", "hanko-app-" + spec["clientID"])["data"]["client_secret"]
+                self.sensitive.append(base64.b64decode(secret).decode())
+        before = {client: self.client("managed", client)["id"] for client in clients}
+        owners = {(kind, name): self.get(kind, name)["metadata"]["uid"] for kind, name in objects}
+        role_id = self.api("GET", "/admin/realms/managed/roles/public-reader")["id"]
+        journal_before = json.loads(self.client("managed", "public-api")["attributes"]["hanko.sh/resource-server-ownership"])
+        self.kubectl("rollout", "restart", "deployment/system-operator", "-n", "auth")
+        self.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=120s")
+        for kind, name in objects:
+            wait("public corpus readiness after restart", lambda: self.iam_reconciled(kind, name))
+            if self.get(kind, name)["metadata"]["uid"] != owners[(kind, name)]:
+                raise ValueError("Public corpus object was recreated")
+        if any(self.client("managed", name)["id"] != identity for name, identity in before.items()):
+            raise ValueError("Public corpus client was duplicated or replaced")
+        role = self.api("GET", "/admin/realms/managed/roles/public-reader")
+        if role["id"] != role_id or role.get("attributes", {}).get("hanko.sh/role-owner") != [owners[("hankorole", "public-role-composite")]]:
+            raise ValueError("Public role UID ownership changed")
+        journal = json.loads(self.client("managed", "public-api")["attributes"]["hanko.sh/resource-server-ownership"])
+        if journal != journal_before or journal["ownerUID"] != owners[("hankoresourceserver", "public-resource-server")]:
+            raise ValueError("Public authorization UID ownership changed")
+        for fixture in ordered:
+            if fixture["kind"] == "HankoApplication":
+                client_id = "https://public-contract.example.test/entity" if fixture["spec"].get("protocol") == "saml" else "public-" + fixture["spec"]["clientID"]
+                owner = owners[("hankoapplication", "public-" + fixture["name"])]
+                if self.client("managed", client_id).get("attributes", {}).get("hanko.sh/application-owner") != owner:
+                    raise ValueError("Public application UID ownership changed")
+        self.public_corpus_evidence = {"fixture_sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "fixtures": len(objects),
+            "restart_preserves_native_identity": True, "cross_release": corpus["limitation"]}
+        print("System: public contract corpus and restart passed; cross-release: " + corpus["limitation"], flush=True)
+
     def reconcile(self):
         self.reject_wrong_ca()
         self.api("POST", "/admin/realms/managed/clients", {"clientId": "unmanaged", "enabled": True, "publicClient": True})
@@ -1306,6 +1376,7 @@ class System:
         self.workload_trust()
         self.resourceserver_adoption()
         self.lifecycle_alias()
+        self.public_contract_corpus()
         # Verify logs, events and every stored CRD, never exposing Secret values.
         data = ""
         for namespace, deployment in self.scanned_operators:
@@ -1352,7 +1423,7 @@ def main():
             print("System: scanned operator installed through Helm", flush=True)
             system.reconcile()
             args.output.write_text(json.dumps({"version": VERSION, "revision": args.revision, "image_digest": args.digest,
-                "kubernetes": KUBERNETES_VERSION, "keycloak": KEYCLOAK_VERSION, "result": "pass",
+                "kubernetes": KUBERNETES_VERSION, "keycloak": KEYCLOAK_VERSION, "result": "pass", "public_contract": system.public_corpus_evidence,
                 "checks": ["Helm installation and real pod startup under Restricted admission", "namespace RBAC and current-API event recording",
                            "verified private-CA HTTPS, wrong-CA readiness/write denial and trust repair", "scoped Keycloak identity and denied authority", "realm/client/roles/Secret reconciliation",
                            "IAM role and authorization evaluated/applied/read-back evidence, UID ownership and finalizer cleanup",

@@ -534,3 +534,35 @@ providers, production databases, enterprise fleet integration or disaster recove
 [Report a vulnerability](SECURITY.md) ·
 [Report an issue](https://github.com/Alien6-Studio/hankoshell-operator/issues) ·
 [Apache-2.0](LICENSE)
+
+## Initial public contract selection
+
+See the [complete candidate review](docs/public-contract-selection.md).
+
+<!-- public-selection:start -->
+Initial 0.1.0 selection: 3 public resource candidates; qualification and first publication remain pending. Current development APIs remain experimental.
+
+| Resource | Selected scope | Public spec groups |
+| --- | --- | --- |
+| `HankoApplication` | public | `clientID`, `mode`, `postLogoutRedirectURIs`, `protocol`, `realmRef`, `realmRoleScopes`, `redirectURIs`, `roles`, `saml`, `type` |
+| `HankoEmailProvider` | experimental | — |
+| `HankoIAMProfile` | alpha | — |
+| `HankoImport` | experimental | — |
+| `HankoIssuer` | alpha | — |
+| `HankoKeycloakInstance` | experimental | — |
+| `HankoMeshService` | experimental | — |
+| `HankoOperation` | experimental | — |
+| `HankoOrganization` | alpha | — |
+| `HankoRealm` | alpha | — |
+| `HankoResourceServer` | public | `applicationRef`, `audience`, `displayName`, `mode`, `permissions`, `realmRef`, `resources`, `scopes` |
+| `HankoRole` | public | `composite`, `composites`, `description`, `mode`, `name`, `realmRef` |
+| `HankoServiceAccount` | alpha | — |
+| `HankoSnapshot` | experimental | — |
+| `HankoTenant` | experimental | — |
+| `HankoTheme` | experimental | — |
+| `HankoWorkloadTrust` | alpha | — |
+
+Native SAML remains an explicit Keycloak extension. Delegation, organization principals,
+connected integrations and every other deferred field retain their named limitations in
+the complete selection; no planned capability is removed.
+<!-- public-selection:end -->
