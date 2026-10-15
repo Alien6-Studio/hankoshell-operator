@@ -827,9 +827,14 @@ class System:
             "enabled": True, "publicClient": True, "standardFlowEnabled": True, "directAccessGrantsEnabled": False,
             "serviceAccountsEnabled": False, "fullScopeAllowed": False, "redirectUris": ["https://lifecycle.example.test/callback"]})
         roles = ["view-realm", "view-clients", "view-identity-providers"]
-        self.adoption_operator(namespace, realm, roles, roles)
+        self.adoption_operator(namespace, realm, [*roles, "view-users"], roles)
         source = self.get("hankokeycloakinstance", "source", namespace)
         provider_before, client_before = self.api("GET", "/admin/realms/" + realm), self.client(realm, "lifecycle-spa")
+        reader = self.get("secret", "inventory-credentials", namespace)["data"]
+        inventory_token = self.access_token({"client_id": namespace + "-reader",
+            "client_secret": base64.b64decode(reader["HANKO_KC_CLIENT_SECRET"]).decode(), "grant_type": "client_credentials"})
+        self.api("GET", f"/admin/realms/{realm}/groups", token=inventory_token)
+        self.api("PUT", f'/admin/realms/{realm}/clients/{client_before["id"]}', {"enabled": False}, token=inventory_token, expected=(403,))
         deployment = namespace + "-operator"
         role = self.get("role", deployment, namespace)
         blocked, protected = [], False
@@ -866,7 +871,13 @@ class System:
         self.kubectl("patch", "role", deployment, "-n", namespace, "--type=merge", "-p", json.dumps({"rules": role["rules"]}))
         self.kubectl("scale", "deployment/" + deployment, "-n", namespace, "--replicas=1")
         self.kubectl("rollout", "status", "deployment/" + deployment, "-n", namespace, "--timeout=180s")
-        wait("installed configuration alias Clone completion", lambda: self.get("hankooperation", "clone", namespace).get("status", {}).get("phase") == "Done", 240)
+        def clone_complete():
+            phase = self.get("hankooperation", "clone", namespace).get("status", {}).get("phase")
+            if phase == "Failed":
+                raise ValueError("Installed Clone failed before complete provider verification")
+            return phase == "Done"
+
+        wait("installed configuration alias Clone completion", clone_complete, 240)
         operation = self.get("hankooperation", "clone", namespace)
         snapshot = self.get("hankosnapshot", "op-clone-snap", namespace)
         target, imported = self.get("hankokeycloakinstance", "alias", namespace), self.get("hankoimport", "op-clone-import", namespace)
@@ -907,7 +918,7 @@ class System:
         if (current["metadata"]["uid"] != foreign["metadata"]["uid"] or current["spec"] != foreign["spec"]
                 or current["metadata"].get("ownerReferences") or self.exists("hankoimport", "op-foreign-import", namespace)):
             raise ValueError("Installed Clone took ownership of a foreign alias")
-        credential = self.adoption_identity("lifecycle-incomplete-reader", realm, ["view-realm", "view-clients"])
+        credential = self.adoption_identity("lifecycle-incomplete-reader", realm, ["view-realm", "view-clients", "view-users"])
         token = self.access_token({"client_id": "lifecycle-incomplete-reader", "client_secret": credential, "grant_type": "client_credentials"})
         self.api("GET", f"/admin/realms/{realm}/identity-provider/instances", token=token, expected=(403,))
         self.apply(self.secret("incomplete-inventory", {"HANKO_KEYCLOAK_URL": "https://keycloak.auth.svc:8443",

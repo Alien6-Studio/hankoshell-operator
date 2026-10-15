@@ -1016,8 +1016,11 @@ outside the first release's qualified core IAM contract.
 The required installed-system test on Kubernetes **1.37.0** and HTTPS Keycloak
 **26.8.0** exercises same-namespace Clone from an external source as a configuration
 alias, with `includeData: false` and a configuration snapshot. A separate namespace
-uses the exact scanned operator image and read-only `view-realm`, `view-clients`
-and `view-identity-providers` provider identities. The fixture removes only the
+uses the exact scanned operator image and a read-only `view-realm`, `view-clients`,
+`view-identity-providers` chart identity. The separate source inventory identity
+adds `view-users`: complete import coverage reads the group inventory as well,
+even when it is empty, and this role also permits target-realm user reads. The
+fixture proves group reads succeed while client writes remain denied. It removes only the
 operator's ConfigMap-create permission, waits for real persisted operation and
 snapshot checkpoints, stops the manager, restores that permission and restarts.
 Completion requires the original child UIDs, immutable capture hash, complete

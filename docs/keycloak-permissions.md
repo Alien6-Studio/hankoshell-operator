@@ -176,6 +176,14 @@ roles already authorize the corresponding reads; redundant `view-*` and
 | Harden master security policy | `manage-realm` of **`master-realm`** | Master security policy | Only with `spec.hardenMasterRealm: true` |
 | Automatic rotation of the operator's own master client credential | `manage-clients` of **`master-realm`** | All master clients | Only with `spec.rotateAdminCredentials: true`; prefer administrator-controlled rotation |
 
+`HankoOperation` Clone completion requires complete import coverage, including the
+group inventory even when the source realm contains no groups. Its source
+inventory identity therefore also needs `view-users` in the qualified
+configuration-only fixture; the chart's separate read-only identity does not.
+This role permits target-realm user reads as well. Additional organization or
+authorization inventory needs the corresponding view roles when those surfaces
+are present; arbitrary source configurations remain outside this Clone subset.
+
 The operator does not provision user passwords, user membership or invitations,
 perform user impersonation, manage SMTP delivery, or manage administrative role
 bindings. Machine-client service accounts use client configuration and credentials;
