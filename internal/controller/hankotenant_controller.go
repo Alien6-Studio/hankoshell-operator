@@ -259,6 +259,7 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			if fleetplan.Reason(err) == "FleetAuthorityChanged" {
 				return ctrl.Result{}, err
 			}
+			fleetRolloutRefusal(&tenant, fleetplan.Reason(err))
 			return r.setError(ctx, hubClient, &tenant, patch, fleetplan.Reason(err), err)
 		}
 	} else {
@@ -291,9 +292,16 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		// it is cleared only when a reconcile fully completes.
 		phase, health, detail = "Error", "degraded", reason
 	}
+	if appliedReason == "FleetPlanPartial" {
+		phase, health, detail = "Error", "degraded", "FleetPlanPartial"
+	}
+	reportedBundleVersion := bundleVersion
+	if appliedReason == "FleetPlanPartial" {
+		reportedBundleVersion = tenant.Status.BundleVersion
+	}
 	status := hub.OperatorStatus{
 		TenantID:          tenantID,
-		BundleVersion:     bundleVersion,
+		BundleVersion:     reportedBundleVersion,
 		Phase:             phase,
 		ResourceCount:     counts,
 		AgentVersion:      version.Agent,
@@ -302,6 +310,7 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		Detail:            detail,
 		MeshRegistrations: &meshRegistrations,
 		FleetPlan:         fleetEvidence(&tenant),
+		FleetRollout:      fleetRolloutEvidence(&tenant),
 	}
 	if r.Supervision != nil {
 		// Collected only on the success path: the error path stays cheap and
@@ -335,15 +344,26 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// ── Update status ─────────────────────────────────────────────────────────
 	syncTime := metav1.Now()
 	tenant.Status.Phase = "Synced"
+	if appliedReason == "FleetPlanPartial" {
+		tenant.Status.Phase = "Error"
+	}
 	tenant.Status.ObservedGeneration = tenant.Generation
 	tenant.Status.TenantID = tenantID
 	tenant.Status.ClusterID = credentials.ClusterID
-	tenant.Status.BundleVersion = bundleVersion
+	if appliedReason != "FleetPlanPartial" {
+		tenant.Status.BundleVersion = bundleVersion
+		tenant.Status.LastSync = &syncTime
+	}
 	tenant.Status.LastReconciled = &now
 	tenant.Status.ConnectedHub = tenant.Spec.HubEndpoint
-	tenant.Status.LastSync = &syncTime
-	setCondition(&tenant.Status.Conditions, "Synced", metav1.ConditionTrue, appliedReason,
-		fmt.Sprintf("bundle %s applied successfully", bundleVersion))
+	conditionStatus := metav1.ConditionTrue
+	message := fmt.Sprintf("bundle %s applied successfully", bundleVersion)
+	if appliedReason == "FleetPlanPartial" {
+		conditionStatus = metav1.ConditionFalse
+		message = "signed plan delivered partially; inspect bounded rollout findings"
+	}
+	setCondition(&tenant.Status.Conditions, "Synced", conditionStatus, appliedReason,
+		message)
 
 	if err := r.Status().Patch(ctx, &tenant, patch); err != nil {
 		return ctrl.Result{}, fmt.Errorf("patch tenant status: %w", err)
@@ -922,6 +942,7 @@ func (r *HankoTenantReconciler) setError(
 			Detail:            reason,
 			MeshRegistrations: &emptyMeshRegistrations,
 			FleetPlan:         fleetEvidence(tenant),
+			FleetRollout:      fleetRolloutEvidence(tenant),
 		}); reportErr != nil {
 			log.FromContext(ctx).Error(reportErr, "report degraded status to hub (non-fatal)")
 		}

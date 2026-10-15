@@ -34,10 +34,13 @@ The high-water mark survives failures and may advance before the whole graph is
 applied. Kubernetes writes are not a multi-object transaction. Operator/CRD
 downgrades need suspended management and checkpoint preservation.
 
-Current execution permits the existing finite five bundle kinds and no additional
-capability requirements. Provider portability, partial rollout, offline provider
+Current execution derives capability requirements from the finite bundle kinds,
+checks qualified provider/native permission evidence and honours independent local
+pause/refuse controls. Partial selection is explicit and retains every signature,
+tenant and field-ownership guard. Theme builds and realm creation are outside the
+current conservative rollout profile. Provider portability, offline provider
 expiry, controlled rollback and installed fleet qualification remain #75 and
-#78–#80. Accepting this verification contract does not qualify those behaviors or
+#79/#80. Accepting this verification contract does not qualify those behaviors or
 enable production publication.
 
 ## Enforcement
@@ -47,5 +50,8 @@ enable production publication.
 - [Tenant checkpoint and conditional apply](../../../internal/controller/hankotenant_fleet.go).
 - [Bounded HTTPS transport](../../../internal/hub/fleet.go).
 - [API checkpoint schema](../../../api/v1alpha1/hankotenant_types.go).
+- [Capability selection](../../../internal/fleetplan/rollout.go),
+  [provider permission evidence](../../../internal/keycloak/fleet_permissions.go) and
+  [rollout API tests](../../../api/v1alpha1/fleet_rollout_integration_test.go).
 - [Real HTTPS/API recovery and local trust admission](../../../api/v1alpha1/fleet_plan_integration_test.go).
 - [Independent local trust policy](../../../config/security/fleet-plan-trust-admission.yaml).

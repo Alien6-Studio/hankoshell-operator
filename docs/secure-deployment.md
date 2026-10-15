@@ -184,8 +184,12 @@ an old HMAC response fails closed. For binary rollback, suspend the operator and
 retain the newer CRD/status, then review actual child/provider state. An older
 binary cannot enforce this ratchet. Do not clear a checkpoint or prune/downgrade
 the CRD to bypass it. A previous identity is evidence for future reviewed rollback,
-not rollback execution. Capability-aware rollout, disconnected provider expiry
-and installed fleet qualification remain #78–#80. Current child reconcilers can
+not rollback execution. Capability-aware rollout and local stop controls follow
+the [conservative Fleet profile](architecture/fleet-reconciliation.md#capability-aware-delivery-and-local-stop-controls):
+existing realms, explicit local realm binding, qualified versions and effective
+native roles are required. Use protected `rollout.json` overrides to pause/refuse
+new delivery; partial success stays degraded with bounded findings. Disconnected
+provider expiry and installed fleet qualification remain #79/#80. Current child reconcilers can
 continue acting on previously delivered declarations after a plan expires.
 
 #### Shared bundle object ownership
@@ -214,10 +218,10 @@ These checks are exercised against HTTPS Hub fixtures and all supported Kubernet
 API versions, including lost creation acknowledgements. They do not make a bundle
 transactional: API admission or concurrent conflicts during later writes can leave
 earlier resources applied. A retry rechecks current ownership; no rollback or
-successful bundle version is recorded for a failed apply. Signed plan verification,
-anti-replay and rollout policy remain open in issues
-[#77](https://github.com/Alien6-Studio/hankoshell-operator/issues/77) and
-[#78](https://github.com/Alien6-Studio/hankoshell-operator/issues/78).
+successful bundle version is recorded for a failed apply. Opt-in signed Fleet
+plans additionally enforce the publisher, replay and rollout controls above.
+Disconnected provider expiry, controlled rollback and installed Fleet
+qualification remain #79/#80.
 
 Tenant Keycloak routing is registered before Hub enrollment, credential rotation
 or bundle requests. An unavailable Hub therefore does not prevent reconstruction

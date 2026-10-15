@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -29,9 +30,11 @@ import (
 
 type fleetFaultClient struct {
 	client.Client
-	fail   string
-	after  bool
-	writes int
+	fail        string
+	after       bool
+	writes      int
+	applies     int
+	failApplyAt int
 }
 
 func (c *fleetFaultClient) Status() client.SubResourceWriter {
@@ -83,6 +86,11 @@ func (c *fleetFaultClient) Apply(_ context.Context, _ runtime.ApplyConfiguration
 	// separately verifies actual conditional applies and field ownership.
 	var options client.ApplyOptions
 	options.ApplyOptions(opts)
+	c.applies++
+	if c.applies == c.failApplyAt {
+		c.failApplyAt = 0
+		return errors.New("fixture content apply refusal")
+	}
 	if options.Force != nil && *options.Force {
 		return errors.New("fixture refuses forced ownership")
 	}
@@ -97,11 +105,13 @@ type fleetUnitFixture struct {
 	private        ed25519.PrivateKey
 	envelope       []byte
 	beforeResponse func()
+	nativeRoles    []string
+	nativeVersion  string
 }
 
 func newFleetUnitFixture(t *testing.T) *fleetUnitFixture {
 	t.Helper()
-	f := &fleetUnitFixture{}
+	f := &fleetUnitFixture{nativeRoles: []string{"manage-realm", "manage-events", "manage-clients", "manage-identity-providers"}, nativeVersion: "26.8.0"}
 	public, private, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -110,6 +120,20 @@ func newFleetUnitFixture(t *testing.T) *fleetUnitFixture {
 	now := time.Now().UTC()
 	f.tenant = &api.HankoTenant{ObjectMeta: metav1.ObjectMeta{Name: "tenant", Namespace: "auth", UID: "tenant-uid", Generation: 1}, Spec: api.HankoTenantSpec{IsolationMode: "realm", HubTenantID: "tenant-id", HubTokenSecretRef: corev1.LocalObjectReference{Name: "hub"}}}
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if strings.HasPrefix(req.URL.Path, "/realms/") || strings.HasPrefix(req.URL.Path, "/admin/") {
+			switch req.URL.Path {
+			case "/realms/master/protocol/openid-connect/token":
+				claims, _ := json.Marshal(map[string]any{"iss": "https://" + req.Host + "/realms/master", "azp": "fixture-writer", "iat": time.Now().Unix(), "exp": time.Now().Add(10 * time.Minute).Unix(), "resource_access": map[string]any{"fleet-realm-realm": map[string]any{"roles": f.nativeRoles}}})
+				_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "e30." + base64.RawURLEncoding.EncodeToString(claims) + ".fixture", "expires_in": 600})
+			case "/admin/serverinfo":
+				_ = json.NewEncoder(w).Encode(map[string]any{"systemInfo": map[string]string{"version": f.nativeVersion}})
+			case "/admin/realms/fleet-realm":
+				_, _ = w.Write([]byte(`{"id":"fixture-realm-id","realm":"fleet-realm"}`))
+			default:
+				w.WriteHeader(http.StatusForbidden)
+			}
+			return
+		}
 		if req.URL.Path == "/api/v1/operators/status" {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -127,6 +151,7 @@ func newFleetUnitFixture(t *testing.T) *fleetUnitFixture {
 	}))
 	t.Cleanup(server.Close)
 	f.tenant.Spec.HubEndpoint = server.URL
+	f.tenant.Spec.RealmRef = "fleet-realm"
 	target := fleetplan.Target{Scope: fleetplan.Scope{TenantID: "tenant-id", ClusterID: "cluster-id", Namespace: "auth", TenantName: "tenant"}, TenantUID: string(f.tenant.UID)}
 	f.plan = fleetplan.Plan{Issuer: "publisher", KeyID: "key-1", Target: target, Source: fleetplan.Source{Repository: "example/config", Revision: strings.Repeat("a", 40), Digest: "sha256:" + strings.Repeat("b", 64)}, ContractVersion: string(iamcontract.Version), Sequence: 1, IssuedAt: now, NotBefore: now, ExpiresAt: now.Add(10 * time.Minute), Mode: "all-or-refuse",
 		Content: fleetplan.Content{Realms: []json.RawMessage{json.RawMessage(`{"apiVersion":"hanko.sh/v1alpha1","kind":"HankoRealm","metadata":{"name":"fleet-realm","namespace":"auth","labels":{"hanko.sh/tenant":"tenant"}},"spec":{"otpRequired":true}}`)}}}
@@ -136,7 +161,11 @@ func newFleetUnitFixture(t *testing.T) *fleetUnitFixture {
 	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "hub", Namespace: "auth"}, Data: map[string][]byte{"hub_token": []byte("fixture-hub-credential"), "tenant_id": []byte("tenant-id"), "cluster_id": []byte("cluster-id"), "expires_at": []byte(now.Add(12 * time.Hour).Format(time.RFC3339Nano))}}
 	kube := fake.NewClientBuilder().WithScheme(controllerTestScheme(t)).WithStatusSubresource(&api.HankoTenant{}).WithObjects(f.tenant, cm, secret).Build()
 	f.client = &fleetFaultClient{Client: kube}
-	f.r = &HankoTenantReconciler{Client: f.client, APIReader: kube, Pool: keycloak.NewPool(nil), HubHTTPClient: server.Client(), FleetTrustConfigMapName: cm.Name}
+	kc, err := keycloak.NewWithTLS(server.URL, "fixture-writer", "fixture-provider-credential", pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.r = &HankoTenantReconciler{Client: f.client, APIReader: kube, Pool: keycloak.NewPool(kc), HubHTTPClient: server.Client(), FleetTrustConfigMapName: cm.Name}
 	f.sign(t)
 	return f
 }

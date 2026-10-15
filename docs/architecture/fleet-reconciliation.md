@@ -1,11 +1,11 @@
 # Signed fleet desired state
 
-This is the operator-side contract for #76/#77 and ADR-049. It does not implement
+This is the operator-side contract for #76–#78 and ADR-049. It does not implement
 Hub signing/distribution or qualify enterprise fleet operation. Keycloak retains
 all native extensions. #75 remains the provider-portability evidence boundary;
 this protocol binds a contract/source identity without inventing second-provider
-conformance. #78–#80 own capability rollout, disconnected provider authority and
-the installed fleet matrix.
+conformance. #79/#80 own disconnected provider authority, rollback and the
+installed fleet matrix.
 
 ## Threat model and mechanism decision
 
@@ -62,7 +62,9 @@ The signed payload binds:
 | contractVersion | Exact recognized internal IAM contract version. This is not a public API stability or provider-parity claim. |
 | sequence | Positive signed int64, monotonically increasing per tenant UID. |
 | issuedAt, notBefore, expiresAt | Nonzero RFC3339 times, positive validity at most one hour. Future issuance/start tolerance is 30 seconds; expiry is strict with no extra grace. |
-| requirements, mode | Explicit capability requirements and rollout mode. Current execution accepts empty requirements and `all-or-refuse` only; unsupported requests produce no content writes. #78 extends qualified capability handling. |
+| requirements, mode | Global capability requirements are hard stop conditions for the target. `all-or-refuse` refuses every object if one is incompatible; explicit `partial` selects compatible objects and refuses their incompatible dependencies. Both modes preserve all cryptographic, metadata and tenant guards. |
+| minimumOperatorVersion | Optional semantic minimum, including prerelease ordering. A development binary does not satisfy the corresponding stable minimum. |
+| objectRequirements | Up to 200 unique exact kind/name references to objects in content, each with up to 32 additional bounded capability identifiers. These add requirements; they cannot remove capabilities derived from actual specs. |
 | rollbackOf | Future reference to previously verified content. Currently refused; retaining a previous identity is not permission to roll back. |
 | content | Finite arrays of IAMProfile, Realm, Application, Theme and ServiceAccount declarations, at most 200 objects, each at most 64 KiB. |
 
@@ -150,7 +152,7 @@ invariants are exercised in the [pure verifier tests](../../internal/fleetplan/v
 | FleetValidityInvalid | Nonpositive sequence, missing/reversed or excessive validity bounds. |
 | FleetPlanNotYetValid | Issuance/start exceeds allowed future skew. |
 | FleetPlanExpired | Current time is at or after signed expiry. |
-| FleetCapabilitiesUnsupported | Nonempty requirements or mode other than all-or-refuse. |
+| FleetCapabilitiesUnsupported | Invalid requirement/reference bounds or mode other than all-or-refuse/partial. |
 | FleetRollbackUnsupported | A rollback reference is supplied before rollback execution is supported. |
 | FleetContentInvalid | Closed object/typed schema, size/count or API dry-run validation fails. |
 | FleetContentAuthorityInvalid | A reserved approval/ownership annotation or label is supplied. |
@@ -163,9 +165,115 @@ invariants are exercised in the [pure verifier tests](../../internal/fleetplan/v
 
 Existing bundle tenant/object/metadata conflicts retain their distinct reasons.
 Public messages contain authored decisions, never remote payloads. Heartbeats
-carry only plan sequence, identity and applied identity alongside bounded counts.
+carry only plan sequence, identity and applied identity alongside bounded delivery
+counts and the rollout evidence below.
 They do not attest provider convergence or authorize image updates/decommission;
 the existing independent local approvals remain mandatory.
+
+## Capability-aware delivery and local stop controls
+
+Cryptographic verification does not grant provider permissions. Every signed
+object derives mandatory requirements from its actual kind/spec, even when Hub
+omits explicit requirements. The local inventory combines the reviewed application
+adapter capabilities, an exact qualified Keycloak version and a fresh effective
+native-role snapshot for each target realm. It uses the tenant's registered client;
+there is no fallback to another tenant or an unregistered shared connection.
+
+| Capability | Current conservative support/permission boundary |
+| --- | --- |
+| iam.policy, realm.manage | Existing target realm on Keycloak 26.7.5/26.8.0; manage-realm and manage-events. Realm creation is outside this rollout profile. |
+| realm.identity-providers | Same qualified versions; manage-identity-providers. Derived when broker configuration/mappings are present. |
+| application.oidc, application.saml | Qualified application adapter support plus manage-clients. SAML includes the adapter's assertion-signing capability. |
+| application.client-roles, application.token-claims | Qualified client-role/mapper capabilities plus manage-clients. Realm role-scope mappings additionally require realm.manage in this conservative profile. |
+| service-account.manage | Qualified version and manage-clients. Token claims add their own requirement. |
+| theme.build | Unsupported by this Fleet rollout profile; operational image/build authority is not inferred from provider roles. |
+
+The native snapshot comes directly from a newly acquired client-credentials
+response over the configured, verified HTTPS Keycloak connection. It is not an
+incoming bearer authenticator or independently verified JWT: issuer/client/time
+and exact `<target-realm>-realm` roles are inspected only in that trusted token
+endpoint response. Roles from Hub, CR fields or persisted status are never accepted.
+The read-only preflight also reads server info and the exact existing realm.
+Minimal native admin grants may legitimately hide server version. In that case
+an independent administrator must approve the exact version for the current
+target UID and provider endpoint in the protected local document; Hub cannot
+provide this assertion. A visible version that conflicts with that approval
+refuses execution. A local pin is an administrator assertion of deployment
+qualification, not runtime attestation; no extra master permission is requested.
+Opaque/lightweight tokens, insufficient realm visibility, restricted inventory
+clients and missing native-role evidence fail closed. No role is granted and no
+provider mutation is used to probe permissions. See Keycloak's
+[realm-specific native administration model](https://www.keycloak.org/docs/26.8.0/server_admin/#_per_realm_admin_permissions).
+The native token/role model and this deliberately conservative intersection do
+not claim support for arbitrary fine-grained provider policies.
+
+Realm isolation requires a locally declared `HankoTenant.spec.realmRef`, and
+per-object realm references must match it. Dedicated Keycloak/cluster isolation
+retains the named tenant client and per-realm permission checks. No second-provider
+parity or additional provider version is inferred from this inventory.
+
+Global requirements and the minimum operator version are whole-target stops.
+Per-object incompatibility in all-or-refuse mode prevents every desired-state
+write. Explicit partial mode applies only selected objects; an incompatible
+in-plan profile/realm also refuses its dependents. Invalid JSON, metadata, API
+schema or live tenant ownership still refuses the whole plan in either mode.
+Atomic refusal describes this preflight decision, not a transaction across writes.
+
+`status.fleetRollout` and the matching Hub DTO include candidate sequence/identity,
+selection hash, observed tenant generation, state and applied/refused/pending
+counts. At most 32 findings identify a zero-based position and a locally authored
+reason; `omitted` makes overflow explicit. Positions follow IAMProfiles, Realms,
+Applications, Themes, ServiceAccounts array order. No object names, requirement
+strings, provider payloads, tokens or personal data appear in these findings.
+The API rejects oversized/duplicate findings and count totals above 200.
+
+Partial delivery reports `FleetPlanPartial`, Error/degraded and a false Synced
+condition. The accepted sequence still advances before selected writes, but
+`fleetPlan.appliedIdentity`, `bundleVersion` and `lastSync` do not promote a partial
+plan to full success. An acknowledged prefix is reported if a later write fails;
+pending means unconfirmed delivery and may include an effect with a lost reply.
+A completed identical selection is reverified without replaying its content.
+Changed eligibility can retry the remaining forward desired-state selection.
+These counts describe Kubernetes delivery, not completed provider convergence.
+
+For a local pause/refusal, an independent policy administrator edits `rollout.json`
+in the same protected trust ConfigMap:
+
+```json
+{"version":"hanko.sh/fleet-rollout/v1alpha1","overrides":[{"target":{"tenantID":"tenant-id","clusterID":"cluster-id","namespace":"auth","tenantName":"tenant","tenantUID":"current-tenant-uid"},"action":"pause"}]}
+```
+
+Use the actual current target tuple/UID. `allow`, `pause` and `refuse` are the only
+actions; absent configuration allows evaluation. The closed document is at most
+64 KiB with at most 64 unique exact targets. An invalid document refuses execution.
+The same document may contain `providers`, for example
+`{"target":{...},"endpoint":"https://keycloak.example.test","version":"26.8.0"}`.
+Use the complete current target tuple in place of the abbreviated example; the
+endpoint must exactly match the locally configured Keycloak client. Up to 64
+unique target profiles are allowed, and only the two qualified versions are
+accepted. Unmatched profiles grant no version assertion.
+The independent ConfigMap admission policy protects this key along with publisher
+trust. Hub cannot override it. Pause/refuse is checked before fetching a plan and
+again through uncached authority checks before conditional content writes, including
+a change after checkpoint acceptance. Status remains visible and credential
+maintenance/heartbeats can continue. Remove the pause through the same local
+approval path; it never clears the accepted sequence.
+
+A provider-role observation is valid only until its token expiry; subsequent
+content guards refuse expired evidence. Native authorization remains authoritative
+at actual child-controller writes. Local pause stops new Fleet delivery, while
+previously delivered child declarations retain their own reconciliation authority.
+Stopping those provider mutations on plan expiry/offline restart remains #79.
+Trust/intent checks cannot form a distributed transaction: a change after the last
+read can leave an already applied prefix, and revocation does not undo effects.
+
+Additional refusal codes are FleetOperatorVersionInvalid/Unsupported,
+FleetCapabilityInventoryUnavailable, FleetCapabilityUnsupported,
+FleetPermissionDenied, FleetCapabilityRefused, FleetProviderScopeUnknown,
+FleetProviderVersionMismatch,
+FleetDependencyRefused, FleetPermissionEvidenceExpired and
+FleetRolloutPolicyInvalid/Paused/Refused. Findings distinguish incompatible
+capabilities, missing permissions, unavailable inventory and refused dependencies.
 
 ## Disconnected and rollout design boundary
 
@@ -180,8 +288,7 @@ scope; it is a forward desired-state change, not database/provider rollback.
 Those offline retention/provider-expiry gates and rollback execution are not
 implemented by the current verifier. Existing child reconcilers may continue
 reconciling previously written declarations after Hub loss or plan expiry; do not
-advertise offline fleet authorization until #79 qualifies that behavior. Partial
-rollout, local pause, per-object capability findings and provider permission checks
-remain #78. The installed tamper/replay/expiry/reconnect matrix and artifact leak
+advertise offline fleet authorization until #79 qualifies that behavior. The
+installed tamper/replay/expiry/reconnect matrix and artifact leak
 inspection remain #80. No production release or network enforcement follows from
 this contract.

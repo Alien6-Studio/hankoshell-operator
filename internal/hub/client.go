@@ -74,7 +74,26 @@ type OperatorStatus struct {
 	// workload authority is revoked fail closed.
 	MeshRegistrations *[]MeshRegistration `json:"meshRegistrations,omitempty"`
 	// FleetPlan reports bounded public verification/application evidence only.
-	FleetPlan *FleetPlanEvidence `json:"fleetPlan,omitempty"`
+	FleetPlan    *FleetPlanEvidence    `json:"fleetPlan,omitempty"`
+	FleetRollout *FleetRolloutEvidence `json:"fleetRollout,omitempty"`
+}
+
+type FleetRolloutEvidence struct {
+	Identity           string                `json:"identity,omitempty"`
+	Sequence           int64                 `json:"sequence,omitempty"`
+	SelectionHash      string                `json:"selectionHash,omitempty"`
+	ObservedGeneration int64                 `json:"observedGeneration"`
+	State              string                `json:"state"`
+	Applied            int32                 `json:"applied"`
+	Refused            int32                 `json:"refused"`
+	Pending            int32                 `json:"pending"`
+	Findings           []FleetRolloutFinding `json:"findings,omitempty"`
+	Omitted            int32                 `json:"omitted"`
+}
+
+type FleetRolloutFinding struct {
+	Index  int32  `json:"index"`
+	Reason string `json:"reason"`
 }
 
 type FleetPlanEvidence struct {

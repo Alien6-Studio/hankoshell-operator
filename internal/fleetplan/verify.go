@@ -83,19 +83,21 @@ type Content struct {
 }
 
 type Plan struct {
-	Issuer          string    `json:"issuer"`
-	KeyID           string    `json:"keyID"`
-	Target          Target    `json:"target"`
-	Source          Source    `json:"source"`
-	ContractVersion string    `json:"contractVersion"`
-	Sequence        int64     `json:"sequence"`
-	IssuedAt        time.Time `json:"issuedAt"`
-	NotBefore       time.Time `json:"notBefore"`
-	ExpiresAt       time.Time `json:"expiresAt"`
-	Requirements    []string  `json:"requirements,omitempty"`
-	Mode            string    `json:"mode"`
-	RollbackOf      string    `json:"rollbackOf,omitempty"`
-	Content         Content   `json:"content"`
+	Issuer                 string              `json:"issuer"`
+	KeyID                  string              `json:"keyID"`
+	Target                 Target              `json:"target"`
+	Source                 Source              `json:"source"`
+	ContractVersion        string              `json:"contractVersion"`
+	Sequence               int64               `json:"sequence"`
+	IssuedAt               time.Time           `json:"issuedAt"`
+	NotBefore              time.Time           `json:"notBefore"`
+	ExpiresAt              time.Time           `json:"expiresAt"`
+	Requirements           []string            `json:"requirements,omitempty"`
+	MinimumOperatorVersion string              `json:"minimumOperatorVersion,omitempty"`
+	ObjectRequirements     []ObjectRequirement `json:"objectRequirements,omitempty"`
+	Mode                   string              `json:"mode"`
+	RollbackOf             string              `json:"rollbackOf,omitempty"`
+	Content                Content             `json:"content"`
 }
 
 type Key struct {
@@ -133,6 +135,10 @@ func (v Verified) Current() bool    { return v.current }
 func (v Verified) Plan() Plan {
 	p := v.plan
 	p.Requirements = slices.Clone(p.Requirements)
+	p.ObjectRequirements = slices.Clone(p.ObjectRequirements)
+	for i := range p.ObjectRequirements {
+		p.ObjectRequirements[i].Requirements = slices.Clone(p.ObjectRequirements[i].Requirements)
+	}
 	clone := func(raws []json.RawMessage) []json.RawMessage {
 		out := make([]json.RawMessage, len(raws))
 		for i, raw := range raws {
@@ -167,8 +173,8 @@ func decode64(value string, limit int) ([]byte, bool) {
 }
 
 // Verify requires independently approved keys, exact target/source binding and
-// durable sequence evidence. Empty requirements and all-or-refuse are the only
-// executable mode until capability-aware rollout is qualified separately.
+// durable sequence evidence. Capability requirements are evaluated separately
+// against locally observed provider authority before content delivery.
 func Verify(envelope, trust []byte, target Target, now time.Time, checkpoint Checkpoint) (Verified, error) {
 	var e Envelope
 	var t Trust
@@ -229,13 +235,13 @@ func validatePlan(p Plan, target Target, now time.Time) error {
 	if err := validity(p, now); err != nil {
 		return err
 	}
-	if p.Mode != "all-or-refuse" || len(p.Requirements) != 0 {
-		return Refusal("FleetCapabilitiesUnsupported")
+	if err := validateContent(p.Content, p.Target); err != nil {
+		return err
 	}
 	if p.RollbackOf != "" {
 		return Refusal("FleetRollbackUnsupported")
 	}
-	return validateContent(p.Content, p.Target)
+	return validateRollout(p)
 }
 
 func validScope(s Scope) bool {
@@ -317,14 +323,14 @@ func validateContent(content Content, target Target) error {
 	}{{"HankoIAMProfile", content.IAMProfiles}, {"HankoRealm", content.Realms}, {"HankoApplication", content.Apps},
 		{"HankoTheme", content.Themes}, {"HankoServiceAccount", content.ServiceAccounts}} {
 		total += len(group.raws)
+		if total > MaxObjects {
+			return Refusal("FleetContentInvalid")
+		}
 		for _, raw := range group.raws {
 			if err := validateObject(raw, group.kind, target); err != nil {
 				return err
 			}
 		}
-	}
-	if total > MaxObjects {
-		return Refusal("FleetContentInvalid")
 	}
 	return nil
 }

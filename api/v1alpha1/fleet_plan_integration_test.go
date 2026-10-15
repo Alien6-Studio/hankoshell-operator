@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/http"
@@ -40,9 +41,10 @@ import (
 
 type fleetAPIWriter struct {
 	client.Client
-	failStage string
-	after     bool
-	writes    int
+	failStage       string
+	after           bool
+	writes          int
+	afterCheckpoint func()
 }
 
 func (c *fleetAPIWriter) Status() client.SubResourceWriter {
@@ -68,6 +70,11 @@ func (s fleetAPIStatus) Patch(ctx context.Context, obj client.Object, patch clie
 		return errors.New("fixture unacknowledged checkpoint")
 	}
 	err := s.SubResourceWriter.Patch(ctx, obj, patch, opts...)
+	if err == nil && stage == "accepted" && s.writer.afterCheckpoint != nil {
+		callback := s.writer.afterCheckpoint
+		s.writer.afterCheckpoint = nil
+		callback()
+	}
 	if err == nil && fail {
 		s.writer.failStage = ""
 		return errors.New("fixture lost checkpoint acknowledgement")
@@ -86,27 +93,47 @@ func (c *fleetAPIWriter) Create(ctx context.Context, obj client.Object, opts ...
 }
 
 type fleetAPIFixture struct {
-	kube     client.Client
-	writer   *fleetAPIWriter
-	r        *controller.HankoTenantReconciler
-	tenant   *api.HankoTenant
-	trust    *corev1.ConfigMap
-	plan     fleetplan.Plan
-	private  ed25519.PrivateKey
-	envelope atomic.Pointer[[]byte]
-	reported atomic.Pointer[hub.OperatorStatus]
-	before   atomic.Pointer[func()]
+	kube          client.Client
+	writer        *fleetAPIWriter
+	r             *controller.HankoTenantReconciler
+	tenant        *api.HankoTenant
+	trust         *corev1.ConfigMap
+	plan          fleetplan.Plan
+	private       ed25519.PrivateKey
+	envelope      atomic.Pointer[[]byte]
+	reported      atomic.Pointer[hub.OperatorStatus]
+	before        atomic.Pointer[func()]
+	nativeRoles   atomic.Pointer[[]string]
+	nativeVersion atomic.Pointer[string]
 }
 
 func newFleetAPIFixture(t *testing.T, ctx context.Context, kube client.Client, name string) *fleetAPIFixture {
 	t.Helper()
 	f := &fleetAPIFixture{kube: kube}
+	roles := []string{"manage-realm", "manage-events", "manage-clients", "manage-identity-providers"}
+	f.nativeRoles.Store(&roles)
+	nativeVersion := "26.8.0"
+	f.nativeVersion.Store(&nativeVersion)
 	public, private, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
 	f.private = private
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if strings.HasPrefix(req.URL.Path, "/realms/") || strings.HasPrefix(req.URL.Path, "/admin/") {
+			switch req.URL.Path {
+			case "/realms/master/protocol/openid-connect/token":
+				claims, _ := json.Marshal(map[string]any{"iss": "https://" + req.Host + "/realms/master", "azp": "fixture-writer", "iat": time.Now().Unix(), "exp": time.Now().Add(10 * time.Minute).Unix(), "resource_access": map[string]any{name + "-realm": map[string]any{"roles": *f.nativeRoles.Load()}}})
+				_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "e30." + base64.RawURLEncoding.EncodeToString(claims) + ".fixture", "expires_in": 600})
+			case "/admin/serverinfo":
+				_ = json.NewEncoder(w).Encode(map[string]any{"systemInfo": map[string]string{"version": *f.nativeVersion.Load()}})
+			case "/admin/realms/" + name:
+				_ = json.NewEncoder(w).Encode(map[string]string{"id": "fixture-realm-id", "realm": name})
+			default:
+				w.WriteHeader(http.StatusForbidden)
+			}
+			return
+		}
 		if req.Header.Get("Authorization") != "Bearer fixture-fleet-credential" || req.Header.Get("X-Tenant-ID") != "fleet-tenant" {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
@@ -141,7 +168,7 @@ func newFleetAPIFixture(t *testing.T, ctx context.Context, kube client.Client, n
 	if err := kube.Create(ctx, secret); err != nil {
 		t.Fatal(err)
 	}
-	f.tenant = &api.HankoTenant{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: secret.Namespace}, Spec: api.HankoTenantSpec{HubTenantID: "fleet-tenant", HubEndpoint: server.URL, HubTokenSecretRef: corev1.LocalObjectReference{Name: secret.Name}}}
+	f.tenant = &api.HankoTenant{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: secret.Namespace}, Spec: api.HankoTenantSpec{RealmRef: name, HubTenantID: "fleet-tenant", HubEndpoint: server.URL, HubTokenSecretRef: corev1.LocalObjectReference{Name: secret.Name}}}
 	if err := kube.Create(ctx, f.tenant); err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +184,11 @@ func newFleetAPIFixture(t *testing.T, ctx context.Context, kube client.Client, n
 		t.Fatal(err)
 	}
 	f.writer = &fleetAPIWriter{Client: kube}
-	f.r = &controller.HankoTenantReconciler{Client: f.writer, APIReader: kube, Pool: keycloak.NewPool(nil), HubHTTPClient: server.Client(), FleetTrustConfigMapName: f.trust.Name}
+	kc, err := keycloak.NewWithTLS(server.URL, "fixture-writer", "fixture-provider-credential", pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.r = &controller.HankoTenantReconciler{Client: f.writer, APIReader: kube, Pool: keycloak.NewPool(kc), HubHTTPClient: server.Client(), FleetTrustConfigMapName: f.trust.Name}
 	f.sign(t)
 	return f
 }
@@ -212,6 +243,7 @@ func checkSignedFleetPlans(t *testing.T, ctx context.Context, kube client.Client
 	if err := kube.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "fleet-fixtures"}}); err != nil {
 		t.Fatal(err)
 	}
+	t.Run("capability rollout and local overrides", func(t *testing.T) { checkFleetCapabilityRollout(t, ctx, kube) })
 	t.Run("accepted-current-next-and-sticky-mode", func(t *testing.T) {
 		f := newFleetAPIFixture(t, ctx, kube, "accepted")
 		f.expect(t, ctx, "FleetPlanApplied")
@@ -265,7 +297,7 @@ func checkSignedFleetPlans(t *testing.T, ctx context.Context, kube client.Client
 				checkpoint := *f.tenant.Status.FleetPlan
 				f.plan.Sequence--
 				f.sign(t)
-				f.r = &controller.HankoTenantReconciler{Client: f.writer, APIReader: kube, Pool: keycloak.NewPool(nil), HubHTTPClient: f.r.HubHTTPClient, FleetTrustConfigMapName: f.trust.Name}
+				f.r = &controller.HankoTenantReconciler{Client: f.writer, APIReader: kube, Pool: f.r.Pool, HubHTTPClient: f.r.HubHTTPClient, FleetTrustConfigMapName: f.trust.Name}
 				f.expect(t, ctx, "FleetPlanDowngrade")
 				if !reflect.DeepEqual(checkpoint, *f.tenant.Status.FleetPlan) {
 					t.Fatal("restart downgraded checkpoint")

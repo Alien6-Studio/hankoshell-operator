@@ -477,6 +477,7 @@
         "conditions",
         "connectedHub",
         "fleetPlan",
+        "fleetRollout",
         "lastReconciled",
         "lastSync",
         "observedGeneration",
@@ -578,7 +579,7 @@
     {
       "name": "Hub and Continuum",
       "compatibility": "alpha",
-      "limitation": "Optional integrations with opt-in signed fleet verification and replay checkpoints; capability rollout, disconnected provider authorization and installed fleet operation remain unqualified.",
+      "limitation": "Optional integrations with signed plans, capability/permission-aware delivery and local pause; disconnected provider authority, rollback and installed fleet operation remain unqualified.",
       "evidence": "docs/secure-deployment.md"
     },
     {

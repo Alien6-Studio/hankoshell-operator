@@ -113,6 +113,8 @@ type HankoTenantStatus struct {
 	// FleetPlan is the durable signed-plan high-water mark. Its presence forbids
 	// legacy HMAC fallback, including after restart or trust configuration loss.
 	FleetPlan *FleetPlanStatus `json:"fleetPlan,omitempty"`
+	// FleetRollout is bounded delivery evidence, not provider convergence.
+	FleetRollout *FleetRolloutStatus `json:"fleetRollout,omitempty"`
 
 	// Conditions holds standard Kubernetes condition objects.
 	// +listType=map
@@ -140,6 +142,45 @@ type FleetPlanStatus struct {
 	// +kubebuilder:validation:MaxLength=128
 	TenantUID string      `json:"tenantUID"`
 	ExpiresAt metav1.Time `json:"expiresAt"`
+}
+
+// FleetRolloutStatus reports decisions without remote names or configuration.
+// +kubebuilder:validation:XValidation:rule="self.applied + self.refused + self.pending <= 200",message="rollout evidence exceeds the plan object budget"
+type FleetRolloutStatus struct {
+	// +kubebuilder:validation:Minimum=1
+	Sequence int64 `json:"sequence,omitempty"`
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	Identity string `json:"identity,omitempty"`
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	SelectionHash      string `json:"selectionHash,omitempty"`
+	ObservedGeneration int64  `json:"observedGeneration"`
+	// +kubebuilder:validation:Enum=Pending;Applied;Partial;Refused;Paused
+	State string `json:"state"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=200
+	Applied int32 `json:"applied"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=200
+	Refused int32 `json:"refused"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=200
+	Pending int32 `json:"pending"`
+	// +kubebuilder:validation:MaxItems=32
+	// +listType=map
+	// +listMapKey=index
+	Findings []FleetRolloutFinding `json:"findings,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=200
+	Omitted int32 `json:"omitted"`
+}
+
+type FleetRolloutFinding struct {
+	// Index is the zero-based position in the fixed kind-array order.
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=199
+	Index int32 `json:"index"`
+	// +kubebuilder:validation:Enum=FleetCapabilityUnsupported;FleetPermissionDenied;FleetDependencyRefused;FleetCapabilityInventoryUnavailable
+	Reason string `json:"reason"`
 }
 
 // +kubebuilder:object:root=true

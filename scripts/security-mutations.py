@@ -31,6 +31,22 @@ def mutation(name, file, before, after, package, test):
 
 
 MUTATIONS = [
+    mutation("fleet-native-permission", "internal/fleetplan/rollout.go",
+             "if !s.Permissions[r] {", "if false && !s.Permissions[r] {",
+             "internal/fleetplan", "TestFleetRolloutCapabilityPermissionAndMode"),
+    mutation("fleet-atomic-refusal", "internal/fleetplan/rollout.go",
+             'mode == "all-or-refuse" || r.Refused == len(r.Objects)',
+             'false || r.Refused == len(r.Objects)',
+             "internal/fleetplan", "TestFleetRolloutCapabilityPermissionAndMode"),
+    mutation("fleet-local-pause", "internal/fleetplan/rollout.go",
+             'return Refusal("FleetRolloutPaused")', 'return nil',
+             "internal/fleetplan", "TestFleetRolloutSchemaVersionAndOverrides"),
+    mutation("fleet-provider-version-scope", "internal/fleetplan/rollout.go",
+             'p.Target == target && p.Endpoint == endpoint', 'p.Target == target',
+             "internal/fleetplan", "TestFleetRolloutSchemaVersionAndOverrides"),
+    mutation("fleet-provider-client-binding", "internal/keycloak/fleet_permissions.go",
+             'claims.Client != c.clientID', 'false && claims.Client != c.clientID',
+             "internal/keycloak", "TestFleetPermissionEvidenceComesFromProviderTLS"),
     mutation("fleet-signature", "internal/fleetplan/verify.go",
              "!ed25519.Verify(key, SigningInput(payload), signature)",
              "false && !ed25519.Verify(key, SigningInput(payload), signature)",

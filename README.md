@@ -354,8 +354,9 @@ a persisted sequence checkpoint. Enable it explicitly with
 `fleetPlanVerification.trustConfigMap` after provisioning local trust and a
 compatible Hub. See the [Fleet contract](docs/architecture/fleet-reconciliation.md)
 and [activation guide](docs/secure-deployment.md#signed-fleet-plan-transition).
-Capability rollout and disconnected provider authorization remain experimental
-work in #78–#80.
+Capability-aware all-or-refuse/partial delivery and independent local pause are
+available experimentally. Disconnected provider authorization, rollback and
+installed fleet qualification remain #79/#80.
 
 Hub self-updates require an independently approved release and verified image
 signature. Remote decommission commands expire at their deadline. See

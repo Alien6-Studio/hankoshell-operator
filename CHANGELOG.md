@@ -3,6 +3,21 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Capability-aware Fleet delivery
+
+- Evaluate inferred and explicitly signed capabilities against qualified provider
+  support and fresh effective native permissions; require existing target realms
+  and the local realm-isolation binding. Whole-target requirements and semantic
+  minimum operator versions fail before desired-state delivery.
+- Support explicit partial selection, propagate refused in-plan dependencies and
+  preserve whole-plan refusal for incompatible atomic plans. Report bounded public
+  findings, acknowledged delivery counts and selection identity without promoting
+  a partial plan to Synced or full applied identity.
+- Honour independent protected local pause/refuse controls before fetch and before
+  conditional writes, including races after checkpoint acceptance. Existing child
+  reconciliation, disconnected expiry and verified rollback remain #79; installed
+  Fleet qualification remains #80. No publication or protected merge is implied.
+
 ### Locally approved signed fleet plans
 
 - Add an explicit Ed25519 fleet transition with independently protected local
@@ -14,8 +29,8 @@
   Preflight all content with typed decoding and Kubernetes dry-run before child
   writes, preserving existing tenant and field ownership protections.
 - Add real HTTPS Hub/API fixtures and a local trust admission policy. Signing
-  and distribution require a compatible Hub. Partial rollout, disconnected
-  provider authorization and installed fleet qualification remain #78–#80;
+  and distribution require a compatible Hub. Disconnected provider authorization,
+  controlled rollback and installed fleet qualification remain #79/#80;
   no production fleet contract or release publication is implied.
 
 ### Managed lifecycle provider observation

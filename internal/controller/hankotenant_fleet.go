@@ -44,6 +44,7 @@ func (r *HankoTenantReconciler) applyFleetPlan(ctx context.Context, tenant *api.
 	if clusterID == "" || tenant.UID == "" {
 		return "", nil, "", fleetplan.Refusal("FleetTargetMismatch")
 	}
+	target := fleetplan.Target{Scope: fleetplan.Scope{TenantID: tenantID, ClusterID: clusterID, Namespace: tenant.Namespace, TenantName: tenant.Name}, TenantUID: string(tenant.UID)}
 	trust := &corev1.ConfigMap{}
 	trustKey := client.ObjectKey{Namespace: tenant.Namespace, Name: r.FleetTrustConfigMapName}
 	if err := r.tenantReader().Get(ctx, trustKey, trust); err != nil {
@@ -52,11 +53,13 @@ func (r *HankoTenantReconciler) applyFleetPlan(ctx context.Context, tenant *api.
 	if trust.UID == "" || trust.ResourceVersion == "" || !trust.DeletionTimestamp.IsZero() || len(trust.Data["trust.json"]) > fleetplan.MaxTrust {
 		return "", nil, "", fleetplan.Refusal("FleetTrustInvalid")
 	}
+	if err := fleetplan.LocalOverride([]byte(trust.Data["rollout.json"]), target); err != nil {
+		return "", nil, "", err
+	}
 	envelope, err := hubClient.FetchFleetPlan(ctx)
 	if err != nil {
 		return "", nil, "", fleetplan.Refusal("FleetPlanFetchFailed")
 	}
-	target := fleetplan.Target{Scope: fleetplan.Scope{TenantID: tenantID, ClusterID: clusterID, Namespace: tenant.Namespace, TenantName: tenant.Name}, TenantUID: string(tenant.UID)}
 	checkpoint, err := fleetCheckpoint(tenant)
 	if err != nil {
 		return "", nil, "", err
@@ -71,51 +74,87 @@ func (r *HankoTenantReconciler) applyFleetPlan(ctx context.Context, tenant *api.
 	if err := r.preflightFleetContent(ctx, tenant, bundle); err != nil {
 		return "", nil, "", err
 	}
-	// Fence source intent/trust after the network/preflight reads. An unchanged
-	// applied plan is still verified against current key authority and time.
+	rollout, permissionExpiry, evaluationErr := r.evaluateFleetRollout(ctx, tenant, verified, []byte(trust.Data["rollout.json"]))
+	decision := fleetRolloutStatus(tenant, verified, rollout)
 	original := tenant.DeepCopy()
 	guard := func() error {
+		if !permissionExpiry.IsZero() && !time.Now().Before(permissionExpiry) {
+			return fleetplan.Refusal("FleetPermissionEvidenceExpired")
+		}
 		return r.fleetAuthorityCurrent(ctx, original, trust, envelope, target, verified.Identity())
 	}
 	if err := guard(); err != nil {
 		return "", nil, "", err
 	}
-	if verified.Current() {
-		return bundle.Version, fleetContentCounts(content), "FleetPlanCurrent", nil
-	}
-	if checkpoint.Sequence != plan.Sequence || checkpoint.Identity != verified.Identity() {
-		patch := fleetStatusPatch(tenant)
-		previous, applied := "", ""
-		if tenant.Status.FleetPlan != nil {
-			previous = tenant.Status.FleetPlan.Identity
-			applied = tenant.Status.FleetPlan.AppliedIdentity
+	if evaluationErr != nil {
+		decision.State = "Refused"
+		if rollout.Selected == nil {
+			decision.Refused = boundedFleetCount(len(rollout.Objects))
+			decision.Pending = 0
 		}
-		tenant.Status.FleetPlan = &api.FleetPlanStatus{Sequence: plan.Sequence, Identity: verified.Identity(), PreviousIdentity: previous, AppliedIdentity: applied,
-			KeyID: plan.KeyID, TenantUID: string(tenant.UID), ExpiresAt: metav1.NewTime(plan.ExpiresAt)}
+		if err := r.persistFleetDecision(ctx, tenant, decision); err != nil {
+			return "", nil, "", err
+		}
+		return "", nil, "", evaluationErr
+	}
+	selected := rollout.Content()
+	bundle = &hub.Bundle{Version: bundle.Version, TenantID: tenantID, IAMProfiles: selected.IAMProfiles, Realms: selected.Realms, Apps: selected.Apps, Themes: selected.Themes, ServiceAccounts: selected.ServiceAccounts}
+	previousDecision := tenant.Status.FleetRollout
+	delivered := verified.Current() || (checkpoint.Sequence == plan.Sequence && checkpoint.Identity == verified.Identity() && previousDecision != nil && previousDecision.Identity == decision.Identity && previousDecision.SelectionHash == decision.SelectionHash && previousDecision.Pending == 0 && (previousDecision.State == "Applied" || previousDecision.State == "Partial"))
+	if !delivered {
+		patch := fleetStatusPatch(tenant)
+		if checkpoint.Sequence != plan.Sequence || checkpoint.Identity != verified.Identity() {
+			previous, applied := "", ""
+			if tenant.Status.FleetPlan != nil {
+				previous = tenant.Status.FleetPlan.Identity
+				applied = tenant.Status.FleetPlan.AppliedIdentity
+			}
+			tenant.Status.FleetPlan = &api.FleetPlanStatus{Sequence: plan.Sequence, Identity: verified.Identity(), PreviousIdentity: previous, AppliedIdentity: applied, KeyID: plan.KeyID, TenantUID: string(tenant.UID), ExpiresAt: metav1.NewTime(plan.ExpiresAt)}
+		}
+		tenant.Status.FleetRollout = decision
 		if err := r.Status().Patch(ctx, tenant, patch); err != nil {
 			return "", nil, "", fmt.Errorf("%w: %w", errFleetCheckpointWrite, err)
 		}
-	}
-	// Refresh the expected accepted checkpoint; every create/SSA and metadata
-	// transition rechecks its exact current authority, expiry and local trust.
-	original = tenant.DeepCopy()
-	counts, err := r.applyBundleGuarded(ctx, tenant, bundle, guard)
-	if err != nil {
-		var refusal fleetplan.Refusal
-		if errors.As(err, &refusal) {
-			return "", counts, "", refusal
+		original = tenant.DeepCopy()
+		if counts, err := r.applyBundleGuarded(ctx, tenant, bundle, guard); err != nil {
+			if fleetplan.Reason(err) != "FleetAuthorityChanged" {
+				acknowledged := 0
+				for _, count := range counts {
+					acknowledged += count
+				}
+				decision.Applied = boundedFleetCount(acknowledged)
+				decision.Pending = boundedFleetCount(len(rollout.Objects) - rollout.Refused - acknowledged)
+				if statusErr := r.persistFleetDecision(ctx, tenant, decision); statusErr != nil {
+					return "", nil, "", statusErr
+				}
+			}
+			var refusal fleetplan.Refusal
+			if errors.As(err, &refusal) {
+				return "", nil, "", refusal
+			}
+			return "", nil, "", fleetplan.Refusal(bundleApplyReason(err))
 		}
-		return "", counts, "", fleetplan.Refusal(bundleApplyReason(err))
 	}
 	if err := guard(); err != nil {
-		return "", counts, "", err
+		return "", nil, "", err
 	}
 	patch := fleetStatusPatch(tenant)
-	tenant.Status.FleetPlan.AppliedIdentity = verified.Identity()
-	if err := r.Status().Patch(ctx, tenant, patch); err != nil {
-		return "", counts, "", fmt.Errorf("%w: %w", errFleetCheckpointWrite, err)
+	decision.Applied, decision.Pending = boundedFleetCount(len(rollout.Objects)-rollout.Refused), 0
+	decision.State = "Applied"
+	reason := "FleetPlanApplied"
+	if delivered {
+		reason = "FleetPlanCurrent"
 	}
-	return bundle.Version, counts, "FleetPlanApplied", nil
+	if decision.Refused > 0 {
+		decision.State, reason = "Partial", "FleetPlanPartial"
+	} else {
+		tenant.Status.FleetPlan.AppliedIdentity = verified.Identity()
+	}
+	tenant.Status.FleetRollout = decision
+	if err := r.Status().Patch(ctx, tenant, patch); err != nil {
+		return "", nil, "", fmt.Errorf("%w: %w", errFleetCheckpointWrite, err)
+	}
+	return bundle.Version, fleetContentCounts(selected), reason, nil
 }
 
 func fleetContentCounts(content fleetplan.Content) map[string]int {
@@ -132,8 +171,13 @@ func (r *HankoTenantReconciler) fleetAuthorityCurrent(ctx context.Context, expec
 		return fleetplan.Refusal("FleetAuthorityChanged")
 	}
 	current := &corev1.ConfigMap{}
-	if err := r.tenantReader().Get(ctx, client.ObjectKeyFromObject(trust), current); err != nil || current.UID != trust.UID ||
-		current.ResourceVersion != trust.ResourceVersion || !current.DeletionTimestamp.IsZero() {
+	if err := r.tenantReader().Get(ctx, client.ObjectKeyFromObject(trust), current); err != nil || current.UID != trust.UID || !current.DeletionTimestamp.IsZero() {
+		return fleetplan.Refusal("FleetTrustChanged")
+	}
+	if err := fleetplan.LocalOverride([]byte(current.Data["rollout.json"]), target); err != nil {
+		return err
+	}
+	if current.ResourceVersion != trust.ResourceVersion {
 		return fleetplan.Refusal("FleetTrustChanged")
 	}
 	checkpoint, err := fleetCheckpoint(live)
