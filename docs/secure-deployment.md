@@ -1002,8 +1002,9 @@ a configuration snapshot and does not establish a database rollback point.
 
 ## Lifecycle operation qualification
 
-`HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are experimental
-and unqualified as installed provider workflows. Unit tests and tests against
+`HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows remain experimental.
+Installed qualification covers only the Clone subset described below; Upgrade
+and DBSwitch remain unqualified as installed provider workflows. Unit tests and tests against
 the three supported Kubernetes API servers exercise identity checkpoints,
 interruption/retry, child provenance, failed children and stale completion.
 They do not qualify actual kubelet rollouts, database transitions or provider
@@ -1011,6 +1012,21 @@ upgrade compatibility. Installed qualification remains tracked in
 [issue #20](https://github.com/Alien6-Studio/hankoshell-operator/issues/20), with no
 future release version scheduled. These workflows are available, but are
 outside the first release's qualified core IAM contract.
+
+The required installed-system test on Kubernetes **1.37.0** and HTTPS Keycloak
+**26.8.0** exercises same-namespace Clone from an external source as a configuration
+alias, with `includeData: false` and a configuration snapshot. A separate namespace
+uses the exact scanned operator image and read-only `view-realm`, `view-clients`
+and `view-identity-providers` provider identities. The fixture removes only the
+operator's ConfigMap-create permission, waits for real persisted operation and
+snapshot checkpoints, stops the manager, restores that permission and restarts.
+Completion requires the original child UIDs, immutable capture hash, complete
+import and current-generation verified-TLS target observation. Separate installed
+cases refuse a foreign target and propagate an actual denied inventory read as
+failed import/operation; the original realm and application must remain unchanged.
+This subset does not qualify managed-source Clone, another Kubernetes/Keycloak
+cell, arbitrary provider configuration, data copying, automatic rollback or
+Upgrade/DBSwitch. The wider API/fault matrix and #20 remain separate requirements.
 
 `Upgrade` changes the managed instance image; it does not establish provider or
 database upgrade compatibility. `Clone` creates an external instance alias

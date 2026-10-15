@@ -3,6 +3,18 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Installed configuration-only Clone recovery
+
+- Exercise a same-namespace external-source Clone alias with the exact scanned
+  operator on Kubernetes 1.37.0 / HTTPS Keycloak 26.8.0. Use read-only provider
+  identities and real ConfigMap-create RBAC denial, persist operation/snapshot
+  checkpoints, restart the manager and require the original children, immutable
+  capture, complete import and current target observation before completion.
+- Refuse an existing foreign target and propagate a real denied inventory read
+  as failed import/operation while preserving provider configuration. Keep all
+  lifecycle APIs experimental; managed-source Clone, Upgrade, DBSwitch, database
+  copying and automatic rollback remain unqualified.
+
 ### Snapshot tenant isolation
 
 - Scope configuration captures to the exact namespace and tenant label identity,
@@ -23,7 +35,7 @@
 
 - Qualify the exact scanned operator image with real installed Pods on Kubernetes
   1.35.0/1.36.2/1.37.0 and Keycloak 26.7.5/26.8.0. Required native 6×57 checks
-  and the general installed 19 checks remain separate gates. Projected assertions
+  and the general installed 20 checks remain separate gates. Projected assertions
   obtain access tokens and independently exercise native resource ALLOW/DENY;
   real rotation, expiry, UID replacement, containment and leakage checks run in
   all six installed cells.
@@ -173,7 +185,9 @@ purposes; none guarantees absence of vulnerabilities.
 
 The `hanko.sh/v1alpha1` APIs are experimental and may change across minor versions
 before 1.0. `HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are
-experimental; their completion, interruption/retry and recovery are unqualified.
+experimental. The installed same-namespace external-source configuration Clone
+subset covers checkpoint restart, provenance, completion and failure on Kubernetes
+1.37.0 / Keycloak 26.8.0. Other installed lifecycle workflows remain unqualified.
 Future qualification has no scheduled release version. Portable backup/restore
 is not qualified; snapshots, clones and database-reference switches are not a tested
 disaster-recovery path. Rolling back

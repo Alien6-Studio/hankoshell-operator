@@ -124,7 +124,10 @@ and a dedicated backup credential Secret. PostgreSQL/PVC configuration and
 portable backup/restore remain installation-specific and unqualified; see the
 [backup execution contract](docs/secure-deployment.md#database-snapshot-jobs).
 `HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are experimental in
-0.1.0: completion, interruption/retry and recovery are not qualified. See the
+0.1.0. Installed qualification covers the same-namespace, configuration-only Clone
+alias subset on Kubernetes 1.37.0 / Keycloak 26.8.0, including checkpoint restart
+and child failure/refusal. Managed upgrades, database-reference switches and
+database recovery remain unqualified. See the
 [lifecycle qualification limits](docs/secure-deployment.md#lifecycle-operation-qualification).
 
 </details>

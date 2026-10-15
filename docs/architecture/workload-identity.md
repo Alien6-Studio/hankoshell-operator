@@ -1118,7 +1118,7 @@ Keycloak **26.7.5 / 26.8.0** within these separate required layers:
 | Layer | Cells | Proof |
 |---|---|---|
 | Native capability | Both Keycloak versions × all three Kubernetes versions, 57 checks per cell | Native assertion, authenticator, permission and controller contract behavior |
-| General installed regression | Kubernetes 1.37.0 / Keycloak 26.8.0, 19 checks | Existing full Helm/scanned-image lifecycle regression |
+| General installed regression | Kubernetes 1.37.0 / Keycloak 26.8.0, 20 checks | Existing full Helm/scanned-image regression plus configuration-only Clone checkpoint restart/failure |
 | Installed workload runtime | Both Keycloak versions × all three Kubernetes versions | Real Pod projection, controller trust/binding, live client_assertion token grant, same-token native UMA resource ALLOW/DENY, kubelet rotation, real expiry, SA UID replacement, owned-client containment, no automatic reactivation and leakage inspection |
 | Deep installed migration/recovery | Kubernetes 1.37.0 with each Keycloak version | Reviewed same-client cutover, unchanged UUID/credential, Secret fallback, return, all five journal checkpoints and external fault recovery |
 
