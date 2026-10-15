@@ -18,6 +18,7 @@ does not imply public API stability or completed installed-system qualification.
 | [ADR-029](ADR-029-provider-neutral-authorization.md) | Typed, capability-aware provider authorization |
 | [ADR-044](ADR-044-structural-image-trust.md) | Structural OCI registry and repository identity |
 | [ADR-047](ADR-047-signed-workload-approvals.md) | Signed immutable image approvals |
+| [ADR-048](ADR-048-full-pull-request-qualification.md) | Full qualification matrix on pull requests |
 
 ## Adding or updating a decision
 

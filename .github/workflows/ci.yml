@@ -439,6 +439,8 @@ jobs:
           retention-days: 7
   checks:
     name: Source and chart checks
+    # Pull requests run the full qualification matrix (ADR-048); this required
+    # gate must keep representing every qualification job before merge.
     needs: [preflight, source, kubernetes, keycloak, workload, security-mutations, oci, rehearsal, system, installed-workload]
     if: always()
     runs-on: ubuntu-24.04
