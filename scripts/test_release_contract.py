@@ -82,7 +82,8 @@ class ReleaseContractTests(unittest.TestCase):
     def test_ci_preflight_blocks_every_expensive_job_and_remains_required(self):
         ci = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
         self.assertEqual(set(ci), {"preflight", "source", "kubernetes", "keycloak", "workload", "oci",
-                                   "rehearsal", "system", "installed-workload", "security-mutations", "checks"})
+                                   "rehearsal", "system", "installed-workload", "security-mutations", "checks",
+                                   "schedule-report"})
         for job in ("source", "kubernetes", "keycloak", "workload", "security-mutations", "oci"):
             with self.subTest(job=job):
                 self.assertEqual(ci[job].get("needs"), ["preflight"])
@@ -94,13 +95,33 @@ class ReleaseContractTests(unittest.TestCase):
         self.assertNotIn("needs", ci["preflight"])
         self.assertNotIn("if", ci["preflight"])
         self.assertFalse(ci["preflight"].get("continue-on-error", False))
-        self.assertEqual(set(ci["checks"]["needs"]), set(ci) - {"checks"})
+        self.assertEqual(set(ci["checks"]["needs"]), set(ci) - {"checks", "schedule-report"})
         self.assertEqual(ci["checks"]["name"], "Source and chart checks")
         self.assertEqual(ci["checks"]["if"], "always()")
         self.assertIn("make preflight", [step.get("run") for step in ci["preflight"]["steps"]])
         makefile = (contract.ROOT / "Makefile").read_text()
         self.assertRegex(makefile, r"(?m)^preflight: fmt-check vet generated-check\n\tpython3 -m unittest discover -s scripts -p 'test_\*\.py'$")
         self.assertIn("make test chart-test arch lint vuln", [step.get("run") for step in ci["source"]["steps"]])
+
+    def test_scheduled_failures_maintain_one_tracking_issue_with_scoped_write(self):
+        ci = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())
+        job = ci["jobs"]["schedule-report"]
+        self.assertEqual(job["if"], "always() && (github.event_name == 'schedule' || "
+                                    "(github.event_name == 'workflow_dispatch' && inputs.schedule_report_test == true))")
+        self.assertEqual(job["permissions"], {"contents": "read", "issues": "write"})
+        self.assertEqual(set(job["needs"]), set(ci["jobs"]) - {"schedule-report"})
+        self.assertLessEqual(job["timeout-minutes"], 10)
+        self.assertFalse(job.get("continue-on-error", False))
+        self.assertEqual(ci[True]["workflow_dispatch"]["inputs"]["schedule_report_test"]["default"], False)
+        download = next(step for step in job["steps"] if "download-artifact@" in step.get("uses", ""))
+        self.assertEqual(download["with"]["pattern"], "go-tests-*-${{ github.run_id }}-${{ github.run_attempt }}")
+        reconcile = next(step for step in job["steps"] if "schedule-report.py" in step.get("run", ""))
+        self.assertEqual(reconcile["env"], {"GH_TOKEN": "${{ github.token }}",
+                                            "QUALIFICATION_RESULTS": "${{ toJSON(needs) }}"})
+        self.assertNotIn("${{", reconcile["run"])  # The token and results reach the script via env only.
+        for argument in ('--repository "$GITHUB_REPOSITORY"', '--run-id "$GITHUB_RUN_ID"',
+                         '--revision "$GITHUB_SHA"', '--reports "$RUNNER_TEMP/qualification-reports"'):
+            self.assertIn(argument, reconcile["run"])
 
     def test_security_mutation_job_runs_the_complete_catalog_and_preserves_results(self):
         jobs = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
@@ -216,6 +237,8 @@ class ReleaseContractTests(unittest.TestCase):
                 if "permissions" in job:
                     if path.name == "release.yml" and name == "publish":
                         self.assertEqual(job["permissions"], {"contents": "write", "packages": "write", "id-token": "write"})
+                    elif path.name == "ci.yml" and name == "schedule-report":
+                        self.assertEqual(job["permissions"], {"contents": "read", "issues": "write"})
                     else:
                         self.assertTrue(all(value == "read" for value in job["permissions"].values()), (path, name))
                 for step in job.get("steps", []):

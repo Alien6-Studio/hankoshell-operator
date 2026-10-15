@@ -16,6 +16,11 @@ on:
       release_candidate:
         value: ${{ jobs.oci.outputs.candidate_digest }}
   workflow_dispatch:
+    inputs:
+      schedule_report_test:
+        description: Exercise the scheduled-failure tracking issue on this run
+        type: boolean
+        default: false
   schedule:
     - cron: '17 6 * * 1'
 permissions:
@@ -451,3 +456,31 @@ jobs:
           SYSTEM_RESULT: ${{ needs.system.result }}
           INSTALLED_WORKLOAD_RESULT: ${{ needs.installed-workload.result }}
         run: test "$PREFLIGHT_RESULT" = success && test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$MUTATIONS_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success
+  schedule-report:
+    name: Scheduled qualification tracking issue
+    needs: [preflight, source, kubernetes, keycloak, workload, security-mutations, oci, rehearsal, system, installed-workload, checks]
+    if: always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.schedule_report_test == true))
+    permissions:
+      contents: read
+      issues: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: go-tests-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/qualification-reports
+      - name: Open, update or close the tracking issue from this run's outcome
+        env:
+          GH_TOKEN: ${{ github.token }}
+          QUALIFICATION_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 scripts/schedule-report.py --repository "$GITHUB_REPOSITORY" \
+            --run-id "$GITHUB_RUN_ID" --revision "$GITHUB_SHA" \
+            --reports "$RUNNER_TEMP/qualification-reports"
