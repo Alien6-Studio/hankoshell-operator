@@ -33,7 +33,10 @@ class MutationRunnerTests(unittest.TestCase):
                     "bundle-tenant-namespace", "bundle-live-tenant-ownership", "bundle-forced-ownership",
                     "bundle-write-version-precondition", "secret-cache-exclusion",
                     "snapshot-tenant-inventory", "snapshot-stored-tenant-scope", "operation-child-tenant-presence",
-                    "operation-managed-provider-binding", "managed-probe-rollout-fence"}
+                    "operation-managed-provider-binding", "managed-probe-rollout-fence",
+                    "managed-infrastructure-owner", "managed-infrastructure-live-owner",
+                    "managed-infrastructure-write-version", "managed-pdb-delete-identity",
+                    "managed-instance-live-intent", "managed-instance-deletion"}
         self.assertEqual({entry["name"] for entry in gate.MUTATIONS}, required)
         self.assertEqual(len(gate.MUTATIONS), len(required))
         for entry in gate.MUTATIONS:

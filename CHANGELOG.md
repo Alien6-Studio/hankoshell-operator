@@ -5,6 +5,13 @@
 <!-- release-notes:start -->
 ### Managed lifecycle provider observation
 
+- Refuse existing managed Deployments, Services, NetworkPolicies and disruption
+  budgets without exact current-instance controller ownership. Read authority
+  through the uncached API and use resource-version preconditions for updates
+  and UID/version preconditions for stale-budget deletion. Foreign objects and
+  concurrent ownership changes cannot be silently overwritten or removed.
+  Read the instance intent through the uncached API and stop reconciliation when
+  deletion has begun, including when the cache still contains an active record.
 - Bind managed instance readiness to the UID and generation of an owned,
   fully ready Deployment observed through the uncached API before and after
   the Admin API probe. Invalidate the binding while probing or on failure;

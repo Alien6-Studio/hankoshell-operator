@@ -113,6 +113,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 	t.Run("import status acknowledgement and concurrent changes", func(t *testing.T) { checkImportRecovery(t, ctx, admin) })
 	t.Run("operation checkpoints and child recovery", func(t *testing.T) { checkOperationRecovery(t, ctx, admin) })
 	t.Run("managed operation provider observation", func(t *testing.T) { checkManagedOperationObservation(t, ctx, admin) })
+	t.Run("managed infrastructure ownership concurrency", func(t *testing.T) { checkManagedInfrastructureConcurrency(t, ctx, admin) })
 	t.Run("snapshot checkpoints and child recovery", func(t *testing.T) { checkSnapshotRecovery(t, ctx, admin) })
 	t.Run("snapshot tenant inventory isolation", func(t *testing.T) { checkSnapshotTenantCapture(t, ctx, admin) })
 	t.Run("tenant bundle ownership and concurrent writes", func(t *testing.T) { checkTenantBundleBoundary(t, ctx, admin) })

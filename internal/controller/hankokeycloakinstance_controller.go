@@ -64,8 +64,11 @@ type HankoKeycloakInstanceReconciler struct {
 
 func (r *HankoKeycloakInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var instance hankoshv1alpha1.HankoKeycloakInstance
-	if err := r.Get(ctx, req.NamespacedName, &instance); err != nil {
+	if err := r.instanceReader().Get(ctx, req.NamespacedName, &instance); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+	if !instance.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, nil
 	}
 	patch := client.MergeFrom(instance.DeepCopy())
 	kc, err := r.buildKCClient(ctx, &instance)
@@ -408,7 +411,7 @@ func (r *HankoKeycloakInstanceReconciler) ensureDeployment(ctx context.Context, 
 	}
 
 	var existing appsv1.Deployment
-	err = r.Get(ctx, types.NamespacedName{Name: ki.Name, Namespace: ki.Namespace}, &existing)
+	err = r.readManagedInfrastructure(ctx, ki, ki.Name, &existing)
 	if errors.IsNotFound(err) {
 		podSpec := corev1.PodSpec{
 			AutomountServiceAccountToken: boolPtr(false),
@@ -451,7 +454,7 @@ func (r *HankoKeycloakInstanceReconciler) ensureDeployment(ctx context.Context, 
 
 	// Patch the existing Deployment — includes TopologySpreadConstraints so that
 	// changes to replica count are reflected in scheduling constraints.
-	patchBase := client.MergeFrom(existing.DeepCopy())
+	patchBase := managedInfrastructurePatch(existing.DeepCopy())
 	existing.Spec.Replicas = &replicas
 	existing.Spec.Template.Spec.AutomountServiceAccountToken = boolPtr(false)
 	existing.Spec.Template.Spec.Containers = []corev1.Container{container}
@@ -507,7 +510,7 @@ func (r *HankoKeycloakInstanceReconciler) ensureService(ctx context.Context, ki 
 	}
 
 	var existing corev1.Service
-	err = r.Get(ctx, types.NamespacedName{Name: ki.Name, Namespace: ki.Namespace}, &existing)
+	err = r.readManagedInfrastructure(ctx, ki, ki.Name, &existing)
 	if errors.IsNotFound(err) {
 		svc.Spec = corev1.ServiceSpec{
 			Selector: labels,
@@ -532,7 +535,7 @@ func (r *HankoKeycloakInstanceReconciler) ensureService(ctx context.Context, ki 
 	}
 
 	// Patch the existing Service.
-	patchBase := client.MergeFrom(existing.DeepCopy())
+	patchBase := managedInfrastructurePatch(existing.DeepCopy())
 	if existing.Labels == nil {
 		existing.Labels = map[string]string{}
 	}
@@ -603,7 +606,7 @@ func (r *HankoKeycloakInstanceReconciler) ensureNetworkPolicy(ctx context.Contex
 	}
 
 	var existing networkingv1.NetworkPolicy
-	if err := r.Get(ctx, types.NamespacedName{Name: np.Name, Namespace: np.Namespace}, &existing); errors.IsNotFound(err) {
+	if err := r.readManagedInfrastructure(ctx, ki, np.Name, &existing); errors.IsNotFound(err) {
 		np.Spec = desired
 		if err := r.Create(ctx, np); err != nil {
 			return fmt.Errorf("create NetworkPolicy: %w", err)
@@ -613,7 +616,7 @@ func (r *HankoKeycloakInstanceReconciler) ensureNetworkPolicy(ctx context.Contex
 	} else if err != nil {
 		return fmt.Errorf("get NetworkPolicy: %w", err)
 	}
-	patchBase := client.MergeFrom(existing.DeepCopy())
+	patchBase := managedInfrastructurePatch(existing.DeepCopy())
 	existing.Spec = desired
 	if err := r.Patch(ctx, &existing, patchBase); err != nil {
 		return fmt.Errorf("patch NetworkPolicy: %w", err)
@@ -637,8 +640,8 @@ func (r *HankoKeycloakInstanceReconciler) ensurePDB(ctx context.Context, ki *han
 		// Delete PDB if it exists — a single-replica deployment must not have a PDB
 		// as it would block all node drains.
 		var existingPDB policyv1.PodDisruptionBudget
-		if err := r.Get(ctx, types.NamespacedName{Name: ki.Name, Namespace: ki.Namespace}, &existingPDB); err == nil {
-			if delErr := r.Delete(ctx, &existingPDB); delErr != nil && !errors.IsNotFound(delErr) {
+		if err := r.readManagedInfrastructure(ctx, ki, ki.Name, &existingPDB); err == nil {
+			if delErr := r.Delete(ctx, &existingPDB, client.Preconditions{UID: &existingPDB.UID, ResourceVersion: &existingPDB.ResourceVersion}); delErr != nil && !errors.IsNotFound(delErr) {
 				return fmt.Errorf("delete stale PodDisruptionBudget: %w", delErr)
 			}
 			log.Info("deleted stale PodDisruptionBudget", "name", ki.Name)
@@ -665,7 +668,7 @@ func (r *HankoKeycloakInstanceReconciler) ensurePDB(ctx context.Context, ki *han
 	}
 
 	var existing policyv1.PodDisruptionBudget
-	if err := r.Get(ctx, types.NamespacedName{Name: pdb.Name, Namespace: pdb.Namespace}, &existing); errors.IsNotFound(err) {
+	if err := r.readManagedInfrastructure(ctx, ki, pdb.Name, &existing); errors.IsNotFound(err) {
 		pdb.Spec = desired
 		if err := r.Create(ctx, pdb); err != nil {
 			return fmt.Errorf("create PodDisruptionBudget: %w", err)
@@ -675,7 +678,7 @@ func (r *HankoKeycloakInstanceReconciler) ensurePDB(ctx context.Context, ki *han
 	} else if err != nil {
 		return fmt.Errorf("get PodDisruptionBudget: %w", err)
 	}
-	patchBase := client.MergeFrom(existing.DeepCopy())
+	patchBase := managedInfrastructurePatch(existing.DeepCopy())
 	existing.Spec = desired
 	if err := r.Patch(ctx, &existing, patchBase); err != nil {
 		return fmt.Errorf("patch PodDisruptionBudget: %w", err)

@@ -15,6 +15,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 )
@@ -62,7 +63,7 @@ func controllerTestClient(scheme *runtime.Scheme, objects ...client.Object) clie
 func managedTestInstance(namespace, name string) *hankoshv1alpha1.HankoKeycloakInstance {
 	replicas := int32(2)
 	return &hankoshv1alpha1.HankoKeycloakInstance{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, UID: types.UID("managed-" + name)},
 		Spec: hankoshv1alpha1.HankoKeycloakInstanceSpec{
 			Mode:     "managed",
 			AdminRef: corev1.LocalObjectReference{Name: "admin"},
@@ -341,6 +342,9 @@ func TestManagedServiceAutodiscoverMetadataIsReconciled(t *testing.T) {
 			Selector: map[string]string{"app": "stale"},
 			Ports:    []corev1.ServicePort{{Name: "legacy", Port: 80}},
 		},
+	}
+	if err := controllerutil.SetControllerReference(instance, service, scheme); err != nil {
+		t.Fatal(err)
 	}
 	k8sClient := controllerTestClient(scheme, append([]client.Object{instance, service}, managedTestSecrets(t, instance)...)...)
 	reconciler := &HankoKeycloakInstanceReconciler{Client: k8sClient, Scheme: scheme}

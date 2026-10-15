@@ -1080,6 +1080,28 @@ an operator that enforces it. The real API and TLS regression tests for these
 guards do not qualify installed managed rollouts, provider version compatibility,
 database switching/migration or recovery; those #20 requirements remain open.
 
+Managed infrastructure updates also require the exact current instance controller
+owner (UID, name, kind and API version) on the Deployment, Service, NetworkPolicy
+and PodDisruptionBudget. The controller reads that authority through the uncached
+API and binds patches to its resourceVersion. Single-replica cleanup deletes only
+an owned budget with UID and resourceVersion preconditions. An unowned, foreign,
+deleting or concurrently reassigned object blocks the affected reconcile; it is
+not an adoption request. Earlier owned writes in the same reconcile are not
+transactionally undone.
+
+**Infrastructure migration and rollback:** managed objects created by the operator
+already carry their instance controller owner. A recreated instance or a legacy
+manually provisioned homonym may now be refused. Inspect its ownership and effects
+and use the explicit adopted mode for externally managed workloads; do not add an
+owner merely to force an update. Preserve foreign resources and resolve names
+before resuming managed reconciliation. An older operator lacks these write/delete
+guards, so suspend managed reconciliation before rollback when foreign or
+reassigned objects may be present. Real API race tests qualify the conditional
+writes, not a production rollout or a database transition.
+The instance itself is read through the uncached API; deletion stops this
+reconciler before administrative activity or infrastructure writes. This does
+not undo earlier effects and does not replace Kubernetes garbage collection.
+
 Do not edit an in-flight specification to retarget or cancel it. A changed intent,
 recreated source or legacy in-flight status without identity checkpoints is
 refused. Inspect the source and children before creating a new operation; do not
