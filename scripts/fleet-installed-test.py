@@ -322,6 +322,7 @@ class Fleet(installed.Installed):
         self.reject("duplicate_envelope_member", self.sign(base)[:-1]+',"version":"'+ENVELOPE+'"}', "FleetEnvelopeInvalid")
         self.reject("oversize_response", "x"*(1024**2+1), "FleetPlanFetchFailed")
         self.reject("unknown_envelope_field", json.dumps({**json.loads(self.sign(base)), "private": self.canary}), "FleetEnvelopeInvalid")
+        self.reject("cache_storage_budget", self.sign(base) + " " * (900 * 1024), "FleetCacheTooLarge")
         wire = json.loads(self.sign(base))
         wire["payload"] = encoded(b"{")
         self.reject("malformed_payload", json.dumps(wire), "FleetPayloadInvalid")
@@ -512,6 +513,53 @@ class Fleet(installed.Installed):
         self.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=180s")
         self.start_log_capture()
 
+    def authority_races(self):
+        before = self.state()
+        original = self.plans["tenant-a"]
+        for kind in ("trust", "tenant"):
+            candidate = self.plan("tenant-a", original["sequence"]+1, "Forbidden stale authority")
+            self.hub("tenant-a", envelope=self.sign(candidate), hold=True)
+            self.tick("tenant-a")
+            wait("in-flight signed fetch", lambda: self.hub()["tenant-a"]["waiting"], 20)
+            if kind == "trust":
+                self.patch("configmap", "fleet-trust", {"metadata": {"annotations": {"fixture.example/fence": secrets.token_hex(8)}}})
+            else:
+                self.patch("hankotenant", "tenant-a", {"spec": {"hubEndpoint": "https://hub-alt.auth.svc:9090"}})
+            self.hub("tenant-a", envelope=self.sign(original), hold=False)
+            if kind == "trust":
+                wait("trust fence Event", lambda: any(e.get("reason") == "FleetTrustChanged" for e in
+                    json.loads(self.kubectl("get", "events", "-n", "auth", "-o", "json"))["items"]), 30)
+                self.expect("tenant-a", "FleetPlanCurrent")
+            else:
+                self.expect("tenant-a", "FleetHubEndpointUnapproved", event=True)
+            checkpoint = self.get("hankotenant", "tenant-a")["status"]["fleetPlan"]
+            self.record(kind + "_change_during_fetch_fences_stale_plan", self.state() == before and checkpoint["identity"] == self.identity(original))
+            if kind == "tenant":
+                self.patch("hankotenant", "tenant-a", {"spec": {"hubEndpoint": "https://hub.auth.svc:9090"}})
+                self.expect("tenant-a", "FleetPlanCurrent")
+
+    def cache_write_failure(self):
+        policy = "fixture-deny-fleet-cache"
+        self.apply({"apiVersion": "admissionregistration.k8s.io/v1", "kind": "ValidatingAdmissionPolicy",
+            "metadata": {"name": policy}, "spec": {"failurePolicy": "Fail", "matchConstraints": {"resourceRules": [{
+                "apiGroups": [""], "apiVersions": ["v1"], "operations": ["CREATE"], "resources": ["configmaps"]}]},
+                "validations": [{"expression": "object.metadata.namespace != 'auth' || !object.metadata.name.startsWith('hanko-fleet-')",
+                                 "message": "disposable cache storage fault"}]}},
+            {"apiVersion": "admissionregistration.k8s.io/v1", "kind": "ValidatingAdmissionPolicyBinding",
+             "metadata": {"name": policy}, "spec": {"policyName": policy, "validationActions": ["Deny"]}})
+        # Wait for actual admission enforcement, not policy creation alone.
+        def denied():
+            value = {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "hanko-fleet-admission-probe", "namespace": "auth"}}
+            result = subprocess.run([str(self.args.kubectl), "--kubeconfig", str(self.config), "create", "--dry-run=server", "-f", "-"],
+                                    input=json.dumps(value), text=True, capture_output=True, timeout=20, check=False)
+            return result.returncode != 0 and "disposable cache storage fault" in result.stderr
+        wait("cache storage denial admission", denied, 30)
+        try:
+            candidate = self.plan("tenant-a", self.plans["tenant-a"]["sequence"]+1, "Forbidden cache failure")
+            self.reject("cache_write_failure_preserves_state", self.sign(candidate), "FleetCacheWriteFailed")
+        finally:
+            self.kubectl("delete", "validatingadmissionpolicybinding,validatingadmissionpolicy", policy, "--timeout=30s")
+
     def checkpoint_restart(self):
         # Externally lose the acknowledgement of the durable verification
         # checkpoint. All later API traffic is held until the process stops.
@@ -599,6 +647,8 @@ class Fleet(installed.Installed):
         self.missing_registration()
         self.negatives()
         self.local_authority_negatives()
+        self.authority_races()
+        self.cache_write_failure()
         self.cache_clock_cases()
         self.rollout_reconnect()
         self.offline()

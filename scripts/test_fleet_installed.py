@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+from concurrent.futures import ThreadPoolExecutor
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 import threading
@@ -86,6 +87,15 @@ func main() {
         self.assertNotIn("envelope", json.dumps(public))
         self.assertNotIn("fixture-secret", json.dumps(public))
         self.assertEqual(request("/api/v1/bundles/latest", "tenant-fixture-secret", tenant="tenant"), {})
+        request("/__fixture/control", "control-fixture-secret", {"tenant": "tenant", "hold": True, "envelope": '{"sequence":1}'})
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pending = pool.submit(request, "/api/v1/bundles/latest", "tenant-fixture-secret", None, "tenant")
+            try:
+                fleet.wait("held fixture response", lambda: request("/__fixture/control", "control-fixture-secret")["tenant"]["waiting"], 3)
+            finally:
+                request("/__fixture/control", "control-fixture-secret", {"tenant": "tenant", "hold": False, "envelope": '{"sequence":2}'})
+            self.assertEqual(pending.result(timeout=3), {"sequence": 1})
+        self.assertEqual(request("/api/v1/bundles/latest", "tenant-fixture-secret", tenant="tenant"), {"sequence": 2})
         request("/api/v1/operators/status", "tenant-fixture-secret", {"detail": "public"}, "tenant")
         self.assertTrue(request("/__fixture/control", "control-fixture-secret")["tenant"]["reports_safe"])
         request("/api/v1/operators/status", "tenant-fixture-secret", {"detail": "private-person@example.invalid"}, "tenant")

@@ -42,7 +42,13 @@ class Hub(BaseHTTPRequestHandler):
                     for key in ("envelope", "status", "ack"):
                         if key in data:
                             tenant[key] = data[key]
-                public = {name: {key: t[key] for key in ("fetches", "reports", "confirmations", "reports_safe")}
+                    if "hold" in data:
+                        previous = tenant.get("_gate")
+                        if previous is not None:
+                            previous.set()
+                        tenant["_gate"] = threading.Event() if data["hold"] else None
+                public = {name: {**{key: t[key] for key in ("fetches", "reports", "confirmations", "reports_safe")},
+                                 "waiting": t.get("waiting", False)}
                           for name, t in self.server.tenants.items()}
             self.reply(200, public)
             return
@@ -50,15 +56,24 @@ class Hub(BaseHTTPRequestHandler):
         if name not in settings["tokens"] or self.headers.get("Authorization") != "Bearer " + settings["tokens"][name]:
             self.reply(401, {})
             return
+        if self.path == "/api/v1/bundles/latest" and self.command == "GET":
+            with LOCK:
+                tenant = self.server.tenants[name]
+                tenant["fetches"] += 1
+                status, envelope, gate = tenant["status"], tenant["envelope"], tenant.get("_gate")
+                tenant["waiting"] = gate is not None
+            if gate is not None:
+                gate.wait(8)  # Below the operator's ten-second HTTP deadline.
+            with LOCK:
+                tenant["waiting"] = False
+            if self.headers.get("Accept") != "application/vnd.hanko.fleet-plan+json":
+                self.reply(406, {})
+            else:
+                self.reply(status, envelope)
+            return
         with LOCK:
             tenant = self.server.tenants[name]
-            if self.path == "/api/v1/bundles/latest" and self.command == "GET":
-                tenant["fetches"] += 1
-                if self.headers.get("Accept") != "application/vnd.hanko.fleet-plan+json":
-                    self.reply(406, {})
-                else:
-                    self.reply(tenant["status"], tenant["envelope"])
-            elif self.path == "/api/v1/operators/status" and self.command == "POST":
+            if self.path == "/api/v1/operators/status" and self.command == "POST":
                 data = self.read_json()
                 tenant["reports"] += 1
                 encoded = json.dumps(data)
