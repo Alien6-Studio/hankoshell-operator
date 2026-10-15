@@ -266,7 +266,7 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	tenant.Status.ClusterID = credentials.ClusterID
 
 	// ── Fetch bundle from Hub ─────────────────────────────────────────────────
-	hubClient := hub.NewWithHTTPClient(tenant.Spec.HubEndpoint, tenantID, credentials.Token, r.HubHTTPClient)
+	hubClient := r.tenantHubClient(&tenant, tenantID, credentials.Token)
 
 	var counts map[string]int
 	var bundleVersion string
@@ -348,6 +348,9 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		status.Supervision = r.Supervision.Collect(ctx)
 	}
 	ack, reportErr := hubClient.ReportStatus(ctx, status)
+	if reportErr != nil && signed {
+		reportErr = fleetplan.Refusal("FleetHubStatusUnavailable")
+	}
 	if reportErr != nil {
 		if r.MeshPolicyConfigMapName != "" {
 			return r.setError(ctx, hubClient, &tenant, patch, "MeshPolicyStatusReportFailed", reportErr)
@@ -392,7 +395,7 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		conditionStatus = metav1.ConditionFalse
 		message = "signed plan delivered partially; inspect bounded rollout findings"
 	}
-	setCondition(&tenant.Status.Conditions, "Synced", conditionStatus, appliedReason,
+	setTenantSyncedCondition(&tenant, conditionStatus, appliedReason,
 		message)
 
 	if err := r.Status().Patch(ctx, &tenant, patch); err != nil {
@@ -797,7 +800,7 @@ func (r *HankoTenantReconciler) ensureHubCredential( // NOSONAR -- rotation is a
 	}
 
 	if credentials.RotationPending {
-		client := hub.NewWithHTTPClient(tenant.Spec.HubEndpoint, tenantID, credentials.Token, r.HubHTTPClient)
+		client := r.tenantHubClient(tenant, tenantID, credentials.Token)
 		if err := client.ConfirmRotation(ctx); err != nil {
 			return storedHubCredentials{}, err
 		}
@@ -827,7 +830,7 @@ func (r *HankoTenantReconciler) ensureHubCredential( // NOSONAR -- rotation is a
 		}
 	}
 
-	currentClient := hub.NewWithHTTPClient(tenant.Spec.HubEndpoint, tenantID, credentials.Token, r.HubHTTPClient)
+	currentClient := r.tenantHubClient(tenant, tenantID, credentials.Token)
 	rotated, err := currentClient.PrepareRotation(ctx, credentials.RotationID)
 	if err != nil {
 		return storedHubCredentials{}, err
@@ -860,7 +863,7 @@ func (r *HankoTenantReconciler) ensureHubCredential( // NOSONAR -- rotation is a
 	credentials.ClusterID = rotated.ClusterID
 	credentials.ExpiresAt = rotated.ExpiresAt
 	credentials.RotationPending = true
-	newClient := hub.NewWithHTTPClient(tenant.Spec.HubEndpoint, tenantID, credentials.Token, r.HubHTTPClient)
+	newClient := r.tenantHubClient(tenant, tenantID, credentials.Token)
 	if err := newClient.ConfirmRotation(ctx); err != nil {
 		return storedHubCredentials{}, err
 	}
@@ -959,6 +962,9 @@ func (r *HankoTenantReconciler) setError(
 	reason string,
 	err error,
 ) (ctrl.Result, error) {
+	if r.fleetEnabled(tenant) {
+		err = fleetplan.Refusal(reason)
+	}
 	log.FromContext(ctx).Error(err, "tenant reconcile error", "reason", reason)
 	if !meshPolicyAuditReason(reason) {
 		r.rememberDegraded(tenant, reason)
@@ -972,11 +978,11 @@ func (r *HankoTenantReconciler) setError(
 			changed = false
 		}
 	}
-	setCondition(&tenant.Status.Conditions, "Synced", metav1.ConditionFalse, reason, err.Error())
+	setTenantSyncedCondition(tenant, metav1.ConditionFalse, reason, err.Error())
 	if patchErr := r.Status().Patch(ctx, tenant, patch); patchErr != nil {
 		log.FromContext(ctx).Error(patchErr, "patch tenant status after error")
 	} else if changed && r.Recorder != nil {
-		r.Recorder.Eventf(tenant, nil, corev1.EventTypeWarning, reason, "Reconcile", "%s", "Fleet authority refused; inspect tenant condition reason")
+		r.Recorder.Eventf(tenant, nil, corev1.EventTypeWarning, reason, "Reconcile", "%s", "Tenant reconciliation refused; inspect condition reason")
 	}
 	// Best-effort degraded report so the fleet view reflects the failure
 	// instead of showing the last successful phase until staleness kicks in.
@@ -998,6 +1004,9 @@ func (r *HankoTenantReconciler) setError(
 			FleetPlan:         fleetEvidence(tenant),
 			FleetRollout:      fleetRolloutEvidence(tenant),
 		}); reportErr != nil {
+			if r.fleetEnabled(tenant) {
+				reportErr = fleetplan.Refusal("FleetHubStatusUnavailable")
+			}
 			log.FromContext(ctx).Error(reportErr, "report degraded status to hub (non-fatal)")
 		}
 	}

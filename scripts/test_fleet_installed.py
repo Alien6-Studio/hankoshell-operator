@@ -5,6 +5,8 @@ import json
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 import threading
+import subprocess
+import tempfile
 import unittest
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -22,6 +24,27 @@ hub = module("fleet_hub", "fleet-hub-fixture.py")
 
 
 class FleetInstalledTests(unittest.TestCase):
+    def test_command_approval_matches_the_operator_canonical_identity(self):
+        target = {"tenantID": "tenant-id", "clusterID": "cluster-id", "namespace": "auth",
+                  "tenantName": "tenant", "tenantUID": "tenant-uid"}
+        command = {"requestedAt": "2026-10-15T12:00:00Z", "deadline": "2026-10-15T12:01:00Z"}
+        # Compare with the actual Go implementation, including struct field
+        # order and UTC timestamp encoding; a self-consistent fixture is not proof.
+        (fleet.ROOT / ".tools").mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="fleet-approval-oracle-", dir=fleet.ROOT / ".tools") as directory:
+            source = Path(directory) / "main.go"
+            source.write_text('''package main
+import ("fmt"; "time"; "github.com/Alien6-Studio/hankoshell-operator/internal/fleetplan")
+func main() {
+ target:=fleetplan.Target{Scope:fleetplan.Scope{TenantID:"tenant-id",ClusterID:"cluster-id",Namespace:"auth",TenantName:"tenant"},TenantUID:"tenant-uid"}
+ at:=time.Date(2026,10,15,12,0,0,0,time.UTC)
+ fmt.Print(fleetplan.DecommissionIdentity(target,at,at.Add(time.Minute)))
+}
+''')
+            result = subprocess.run(["go", "run", "-mod=readonly", source], cwd=fleet.ROOT, capture_output=True, text=True, timeout=60, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(fleet.command_identity(target, command), result.stdout)
+
     def test_public_evidence_and_state_exclude_private_metadata(self):
         fixture = fleet.Fleet.__new__(fleet.Fleet)
         fixture.report = {"checks": {"authority": True}, "complete": False, "layer": "installed-fleet",

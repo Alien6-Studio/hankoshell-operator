@@ -20,6 +20,8 @@ import tempfile
 import time
 from urllib.request import Request, urlopen
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("installed_workload", ROOT / "scripts/workload-installed-test.py")
 installed = importlib.util.module_from_spec(spec)
@@ -38,6 +40,11 @@ def timestamp(value):
 
 def digest(value):
     return "sha256:" + hashlib.sha256(json.dumps(value, separators=(",", ":"), sort_keys=True).encode()).hexdigest()
+
+
+def command_identity(target, command):
+    raw = json.dumps({"target": target, "requestedAt": command["requestedAt"], "deadline": command["deadline"]}, separators=(",", ":")).encode()
+    return "sha256:" + hashlib.sha256(b"hanko.sh/fleet-decommission/v1alpha1\0" + raw).hexdigest()
 
 
 def public_state(value):
@@ -177,6 +184,15 @@ class Fleet(installed.Installed):
             "publicKey": self.public_key, "notBefore": timestamp(now - timedelta(minutes=1)), "notAfter": timestamp(now + timedelta(hours=2)),
             "scopes": [{k: v for k, v in target.items() if k != "tenantUID"} for target in self.targets.values()], "sources": ["fixture/config"]}]}
         self.save_policy()
+        policy = (ROOT / "config/security/fleet-plan-trust-admission.yaml").read_text().replace("hanko-fleet-plan-trust", "fleet-trust")
+        self.apply(*list(yaml.safe_load_all(policy)))
+        def independent():
+            result = subprocess.run([str(self.args.kubectl), "--kubeconfig", str(self.config), "patch", "configmap", "fleet-trust", "-n", "auth",
+                "--as=system:serviceaccount:auth:system-operator", "--type=merge", "-p", '{"metadata":{"annotations":{"fixture.example/attempt":"1"}}}'],
+                capture_output=True, timeout=20, check=False)
+            return result.returncode != 0 and b"independent local fleet policy administrators" in result.stderr
+        wait("independent Fleet trust admission", independent, 30)
+        self.record("operator_cannot_rewrite_fleet_trust")
 
     def save_policy(self):
         self.apply({"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "fleet-trust", "namespace": "auth"},
@@ -212,7 +228,16 @@ class Fleet(installed.Installed):
 
     def publish(self, name, plan, reason="FleetPlanApplied"):
         self.hub(name, envelope=self.sign(plan), status=200, ack={"ok": True})
-        self.expect(name, reason)
+        if reason == "FleetPlanApplied":
+            self.tick(name)
+            def accepted():
+                status = self.get("hankotenant", name).get("status", {})
+                current = status.get("fleetPlan", {})
+                return current.get("identity") == self.identity(plan) and current.get("appliedIdentity") == current.get("identity") and any(
+                    c.get("type") == "Synced" and c.get("reason") in ("FleetPlanApplied", "FleetPlanCurrent") for c in status.get("conditions", []))
+            wait("complete Fleet plan delivery", accepted, 120)
+        else:
+            self.expect(name, reason)
         self.plans[name] = copy.deepcopy(plan)
 
     def converged(self, name, display):
@@ -261,16 +286,35 @@ class Fleet(installed.Installed):
                                            notBefore=timestamp(datetime.now(timezone.utc)-timedelta(minutes=2)),
                                            expiresAt=timestamp(datetime.now(timezone.utc)-timedelta(minutes=1))), "FleetPlanExpired"),
             ("future", lambda p: p.update(issuedAt=timestamp(datetime.now(timezone.utc)+timedelta(minutes=2)),
-                                          notBefore=timestamp(datetime.now(timezone.utc)+timedelta(minutes=2))), "FleetPlanNotYetValid")):
+                                          notBefore=timestamp(datetime.now(timezone.utc)+timedelta(minutes=2))), "FleetPlanNotYetValid"),
+            ("invalid_contract", lambda p: p.update(contractVersion="unsupported/v1"), "FleetSourceInvalid"),
+            ("invalid_digest", lambda p: p["source"].update(digest="not-sha256"), "FleetSourceInvalid"),
+            ("short_revision", lambda p: p["source"].update(revision="a" * 7), "FleetSourceInvalid"),
+            ("invalid_sequence", lambda p: p.update(sequence=0), "FleetValidityInvalid"),
+            ("excessive_validity", lambda p: p.update(expiresAt=timestamp(datetime.now(timezone.utc)+timedelta(hours=2))), "FleetValidityInvalid"),
+            ("invalid_mode", lambda p: p.update(mode="force"), "FleetCapabilitiesUnsupported"),
+            ("unavailable_global_capability", lambda p: p.update(requirements=["unknown.capability"]), "FleetCapabilityUnsupported"),
+            ("minimum_operator", lambda p: p.update(minimumOperatorVersion="99.0.0"), "FleetOperatorVersionUnsupported"),
+            ("unverified_rollback", lambda p: p.update(rollbackOf="sha256:"+"e"*64), "FleetRollbackReferenceInvalid"),
+            ("reserved_metadata", lambda p: p["content"]["apps"][0]["metadata"].update(annotations={"hanko.sh/ownership-approval":"forged"}), "FleetContentAuthorityInvalid"),
+            ("status_in_content", lambda p: p["content"]["apps"][0].update(status={"phase":"Ready"}), "FleetContentInvalid"),
+            ("unknown_typed_field", lambda p: p["content"]["apps"][0]["spec"].update(unknown=True), "FleetContentInvalid"),
+            ("overlapping_foreign_object", lambda p: p["content"]["apps"][0]["metadata"].update(name="tenant-b-app"), "BundleTenantConflict")):
             changed = copy.deepcopy(base)
+            if label != "sequence_conflict":
+                changed["sequence"] += 1
             change(changed)
             self.reject(label, self.sign(changed), reason)
         self.reject("private_error_body_withheld", self.canary, "FleetPlanFetchFailed", 403)
+        self.reject("duplicate_envelope_member", self.sign(base)[:-1]+',"version":"'+ENVELOPE+'"}', "FleetEnvelopeInvalid")
+        self.reject("oversize_response", "x"*(1024**2+1), "FleetPlanFetchFailed")
         self.reject("unknown_envelope_field", json.dumps({**json.loads(self.sign(base)), "private": self.canary}), "FleetEnvelopeInvalid")
         revoked = copy.deepcopy(self.trust)
         self.trust["keys"][0]["publicKey"] = encoded(bytes(32))
+        before = self.state()
         self.save_policy()
         self.expect("tenant-a", "FleetSignatureInvalid", event=True)
+        self.record("key_revocation_preserves_desired_provider_state", self.state() == before)
         self.record("revoked_compromised_key", self.get("hankotenant", "tenant-a")["status"]["fleetPlan"]["sequence"] == base["sequence"])
         self.trust = revoked
         self.save_policy()
@@ -278,15 +322,15 @@ class Fleet(installed.Installed):
 
     def rollout_reconnect(self):
         old = copy.deepcopy(self.plans["tenant-a"])
-        newer = self.plan("tenant-a", 2, "Fleet newer")
+        newer = self.plan("tenant-a", old["sequence"]+1, "Fleet newer")
         self.publish("tenant-a", newer)
         self.converged("tenant-a", "Fleet newer")
         self.reject("downgrade_and_old_replay", self.sign(old), "FleetPlanDowngrade")
         current = self.get("hankoapplication", "tenant-a-app")
-        before = current["metadata"]["resourceVersion"]
+        before = public_state(current)
         self.publish("tenant-a", newer, "FleetPlanCurrent")
-        self.record("same_identity_no_content_replay", self.get("hankoapplication", "tenant-a-app")["metadata"]["resourceVersion"] == before)
-        partial = self.plan("tenant-a", 3, "Fleet partial")
+        self.record("same_identity_no_content_replay", public_state(self.get("hankoapplication", "tenant-a-app")) == before)
+        partial = self.plan("tenant-a", newer["sequence"]+1, "Fleet partial")
         partial["mode"] = "partial"
         partial["content"]["themes"] = [installed.object_value("HankoTheme", "unsupported-theme", {"buildImage": "registry.example.invalid/theme", "keycloakPVC": "unused"}, labels={"hanko.sh/tenant": "tenant-a"})]
         self.publish("tenant-a", partial, "FleetPlanPartial")
@@ -295,11 +339,13 @@ class Fleet(installed.Installed):
         self.record("partial_not_full_convergence", status["fleetRollout"]["refused"] == 1 and status["fleetPlan"].get("appliedIdentity") != status["fleetPlan"]["identity"]
                     and not self.exists("hankotheme", "unsupported-theme"))
         rollback = copy.deepcopy(newer)
-        rollback.update(sequence=4, rollbackOf=self.identity(newer))
+        now = datetime.now(timezone.utc)
+        rollback.update(sequence=partial["sequence"]+1, rollbackOf=self.identity(newer), issuedAt=timestamp(now),
+                        notBefore=timestamp(now), expiresAt=timestamp(now+timedelta(minutes=30)))
         self.publish("tenant-a", rollback)
         self.converged("tenant-a", "Fleet newer")
         status = self.get("hankotenant", "tenant-a")["status"]["fleetPlan"]
-        self.record("referenced_versioned_rollback", status["sequence"] == 4 and status["journal"][-1]["rollbackOf"] == self.identity(newer)
+        self.record("referenced_versioned_rollback", status["sequence"] == rollback["sequence"] and status["journal"][-1]["rollbackOf"] == self.identity(newer)
                     and self.ready("hankoapplication", "tenant-b-app"))
 
     def offline(self):
@@ -320,36 +366,125 @@ class Fleet(installed.Installed):
         for name, plan in self.plans.items():
             self.publish(name, plan, "FleetPlanCurrent")
         self.record("reconnect_same_verified_plan")
+        misrouted = copy.deepcopy(self.plans["tenant-a"])
+        misrouted.update(sequence=misrouted["sequence"]+1, target=self.targets["tenant-b"])
+        self.reject("reconnect_wrong_tenant_refused", self.sign(misrouted), "FleetTargetMismatch")
 
     def boundaries(self):
         before = self.protected_state()
-        for ack, reason, label in (
-            ({"ok": True, "agentUpdate": {"version": "99.0.0", "digest": "sha256:" + "c" * 64}}, "AgentUpdateFailed", "unsigned_update_cannot_change_image"),
-            ({"ok": True, "decommission": {"requestedAt": timestamp(datetime.now(timezone.utc)-timedelta(seconds=1)),
-                                          "deadline": timestamp(datetime.now(timezone.utc)+timedelta(minutes=2))}}, "FleetCommandUnapproved", "unapproved_decommission_preserves_rbac_deployment"),
-            ({"ok": True, "decommission": {"requestedAt": timestamp(datetime.now(timezone.utc)-timedelta(minutes=2)),
-                                          "deadline": timestamp(datetime.now(timezone.utc)-timedelta(minutes=1))}}, "DecommissionExpired", "expired_decommission_preserves_rbac_deployment")):
-            self.hub("tenant-a", ack=ack)
-            self.expect("tenant-a", reason, event=reason.startswith("Fleet"))
+        update = {"ok": True, "agentUpdate": {"version": "99.0.0", "digest": "sha256:" + "c" * 64}}
+        self.hub("tenant-a", ack=update)
+        self.expect("tenant-a", "AgentUpdateFailed", event=True)
+        self.record("unsigned_update_cannot_change_image", self.protected_state() == before)
+        candidate = self.plan("tenant-a", self.plans["tenant-a"]["sequence"]+1, "Fleet during blocked update")
+        self.hub("tenant-a", envelope=self.sign(candidate), ack=update)
+        self.tick("tenant-a")
+        wait("new plan while image update is refused", lambda: self.get("hankotenant", "tenant-a").get("status", {}).get("fleetPlan", {}).get("appliedIdentity") == self.identity(candidate), 120)
+        self.converged("tenant-a", "Fleet during blocked update")
+        self.plans["tenant-a"] = candidate
+        self.record("plan_during_self_update_retains_independent_image_guard", self.protected_state() == before)
+        command = {"requestedAt": timestamp(datetime.now(timezone.utc)-timedelta(seconds=1)),
+                   "deadline": timestamp(datetime.now(timezone.utc)+timedelta(minutes=2))}
+        expired = {"requestedAt": timestamp(datetime.now(timezone.utc)-timedelta(minutes=2)),
+                   "deadline": timestamp(datetime.now(timezone.utc)-timedelta(minutes=1))}
+        for value, reason, label in ((command, "FleetCommandUnapproved", "unapproved_decommission_preserves_rbac_deployment"),
+                                     (expired, "DecommissionExpired", "expired_decommission_preserves_rbac_deployment")):
+            self.hub("tenant-a", ack={"ok": True, "decommission": value})
+            self.expect("tenant-a", reason, event=True)
             self.record(label, self.protected_state() == before)
             self.hub("tenant-a", ack={"ok": True})
             self.expect("tenant-a", "FleetPlanCurrent")
+        self.local["commands"] = [{"target": self.targets["tenant-a"], "action": "decommission",
+                                   "identity": command_identity(self.targets["tenant-a"], command)}]
+        self.save_policy()
+        tampered = copy.deepcopy(command)
+        tampered["deadline"] = timestamp(datetime.fromisoformat(command["deadline"].replace("Z", "+00:00"))+timedelta(seconds=1))
+        self.hub("tenant-a", ack={"ok": True, "decommission": tampered})
+        self.expect("tenant-a", "FleetCommandUnapproved", event=True)
+        self.record("tampered_ack_cannot_reuse_exact_local_approval", self.protected_state() == before)
+        self.local.pop("commands")
+        self.save_policy()
+        self.hub("tenant-a", ack={"ok": True})
+        self.expect("tenant-a", "FleetPlanCurrent")
+        # Freeze before changing the destination to exclude an old in-flight GET.
+        self.stop_log_capture()
+        self.kubectl("scale", "deployment/system-operator", "-n", "auth", "--replicas=0")
+        self.kubectl("wait", "--for=delete", "pods", "-n", "auth", "-l", "app.kubernetes.io/instance=system", "--timeout=90s")
         self.patch("hankotenant", "tenant-a", {"spec": {"hubEndpoint": "https://hub-alt.auth.svc:9090"}})
         fetches = self.hub()["tenant-a"]["fetches"]
+        self.restart()
         self.expect("tenant-a", "FleetHubEndpointUnapproved", event=True)
         self.record("endpoint_change_no_credential_forwarding", self.hub()["tenant-a"]["fetches"] == fetches)
         self.patch("hankotenant", "tenant-a", {"spec": {"hubEndpoint": "https://hub.auth.svc:9090"}})
         self.expect("tenant-a", "FleetPlanCurrent")
 
+    def missing_registration(self):
+        name = "no-tenant-routing"
+        self.apply(installed.object_value("HankoApplication", name, {"realmRef": "managed", "clientID": name, "type": "spa"},
+                                          labels={"hanko.sh/tenant": "unregistered"}))
+        wait("unregistered tenant refusal", lambda: any(c.get("reason") == "TenantClientUnavailable"
+             for c in self.get("hankoapplication", name).get("status", {}).get("conditions", [])), 60)
+        self.record("named_tenant_never_falls_back", not self.api("GET", "/admin/realms/managed/clients?clientId=" + name))
+        self.kubectl("delete", "hankoapplication", name, "-n", "auth", "--timeout=60s")
+
+    def cache_clock_cases(self):
+        status = self.get("hankotenant", "tenant-a")["status"]["fleetPlan"]
+        before = self.state()
+        self.patch("hankotenant", "tenant-a", {"status": {"fleetPlan": {
+            "verifiedAt": timestamp(datetime.now(timezone.utc)+timedelta(minutes=2))}}}, subresource="status")
+        self.expect("tenant-a", "FleetClockRegression", event=True)
+        self.record("durable_clock_regression_fails_closed", self.state() == before)
+        self.patch("hankotenant", "tenant-a", {"status": {"fleetPlan": {"verifiedAt": status["verifiedAt"]}}}, subresource="status")
+        self.publish("tenant-a", self.plans["tenant-a"], "FleetPlanCurrent")
+        cache = self.get("configmap", status["cache"]["name"])
+        denied = subprocess.run([str(self.args.kubectl), "--kubeconfig", str(self.config), "patch", "configmap", cache["metadata"]["name"],
+            "-n", "auth", "--type=merge", "-p", '{"data":{"envelope.json":"{}"}}'], capture_output=True, timeout=20, check=False)
+        self.record("cached_envelope_immutable", denied.returncode != 0 and b"immutable" in denied.stderr)
+        self.kubectl("delete", "configmap", cache["metadata"]["name"], "-n", "auth", "--timeout=30s")
+        self.apply({"apiVersion": "v1", "kind": "ConfigMap", "metadata": {
+            "name": cache["metadata"]["name"], "namespace": "auth", "labels": cache["metadata"]["labels"],
+            "ownerReferences": cache["metadata"]["ownerReferences"]}, "immutable": True, "data": {"envelope.json": "{}"}})
+        self.expect("tenant-a", "FleetCacheInvalid", event=True)
+        self.record("tampered_replaced_cache_not_authority", self.state() == before)
+        renewed = self.plan("tenant-a", self.plans["tenant-a"]["sequence"]+1)
+        self.publish("tenant-a", renewed)
+        self.converged("tenant-a", "Fleet baseline")
+        self.record("fresh_signed_sequence_recovers_cache_loss")
+
+    def checkpoint_restart(self):
+        # Externally lose the acknowledgement of the durable verification
+        # checkpoint. All later API traffic is held until the process stops.
+        self.fault_proxies()
+        self.configure_api_proxy()
+        candidate = self.plan("tenant-a", self.plans["tenant-a"]["sequence"]+1, "Fleet after checkpoint restart")
+        extra = installed.object_value("HankoApplication", "checkpoint-app", {"realmRef": "managed", "clientID": "checkpoint-app", "type": "spa"},
+                                       labels={"hanko.sh/tenant": "tenant-a"})
+        candidate["content"]["apps"].append(extra)
+        path = "/apis/hanko.sh/v1alpha1/namespaces/auth/hankotenants/tenant-a/status"
+        self.control("api", {"method": "PATCH", "path": path, "action": "lost-ack"}, reset=True)
+        self.hub("tenant-a", envelope=self.sign(candidate), status=200)
+        self.tick("tenant-a")
+        self.await_fault("api")
+        checkpoint = self.get("hankotenant", "tenant-a")["status"]["fleetPlan"]
+        self.record("verified_checkpoint_before_child_write", checkpoint["identity"] == self.identity(candidate)
+                    and checkpoint.get("appliedIdentity") != checkpoint["identity"] and not self.exists("hankoapplication", "checkpoint-app"))
+        self.restart()
+        self.publish("tenant-a", candidate)
+        self.converged("tenant-a", "Fleet after checkpoint restart")
+        wait("recovered checkpoint child", lambda: self.ready("hankoapplication", "checkpoint-app"), 120)
+        self.record("checkpoint_restart_recovers_without_force_or_duplicate", len(self.api("GET", "/admin/realms/managed/clients?clientId=checkpoint-app")) == 1)
+
     def expiry(self):
-        plan = self.plan("tenant-a", 5, "Fleet expiring", seconds=30)
+        plan = self.plan("tenant-a", self.plans["tenant-a"]["sequence"]+1, "Fleet expiring", seconds=30)
         self.publish("tenant-a", plan)
         self.converged("tenant-a", "Fleet expiring")
         wait("signed expiry refusal", lambda: self.condition("tenant-a", "FleetPlanExpired"), 90)
         self.api("PUT", "/admin/realms/managed", {"displayName": "Preserve expired drift"})
+        self.control("keycloak", None, reset=True)
         self.patch("hankorealm", "managed", {"spec": {"displayName": "Forbidden expired write"}})
         time.sleep(3)
-        self.record("expired_plan_no_native_mutation", self.api("GET", "/admin/realms/managed")["displayName"] == "Preserve expired drift")
+        self.record("expired_plan_no_native_mutation", self.api("GET", "/admin/realms/managed")["displayName"] == "Preserve expired drift"
+                    and self.control("keycloak", None)["attempted_counts"].get("PUT /admin/realms/managed", 0) == 0)
         self.restart()
         self.expect("tenant-a", "FleetPlanExpired")
         self.record("expired_identity_survives_restart", self.api("GET", "/admin/realms/managed")["displayName"] == "Preserve expired drift")
@@ -399,9 +534,12 @@ class Fleet(installed.Installed):
             self.publish(name, self.plan(name, 1))
             self.converged(name, "Fleet baseline")
         self.record("two_dedicated_tenants_real_provider_converged")
+        self.missing_registration()
         self.negatives()
+        self.cache_clock_cases()
         self.rollout_reconnect()
         self.offline()
+        self.checkpoint_restart()
         self.boundaries()
         self.expiry()
         self.leak_scan()

@@ -33,6 +33,9 @@ func TestFleetEndpointChangeStopsAllHubCalls(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.reason(t, "FleetHubEndpointUnapproved")
+	if f.tenant.Status.Conditions[0].ObservedGeneration != f.tenant.Generation {
+		t.Fatal("refusal condition does not bind the observed generation")
+	}
 	if f.hubCalls.Load() != calls || f.r.Pool.Get("auth/tenant") != nil {
 		t.Fatal("unapproved endpoint forwarded a credential or retained routing")
 	}

@@ -51,6 +51,9 @@ func EndpointIdentity(endpoint string) string {
 // previously accepted endpoint changes. Initial enrollment retains the local
 // tenant declaration when no independent hub list was provisioned.
 func ApproveHub(data []byte, target Target, endpoint, accepted string) error {
+	if !validHubEndpoint(endpoint) {
+		return Refusal("FleetHubEndpointUnapproved")
+	}
 	c, err := localConfiguration(data)
 	if err != nil {
 		return err
@@ -92,6 +95,10 @@ func ApproveDecommission(data []byte, target Target, identity string) error {
 }
 
 func validHub(h localHub) bool {
-	u, err := url.Parse(h.Endpoint)
-	return err == nil && validTarget(h.Target) && len(h.Endpoint) <= 256 && u.Scheme == "https" && u.Host != "" && u.User == nil && u.RawQuery == "" && u.Fragment == ""
+	return validTarget(h.Target) && validHubEndpoint(h.Endpoint)
+}
+
+func validHubEndpoint(endpoint string) bool {
+	u, err := url.Parse(endpoint)
+	return err == nil && len(endpoint) <= 256 && u.Scheme == "https" && u.Host != "" && u.User == nil && u.RawQuery == "" && u.Fragment == ""
 }

@@ -31,11 +31,15 @@ def mutation(name, file, before, after, package, test):
 
 
 MUTATIONS = [
+    mutation("fleet-all-route-redirect", "internal/hub/fleet.go",
+             'return errors.New("signed Fleet redirects refused")', 'return nil',
+             "internal/hub", "TestFleetAuthenticatedRoutesNeverFollowRedirects"),
     mutation("fleet-independent-decommission", "internal/fleetplan/authority.go",
              'return Refusal("FleetCommandUnapproved")', 'return nil',
              "internal/fleetplan", "TestFleetIndependentHubAndCommandApproval"),
     mutation("fleet-hub-destination", "internal/fleetplan/authority.go",
-             'return Refusal("FleetHubEndpointUnapproved")', 'return nil',
+             '\treturn Refusal("FleetHubEndpointUnapproved")\n}\n\n// DecommissionIdentity',
+             '\treturn nil\n}\n\n// DecommissionIdentity',
              "internal/fleetplan", "TestFleetIndependentHubAndCommandApproval"),
     mutation("fleet-provider-mutation-guard", "internal/keycloak/permissions.go",
              "if err := c.authorizeMutation(req); err != nil {",

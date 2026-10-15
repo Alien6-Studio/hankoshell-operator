@@ -13,6 +13,11 @@ func TestFleetIndependentHubAndCommandApproval(t *testing.T) {
 	target := f.plan.Target
 	endpoint := "https://hub.example.test"
 	accepted := fleetplan.EndpointIdentity(endpoint)
+	for _, invalid := range []string{"http://hub.example.test", "https://user@hub.example.test", endpoint + "?token=fixture", endpoint + "#fragment", "https:"} {
+		if fleetplan.ApproveHub(nil, target, invalid, "") == nil {
+			t.Fatal("unapproved initial credential destination")
+		}
+	}
 	if err := fleetplan.ApproveHub(nil, target, endpoint, accepted); err != nil {
 		t.Fatal(err)
 	}

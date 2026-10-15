@@ -350,3 +350,80 @@ Hub listener and reconstructs the controller; this does not replace installed
 image/chart evidence. The six-cell installed tamper/replay/expiry/reconnect matrix
 and artifact leak inspection remain #80. No production release or network
 enforcement follows from this contract.
+
+## Installed Fleet qualification (#80)
+
+The installed harness is [scripts/fleet-installed-test.py](../../scripts/fleet-installed-test.py).
+The mandatory CI job `installed-fleet` consumes the immutable scanned OCI artifact
+from the same workflow, checks its exact revision/index/archive/evidence, then
+installs the chart in a uniquely owned disposable cluster. All six combinations
+of Kubernetes 1.35.0/1.36.2/1.37.0 and HTTPS Keycloak 26.7.5/26.8.0 must pass.
+The aggregate source/chart check and scheduled reporting include this job; no
+continue-on-error or partial matrix is accepted.
+
+Each cell uses two dedicated tenant credentials, existing separate native realms,
+an actual TLS Hub fixture and a protected trust ConfigMap. Signing keys stay in
+private host temporary files, never in the Hub or operator. Tests compare desired
+Kubernetes state and selected public provider fields across refused changes;
+status, Events and controller-owned observation timestamps may legitimately change.
+The external API fault proxy loses a checkpoint acknowledgement and holds later
+traffic until the manager is stopped, proving restart before child delivery.
+Hub disconnection stops the actual listener by removing its disposable pod.
+
+The harness checks forged/tampered/replayed/downgraded/misrouted plans, source and
+schema/metadata/validity bounds, unsupported capabilities, partial selection,
+verified referenced rollback, cache immutability/replacement, durable clock
+regression, offline drift repair and strict/sticky expiry. It also checks missing
+tenant routing, overlapping objects, local trust write denial, refused image
+updates and unapproved/expired/tampered decommission acknowledgements. Failed
+runs remain `complete: false`; an implemented harness alone is not evidence that
+these installed scenarios passed.
+
+Public reports allow only pinned versions, source/image/fixture hashes, counts,
+boolean assertion results and completion times. Credential/error-body canaries,
+signing private keys and JWT patterns are checked in logs, Events, CRs,
+ConfigMaps (including decoded envelopes), Hub reports and artifact inputs.
+Known fixture credential/TLS Secrets remain private inputs and are never uploaded.
+Failure diagnostics use the existing bounded redacting collector. kindnet does
+not enforce NetworkPolicy; these cells do not qualify network enforcement,
+enterprise fleet topology, production publication or Hub signing/distribution.
+
+### Independent command and transport authority
+
+In signed mode, an accepted checkpoint also pins `hubEndpointHash` before child
+writes. Changing the outgoing credential destination requires an exact entry in
+protected `rollout.json.hubs`, using `{ "target": <complete target tuple>,
+"endpoint": "https://approved-hub.example.test" }`. Up to 64 unique targets are
+allowed. Provision this list before initial synchronization to constrain the first
+identified Hub call too. Without a list or prior checkpoint, first enrollment
+retains the independently declared local tenant destination. Every signed Hub
+endpoint must be exact HTTPS with no userinfo, query or fragment. Rotation,
+heartbeats and command confirmation refuse redirects; signed error reports and
+Events contain only locally authored reasons, not remote response bodies.
+
+Fleet decommission additionally requires a protected `rollout.json.commands`
+entry with the complete target, `action: decommission`, and an `identity` derived
+by [fleetplan.DecommissionIdentity](../../internal/fleetplan/authority.go). The
+versioned domain-separated SHA-256 binds exact target UID, requestedAt and deadline
+normalized to UTC. The operator first checks the command's existing deadline and
+current signed plan authority. A different target or changed timestamp cannot
+reuse approval. Up to 64 unique target entries are allowed. Hub possession of a
+bearer token, or a valid plan signature, does not grant this local approval.
+Approved decommission still uses the existing confirmation-before-RBAC/Deployment
+removal ordering; this approval is not an image-update authorization. Review the
+release-wide uninstall effect before granting a command for a shared operator.
+
+Dedicated Keycloak credential Secrets may supply optional `ca.crt` alongside
+HANKO_KEYCLOAK_URL, HANKO_KC_CLIENT_ID and HANKO_KC_CLIENT_SECRET. An explicitly
+empty or invalid CA fails closed. The connection uses this CA directly rather
+than silently borrowing the installation client's provider or trust.
+
+HankoTenant refusal Events are bounded and emitted on acknowledged condition
+transitions. Synced conditions carry the observed tenant generation. The manager
+ignores its own status-only updates while retaining explicit local generation,
+annotation and label changes plus the existing requeue cadence.
+
+### Qualification audit
+
+No completed six-cell Fleet result is claimed by this recipe. Record exact image,
+revision, fixture hash and completed cell reports here after actual execution.

@@ -3,6 +3,18 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Installed Fleet qualification and local command authority
+
+- Add a required installed six-cell Fleet CI matrix consuming the exact scanned
+  OCI artifact, with real HTTPS Hub/Keycloak, two dedicated tenants, refusal,
+  offline/reconnect/rollback and external checkpoint-loss/restart scenarios.
+- Pin accepted Hub destinations, refuse authenticated Fleet redirects and require
+  independent exact command approval before Fleet decommission. Keep remote error
+  bodies out of signed status/logs/Events; preserve separate image-update trust.
+- Support explicit per-tenant CA bundles, generation-bound tenant conditions and
+  status-only watch filtering. Keep public evidence bounded and private fixture
+  inputs outside uploaded artifacts; qualification audit requires actual runs.
+
 ### Disconnected Fleet authority and referenced rollback
 
 - Persist immutable signed envelopes before acceptance, recover the exact plan
