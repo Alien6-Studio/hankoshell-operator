@@ -35,7 +35,7 @@ squash author. GitHub can use the author's account display name rather than the
 local Git name; check both the resulting name and email. The web-flow exception
 allows the generated signed commit through automated checks; it does not remove
 this maintainer squash-message rule. After merging, verify the squash commit's
-sign-offs and GitHub `Verified` signature before resolving the issue.
+sign-offs and GitHub `Verified` signature as part of integration verification.
 
 To reproduce the PR check locally after fetching both full commit SHAs:
 
@@ -130,8 +130,17 @@ Run `python3 scripts/api-support.py` after schema or classification changes.
 Develop related issues as one bounded batch. During implementation, run preflight
 and meaningful targeted regression tests, and continue independent work while CI
 runs. Run the full qualification matrix on the final batch revision before
-integration; it remains mandatory on every pull request. Track implemented-on-dev
-and remaining acceptance evidence separately from protected-main issue closure.
+integration; it remains mandatory on every pull request.
+
+Close an implementation issue when its implementation is complete and pushed to
+the development branch. Add a Resolution comment with the exact commit, delivered
+scope, validation already available and any remaining integration/qualification
+evidence. Do not wait for a protected-main merge to record implementation delivery.
+This push-based tracking rule supersedes older issue text that required waiting
+for a protected squash before closure. Keep issues with unfinished implementation
+open and identify the missing work. Issue closure does not attest that a merge,
+complete qualification, public compatibility decision or publication occurred;
+those retain their own gates and evidence requirements.
 
 Run `make licenses` after dependency updates. License classification and shipped
 notices use the union of Linux AMD64 and ARM64 dependency graphs with CGO disabled,
