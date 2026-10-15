@@ -172,7 +172,8 @@ def check_consumers(root):
             raise ValueError("Cosign builders must share the generated module pins")
     makefile = (root / "Makefile").read_text()
     for variable in ("VERSION", "RELEASE_VERSION", "CONTROLLER_GEN_VERSION", "GOLANGCI_LINT_VERSION",
-                     "GO_ARCH_LINT_VERSION", "GOVULNCHECK_VERSION", "GOTESTSUM_VERSION", "KUBERNETES_VERSION", "KEYCLOAK_VERSION"):
+                     "GO_ARCH_LINT_VERSION", "GOVULNCHECK_VERSION", "GOTESTSUM_VERSION", "GO_LICENSES_VERSION",
+                     "KUBERNETES_VERSION", "KEYCLOAK_VERSION"):
         if not re.search(r"^" + variable + r" [?:]= \$\(shell python3 scripts/versions.py get [a-z_ ]+\)$", makefile, re.M):
             raise ValueError("Makefile must read the reviewed pin: " + variable)
     # Qualification-specific protocol expectations remain explicit tests. Active

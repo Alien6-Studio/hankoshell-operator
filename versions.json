@@ -19,6 +19,7 @@
     "go_arch_lint": "v1.19.0",
     "govulncheck": "v1.8.0",
     "gotestsum": "v1.13.0",
+    "go_licenses": "v2.0.1",
     "pre_commit": {
       "version": "4.7.0",
       "sha256": "393488513aed286d7a5a978a1fe79b2f5a8802927242a2d241ff10c1a8e8c885"

@@ -228,8 +228,13 @@ class DeliveryArtifactTests(unittest.TestCase):
         (self.dist / release.PUBLIC_KEY_FILE).write_text(release.public_key_pem("b" * 64))
         (self.dist / "checksums.sigstore.json").write_text(json.dumps({"fixture": True}))
         (self.dist / "release-notes.md").write_text(release.contract.notes(self.version))
+        for name, source in (("THIRD_PARTY_NOTICES", "THIRD_PARTY_NOTICES"),
+                             ("THIRD_PARTY_NOTICES.cosign", "THIRD_PARTY_NOTICES.cosign"),
+                             ("dependency-policy.json", "security/dependency-policy.json")):
+            (self.dist / name).write_bytes((release.contract.ROOT / source).read_bytes())
         names = [self.chart.name, "image-digest.txt", "source-revision.txt", "artifacthub-repo.yml", release.PUBLIC_KEY_FILE,
-                 "oci-security.json", "trivy-amd64.json", "trivy-arm64.json", "oci-vulnerability-policy.json", "release-notes.md"]
+                 "oci-security.json", "trivy-amd64.json", "trivy-arm64.json", "oci-vulnerability-policy.json", "release-notes.md",
+                 "THIRD_PARTY_NOTICES", "THIRD_PARTY_NOTICES.cosign", "dependency-policy.json"]
         (self.dist / "checksums.txt").write_text("".join(
             hashlib.sha256((self.dist / name).read_bytes()).hexdigest() + "  " + name + "\n"
             for name in names))
@@ -238,7 +243,7 @@ class DeliveryArtifactTests(unittest.TestCase):
         return release.delivery_files(self.dist, self.version, self.revision, self.image)
 
     def test_exact_delivery_is_accepted(self):
-        self.assertEqual(len(self.check()), 12)
+        self.assertEqual(len(self.check()), 15)
 
     def test_modified_publisher_metadata_or_public_key_is_refused(self):
         for name in ("artifacthub-repo.yml", release.PUBLIC_KEY_FILE, "release-notes.md"):

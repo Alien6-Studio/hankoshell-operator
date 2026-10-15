@@ -74,6 +74,9 @@ def prepare(version, image, revision, archive, evidence, chart_output, dist, hel
     for name in ("oci-security.json", "trivy-amd64.json", "trivy-arm64.json"):
         shutil.copyfile(evidence / name, dist / name)
     shutil.copyfile(security.POLICY, dist / security.POLICY.name)
+    for name in ("THIRD_PARTY_NOTICES", "THIRD_PARTY_NOTICES.cosign"):
+        shutil.copyfile(ROOT / name, dist / name)
+    shutil.copyfile(ROOT / "security/dependency-policy.json", dist / "dependency-policy.json")
     subprocess.run([str(helm), "lint", str(chart_output), "--kube-version", pins.DATA["kubernetes"]["default"]], check=True, timeout=60)
     subprocess.run([str(helm), "package", str(chart_output), "-d", str(dist)], check=True, timeout=60)
     (dist / "image-digest.txt").write_text(image + "\n")

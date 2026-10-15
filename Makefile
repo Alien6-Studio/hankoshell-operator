@@ -11,6 +11,8 @@ GO_ARCH_LINT_VERSION := $(shell python3 scripts/versions.py get tools go_arch_li
 GOVULNCHECK_VERSION := $(shell python3 scripts/versions.py get tools govulncheck)
 GOTESTSUM_VERSION := $(shell python3 scripts/versions.py get tools gotestsum)
 GOTESTSUM := $(CURDIR)/.tools/gotestsum-$(GOTESTSUM_VERSION)/gotestsum
+GO_LICENSES_VERSION := $(shell python3 scripts/versions.py get tools go_licenses)
+GO_LICENSES := $(CURDIR)/.tools/go-licenses-$(GO_LICENSES_VERSION)-$(shell GOTOOLCHAIN=local go env GOVERSION)/go-licenses
 TEST_REPORT_DIR ?= $(CURDIR)/.tools/test-results
 PRE_COMMIT_HOME ?= $(CURDIR)/.tools/pre-commit-cache
 KEYCLOAK_SHARD ?= all
@@ -21,7 +23,7 @@ RELEASE_VERSION := $(shell python3 scripts/versions.py get release version)
 
 .DEFAULT_GOAL := all
 
-.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-test integration-test keycloak-integration-test security-mutations lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test
+.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-test integration-test keycloak-integration-test security-mutations licenses lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test
 versions-sync:
 	python3 scripts/versions.py sync
 
@@ -75,6 +77,14 @@ $(GOTESTSUM):
 $(GOLANGCI_LINT):
 	@mkdir -p "$(@D)"
 	GOBIN="$(@D)" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+# The classifier must be compiled by the toolchain that resolves the modules,
+# or it cannot recognize standard-library packages.
+$(GO_LICENSES):
+	@mkdir -p "$(@D)"
+	GOBIN="$(@D)" GOTOOLCHAIN=local go install github.com/google/go-licenses/v2@$(GO_LICENSES_VERSION)
+licenses: $(GO_LICENSES)
+	python3 scripts/check-licenses.py --go-licenses "$(GO_LICENSES)"
+	git diff --exit-code -- THIRD_PARTY_NOTICES THIRD_PARTY_NOTICES.cosign
 lint: $(GOLANGCI_LINT)
 	@actual="$$('$(GOLANGCI_LINT)' --version | awk '{print $$4}')"; \
 		test "$$actual" = "$(patsubst v%,%,$(GOLANGCI_LINT_VERSION))" || \
@@ -92,7 +102,7 @@ install-hook-tools: hook-tools
 	go install github.com/fe3dback/go-arch-lint@$(GO_ARCH_LINT_VERSION)
 install-preflight-tools:
 	go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
-install-tools: install-preflight-tools $(GOLANGCI_LINT) $(GOTESTSUM) hook-tools
+install-tools: install-preflight-tools $(GOLANGCI_LINT) $(GOTESTSUM) $(GO_LICENSES) hook-tools
 	go install github.com/fe3dback/go-arch-lint@$(GO_ARCH_LINT_VERSION)
 	go install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
 

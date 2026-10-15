@@ -100,6 +100,8 @@ jobs:
         run: make test chart-test arch lint vuln
       - name: Enforce package and security function coverage floors
         run: python3 scripts/check-coverage.py --profile .tools/test-results/unit/coverage.out
+      - name: Enforce the dependency license policy and shipped notices
+        run: make licenses
       - name: Preserve Go test outcomes
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

@@ -24,6 +24,8 @@ POLICY = ROOT / "security/oci-vulnerability-policy.json"
 REPORTS = {platform: "trivy-" + platform.split("/")[1] + ".json" for platform in PLATFORMS}
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 SUMMARY = "oci-security.json"
+LICENSE_DIR = "usr/share/licenses/hankoshell-operator"
+LICENSE_FILES = ("LICENSE", "NOTICE", "THIRD_PARTY_NOTICES", "THIRD_PARTY_NOTICES.cosign")
 
 
 def sha256(path):
@@ -136,6 +138,28 @@ def image_manifests(archive, digest):
         return runtime
 
 
+def repository_licenses():
+    return {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in LICENSE_FILES}
+
+
+def shipped_licenses(layout, manifest_digest):
+    """The runtime image must ship exactly the reviewed license and notices files."""
+    manifest = json.loads((layout / "blobs/sha256" / manifest_digest.split(":")[1]).read_text())
+    found = {}
+    for layer in manifest["layers"]:
+        with tarfile.open(layout / "blobs/sha256" / layer["digest"].split(":")[1], "r:*") as content:
+            for member in content.getmembers():
+                name = member.name.lstrip("./").rstrip("/")
+                if name.startswith(LICENSE_DIR + "/") and member.isfile():
+                    if member.size > 8 * 1024 * 1024:
+                        raise ValueError("Oversize shipped license file: " + name)
+                    with content.extractfile(member) as source:
+                        found[name.split("/")[-1]] = hashlib.file_digest(source, "sha256").hexdigest()
+    if found != repository_licenses():
+        raise ValueError("Image license notices differ from the repository files")
+    return found
+
+
 def evaluate(report, config_digest, policy):
     if (report.get("SchemaVersion") != 2 or report.get("ArtifactType") != "container_image"
             or report.get("Metadata", {}).get("ImageID") != config_digest or not isinstance(report.get("Results"), list)):
@@ -222,6 +246,7 @@ def scan(args):
                            check=True, env=scanner_env(), timeout=600)
             verdict = evaluate(json.loads(output.read_text()), record["config_digest"], policy)
             summary["platforms"][platform] = dict(record, report_sha256=sha256(output), **verdict)
+            summary["licenses_sha256"] = shipped_licenses(layout, record["digest"])
         summary["verdict"] = "fail" if any(p["blocked"] for p in summary["platforms"].values()) else "pass"
         (args.output / SUMMARY).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
         if summary["verdict"] != "pass":
@@ -236,6 +261,8 @@ def verify(evidence, revision, version, digest, archive=None, *, fresh=True):
             or summary.get("scanner", {}).get("name") != "trivy" or summary["scanner"].get("version") != SCANNER_VERSION
             or set(summary.get("platforms", {})) != set(PLATFORMS)):
         raise ValueError("OCI security evidence identity or policy mismatch")
+    if summary.get("licenses_sha256") != repository_licenses():
+        raise ValueError("Scanned image license notices differ from the repository files")
     scanned = datetime.fromisoformat(summary["scanned_at"])
     now = datetime.now(timezone.utc)
     if scanned > now + timedelta(minutes=5) or (fresh and scanned < now - timedelta(hours=24)):

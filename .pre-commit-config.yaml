@@ -6,6 +6,8 @@ repos:
     hooks:
       - id: check-added-large-files
         args: [--maxkb=500, --enforce-all]
+        # Generated notices exceed the cap; make licenses checks them for drift.
+        exclude: ^THIRD_PARTY_NOTICES
       - id: detect-private-key
       - id: check-merge-conflict
         args: [--assume-in-merge]

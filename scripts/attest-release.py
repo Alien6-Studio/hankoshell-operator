@@ -129,7 +129,8 @@ def delivery_files(dist, version, revision, image, *, fresh_scan=True):
     expected = {f"hankoshell-operator-{version}.tgz", "image-digest.txt",
                 "source-revision.txt", "checksums.txt", "checksums.sigstore.json",
                 "artifacthub-repo.yml", PUBLIC_KEY_FILE, "oci-security.json",
-                "trivy-amd64.json", "trivy-arm64.json", "oci-vulnerability-policy.json", "release-notes.md"}
+                "trivy-amd64.json", "trivy-arm64.json", "oci-vulnerability-policy.json", "release-notes.md",
+                "THIRD_PARTY_NOTICES", "THIRD_PARTY_NOTICES.cosign", "dependency-policy.json"}
     files = {path.name: path for path in dist.iterdir()}
     if set(files) != expected or any(path.is_symlink() or not path.is_file() for path in files.values()):
         raise ValueError("Expected only the exact operator release artifacts")
@@ -148,6 +149,11 @@ def delivery_files(dist, version, revision, image, *, fresh_scan=True):
         raise ValueError("Delivery artifact checksum mismatch")
     if files["oci-vulnerability-policy.json"].read_bytes() != oci_security.POLICY.read_bytes():
         raise ValueError("Delivered OCI vulnerability policy mismatch")
+    for name, source in (("dependency-policy.json", "security/dependency-policy.json"),
+                         ("THIRD_PARTY_NOTICES", "THIRD_PARTY_NOTICES"),
+                         ("THIRD_PARTY_NOTICES.cosign", "THIRD_PARTY_NOTICES.cosign")):
+        if files[name].read_bytes() != (contract.ROOT / source).read_bytes():
+            raise ValueError("Delivered dependency policy/notices mismatch: " + name)
     oci_security.verify(dist, revision, version, image.split("@")[1], fresh=fresh_scan)
     with tarfile.open(files[f"hankoshell-operator-{version}.tgz"]) as chart:
         values = yaml.safe_load(chart.extractfile("hankoshell-operator/values.yaml"))

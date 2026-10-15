@@ -33,6 +33,6 @@ RUN . /cosign-pins.sh \
 FROM gcr.io/distroless/static:nonroot@sha256:e2e927ec666bae08560abb3c55d0659eceabb657f56b6782ab500a9fc7f555e3
 COPY --from=builder /hankoshell-operator /hankoshell-operator
 COPY --from=cosign /cosign /usr/local/bin/cosign
-COPY LICENSE NOTICE /usr/share/licenses/hankoshell-operator/
+COPY LICENSE NOTICE THIRD_PARTY_NOTICES THIRD_PARTY_NOTICES.cosign /usr/share/licenses/hankoshell-operator/
 USER 65534
 ENTRYPOINT ["/hankoshell-operator"]
