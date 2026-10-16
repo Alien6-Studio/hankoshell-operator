@@ -830,7 +830,7 @@ func (r *HankoRealmReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&hankoshv1alpha1.HankoRealm{}, builder.WithPredicates(generationOrReconcileRequestChanged())).
 		Watches(&hankoshv1alpha1.HankoTheme{}, handler.EnqueueRequestsFromMapFunc(r.realmRequestsForTheme)).
 		Watches(&hankoshv1alpha1.HankoIAMProfile{}, handler.EnqueueRequestsFromMapFunc(r.realmRequestsForIAMProfile), builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Complete(r)
+		Complete(observeReconciler("HankoRealm", r))
 }
 
 func (r *HankoRealmReconciler) realmRequestsForIAMProfile(ctx context.Context, obj client.Object) []reconcile.Request {

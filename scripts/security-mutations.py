@@ -200,6 +200,16 @@ MUTATIONS = [
     mutation("managed-instance-deletion", "internal/controller/hankokeycloakinstance_controller.go",
              "if !instance.DeletionTimestamp.IsZero() {", "if false && !instance.DeletionTimestamp.IsZero() {",
              "internal/controller", "TestDeletingKeycloakInstanceStopsReconciliation"),
+    mutation("metrics-uri-authorization", "internal/observability/tls.go",
+             "if allowed[identity.String()] {", "if true {",
+             "internal/observability", "TestMetricsMutualTLSAuthenticatesAuthorizesAndReloadsTrust"),
+    mutation("metrics-client-authentication", "internal/observability/tls.go",
+             "tls.RequireAndVerifyClientCert", "tls.NoClientCert",
+             "internal/observability", "TestMetricsMutualTLSAuthenticatesAuthorizesAndReloadsTrust"),
+    mutation("provider-error-redaction", "internal/keycloak/responses.go",
+             "body = []byte(http.StatusText(response.StatusCode))", "body = body",
+             "internal/keycloak", "TestKeycloakGatewaySuppressesNativeErrorBodyBeforeAnyCaller"),
+
 ]
 
 

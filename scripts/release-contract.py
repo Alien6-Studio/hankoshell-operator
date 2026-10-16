@@ -26,6 +26,7 @@ pins = module("versions", "versions.py")
 support = module("api_support", "api-support.py")
 public = module("public_contract", "public-contract.py")
 stable = module("stable_contract", "stable-contract.py")
+operations = module("operations_contract", "operations-contract.py")
 versioning = metadata.versioning
 VERSION = versioning.VERSION
 
@@ -54,6 +55,7 @@ def check(version=VERSION):
     support.check(ROOT)
     public.check(ROOT)
     stable.check(ROOT)
+    operations.check(ROOT)
     for job in ("kubernetes", "keycloak"):
         if ci[job]["strategy"]["matrix"]["version"] != pins.DATA[job]["versions"]:
             raise ValueError("Qualification matrix differs from versions.json")

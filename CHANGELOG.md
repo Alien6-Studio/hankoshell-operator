@@ -3,6 +3,21 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Operational qualification and recovery runbooks
+
+- Require TLS 1.3, client CA authentication and exact client URI authorization for
+  metrics, including trust reload and authenticated ServiceMonitor discovery.
+  Existing plaintext/annotation scraping must migrate before enabling the endpoint.
+- Instrument all 17 controllers, provider HTTP attempts and verification decisions
+  with fixed labels. Add bounded leader-only inventory, credential-safe Events,
+  typed Keycloak errors, alerts, a dashboard and a checked operational inventory.
+- Separate serving and leader readiness; retain provider readiness for standby
+  Pods. Add installed mTLS, lease failover, native credential preservation and
+  same-source Helm configuration rollback smoke tests.
+- Publish runbooks with executable fixture references and explicit unqualified
+  public upgrade/storage/connected/delegation/production HA and soak paths.
+
+
 ### Stable-contract preparation and experimental lifecycle authority
 
 - Define measurable graduation criteria and records for all 17 resources and

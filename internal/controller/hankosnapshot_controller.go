@@ -391,5 +391,5 @@ func (r *HankoSnapshotReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&hankoshv1alpha1.HankoSnapshot{}, builder.WithPredicates(generationOrReconcileRequestChanged())).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&batchv1.Job{}).
-		Complete(&lifecycleApprovalGuard{Client: r.Client, reader: r.APIReader, inner: r, snapshot: true})
+		Complete(observeReconciler("HankoSnapshot", &lifecycleApprovalGuard{Client: r.Client, reader: r.APIReader, inner: r, snapshot: true}))
 }

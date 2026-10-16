@@ -329,5 +329,5 @@ func (r *HankoIssuerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&hankoshv1alpha1.HankoIssuer{}).
 		Watches(&hankoshv1alpha1.HankoRealm{}, handler.EnqueueRequestsFromMapFunc(r.requestsForRealm)).
 		Watches(&appsv1.Deployment{}, handler.EnqueueRequestsFromMapFunc(r.requestsForDeployment)).
-		Complete(r)
+		Complete(observeReconciler("HankoIssuer", r))
 }

@@ -56,7 +56,7 @@ func TestFleetDecommissionRequiresIndependentExactApproval(t *testing.T) {
 	f.reason(t, "FleetCommandUnapproved")
 	select {
 	case e := <-recorder.Events:
-		if !strings.Contains(e, "FleetCommandUnapproved") {
+		if !strings.Contains(e, "TenantReconcileRefused") {
 			t.Fatal("missing public refusal Event")
 		}
 	default:

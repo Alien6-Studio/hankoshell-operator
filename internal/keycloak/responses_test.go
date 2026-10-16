@@ -132,7 +132,11 @@ func TestKeycloakBudgetsUseActualBytesAndPreserveExactBoundaries(t *testing.T) {
 					// The network body is closed already; readers see a bounded buffer.
 					buffered, readErr := io.ReadAll(response.Body)
 					response.Body.Close()
-					if readErr != nil || int64(len(buffered)) != test.limit {
+					expected := test.limit
+					if test.status < 200 || test.status >= 300 {
+						expected = int64(len(http.StatusText(test.status)))
+					}
+					if readErr != nil || int64(len(buffered)) != expected {
 						t.Fatal("bounded response was truncated")
 					}
 				}

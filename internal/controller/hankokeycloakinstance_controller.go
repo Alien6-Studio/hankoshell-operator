@@ -701,5 +701,5 @@ func (r *HankoKeycloakInstanceReconciler) SetupWithManager(mgr ctrl.Manager) err
 		Owns(&corev1.Service{}).
 		Owns(&networkingv1.NetworkPolicy{}).
 		Owns(&policyv1.PodDisruptionBudget{}).
-		Complete(r)
+		Complete(observeReconciler("HankoKeycloakInstance", r))
 }

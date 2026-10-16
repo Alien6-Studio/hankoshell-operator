@@ -12,6 +12,7 @@ import (
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/fleetplan"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/hub"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/observability"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -65,6 +66,7 @@ func (r *HankoTenantReconciler) applyFleetPlan(ctx context.Context, tenant *api.
 		return "", nil, "", err
 	}
 	verified, err := fleetplan.Verify(envelope, []byte(trust.Data["trust.json"]), target, time.Now(), checkpoint)
+	observability.Default.Verification("fleet", err)
 	if err != nil {
 		return "", nil, "", err
 	}
@@ -226,6 +228,7 @@ func (r *HankoTenantReconciler) fleetAuthorityCurrent(ctx context.Context, expec
 		return err
 	}
 	verified, err := fleetplan.Verify(envelope, []byte(current.Data["trust.json"]), target, time.Now(), checkpoint)
+	observability.Default.Verification("fleet", err)
 	if err != nil {
 		return err
 	}

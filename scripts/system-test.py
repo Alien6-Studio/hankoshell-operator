@@ -1417,6 +1417,10 @@ class System:
         self.resourceserver_adoption()
         self.lifecycle_alias()
         self.public_contract_corpus()
+        observability_spec = importlib.util.spec_from_file_location("installed_observability", ROOT / "scripts/observability-installed-test.py")
+        observability = importlib.util.module_from_spec(observability_spec)
+        observability_spec.loader.exec_module(observability)
+        self.observability_checks = observability.qualify(self)
         # Verify logs, events and every stored CRD, never exposing Secret values.
         data = ""
         for namespace, deployment in self.scanned_operators:
@@ -1463,7 +1467,7 @@ def main():
             print("System: scanned operator installed through Helm", flush=True)
             system.reconcile()
             args.output.write_text(json.dumps({"version": VERSION, "revision": args.revision, "image_digest": args.digest,
-                "kubernetes": KUBERNETES_VERSION, "keycloak": KEYCLOAK_VERSION, "result": "pass", "public_contract": system.public_corpus_evidence,
+                "kubernetes": KUBERNETES_VERSION, "keycloak": KEYCLOAK_VERSION, "result": "pass", "public_contract": system.public_corpus_evidence, "operational_checks": system.observability_checks,
                 "checks": ["Helm installation and real pod startup under Restricted admission", "namespace RBAC and current-API event recording",
                            "verified private-CA HTTPS, wrong-CA readiness/write denial and trust repair", "scoped Keycloak identity and denied authority", "realm/client/roles/Secret reconciliation",
                            "IAM role and authorization evaluated/applied/read-back evidence, UID ownership and finalizer cleanup",

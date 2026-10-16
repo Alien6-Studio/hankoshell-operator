@@ -145,8 +145,8 @@ func (c *Client) EnsureOrganizationsEnabled(ctx context.Context, realm string) e
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("enable organizations on realm %q: keycloak %d: %s", realm, resp.StatusCode, body)
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return &StatusError{Code: resp.StatusCode}
 	}
 	return nil
 }
@@ -213,8 +213,8 @@ func (c *Client) EnsureOrganization(ctx context.Context, realm string, spec Orga
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusNoContent {
-			body, _ := io.ReadAll(resp.Body)
-			return "", fmt.Errorf("update organization %q in realm %q: keycloak %d: %s", spec.Alias, realm, resp.StatusCode, body)
+			_, _ = io.Copy(io.Discard, resp.Body)
+			return "", &StatusError{Code: resp.StatusCode}
 		}
 	}
 	return existing.ID, nil
@@ -242,8 +242,8 @@ func (c *Client) DeleteOrganization(ctx context.Context, realm, orgID string) er
 	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusNotFound {
 		return nil
 	}
-	body, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf("delete organization %q in realm %q: keycloak %d: %s", orgID, realm, resp.StatusCode, body)
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return &StatusError{Code: resp.StatusCode}
 }
 
 // EnsureOrganizationIdentityProvider links the realm broker with the given
@@ -293,8 +293,8 @@ func (c *Client) ensureOrganizationIdentityProvider(ctx context.Context, realm, 
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("link identity provider %q to organization %q: keycloak %d: %s", alias, orgID, resp.StatusCode, body)
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return &StatusError{Code: resp.StatusCode}
 	}
 	return nil
 }
@@ -310,8 +310,8 @@ func (c *Client) unlinkOrganizationIdentityProvider(ctx context.Context, linksPa
 	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusNotFound {
 		return nil
 	}
-	body, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf("unlink identity provider %q: keycloak %d: %s", alias, resp.StatusCode, body)
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return &StatusError{Code: resp.StatusCode}
 }
 
 // doRaw issues an authenticated request with a plain-text body (empty for

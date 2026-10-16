@@ -463,7 +463,7 @@ func (r *HankoOrganizationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoOrganization{}).
-		Complete(r)
+		Complete(observeReconciler("HankoOrganization", r))
 }
 
 // orgSlug returns the organization's slug, deriving it from the name when the

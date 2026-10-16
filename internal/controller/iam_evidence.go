@@ -2,6 +2,7 @@ package controller
 
 import (
 	"errors"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/observability"
 
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/authorization"
@@ -35,6 +36,7 @@ func (e iamEvidence) process(generation int64, observe bool) {
 	}
 }
 func (e iamEvidence) evaluate(generation int64, identity iamcontract.PlanIdentity) {
+	observability.Default.Verification("iam", nil)
 	*e.evaluated = generation
 	*e.contract = string(identity.Contract)
 	*e.backend = string(identity.Backend)
@@ -71,6 +73,9 @@ func observationError(o iamcontract.Observation) error {
 	return nil
 }
 func iamFailureReason(err error, fallback string) string {
+	if err != nil {
+		observability.Default.Verification("iam", err)
+	}
 	switch {
 	case errors.Is(err, iamcontract.ErrStale):
 		return "StalePlan"

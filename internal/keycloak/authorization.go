@@ -825,8 +825,8 @@ func (c *Client) authorizationRequest(ctx context.Context, method, path string, 
 		return response, nil
 	}
 	defer response.Body.Close()
-	responseBody, _ := io.ReadAll(response.Body)
-	return nil, fmt.Errorf(keycloakPathErrorFormat, path, response.StatusCode, responseBody)
+	_, _ = io.Copy(io.Discard, response.Body)
+	return nil, &StatusError{Code: response.StatusCode}
 }
 
 func (c *Client) deleteStaleAuthorizationRefs(ctx context.Context, collection string, owned []AuthorizationManagedReference, keep map[string]bool) error {

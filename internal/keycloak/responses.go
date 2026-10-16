@@ -20,6 +20,15 @@ var ErrResponseTooLarge = errors.New("keycloak response exceeds its byte budget"
 
 // ErrResponseRead means the response stream could not be read completely.
 // Neither a valid JSON prefix nor remote response contents authorize success.
+var ErrTransport = errors.New("keycloak transport failed")
+
+// StatusError carries only a numeric HTTP status, never native text, paths or headers.
+type StatusError struct{ Code int }
+
+func (e *StatusError) Error() string {
+	return fmt.Sprintf("keycloak %d: %s", e.Code, http.StatusText(e.Code))
+}
+
 var ErrResponseRead = errors.New("keycloak response body could not be read completely")
 
 // boundedKeycloakResponse closes the original stream on every path and returns
@@ -42,6 +51,10 @@ func boundedKeycloakResponse(response *http.Response, limit int64) (*http.Respon
 	}
 	if int64(len(body)) > limit {
 		return nil, oversizedKeycloakResponse(response.StatusCode, limit)
+	}
+	// Native error bodies are never diagnostic evidence, even at future call sites.
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		body = []byte(http.StatusText(response.StatusCode))
 	}
 	buffered := *response
 	buffered.Body = io.NopCloser(bytes.NewReader(body))

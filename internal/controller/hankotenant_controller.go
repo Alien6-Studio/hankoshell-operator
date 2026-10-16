@@ -982,7 +982,7 @@ func (r *HankoTenantReconciler) setError(
 	if patchErr := r.Status().Patch(ctx, tenant, patch); patchErr != nil {
 		log.FromContext(ctx).Error(patchErr, "patch tenant status after error")
 	} else if changed && r.Recorder != nil {
-		r.Recorder.Eventf(tenant, nil, corev1.EventTypeWarning, reason, "Reconcile", "%s", "Tenant reconciliation refused; inspect condition reason")
+		r.Recorder.Eventf(tenant, nil, corev1.EventTypeWarning, "TenantReconcileRefused", "Reconcile", "%s", "Tenant reconciliation refused; inspect condition reason")
 	}
 	// Best-effort degraded report so the fleet view reflects the failure
 	// instead of showing the last successful phase until staleness kicks in.
@@ -1044,7 +1044,7 @@ func (r *HankoTenantReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoTenant{}).
 		WithEventFilter(tenantIntentPredicate()).
-		Complete(r)
+		Complete(observeReconciler("HankoTenant", r))
 }
 
 func (r *HankoTenantReconciler) fleetEnabled(tenant *hankoshv1alpha1.HankoTenant) bool {

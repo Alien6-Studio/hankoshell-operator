@@ -692,5 +692,5 @@ func (r *HankoResourceServerReconciler) SetupWithManager(mgr ctrl.Manager) error
 		Watches(&hankoshv1alpha1.HankoRealm{}, handler.EnqueueRequestsFromMapFunc(r.delegationRequests)).
 		Watches(&hankoshv1alpha1.HankoApplication{}, handler.EnqueueRequestsFromMapFunc(r.delegationRequests)).
 		Watches(&hankoshv1alpha1.HankoServiceAccount{}, handler.EnqueueRequestsFromMapFunc(r.delegationRequests)).
-		Complete(r)
+		Complete(observeReconciler("HankoResourceServer", r))
 }

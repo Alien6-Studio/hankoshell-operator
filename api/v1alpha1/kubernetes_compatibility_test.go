@@ -245,6 +245,11 @@ func TestKubernetesCompatibility(t *testing.T) {
 		values := filepath.Join(t.TempDir(), "metrics.yaml")
 		if err := os.WriteFile(values, []byte(`metrics:
   enabled: true
+  tls:
+    serverSecret: metrics-server
+    clientCASecret: metrics-client-ca
+    allowedClientURIs:
+      - spiffe://monitoring.example/prometheus/platform
   networkPolicy:
     namespaceSelector:
       matchLabels:

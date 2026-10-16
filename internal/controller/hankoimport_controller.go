@@ -674,7 +674,7 @@ func (r *HankoImportReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoImport{}).
-		Complete(r)
+		Complete(observeReconciler("HankoImport", r))
 }
 
 func (r *HankoImportReconciler) importReader() client.Reader {

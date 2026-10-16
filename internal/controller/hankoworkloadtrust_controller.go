@@ -624,5 +624,5 @@ func (r *HankoWorkloadTrustReconciler) workloadStatus(ctx context.Context, t *ap
 }
 
 func (r *HankoWorkloadTrustReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).For(&api.HankoWorkloadTrust{}).Complete(r)
+	return ctrl.NewControllerManagedBy(mgr).For(&api.HankoWorkloadTrust{}).Complete(observeReconciler("HankoWorkloadTrust", r))
 }

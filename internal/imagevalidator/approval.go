@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/observability"
 	"io"
 	"os"
 	"path/filepath"
@@ -82,7 +83,8 @@ func NewWithPolicy(policyFile string, verifier SignatureVerifier) *Validator {
 
 // VerifyImage requires an exact digest approval and a valid publisher signature.
 // Identity-only validators and nil validators cannot authorize execution.
-func (v *Validator) VerifyImage(ctx context.Context, purpose Purpose, image string) error {
+func (v *Validator) VerifyImage(ctx context.Context, purpose Purpose, image string) (resultErr error) {
+	defer func() { observability.Default.Verification("image", resultErr) }()
 	if purpose == OperatorUpdate {
 		return ErrVerificationDenied // Operator updates also require a release-version binding.
 	}
@@ -95,7 +97,8 @@ func (v *Validator) VerifyImage(ctx context.Context, purpose Purpose, image stri
 
 // VerifyOperatorImage requires a local release approval and live signature
 // verification. Hub cannot supply or modify the approval or its trust anchors.
-func (v *Validator) VerifyOperatorImage(ctx context.Context, image, version string) error {
+func (v *Validator) VerifyOperatorImage(ctx context.Context, image, version string) (resultErr error) {
+	defer func() { observability.Default.Verification("image", resultErr) }()
 	approval, err := v.approvedImage(OperatorUpdate, image)
 	if err != nil || approval.ReleaseVersion != version {
 		return ErrVerificationDenied

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Alien6-Studio/hankoshell-operator/internal/httpsecurity"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/observability"
 )
 
 const Version = "2026.8.4"
@@ -107,10 +108,16 @@ func (c *Client) request(ctx context.Context, method, path string, query url.Val
 	if input != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	started := time.Now()
+	status := 0
+	var requestErr error
+	defer func() { observability.Default.Provider("authentik", method, status, requestErr, time.Since(started)) }()
 	response, err := c.http.Do(req)
 	if err != nil {
+		requestErr = ErrTransport
 		return ErrTransport
 	}
+	status = response.StatusCode
 	defer response.Body.Close()
 	// Error bodies and server headers are deliberately never rendered or parsed.
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
@@ -118,6 +125,7 @@ func (c *Client) request(ctx context.Context, method, path string, query url.Val
 	}
 	data, err := io.ReadAll(io.LimitReader(response.Body, MaxResponseBytes+1))
 	if err != nil || len(data) > MaxResponseBytes {
+		requestErr = ErrResponse
 		return ErrResponse
 	}
 	if output == nil {

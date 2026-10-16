@@ -53,12 +53,12 @@
 {{- if not (kindIs "bool" .Values.networkPolicy.enabled) -}}{{- fail "networkPolicy.enabled must be a boolean" -}}{{- end -}}
 {{- if not (kindIs "map" $metrics) -}}{{- fail "metrics must be an object" -}}{{- end -}}
 {{- range $key, $value := $metrics -}}
-{{- if not (has $key (list "enabled" "serviceMonitor" "networkPolicy")) -}}{{- fail (printf "unknown metrics option %s" $key) -}}{{- end -}}
+{{- if not (has $key (list "enabled" "tls" "serviceMonitor" "networkPolicy")) -}}{{- fail (printf "unknown metrics option %s" $key) -}}{{- end -}}
 {{- end -}}
 {{- if not (kindIs "bool" $metrics.enabled) -}}{{- fail "metrics.enabled must be a boolean" -}}{{- end -}}
 {{- if not (kindIs "map" $metrics.serviceMonitor) -}}{{- fail "metrics.serviceMonitor must be an object" -}}{{- end -}}
-{{- if or (ne (len $metrics.serviceMonitor) 2) (not (hasKey $metrics.serviceMonitor "labels")) (not (kindIs "bool" $metrics.serviceMonitor.enabled)) -}}
-{{- fail "metrics.serviceMonitor accepts only enabled and labels options" -}}
+{{- if or (ne (len $metrics.serviceMonitor) 4) (not (hasKey $metrics.serviceMonitor "labels")) (not (kindIs "bool" $metrics.serviceMonitor.enabled)) -}}
+{{- fail "metrics.serviceMonitor accepts only enabled, labels, serverCASecret and clientSecret options" -}}
 {{- end -}}
 {{- include "hanko-operator.validateMetricsLabels" (dict "name" "metrics.serviceMonitor.labels" "labels" $metrics.serviceMonitor.labels) -}}
 {{- $reserved := include "hanko-operator.labels" . | fromYaml -}}
@@ -74,7 +74,28 @@
 {{- if and $metrics.enabled .Values.networkPolicy.enabled (or (not $metrics.networkPolicy.namespaceSelector) (not $metrics.networkPolicy.podSelector)) -}}
 {{- fail "metrics.enabled with networkPolicy.enabled requires explicit Prometheus namespaceSelector and podSelector" -}}
 {{- end -}}
+{{- include "hanko-operator.validateMetricsTLS" . -}}
 {{- if and $metrics.enabled $metrics.serviceMonitor.enabled (not (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1/ServiceMonitor")) -}}
 {{- fail "metrics.serviceMonitor.enabled requires the installed monitoring.coreos.com/v1/ServiceMonitor API; offline rendering needs --api-versions monitoring.coreos.com/v1/ServiceMonitor" -}}
 {{- end -}}
+{{- end -}}
+
+{{- define "hanko-operator.validateMetricsTLS" -}}
+{{- $m := .Values.metrics -}}
+{{- if or (not (kindIs "map" $m.tls)) (ne (len $m.tls) 3) -}}{{- fail "metrics.tls requires serverSecret, clientCASecret and allowedClientURIs" -}}{{- end -}}
+{{- range $key, $value := $m.tls -}}
+{{- if not (has $key (list "serverSecret" "clientCASecret" "allowedClientURIs")) -}}{{- fail "unknown metrics.tls option" -}}{{- end -}}
+{{- end -}}
+{{- if not (kindIs "slice" $m.tls.allowedClientURIs) -}}{{- fail "metrics.tls.allowedClientURIs must be a list" -}}{{- end -}}
+{{- if gt (len $m.tls.allowedClientURIs) 16 -}}{{- fail "metrics accepts at most 16 client identities" -}}{{- end -}}
+{{- $seen := dict -}}
+{{- range $m.tls.allowedClientURIs -}}
+{{- if or (not (kindIs "string" .)) (gt (len .) 256) (not (regexMatch "^spiffe://[a-z0-9.-]+/[A-Za-z0-9/._-]+$" .)) (hasKey $seen .) -}}{{- fail "metrics client identities must be distinct exact SPIFFE URI SANs" -}}{{- end -}}
+{{- $_ := set $seen . true -}}
+{{- end -}}
+{{- range $name := list $m.tls.serverSecret $m.tls.clientCASecret $m.serviceMonitor.serverCASecret $m.serviceMonitor.clientSecret -}}
+{{- if or (not (kindIs "string" $name)) (and $name (or (gt (len $name) 253) (not (regexMatch "^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$" $name)))) -}}{{- fail "metrics TLS Secret names must be valid DNS subdomains" -}}{{- end -}}
+{{- end -}}
+{{- if and $m.enabled (or (not $m.tls.serverSecret) (not $m.tls.clientCASecret) (not $m.tls.allowedClientURIs)) -}}{{- fail "metrics.enabled requires server TLS, client CA and an explicit client URI allowlist" -}}{{- end -}}
+{{- if and $m.enabled $m.serviceMonitor.enabled (or (not $m.serviceMonitor.serverCASecret) (not $m.serviceMonitor.clientSecret)) -}}{{- fail "ServiceMonitor requires serverCASecret and clientSecret for mutual TLS" -}}{{- end -}}
 {{- end -}}

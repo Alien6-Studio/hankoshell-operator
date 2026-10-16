@@ -363,7 +363,7 @@ func (r *HankoRoleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoRole{}, builder.WithPredicates(generationOrReconcileRequestChanged())).
-		Complete(r)
+		Complete(observeReconciler("HankoRole", r))
 }
 
 func roleCapabilityStatus(c roles.Capabilities) hankoshv1alpha1.RoleCapabilitySnapshot {

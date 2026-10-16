@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "maturity": "initial development",
+  "api_version": "v1alpha1",
+  "metrics": {
+    "hanko_operator_reconcile_total": [
+      "kind",
+      "outcome"
+    ],
+    "hanko_operator_reconcile_duration_seconds": [
+      "kind"
+    ],
+    "hanko_operator_provider_requests_total": [
+      "provider",
+      "method",
+      "outcome"
+    ],
+    "hanko_operator_provider_request_duration_seconds": [
+      "provider",
+      "method"
+    ],
+    "hanko_operator_verification_total": [
+      "domain",
+      "outcome"
+    ],
+    "hanko_operator_events_total": [
+      "reason",
+      "type"
+    ],
+    "hanko_operator_instances": [
+      "state"
+    ],
+    "hanko_operator_rotations": [
+      "kind",
+      "state"
+    ],
+    "hanko_operator_rotation_overdue_seconds": [
+      "kind"
+    ],
+    "hanko_operator_inventory_complete": [],
+    "hanko_operator_leader": []
+  },
+  "event_reasons": [
+    "ClientCreated",
+    "ProtectedRealm",
+    "ProtectedAuthorityRealm",
+    "RealmDeleted",
+    "SessionsRevoked",
+    "ThemeInstalled",
+    "ThemeBuildSubmitted",
+    "ThemeCleanupSkipped",
+    "ThemeReconcileFailed",
+    "ServiceAccountCredentialRotated",
+    "TenantReconcileRefused",
+    "ProjectionCleanupSkipped",
+    "ProtectedControlPlaneClient",
+    "SecretRotated",
+    "UnclassifiedEvent"
+  ],
+  "runbooks": [
+    "install",
+    "upgrade",
+    "leader",
+    "rotation",
+    "adoption",
+    "fleet",
+    "decommission",
+    "incident"
+  ],
+  "limits": {
+    "inventory_objects_per_kind": 1000,
+    "inventory_interval_seconds": 30,
+    "inventory_timeout_seconds": 10,
+    "tls_file_bytes": 65536,
+    "client_uri_count": 16
+  },
+  "unqualified": [
+    "public upgrade and rollback",
+    "storage-version migration",
+    "production HA and soak",
+    "bounded delegation",
+    "connected installation and decommission"
+  ]
+}

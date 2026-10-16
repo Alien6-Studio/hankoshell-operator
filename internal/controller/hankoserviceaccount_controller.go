@@ -572,5 +572,5 @@ func (r *HankoServiceAccountReconciler) SetupWithManager(mgr ctrl.Manager) error
 				return requests
 			},
 		)).
-		Complete(r)
+		Complete(observeReconciler("HankoServiceAccount", r))
 }

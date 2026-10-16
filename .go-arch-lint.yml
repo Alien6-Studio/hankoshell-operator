@@ -21,6 +21,8 @@ components:
     in: "/internal/keycloak"
   authentik:
     in: "/internal/authentik"
+  observability:
+    in: "/internal/observability"
   httpsecurity:
     in: "/internal/httpsecurity"
   iamconformance:
@@ -65,6 +67,8 @@ components:
     in: "/internal/version"
 
 deps:
+  observability:
+    anyVendorDeps: true
   # cmd/ wires everything — no restriction.
   cmd:
     anyProjectDeps: true
@@ -76,6 +80,7 @@ deps:
   # and the image validator (ADR-017).
   controller:
     mayDependOn:
+      - observability
       - httpsecurity
       - workloadtrust
       - workloadbinding
@@ -105,12 +110,14 @@ deps:
     mayDependOn:
       - workloadtrust
       - workloadauth
+      - observability
       - httpsecurity
       - adoption
       - organization
 
   authentik:
     mayDependOn:
+      - observability
       - httpsecurity
       - iamcontract
       - applications
@@ -182,9 +189,11 @@ deps:
   api_types:
     anyVendorDeps: true
 
-  # ADR-017: imagevalidator is a standalone policy package — no project deps.
+  # Image validation only adds the bounded operational telemetry leaf.
   imagevalidator:
     anyVendorDeps: true
+    mayDependOn:
+      - observability
 
   # Supervision reads operator CRDs and exposes a bounded transport DTO.
   supervision:

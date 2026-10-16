@@ -231,7 +231,7 @@ func (c *Client) ProtocolDocument(ctx context.Context, realm, protocol string) (
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("protocol metadata HTTP %d", response.StatusCode)
+		return nil, &StatusError{Code: response.StatusCode}
 	}
 	return io.ReadAll(response.Body) // do has already buffered and enforced the byte budget.
 }

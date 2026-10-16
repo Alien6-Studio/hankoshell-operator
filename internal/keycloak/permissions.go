@@ -2,11 +2,13 @@ package keycloak
 
 import (
 	"fmt"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/observability"
 	"net/http"
 	"net/url"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // AdminOperation is the reviewed permission contract, not a replacement for
@@ -126,13 +128,17 @@ func (c *Client) do(req *http.Request) (*http.Response, error) {
 	if err := c.authorizeMutation(req); err != nil {
 		return nil, err
 	}
+	started := time.Now()
 	response, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		observability.Default.Provider("keycloak", req.Method, 0, err, time.Since(started))
+		return nil, ErrTransport
 	}
 	// Callers receive only a complete bounded buffer, never the network stream.
 	// Validate even bodies ignored by success/Location handlers before returning.
-	return boundedKeycloakResponse(response, limit)
+	buffered, readErr := boundedKeycloakResponse(response, limit)
+	observability.Default.Provider("keycloak", req.Method, response.StatusCode, readErr, time.Since(started))
+	return buffered, readErr
 }
 
 func (c *Client) responseBudget(req *http.Request) (int64, error) {

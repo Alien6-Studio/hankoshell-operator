@@ -472,7 +472,7 @@ func (r *HankoThemeReconciler) failTheme(ctx context.Context, theme *hankoshv1al
 		return ctrl.Result{}, err
 	}
 	if r.Recorder != nil {
-		r.Recorder.Eventf(theme, nil, corev1.EventTypeWarning, reason, "Reconcile", "%s", cause.Error())
+		r.Recorder.Eventf(theme, nil, corev1.EventTypeWarning, "ThemeReconcileFailed", "Reconcile", "%s", cause.Error())
 	}
 	return ctrl.Result{RequeueAfter: requeueOnError}, nil
 }
@@ -694,7 +694,7 @@ func (r *HankoThemeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoTheme{}).
 		Owns(&batchv1.Job{}).
-		Complete(r)
+		Complete(observeReconciler("HankoTheme", r))
 }
 
 func (r *HankoThemeReconciler) now() time.Time {

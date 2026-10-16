@@ -57,5 +57,5 @@ func (r *HankoIAMProfileReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 func (r *HankoIAMProfileReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoIAMProfile{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Complete(r)
+		Complete(observeReconciler("HankoIAMProfile", r))
 }

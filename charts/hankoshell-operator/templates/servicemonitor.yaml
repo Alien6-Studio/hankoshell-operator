@@ -23,5 +23,20 @@ spec:
     - port: metrics
       interval: 30s
       path: /metrics
-      scheme: http
+      scheme: https
+      scrapeTimeout: 10s
+      tlsConfig:
+        minVersion: TLS13
+        serverName: {{ printf "%s-metrics.%s.svc" (include "hanko-operator.fullname" .) .Release.Namespace | quote }}
+        ca:
+          secret:
+            name: {{ .Values.metrics.serviceMonitor.serverCASecret }}
+            key: ca.crt
+        cert:
+          secret:
+            name: {{ .Values.metrics.serviceMonitor.clientSecret }}
+            key: tls.crt
+        keySecret:
+          name: {{ .Values.metrics.serviceMonitor.clientSecret }}
+          key: tls.key
 {{- end }}

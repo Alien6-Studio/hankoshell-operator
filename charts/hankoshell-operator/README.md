@@ -169,69 +169,19 @@ default. Review image policy ownership before enabling workload execution.
 
 ## Metrics and Prometheus
 
-`metrics.enabled` is the global switch, defaulting to `false`. Disabled metrics
-set the manager bind address to `0` and render no metrics port, Service,
-ServiceMonitor, Prometheus annotations or metrics ingress. Health probes keep
-their separate port 8081. The standalone binary also defaults to disabled metrics;
-an explicit `--metrics-bind-address=:8080` enables it outside Helm.
-The global switch overrides a retained `serviceMonitor.enabled: true`, so disabling
-metrics requires no secondary toggle and no Prometheus API.
+Metrics are off by default. When enabled, TLS 1.3, trusted client certificates
+and exact authorized SPIFFE URI SANs are required. Server certificates and client
+CA trust come from pre-existing namespace-local Secrets. The ServiceMonitor uses
+HTTPS with server CA/DNS verification and client certificate authentication.
+No pod scrape annotations or anonymous/plaintext mode are provided. Exact
+Prometheus namespace AND pod labels still constrain ingress on TCP/8080.
+The Pod readiness probe excludes the leader check so healthy standbys remain Ready;
+the full `/readyz` endpoint reports reconciliation readiness.
 
-Enabled metrics bind port 8080 and expose the existing release-owned ClusterIP
-Service. With `metrics.serviceMonitor.enabled: false`, pod annotations advertise
-`/metrics` on 8080; your Prometheus configuration must implement annotation
-discovery. With it set to `true`, the chart instead creates a ServiceMonitor and
-omits the pod scrape annotations to avoid duplicate discovery. This requires the
-installed Prometheus Operator API; offline rendering needs
-`--api-versions monitoring.coreos.com/v1/ServiceMonitor`.
+Operational procedures: [runbooks](../../docs/operations-runbooks.md), [secure observability](../../docs/operational-observability.md) and the [machine contract](../../docs/operational-contract.json).
 
-When `networkPolicy.enabled` is true, **every enabled metrics configuration**
-requires both `metrics.networkPolicy.namespaceSelector` and `podSelector`, even
-without a ServiceMonitor. Only nonempty exact `matchLabels` are accepted.
-The namespace selector must include `kubernetes.io/metadata.name` for one actual
-Prometheus namespace; expressions, empty identities and IP grants are rejected.
-One ingress peer combines both selectors with AND and permits only TCP/8080.
-Other ingress remains denied. Example (replace labels with those on your pods):
-
-```yaml
-metrics:
-  enabled: true
-  serviceMonitor:
-    enabled: true
-    labels:
-      release: prometheus-stack
-  networkPolicy:
-    namespaceSelector:
-      matchLabels:
-        kubernetes.io/metadata.name: monitoring
-    podSelector:
-      matchLabels:
-        app.kubernetes.io/name: prometheus
-        prometheus: platform
-```
-
-Ensure Prometheus selects ServiceMonitors in the operator's namespace and their
-metadata labels. `serviceMonitor.labels` can match its discovery filter (for
-example `release`), but cannot override chart identity labels. The monitor selects
-only this release's Service in its own namespace. Creating it does not install
-Prometheus or change Prometheus's discovery or egress configuration.
-
-Metrics are unauthenticated HTTP and may disclose operational details. NetworkPolicy
-limits network reachability; it does not provide encryption or application
-authentication. CNI enforcement and other additive policies require installation
-verification. The optional Cilium egress policy does not add metrics ingress.
-Disabling baseline NetworkPolicy in a standard installation explicitly relinquishes
-this chart's ingress restriction; enterprise still requires it.
-
-**Migration:** the previous `metrics.enabled` controlled only ServiceMonitor
-creation. To retain that discovery, set both `metrics.enabled: true` and
-`metrics.serviceMonitor.enabled: true`, configure the explicit Prometheus identity
-and discovery labels. The old flag alone fails rendering with default networking.
-Existing names and port 8080 are retained. Keeping the default `false` now removes
-the previously always-on listener, Service and annotations. Rolling back to an
-older chart restores its previous exposure and flag meaning; review the render.
-
-See the [verification steps and network limitations](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md#metrics-and-prometheus).
+See the observability guide for complete values, trust rotation, migration,
+label bounds, alerts, dashboard and qualification limits.
 
 For Keycloak in another namespace, set `networkPolicy.keycloakNamespace`,
 `keycloakSelector` and `keycloakPorts` to its actual pod labels and Service/target

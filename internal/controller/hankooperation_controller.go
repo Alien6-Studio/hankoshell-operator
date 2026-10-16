@@ -422,7 +422,7 @@ func (r *HankoOperationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&hankoshv1alpha1.HankoSnapshot{}).
 		Owns(&hankoshv1alpha1.HankoImport{}).
 		Owns(&hankoshv1alpha1.HankoKeycloakInstance{}).
-		Complete(&lifecycleApprovalGuard{Client: r.Client, reader: r.APIReader, inner: r, snapshot: false})
+		Complete(observeReconciler("HankoOperation", &lifecycleApprovalGuard{Client: r.Client, reader: r.APIReader, inner: r, snapshot: false}))
 }
 
 func (r *HankoOperationReconciler) operationReader() client.Reader {

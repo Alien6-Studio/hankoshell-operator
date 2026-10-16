@@ -75,14 +75,22 @@ def check_enabled(docs, service_monitor=False):
     assert service["spec"]["ports"] == [{"name": "metrics", "port": 8080, "targetPort": "metrics", "protocol": "TCP"}]
     assert bool(resources(docs, "ServiceMonitor")) == service_monitor
     annotations = pod["metadata"].get("annotations", {})
+    assert not annotations
+    assert "--metrics-cert-dir=/etc/hanko/metrics-server" in manager["args"]
+    assert manager["readinessProbe"]["httpGet"]["path"] == "/readyz?exclude=leader"
+    assert {v["name"] for v in pod["spec"]["volumes"]} >= {"metrics-server", "metrics-client-ca"}
     if service_monitor:
-        assert not annotations
         monitor, = resources(docs, "ServiceMonitor")
         assert monitor["spec"]["selector"]["matchLabels"] == service["spec"]["selector"]
         assert monitor["spec"]["namespaceSelector"] == {"matchNames": ["auth"]}
-        assert monitor["spec"]["endpoints"] == [{"port": "metrics", "interval": "30s", "path": "/metrics", "scheme": "http"}]
-    else:
-        assert annotations == {"prometheus.io/scrape": "true", "prometheus.io/port": "8080", "prometheus.io/path": "/metrics"}
+        endpoint, = monitor["spec"]["endpoints"]
+        assert endpoint["scheme"] == "https" and endpoint["scrapeTimeout"] == "10s"
+        assert endpoint["tlsConfig"] == {
+            "minVersion": "TLS13", "serverName": "observability-test-hanko-operator-metrics.auth.svc",
+            "ca": {"secret": {"name": "metrics-server-ca", "key": "ca.crt"}},
+            "cert": {"secret": {"name": "prometheus-client", "key": "tls.crt"}},
+            "keySecret": {"name": "prometheus-client", "key": "tls.key"}}
+        assert not endpoint["tlsConfig"].get("insecureSkipVerify")
     for policy in operator_policies(docs):
         assert policy["spec"]["podSelector"]["matchLabels"] == service["spec"]["selector"]
         assert policy["spec"]["policyTypes"] == ["Ingress", "Egress"]
@@ -94,10 +102,12 @@ for values in ({}, {"metrics": {"enabled": False, "networkPolicy": IDENTITY}},
                {"metrics": {"enabled": False, "serviceMonitor": {"enabled": True}}}):
     check_disabled(render(values, monitor_api=False))
 
-enabled = {"metrics": {"enabled": True, "networkPolicy": IDENTITY}}
+TLS = {"serverSecret": "metrics-server", "clientCASecret": "metrics-client-ca",
+       "allowedClientURIs": ["spiffe://monitoring.example/prometheus/platform"]}
+enabled = {"metrics": {"enabled": True, "tls": TLS, "networkPolicy": IDENTITY}}
 check_enabled(render(enabled, monitor_api=False))
 monitor = copy.deepcopy(enabled)
-monitor["metrics"]["serviceMonitor"] = {"enabled": True, "labels": {"release": "prometheus-stack", "on": "off"}}
+monitor["metrics"]["serviceMonitor"] = {"enabled": True, "labels": {"release": "prometheus-stack", "on": "off"}, "serverCASecret": "metrics-server-ca", "clientSecret": "prometheus-client"}
 docs = render(monitor)
 check_enabled(docs, service_monitor=True)
 assert resources(docs, "ServiceMonitor")[0]["metadata"]["labels"]["release"] == "prometheus-stack"
@@ -106,7 +116,7 @@ render(monitor, valid=False, monitor_api=False, error="installed monitoring.core
 
 for service_monitor in (False, True):
     for identity in ({}, {"namespaceSelector": IDENTITY["namespaceSelector"]}, {"podSelector": IDENTITY["podSelector"]}):
-        render({"metrics": {"enabled": True, "serviceMonitor": {"enabled": service_monitor}, "networkPolicy": identity}},
+        render({"metrics": {"enabled": True, "serviceMonitor": {"enabled": service_monitor}, "networkPolicy": identity, "tls": TLS}},
                valid=False, error="requires explicit Prometheus namespaceSelector and podSelector")
     independent = copy.deepcopy(monitor if service_monitor else enabled)
     independent["networkPolicy"] = {"enabled": False}
@@ -161,3 +171,14 @@ enterprise["metrics"] = {"enabled": False}
 check_disabled(render(enterprise))
 
 print("Observability: disabled listener, explicit Service/discovery, exact Prometheus identity and TCP/8080-only ingress passed")
+
+for tls in ({}, {"serverSecret": "metrics-server"}, {**TLS, "allowedClientURIs": []},
+            {**TLS, "allowedClientURIs": ["*"]}, {**TLS, "allowedClientURIs": TLS["allowedClientURIs"] * 2},
+            {**TLS, "allowedClientURIs": ["spiffe://monitoring.example/" + "a" * 260]},
+            {**TLS, "serverSecret": "../escape"}, {**TLS, "insecureSkipVerify": True}):
+    invalid = copy.deepcopy(enabled)
+    invalid["metrics"]["tls"] = tls
+    render(invalid, valid=False)
+missing_client = copy.deepcopy(monitor)
+missing_client["metrics"]["serviceMonitor"]["clientSecret"] = ""
+render(missing_client, valid=False, error="requires serverCASecret and clientSecret")
