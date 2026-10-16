@@ -854,7 +854,8 @@ class System:
             "create", "--dry-run=server", "-f", "-"], input=json.dumps(forged), capture_output=True, text=True, timeout=30, check=False)
         if result.returncode == 0 or "Lifecycle child provenance requires operator or administrator authority" not in result.stderr:
             raise ValueError("Installed ordinary author forged lifecycle child provenance")
-        self.kubectl("patch", kind, name, "-n", namespace, "--type=merge", "-p", json.dumps(patch))
+        self.kubectl("--as=lifecycle-fixture-administrator", "--as-group=system:masters",
+                     "patch", kind, name, "-n", namespace, "--type=merge", "-p", json.dumps(patch))
 
     def lifecycle_alias(self):
         """Exercise real Clone/configuration recovery with a read-only provider identity."""
