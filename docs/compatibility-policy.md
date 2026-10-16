@@ -56,10 +56,15 @@ migration-note references, the two-minor/90-day thresholds and release notes.
 Adversarial fixtures test the guard with synthetic stable schemas; those are
 **gate tests, not real historical release qualification**. Capturing a current
 schema via `snapshot` produces a candidate artifact and never activates a baseline.
-Stable API conversion/round-trip and exported Go API compatibility remain #91/#94;
-real cross-release fixtures remain #93/#101/#105. Their absence cannot be marked
-successful by this schema-diff implementation. #94 stays open until those pieces
-and a real public baseline exist. #87 stays open for publication and community review.
+The [Go fixture contract](go-api-contract.md) now freezes compiler-resolved exports
+in seven packages. Real API tests cover all 17 current single-version typed readers,
+their defaulted specs/status, ownership/finalizers and strict unknown-field refusal.
+Served/storage/conversion changes and unannounced version deprecation fail the
+contract gate. Adding an optional field with a default also needs explicit review.
+These are development checks. Stable cross-version conversion remains #91/#94;
+real cross-release fixtures remain #93/#101/#105. #94 stays open until the stable
+conversion and real published baseline requirements are established. #87 stays
+open for publication and community review.
 
 To introduce a future legitimate deprecation, retain the published baseline,
 add the hash-bound announcement and migration note, obtain its recorded review,

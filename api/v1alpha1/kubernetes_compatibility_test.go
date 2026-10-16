@@ -105,6 +105,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 	}
 	t.Run("condition ownership across all CRDs", func(t *testing.T) { checkConditionApply(t, ctx, admin, environment.CRDs) })
 	t.Run("frozen public contract corpus", func(t *testing.T) { checkPublicContractCorpus(t, ctx, admin) })
+	t.Run("single-version conversion and typed reader contract", func(t *testing.T) { checkConversionContract(t, ctx, admin, environment.CRDs) })
 
 	t.Run("organization principal admission and capabilities", func(t *testing.T) { checkOrganizationPrincipalAdmission(t, ctx, admin) })
 	t.Run("delegation admission and capability refusal schema", func(t *testing.T) { checkDelegationAdmission(t, ctx, admin) })

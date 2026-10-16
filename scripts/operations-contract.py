@@ -25,6 +25,9 @@ def check(root=ROOT):
     reasons = set(re.findall(r'^\s*"([A-Za-z]+)":\s*"', events, re.M))
     if reasons != set(contract["event_reasons"]):
         raise ValueError("Event catalog differs from operational inventory")
+    tenant = (root / "internal/controller/hankotenant_controller.go").read_text()
+    if "observability.TenantRefusalReason(reason)" not in tenant:
+        raise ValueError("Tenant Fleet refusal Events must preserve bounded decision identity")
     main = (root / "cmd/operator/main.go").read_text()
     if main.count('mgr.GetEventRecorder(operatorRecorderName)') != main.count('observability.SafeRecorder(mgr.GetEventRecorder(operatorRecorderName))'):
         raise ValueError("Unfiltered production Event recorder")

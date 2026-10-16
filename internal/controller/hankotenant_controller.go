@@ -34,6 +34,7 @@ import (
 	"github.com/Alien6-Studio/hankoshell-operator/internal/hub"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/imagevalidator"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/observability"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/selfupdate"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/supervision"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/version"
@@ -982,7 +983,7 @@ func (r *HankoTenantReconciler) setError(
 	if patchErr := r.Status().Patch(ctx, tenant, patch); patchErr != nil {
 		log.FromContext(ctx).Error(patchErr, "patch tenant status after error")
 	} else if changed && r.Recorder != nil {
-		r.Recorder.Eventf(tenant, nil, corev1.EventTypeWarning, "TenantReconcileRefused", "Reconcile", "%s", "Tenant reconciliation refused; inspect condition reason")
+		r.Recorder.Eventf(tenant, nil, corev1.EventTypeWarning, observability.TenantRefusalReason(reason), "Reconcile", "%s", "Tenant reconciliation refused; inspect condition reason")
 	}
 	// Best-effort degraded report so the fleet view reflects the failure
 	// instead of showing the last successful phase until staleness kicks in.

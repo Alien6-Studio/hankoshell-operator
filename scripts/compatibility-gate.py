@@ -43,6 +43,10 @@ def changes(before, after, path=""):
     for field in sorted(set(after.get("required", [])) - set(before.get("required", []))):
         changed("required-added", False, True, path + "." + field if path else field)
     old_properties, new_properties = before.get("properties", {}), after.get("properties", {})
+    for field in sorted(set(new_properties) - set(old_properties)):
+        if "default" in new_properties[field]:
+            child = path + "." + field if path else field
+            changed("field-added-with-default", None, new_properties[field], child)
     for field in sorted(old_properties):
         child = path + "." + field if path else field
         if field not in new_properties:
@@ -140,10 +144,11 @@ def compare(baseline, current, policy, root=ROOT, today=None):
 def check(root=ROOT):
     policy = json.loads((root / POLICY).read_text())
     current = schemas(root)
+    version_contract = check_versions(root, policy)
     if not policy["baseline"]:
         if policy["public_releases"] or policy["notices"] or policy["exceptions"]:
             raise ValueError("Public compatibility claims require authentic retained release baselines")
-        if any(re.fullmatch(r"v[1-9][0-9]*", key.split("/")[1]) for key in current):
+        if any(re.fullmatch(r"v[1-9][0-9]*(?:beta[1-9][0-9]*)?", key.split("/")[1]) for key in current):
             raise ValueError("New stable API requires a reviewed conversion/baseline decision")
         return {"state": "NoPublishedPredecessor", "experimental_schemas": len(current), "stable_comparisons": 0}
     baseline_file = local_file(root, policy["baseline"]["path"])
@@ -153,10 +158,59 @@ def check(root=ROOT):
     baseline = json.loads(raw)
     if baseline.get("published") is not True or baseline.get("version") not in {r["version"] for r in policy["public_releases"]}:
         raise ValueError("A candidate snapshot is not a published compatibility baseline")
+    def storage_contract(inventory):
+        return {kind: {"strategy": entry["strategy"], "versions": [{k: v[k] for k in ("name", "served", "storage")} for v in entry["versions"]]}
+                for kind, entry in inventory.items()}
+    if not baseline.get("version_contract") or storage_contract(baseline["version_contract"]) != storage_contract(version_contract):
+        raise ValueError("Served/storage/conversion/deprecation contract changed; a reviewed migration is required")
     failures = compare(baseline["stable_schemas"], current, policy, root)
     if failures:
         raise ValueError("Stable schema compatibility refused: " + json.dumps(failures, sort_keys=True))
     return {"state": "compared", "stable_comparisons": len(baseline["stable_schemas"])}
+
+
+def check_versions(root, policy):
+    """Refuse unimplemented multi-version conversion and unannounced deprecation."""
+    result = {}
+    for path in sorted((root / "charts/hankoshell-operator/crds").glob("*.yaml")):
+        spec = yaml.safe_load(path.read_text())["spec"]
+        versions = spec["versions"]
+        served = [v for v in versions if v["served"]]
+        storage = [v for v in versions if v["storage"]]
+        strategy = spec.get("conversion", {}).get("strategy", "None")
+        if len(storage) != 1 or not storage[0]["served"] or len(served) != 1 or strategy != "None":
+            raise ValueError(spec["names"]["kind"] + ": conversion/storage change requires #91 round-trip and #92 migration qualification")
+        records = []
+        for version in versions:
+            deprecated = version.get("deprecated", False)
+            warning = version.get("deprecationWarning")
+            if warning is not None and not deprecated:
+                raise ValueError("Deprecation warning without deprecated version: " + spec["names"]["kind"])
+            key = spec["names"]["kind"] + "/" + version["name"]
+            if deprecated:
+                notices = [n for n in policy["notices"] if n.get("schema") == key and n.get("path") == "$version"]
+                announced = False
+                for notice in notices:
+                    identifier = notice.get("id", "")
+                    if (not re.fullmatch(r"[A-Z][A-Z0-9_-]{2,63}", identifier) or not warning or identifier not in warning
+                            or identifier not in (root / "CHANGELOG.md").read_text()
+                            or not re.fullmatch(r"https://github\.com/Alien6-Studio/hankoshell-operator/pull/[1-9][0-9]*", notice.get("review", ""))
+                            or not any(r["version"] == notice.get("announced_in") and date.fromisoformat(r["published_on"]) <= date.today() for r in policy["public_releases"])):
+                        continue
+                    try:
+                        migration = local_file(root, notice.get("migration_note"))
+                    except ValueError:
+                        continue
+                    announced = migration.suffix == ".md" and bool(migration.read_text().strip())
+                    if announced:
+                        break
+                if not announced:
+                    raise ValueError("Unannounced or undocumented version deprecation: " + key)
+            records.append({k: version.get(k) for k in ("name", "served", "storage", "deprecated", "deprecationWarning")})
+        result[spec["names"]["kind"]] = {"strategy": strategy, "versions": records}
+    if not result:
+        raise ValueError("Missing CRD conversion inventory")
+    return result
 
 
 def main():
@@ -170,7 +224,8 @@ def main():
         if not args.output:
             parser.error("snapshot requires --output")
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps({"published": False, "state": "candidate-only", "schemas": schemas()}, indent=2) + "\n")
+        policy = json.loads((ROOT / POLICY).read_text())
+        args.output.write_text(json.dumps({"published": False, "state": "candidate-only", "schemas": schemas(), "version_contract": check_versions(ROOT, policy)}, indent=2) + "\n")
 
 
 if __name__ == "__main__":

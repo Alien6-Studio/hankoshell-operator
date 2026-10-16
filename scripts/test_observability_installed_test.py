@@ -1,6 +1,8 @@
 import importlib.util
 from pathlib import Path
 import types
+import ssl
+from urllib.error import HTTPError, URLError
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -10,6 +12,14 @@ spec.loader.exec_module(installed)
 
 
 class InstalledObservabilityTrustTests(unittest.TestCase):
+    def test_transport_failure_is_never_counted_as_authorization_refusal(self):
+        for error in (URLError(ConnectionRefusedError()), URLError(TimeoutError()), HTTPError("https://localhost", 500, "withheld", {}, None)):
+            with self.subTest(error=type(error).__name__), self.assertRaisesRegex(ValueError, "transport"):
+                installed.require_authentication_refusal(error)
+        for error in (URLError(ssl.SSLError("TLS client authentication refused")), ssl.SSLError("refused"),
+                      HTTPError("https://localhost", 403, "withheld", {}, None)):
+            installed.require_authentication_refusal(error)
+
     def test_scanned_graph_is_verified_before_any_cluster_or_container(self):
         publication = MagicMock()
         publication.publish.contract.security.verify.side_effect = ValueError("scan mismatch")

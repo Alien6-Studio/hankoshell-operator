@@ -4,6 +4,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/events"
+	"strings"
 )
 
 // EventMessages is copied for documentation/qualification without exposing the
@@ -17,6 +18,53 @@ func EventMessages() map[string]string {
 }
 
 var eventMessages = map[string]string{
+	"FleetAuthorityChanged":               "Fleet reconciliation refused; inspect condition reason",
+	"FleetCacheInvalid":                   "Fleet reconciliation refused; inspect condition reason",
+	"FleetCacheTooLarge":                  "Fleet reconciliation refused; inspect condition reason",
+	"FleetCacheWriteFailed":               "Fleet reconciliation refused; inspect condition reason",
+	"FleetCapabilitiesUnsupported":        "Fleet reconciliation refused; inspect condition reason",
+	"FleetCapabilityInventoryUnavailable": "Fleet reconciliation refused; inspect condition reason",
+	"FleetCapabilityRefused":              "Fleet reconciliation refused; inspect condition reason",
+	"FleetCapabilityUnsupported":          "Fleet reconciliation refused; inspect condition reason",
+	"FleetCheckpointInvalid":              "Fleet reconciliation refused; inspect condition reason",
+	"FleetClockRegression":                "Fleet reconciliation refused; inspect condition reason",
+	"FleetCommandUnapproved":              "Fleet reconciliation refused; inspect condition reason",
+	"FleetContentAuthorityInvalid":        "Fleet reconciliation refused; inspect condition reason",
+	"FleetContentInvalid":                 "Fleet reconciliation refused; inspect condition reason",
+	"FleetDependencyRefused":              "Fleet reconciliation refused; inspect condition reason",
+	"FleetEnvelopeInvalid":                "Fleet reconciliation refused; inspect condition reason",
+	"FleetExpiryCheckpointFailed":         "Fleet reconciliation refused; inspect condition reason",
+	"FleetHubEndpointUnapproved":          "Fleet reconciliation refused; inspect condition reason",
+	"FleetHubStatusUnavailable":           "Fleet reconciliation refused; inspect condition reason",
+	"FleetIssuerAuthorityMismatch":        "Fleet reconciliation refused; inspect condition reason",
+	"FleetKeyExpired":                     "Fleet reconciliation refused; inspect condition reason",
+	"FleetKeyUnapproved":                  "Fleet reconciliation refused; inspect condition reason",
+	"FleetLegacyDowngrade":                "Fleet reconciliation refused; inspect condition reason",
+	"FleetOperatorVersionInvalid":         "Fleet reconciliation refused; inspect condition reason",
+	"FleetOperatorVersionUnsupported":     "Fleet reconciliation refused; inspect condition reason",
+	"FleetPayloadInvalid":                 "Fleet reconciliation refused; inspect condition reason",
+	"FleetPermissionDenied":               "Fleet reconciliation refused; inspect condition reason",
+	"FleetPermissionEvidenceExpired":      "Fleet reconciliation refused; inspect condition reason",
+	"FleetPlanDowngrade":                  "Fleet reconciliation refused; inspect condition reason",
+	"FleetPlanExpired":                    "Fleet reconciliation refused; inspect condition reason",
+	"FleetPlanFailed":                     "Fleet reconciliation refused; inspect condition reason",
+	"FleetPlanFetchFailed":                "Fleet reconciliation refused; inspect condition reason",
+	"FleetPlanNotYetValid":                "Fleet reconciliation refused; inspect condition reason",
+	"FleetProviderScopeUnknown":           "Fleet reconciliation refused; inspect condition reason",
+	"FleetProviderVersionMismatch":        "Fleet reconciliation refused; inspect condition reason",
+	"FleetRollbackReferenceInvalid":       "Fleet reconciliation refused; inspect condition reason",
+	"FleetRolloutPaused":                  "Fleet reconciliation refused; inspect condition reason",
+	"FleetRolloutPolicyInvalid":           "Fleet reconciliation refused; inspect condition reason",
+	"FleetRolloutRefused":                 "Fleet reconciliation refused; inspect condition reason",
+	"FleetSequenceConflict":               "Fleet reconciliation refused; inspect condition reason",
+	"FleetSignatureInvalid":               "Fleet reconciliation refused; inspect condition reason",
+	"FleetSourceInvalid":                  "Fleet reconciliation refused; inspect condition reason",
+	"FleetTargetMismatch":                 "Fleet reconciliation refused; inspect condition reason",
+	"FleetTrustChanged":                   "Fleet reconciliation refused; inspect condition reason",
+	"FleetTrustInvalid":                   "Fleet reconciliation refused; inspect condition reason",
+	"FleetTrustUnavailable":               "Fleet reconciliation refused; inspect condition reason",
+	"FleetValidityInvalid":                "Fleet reconciliation refused; inspect condition reason",
+
 	"ClientCreated":                   "Provider client created",
 	"ProtectedRealm":                  "Protected realm requires administrator review",
 	"ProtectedAuthorityRealm":         "Protected authority realm requires administrator review",
@@ -39,6 +87,15 @@ func EventReason(reason string) string {
 		return reason
 	}
 	return "UnclassifiedEvent"
+}
+
+// TenantRefusalReason preserves the bounded Fleet decision used by operators and
+// installed qualification. Unknown reasons never become Event text or labels.
+func TenantRefusalReason(reason string) string {
+	if strings.HasPrefix(reason, "Fleet") && EventReason(reason) == reason {
+		return reason
+	}
+	return "TenantReconcileRefused"
 }
 
 type safeRecorder struct{ delegate events.EventRecorder }

@@ -76,6 +76,24 @@ func TestEventsDiscardUntrustedTextAndBoundReasonVocabulary(t *testing.T) {
 	}
 }
 
+func TestTenantFleetRefusalsPreserveOnlyReviewedReasons(t *testing.T) {
+	for reason := range EventMessages() {
+		if strings.HasPrefix(reason, "Fleet") && TenantRefusalReason(reason) != reason {
+			t.Fatal("reviewed Fleet refusal lost its Event identity", reason)
+		}
+	}
+	for _, reason := range []string{"FleetAttackerSecret", "FleetSignatureInvalid\nsecret", "ClientCreated", "secret-sentinel", ""} {
+		if TenantRefusalReason(reason) != "TenantReconcileRefused" {
+			t.Fatal("unreviewed tenant reason escaped the catalog")
+		}
+	}
+	delegate := events.NewFakeRecorder(1)
+	SafeRecorder(delegate).Eventf(&corev1.Pod{}, nil, "Warning", TenantRefusalReason("FleetSignatureInvalid"), "Reconcile", "secret-sentinel")
+	if event := <-delegate.Events; !strings.Contains(event, "FleetSignatureInvalid") || strings.Contains(event, "secret-sentinel") {
+		t.Fatal("Fleet refusal lost identity or leaked details")
+	}
+}
+
 func TestCustomMetricSeriesUpperBound(t *testing.T) {
 	m := New()
 	registry := prometheus.NewRegistry()
@@ -118,7 +136,7 @@ func TestCustomMetricSeriesUpperBound(t *testing.T) {
 			}
 		}
 	}
-	if series != 892 {
+	if series != 1030 {
 		t.Fatalf("custom series bound changed: %d", series)
 	}
 }

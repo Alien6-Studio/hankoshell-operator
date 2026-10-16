@@ -3,6 +3,20 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Executable compatibility and installed diagnostics
+
+- Freeze 1,571 compiler-resolved exports in seven fixture-facing Go packages;
+  guard signatures, constants, aliases, fields/tags, interfaces, generic constraints
+  and promoted methods alongside the existing plan identity/defaulting goldens.
+- Qualify the single-version typed read/write boundary of all 17 CRDs on real
+  API servers. Reject unreviewed served/storage/conversion changes, unannounced
+  version deprecation and optional additions that silently introduce defaults.
+  These development guards do not establish a public predecessor or a stable conversion.
+- Preserve fixed Fleet refusal Event reasons while discarding private details;
+  wait for the updated ReplicaSet before metrics qualification and reject transport
+  failures as evidence of authentication denial. Custom metric cardinality remains
+  bounded at 1,030 series per process.
+
 ### Qualification windows and compatibility review
 
 - Formalize the three-minor Kubernetes/two-minor Keycloak qualification window,

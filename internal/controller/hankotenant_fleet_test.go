@@ -20,14 +20,33 @@ import (
 	"github.com/Alien6-Studio/hankoshell-operator/internal/fleetplan"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/observability"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func TestFleetRefusalEventRetainsSanitizedDecision(t *testing.T) {
+	f := newFleetUnitFixture(t)
+	f.private = ed25519.NewKeyFromSeed(make([]byte, ed25519.SeedSize))
+	f.sign(t)
+	recorder := events.NewFakeRecorder(4)
+	f.r.Recorder = observability.SafeRecorder(recorder)
+	_ = f.reconcile(t)
+	select {
+	case event := <-recorder.Events:
+		if !strings.Contains(event, "FleetSignatureInvalid") || !strings.Contains(event, "Fleet reconciliation refused; inspect condition reason") {
+			t.Fatal("Fleet Event lost its bounded refusal identity", event)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("missing Fleet refusal Event")
+	}
+}
 
 type fleetFaultClient struct {
 	client.Client

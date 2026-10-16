@@ -71,6 +71,9 @@ def qualify(system):
     def upgrade(path):
         fixture.run([system.args.helm, "upgrade", "system", ROOT / "charts/hankoshell-operator", "--namespace", "auth",
                      "--kubeconfig", system.config, "--values", path, "--wait", "--timeout", "180s"])
+        # Helm's availability wait can still leave Ready replicas from the old
+        # ReplicaSet. They have metrics disabled and can vanish during a scrape.
+        system.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=180s")
     upgrade(enabled)
     checks.append("real Helm upgrade enables mandatory mTLS on two Restricted replicas")
     system.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoApplication",
@@ -117,8 +120,8 @@ def qualify(system):
                     try:
                         with urlopen(metrics_url, context=context(client), timeout=5):
                             raise ValueError("Unauthorized metrics client was accepted")
-                    except (URLError, ssl.SSLError):
-                        pass
+                    except (URLError, ssl.SSLError) as error:
+                        require_authentication_refusal(error)
                 with urlopen(metrics_url, context=context(approved), timeout=5) as response:
                     metrics = response.read(2_097_153).decode()
                 if len(metrics.encode()) > 2_097_152 or any(value in metrics for value in system.sensitive) or "native-ops-metrics-label-sentinel" in metrics:
@@ -181,6 +184,16 @@ def qualify(system):
 def scrape_complete(url, context):
     with urlopen(url, context=context, timeout=5) as response:
         return bool(re.search(rb"^hanko_operator_inventory_complete 1(?:\.0)?$", response.read(2_097_153), re.M))
+
+
+def require_authentication_refusal(error):
+    """A broken forward/listener is not evidence that authentication refused us."""
+    if isinstance(error, HTTPError) and error.code in (401, 403):
+        return
+    cause = error.reason if isinstance(error, URLError) else error
+    if isinstance(cause, ssl.SSLError):
+        return
+    raise ValueError("Metrics authentication check failed at transport, not authorization") from None
 
 
 def main():

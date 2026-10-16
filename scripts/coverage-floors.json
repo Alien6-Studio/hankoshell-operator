@@ -27,7 +27,8 @@
     "internal/workloadauth": 92.7,
     "internal/workloadbinding": 23.2,
     "internal/workloadtrust": 85,
-    "scripts/workload-auth-review": 0
+    "scripts/workload-auth-review": 0,
+    "scripts/api-surface": 77.5
   },
   "functions": {
     "internal/authorization/plan.go:Validate": 100,

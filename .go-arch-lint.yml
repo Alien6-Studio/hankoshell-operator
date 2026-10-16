@@ -15,6 +15,10 @@ components:
     in: "/cmd/operator"
   fixture_review:
     in: "/scripts/workload-auth-review"
+  api_surface:
+    in: "/scripts/api-surface"
+  api_surface_fixture:
+    in: "/scripts/api-surface/testdata/contract"
   controller:
     in: "/internal/controller"
   keycloak:
