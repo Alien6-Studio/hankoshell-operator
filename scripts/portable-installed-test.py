@@ -299,26 +299,41 @@ class Portable(installed.Installed):
         self.record("authentik_native_extension_refused_without_silent_drop", before == self.writes("authentik"))
         self.patch("HankoApplication", "spa", {"spec": {"attributes": None}})
         self.await_observation(fixture, "authentik")
-        # Bootstrap creates a genuinely foreign duplicate in the native store;
-        # no production test flag or runtime administrator role is introduced.
-        self.kubectl("exec", "-i", "-n", "auth", "deployment/authentik-upstream", "--", "ak", "shell", input=b'''
+        # The native UNIQUE constraint rejects duplicate client IDs. Prove its
+        # rollback, then corrupt only a provider's owner marker via bootstrap.
+        # Runtime authority must neither adopt nor repair that foreign marker.
+        result = self.kubectl("exec", "-i", "-n", "auth", "deployment/authentik-upstream", "--", "ak", "shell", input=b'''
+from django.db import IntegrityError, transaction
 from authentik.providers.oauth2.models import OAuth2Provider
 p = OAuth2Provider.objects.get(client_id="portable-spa")
 values = {field.attname: getattr(p, field.attname) for field in p._meta.concrete_fields
           if not field.primary_key and not field.auto_created}
-duplicate = OAuth2Provider(**values)
-duplicate.name = "foreign-portable-duplicate"
-duplicate.save(force_insert=True)
-duplicate.property_mappings.set(p.property_mappings.all())
+try:
+    with transaction.atomic():
+        duplicate = OAuth2Provider(**values)
+        duplicate.name = "foreign-portable-duplicate"
+        duplicate.save(force_insert=True)
+except IntegrityError as error:
+    if "client_id" not in getattr(getattr(error.__cause__, "diag", None), "constraint_name", ""):
+        raise RuntimeError("unexpected native duplicate constraint") from None
+    print("HANKO_NATIVE_DUPLICATE_REFUSED")
+else:
+    raise RuntimeError("native duplicate constraint unexpectedly absent")
+p.name = "foreign-portable-marker"
+p.save(update_fields=["name"])
 ''')
+        self.record("authentik_native_duplicate_identity_refused", "HANKO_NATIVE_DUPLICATE_REFUSED" in result)
         self.patch("HankoApplication", "spa", {"metadata": {"annotations": {"hanko.sh/reconcile-request": secrets.token_hex(8)}}})
-        wait("foreign native duplicate refused", lambda: any(c.get("reason") == "ExperimentalOwnershipConflict" for c in
+        wait("foreign native marker refused", lambda: any(c.get("reason") == "ExperimentalOwnershipConflict" for c in
              self.get("HankoApplication", "spa").get("status", {}).get("conditions", [])), 90)
-        self.record("authentik_foreign_duplicate_no_mutation", before == self.writes("authentik")
+        self.record("authentik_foreign_marker_no_mutation", before == self.writes("authentik")
             and not self.get("HankoApplication", "spa").get("status", {}).get("appliedPlanHash"))
         self.kubectl("exec", "-i", "-n", "auth", "deployment/authentik-upstream", "--", "ak", "shell", input=b'''
 from authentik.providers.oauth2.models import OAuth2Provider
-OAuth2Provider.objects.get(name="foreign-portable-duplicate").delete()
+from authentik.core.models import Application
+p = OAuth2Provider.objects.get(client_id="portable-spa")
+p.name = Application.objects.get(provider=p).meta_description
+p.save(update_fields=["name"])
 ''')
         self.patch("HankoApplication", "spa", {"metadata": {"annotations": {"hanko.sh/reconcile-request": secrets.token_hex(8)}}})
         self.await_observation(fixture, "authentik")

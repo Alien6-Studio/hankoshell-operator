@@ -181,7 +181,7 @@ credential connections and real workload-cluster issuer/anchors are bound by
 the executor. There are no accepted `lossy` outcomes.
 
 Installed negative scenarios cover refused native attributes (no silent drop),
-foreign duplicate client identities, a provider outage followed by operator
+native duplicate client-ID refusal, foreign ownership-marker collisions, a provider outage followed by operator
 restart without duplicate creation, and provider switches in both directions.
 Provider journals cannot become another adapter's ownership authority. Owned
 authentik registrations are deleted and native absence is confirmed. The
