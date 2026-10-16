@@ -57,3 +57,10 @@ ceiling. Both full Fleet fixtures additionally pass 69 checks each on the same
 image, including offline cache, agent commands, expired decommission and recovery;
 see [the retained batch](../../compatibility/2026-10-16/contracts-49f2c75/README.md).
 Historical reports remain bound to their stated source and digest.
+
+## Shared credential concurrency: 30308d4
+
+The [30308d4 report](observability-runtime-30308d4.json) repeats all nine checks
+on the scanned final image with shared token refresh, request budgets and the
+rotation fix. See [the concurrency batch](../../concurrency/2026-10-16/runtime-30308d4/README.md).
+Historical evidence remains unchanged; production HA and soak remain unqualified.
