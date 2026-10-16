@@ -1599,3 +1599,80 @@ Issued access tokens retain their own lifetime after containment or authenticato
 changes. The existing native UID/replay limitations and residual revocation interval
 still apply. Installed-system qualification proves Pod-to-resource authorization
 and deep restart/recovery on the documented matrix; no release/publication is added.
+
+## Experimental lifecycle approval
+
+`HankoOperation` / `HankoSnapshot` are excluded from the stable 1.0 contract by
+[ADR-050](architecture/decisions/ADR-050-experimental-lifecycle-authority.md).
+They retain their experimental v1alpha1 schemas. The chart defaults to
+`lifecycle.enabled: false`, removes their complete resource/status/finalizer RBAC
+and registers neither controller. Its independent admission guard remains active
+while disabled. The raw binary defaults to `--lifecycle-enabled=false`.
+
+Before enabling or upgrading pending work, stop submissions, inspect the exact
+operation/snapshot spec, source instance and owned children, and retain their
+UID-bound checkpoints. Remove any pre-existing approval whose independent origin
+cannot be established. Do not delete children or rewrite checkpoints to make an
+old operation resume. A malformed/legacy checkpoint still fails closed. Existing
+accepted provider/database effects are not rolled back by disabling the writers.
+
+Enable explicitly in reviewed Helm values:
+
+```yaml
+lifecycle:
+  enabled: true
+  adminGroups: [platform-lifecycle-admins]
+```
+
+Install/upgrade with the normal pinned image/chart procedure above and those
+values. The installer must have admission-policy installation authority. Do not
+grant membership of this administrator group to the operator or ordinary authors.
+Raw installations must provision equivalent fail-closed admission protection
+before enabling the process flag. Namespace Secret writers remain separately
+trusted; DBSwitch accepts only a dedicated PostgreSQL configuration Secret in the
+same namespace/tenant scope with exactly the four reviewed `KC_DB*` fields in
+ADR-050. Backup Jobs retain their dedicated Secret/image/PVC guards. Never put
+credentials in an approval annotation or diagnostic artifact.
+
+An ordinary author may submit a request; it waits with current
+`Authorized=False/ApprovalRequired`. No children or execution checkpoint are
+created. As the independent administrator, first review the spec and source:
+
+```sh
+kubectl get hankooperation upgrade -n auth -o yaml
+kubectl get hankokeycloakinstance source -n auth -o yaml
+kubectl get hankooperation upgrade -n auth -o json   | python3 scripts/lifecycle-approval.py > lifecycle-approval.json
+cat lifecycle-approval.json
+kubectl patch hankooperation upgrade -n auth --type=merge --patch-file=lifecycle-approval.json
+```
+
+Use `hankosnapshot` for an independently requested snapshot. The patch contains
+only public UID/generation/intent/source bindings. The helper prepares it without
+contacting Kubernetes; it does not approve or execute the request. Review the
+source and intent before applying it with administrator credentials. The runtime
+recomputes the binding and refuses stale/cross-object approvals. A child
+configuration snapshot uses only its currently approved parent Snapshot step;
+there is no general inherited approval for arbitrary backup work.
+
+Remove authority to suspend **further** effects:
+
+```sh
+kubectl annotate hankooperation upgrade -n auth hanko.sh/lifecycle-approval-
+```
+
+A previously accepted Job or image/database patch continues independently; inspect
+actual state before recovery. Do not call this command rollback. A spec/tenant
+change or object/source recreation invalidates approval. Approval changes enqueue
+immediately and are rechecked before effect boundaries; cross-object API reads
+and writes are not a distributed transaction. Re-enable only after reviewing the
+same intent and existing child identities. No bulk approval or checkpoint reset
+is a supported recovery procedure.
+
+Validation: `charts/hankoshell-operator/tests/lifecycle.py` renders opt-out/RBAC;
+`checkLifecycleAdmission` exercises independent admission on all supported real
+API servers; `TestLifecycle*` exercises exact authority/revocation/Secret refusal.
+`scripts/system-test.py::lifecycle_alias` exercises opt-in, approval wait and
+administrator patch, ConfigMap-create denial, restart and stable child UIDs on a
+real installed configuration-only Clone. These commands are administrator
+procedures; installed managed Upgrade/DBSwitch and portable restore remain
+explicitly unqualified. No production evidence is claimed.

@@ -3,6 +3,23 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Stable-contract preparation and experimental lifecycle authority
+
+- Define measurable graduation criteria and records for all 17 resources and
+  every spec/status group. No resource graduates without public production,
+  migration/rollback, security and operational evidence.
+- Review all fourteen cross-provider semantics, retain the six installed reports,
+  and freeze registration intent goldens/outcomes in preflight and release gates.
+  OIDC SPA/web registration are portable candidates; authentik remains experimental.
+- Formally exclude Operation/Snapshot from the stable 1.0 contract and disable
+  their controllers/RBAC by default. Require independent administrator approval
+  bound to exact object UID/generation/intent/source UID, protect child provenance
+  through admission, recheck approval before effects, and validate DBSwitch Secrets.
+  Existing pending work requires explicit review; revocation does not undo effects.
+  Upgrade/DBSwitch and portable restore remain unqualified. See ADR-050 and the
+  lifecycle approval procedure before enabling or resuming experimental writers.
+
+
 ### Experimental second provider and shared portability foundation
 
 - Select authentik 2026.8.4 after exact-version API comparison with Logto and
@@ -11,8 +28,9 @@
   recovery journal, strict connection configuration and fail-closed IAM routing.
 - Add fourteen provider-neutral intent fixtures, real-server restart/lost-ack and
   native denied-credential checks, JUnit evidence and a required CI source gate.
-  Installed multi-provider qualification and the full shared Keycloak corpus
-  remain tracked separately; credential delivery and parity are not claimed.
+  Qualify the literal shared corpus in all six installed cells with both real
+  providers, current proof, refusal, restart and cleanup assertions. Credential
+  delivery and parity are not claimed.
 
 ### Initial public contract candidate and reusable compatibility corpus
 

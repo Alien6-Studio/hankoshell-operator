@@ -20,8 +20,12 @@ rules:
       - hankotenants
       - hankokeycloakinstances
       - hankoimports
+      {{- if .Values.lifecycle.enabled }}
       - hankooperations
+      {{- end }}
+      {{- if .Values.lifecycle.enabled }}
       - hankosnapshots
+      {{- end }}
       - hankoresourceservers
       - hankomeshservices
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
@@ -39,8 +43,12 @@ rules:
       - hankotenants/status
       - hankokeycloakinstances/status
       - hankoimports/status
+      {{- if .Values.lifecycle.enabled }}
       - hankooperations/status
+      {{- end }}
+      {{- if .Values.lifecycle.enabled }}
       - hankosnapshots/status
+      {{- end }}
       - hankoresourceservers/status
       - hankomeshservices/status
     verbs: ["get", "update", "patch"]
@@ -55,8 +63,12 @@ rules:
       - hankothemes/finalizers
       - hankotenants/finalizers
       - hankokeycloakinstances/finalizers
+      {{- if .Values.lifecycle.enabled }}
       - hankosnapshots/finalizers
+      {{- end }}
+      {{- if .Values.lifecycle.enabled }}
       - hankooperations/finalizers
+      {{- end }}
       - hankoresourceservers/finalizers
     verbs: ["update"]
   # Legacy email resources are read only except for invalidating obsolete status.

@@ -49,6 +49,14 @@ experimental:
       selector: {}
       port: 9443
 
+# Experimental and excluded from the stable 1.0 contract. Enabling installs the
+# independent approval admission guard before any operation may act.
+lifecycle:
+  enabled: false
+  # Groups allowed to approve exact object UID/generation/intent/instance UID.
+  # system:masters is always allowed; the operator cannot approve itself.
+  adminGroups: []
+
 replicaCount: 1
 
 resources:

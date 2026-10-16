@@ -211,6 +211,9 @@ func (r *HankoSnapshotReconciler) createSnapshotJob(ctx context.Context, snapsho
 	}
 	// A failed acknowledgement can conceal a successful create. Retry by reading
 	// the deterministic name, never by declaring this execution failed.
+	if err := checkLifecycleAuthority(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
 	if err := r.Create(ctx, job); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -388,5 +391,5 @@ func (r *HankoSnapshotReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&hankoshv1alpha1.HankoSnapshot{}, builder.WithPredicates(generationOrReconcileRequestChanged())).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&batchv1.Job{}).
-		Complete(r)
+		Complete(&lifecycleApprovalGuard{Client: r.Client, reader: r.APIReader, inner: r, snapshot: true})
 }

@@ -196,6 +196,9 @@ func (r *HankoOperationReconciler) advanceImageStep(ctx context.Context, operati
 	}
 	patch := client.MergeFromWithOptions(instance.DeepCopy(), client.MergeFromWithOptimisticLock{})
 	instance.Spec.Managed.Image = target
+	if err := checkLifecycleAuthority(ctx); err != nil {
+		return ctrl.Result{}, false, err
+	}
 	if err := r.Patch(ctx, instance, patch); err != nil {
 		return ctrl.Result{RequeueAfter: requeueOnError}, false, fmt.Errorf("patch instance image: %w", err)
 	}
@@ -218,6 +221,9 @@ func (r *HankoOperationReconciler) advanceDatabaseStep(ctx context.Context, oper
 	}
 	patch := client.MergeFromWithOptions(instance.DeepCopy(), client.MergeFromWithOptimisticLock{})
 	instance.Spec.Managed.Database.Name = operation.Spec.DBSwitch.NewDatabaseSecretRef
+	if err := checkLifecycleAuthority(ctx); err != nil {
+		return ctrl.Result{}, false, err
+	}
 	if err := r.Patch(ctx, instance, patch); err != nil {
 		return ctrl.Result{RequeueAfter: requeueOnError}, false, fmt.Errorf("patch instance database: %w", err)
 	}
@@ -416,7 +422,7 @@ func (r *HankoOperationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&hankoshv1alpha1.HankoSnapshot{}).
 		Owns(&hankoshv1alpha1.HankoImport{}).
 		Owns(&hankoshv1alpha1.HankoKeycloakInstance{}).
-		Complete(r)
+		Complete(&lifecycleApprovalGuard{Client: r.Client, reader: r.APIReader, inner: r, snapshot: false})
 }
 
 func (r *HankoOperationReconciler) operationReader() client.Reader {

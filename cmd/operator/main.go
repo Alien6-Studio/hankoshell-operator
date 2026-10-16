@@ -44,6 +44,7 @@ type runtimeConfig struct {
 	probeAddr            string
 	watchNamespace       string
 	enableLeaderElection bool
+	enableLifecycle      bool
 }
 
 func init() { //nolint:gochecknoinits // controller-runtime requires scheme registration before manager startup.
@@ -102,7 +103,7 @@ func main() {
 		meshPolicyClient, err = client.New(mgr.GetConfig(), client.Options{Scheme: mgr.GetScheme()})
 		fatalIfError(err, "unable to initialise cross-namespace mesh policy projection client")
 	}
-	setupControllers(mgr, pool, projection, config.watchNamespace, hubHTTPClient, meshPolicyClient, meshPolicyNamespace, hubPolicy)
+	setupControllers(mgr, pool, projection, config.watchNamespace, hubHTTPClient, meshPolicyClient, meshPolicyNamespace, hubPolicy, config.enableLifecycle)
 	setupHealthChecks(mgr, kc)
 
 	ctrl.Log.Info("starting hanko-operator", "watchNamespace", config.watchNamespace)
@@ -114,6 +115,7 @@ func parseRuntimeConfig() runtimeConfig {
 	flag.StringVar(&config.metricsAddr, "metrics-bind-address", "0", "Address for the metrics endpoint; 0 disables it.")
 	flag.StringVar(&config.probeAddr, "health-probe-bind-address", ":8081", "Address for the health probe endpoint.")
 	flag.BoolVar(&config.enableLeaderElection, "leader-elect", true, "Enable leader election for controller manager.")
+	flag.BoolVar(&config.enableLifecycle, "lifecycle-enabled", false, "Enable experimental operations and snapshots; requires independent approval admission protection.")
 	flag.StringVar(&config.watchNamespace, "watch-namespace", os.Getenv("WATCH_NAMESPACE"), "Required namespace watched and managed by the operator.")
 	opts := zap.Options{Development: os.Getenv("HANKO_LOG_DEV") == "true"}
 	opts.BindFlags(flag.CommandLine)
@@ -199,6 +201,7 @@ func setupControllers(
 	meshPolicyClient client.Client,
 	meshPolicyNamespace string,
 	hubPolicy *hub.ContinuumPolicy,
+	lifecycleEnabled bool,
 ) {
 	applicationSecretProjectionClient, err := client.New(mgr.GetConfig(), client.Options{Scheme: mgr.GetScheme()})
 	fatalIfError(err, "unable to initialise application secret projection client")
@@ -289,10 +292,12 @@ func setupControllers(
 		ProtectedClientIDs: protectedClientIDs, ProtectedRealm: protectedRealm,
 		RequireHTTPS: hubPolicy != nil,
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoImport")
-	fatalIfError((&controller.HankoSnapshotReconciler{
-		Client: mgr.GetClient(), Scheme: mgr.GetScheme(), ImageValidator: imgValidator,
-	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoSnapshot")
-	fatalIfError((&controller.HankoOperationReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoOperation")
+	if lifecycleEnabled {
+		fatalIfError((&controller.HankoSnapshotReconciler{
+			Client: mgr.GetClient(), Scheme: mgr.GetScheme(), ImageValidator: imgValidator,
+		}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoSnapshot")
+		fatalIfError((&controller.HankoOperationReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoOperation")
+	}
 }
 
 // decommissionConfig reads the Helm-provided identity of this release for the

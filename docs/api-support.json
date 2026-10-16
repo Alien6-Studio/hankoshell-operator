@@ -573,13 +573,13 @@
     {
       "name": "Second IAM provider",
       "compatibility": "experimental",
-      "limitation": "No second production adapter or provider parity is implemented.",
+      "limitation": "Experimental authentik 2026.8.4 qualifies OIDC SPA/web registration only; all other domains and runtime credential delivery are refused. No production support or parity.",
       "evidence": "docs/architecture/provider-boundaries.md"
     },
     {
       "name": "Hub and Continuum",
       "compatibility": "alpha",
-      "limitation": "Optional integrations with signed plans, capability/permission-aware delivery and local pause; disconnected provider authority, rollback and installed fleet operation remain unqualified.",
+      "limitation": "Optional alpha integrations with signed plans, capability-aware delivery, disconnected recovery and installed six-cell Fleet evidence; no public connected-service compatibility promise.",
       "evidence": "docs/secure-deployment.md"
     },
     {
@@ -597,8 +597,8 @@
     {
       "name": "Managed lifecycle",
       "compatibility": "experimental",
-      "limitation": "Installed Clone evidence covers only the declared external-source configuration alias; managed Upgrade and DBSwitch remain unqualified.",
-      "evidence": "docs/secure-deployment.md"
+      "limitation": "Excluded from the stable 1.0 contract; disabled by default with independent UID/intent-bound approvals when enabled. Installed Clone qualifies only a configuration alias; managed Upgrade and DBSwitch remain unqualified.",
+      "evidence": "docs/architecture/decisions/ADR-050-experimental-lifecycle-authority.md"
     },
     {
       "name": "Cloud, CNI and CSI",

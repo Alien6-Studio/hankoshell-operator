@@ -80,9 +80,9 @@ than implying a public connected service contract. Upgrade/DBSwitch, managed-sou
 Clone, portable database restore, traffic enforcement and cloud/CNI/CSI support
 remain unqualified where already documented.
 
-The unfinished #69–#71 and #72–#75 prerequisites remain explicit: bounded
-delegation has native counterexamples, and a second production adapter has not
-been delivered. They are deferred from this initial public selection, not removed
+The unfinished #69–#71 prerequisites remain explicit: bounded delegation has
+native counterexamples. #72–#75 now qualify an experimental second adapter and
+the shared installed corpus; a second production adapter has not been delivered. They are deferred from this initial public selection, not removed
 from the roadmap or considered complete. No planned 1.0 capability is dropped to
 publish 0.1.0. Promoting one requires its own qualified implementation, selection
 update, fixtures and migration review.

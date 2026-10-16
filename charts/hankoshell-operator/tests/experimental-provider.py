@@ -44,11 +44,11 @@ invalid["networkPolicy"] = {"enabled": False}
 fixture.render(invalid, valid=False)
 print("Experimental provider chart opt-in and exact egress passed")
 
-policy = resource(documents, "ValidatingAdmissionPolicy")
+policy = next(d for d in documents if d["kind"] == "ValidatingAdmissionPolicy" and "-authentik-" in d["metadata"]["name"])
 assert policy["spec"]["failurePolicy"] == "Fail"
 assert policy["spec"]["matchConstraints"]["resourceRules"][0]["operations"] == ["CREATE", "UPDATE", "DELETE"]
 expression = policy["spec"]["validations"][0]["expression"]
 assert '"auth"' in expression and '"experimental"' in expression and '"system:masters"' in expression
 assert "serviceaccount" not in expression.lower()
-assert resource(documents, "ValidatingAdmissionPolicyBinding")["spec"]["validationActions"] == ["Deny", "Audit"]
-assert not any(item["kind"] == "ValidatingAdmissionPolicy" for item in base)
+assert next(d for d in documents if d["kind"] == "ValidatingAdmissionPolicyBinding" and "-authentik-" in d["metadata"]["name"])["spec"]["validationActions"] == ["Deny", "Audit"]
+assert not any(item["kind"] == "ValidatingAdmissionPolicy" and "-authentik-" in item["metadata"]["name"] for item in base)

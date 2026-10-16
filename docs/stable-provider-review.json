@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 1,
+  "decisionIssue": 100,
+  "stage": "development",
+  "secondProviderStatus": "experimental",
+  "corpus": "internal/iamconformance/testdata/portable-v1/corpus.json",
+  "corpusSha256": "8e86c1d138d45e9166b6d9c9e5437a7dc99cff0aacef5efbd92d00edee2c4a26",
+  "reviewedRevision": "d52ab2ab7aeb9a6c7c7119280456723dfc223fac",
+  "approvedLosses": [],
+  "installedEvidence": [
+    "docs/qualification/portable/2026-10-16/KC-26.7.5-K8s-1.35.0.json",
+    "docs/qualification/portable/2026-10-16/KC-26.7.5-K8s-1.36.2.json",
+    "docs/qualification/portable/2026-10-16/KC-26.7.5-K8s-1.37.0.json",
+    "docs/qualification/portable/2026-10-16/KC-26.8.0-K8s-1.35.0.json",
+    "docs/qualification/portable/2026-10-16/KC-26.8.0-K8s-1.36.2.json",
+    "docs/qualification/portable/2026-10-16/KC-26.8.0-K8s-1.37.0.json"
+  ],
+  "semantics": [
+    {
+      "fixture": "realm",
+      "capability": "identity_domain",
+      "decision": "experimental",
+      "currentMaturity": "experimental",
+      "providers": {
+        "keycloak": "lossless",
+        "authentik": "unsupported"
+      },
+      "scope": "No stable portability claim; native support or adapter parity alone is insufficient evidence.",
+      "intentIdentity": ""
+    },
+    {
+      "fixture": "profile",
+      "capability": "iam_profile",
+      "decision": "experimental",
+      "currentMaturity": "experimental",
+      "providers": {
+        "keycloak": "lossless",
+        "authentik": "unsupported"
+      },
+      "scope": "No stable portability claim; native support or adapter parity alone is insufficient evidence.",
+      "intentIdentity": ""
+    },
+    {
+      "fixture": "spa",
+      "capability": "oidc_public",
+      "decision": "portable-candidate",
+      "currentMaturity": "experimental",
+      "providers": {
+        "keycloak": "lossless",
+        "authentik": "lossless"
+      },
+      "scope": "OIDC registration only; exact client identity, declared redirects, logical connection binding and public/confidential client type. Runtime credentials and operational readiness are excluded.",
+      "intentIdentity": "sha256:e84df49eed870f2bc7dfc10cecdf75ffb16e00cb596661941bb4ee7e920fb517"
+    },
+    {
+      "fixture": "web",
+      "capability": "oidc_confidential",
+      "decision": "portable-candidate",
+      "currentMaturity": "experimental",
+      "providers": {
+        "keycloak": "lossless",
+        "authentik": "lossless"
+      },
+      "scope": "OIDC registration only; exact client identity, declared redirects, logical connection binding and public/confidential client type. Runtime credentials and operational readiness are excluded.",
+      "intentIdentity": "sha256:5a8d273dbd52136d9051c9c088644932f273dfe6697b9ad213e5c6be6fddc3e9"
+    },
+    {
+      "fixture": "m2m",
+      "capability": "machine_identity",
+      "decision": "experimental",
+      "currentMaturity": "experimental",
+      "providers": {
+        "keycloak": "lossless",
+        "authentik": "unsupported"
+      },
+      "scope": "No stable portability claim; native support or adapter parity alone is insufficient evidence.",
+      "intentIdentity": ""
+    },
+    {
+      "fixture": "saml",
+      "capability": "saml",
+      "decision": "native-extension-candidate",
+      "currentMaturity": "experimental",
+      "providers": {
+        "keycloak": "lossless",
+        "authentik": "unsupported"
+      },
+      "scope": "Keycloak-native semantics remain available; no authentik equivalence is claimed.",
+      "intentIdentity": ""
+    },
+    {
+      "fixture": "role",
+      "capability": "realm_roles",
+      "decision": "experimental",
+      "currentMaturity": "experimental",
+      "providers": {
+        "keycloak": "lossless",
+        "authentik": "unsupported"
+      },
+      "scope": "No stable portability claim; native support or adapter parity alone is insufficient evidence.",
+      "intentIdentity": ""
+    },
+    {
+      "fixture": "composite",
+      "capability": "composite_roles",
+      "decision": "experimental",
+      "currentMaturity": "experimental",
+      "providers": {
+        "keycloak": "lossless",
+        "authentik": "unsupported"
+      },
+      "scope": "No stable portability claim; native support or adapter parity alone is insufficient evidence.",
+      "intentIdentity": ""
+    },
+    {
+      "fixture": "organization",
+      "capability": "organization",
+      "decision": "experimental",
+      "currentMaturity": "experimental",
+      "providers": {
+        "keycloak": "lossless",
+        "authentik": "unsupported"
+      },
+      "scope": "No stable portability claim; native support or adapter parity alone is insufficient evidence.",
+      "intentIdentity": ""
+    },
+    {
+      "fixture": "resource-server",
+      "capability": "resource_server",
+      "decision": "experimental",
+      "currentMaturity": "experimental",
+      "providers": {
+        "keycloak": "lossless",
+        "authentik": "unsupported"
+      },
+      "scope": "No stable portability claim; native support or adapter parity alone is insufficient evidence.",
+      "intentIdentity": ""
+    },
+    {
+      "fixture": "service-account",
+      "capability": "service_account",
+      "decision": "experimental",
+      "currentMaturity": "experimental",
+      "providers": {
+        "keycloak": "lossless",
+        "authentik": "unsupported"
+      },
+      "scope": "No stable portability claim; native support or adapter parity alone is insufficient evidence.",
+      "intentIdentity": ""
+    },
+    {
+      "fixture": "workload-federation",
+      "capability": "workload_federation",
+      "decision": "experimental",
+      "currentMaturity": "experimental",
+      "providers": {
+        "keycloak": "lossless",
+        "authentik": "unsupported"
+      },
+      "scope": "No stable portability claim; native support or adapter parity alone is insufficient evidence.",
+      "intentIdentity": ""
+    },
+    {
+      "fixture": "delegation",
+      "capability": "bounded_delegation",
+      "decision": "experimental",
+      "currentMaturity": "experimental",
+      "providers": {
+        "keycloak": "unsupported",
+        "authentik": "unsupported"
+      },
+      "scope": "No stable portability claim; native support or adapter parity alone is insufficient evidence.",
+      "intentIdentity": ""
+    },
+    {
+      "fixture": "native-extension",
+      "capability": "native_extension",
+      "decision": "native-extension-candidate",
+      "currentMaturity": "experimental",
+      "providers": {
+        "keycloak": "lossless",
+        "authentik": "unsupported"
+      },
+      "scope": "Keycloak-native semantics remain available; no authentik equivalence is claimed.",
+      "intentIdentity": ""
+    }
+  ],
+  "reviewedImageDigest": "sha256:3139618f528fe373f4f351d753beb265199910de67d63da6157f1c3d1693835b",
+  "fixtureSha256": "14a06bd7d1a707894693b809e78669d185319af264522086395ed4fe0be0ef03",
+  "reportHashes": {
+    "docs/qualification/portable/2026-10-16/KC-26.7.5-K8s-1.35.0.json": "03da974bb5a597e63ee61d7c69075c9a30193ddca7322420c5694b330802e8c4",
+    "docs/qualification/portable/2026-10-16/KC-26.7.5-K8s-1.36.2.json": "9b9df9c64805188eebbff492b337d6bfa77a2d48109401ddefd79b467daaf266",
+    "docs/qualification/portable/2026-10-16/KC-26.7.5-K8s-1.37.0.json": "02c70ed9cb646509a4b31f4e52cb9a873c0d8aa3fe49cb95a858e24f2dc16d15",
+    "docs/qualification/portable/2026-10-16/KC-26.8.0-K8s-1.35.0.json": "6796d832950b6839b07a951bf7daf1e2659f186d83b1b3230fe0091043ad78fb",
+    "docs/qualification/portable/2026-10-16/KC-26.8.0-K8s-1.36.2.json": "1d0605f6ca39bc7300dadf6fa9bba3f129a0766da2f3f6fe1fbc88eaa495788f",
+    "docs/qualification/portable/2026-10-16/KC-26.8.0-K8s-1.37.0.json": "9798e9ce259072ae7dabdc0b8f3b3eb6902920a31de846fb3662501a8cd05ad8"
+  }
+}

@@ -381,3 +381,8 @@ ConfigMap using `hanko.sh/provider-connection`. See the
 The adapter currently qualifies registration of a bounded OIDC SPA/web subset on
 a real server. Its installed matrix and confidential credential delivery remain
 unqualified. Disabling it retains existing cleanup finalizers and refuses writes.
+
+The [1.0 graduation criteria and per-resource records](../../docs/stable-graduation.md)
+and [second-provider contract review](../../docs/stable-provider-review.md) remain
+unratified development inputs. Lifecycle APIs are excluded from the stable 1.0
+contract and disabled by default; see [ADR-050](../../docs/architecture/decisions/ADR-050-experimental-lifecycle-authority.md).

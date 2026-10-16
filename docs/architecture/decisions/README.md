@@ -20,6 +20,7 @@ does not imply public API stability or completed installed-system qualification.
 | [ADR-047](ADR-047-signed-workload-approvals.md) | Signed immutable image approvals |
 | [ADR-048](ADR-048-full-pull-request-qualification.md) | Full qualification matrix on pull requests |
 | [ADR-049](ADR-049-locally-approved-fleet-plans.md) | Locally approved signed fleet plans |
+| [ADR-050](ADR-050-experimental-lifecycle-authority.md) | Experimental lifecycle exclusion and independent approval |
 
 ## Adding or updating a decision
 

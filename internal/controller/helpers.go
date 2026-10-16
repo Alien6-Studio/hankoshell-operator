@@ -62,7 +62,7 @@ func generationOrReconcileRequestChanged() predicate.Predicate {
 			if update.ObjectOld == nil || update.ObjectNew == nil {
 				return false
 			}
-			for _, key := range []string{reconcileRequestAnnotation, adoption.SourceAnnotation, adoption.ContractAnnotation, adoption.CandidateAnnotation, "hanko.sh/migrate-keycloak-client-uuid", "hanko.sh/migrate-keycloak-observation"} {
+			for _, key := range []string{lifecycleApprovalAnnotation, reconcileRequestAnnotation, adoption.SourceAnnotation, adoption.ContractAnnotation, adoption.CandidateAnnotation, "hanko.sh/migrate-keycloak-client-uuid", "hanko.sh/migrate-keycloak-observation"} {
 				oldValue, oldPresent := update.ObjectOld.GetAnnotations()[key]
 				newValue, newPresent := update.ObjectNew.GetAnnotations()[key]
 				if oldValue != newValue || oldPresent != newPresent {

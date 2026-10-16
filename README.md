@@ -572,3 +572,8 @@ Native SAML remains an explicit Keycloak extension. Delegation, organization pri
 connected integrations and every other deferred field retain their named limitations in
 the complete selection; no planned capability is removed.
 <!-- public-selection:end -->
+
+The [1.0 graduation criteria and per-resource records](docs/stable-graduation.md)
+and [second-provider contract review](docs/stable-provider-review.md) remain
+unratified development inputs. Lifecycle APIs are excluded from the stable 1.0
+contract and disabled by default; see [ADR-050](docs/architecture/decisions/ADR-050-experimental-lifecycle-authority.md).

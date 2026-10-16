@@ -29,6 +29,7 @@ publication = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(publication)
 diagnostics = publication.publish.contract.module("qualification_diagnostics", "qualification-diagnostics.py")
 run = publication.publish.run
+lifecycle = publication.publish.contract.module("lifecycle_approval", "lifecycle-approval.py")
 PINS = publication.publish.contract.pins.DATA
 VERSION = PINS["release"]["version"]
 KUBERNETES_VERSION = PINS["kubernetes"]["default"]
@@ -781,7 +782,7 @@ class System:
         self.api("POST", "/admin/realms", {"realm": "denied-adoption"}, token=constrained, expected=(403,))
         return credential
 
-    def adoption_operator(self, namespace, realm, reader_roles, writer_roles):
+    def adoption_operator(self, namespace, realm, reader_roles, writer_roles, lifecycle_enabled=False):
         writer, reader = namespace + "-writer", namespace + "-reader"
         writer_secret = self.adoption_identity(writer, realm, writer_roles)
         reader_secret = self.adoption_identity(reader, realm, reader_roles)
@@ -793,6 +794,7 @@ class System:
                 "HANKO_KC_CLIENT_ID": reader, "HANKO_KC_CLIENT_SECRET": reader_secret}, namespace))
         values = yaml.safe_load((self.private / "values.yaml").read_text())
         values["fullnameOverride"] = namespace + "-operator"
+        values["lifecycle"] = {"enabled": lifecycle_enabled, "adminGroups": []}
         values["networkPolicy"]["keycloakNamespace"] = "auth"
         config = self.private / (namespace + "-values.yaml")
         config.write_text(yaml.safe_dump(values))
@@ -821,6 +823,39 @@ class System:
         return {"contractVersion": "hanko.sh/adoption-contract/v1alpha1", "targetKind": acquired["kind"],
                 "targetUID": acquired["metadata"]["uid"], "candidateHash": candidate["candidateHash"]}
 
+    def approve_lifecycle(self, kind, name, namespace):
+        def request():
+            return any(c.get("type") == "Authorized" and c.get("reason") == "ApprovalRequired"
+                       for c in self.get(kind, name, namespace).get("status", {}).get("conditions", []))
+        wait("installed lifecycle waits for independent approval", request)
+        target = self.get(kind, name, namespace)
+        if target.get("status", {}).get("steps") or target.get("status", {}).get("configMapUID"):
+            raise ValueError("Unapproved lifecycle request created an execution checkpoint")
+        patch = lifecycle.prepare(target)
+        author = "lifecycle-fixture-author"
+        self.apply({"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "Role",
+                    "metadata": {"namespace": namespace, "name": author}, "rules": [{"apiGroups": ["hanko.sh"],
+                    "resources": ["hankooperations", "hankosnapshots"], "verbs": ["get", "create", "patch"]}]},
+                   {"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "RoleBinding",
+                    "metadata": {"namespace": namespace, "name": author},
+                    "roleRef": {"apiGroup": "rbac.authorization.k8s.io", "kind": "Role", "name": author},
+                    "subjects": [{"kind": "User", "name": author, "apiGroup": "rbac.authorization.k8s.io"}]})
+        for identity in (author, f"system:serviceaccount:{namespace}:{namespace}-operator"):
+            result = subprocess.run([str(self.args.kubectl), "--kubeconfig", str(self.config), "--as=" + identity,
+                "patch", kind, name, "-n", namespace, "--type=merge", "-p", json.dumps(patch), "--dry-run=server"],
+                capture_output=True, text=True, timeout=30, check=False)
+            if result.returncode == 0 or "Lifecycle approval requires independent administrator authority" not in result.stderr:
+                raise ValueError("Installed lifecycle self-approval was not independently refused")
+        forged = {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoSnapshot",
+                  "metadata": {"name": "forged-" + name, "namespace": namespace,
+                               "annotations": {"hanko.sh/operation-intent": "forged"}},
+                  "spec": {"instanceRef": target["spec"]["instanceRef"]}}
+        result = subprocess.run([str(self.args.kubectl), "--kubeconfig", str(self.config), "--as=" + author,
+            "create", "--dry-run=server", "-f", "-"], input=json.dumps(forged), capture_output=True, text=True, timeout=30, check=False)
+        if result.returncode == 0 or "Lifecycle child provenance requires operator or administrator authority" not in result.stderr:
+            raise ValueError("Installed ordinary author forged lifecycle child provenance")
+        self.kubectl("patch", kind, name, "-n", namespace, "--type=merge", "-p", json.dumps(patch))
+
     def lifecycle_alias(self):
         """Exercise real Clone/configuration recovery with a read-only provider identity."""
         realm, namespace = "lifecycle-target", "lifecycle-auth"
@@ -829,7 +864,7 @@ class System:
             "enabled": True, "publicClient": True, "standardFlowEnabled": True, "directAccessGrantsEnabled": False,
             "serviceAccountsEnabled": False, "fullScopeAllowed": False, "redirectUris": ["https://lifecycle.example.test/callback"]})
         roles = ["view-realm", "view-clients", "view-identity-providers"]
-        self.adoption_operator(namespace, realm, [*roles, "view-users"], roles)
+        self.adoption_operator(namespace, realm, [*roles, "view-users"], roles, lifecycle_enabled=True)
         source = self.get("hankokeycloakinstance", "source", namespace)
         provider_before, client_before = self.api("GET", "/admin/realms/" + realm), self.client(realm, "lifecycle-spa")
         reader = self.get("secret", "inventory-credentials", namespace)["data"]
@@ -854,6 +889,8 @@ class System:
         self.kubectl("patch", "role", deployment, "-n", namespace, "--type=merge", "-p", json.dumps({"rules": blocked}))
         self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoOperation", "metadata": {"name": "clone", "namespace": namespace},
                     "spec": {"type": "Clone", "instanceRef": "source", "clone": {"targetName": "alias"}}})
+
+        self.approve_lifecycle("hankooperation", "clone", namespace)
 
         def blocked_snapshot():
             operation = self.get("hankooperation", "clone", namespace)
@@ -915,6 +952,7 @@ class System:
         foreign = self.get("hankokeycloakinstance", "foreign", namespace)
         self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoOperation", "metadata": {"name": "foreign", "namespace": namespace},
                     "spec": {"type": "Clone", "instanceRef": "source", "snapshotBefore": False, "clone": {"targetName": "foreign"}}})
+        self.approve_lifecycle("hankooperation", "foreign", namespace)
         wait("installed Clone refuses foreign target", lambda: self.get("hankooperation", "foreign", namespace).get("status", {}).get("phase") == "Failed")
         current = self.get("hankokeycloakinstance", "foreign", namespace)
         if (current["metadata"]["uid"] != foreign["metadata"]["uid"] or current["spec"] != foreign["spec"]
@@ -929,6 +967,7 @@ class System:
              "spec": {"mode": "external", "adminRef": {"name": "incomplete-inventory"}, "tlsCARef": "operator-ca"}},
             {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoOperation", "metadata": {"name": "incomplete", "namespace": namespace},
              "spec": {"type": "Clone", "instanceRef": "incomplete-source", "snapshotBefore": False, "clone": {"targetName": "incomplete-alias"}}})
+        self.approve_lifecycle("hankooperation", "incomplete", namespace)
         wait("installed Clone propagates a real denied inventory read", lambda: self.get("hankooperation", "incomplete", namespace).get("status", {}).get("phase") == "Failed", 180)
         failed = self.get("hankooperation", "incomplete", namespace)["status"]
         child = self.get("hankoimport", "op-incomplete-import", namespace)
@@ -1436,7 +1475,7 @@ def main():
                            "drift recovery after manager restart without duplicate client or credential rotation", "managed finalizer and Observe preservation", "runtime M2M projected-credential token and rotation", "SAML metadata binding and target-preserving cleanup",
                            "independent typed shared trust in external Observe realm; actual current kube-system UID/public API CA DER anchor and verified issuer/JWKS, three dedicated credentials, native UUID/journal, manager restart, explicit shared-age inventory review and zero-dependent provider-only cleanup",
                            "workload binding and native federated activation: actual cross-namespace named SA/CM get/patch, explicit approved UID and target UID consent, current owned native client and active public-only metadata, recreated-SA containment preserves complete native state except enabled=false; no TokenRequest/list/create/delete grant",
-                           "configuration-only Clone alias: read-only provider identities, actual ConfigMap-create RBAC denial, durable snapshot checkpoint, manager restart, same child UIDs, immutable capture, complete import and current verified-TLS target observation; foreign target refused and actual denied inventory propagated as failure without provider mutation",
+                           "configuration-only Clone alias: explicit lifecycle opt-in and UID/intent approval, ordinary author/operator self-approval and forged-child denial, read-only provider identities, actual ConfigMap-create RBAC denial, durable snapshot checkpoint, manager restart, same child UIDs, immutable capture, complete import and current verified-TLS target observation; foreign target refused and actual denied inventory propagated as failure without provider mutation",
                            "no credentials in logs/events/CRDs"],
                 "organization_permissions": {"scope": "organization-target only", "roles": ["manage-realm", "manage-clients", "manage-events", "manage-users"],
                                              "denied": ["master administration", "managed realm administration", "realm creation", "identity providers"]},

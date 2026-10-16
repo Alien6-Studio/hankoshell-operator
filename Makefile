@@ -31,6 +31,7 @@ all: check build
 check: fmt-check vet test chart-test coverage
 preflight: fmt-check vet generated-check
 	python3 scripts/public-contract.py check
+	python3 scripts/stable-contract.py
 	python3 -m unittest discover -s scripts -p 'test_*.py'
 
 fmt-check:
@@ -65,6 +66,7 @@ chart-test:
 	python3 $(CHART)/tests/observability.py
 	python3 $(CHART)/tests/organization-projection.py
 	python3 $(CHART)/tests/experimental-provider.py
+	python3 $(CHART)/tests/lifecycle.py
 	python3 $(CHART)/tests/kubernetes-compatibility.py
 	python3 $(CHART)/tests/workload-binding.py
 integration-test: $(GOTESTSUM)

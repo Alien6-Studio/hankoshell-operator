@@ -1,3 +1,8 @@
+{{- if not (kindIs "bool" .Values.lifecycle.enabled) }}{{ fail "lifecycle.enabled must be a boolean" }}{{ end }}
+{{- if not (kindIs "slice" .Values.lifecycle.adminGroups) }}{{ fail "lifecycle.adminGroups must be a list" }}{{ end }}
+{{- range .Values.lifecycle.adminGroups }}
+{{- if or (not (kindIs "string" .)) (eq . "") (hasPrefix "system:serviceaccounts" .) (eq . "system:authenticated") (eq . "system:unauthenticated") }}{{ fail "lifecycle.adminGroups must name independent administrator groups" }}{{ end }}
+{{- end }}
 {{- include "hanko-operator.validateProfile" . }}
 {{- include "hanko-operator.validateMetrics" . }}
 {{- if or (hasKey .Values.env "HANKO_EXPERIMENTAL_AUTHENTIK_CONNECTIONS") (hasKey .Values.env "HANKO_EXPERIMENTAL_AUTHENTIK_ENABLED") }}{{ fail "experimental provider environment is controlled by experimental.authentik values" }}{{ end }}
@@ -156,6 +161,7 @@ spec:
             - --metrics-bind-address={{ ternary ":8080" "0" .Values.metrics.enabled }}
             - --watch-namespace={{ .Release.Namespace }}
             - --leader-elect={{ .Values.leaderElect }}
+            - --lifecycle-enabled={{ .Values.lifecycle.enabled }}
           ports:
             {{- if .Values.metrics.enabled }}
             - name: metrics

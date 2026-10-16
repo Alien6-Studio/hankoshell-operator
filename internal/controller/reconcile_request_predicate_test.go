@@ -73,7 +73,7 @@ func TestGenerationOrReconcileRequestChanged(t *testing.T) {
 func TestAdoptionMetadataChangesEnqueueEachLeafWithoutGenerationChange(t *testing.T) {
 	for _, object := range []client.Object{&hankoshv1alpha1.HankoApplication{}, &hankoshv1alpha1.HankoRole{}, &hankoshv1alpha1.HankoServiceAccount{}} {
 		object.SetGeneration(8)
-		for _, key := range []string{adoption.SourceAnnotation, adoption.ContractAnnotation, adoption.CandidateAnnotation, "hanko.sh/migrate-keycloak-client-uuid", "hanko.sh/migrate-keycloak-observation"} {
+		for _, key := range []string{lifecycleApprovalAnnotation, adoption.SourceAnnotation, adoption.ContractAnnotation, adoption.CandidateAnnotation, "hanko.sh/migrate-keycloak-client-uuid", "hanko.sh/migrate-keycloak-observation"} {
 			for _, value := range []string{"", "reviewed"} {
 				changed := object.DeepCopyObject().(client.Object)
 				changed.SetAnnotations(map[string]string{key: value})

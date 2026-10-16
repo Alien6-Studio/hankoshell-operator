@@ -100,6 +100,9 @@ func (r *HankoSnapshotReconciler) ensureSnapshotConfig(ctx context.Context, snap
 		if err := controllerutil.SetControllerReference(snapshot, cm, r.Scheme); err != nil {
 			return true, r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"OwnerRefError", err.Error(), "configuration owner reference"})
 		}
+		if err := checkLifecycleAuthority(ctx); err != nil {
+			return true, err
+		}
 		if err := r.Create(ctx, cm); err != nil {
 			return true, err
 		}

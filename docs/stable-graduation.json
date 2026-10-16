@@ -1,0 +1,1285 @@
+{
+  "schemaVersion": 1,
+  "stage": "development",
+  "ratified": false,
+  "decisionIssue": 90,
+  "criteria": {
+    "conformance": {
+      "threshold": "Every applicable frozen fixture passes with zero unaccepted lossy outcomes; unsupported outcomes remain explicit.",
+      "evidence": "internal/iamconformance/testdata/portable-v1/corpus.json"
+    },
+    "installed": {
+      "threshold": "Every supported Kubernetes/Keycloak cell passes the applicable installed scenarios on the candidate or a documented unchanged surface.",
+      "evidence": "scripts/system-test.py"
+    },
+    "production": {
+      "threshold": "At least two independent installations, two public operator releases and one real upgrade/rollback path for this resource; sanitized reports linked.",
+      "evidence": "docs/stable-graduation.md"
+    },
+    "ownership": {
+      "threshold": "Zero unexpected foreign writes; UID recreation, cleanup, replay, restart and concurrent-writer negatives pass.",
+      "evidence": "docs/architecture/existing-keycloak-adoption.md"
+    },
+    "compatibility": {
+      "threshold": "Lossless served-version round trips and upgrade/rollback from every supported public predecessor; no unresolved pending-transaction loss.",
+      "evidence": "docs/api-migration-policy.md"
+    },
+    "security": {
+      "threshold": "Zero open Critical/High findings, all accepted findings reviewed, and stable-surface review at most 90 days old.",
+      "evidence": "SECURITY.md"
+    },
+    "operations": {
+      "threshold": "Every documented installation/recovery/rollback command has a named passing fixture, or is explicitly marked unqualified.",
+      "evidence": "docs/secure-deployment.md"
+    },
+    "blockers": {
+      "threshold": "Zero unresolved graduation blockers; explicit approval and community review recorded in #89/#104.",
+      "evidence": "docs/public-contract-selection.md"
+    }
+  },
+  "resources": [
+    {
+      "kind": "HankoApplication",
+      "disposition": "staying-alpha",
+      "targetVersion": "v1alpha1",
+      "criteria": [
+        "conformance",
+        "installed",
+        "production",
+        "ownership",
+        "compatibility",
+        "security",
+        "operations",
+        "blockers"
+      ],
+      "specGroups": {
+        "attributes": {
+          "maturity": "alpha",
+          "providerNative": true
+        },
+        "clientID": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "clientSecretProjections": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "identityMappings": {
+          "maturity": "alpha",
+          "providerNative": true
+        },
+        "mode": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "postLogoutRedirectURIs": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "protocol": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "realmRef": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "realmRoleScopes": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "redirectURIs": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "roles": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "runtimeBindings": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "saml": {
+          "maturity": "alpha",
+          "providerNative": true
+        },
+        "secretRotationPolicy": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "theme": {
+          "maturity": "alpha",
+          "providerNative": true
+        },
+        "tokenClaims": {
+          "maturity": "alpha",
+          "providerNative": true
+        },
+        "type": {
+          "maturity": "alpha",
+          "providerNative": false
+        }
+      },
+      "statusGroups": {
+        "adoptionCandidate": "alpha",
+        "adoptionReceipt": "alpha",
+        "appliedGeneration": "alpha",
+        "appliedPlanHash": "alpha",
+        "backendKind": "alpha",
+        "capabilities": "alpha",
+        "capabilityEvidence": "alpha",
+        "clientSecret": "alpha",
+        "conditions": "alpha",
+        "contractVersion": "alpha",
+        "driftState": "alpha",
+        "evaluatedGeneration": "alpha",
+        "evaluatedPlanHash": "alpha",
+        "findings": "alpha",
+        "intentHash": "alpha",
+        "lastReconciled": "alpha",
+        "lastRotated": "alpha",
+        "managedClientSecretProjections": "alpha",
+        "managedIdentityMappings": "alpha",
+        "managedTokenClaims": "alpha",
+        "nextRotation": "alpha",
+        "observationComplete": "alpha",
+        "observationGeneration": "alpha",
+        "observationPlanHash": "alpha",
+        "observedGeneration": "alpha",
+        "observedStateHash": "alpha",
+        "oidcEndpoints": "alpha",
+        "phase": "alpha",
+        "protocol": "alpha",
+        "runtimeBindings": "alpha",
+        "samlEndpoints": "alpha"
+      },
+      "evidence": [
+        "docs/architecture/application-identity.md",
+        "docs/public-contract-selection.json"
+      ],
+      "productionEvidence": [],
+      "blockers": [
+        "No public production compatibility evidence (#88).",
+        "Stable versions, migration and public-predecessor rollback remain pending (#91\u2013#93).",
+        "Stable security review and operational/scale/HA evidence remain pending (#95\u2013#99, #103)."
+      ]
+    },
+    {
+      "kind": "HankoEmailProvider",
+      "disposition": "experimental",
+      "targetVersion": "v1alpha1",
+      "criteria": [
+        "conformance",
+        "installed",
+        "production",
+        "ownership",
+        "compatibility",
+        "security",
+        "operations",
+        "blockers"
+      ],
+      "specGroups": {
+        "enabled": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "fromAddress": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "fromName": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "office365": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "testNonce": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "type": {
+          "maturity": "experimental",
+          "providerNative": false
+        }
+      },
+      "statusGroups": {
+        "conditions": "experimental",
+        "credentialVersion": "experimental",
+        "lastPreflight": "experimental",
+        "observedGeneration": "experimental",
+        "phase": "experimental"
+      },
+      "evidence": [
+        "docs/secure-deployment.md",
+        "docs/public-contract-selection.json"
+      ],
+      "productionEvidence": [],
+      "blockers": [
+        "No public production compatibility evidence (#88).",
+        "Stable versions, migration and public-predecessor rollback remain pending (#91\u2013#93).",
+        "Stable security review and operational/scale/HA evidence remain pending (#95\u2013#99, #103)."
+      ]
+    },
+    {
+      "kind": "HankoIAMProfile",
+      "disposition": "staying-alpha",
+      "targetVersion": "v1alpha1",
+      "criteria": [
+        "conformance",
+        "installed",
+        "production",
+        "ownership",
+        "compatibility",
+        "security",
+        "operations",
+        "blockers"
+      ],
+      "specGroups": {
+        "security": {
+          "maturity": "alpha",
+          "providerNative": false
+        }
+      },
+      "statusGroups": {
+        "conditions": "alpha",
+        "lastValidated": "alpha",
+        "observedGeneration": "alpha",
+        "phase": "alpha",
+        "policyHash": "alpha"
+      },
+      "evidence": [
+        "docs/architecture/iam-contract-engine.md",
+        "docs/public-contract-selection.json"
+      ],
+      "productionEvidence": [],
+      "blockers": [
+        "No public production compatibility evidence (#88).",
+        "Stable versions, migration and public-predecessor rollback remain pending (#91\u2013#93).",
+        "Stable security review and operational/scale/HA evidence remain pending (#95\u2013#99, #103)."
+      ]
+    },
+    {
+      "kind": "HankoImport",
+      "disposition": "experimental",
+      "targetVersion": "v1alpha1",
+      "criteria": [
+        "conformance",
+        "installed",
+        "production",
+        "ownership",
+        "compatibility",
+        "security",
+        "operations",
+        "blockers"
+      ],
+      "specGroups": {
+        "dryRun": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "includeClients": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "includeIdentityProviders": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "includeServiceAccounts": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "realms": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "sourceRef": {
+          "maturity": "experimental",
+          "providerNative": false
+        }
+      },
+      "statusGroups": {
+        "applied": "experimental",
+        "completedAt": "experimental",
+        "conditions": "experimental",
+        "coverage": "experimental",
+        "discovered": "experimental",
+        "findings": "experimental",
+        "inventory": "experimental",
+        "lastReconciled": "experimental",
+        "phase": "experimental",
+        "skipped": "experimental"
+      },
+      "evidence": [
+        "docs/secure-deployment.md",
+        "docs/public-contract-selection.json"
+      ],
+      "productionEvidence": [],
+      "blockers": [
+        "No public production compatibility evidence (#88).",
+        "Stable versions, migration and public-predecessor rollback remain pending (#91\u2013#93).",
+        "Stable security review and operational/scale/HA evidence remain pending (#95\u2013#99, #103)."
+      ]
+    },
+    {
+      "kind": "HankoIssuer",
+      "disposition": "staying-alpha",
+      "targetVersion": "v1alpha1",
+      "criteria": [
+        "conformance",
+        "installed",
+        "production",
+        "ownership",
+        "compatibility",
+        "security",
+        "operations",
+        "blockers"
+      ],
+      "specGroups": {
+        "host": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "realmRef": {
+          "maturity": "alpha",
+          "providerNative": false
+        }
+      },
+      "statusGroups": {
+        "conditions": "alpha",
+        "configuredHost": "alpha",
+        "lastReconciled": "alpha",
+        "phase": "alpha"
+      },
+      "evidence": [
+        "docs/secure-deployment.md",
+        "docs/public-contract-selection.json"
+      ],
+      "productionEvidence": [],
+      "blockers": [
+        "No public production compatibility evidence (#88).",
+        "Stable versions, migration and public-predecessor rollback remain pending (#91\u2013#93).",
+        "Stable security review and operational/scale/HA evidence remain pending (#95\u2013#99, #103)."
+      ]
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "disposition": "experimental",
+      "targetVersion": "v1alpha1",
+      "criteria": [
+        "conformance",
+        "installed",
+        "production",
+        "ownership",
+        "compatibility",
+        "security",
+        "operations",
+        "blockers"
+      ],
+      "specGroups": {
+        "adminRef": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "adopted": {
+          "maturity": "experimental",
+          "providerNative": true
+        },
+        "hardenMasterRealm": {
+          "maturity": "experimental",
+          "providerNative": true
+        },
+        "managed": {
+          "maturity": "experimental",
+          "providerNative": true
+        },
+        "mode": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "rotateAdminCredentials": {
+          "maturity": "experimental",
+          "providerNative": true
+        },
+        "tlsCARef": {
+          "maturity": "experimental",
+          "providerNative": false
+        }
+      },
+      "statusGroups": {
+        "adminAPIURL": "experimental",
+        "conditions": "experimental",
+        "keycloakVersion": "experimental",
+        "lastCredentialRotation": "experimental",
+        "lastProbed": "experimental",
+        "lastReconciled": "experimental",
+        "managedObservation": "experimental",
+        "nextCredentialRotation": "experimental",
+        "phase": "experimental",
+        "realmCount": "experimental"
+      },
+      "evidence": [
+        "docs/secure-deployment.md",
+        "docs/public-contract-selection.json"
+      ],
+      "productionEvidence": [],
+      "blockers": [
+        "No public production compatibility evidence (#88).",
+        "Stable versions, migration and public-predecessor rollback remain pending (#91\u2013#93).",
+        "Stable security review and operational/scale/HA evidence remain pending (#95\u2013#99, #103)."
+      ]
+    },
+    {
+      "kind": "HankoMeshService",
+      "disposition": "experimental",
+      "targetVersion": "v1alpha1",
+      "criteria": [
+        "conformance",
+        "installed",
+        "production",
+        "ownership",
+        "compatibility",
+        "security",
+        "operations",
+        "blockers"
+      ],
+      "specGroups": {
+        "egress": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "enforcementMode": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "identityRef": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "ports": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "resourceServerRef": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "serviceRef": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "tenantRef": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "workloadServiceAccountRef": {
+          "maturity": "experimental",
+          "providerNative": false
+        }
+      },
+      "statusGroups": {
+        "audience": "experimental",
+        "clusterID": "experimental",
+        "conditions": "experimental",
+        "enforcementMode": "experimental",
+        "lastResolved": "experimental",
+        "observedGeneration": "experimental",
+        "phase": "experimental",
+        "realm": "experimental",
+        "receiverNodeUIDs": "experimental",
+        "resolvedEgress": "experimental",
+        "resolvedPorts": "experimental",
+        "selectorSHA256": "experimental",
+        "serviceUID": "experimental",
+        "tenantID": "experimental",
+        "workloadID": "experimental",
+        "workloadServiceAccountUID": "experimental"
+      },
+      "evidence": [
+        "docs/secure-deployment.md",
+        "docs/public-contract-selection.json"
+      ],
+      "productionEvidence": [],
+      "blockers": [
+        "No public production compatibility evidence (#88).",
+        "Stable versions, migration and public-predecessor rollback remain pending (#91\u2013#93).",
+        "Stable security review and operational/scale/HA evidence remain pending (#95\u2013#99, #103)."
+      ]
+    },
+    {
+      "kind": "HankoOperation",
+      "disposition": "experimental",
+      "targetVersion": "v1alpha1",
+      "criteria": [
+        "conformance",
+        "installed",
+        "production",
+        "ownership",
+        "compatibility",
+        "security",
+        "operations",
+        "blockers"
+      ],
+      "specGroups": {
+        "clone": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "dbSwitch": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "dryRun": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "instanceRef": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "snapshotBefore": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "type": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "upgrade": {
+          "maturity": "experimental",
+          "providerNative": false
+        }
+      },
+      "statusGroups": {
+        "completedAt": "experimental",
+        "conditions": "experimental",
+        "instanceUID": "experimental",
+        "intentHash": "experimental",
+        "lastReconciled": "experimental",
+        "phase": "experimental",
+        "snapshotRef": "experimental",
+        "startedAt": "experimental",
+        "startedGeneration": "experimental",
+        "steps": "experimental"
+      },
+      "evidence": [
+        "docs/secure-deployment.md",
+        "docs/public-contract-selection.json"
+      ],
+      "productionEvidence": [],
+      "blockers": [
+        "No public production compatibility evidence (#88).",
+        "Stable versions, migration and public-predecessor rollback remain pending (#91\u2013#93).",
+        "Stable security review and operational/scale/HA evidence remain pending (#95\u2013#99, #103).",
+        "Lifecycle APIs are formally excluded from the 1.0 stable contract; see ADR-050."
+      ]
+    },
+    {
+      "kind": "HankoOrganization",
+      "disposition": "staying-alpha",
+      "targetVersion": "v1alpha1",
+      "criteria": [
+        "conformance",
+        "installed",
+        "production",
+        "ownership",
+        "compatibility",
+        "security",
+        "operations",
+        "blockers"
+      ],
+      "specGroups": {
+        "clientRoles": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "domains": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "identityProvider": {
+          "maturity": "alpha",
+          "providerNative": true
+        },
+        "mode": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "name": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "parentRef": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "realmRef": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "roles": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "slug": {
+          "maturity": "alpha",
+          "providerNative": false
+        }
+      },
+      "statusGroups": {
+        "adoptionCandidate": "alpha",
+        "adoptionReceipt": "alpha",
+        "conditions": "alpha",
+        "groupID": "alpha",
+        "groupPath": "alpha",
+        "lastReconciled": "alpha",
+        "observedGeneration": "alpha",
+        "orgID": "alpha",
+        "phase": "alpha",
+        "positionID": "alpha"
+      },
+      "evidence": [
+        "docs/architecture/organizational-authorization.md",
+        "docs/public-contract-selection.json"
+      ],
+      "productionEvidence": [],
+      "blockers": [
+        "No public production compatibility evidence (#88).",
+        "Stable versions, migration and public-predecessor rollback remain pending (#91\u2013#93).",
+        "Stable security review and operational/scale/HA evidence remain pending (#95\u2013#99, #103)."
+      ]
+    },
+    {
+      "kind": "HankoRealm",
+      "disposition": "staying-alpha",
+      "targetVersion": "v1alpha1",
+      "criteria": [
+        "conformance",
+        "installed",
+        "production",
+        "ownership",
+        "compatibility",
+        "security",
+        "operations",
+        "blockers"
+      ],
+      "specGroups": {
+        "displayName": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "email": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "frontendURL": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "iamProfileRef": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "identityProviders": {
+          "maturity": "alpha",
+          "providerNative": true
+        },
+        "loginTheme": {
+          "maturity": "alpha",
+          "providerNative": true
+        },
+        "otpRequired": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "roles": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "securityProfile": {
+          "maturity": "alpha",
+          "providerNative": true
+        }
+      },
+      "statusGroups": {
+        "appliedMFAPolicy": "alpha",
+        "conditions": "alpha",
+        "effectiveIAMProfile": "alpha",
+        "effectivePolicyHash": "alpha",
+        "keycloakRealmID": "alpha",
+        "lastReconciled": "alpha",
+        "managedIdentityProviders": "alpha",
+        "observedGeneration": "alpha",
+        "phase": "alpha",
+        "policyRevision": "alpha"
+      },
+      "evidence": [
+        "docs/architecture/iam-contract-engine.md",
+        "docs/public-contract-selection.json"
+      ],
+      "productionEvidence": [],
+      "blockers": [
+        "No public production compatibility evidence (#88).",
+        "Stable versions, migration and public-predecessor rollback remain pending (#91\u2013#93).",
+        "Stable security review and operational/scale/HA evidence remain pending (#95\u2013#99, #103)."
+      ]
+    },
+    {
+      "kind": "HankoResourceServer",
+      "disposition": "staying-alpha",
+      "targetVersion": "v1alpha1",
+      "criteria": [
+        "conformance",
+        "installed",
+        "production",
+        "ownership",
+        "compatibility",
+        "security",
+        "operations",
+        "blockers"
+      ],
+      "specGroups": {
+        "applicationRef": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "audience": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "displayName": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "mode": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "permissions": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "realmRef": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "resources": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "scopes": {
+          "maturity": "alpha",
+          "providerNative": false
+        }
+      },
+      "statusGroups": {
+        "adoptionCandidate": "alpha",
+        "adoptionReceipt": "alpha",
+        "appliedGeneration": "alpha",
+        "appliedPlanHash": "alpha",
+        "authorizationExplanation": "alpha",
+        "backendKind": "alpha",
+        "capabilities": "alpha",
+        "capabilityEvidence": "alpha",
+        "conditions": "alpha",
+        "contractVersion": "alpha",
+        "driftState": "alpha",
+        "evaluatedGeneration": "alpha",
+        "evaluatedPlanHash": "alpha",
+        "findings": "alpha",
+        "intentHash": "alpha",
+        "lastReconciled": "alpha",
+        "managedObjects": "alpha",
+        "observationComplete": "alpha",
+        "observationGeneration": "alpha",
+        "observationPlanHash": "alpha",
+        "observedGeneration": "alpha",
+        "observedStateHash": "alpha",
+        "phase": "alpha",
+        "providerResourceServerID": "alpha"
+      },
+      "evidence": [
+        "docs/architecture/organizational-authorization.md",
+        "docs/public-contract-selection.json"
+      ],
+      "productionEvidence": [],
+      "blockers": [
+        "No public production compatibility evidence (#88).",
+        "Stable versions, migration and public-predecessor rollback remain pending (#91\u2013#93).",
+        "Stable security review and operational/scale/HA evidence remain pending (#95\u2013#99, #103)."
+      ]
+    },
+    {
+      "kind": "HankoRole",
+      "disposition": "staying-alpha",
+      "targetVersion": "v1alpha1",
+      "criteria": [
+        "conformance",
+        "installed",
+        "production",
+        "ownership",
+        "compatibility",
+        "security",
+        "operations",
+        "blockers"
+      ],
+      "specGroups": {
+        "attributes": {
+          "maturity": "alpha",
+          "providerNative": true
+        },
+        "composite": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "composites": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "description": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "mode": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "name": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "realmRef": {
+          "maturity": "alpha",
+          "providerNative": false
+        }
+      },
+      "statusGroups": {
+        "adoptionCandidate": "alpha",
+        "adoptionReceipt": "alpha",
+        "appliedGeneration": "alpha",
+        "appliedPlanHash": "alpha",
+        "backendKind": "alpha",
+        "capabilities": "alpha",
+        "capabilityEvidence": "alpha",
+        "conditions": "alpha",
+        "contractVersion": "alpha",
+        "driftState": "alpha",
+        "evaluatedGeneration": "alpha",
+        "evaluatedPlanHash": "alpha",
+        "findings": "alpha",
+        "intentHash": "alpha",
+        "lastReconciled": "alpha",
+        "observationComplete": "alpha",
+        "observationGeneration": "alpha",
+        "observationPlanHash": "alpha",
+        "observedGeneration": "alpha",
+        "observedStateHash": "alpha",
+        "phase": "alpha"
+      },
+      "evidence": [
+        "docs/architecture/iam-contract-engine.md",
+        "docs/public-contract-selection.json"
+      ],
+      "productionEvidence": [],
+      "blockers": [
+        "No public production compatibility evidence (#88).",
+        "Stable versions, migration and public-predecessor rollback remain pending (#91\u2013#93).",
+        "Stable security review and operational/scale/HA evidence remain pending (#95\u2013#99, #103)."
+      ]
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "disposition": "staying-alpha",
+      "targetVersion": "v1alpha1",
+      "criteria": [
+        "conformance",
+        "installed",
+        "production",
+        "ownership",
+        "compatibility",
+        "security",
+        "operations",
+        "blockers"
+      ],
+      "specGroups": {
+        "attributes": {
+          "maturity": "alpha",
+          "providerNative": true
+        },
+        "authentication": {
+          "maturity": "alpha",
+          "providerNative": true
+        },
+        "clientID": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "mode": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "realmRef": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "runtimeMetadata": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "scopes": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "secretRotationPolicy": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "tokenClaims": {
+          "maturity": "alpha",
+          "providerNative": true
+        }
+      },
+      "statusGroups": {
+        "adoptionCandidate": "alpha",
+        "adoptionReceipt": "alpha",
+        "authenticationTransition": "alpha",
+        "conditions": "alpha",
+        "lastReconciled": "alpha",
+        "lastRotated": "alpha",
+        "managedTokenClaims": "alpha",
+        "nextRotation": "alpha",
+        "observedGeneration": "alpha",
+        "phase": "alpha",
+        "runtimeMetadata": "alpha",
+        "secretRef": "alpha",
+        "workloadBinding": "alpha"
+      },
+      "evidence": [
+        "docs/keycloak-permissions.md",
+        "docs/public-contract-selection.json"
+      ],
+      "productionEvidence": [],
+      "blockers": [
+        "No public production compatibility evidence (#88).",
+        "Stable versions, migration and public-predecessor rollback remain pending (#91\u2013#93).",
+        "Stable security review and operational/scale/HA evidence remain pending (#95\u2013#99, #103)."
+      ]
+    },
+    {
+      "kind": "HankoSnapshot",
+      "disposition": "experimental",
+      "targetVersion": "v1alpha1",
+      "criteria": [
+        "conformance",
+        "installed",
+        "production",
+        "ownership",
+        "compatibility",
+        "security",
+        "operations",
+        "blockers"
+      ],
+      "specGroups": {
+        "backupImage": {
+          "maturity": "experimental",
+          "providerNative": true
+        },
+        "backupPVC": {
+          "maturity": "experimental",
+          "providerNative": true
+        },
+        "backupSecretRef": {
+          "maturity": "experimental",
+          "providerNative": true
+        },
+        "includeData": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "instanceRef": {
+          "maturity": "experimental",
+          "providerNative": false
+        }
+      },
+      "statusGroups": {
+        "conditions": "experimental",
+        "configHash": "experimental",
+        "configMapRef": "experimental",
+        "configMapUID": "experimental",
+        "dbJobRef": "experimental",
+        "dbJobUID": "experimental",
+        "instanceUID": "experimental",
+        "intentHash": "experimental",
+        "lastReconciled": "experimental",
+        "phase": "experimental",
+        "startedGeneration": "experimental",
+        "takenAt": "experimental"
+      },
+      "evidence": [
+        "docs/secure-deployment.md",
+        "docs/public-contract-selection.json"
+      ],
+      "productionEvidence": [],
+      "blockers": [
+        "No public production compatibility evidence (#88).",
+        "Stable versions, migration and public-predecessor rollback remain pending (#91\u2013#93).",
+        "Stable security review and operational/scale/HA evidence remain pending (#95\u2013#99, #103).",
+        "Lifecycle APIs are formally excluded from the 1.0 stable contract; see ADR-050."
+      ]
+    },
+    {
+      "kind": "HankoTenant",
+      "disposition": "experimental",
+      "targetVersion": "v1alpha1",
+      "criteria": [
+        "conformance",
+        "installed",
+        "production",
+        "ownership",
+        "compatibility",
+        "security",
+        "operations",
+        "blockers"
+      ],
+      "specGroups": {
+        "clusterName": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "hubEndpoint": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "hubEnrollSecretRef": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "hubEnrollmentEndpoint": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "hubTenantID": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "hubTokenSecretRef": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "hubTransport": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "isolationMode": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "keycloakSecretRef": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "realmRef": {
+          "maturity": "experimental",
+          "providerNative": false
+        }
+      },
+      "statusGroups": {
+        "bundleVersion": "experimental",
+        "clusterID": "experimental",
+        "conditions": "experimental",
+        "connectedHub": "experimental",
+        "fleetPlan": "experimental",
+        "fleetRollout": "experimental",
+        "lastReconciled": "experimental",
+        "lastSync": "experimental",
+        "observedGeneration": "experimental",
+        "phase": "experimental",
+        "tenantID": "experimental"
+      },
+      "evidence": [
+        "docs/secure-deployment.md",
+        "docs/public-contract-selection.json"
+      ],
+      "productionEvidence": [],
+      "blockers": [
+        "No public production compatibility evidence (#88).",
+        "Stable versions, migration and public-predecessor rollback remain pending (#91\u2013#93).",
+        "Stable security review and operational/scale/HA evidence remain pending (#95\u2013#99, #103)."
+      ]
+    },
+    {
+      "kind": "HankoTheme",
+      "disposition": "experimental",
+      "targetVersion": "v1alpha1",
+      "criteria": [
+        "conformance",
+        "installed",
+        "production",
+        "ownership",
+        "compatibility",
+        "security",
+        "operations",
+        "blockers"
+      ],
+      "specGroups": {
+        "backgroundColor": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "buildImage": {
+          "maturity": "experimental",
+          "providerNative": true
+        },
+        "fontFamily": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "foregroundColor": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "headline": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "imagePullSecrets": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "jarName": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "keycloakPVC": {
+          "maturity": "experimental",
+          "providerNative": true
+        },
+        "logoURL": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "primaryColor": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "rebuildNonce": {
+          "maturity": "experimental",
+          "providerNative": false
+        },
+        "subline": {
+          "maturity": "experimental",
+          "providerNative": false
+        }
+      },
+      "statusGroups": {
+        "buildJob": "experimental",
+        "conditions": "experimental",
+        "installedBuildImage": "experimental",
+        "installedImagePullSecrets": "experimental",
+        "installedPVC": "experimental",
+        "jarPath": "experimental",
+        "lastBuilt": "experimental",
+        "lastReconciled": "experimental",
+        "observedGeneration": "experimental",
+        "phase": "experimental"
+      },
+      "evidence": [
+        "docs/secure-deployment.md",
+        "docs/public-contract-selection.json"
+      ],
+      "productionEvidence": [],
+      "blockers": [
+        "No public production compatibility evidence (#88).",
+        "Stable versions, migration and public-predecessor rollback remain pending (#91\u2013#93).",
+        "Stable security review and operational/scale/HA evidence remain pending (#95\u2013#99, #103)."
+      ]
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "disposition": "staying-alpha",
+      "targetVersion": "v1alpha1",
+      "criteria": [
+        "conformance",
+        "installed",
+        "production",
+        "ownership",
+        "compatibility",
+        "security",
+        "operations",
+        "blockers"
+      ],
+      "specGroups": {
+        "dependentReaderRef": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "keycloakAlias": {
+          "maturity": "alpha",
+          "providerNative": true
+        },
+        "kubernetes": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "mode": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "provider": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "qualifiedKeycloakVersion": {
+          "maturity": "alpha",
+          "providerNative": true
+        },
+        "realmRef": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "sourceRef": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
+        "writerRef": {
+          "maturity": "alpha",
+          "providerNative": false
+        }
+      },
+      "statusGroups": {
+        "adoptionCandidate": "alpha",
+        "adoptionReceipt": "alpha",
+        "appliedPlanHash": "alpha",
+        "capabilities": "alpha",
+        "capabilityEvidence": "alpha",
+        "conditions": "alpha",
+        "contractVersion": "alpha",
+        "dependentInventoryHash": "alpha",
+        "dependents": "alpha",
+        "evaluatedPlanHash": "alpha",
+        "intentHash": "alpha",
+        "observationComplete": "alpha",
+        "observedGeneration": "alpha",
+        "observedStateHash": "alpha",
+        "phase": "alpha",
+        "providerID": "alpha",
+        "realmID": "alpha",
+        "sharedAgeReviewHash": "alpha"
+      },
+      "evidence": [
+        "docs/secure-deployment.md",
+        "docs/public-contract-selection.json"
+      ],
+      "productionEvidence": [],
+      "blockers": [
+        "No public production compatibility evidence (#88).",
+        "Stable versions, migration and public-predecessor rollback remain pending (#91\u2013#93).",
+        "Stable security review and operational/scale/HA evidence remain pending (#95\u2013#99, #103)."
+      ]
+    }
+  ]
+}

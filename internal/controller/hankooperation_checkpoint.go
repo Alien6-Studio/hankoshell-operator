@@ -96,6 +96,9 @@ func (r *HankoOperationReconciler) operationChild(ctx context.Context, op *api.H
 		child.SetOwnerReferences([]metav1.OwnerReference{{APIVersion: api.GroupVersion.String(), Kind: "HankoOperation", Name: op.Name, UID: op.UID, Controller: &controller}})
 		child.SetAnnotations(map[string]string{operationIntentAnnotation: op.Status.IntentHash})
 		child.SetLabels(tenantScopeLabels(op))
+		if err := checkLifecycleAuthority(ctx); err != nil {
+			return false, err
+		}
 		if err := r.Create(ctx, child); err != nil {
 			return false, err
 		}

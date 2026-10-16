@@ -34,6 +34,21 @@ def mutation(name, file, before, after, package, test):
 
 
 MUTATIONS = [
+    mutation("lifecycle-independent-approval", "internal/controller/lifecycle_authority.go",
+             'if object.GetAnnotations()[lifecycleApprovalAnnotation] == expected {',
+             'if true || object.GetAnnotations()[lifecycleApprovalAnnotation] == expected {',
+             "internal/controller", "TestLifecycleGuardRequiresExactApprovalBeforeAnyEffect"),
+    mutation("lifecycle-mutation-recheck", "internal/controller/lifecycle_authority.go",
+             'if !allowed || current.GetUID() != object.GetUID() || current.GetGeneration() != object.GetGeneration() || currentExpected != expected || !current.GetDeletionTimestamp().IsZero() {',
+             'if false && (!allowed || current.GetUID() != object.GetUID() || current.GetGeneration() != object.GetGeneration() || currentExpected != expected || !current.GetDeletionTimestamp().IsZero()) {',
+             "internal/controller", "TestLifecycleRevocationIsRecheckedAtTheInstanceMutation"),
+    mutation("lifecycle-parent-revocation", "internal/controller/lifecycle_authority.go",
+             'parent.Annotations[lifecycleApprovalAnnotation] != lifecycleApprovalValue(&parent, operationIntentHash(&parent), string(instance.UID))',
+             'false && parent.Annotations[lifecycleApprovalAnnotation] != lifecycleApprovalValue(&parent, operationIntentHash(&parent), string(instance.UID))',
+             "internal/controller", "TestLifecycleSnapshotDelegationRequiresTheExactCurrentParentStep"),
+    mutation("lifecycle-database-tenant", "internal/controller/lifecycle_authority.go",
+             '!sameTenantScope(operation, &secret)', 'false && !sameTenantScope(operation, &secret)',
+             "internal/controller", "TestLifecycleDatabaseReferenceValidationIsBounded"),
     mutation("fleet-command-log-sanitization", "internal/controller/hankotenant_agent_update.go",
              'logger.Info("hub requested agent self-update", "tenant", tenant.Name)',
              'logger.Info("hub requested agent self-update", "tenant", tenant.Name, "version", command.Version)',

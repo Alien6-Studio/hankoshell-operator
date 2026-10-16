@@ -104,3 +104,8 @@ the release contract tests; they do not replace conformance or migration fixture
 evidence and real use. #82 still owns canonicalization/default/ownership goldens;
 #84 owns reusable cross-version and installed rollback fixtures. This inventory
 does not manufacture a predecessor release or certify downgrade compatibility.
+
+The [1.0 graduation criteria and per-resource records](stable-graduation.md)
+and [second-provider contract review](stable-provider-review.md) remain
+unratified development inputs. Lifecycle APIs are excluded from the stable 1.0
+contract and disabled by default; see [ADR-050](architecture/decisions/ADR-050-experimental-lifecycle-authority.md).
