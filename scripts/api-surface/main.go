@@ -11,7 +11,6 @@ import (
 	"go/types"
 	"io"
 	"os"
-	"os/exec"
 	"strings"
 )
 
@@ -23,6 +22,36 @@ type listedPackage struct {
 }
 
 func qualifier(pkg *types.Package) string { return pkg.Path() }
+
+func typeSignature(value *types.TypeName) string {
+	format := func(t types.Type) string { return types.TypeString(t, qualifier) }
+	result := "type " + format(value.Type().Underlying())
+	if value.IsAlias() {
+		result = "alias " + format(types.Unalias(value.Type()))
+	}
+	if generic, ok := value.Type().(interface{ TypeParams() *types.TypeParamList }); ok {
+		for index := 0; index < generic.TypeParams().Len(); index++ {
+			parameter := generic.TypeParams().At(index)
+			result += " [" + parameter.Obj().Name() + " " + format(parameter.Constraint()) + "]"
+		}
+	}
+	return result
+}
+
+func describeMethods(result map[string]string, name string, typeOf types.Type) {
+	for _, receiver := range []struct {
+		prefix string
+		typeOf types.Type
+	}{{name, typeOf}, {"*" + name, types.NewPointer(typeOf)}} {
+		methods := types.NewMethodSet(receiver.typeOf)
+		for index := 0; index < methods.Len(); index++ {
+			method := methods.At(index)
+			if method.Obj().Exported() {
+				result[receiver.prefix+"."+method.Obj().Name()] = types.TypeString(method.Type(), qualifier)
+			}
+		}
+	}
+}
 
 func describe(pkg *types.Package) map[string]string {
 	result := make(map[string]string)
@@ -40,35 +69,36 @@ func describe(pkg *types.Package) map[string]string {
 		case *types.Func:
 			result[name] = format(value.Type())
 		case *types.TypeName:
-			if value.IsAlias() {
-				result[name] = "alias " + format(types.Unalias(value.Type()))
-			} else {
-				result[name] = "type " + format(value.Type().Underlying())
-			}
-			if generic, ok := value.Type().(interface{ TypeParams() *types.TypeParamList }); ok {
-				for index := 0; index < generic.TypeParams().Len(); index++ {
-					parameter := generic.TypeParams().At(index)
-					result[name] += " [" + parameter.Obj().Name() + " " + format(parameter.Constraint()) + "]"
-				}
-			}
-			for _, receiver := range []struct {
-				prefix string
-				typeOf types.Type
-			}{{name, value.Type()}, {"*" + name, types.NewPointer(value.Type())}} {
-				methods := types.NewMethodSet(receiver.typeOf)
-				for index := 0; index < methods.Len(); index++ {
-					method := methods.At(index)
-					if method.Obj().Exported() {
-						result[receiver.prefix+"."+method.Obj().Name()] = format(method.Type())
-					}
-				}
-			}
+			result[name] = typeSignature(value)
+			describeMethods(result, name, value.Type())
 		}
 	}
 	return result
 }
 
-func snapshot(patterns []string) (map[string]map[string]string, error) {
+func exportInventory(input io.Reader) ([]string, map[string]string, error) {
+	decoder := json.NewDecoder(io.LimitReader(input, 32<<20))
+	exports := make(map[string]string)
+	var roots []string
+	for {
+		var pkg listedPackage
+		if err := decoder.Decode(&pkg); err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, nil, fmt.Errorf("invalid go export inventory")
+		}
+		if pkg.Error != nil {
+			return nil, nil, fmt.Errorf("go export inventory contains a package error")
+		}
+		exports[pkg.ImportPath] = pkg.Export
+		if !pkg.DepOnly {
+			roots = append(roots, pkg.ImportPath)
+		}
+	}
+	return roots, exports, nil
+}
+
+func snapshot(patterns []string, input io.Reader) (map[string]map[string]string, error) {
 	if len(patterns) == 0 {
 		return nil, fmt.Errorf("at least one reviewed package is required")
 	}
@@ -77,31 +107,12 @@ func snapshot(patterns []string) (map[string]map[string]string, error) {
 			return nil, fmt.Errorf("only exact local package paths are accepted")
 		}
 	}
-	command := exec.Command("go", append([]string{"list", "-deps", "-export", "-json"}, patterns...)...)
-	data, err := command.Output()
-	if err != nil || len(data) > 32<<20 {
-		return nil, fmt.Errorf("Go export inventory failed or exceeded its budget")
-	}
-	decoder := json.NewDecoder(strings.NewReader(string(data)))
-	exports := make(map[string]string)
-	var roots []string
-	for {
-		var pkg listedPackage
-		if err := decoder.Decode(&pkg); err == io.EOF {
-			break
-		} else if err != nil {
-			return nil, fmt.Errorf("invalid Go export inventory")
-		}
-		if pkg.Error != nil {
-			return nil, fmt.Errorf("Go export inventory contains a package error")
-		}
-		exports[pkg.ImportPath] = pkg.Export
-		if !pkg.DepOnly {
-			roots = append(roots, pkg.ImportPath)
-		}
+	roots, exports, err := exportInventory(input)
+	if err != nil {
+		return nil, err
 	}
 	if len(roots) != len(patterns) {
-		return nil, fmt.Errorf("Go API package selection was expanded or incomplete")
+		return nil, fmt.Errorf("go API package selection was expanded or incomplete")
 	}
 	reader := importer.ForCompiler(token.NewFileSet(), "gc", func(path string) (io.ReadCloser, error) {
 		filename := exports[path]
@@ -122,7 +133,7 @@ func snapshot(patterns []string) (map[string]map[string]string, error) {
 }
 
 func main() {
-	result, err := snapshot(os.Args[1:])
+	result, err := snapshot(os.Args[1:], os.Stdin)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

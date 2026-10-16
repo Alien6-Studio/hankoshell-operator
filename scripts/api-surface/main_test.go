@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"go/types"
+	"os/exec"
 	"reflect"
 	"strings"
 	"testing"
@@ -70,14 +72,18 @@ func TestExportedSurfaceIncludesPromotedMethodsAndGenericConstraints(t *testing.
 
 func TestSnapshotRefusesUnreviewedPackageExpansion(t *testing.T) {
 	for _, patterns := range [][]string{nil, {"../elsewhere"}, {"./../elsewhere"}, {"./..."}, {"./api\n"}} {
-		if _, err := snapshot(patterns); err == nil {
+		if _, err := snapshot(patterns, strings.NewReader("")); err == nil {
 			t.Fatal("unreviewed package path accepted")
 		}
 	}
 }
 
 func TestSnapshotResolvesLocalPackageAndExternalTypesWithoutExecutingIt(t *testing.T) {
-	actual, err := snapshot([]string{"./testdata/contract"})
+	inventory, err := exec.Command("go", "list", "-deps", "-export", "-json", "./testdata/contract").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	actual, err := snapshot([]string{"./testdata/contract"}, bytes.NewReader(inventory))
 	if err != nil {
 		t.Fatal(err)
 	}

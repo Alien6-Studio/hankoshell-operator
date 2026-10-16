@@ -22,7 +22,11 @@ def capture(root, packages):
     if (not isinstance(packages, list) or not packages or len(set(packages)) != len(packages)
             or any(not isinstance(p, str) or not p.startswith("./") or ".." in p or "\n" in p or "\r" in p for p in packages)):
         raise ValueError("Go API selection must contain unique exact local packages")
-    process = subprocess.run(["go", "run", "./scripts/api-surface", *packages], cwd=root,
+    inventory = subprocess.run(["go", "list", "-deps", "-export", "-json", *packages], cwd=root,
+                               stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=180, check=False)
+    if inventory.returncode or len(inventory.stdout) > 32 * 1024 * 1024:
+        raise ValueError("Go export inventory failed or exceeded its budget")
+    process = subprocess.run(["go", "run", "./scripts/api-surface", *packages], cwd=root, input=inventory.stdout,
                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=180, check=False)
     if process.returncode or len(process.stdout) > 8 * 1024 * 1024:
         raise ValueError("Compiler-resolved Go API capture failed or exceeded its budget")

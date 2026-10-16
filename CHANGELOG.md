@@ -15,7 +15,7 @@
 - Preserve fixed Fleet refusal Event reasons while discarding private details;
   wait for the updated ReplicaSet before metrics qualification and reject transport
   failures as evidence of authentication denial. Custom metric cardinality remains
-  bounded at 1,030 series per process.
+  bounded at 1,033 series per process.
 
 ### Qualification windows and compatibility review
 

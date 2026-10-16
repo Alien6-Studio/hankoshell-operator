@@ -18,6 +18,7 @@ func EventMessages() map[string]string {
 }
 
 var eventMessages = map[string]string{
+	"BundleTenantConflict":                "Tenant bundle ownership conflict requires administrator review",
 	"FleetAuthorityChanged":               "Fleet reconciliation refused; inspect condition reason",
 	"FleetCacheInvalid":                   "Fleet reconciliation refused; inspect condition reason",
 	"FleetCacheTooLarge":                  "Fleet reconciliation refused; inspect condition reason",
@@ -92,7 +93,7 @@ func EventReason(reason string) string {
 // TenantRefusalReason preserves the bounded Fleet decision used by operators and
 // installed qualification. Unknown reasons never become Event text or labels.
 func TenantRefusalReason(reason string) string {
-	if strings.HasPrefix(reason, "Fleet") && EventReason(reason) == reason {
+	if (strings.HasPrefix(reason, "Fleet") || reason == "BundleTenantConflict") && EventReason(reason) == reason {
 		return reason
 	}
 	return "TenantReconcileRefused"

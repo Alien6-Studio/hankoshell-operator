@@ -41,6 +41,7 @@
     "hanko_operator_leader": []
   },
   "event_reasons": [
+    "BundleTenantConflict",
     "ClientCreated",
     "FleetAuthorityChanged",
     "FleetCacheInvalid",
