@@ -153,6 +153,22 @@ class ScaleScenarioTests(unittest.TestCase):
                           "discovery": {"issuer": "private"}, "cluster_namespace_uid": "private", "native": {"secret": "private"}}
         self.assertEqual(fixture.public_evidence(), {"complete": False, "layer": "installed-scale", "counts": {"applications": 1000}})
 
+    def test_startup_waits_for_reconciliation_leadership_but_refuses_split_brain_and_stale_holder(self):
+        fixture = scale.Scale.__new__(scale.Scale)
+        fixture.scraper = SimpleNamespace(pod_names={"a": "leader", "b": "standby"}, sample=MagicMock(side_effect=[
+            {"a": frame(leader=0), "b": frame(leader=0)}, {"a": frame(), "b": frame(leader=0)}]))
+        fixture.get = MagicMock(return_value={"spec": {"holderIdentity": "leader_nonce"}})
+        with patch.object(scale.time, "sleep") as sleep:
+            fixture.await_leader()
+            sleep.assert_called_once_with(1)
+        fixture.scraper.sample = MagicMock(return_value={"a": frame(), "b": frame()})
+        with self.assertRaisesRegex(ValueError, "Multiple"):
+            fixture.await_leader()
+        fixture.scraper.sample = MagicMock(return_value={"a": frame(), "b": frame(leader=0)})
+        fixture.get.return_value = {"spec": {"holderIdentity": "standby_nonce"}}
+        with self.assertRaisesRegex(ValueError, "differs"):
+            fixture.await_leader()
+
     def test_wrong_image_graph_is_refused_before_any_cluster_or_output_directory(self):
         fixture_type = MagicMock()
         args = ["scale-test"]

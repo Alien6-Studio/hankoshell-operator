@@ -95,6 +95,7 @@ def checkout(revision):
 class Metrics:
     def __init__(self, fixture):
         self.fixture, self.forwards = fixture, {}
+        self.pod_names = {}
         self.directory = fixture.private / "scale-metrics"
         self.directory.mkdir(mode=0o700)
         ca, key = self.directory / "ca.crt", self.directory / "ca.key"
@@ -143,8 +144,10 @@ class Metrics:
         if len(ready) != 2:
             raise ValueError("A measured sample requires two Ready replicas")
         result = {}
+        names = {}
         for pod in ready:
             uid, name = pod["metadata"]["uid"], pod["metadata"]["name"]
+            names[uid] = name
             if uid not in self.forwards:
                 log = self.directory / (name + ".log")
                 stream = log.open("wb")
@@ -172,6 +175,7 @@ class Metrics:
                 process.kill()
                 process.wait(timeout=5)
             stream.close()
+        self.pod_names = names
         return result
 
 
@@ -198,6 +202,25 @@ class Scale(installed.Installed):
 
     def counts_by_kind(self):
         return {kind: sum(obj["kind"] == kind for obj in self.objects) for kind in RESOURCE}
+
+    def await_leader(self):
+        # Serving readiness deliberately excludes reconciliation leadership.
+        # A rollout can finish before the previous holder's lease expires.
+        # Wait only at these explicit startup/replacement boundaries; measured
+        # windows continue to reject zero leaders immediately.
+        deadline = time.monotonic() + 90
+        while time.monotonic() < deadline:
+            frames = self.scraper.sample()
+            leaders = [uid for uid, frame in frames.items() if frame["leader"]]
+            if len(leaders) > 1:
+                raise ValueError("Multiple observed leaders during fixture startup or replacement")
+            if leaders:
+                holder = self.get("lease", "hanko-operator.hanko.sh")["spec"].get("holderIdentity", "").rsplit("_", 1)[0]
+                if self.scraper.pod_names[leaders[0]] != holder:
+                    raise ValueError("Observed metrics leader differs from the current lease holder")
+                return
+            time.sleep(1)
+        raise ValueError("No reconciliation leader after startup or replacement budget")
 
     def observe(self):
         frame = self.ledger.observe(self.scraper.sample(), self.args.workers)
@@ -303,6 +326,7 @@ class Scale(installed.Installed):
         wait("scale leader replacement", lambda: bool(self.get("lease", "hanko-operator.hanko.sh")["spec"].get("holderIdentity")) and
              self.get("lease", "hanko-operator.hanko.sh")["spec"]["holderIdentity"] != old_holder, 120)
         self.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=180s")
+        self.await_leader()
         try:
             code = self.burst.wait(timeout=240)
         except subprocess.TimeoutExpired:
@@ -364,6 +388,7 @@ class Scale(installed.Installed):
         self.scraper = Metrics(self)
         self.install()
         self.configure_api_proxy()
+        self.await_leader()
         self.create_load()
         for target, status in (("keycloak", 429), ("keycloak", 503), ("api", 429)):
             self.overload(target, status)
