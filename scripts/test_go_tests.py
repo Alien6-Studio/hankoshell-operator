@@ -178,6 +178,38 @@ class GoTestGateTests(unittest.TestCase):
                     patch.object(runner.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)):
                 self.assertEqual(runner.run("unit", "gotestsum", output), 1)
 
+    def test_stability_targets_still_validate_inventory_and_exact_single_attempt(self):
+        root = runner.STABILITY_ROOTS[0]
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+
+            def metadata(command, **kwargs):
+                if command[0] == "gotestsum":
+                    return "gotestsum version " + runner.versions.get("tools", "gotestsum")
+                return "a" * 40 if command[1] == "rev-parse" else ""
+
+            def execute(command, **kwargs):
+                self.assertIn("-race", command)
+                self.assertIn("-count=1", command)
+                self.assertIn("-timeout=3m", command)
+                self.assertEqual(command[command.index("-run") + 1], "^(" + root + ")$")
+                self.junit(output / "junit.xml", '<testcase classname="pkg" name="' + root + '"/>')
+                return subprocess.CompletedProcess(command, 0)
+
+            with patch.object(runner.subprocess, "check_output", side_effect=metadata), \
+                    patch.object(runner.subprocess, "run", side_effect=execute), \
+                    patch.object(runner, "keycloak_selection", return_value=[root, "TestOther"]) as inventory, \
+                    patch.dict(os.environ, KEYCLOAK_VERSION="26.7.5", GITHUB_STEP_SUMMARY=""):
+                self.assertEqual(runner.run("keycloak", "gotestsum", output, root=root), 0)
+                inventory.assert_called_once_with("all")
+            with patch.object(runner.subprocess, "check_output", side_effect=metadata), \
+                    patch.object(runner, "keycloak_selection", return_value=["TestOther"]), \
+                    patch.dict(os.environ, KEYCLOAK_VERSION="26.7.5"), self.assertRaisesRegex(ValueError, "absent"):
+                runner.run("keycloak", "gotestsum", output, root=root)
+            for suite, shard, name in (("unit", "all", root), ("keycloak", "core", root), ("keycloak", "all", "TestOther")):
+                with self.subTest(suite=suite, shard=shard), self.assertRaises(ValueError):
+                    runner.run(suite, "gotestsum", output, shard=shard, root=name)
+
     def test_workflows_preserve_all_matrices_and_upload_reports_on_failure(self):
         ci = yaml.safe_load((runner.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
         keycloak = ci["keycloak"]

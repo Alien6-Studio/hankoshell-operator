@@ -18,7 +18,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/Alien6-Studio/hankoshell-operator/internal/httpsecurity"
@@ -62,10 +61,8 @@ type Client struct {
 	// client metadata GETs in this one realm, independently of native token roles.
 	dependentRealm string
 	httpClient     *http.Client
-	mu             sync.Mutex
-	token          string
-	tokenExpiry    time.Time
-	mutationGuard  func(context.Context) error
+	*clientSession
+	mutationGuard func(context.Context) error
 }
 
 // New creates a Client with explicit credentials. Equivalent to NewFromEnv but
@@ -73,9 +70,10 @@ type Client struct {
 // unless WithInsecureHTTP is explicitly supplied; unsafe endpoints fail before I/O.
 func New(baseURL, clientID, clientSecret string, options ...ClientOption) *Client {
 	c := &Client{
-		baseURL:      strings.TrimRight(baseURL, "/"),
-		clientID:     clientID,
-		clientSecret: clientSecret,
+		clientSession: &clientSession{},
+		baseURL:       strings.TrimRight(baseURL, "/"),
+		clientID:      clientID,
+		clientSecret:  clientSecret,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second, CheckRedirect: rejectKeycloakRedirect,
 			Transport: &http.Transport{
@@ -121,10 +119,11 @@ func NewWithTLS(baseURL, clientID, clientSecret string, caPEM []byte) (*Client, 
 		TLSClientConfig: &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12},
 	}
 	return &Client{
-		baseURL:      strings.TrimRight(baseURL, "/"),
-		clientID:     clientID,
-		clientSecret: clientSecret,
-		httpClient:   &http.Client{Timeout: 10 * time.Second, Transport: transport, CheckRedirect: rejectKeycloakRedirect},
+		clientSession: &clientSession{},
+		baseURL:       strings.TrimRight(baseURL, "/"),
+		clientID:      clientID,
+		clientSecret:  clientSecret,
+		httpClient:    &http.Client{Timeout: 10 * time.Second, Transport: transport, CheckRedirect: rejectKeycloakRedirect},
 	}, nil
 }
 
@@ -1891,34 +1890,7 @@ func (c *Client) get(ctx context.Context, path string, out any) error {
 	return json.Unmarshal(body, out)
 }
 
-// bearerToken returns a valid bearer token, refreshing when expired.
-// The mutex is held only for cache reads and writes, not during the HTTP call,
-// to avoid blocking all reconcile goroutines on a single token refresh.
-func (c *Client) bearerToken(ctx context.Context) (string, error) {
-	if c == nil {
-		return "", errors.New("keycloak client is unavailable")
-	}
-	if c.endpointError != nil {
-		return "", c.endpointError
-	}
-	c.mu.Lock()
-	if c.token != "" && time.Now().Before(c.tokenExpiry) {
-		tok := c.token
-		c.mu.Unlock()
-		return tok, nil
-	}
-	c.mu.Unlock()
-	return c.fetchToken(ctx)
-}
-
-func (c *Client) invalidateToken() {
-	c.mu.Lock()
-	c.token = ""
-	c.tokenExpiry = time.Time{}
-	c.mu.Unlock()
-}
-
-func (c *Client) fetchToken(ctx context.Context) (string, error) {
+func (c *Client) requestToken(ctx context.Context) (string, time.Time, error) {
 	form := url.Values{
 		"grant_type":    {"client_credentials"},
 		"client_id":     {c.clientID},
@@ -1929,20 +1901,20 @@ func (c *Client) fetchToken(ctx context.Context) (string, error) {
 		c.baseURL+"/realms/master/protocol/openid-connect/token",
 		strings.NewReader(form.Encode()))
 	if err != nil {
-		return "", err
+		return "", time.Time{}, err
 	}
 	req.Header.Set(contentTypeHeader, "application/x-www-form-urlencoded")
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
 
 	resp, err := c.do(req)
 	if err != nil {
-		return "", err
+		return "", time.Time{}, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		_, _ = io.Copy(io.Discard, resp.Body)
-		return "", &StatusError{Code: resp.StatusCode}
+		return "", time.Time{}, &StatusError{Code: resp.StatusCode}
 	}
 
 	var tok struct {
@@ -1951,24 +1923,23 @@ func (c *Client) fetchToken(ctx context.Context) (string, error) {
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", ErrResponseRead
+		return "", time.Time{}, ErrResponseRead
 	}
 	if err := json.Unmarshal(body, &tok); err != nil {
-		return "", fmt.Errorf("decode token response: %w", err)
+		return "", time.Time{}, errors.New("keycloak returned an invalid token response")
 	}
 	if tok.AccessToken == "" {
-		return "", fmt.Errorf("keycloak returned empty access token")
+		return "", time.Time{}, errors.New("keycloak returned empty access token")
 	}
 	ttl := tok.ExpiresIn
 	if ttl <= 0 {
 		ttl = 60
 	}
-	c.mu.Lock()
-	c.token = tok.AccessToken
-	c.tokenExpiry = time.Now().Add(time.Duration(ttl-10) * time.Second)
-	result := c.token
-	c.mu.Unlock()
-	return result, nil
+	// Refresh early without making short-lived tokens immediately stale or
+	// overflowing time.Duration when a provider returns an excessive lifetime.
+	ttl = min(ttl, 24*60*60)
+	margin := min(10, ttl/2)
+	return tok.AccessToken, time.Now().Add(time.Duration(ttl-margin) * time.Second), nil
 }
 
 var ErrRoleOwnershipConflict = errors.New("keycloak realm role ownership conflict")

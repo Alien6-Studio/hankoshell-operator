@@ -21,6 +21,7 @@ import versions
 ROOT = Path(__file__).resolve().parents[1]
 ROOT_NAME = re.compile(r"(?:Test|Example|Fuzz)[A-Za-z0-9_]+")
 SHARDS = ("core", "adoption", "protocols")
+STABILITY_ROOTS = ("TestRealKeycloakAdoptionCharacterization", "TestRealKeycloakApplicationProtocolsAndFlows")
 
 
 def test_inventory(tagged):
@@ -136,7 +137,9 @@ def write_summary(output, label, returncode, selected=None):
             stream.write(summary)
 
 
-def run(suite, gotestsum, output, shard="all"):
+def run(suite, gotestsum, output, shard="all", root=None):
+    if root is not None and (suite != "keycloak" or root not in STABILITY_ROOTS or shard != "all"):
+        raise ValueError("Only reviewed Keycloak stability roots can be selected individually")
     output.mkdir(parents=True, exist_ok=True)
     # Never publish stale success from an earlier local invocation.
     for name in ("junit.xml", "results.json", "summary.md", "coverage.out", "coverage-functions.txt", "coverage-summary.md", "coverage.json"):
@@ -161,10 +164,14 @@ def run(suite, gotestsum, output, shard="all"):
         version = os.environ.get("KEYCLOAK_VERSION", versions.get("keycloak", "default"))
         if version not in versions.get("keycloak", "versions"):
             raise ValueError("Unsupported Keycloak version")
-        label += "/" + version + "/" + shard
+        label += "/" + version + "/" + ("stability/" + root if root else shard)
         selected = keycloak_selection(shard)
+        if root:
+            if root not in selected:
+                raise ValueError("Stability root is absent from the complete shard inventory")
+            selected = [root]
         expression = "^(" + "|".join(selected) + ")$"
-        deadline = "25m" if shard == "all" else "10m"
+        deadline = "3m" if root else "25m" if shard == "all" else "10m"
         args += ["-tags=keycloak_integration", "-timeout=" + deadline, "-run", expression, "./internal/controller"]
     result = subprocess.run([gotestsum, "--format=standard-verbose", "--junitfile", str(output / "junit.xml"), "--", *args], cwd=ROOT, check=False)
     try:

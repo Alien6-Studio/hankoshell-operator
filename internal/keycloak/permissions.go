@@ -125,6 +125,13 @@ func (c *Client) do(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+	release, err := c.requests.acquire(req.Context())
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	// Queueing may outlive a lease or approval. Recheck the guard immediately
+	// before I/O rather than granting authority before waiting for a slot.
 	if err := c.authorizeMutation(req); err != nil {
 		return nil, err
 	}
@@ -134,6 +141,7 @@ func (c *Client) do(req *http.Request) (*http.Response, error) {
 		observability.Default.Provider("keycloak", req.Method, 0, err, time.Since(started))
 		return nil, safeTransportError(err)
 	}
+	c.requests.observe(response)
 	// Callers receive only a complete bounded buffer, never the network stream.
 	// Validate even bodies ignored by success/Location handlers before returning.
 	buffered, readErr := boundedKeycloakResponse(response, limit)

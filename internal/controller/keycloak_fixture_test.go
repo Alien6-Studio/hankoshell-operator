@@ -174,7 +174,13 @@ func newKeycloakFixtureWithTransportAndDiscovery(t *testing.T, managed, publicIP
 	mountPath := "/fixture-tls"
 	if managed {
 		serverArgs, mountPath = managedFixtureTemplate(t, image, cert, key)
-		image = f.buildManagedFixture(image)
+		image = f.buildOptimizedFixture(image)
+	} else if len(features) == 0 {
+		// Reuse Docker's immutable build layer instead of repeating Quarkus
+		// augmentation in every disposable container. Preview builds retain
+		// their explicit feature-specific path and production assertions.
+		image = f.buildOptimizedFixture(image)
+		serverArgs = append(serverArgs, "--optimized")
 	}
 	name := "hankoshell-keycloak-test-" + fixtureSecret(t)[:12]
 	// Register cleanup before startup: even a timed-out docker run may have

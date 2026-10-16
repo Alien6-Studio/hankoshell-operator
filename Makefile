@@ -16,6 +16,8 @@ GO_LICENSES := $(CURDIR)/.tools/go-licenses-$(GO_LICENSES_VERSION)-$(shell GOTOO
 TEST_REPORT_DIR ?= $(CURDIR)/.tools/test-results
 PRE_COMMIT_HOME ?= $(CURDIR)/.tools/pre-commit-cache
 KEYCLOAK_SHARD ?= all
+KEYCLOAK_STABILITY_ROOT ?=
+KEYCLOAK_STABILITY_OUTPUT ?= $(TEST_REPORT_DIR)/keycloak-stability-$(KEYCLOAK_STABILITY_ROOT)
 CHART := charts/hankoshell-operator
 KUBERNETES_VERSION ?= $(shell python3 scripts/versions.py get kubernetes default)
 KEYCLOAK_VERSION ?= $(shell python3 scripts/versions.py get keycloak default)
@@ -23,7 +25,7 @@ RELEASE_VERSION := $(shell python3 scripts/versions.py get release version)
 
 .DEFAULT_GOAL := all
 
-.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-test integration-test keycloak-integration-test authentik-integration-test security-mutations licenses lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test fleet-installed-test portable-installed-test
+.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-test integration-test keycloak-integration-test keycloak-stability-test authentik-integration-test security-mutations licenses lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test fleet-installed-test portable-installed-test
 versions-sync:
 	python3 scripts/versions.py sync
 
@@ -78,6 +80,9 @@ integration-test: $(GOTESTSUM)
 keycloak-integration-test: $(GOTESTSUM)
 	KEYCLOAK_VERSION=$(KEYCLOAK_VERSION) python3 scripts/go-tests.py keycloak --shard "$(KEYCLOAK_SHARD)" \
 		--gotestsum "$(GOTESTSUM)" --output "$(TEST_REPORT_DIR)/keycloak-$(KEYCLOAK_VERSION)-$(KEYCLOAK_SHARD)"
+keycloak-stability-test: $(GOTESTSUM)
+	KEYCLOAK_VERSION=26.7.5 python3 scripts/keycloak-stability.py --root "$(KEYCLOAK_STABILITY_ROOT)" \
+		--gotestsum "$(GOTESTSUM)" --output "$(KEYCLOAK_STABILITY_OUTPUT)"
 authentik-integration-test: $(GOTESTSUM)
 	python3 scripts/authentik-fixture.py --gotestsum "$(GOTESTSUM)" --output "$(TEST_REPORT_DIR)/authentik-2026.8.4"
 

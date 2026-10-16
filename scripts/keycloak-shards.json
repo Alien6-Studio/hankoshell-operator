@@ -1,5 +1,6 @@
 {
   "core": [
+    "TestRealKeycloakConcurrentCredentialBudget",
     "TestKeycloakFixtureRedactsAndDetectsCredentials",
     "TestRealKeycloakFleetDisconnectedAuthority",
     "TestRealKeycloakIAMContract",

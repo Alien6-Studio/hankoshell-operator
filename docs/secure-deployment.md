@@ -546,7 +546,9 @@ writes; production client deadlines are unchanged. Failures preserve the last
 64 fixture HTTP methods/routes/statuses/timings and redacted container logs;
 headers, query values and bodies are excluded from the HTTP trace. Shard timings
 on GitHub runners and twenty consecutive runs of both historically failing
-tests remain qualification evidence to collect for #110, not a stability claim.
+tests are recorded through the [concurrency and stability qualification](keycloak-concurrency.md).
+Its independent series stops on the first failure and retains every JUnit; it
+does not replace the required twenty-run `main` history window.
 
 The weekly `Go test history` workflow reads the last twenty completed `main` CI
 runs and compares outcomes only for the same commit, test and suite/version.

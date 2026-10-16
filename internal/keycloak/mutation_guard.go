@@ -15,12 +15,10 @@ func (c *Client) WithMutationGuard(guard func(context.Context) error) *Client {
 	if c == nil {
 		return nil
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	clone := &Client{baseURL: c.baseURL, clientID: c.clientID, clientSecret: c.clientSecret,
 		allowInsecureHTTP: c.allowInsecureHTTP, endpointError: c.endpointError,
 		inventoryOnly: c.inventoryOnly, dependentRealm: c.dependentRealm, httpClient: c.httpClient,
-		token: c.token, tokenExpiry: c.tokenExpiry}
+		clientSession: c.clientSession}
 	clone.mutationGuard = func(ctx context.Context) error {
 		if c.mutationGuard != nil {
 			if err := c.mutationGuard(ctx); err != nil {

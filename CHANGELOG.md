@@ -3,6 +3,19 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Keycloak concurrency and sustained qualification
+
+- Coalesce expired-token refreshes across ordinary and Fleet-guarded client views;
+  fence invalidated observations, allow canceled waiters to leave, and cool down
+  failed refreshes. Fleet permission decisions still require newly issued tokens.
+- Bound each credential connection to eight in-flight requests and a 50/s token
+  bucket with burst 50. Respect bounded 429/503 retry hints across guarded views,
+  recheck write authority after queueing, and never replay an ambiguous mutation.
+- Add real HTTPS concurrency/refusal/recovery qualification, reuse optimized
+  disposable fixture build layers, and record twenty independent attempts of each
+  historical flaky test with first-failure stop and per-attempt JUnit evidence.
+  These guards do not establish a production scale or 24-hour soak bound.
+
 ### Executable compatibility and installed diagnostics
 
 - Freeze 1,571 compiler-resolved exports in seven fixture-facing Go packages;
