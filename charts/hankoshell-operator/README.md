@@ -51,7 +51,7 @@ All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibili
 See the [support and field-group inventory](../../docs/api-support.md) and
 [API migration policy](../../docs/api-migration-policy.md) before upgrading CRDs.
 
-Kubernetes **1.35–1.37** and Linux nodes are the qualification window. CI uses
+The generated support table below defines the exact Kubernetes qualification window on Linux nodes. CI uses
 real API-server/etcd fixtures to check CRDs, server-side apply, RBAC and Restricted
 admission on each minor. Future minors and upstream alpha/beta/RC builds are rejected
 until qualified. Install the latest provider security patch; fixed CI fixtures
@@ -83,7 +83,7 @@ also exposes realm users. No chart flag grants this authority. See the
 [organization-grant contract](../../docs/keycloak-permissions.md#organization-principals-010)
 for direct/descendant semantics, ownership, bounds and the reconciliation window.
 
-Real HTTPS Admin API v1 qualification covers Keycloak **26.8.0 and 26.7.5** only.
+Real HTTPS Admin API v1 qualification covers only the exact Keycloak versions in the generated support table below.
 Other patches and major lines are unqualified. Hub/Continuum integrations are
 optional; standalone Keycloak reconciliation does not depend on them. See the
 [qualification limits](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md#keycloak-compatibility)

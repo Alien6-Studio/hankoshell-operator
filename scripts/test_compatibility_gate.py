@@ -61,7 +61,7 @@ class CompatibilityGateTests(unittest.TestCase):
                       "notices": [{"id": "DEP-1", "announced_in": "0.1.0", "schema": "HankoExample/v1", "path": change["path"]}],
                       "exceptions": [{"schema": "HankoExample/v1", **change, "notice_id": "DEP-1", "announced_in": "0.1.0", "migration_note": "migration.md", "review": "https://github.com/Alien6-Studio/hankoshell-operator/pull/123"}]}
             self.assertFalse(gate.compare({"HankoExample/v1": SCHEMA}, {"HankoExample/v1": new}, policy, root, date(2026, 4, 5)))
-            for mutation in ("days", "releases", "patch-not-minor", "hash", "review", "notice", "changelog"):
+            for mutation in ("days", "releases", "patch-not-minor", "hash", "review", "notice", "empty-notice", "changelog"):
                 with self.subTest(mutation=mutation):
                     current = copy.deepcopy(policy)
                     today = date(2026, 4, 5)
@@ -71,5 +71,8 @@ class CompatibilityGateTests(unittest.TestCase):
                     elif mutation == "hash": current["exceptions"][0]["new_hash"] = "0"*64
                     elif mutation == "review": current["exceptions"][0]["review"] = "self-approved"
                     elif mutation == "notice": current["notices"] = []
+                    elif mutation == "empty-notice":
+                        current["notices"][0]["id"] = ""
+                        current["exceptions"][0]["notice_id"] = ""
                     else: (root / "CHANGELOG.md").write_text("No notice")
                     self.assertTrue(gate.compare({"HankoExample/v1": SCHEMA}, {"HankoExample/v1": new}, current, root, today))

@@ -515,7 +515,7 @@ administrative HTTP exception above. Enterprise refuses this combination.
 
 ### Keycloak compatibility
 
-The current development operator **is qualified against Keycloak 26.8.0 and 26.7.5**
+The exact current Keycloak qualification versions are listed in the generated support window below
 using the HTTPS Admin API v1 and service-account `client_credentials` flow.
 The official images are pinned by immutable multi-architecture index digests
 in the [qualification fixture](../internal/controller/keycloak_fixture_test.go).
@@ -1615,3 +1615,14 @@ administrator patch, ConfigMap-create denial, restart and stable child UIDs on a
 real installed configuration-only Clone. These commands are administrator
 procedures; installed managed Upgrade/DBSwitch and portable restore remain
 explicitly unqualified. No production evidence is claimed.
+
+The exact active qualification window is generated below. Earlier version-specific
+permission, protocol and installed evidence records remain historical qualification
+snapshots and must be reviewed before promoting new pins. See [support policy](support-window.md).
+
+<!-- support-window:start -->
+| Component | Exact qualification versions | Default |
+| --- | --- | --- |
+| kubernetes | `1.35.0`, `1.36.2`, `1.37.0` | `1.37.0` |
+| keycloak | `26.7.5`, `26.8.0` | `26.8.0` |
+<!-- support-window:end -->

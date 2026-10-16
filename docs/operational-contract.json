@@ -83,8 +83,8 @@
   ],
   "installedEvidence": [
     {
-      "report": "docs/qualification/operations/2026-10-16/observability-kubernetes-1.37.0-keycloak-26.8.0.json",
-      "sha256": "1a31fe66a3579e4e58f37cc3c17e4b1df411d50d5574b1aded14fe3cab6c5430"
+      "report": "docs/qualification/operations/2026-10-16/observability-runtime-2943933.json",
+      "sha256": "c84927ac8043a7cb6172ab1e4dc16b43e00a4b281013b673cc4ae6646c328578"
     }
   ]
 }

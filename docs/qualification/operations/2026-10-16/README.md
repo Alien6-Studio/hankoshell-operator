@@ -32,3 +32,8 @@ rollback. Cleanup removed only its own uniquely named cluster and registry.
 This is a bounded, single-node smoke test. It does not establish production HA,
 partitions, clock skew, operation-interruption coverage, cross-release rollback,
 CNI enforcement, Prometheus Operator/Grafana installation or a 24-hour soak.
+
+A follow-up runtime `2943933b3f6f14a3fa9bcf0487f549c1b014edf2` and its updated shared
+harness passed the same nine installed checks. See [the new immutable report](observability-runtime-2943933.json);
+the earlier report remains historical evidence. The active machine entry points
+to the follow-up report and its current harness hashes.

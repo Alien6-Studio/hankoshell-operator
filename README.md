@@ -196,7 +196,7 @@ See the **[Keycloak permission model](docs/keycloak-permissions.md)** before
 provisioning credentials: it specifies optional feature roles, read-only import,
 forbidden authority and the broader native grants attached to realm creation.
 
-The current development operator **is qualified against Keycloak 26.8.0 and 26.7.5**
+The exact current Keycloak qualification versions are listed in the generated support window below
 through its real HTTPS Admin API v1. Required CI exercises realm/client lifecycles,
 IAM/MFA settings, roles, identity-provider configuration, secret rotation,
 drift recovery, ownership, finalizers and read-only import. Other 26.x patches
@@ -208,13 +208,13 @@ External identity-provider handshakes and production database/cluster operations
 remain unqualified.
 See the [Keycloak compatibility contract](docs/secure-deployment.md#keycloak-compatibility).
 
-The chart targets Kubernetes **1.35–1.37** on Linux nodes. Required CI checks
+The chart targets the Kubernetes minors in the generated support window below, on Linux nodes. Required CI checks
 qualify all 17 CRDs, server-side apply, namespace/credential RBAC boundaries and
 Restricted Pod Security admission against each minor version. Optional AppArmor
 and stable user namespaces extend the baseline when supported by the nodes.
 An installed-system test retains its 19 general checks on Kubernetes 1.37.0
 with HTTPS Keycloak 26.8.0. A separate installed workload matrix qualifies the
-exact scanned image across **1.35.0 / 1.36.2 / 1.37.0 × 26.7.5 / 26.8.0**:
+exact scanned image across every declared Kubernetes/Keycloak pair:
 real projected 600-second Pod assertions, client credentials grants, independent
 native resource ALLOW/DENY, kubelet rotation/expiry and UID containment.
 Deep reviewed migration/recovery runs on both Keycloak versions with 1.37.0.
@@ -509,7 +509,7 @@ make keycloak-integration-test KEYCLOAK_VERSION=26.7.5
 CRDs are generated with the pinned controller-gen version. Unit tests use simulated
 Kubernetes clients and HTTP/TLS servers. `make integration-test` downloads official
 API-server/etcd fixtures with pinned SHA-512 checksums and starts a local control
-plane. CI runs it on **1.35.0, 1.36.2 and 1.37.0**; all matrix jobs must pass before
+plane. CI runs it on every Kubernetes version declared in `versions.json`; all matrix jobs must pass before
 merge or delivery. These API tests do not run kubelets, CNI, CSI or Keycloak;
 target-cluster qualification remains part of an installation's acceptance checks.
 

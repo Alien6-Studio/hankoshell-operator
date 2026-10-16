@@ -106,7 +106,12 @@ def approved(change, key, policy, root, today):
             continue
         if not re.fullmatch(r"https://github\.com/Alien6-Studio/hankoshell-operator/pull/[1-9][0-9]*", entry.get("review", "")):
             continue
-        migration = local_file(root, entry.get("migration_note"))
+        if not re.fullmatch(r"[A-Z][A-Z0-9_-]{2,63}", entry.get("notice_id", "")):
+            continue
+        try:
+            migration = local_file(root, entry.get("migration_note"))
+        except ValueError:
+            continue
         if migration.suffix != ".md" or not migration.read_text().strip():
             continue
         if not any(notice.get("id") == entry.get("notice_id") and notice.get("announced_in") == entry.get("announced_in")
