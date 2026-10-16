@@ -239,6 +239,11 @@ class ReleaseContractTests(unittest.TestCase):
                 if "permissions" in job:
                     if path.name == "release.yml" and name == "publish":
                         self.assertEqual(job["permissions"], {"contents": "write", "packages": "write", "id-token": "write"})
+                    elif (path.name, name) == ("support-window.yml", "draft"):
+                        self.assertEqual(job["permissions"], {"contents": "write", "pull-requests": "write"})
+                        self.assertEqual(job["if"], "github.event_name == 'workflow_dispatch' && inputs.create_pull_request == true")
+                        self.assertEqual(job["needs"], ["proposal"])
+                        self.assertIs(workflow[True]["workflow_dispatch"]["inputs"]["create_pull_request"]["default"], False)
                     elif (path.name, name) in (("ci.yml", "schedule-report"), ("test-history.yml", "issue")):
                         self.assertEqual(job["permissions"], {"contents": "read", "issues": "write"})
                     else:

@@ -3,6 +3,25 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Qualification windows and compatibility review
+
+- Formalize the three-minor Kubernetes/two-minor Keycloak qualification window,
+  reviewed patch cadence, upstream support check and retirement procedure in the
+  [support policy](docs/support-window.md). All current versions derive from versions.json.
+- Add bounded official release discovery and review packets, with draft PR creation
+  available only through explicit manual input. No fixture pin is auto-promoted.
+- Prepare the [0.x compatibility proposal](docs/compatibility-policy.md), deprecation
+  registry and adversarial stable-schema diff gate. No public predecessor, stable
+  conversion, production compatibility or completed community review is claimed.
+- Restore typed, redacted TLS refusal classification in native qualification and
+  independently approve opt-in installed snapshots before capture/recovery tests.
+
+### Deprecations
+
+No public API deprecation is announced in this development delivery. Current
+v1alpha1 APIs remain experimental; no published predecessor exists. The proposed
+notice policy requires community review under #87 before public acceptance.
+
 ### Operational qualification and recovery runbooks
 
 - Require TLS 1.3, client CA authentication and exact client URI authorization for

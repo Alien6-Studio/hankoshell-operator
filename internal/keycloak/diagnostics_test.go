@@ -2,6 +2,7 @@ package keycloak
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -48,5 +49,23 @@ func TestKeycloakGatewaySuppressesNativeErrorBodyBeforeAnyCaller(t *testing.T) {
 	body, _ := io.ReadAll(response.Body)
 	if strings.Contains(string(body), "secret-sentinel") {
 		t.Fatal("native body escaped gateway")
+	}
+}
+
+func TestTLSVerificationKeepsTypedCategoryWithoutNativeCertificateDetails(t *testing.T) {
+	native := &tls.CertificateVerificationError{Err: errors.New("secret-sentinel certificate identity")}
+	err := safeTransportError(fmt.Errorf("transport URL secret-sentinel: %w", native))
+	if !errors.Is(err, ErrTransport) || !errors.Is(err, ErrTLSVerification) {
+		t.Fatal("TLS verification category lost")
+	}
+	if strings.Contains(err.Error(), "secret-sentinel") {
+		t.Fatal("native transport detail leaked")
+	}
+	var leaked *tls.CertificateVerificationError
+	if errors.As(err, &leaked) {
+		t.Fatal("native transport diagnostics retained in public error chain")
+	}
+	if errors.Is(safeTransportError(errors.New("secret-sentinel")), ErrTLSVerification) {
+		t.Fatal("arbitrary transport failure forged TLS verification")
 	}
 }

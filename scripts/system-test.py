@@ -823,7 +823,7 @@ class System:
         return {"contractVersion": "hanko.sh/adoption-contract/v1alpha1", "targetKind": acquired["kind"],
                 "targetUID": acquired["metadata"]["uid"], "candidateHash": candidate["candidateHash"]}
 
-    def approve_lifecycle(self, kind, name, namespace):
+    def approve_lifecycle(self, kind, name, namespace, operator_name=None):
         def request():
             return any(c.get("type") == "Authorized" and c.get("reason") == "ApprovalRequired"
                        for c in self.get(kind, name, namespace).get("status", {}).get("conditions", []))
@@ -840,7 +840,7 @@ class System:
                     "metadata": {"namespace": namespace, "name": author},
                     "roleRef": {"apiGroup": "rbac.authorization.k8s.io", "kind": "Role", "name": author},
                     "subjects": [{"kind": "User", "name": author, "apiGroup": "rbac.authorization.k8s.io"}]})
-        for identity in (author, f"system:serviceaccount:{namespace}:{namespace}-operator"):
+        for identity in (author, f"system:serviceaccount:{namespace}:{operator_name or namespace + '-operator'}"):
             result = subprocess.run([str(self.args.kubectl), "--kubeconfig", str(self.config), "--as=" + identity,
                 "patch", kind, name, "-n", namespace, "--type=merge", "-p", json.dumps(patch), "--dry-run=server"],
                 capture_output=True, text=True, timeout=30, check=False)

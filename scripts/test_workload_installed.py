@@ -27,6 +27,24 @@ proxy = module("fault_proxy", "workload-fault-proxy.py")
 
 
 class InstalledEvidenceTests(unittest.TestCase):
+    def test_snapshot_fixture_explicitly_enables_lifecycle(self):
+        args = SimpleNamespace(keycloak_version="26.8.0", kubernetes_version="1.37.0",
+                               deep_migration=False, revision="a"*40, digest="sha256:"+"b"*64)
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = installed.Installed(args, Path(directory))
+            self.assertIs(fixture.install_values["lifecycle"]["enabled"], True)
+
+    def test_every_scope_is_independently_approved_before_capture(self):
+        fixture = MagicMock()
+        fixture.args.deep_migration = False
+        fixture.get.return_value = {"status": {"configMapRef": "capture"}}
+        with patch.object(installed, "wait"), patch.object(installed, "snapshot_capture_valid", return_value=True):
+            installed.Installed.snapshot_isolation(fixture)
+        self.assertEqual(fixture.approve_lifecycle.call_count, 4)
+        for scope in ("unlabelled", "empty", "tenant-a", "tenant-b"):
+            fixture.approve_lifecycle.assert_any_call("hankosnapshot", "snapshot-"+scope, "auth", operator_name="system-operator")
+
+
     def test_snapshot_evidence_requires_exact_scope_for_every_configuration_kind(self):
         for scope in (None, "", "tenant-a"):
             labels = {} if scope is None else {"hanko.sh/tenant": scope}

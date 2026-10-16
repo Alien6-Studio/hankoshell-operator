@@ -132,7 +132,7 @@ func (c *Client) do(req *http.Request) (*http.Response, error) {
 	response, err := c.httpClient.Do(req)
 	if err != nil {
 		observability.Default.Provider("keycloak", req.Method, 0, err, time.Since(started))
-		return nil, ErrTransport
+		return nil, safeTransportError(err)
 	}
 	// Callers receive only a complete bounded buffer, never the network stream.
 	// Validate even bodies ignored by success/Location handlers before returning.

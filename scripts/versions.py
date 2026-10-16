@@ -92,6 +92,16 @@ def generated(root=ROOT, data=None):
         replace(ci, rf"^(        if: matrix.version == )'[^']+'(?=(?: && matrix.shard == 'core')? # versions:{family}-lint$)",
                 "'" + data[family]["default"] + "'")
 
+    window = ["| Component | Exact qualification versions | Default |", "| --- | --- | --- |"]
+    for family in ("kubernetes", "keycloak"):
+        window.append("| " + family + " | " + ", ".join("`" + value + "`" for value in sorted(data[family]["versions"], key=lambda v: tuple(map(int, v.split("."))))) + " | `" + data[family]["default"] + "` |")
+    block = "<!-- support-window:start -->\n" + "\n".join(window) + "\n<!-- support-window:end -->"
+    for filename in ("README.md", "SECURITY.md", "charts/hankoshell-operator/README.md", "docs/support-window.md", "docs/version-reference-inventory.md"):
+        original = output.get(filename, (root / filename).read_text())
+        if original.count("<!-- support-window:start -->") != 1 or original.count("<!-- support-window:end -->") != 1:
+            raise ValueError("Missing unique generated support window in " + filename)
+        output[filename] = re.sub(r"<!-- support-window:start -->.*?<!-- support-window:end -->", lambda _: block, original, flags=re.S)
+
     cosign = data["tools"]["cosign"]
     # One generated shell fragment is sourced by both native and image builds.
     dependencies = " ".join(module + "@" + version for module, version in cosign["dependencies"].items())

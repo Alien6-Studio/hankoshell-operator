@@ -73,6 +73,8 @@ class Installed(native.Fixture):
         super().__init__(args, private)
         self.registry_name = self.name + "-registry"
         self.extra_certificate_names = ",DNS:fault-keycloak.auth.svc,DNS:keycloak-upstream.auth.svc"
+        # This fixture explicitly exercises administrator-approved snapshots.
+        self.install_values = {"lifecycle": {"enabled": True}}
         self.workload_grants = [{"namespace": "workload", "serviceAccounts": ["worker"], "configMaps": ["identity"]}]
         if args.deep_migration:
             self.workload_grants[0]["serviceAccounts"] += ["migration-worker", "creation-worker", "flow-worker"]
@@ -1042,6 +1044,8 @@ class Installed(native.Fixture):
                 path = "/api/v1/namespaces/auth/configmaps"
                 self.control("api", {"method": "POST", "path": path, "action": "lost-ack"}, reset=True)
             self.apply(object_value("HankoSnapshot", name, {"instanceRef": name}, labels=labels))
+            self.approve_lifecycle("hankosnapshot", name, "auth", operator_name="system-operator")
+            self.record("snapshot_independent_approval_" + scope)
             captured = None
             if lost_ack:
                 fault = self.await_fault("api")
@@ -1067,6 +1071,8 @@ class Installed(native.Fixture):
         name, path = "legacy-cross-tenant", "/api/v1/namespaces/auth/configmaps"
         self.control("api", {"method": "POST", "path": path, "action": "deny"}, reset=True)
         self.apply(object_value("HankoSnapshot", name, {"instanceRef": "snapshot-tenant-a"}, labels={"hanko.sh/tenant": "tenant-a"}))
+        self.approve_lifecycle("hankosnapshot", name, "auth", operator_name="system-operator")
+        self.record("snapshot_legacy_independent_approval")
         self.await_fault("api")
         snapshot = self.get("hankosnapshot", name)
         self.record("snapshot_legacy_authority_persisted", bool(snapshot.get("status", {}).get("intentHash")))

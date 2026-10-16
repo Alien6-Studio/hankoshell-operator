@@ -189,3 +189,12 @@ mitigation and disclosure schedule with the reporter after triage; there is
 no universal remediation deadline. We publish an advisory with affected and
 fixed versions when a fix or mitigation is available, and credit reporters
 with their consent. Please coordinate disclosure so users can apply it first.
+
+Qualification window: [support policy](docs/support-window.md), [compatibility proposal](docs/compatibility-policy.md).
+
+<!-- support-window:start -->
+| Component | Exact qualification versions | Default |
+| --- | --- | --- |
+| kubernetes | `1.35.0`, `1.36.2`, `1.37.0` | `1.37.0` |
+| keycloak | `26.7.5`, `26.8.0` | `26.8.0` |
+<!-- support-window:end -->

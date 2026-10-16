@@ -2,6 +2,7 @@ package keycloak
 
 import (
 	"bytes"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -21,6 +22,18 @@ var ErrResponseTooLarge = errors.New("keycloak response exceeds its byte budget"
 // ErrResponseRead means the response stream could not be read completely.
 // Neither a valid JSON prefix nor remote response contents authorize success.
 var ErrTransport = errors.New("keycloak transport failed")
+
+// ErrTLSVerification distinguishes failed peer verification without retaining
+// certificate identities, URLs or native transport diagnostics in public errors.
+var ErrTLSVerification = errors.New("keycloak TLS peer verification failed")
+
+func safeTransportError(err error) error {
+	var verification *tls.CertificateVerificationError
+	if errors.As(err, &verification) {
+		return fmt.Errorf("%w: %w", ErrTransport, ErrTLSVerification)
+	}
+	return ErrTransport
+}
 
 // StatusError carries only a numeric HTTP status, never native text, paths or headers.
 type StatusError struct{ Code int }

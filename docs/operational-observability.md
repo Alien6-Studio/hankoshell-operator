@@ -117,8 +117,9 @@ inspect the condition reason for detail. This replaces dynamic Event reasons.
 
 Keycloak error responses are fully bounded before their bodies are discarded at
 the HTTP gateway. Typed `StatusError` carries only HTTP status; classification
-uses `errors.As`, never an error-string match. Transport errors become a fixed
-sentinel. 404/409 idempotence branches remain caller-specific. Authentik already
+uses `errors.As`, never an error-string match. Transport errors become fixed sentinels. TLS certificate verification retains
+a typed `ErrTLSVerification` category alongside `ErrTransport`, while discarding
+native certificate identities and transport diagnostics. 404/409 idempotence branches remain caller-specific. Authentik already
 uses fixed typed status/transport errors. Logs and public statuses receive these
 safe errors rather than native credential-bearing error bodies. This does not
 turn arbitrary existing Kubernetes error text or administrator-authored CR fields

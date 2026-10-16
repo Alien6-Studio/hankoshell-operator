@@ -27,6 +27,8 @@ support = module("api_support", "api-support.py")
 public = module("public_contract", "public-contract.py")
 stable = module("stable_contract", "stable-contract.py")
 operations = module("operations_contract", "operations-contract.py")
+window = module("support_window", "support-window.py")
+compatibility = module("compatibility_gate", "compatibility-gate.py")
 versioning = metadata.versioning
 VERSION = versioning.VERSION
 
@@ -56,6 +58,8 @@ def check(version=VERSION):
     public.check(ROOT)
     stable.check(ROOT)
     operations.check(ROOT)
+    window.check(ROOT)
+    compatibility.check(ROOT)
     for job in ("kubernetes", "keycloak"):
         if ci[job]["strategy"]["matrix"]["version"] != pins.DATA[job]["versions"]:
             raise ValueError("Qualification matrix differs from versions.json")
