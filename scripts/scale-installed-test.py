@@ -120,7 +120,10 @@ class Metrics:
         self.context = ssl.create_default_context(cafile=str(ca))
         self.context.minimum_version = ssl.TLSVersion.TLSv1_3
         self.context.load_cert_chain(client, client_key)
-        fixture.install_values["metrics"] = {"enabled": True, "tls": {"serverSecret": "scale-metrics-server", "clientCASecret": "scale-metrics-ca", "allowedClientURIs": [identity]}}
+        fixture.install_values["metrics"] = {"enabled": True,
+            "tls": {"serverSecret": "scale-metrics-server", "clientCASecret": "scale-metrics-ca", "allowedClientURIs": [identity]},
+            "networkPolicy": {"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "monitoring"}},
+                              "podSelector": {"matchLabels": {"app.kubernetes.io/name": "prometheus"}}}}
 
     def close(self):
         for process, stream, _ in self.forwards.values():

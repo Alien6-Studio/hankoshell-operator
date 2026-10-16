@@ -83,6 +83,7 @@ Fixture certificate validity includes the requested duration and setup margin.
 make scale-installed-test \
   OCI_ARCHIVE="$archive" OCI_EVIDENCE="$evidence" \
   OCI_DIGEST="$digest" REVISION="$revision" \
+  KIND="$kind" KUBECTL="$kubectl" HELM="$helm" ORAS="$oras" OPENSSL="$openssl" \
   SCALE_PROFILE=smoke SCALE_WORKERS=4 \
   SCALE_OUTPUT="$fresh_output_directory"
 ```
