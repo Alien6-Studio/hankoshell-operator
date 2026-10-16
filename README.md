@@ -576,6 +576,8 @@ contract and disabled by default; see [ADR-050](docs/architecture/decisions/ADR-
 
 Qualification window: [support policy](docs/support-window.md), [compatibility proposal](docs/compatibility-policy.md), [production evidence reporting](docs/production-evidence.md).
 
+Load and recovery qualification: [bounded IAM workers, installed scale and soak](docs/scale-and-soak.md).
+
 <!-- support-window:start -->
 | Component | Exact qualification versions | Default |
 | --- | --- | --- |

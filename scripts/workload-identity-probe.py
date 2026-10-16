@@ -172,7 +172,7 @@ class Fixture(system.System):
         run([self.args.kind, "load", "docker-image", self.keycloak_image, "--name", self.name])
         cert, key = self.private / "tls.crt", self.private / "tls.key"
         run([self.args.openssl, "req", "-new", "-x509", "-newkey", "rsa:2048", "-nodes", "-sha256",
-             "-keyout", key, "-out", cert, "-days", "1", "-subj", "/CN=keycloak.auth.svc",
+             "-keyout", key, "-out", cert, "-days", str(getattr(self, "certificate_days", 1)), "-subj", "/CN=keycloak.auth.svc",
              "-addext", "subjectAltName=DNS:keycloak.auth.svc,DNS:localhost" + getattr(self, "extra_certificate_names", ""),
              "-addext", "basicConstraints=critical,CA:true"])
         self.http = ssl.create_default_context(cafile=str(cert))

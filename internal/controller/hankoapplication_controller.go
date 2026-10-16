@@ -1452,11 +1452,16 @@ func (r *HankoApplicationReconciler) requestsForApplicationRealm(ctx context.Con
 // explicit reconcile-request annotation enqueue the primary resource; ordinary
 // status and metadata writes remain filtered to avoid tight reconcile loops.
 func (r *HankoApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	options, err := iamControllerOptions()
+	if err != nil {
+		return err
+	}
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &hankoshv1alpha1.HankoApplication{}, realmClientIndexKey,
 		applicationRealmClientIndex); err != nil {
 		return fmt.Errorf("index HankoApplication by realmRef/clientID: %w", err)
 	}
 	return ctrl.NewControllerManagedBy(mgr).
+		WithOptions(options).
 		For(&hankoshv1alpha1.HankoApplication{}, builder.WithPredicates(generationOrReconcileRequestChanged())).
 		Watches(&hankoshv1alpha1.HankoServiceAccount{}, handler.EnqueueRequestsFromMapFunc(r.requestsForServiceAccountOwnership)).
 		Watches(&hankoshv1alpha1.HankoTheme{}, handler.EnqueueRequestsFromMapFunc(r.requestsForApplicationTheme)).

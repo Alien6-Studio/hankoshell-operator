@@ -85,12 +85,17 @@ def generated(root=ROOT, data=None):
                 "keycloak": data["keycloak"]["versions"],
                 "workload-keycloak": sorted(data["keycloak"]["versions"])}
     for name, values in matrices.items():
-        count = 4 if name == "workload-keycloak" else (5 if name == "kubernetes" else 1)
+        count = 4 if name == "workload-keycloak" else (5 if name == "kubernetes" else 2)
         replace(ci, rf"^(        (?:version|keycloak|kubernetes): ).+(?= # versions:{name}$)",
                 json.dumps(values), count)
-    for family in ("kubernetes", "keycloak"):
+    for family in ("kubernetes",):
         replace(ci, rf"^(        if: matrix.version == )'[^']+'(?=(?: && matrix.shard == 'core')? # versions:{family}-lint$)",
                 "'" + data[family]["default"] + "'")
+
+    scale_workflow = ".github/workflows/scale-qualification.yml"
+    for name, values in (("keycloak", sorted(data["keycloak"]["versions"])), ("kubernetes", data["kubernetes"]["versions"])):
+        marker = "workload-keycloak" if name == "keycloak" else "kubernetes"
+        replace(scale_workflow, rf"^(        {name}: ).+(?= # versions:{marker}$)", json.dumps(values))
 
     window = ["| Component | Exact qualification versions | Default |", "| --- | --- | --- |"]
     for family in ("kubernetes", "keycloak"):

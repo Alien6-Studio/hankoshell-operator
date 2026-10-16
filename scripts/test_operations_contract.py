@@ -1,4 +1,5 @@
 import importlib.util
+import json
 from pathlib import Path
 import shutil
 import tempfile
@@ -22,8 +23,9 @@ class OperationalContractTests(unittest.TestCase):
         self.assertEqual(len(contract.check()["metrics"]), 11)
 
     def test_release_contract_rejects_output_or_runbook_divergence(self):
+        active_report = json.loads((contract.ROOT / "docs/operational-contract.json").read_text())["installedEvidence"][0]["report"]
         mutations = [
-            ("docs/qualification/operations/2026-10-16/observability-runtime-30308d4.json", '"result": "pass"', '"result": "fail"'),
+            (active_report, '"result": "pass"', '"result": "fail"'),
             ("internal/observability/metrics.go", "hanko_operator_reconcile_total", "hanko_operator_unreviewed_total"),
             ("internal/observability/metrics.go", '[]string{"kind", "outcome"}', '[]string{"object", "outcome"}'),
             ("internal/observability/events.go", '"ClientCreated"', '"UnreviewedReason"'),

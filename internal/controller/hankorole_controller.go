@@ -358,10 +358,15 @@ func (r *HankoRoleReconciler) ensureRoleFinalizer(ctx context.Context, role *han
 }
 
 func (r *HankoRoleReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	options, err := iamControllerOptions()
+	if err != nil {
+		return err
+	}
 	if r.APIReader == nil {
 		r.APIReader = mgr.GetAPIReader()
 	}
 	return ctrl.NewControllerManagedBy(mgr).
+		WithOptions(options).
 		For(&hankoshv1alpha1.HankoRole{}, builder.WithPredicates(generationOrReconcileRequestChanged())).
 		Complete(observeReconciler("HankoRole", r))
 }

@@ -18,6 +18,9 @@ PRE_COMMIT_HOME ?= $(CURDIR)/.tools/pre-commit-cache
 KEYCLOAK_SHARD ?= all
 KEYCLOAK_STABILITY_ROOT ?=
 KEYCLOAK_STABILITY_OUTPUT ?= $(TEST_REPORT_DIR)/keycloak-stability-$(KEYCLOAK_STABILITY_ROOT)
+SCALE_PROFILE ?= smoke
+SCALE_WORKERS ?= 4
+SCALE_SECONDS ?=
 CHART := charts/hankoshell-operator
 KUBERNETES_VERSION ?= $(shell python3 scripts/versions.py get kubernetes default)
 KEYCLOAK_VERSION ?= $(shell python3 scripts/versions.py get keycloak default)
@@ -25,7 +28,7 @@ RELEASE_VERSION := $(shell python3 scripts/versions.py get release version)
 
 .DEFAULT_GOAL := all
 
-.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-test integration-test keycloak-integration-test keycloak-stability-test authentik-integration-test security-mutations licenses lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test fleet-installed-test portable-installed-test
+.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-test integration-test keycloak-integration-test keycloak-stability-test authentik-integration-test security-mutations licenses lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test fleet-installed-test portable-installed-test scale-installed-test
 versions-sync:
 	python3 scripts/versions.py sync
 
@@ -69,6 +72,7 @@ chart-test:
 	bash $(CHART)/tests/network-policy.sh
 	python3 $(CHART)/tests/keycloak-transport.py
 	python3 $(CHART)/tests/observability.py
+	python3 $(CHART)/tests/concurrency.py
 	python3 $(CHART)/tests/organization-projection.py
 	python3 $(CHART)/tests/experimental-provider.py
 	python3 $(CHART)/tests/lifecycle.py
@@ -157,3 +161,10 @@ fleet-installed-test:
 # Both pinned providers use the same reviewed intent corpus on an installed chart.
 portable-installed-test:
 	python3 scripts/portable-installed-test.py --archive "$(OCI_ARCHIVE)" --evidence "$(OCI_EVIDENCE)" --digest "$(OCI_DIGEST)" --revision "$(REVISION)" --keycloak-version "$(KEYCLOAK_VERSION)" --kubernetes-version "$(KUBERNETES_VERSION)" --kind "$(KIND)" --kubectl "$(KUBECTL)" --helm "$(HELM)" --oras "$(ORAS)" --openssl "$(OPENSSL)" --output "$(PORTABLE_OUTPUT)"
+
+# Fresh report directory only. Soak requires >=86400 measured steady seconds.
+scale-installed-test:
+	python3 scripts/scale-installed-test.py --profile "$(SCALE_PROFILE)" --workers "$(SCALE_WORKERS)" $(if $(SCALE_SECONDS),--seconds "$(SCALE_SECONDS)") \
+		--archive "$(OCI_ARCHIVE)" --evidence "$(OCI_EVIDENCE)" --digest "$(OCI_DIGEST)" --revision "$(REVISION)" \
+		--keycloak-version "$(KEYCLOAK_VERSION)" --kubernetes-version "$(KUBERNETES_VERSION)" \
+		--kind "$(KIND)" --kubectl "$(KUBECTL)" --helm "$(HELM)" --oras "$(ORAS)" --openssl "$(OPENSSL)" --output "$(SCALE_OUTPUT)"

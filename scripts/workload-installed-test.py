@@ -823,7 +823,7 @@ class Installed(native.Fixture):
         run([self.args.openssl, "req", "-new", "-newkey", "rsa:2048", "-nodes", "-keyout", key, "-out", csr,
             "-subj", "/CN=fault-api.auth.svc", "-addext", "subjectAltName=DNS:fault-api.auth.svc,DNS:localhost"])
         run([self.args.openssl, "x509", "-req", "-in", csr, "-CA", ca_path, "-CAkey", key_path, "-CAcreateserial", "-out", cert,
-            "-days", "1", "-sha256", "-copy_extensions", "copy"])
+            "-days", str(getattr(self, "certificate_days", 1)), "-sha256", "-copy_extensions", "copy"])
         self.apply(self.secret("fixture-api-tls", {"tls.crt": cert.read_text(), "tls.key": key.read_text()}))
         self.api_proxy = self.setup_proxy("fault-api", "https://kubernetes.default.svc", ca, 8444, "fixture-api-tls")
         self.api_proxy_context = ssl.create_default_context(cafile=str(ca_path))

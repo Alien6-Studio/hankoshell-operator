@@ -15,11 +15,14 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 LOCK = threading.Lock()
-STATE = {"rule": None, "blocked": False, "triggered": False, "counts": {}, "attempted_counts": {}, "metadata_activations": {}, "upstream_status": None}
+STATE = {"rule": None, "blocked": False, "triggered": False, "counts": {}, "attempted_counts": {}, "metadata_activations": {}, "upstream_status": None, "traffic": {}}
 
 
 def matches(rule, method, path, body):
-    if not rule or method != rule["method"] or path.split("?")[0] != rule["path"]:
+    if not rule or method != rule["method"]:
+        return False
+    actual = path.split("?")[0]
+    if not (actual.startswith(rule["path"]) if rule.get("path_prefix") else actual == rule["path"]):
         return False
     if "step" in rule:
         value = json.loads(body).get("metadata", {}).get("annotations", {}).get("hanko.sh/workload-auth-transition", "{}")
@@ -31,10 +34,12 @@ class Proxy(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
-    def reply(self, status, body, content_type="application/json"):
+    def reply(self, status, body, content_type="application/json", retry_after=None):
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
+        if retry_after is not None:
+            self.send_header("Retry-After", str(retry_after))
         self.end_headers()
         self.wfile.write(body)
 
@@ -53,16 +58,31 @@ class Proxy(BaseHTTPRequestHandler):
                         STATE["counts"] = {}
                         STATE["attempted_counts"] = {}
                         STATE["metadata_activations"] = {}
+                        STATE["traffic"] = {}
                 result = json.dumps(STATE).encode()
             self.reply(200, result)
             return
         with LOCK:
+            traffic = STATE.setdefault("traffic", {})
+            traffic["requests"] = traffic.get("requests", 0) + 1
+            if self.path.split("?")[0].endswith("/protocol/openid-connect/token"):
+                traffic["token_requests"] = traffic.get("token_requests", 0) + 1
             rule = STATE["rule"]
             selected = matches(rule, self.command, self.path, body) and not STATE["triggered"]
             blocked = STATE["blocked"]
-            if selected and rule["action"] in ("deny", "conflict"):
+            if selected and rule["action"] in ("deny", "conflict", "http-status"):
                 STATE["triggered"] = True
                 STATE["blocked"] = True
+            status_fault = rule and rule["action"] == "http-status" and (selected or blocked)
+            if status_fault:
+                status = rule.get("status")
+                retry_after = rule.get("retry_after", 1)
+                if type(status) is not int or status not in (429, 503) or type(retry_after) is not int or not 1 <= retry_after <= 30:
+                    status, retry_after = 503, 1
+                traffic["refused_requests"] = traffic.get("refused_requests", 0) + 1
+        if status_fault:
+            self.reply(status, b"{}", retry_after=retry_after)
+            return
         if blocked:
             self.reply(503, b"{}")
             return
@@ -138,8 +158,15 @@ class Proxy(BaseHTTPRequestHandler):
     do_DELETE = handle_request
 
 
+class FixtureServer(ThreadingHTTPServer):
+    # Watch connections and concurrent API readers share the listener. The
+    # stdlib backlog of five can reset legitimate requests during a burst.
+    request_queue_size = 128
+    daemon_threads = True
+
+
 def serve(port, upstream, ca):
-    server = ThreadingHTTPServer(("0.0.0.0", port), Proxy)
+    server = FixtureServer(("0.0.0.0", port), Proxy)
     server.upstream = upstream
     server.context = ssl.create_default_context(cafile=ca)
     front = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)

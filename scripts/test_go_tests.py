@@ -22,7 +22,8 @@ class GoTestGateTests(unittest.TestCase):
         groups = runner.partition(tagged, ordinary, manifest)
         self.assertEqual(set.union(*groups.values()), tagged)
         self.assertEqual(sum(map(len, groups.values())), len(tagged))
-        self.assertTrue(ordinary <= groups["core"])
+        self.assertEqual(ordinary, groups["ordinary"])
+        self.assertFalse(ordinary & groups["core"])
         for bad in (
             dict(manifest, other=[]),
             dict(manifest, adoption=["TestCore"]),
@@ -238,7 +239,7 @@ class GoTestGateTests(unittest.TestCase):
         self.assertEqual(set(keycloak["strategy"]["matrix"]["shard"]), set(runner.SHARDS))
         self.assertEqual(keycloak["strategy"]["matrix"]["version"], runner.versions.get("keycloak", "versions"))
         self.assertFalse(keycloak["strategy"]["fail-fast"])
-        for name in ("source", "kubernetes", "keycloak"):
+        for name in ("source", "kubernetes", "keycloak", "keycloak-ordinary"):
             job = ci[name]
             self.assertFalse(job.get("continue-on-error", False))
             upload = next(step for step in job["steps"] if step.get("name") == "Preserve Go test outcomes")

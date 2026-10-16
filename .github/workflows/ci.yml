@@ -203,8 +203,48 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
-      - name: Vet and lint Keycloak integration test code
-        if: matrix.version == '26.8.0' && matrix.shard == 'core' # versions:keycloak-lint
+  keycloak-ordinary:
+    name: Keycloak ${{ matrix.version }} tagged ordinary race tests
+    needs: [preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ["26.8.0", "26.7.5"] # versions:keycloak
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Preserve every ordinary test with the native build tag
+        run: make keycloak-integration-test KEYCLOAK_VERSION=${{ matrix.version }} KEYCLOAK_SHARD=ordinary
+      - name: Preserve Go test outcomes
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: go-tests-keycloak-${{ matrix.version }}-ordinary-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .tools/test-results/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+  keycloak-static:
+    name: Keycloak tagged vet and lint
+    needs: [preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Vet and lint every Keycloak-tagged package
         run: |
           go vet -tags=keycloak_integration ./...
           make lint LINT_BUILD_TAGS=keycloak_integration
@@ -577,7 +617,7 @@ jobs:
     name: Source and chart checks
     # Pull requests run the full qualification matrix (ADR-048); this required
     # gate must keep representing every qualification job before merge.
-    needs: [preflight, source, kubernetes, keycloak, workload, security-mutations, oci, rehearsal, system, installed-workload, installed-portable, installed-fleet]
+    needs: [preflight, source, kubernetes, keycloak, keycloak-ordinary, keycloak-static, workload, security-mutations, oci, rehearsal, system, installed-workload, installed-portable, installed-fleet]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -587,6 +627,8 @@ jobs:
           SOURCE_RESULT: ${{ needs.source.result }}
           KUBERNETES_RESULT: ${{ needs.kubernetes.result }}
           KEYCLOAK_RESULT: ${{ needs.keycloak.result }}
+          KEYCLOAK_ORDINARY_RESULT: ${{ needs.keycloak-ordinary.result }}
+          KEYCLOAK_STATIC_RESULT: ${{ needs.keycloak-static.result }}
           WORKLOAD_RESULT: ${{ needs.workload.result }}
           MUTATIONS_RESULT: ${{ needs.security-mutations.result }}
           OCI_RESULT: ${{ needs.oci.result }}
@@ -595,10 +637,10 @@ jobs:
           INSTALLED_WORKLOAD_RESULT: ${{ needs.installed-workload.result }}
           INSTALLED_PORTABLE_RESULT: ${{ needs.installed-portable.result }}
           INSTALLED_FLEET_RESULT: ${{ needs.installed-fleet.result }}
-        run: test "$PREFLIGHT_RESULT" = success && test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$MUTATIONS_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success && test "$INSTALLED_PORTABLE_RESULT" = success && test "$INSTALLED_FLEET_RESULT" = success
+        run: test "$PREFLIGHT_RESULT" = success && test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$KEYCLOAK_ORDINARY_RESULT" = success && test "$KEYCLOAK_STATIC_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$MUTATIONS_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success && test "$INSTALLED_PORTABLE_RESULT" = success && test "$INSTALLED_FLEET_RESULT" = success
   schedule-report:
     name: Scheduled qualification tracking issue
-    needs: [preflight, source, kubernetes, keycloak, workload, security-mutations, oci, rehearsal, system, installed-workload, installed-portable, installed-fleet, checks]
+    needs: [preflight, source, kubernetes, keycloak, keycloak-ordinary, keycloak-static, workload, security-mutations, oci, rehearsal, system, installed-workload, installed-portable, installed-fleet, checks]
     if: always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.schedule_report_test == true))
     permissions:
       contents: read

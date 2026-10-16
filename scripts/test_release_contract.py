@@ -82,10 +82,10 @@ class ReleaseContractTests(unittest.TestCase):
 
     def test_ci_preflight_blocks_every_expensive_job_and_remains_required(self):
         ci = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
-        self.assertEqual(set(ci), {"preflight", "source", "kubernetes", "keycloak", "workload", "oci",
+        self.assertEqual(set(ci), {"preflight", "source", "kubernetes", "keycloak", "keycloak-ordinary", "keycloak-static", "workload", "oci",
                                    "rehearsal", "system", "installed-workload", "installed-portable", "installed-fleet", "security-mutations", "checks",
                                    "schedule-report"})
-        for job in ("source", "kubernetes", "keycloak", "workload", "security-mutations", "oci"):
+        for job in ("source", "kubernetes", "keycloak", "keycloak-ordinary", "keycloak-static", "workload", "security-mutations", "oci"):
             with self.subTest(job=job):
                 self.assertEqual(ci[job].get("needs"), ["preflight"])
                 self.assertNotIn("if", ci[job])  # Keep implicit success(), including for reusable OCI.

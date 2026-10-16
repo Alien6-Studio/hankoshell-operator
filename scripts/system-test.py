@@ -272,7 +272,7 @@ class System:
         if container["image"] != self.registry + "/hankoshell-operator@" + self.args.digest:
             raise ValueError("Installed image is not the scanned graph")
         if (pod["spec"]["securityContext"]["runAsNonRoot"] is not True or container["securityContext"]["readOnlyRootFilesystem"] is not True
-                or "--metrics-bind-address=0" not in container["args"]):
+                or (("--metrics-bind-address=0" in container["args"]) != (not values.get("metrics", {}).get("enabled", False)))):
             raise ValueError("Installed chart hardening/metrics contract differs")
         for namespace, expected in (("auth", "yes"), ("other", "no")):
             result = self.kubectl("auth", "can-i", "get", "secrets", "-n", namespace, "--as", "system:serviceaccount:auth:system-operator") if expected == "yes" else subprocess.run(

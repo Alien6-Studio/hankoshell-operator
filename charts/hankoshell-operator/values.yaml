@@ -59,6 +59,12 @@ lifecycle:
 
 replicaCount: 1
 
+# Opt-in development qualification. Four IAM controllers only: Application,
+# Role, ResourceServer and Organization. Other controllers remain serial.
+# Provider request budgets are shared per connection and do not grow with this.
+reconciliation:
+  maxConcurrent: 1
+
 resources:
   requests:
     cpu: 50m

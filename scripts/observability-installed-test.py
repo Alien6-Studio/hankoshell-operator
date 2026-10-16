@@ -16,6 +16,7 @@ import subprocess
 import tempfile
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
+from urllib.parse import urlsplit
 
 import yaml
 
@@ -116,16 +117,19 @@ def qualify(system):
                     if client:
                         result.load_cert_chain(str(client[0]), str(client[1]))
                     return result
-                for client in (None, wrong):
-                    try:
-                        with urlopen(metrics_url, context=context(client), timeout=5):
-                            raise ValueError("Unauthorized metrics client was accepted")
-                    except (URLError, ssl.SSLError) as error:
-                        require_authentication_refusal(error)
                 with urlopen(metrics_url, context=context(approved), timeout=5) as response:
                     metrics = response.read(2_097_153).decode()
                 if len(metrics.encode()) > 2_097_152 or any(value in metrics for value in system.sensitive) or "native-ops-metrics-label-sentinel" in metrics:
                     raise ValueError("Metrics are unbounded or include private data (withheld)")
+                # Establish the verified authorized listener first. Linux TLS
+                # 1.3 can surface a missing-client-certificate alert as EOF in
+                # urllib; require the explicit peer alert rather than treating
+                # a reset/timeout/EOF as evidence of authentication refusal.
+                for client in (None, wrong):
+                    require_tls_authentication_refusal(system.args.openssl, metrics_url, ca, client)
+                with urlopen(metrics_url, context=context(approved), timeout=5) as response:
+                    if response.status != 200:
+                        raise ValueError("Authorized metrics listener did not survive refusal probes")
                 active = bool(re.search(r"^hanko_operator_leader 1(?:\.0)?$", metrics, re.M))
                 if active:
                     fixture.wait("complete leader inventory", lambda: scrape_complete(metrics_url, context(approved)), 60)
@@ -194,6 +198,27 @@ def require_authentication_refusal(error):
     if isinstance(cause, ssl.SSLError):
         return
     raise ValueError("Metrics authentication check failed at transport, not authorization") from None
+
+
+def require_tls_authentication_refusal(openssl, url, ca, client=None):
+    address = urlsplit(url)
+    if address.scheme != "https" or address.hostname != "localhost" or not address.port:
+        raise ValueError("TLS fixture probe must target its local forward")
+    command = [str(openssl), "s_client", "-connect", "localhost:" + str(address.port), "-servername", "localhost",
+               "-CAfile", str(ca), "-verify_return_error", "-verify_hostname", "localhost", "-tls1_3", "-quiet"]
+    if client:
+        command += ["-cert", str(client[0]), "-key", str(client[1])]
+    try:
+        result = subprocess.run(command, input=b"GET /metrics HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n",
+                                capture_output=True, timeout=10, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        raise ValueError("TLS authentication probe failed at transport") from None
+    # Transcript/session data stays private. Only explicit remote certificate
+    # alerts qualify; local trust failures and generic EOF/reset never do.
+    error = result.stderr.decode(errors="replace").lower()
+    if (result.returncode == 0 or "certificate verify failed" in error or "hostname mismatch" in error
+            or not re.search(r"alert (?:certificate required|bad certificate|access denied|unknown ca)\b", error)):
+        raise ValueError("TLS authentication probe did not observe an explicit peer certificate refusal")
 
 
 def main():

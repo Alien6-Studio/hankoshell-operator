@@ -36,7 +36,7 @@ def artifact_suites():
     for version in versions.get("kubernetes", "versions"):
         suites["kubernetes-" + version] = "kubernetes/" + version
     for version in versions.get("keycloak", "versions"):
-        for shard in ("core", "adoption", "protocols"):
+        for shard in ("core", "adoption", "protocols", "ordinary"):
             suites[f"keycloak-{version}-{shard}"] = f"keycloak/{version}/{shard}"
     return suites
 

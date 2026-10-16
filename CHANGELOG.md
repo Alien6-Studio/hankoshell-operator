@@ -3,6 +3,19 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Installed load and bounded IAM concurrency
+
+- Add explicit 1–8 worker configuration for four reviewed IAM controllers,
+  defaulting to one; remove Organization/Issuer status-echo hot loops while
+  preserving authority and deletion wakes.
+- Add real installed burst, active-leader replacement, provider/API overload and
+  numeric mTLS measurements, including a 24-hour-minimum soak profile and a
+  six-cell manual short qualification workflow. Production sizing and full
+  transaction HA still require retained evidence.
+- Require explicit TLS peer alerts in negative metrics authentication probes.
+  Move ordinary tagged tests and static checks into separate required CI jobs
+  while preserving exhaustive test inventory and JUnit reporting.
+
 ### Resumable import evidence and public compatibility reporting
 
 - Retry bounded adoption-candidate status conflicts with fresh target identity

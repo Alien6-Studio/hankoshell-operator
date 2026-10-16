@@ -18,6 +18,7 @@ import (
 
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/controller"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/hankoapi"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -99,6 +100,99 @@ func TestRealKeycloakConcurrentCredentialBudget(t *testing.T) {
 	}
 	t.Logf("Keycloak %s: 3 guarded views, 256 successful concurrent HTTPS reads, 128 bounded refusals, %d token request, peak %d in flight", f.version, tokens.Load(), maximum.Load())
 	qualifyConcurrentApplications(t, f)
+	qualifyConcurrentIAMKinds(t, f)
+}
+
+func qualifyConcurrentIAMKinds(t *testing.T, f *keycloakFixture) {
+	t.Helper()
+	if f.admin(http.MethodPut, "/admin/realms/managed", map[string]any{"organizationsEnabled": true}, nil) != http.StatusNoContent {
+		t.Fatal("fixture cannot enable native organizations")
+	}
+	writer, _ := f.serviceClient("parallel-iam-writer")
+	f.grantClientRoles("parallel-iam-writer", "managed", []string{"view-realm", "manage-realm", "manage-clients", "manage-users", "manage-organizations", "manage-authorization"})
+	kube := newFakeClient(t, &api.HankoRealm{ObjectMeta: fixtureMeta("managed")})
+	pool := keycloak.NewPool(writer)
+	apps := &controller.HankoApplicationReconciler{Client: kube, OwnershipReader: kube, Scheme: newScheme(t), Pool: pool}
+	roles := &controller.HankoRoleReconciler{Client: kube, APIReader: kube, Pool: pool}
+	orgs := &controller.HankoOrganizationReconciler{Client: kube, APIReader: kube, Pool: pool, ProjectionMode: hankoapi.ProjectionDisabled}
+	grants := &controller.HankoResourceServerReconciler{Client: kube, APIReader: kube, Pool: pool}
+	var leaves, servers []client.Object
+	for index := range 6 {
+		name := fmt.Sprintf("parallel-%02d", index)
+		leaves = append(leaves,
+			&api.HankoApplication{ObjectMeta: fixtureMeta(name), Spec: api.HankoApplicationSpec{RealmRef: "managed", ClientID: name, Type: "m2m"}},
+			&api.HankoRole{ObjectMeta: fixtureMeta(name), Spec: api.HankoRoleSpec{RealmRef: "managed", Name: name}},
+			&api.HankoOrganization{ObjectMeta: fixtureMeta(name), Spec: api.HankoOrganizationSpec{RealmRef: "managed", Name: name, Slug: name}})
+		servers = append(servers, &api.HankoResourceServer{ObjectMeta: fixtureMeta(name), Spec: api.HankoResourceServerSpec{
+			RealmRef: "managed", ApplicationRef: name, Audience: "urn:" + name,
+			Scopes: []api.AuthorizationScope{{Name: "read"}}, Resources: []api.AuthorizationResource{{Name: "document", Scopes: []string{"read"}}},
+			Permissions: []api.AuthorizationPermission{{Name: "readers", Scopes: []string{"read"}, Resources: []string{"document"}, Principals: []api.AuthorizationPrincipal{{Kind: "realm_role", Ref: name}}}},
+		}})
+	}
+	run := func(objects []client.Object) {
+		var workers sync.WaitGroup
+		for _, obj := range objects {
+			workers.Go(func() {
+				request := ctrl.Request{NamespacedName: client.ObjectKeyFromObject(obj)}
+				var err error
+				switch obj.(type) {
+				case *api.HankoApplication:
+					_, err = apps.Reconcile(t.Context(), request)
+				case *api.HankoRole:
+					_, err = roles.Reconcile(t.Context(), request)
+				case *api.HankoOrganization:
+					_, err = orgs.Reconcile(t.Context(), request)
+				case *api.HankoResourceServer:
+					_, err = grants.Reconcile(t.Context(), request)
+				}
+				if err != nil {
+					t.Error("parallel IAM reconciliation failed", err)
+				}
+			})
+		}
+		workers.Wait()
+	}
+	for _, obj := range leaves {
+		f.requireNoError(kube.Create(t.Context(), obj))
+	}
+	run(leaves)
+	for _, obj := range servers {
+		f.requireNoError(kube.Create(t.Context(), obj))
+	}
+	run(servers)
+	identities := map[string]string{}
+	for wave := range 2 {
+		if wave > 0 {
+			run(leaves)
+			run(servers)
+		}
+		for _, obj := range append(leaves, servers...) {
+			fixtureGet(f, t.Context(), kube, obj)
+			var phase, identity, kind string
+			switch value := obj.(type) {
+			case *api.HankoApplication:
+				phase, kind = value.Status.Phase, "application"
+				native, err := writer.GetApplication(t.Context(), "managed", value.Spec.ClientID)
+				f.requireNoError(err)
+				identity = native.ID
+			case *api.HankoRole:
+				phase, kind = value.Status.Phase, "role"
+				native, err := writer.GetRealmRole(t.Context(), "managed", value.Spec.Name)
+				f.requireNoError(err)
+				identity = native.ID
+			case *api.HankoOrganization:
+				phase, kind, identity = value.Status.Phase, "organization", value.Status.GroupID
+			case *api.HankoResourceServer:
+				phase, kind, identity = value.Status.Phase, "grant", value.Status.AppliedPlanHash
+			}
+			key := kind + "/" + obj.GetName()
+			if phase != "Ready" || identity == "" || wave > 0 && identities[key] != identity {
+				t.Fatal("parallel IAM lost Ready, native identity or stable applied plan", kind)
+			}
+			identities[key] = identity
+		}
+	}
+	t.Log("four shared IAM reconciler kinds: parallel native writes and repeat observations preserve identities and plans; Kubernetes is fake")
 }
 
 func qualifyConcurrentApplications(t *testing.T, f *keycloakFixture) {

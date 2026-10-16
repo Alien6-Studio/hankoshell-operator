@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -458,11 +459,16 @@ func (r *HankoOrganizationReconciler) ensureOrgFinalizer(ctx context.Context, or
 }
 
 func (r *HankoOrganizationReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	options, err := iamControllerOptions()
+	if err != nil {
+		return err
+	}
 	if r.APIReader == nil {
 		r.APIReader = mgr.GetAPIReader()
 	}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&hankoshv1alpha1.HankoOrganization{}).
+		WithOptions(options).
+		For(&hankoshv1alpha1.HankoOrganization{}, builder.WithPredicates(generationOrReconcileRequestChanged())).
 		Complete(observeReconciler("HankoOrganization", r))
 }
 

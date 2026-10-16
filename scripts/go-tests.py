@@ -2,7 +2,8 @@
 
 Keycloak shards partition the complete compiled test inventory, including the
 ordinary tests previously run with that tag. New tagged-only roots must be assigned
-explicitly; ordinary roots stay in core. No failed test is retried or quarantined.
+explicitly; ordinary roots have their own required tagged job for both versions.
+No failed test is retried or quarantined.
 """
 
 import argparse
@@ -50,7 +51,7 @@ def partition(tagged, ordinary, manifest):
         obsolete = sorted(set(assigned) - (tagged - ordinary))
         raise ValueError(f"Keycloak shard inventory drift: unassigned={missing}, obsolete={obsolete}")
     result = {name: set(manifest[name]) for name in SHARDS}
-    result["core"] |= ordinary
+    result["ordinary"] = ordinary
     return result
 
 
@@ -201,7 +202,7 @@ def main():
     parser.add_argument("suite", choices=("unit", "kubernetes", "keycloak"))
     parser.add_argument("--gotestsum", required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--shard", choices=(*SHARDS, "all"), default="all")
+    parser.add_argument("--shard", choices=(*SHARDS, "ordinary", "all"), default="all")
     args = parser.parse_args()
     if args.suite != "keycloak" and args.shard != "all":
         parser.error("shards apply only to Keycloak")

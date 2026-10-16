@@ -14,6 +14,12 @@ Commands with `$variables` require administrator-supplied reviewed inputs.
 
 ## Install: standalone and connected
 
+Load and leader-loss reproduction uses `scripts/scale-installed-test.py` with
+the exact scanned image and a clean immutable checkout. The
+[scale and soak procedure](scale-and-soak.md) documents bounded workers, overload
+injection, numeric metrics and the 24-hour minimum. Full transaction HA, owned
+realm cascade deletion and production sizing remain **UNQUALIFIED**.
+
 Standalone render/install, using the same flags as `System.install` in
 `scripts/system-test.py` (real kind, private-CA Keycloak, namespace RBAC, Restricted
 pods, immutable scanned OCI):

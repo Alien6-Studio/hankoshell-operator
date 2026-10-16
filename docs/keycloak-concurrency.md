@@ -2,6 +2,8 @@
 
 This development work addresses #95 and #110. Production object limits, resource
 sizing, the six installed scale cells, and the 24-hour soak remain unqualified.
+The [installed scale and soak driver](scale-and-soak.md) measures those boundaries
+with a real API server, authenticated metrics, and a scanned exact-source image.
 
 ## Credential connection bounds
 
@@ -34,11 +36,10 @@ process-wide registry. The configuration is fixed while production bounds are
 unknown. Chart CPU/memory defaults are unchanged. A queued request's overall
 deadline includes the budget wait and the HTTP operation.
 
-Controller registration retains existing worker counts. Different controller
-kinds already share clients through `keycloak.Pool`. Increasing worker counts
-everywhere requires a separate review of cross-object ownership, status conflicts,
-transactions and external state. The fixture below calls one application
-reconciler concurrently; it does not prove exactly-once writes for all kinds.
+The chart defaults to one worker per controller. An explicit bounded setting
+enables up to eight workers for Application, Role, Organization and ResourceServer
+only; see the [review and limitations](scale-and-soak.md). Other controllers
+remain serial. Different controller kinds share clients through `keycloak.Pool`.
 
 ## Executable evidence
 
@@ -54,7 +55,10 @@ to a disposable native provider. Three guarded views perform 256 successful
 realm reads, a 128-caller injected 429 wave and recovery, using one credential
 request with at most eight requests in flight. A second scoped credential then
 reconciles 32 SPA applications concurrently in two waves, checking Ready/status
-generations, one native client per object and preserved UUIDs. The Kubernetes
+generations, one native client per object and preserved UUIDs. It also exercises
+six applications, roles, organizations and resource servers through four shared
+reconcilers, then repeats the wave and checks identities and applied plans.
+The Kubernetes
 client is fake; no installed scale or API-server QPS claim follows from this.
 
 Normal fixtures reuse Docker's immutable augmentation build layer and start

@@ -16,6 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -326,7 +327,7 @@ func (r *HankoIssuerReconciler) issuerRequestsInNamespace(ctx context.Context, n
 // SetupWithManager registers issuer, realm and API-deployment drift watches.
 func (r *HankoIssuerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&hankoshv1alpha1.HankoIssuer{}).
+		For(&hankoshv1alpha1.HankoIssuer{}, builder.WithPredicates(generationOrReconcileRequestChanged())).
 		Watches(&hankoshv1alpha1.HankoRealm{}, handler.EnqueueRequestsFromMapFunc(r.requestsForRealm)).
 		Watches(&appsv1.Deployment{}, handler.EnqueueRequestsFromMapFunc(r.requestsForDeployment)).
 		Complete(observeReconciler("HankoIssuer", r))

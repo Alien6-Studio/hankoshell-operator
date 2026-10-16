@@ -676,6 +676,10 @@ func findingsStatus(findings []authorization.Finding) []hankoshv1alpha1.Authoriz
 }
 
 func (r *HankoResourceServerReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	options, err := iamControllerOptions()
+	if err != nil {
+		return err
+	}
 	if r.APIReader == nil {
 		r.APIReader = mgr.GetAPIReader()
 	}
@@ -686,6 +690,7 @@ func (r *HankoResourceServerReconciler) SetupWithManager(mgr ctrl.Manager) error
 		return err
 	}
 	return ctrl.NewControllerManagedBy(mgr).
+		WithOptions(options).
 		For(&hankoshv1alpha1.HankoResourceServer{}, builder.WithPredicates(resourceServerAuthorityChanged())).
 		Watches(&hankoshv1alpha1.HankoOrganization{}, handler.EnqueueRequestsFromMapFunc(r.organizationRequests)).
 		Watches(&hankoshv1alpha1.HankoRole{}, handler.EnqueueRequestsFromMapFunc(r.organizationRequests)).
