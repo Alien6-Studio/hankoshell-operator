@@ -11,8 +11,9 @@ Keycloak is the supported IAM backend. An opt-in
 [authentik 2026.8.4 registration experiment](docs/architecture/second-provider.md)
 executes a bounded OIDC SPA/web subset. Roles, organizations, authorization graphs,
 M2M, SAML, federation, delegation and credential delivery remain unsupported on
-that adapter; its installed matrix is still unqualified. Keycloak-native features
-remain available.
+that adapter. The shared fourteen-fixture corpus checks this registration window
+through the installed chart on Kubernetes 1.35.0/1.36.2/1.37.0 with both supported
+Keycloak versions. Keycloak-native features remain available.
 
 Platform teams can reuse authentication policies across realms, connect upstream
 identity providers and rotate client secrets. Application teams can keep their

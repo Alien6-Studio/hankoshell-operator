@@ -65,6 +65,10 @@ def observation_valid(value, expected, provider, identity=None):
         return (not status.get("appliedPlanHash") and not status.get("observationComplete") and any(
             c.get("type") == "Synced" and c.get("status") == "False" and c.get("reason") == expected["statusReason"]
             and c.get("observedGeneration") == generation for c in status.get("conditions", [])))
+    if provider == "keycloak" and value.get("kind") == "HankoRealm" and not any(
+            c.get("type") == "Synced" and c.get("status") == "True" and c.get("reason") == "Reconciled"
+            for c in status.get("conditions", [])):
+        return False
     if not expected["planEvidence"]:
         return True
     hashes = ("intentHash", "evaluatedPlanHash", "appliedPlanHash", "observationPlanHash", "observedStateHash")
@@ -84,7 +88,7 @@ class Portable(installed.Installed):
         self.report.update(layer="installed-portable", fixture_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                            corpus_sha256=hashlib.sha256(CORPUS.read_bytes()).hexdigest(), differences=[],
                            authentik_image=auth.SERVER, postgres_image=auth.POSTGRES, hub_enabled=False,
-                           bindings=["provider-selection-label", "connection-credentials-and-ca", "workload-cluster-issuer-and-anchor"],
+                           bindings=["provider-selection-label", "connection-credentials-and-ca", "workload-cluster-issuer-and-anchor", "observe-only-reference-prerequisites"],
                            approved_losses=[])
 
     def public_evidence(self):
@@ -345,8 +349,8 @@ p.save(update_fields=["name"])
         self.patch("HankoApplication", "spa", {"metadata": {"labels": {SELECTOR: "experimental"}}})
         self.await_observation(fixture, "authentik")
         self.kubectl("delete", "HankoApplication", "spa", "web", "-n", "auth", "--wait=true", "--timeout=180s")
-        self.record("authentik_owned_cleanup_confirmed", self.auth_api("/api/v3/providers/oauth2/?client_id=portable-spa")["count"] == 0
-            and self.auth_api("/api/v3/providers/oauth2/?client_id=portable-web")["count"] == 0)
+        self.record("authentik_owned_cleanup_confirmed", self.auth_api("/api/v3/providers/oauth2/?client_id=portable-spa")["pagination"]["count"] == 0
+            and self.auth_api("/api/v3/providers/oauth2/?client_id=portable-web")["pagination"]["count"] == 0)
 
     def qualify_portable(self):
         self.create_cluster()
@@ -369,6 +373,17 @@ p.save(update_fields=["name"])
             "subjects": [{"apiGroup": "rbac.authorization.k8s.io", "kind": "Group", "name": "system:unauthenticated"}]})
         for name in ("source", "dependent-reader"):
             self.apply(installed.object_value("HankoKeycloakInstance", name, {"mode": "external", "adminRef": {"name": name + "-credentials"}, "tlsCARef": "operator-ca"}))
+        # The bounded-delegation gate validates local reference identities before
+        # consulting native capabilities. Seed those references read-only, then
+        # exercise their original Manage manifests in the normal corpus order.
+        for fixture in self.corpus["fixtures"]:
+            if fixture["name"] in ("realm", "spa", "m2m"):
+                reference = self.selected_manifest(fixture, "keycloak")
+                if reference["kind"] == "HankoRealm":
+                    reference["metadata"]["labels"] = {"hanko.sh/imported-by": "portable-readonly-prerequisite"}
+                else:
+                    reference["spec"]["mode"] = "Observe"
+                self.apply(reference)
         # Refusal first isolates mutation accounting from background realm maintenance.
         fixtures = sorted(self.corpus["fixtures"], key=lambda f: f["expected"]["keycloak"]["classification"] != "unsupported")
         for fixture in fixtures:

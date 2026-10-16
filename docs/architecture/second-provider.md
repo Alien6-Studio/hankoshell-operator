@@ -180,6 +180,12 @@ specs otherwise remain identical. Only provider-selection metadata, endpoint/CA/
 credential connections and real workload-cluster issuer/anchors are bound by
 the executor. There are no accepted `lossy` outcomes.
 
+The installed Keycloak refusal runs before managed fixture writes. Its local
+realm/application references are seeded in read-only observation mode (the
+existing realm import label and application `mode: Observe`). They then receive
+the original corpus manifests for their own Manage scenarios. A realm's old
+`Observed` condition cannot satisfy the required `Reconciled` result.
+
 Installed negative scenarios cover refused native attributes (no silent drop),
 native duplicate client-ID refusal, foreign ownership-marker collisions, a provider outage followed by operator
 restart without duplicate creation, and provider switches in both directions.

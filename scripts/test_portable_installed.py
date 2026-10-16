@@ -56,6 +56,14 @@ class PortableInstalledTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     fixture.read_corpus()
 
+    def test_read_only_realm_status_does_not_satisfy_manage_fixture(self):
+        expected = self.corpus["fixtures"][0]["expected"]["keycloak"]
+        value = {"kind": "HankoRealm", "metadata": {"generation": 1}, "status": {
+            "phase": "Ready", "observedGeneration": 1, "conditions": [{"type": "Synced", "status": "True", "reason": "Observed"}]}}
+        self.assertFalse(fixture.observation_valid(value, expected, "keycloak"))
+        value["status"]["conditions"][0]["reason"] = "Reconciled"
+        self.assertTrue(fixture.observation_valid(value, expected, "keycloak"))
+
     def test_report_allowlist_withholds_bootstrap_and_native_documents(self):
         target = object.__new__(fixture.Portable)
         target.report = {key: [] for key in ("differences", "bindings", "approved_losses")}
