@@ -47,3 +47,13 @@ connection/timeout/server failures as evidence of authentication rejection.
 Fleet/bundle refusal reasons are explicit catalog entries; text/labels remain
 bounded, with a 1,045-series static custom-metric ceiling. Historical reports
 remain unchanged. This smoke is not production HA/soak qualification.
+
+## Complete Tenant decision follow-up: 49f2c75
+
+The [49f2c75 report](observability-runtime-49f2c75.json) repeats all nine installed
+operational checks on the final image after inventorying every declared Tenant
+decision. The complete catalogue has 89 reasons and a reviewed 1,114 custom-series
+ceiling. Both full Fleet fixtures additionally pass 69 checks each on the same
+image, including offline cache, agent commands, expired decommission and recovery;
+see [the retained batch](../../compatibility/2026-10-16/contracts-49f2c75/README.md).
+Historical reports remain bound to their stated source and digest.

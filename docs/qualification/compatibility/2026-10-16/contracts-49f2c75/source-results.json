@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "state": "development-qualification",
+  "runtime_revision": "49f2c752d52e9e6f8dc95afa93dfa2807cb33e5a",
+  "image_digest": "sha256:77b6980639cb2f80516a955a334941b622e3effd7ee0cff21f6dc96111a18975",
+  "unit": {
+    "revision": "49f2c752d52e9e6f8dc95afa93dfa2807cb33e5a",
+    "counts": {
+      "passed": 2282,
+      "failed": 0,
+      "skipped": 0
+    },
+    "worktree_dirty": false,
+    "returncode": 0
+  },
+  "kubernetes_api": {
+    "1.35.0": {
+      "revision": "68fef24fe2b0647bb4f593d9d7facf8d3773832e",
+      "counts": {
+        "passed": 278,
+        "failed": 0,
+        "skipped": 0
+      },
+      "worktree_dirty": false,
+      "suite": "kubernetes/1.35.0",
+      "returncode": 0,
+      "results_sha256": "d462511ee9df43985f4c87a18700c6d0d51b78ed793f483c662d0764966b0275"
+    },
+    "1.36.2": {
+      "revision": "68fef24fe2b0647bb4f593d9d7facf8d3773832e",
+      "counts": {
+        "passed": 278,
+        "failed": 0,
+        "skipped": 0
+      },
+      "worktree_dirty": false,
+      "suite": "kubernetes/1.36.2",
+      "returncode": 0,
+      "results_sha256": "84468bdc8c54d5d76a4ab3a67a89102ef0bdc4d091fc384887af9be0823c3bab"
+    },
+    "1.37.0": {
+      "revision": "68fef24fe2b0647bb4f593d9d7facf8d3773832e",
+      "counts": {
+        "passed": 278,
+        "failed": 0,
+        "skipped": 0
+      },
+      "worktree_dirty": false,
+      "suite": "kubernetes/1.37.0",
+      "returncode": 0,
+      "results_sha256": "a748e999879ac4aec6a7f614fc6803bbbeca69b760431b7bb69d594f90e9b205"
+    }
+  },
+  "api_source_unchanged_since_68fef24": true,
+  "go_api": {
+    "packages": 7,
+    "exports": 1571,
+    "darwin_arm64_linux_amd64_identical": true,
+    "maturity": "development-fixture-contract"
+  },
+  "python": 303,
+  "security_mutations": {
+    "source": "f6b9e9b",
+    "count": 49,
+    "protected_files_unchanged": true
+  },
+  "installed_fleet_checks": {
+    "26.7.5": 69,
+    "26.8.0": 69
+  },
+  "installed_operational_checks": 9,
+  "installed_system_source": "68fef24fe2b0647bb4f593d9d7facf8d3773832e",
+  "full_final_head_ci_required": true,
+  "bootstrap_note": "An earlier 80b54a8 Kind bootstrap failed before any checks; later diagnostic failures drove code fixes. Final fixtures are fresh 49f2c75 executions; no automatic failed-test retry or quarantine."
+}
