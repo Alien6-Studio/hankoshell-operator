@@ -256,7 +256,7 @@ jobs:
     name: Security mutation checks
     needs: [preflight]
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -449,6 +449,67 @@ jobs:
           path: ${{ runner.temp }}/installed-workload.diagnostics
           if-no-files-found: warn
           retention-days: 7
+  installed-portable:
+    name: Portable KC + authentik / KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
+    needs: [source, oci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        keycloak: ["26.7.5", "26.8.0"] # versions:workload-keycloak
+        kubernetes: ["1.35.0", "1.36.2", "1.37.0"] # versions:kubernetes
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ needs.oci.outputs.artifact_id }}
+          path: ${{ runner.temp }}/hankoshell-scanned-oci
+          merge-multiple: true
+      - name: Install checksum-pinned portable test tools
+        run: |
+          python3 -m pip install -r scripts/requirements.txt
+          python3 scripts/install-system-tools.py "$RUNNER_TEMP/workload-tools"
+          GOBIN="$RUNNER_TEMP/workload-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"
+          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+      - name: Qualify the identical intent corpus on both installed providers
+        env:
+          DIGEST: ${{ needs.oci.outputs.digest }}
+          KEYCLOAK_VERSION: ${{ matrix.keycloak }}
+          KUBERNETES_VERSION: ${{ matrix.kubernetes }}
+        run: |
+          python3 scripts/portable-installed-test.py \
+            --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
+            --evidence "$RUNNER_TEMP/hankoshell-scanned-oci/evidence" --digest "$DIGEST" --revision "$GITHUB_SHA" \
+            --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION"  \
+            --kind "$RUNNER_TEMP/workload-tools/kind" --kubectl "$RUNNER_TEMP/workload-tools/kubectl" \
+            --oras "$RUNNER_TEMP/workload-tools/oras" --helm /tmp/linux-amd64/helm --openssl /usr/bin/openssl \
+            --output "$RUNNER_TEMP/installed-portable.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: NONPUBLISHABLE-installed-portable-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/installed-portable.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve bounded portable failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: NONPUBLISHABLE-diagnostics-installed-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/installed-portable.diagnostics
+          if-no-files-found: warn
+          retention-days: 7
   installed-fleet:
     name: Installed Fleet KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
     needs: [source, oci]
@@ -514,7 +575,7 @@ jobs:
     name: Source and chart checks
     # Pull requests run the full qualification matrix (ADR-048); this required
     # gate must keep representing every qualification job before merge.
-    needs: [preflight, source, kubernetes, keycloak, workload, security-mutations, oci, rehearsal, system, installed-workload, installed-fleet]
+    needs: [preflight, source, kubernetes, keycloak, workload, security-mutations, oci, rehearsal, system, installed-workload, installed-portable, installed-fleet]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -530,11 +591,12 @@ jobs:
           REHEARSAL_RESULT: ${{ needs.rehearsal.result }}
           SYSTEM_RESULT: ${{ needs.system.result }}
           INSTALLED_WORKLOAD_RESULT: ${{ needs.installed-workload.result }}
+          INSTALLED_PORTABLE_RESULT: ${{ needs.installed-portable.result }}
           INSTALLED_FLEET_RESULT: ${{ needs.installed-fleet.result }}
-        run: test "$PREFLIGHT_RESULT" = success && test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$MUTATIONS_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success && test "$INSTALLED_FLEET_RESULT" = success
+        run: test "$PREFLIGHT_RESULT" = success && test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$MUTATIONS_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success && test "$INSTALLED_PORTABLE_RESULT" = success && test "$INSTALLED_FLEET_RESULT" = success
   schedule-report:
     name: Scheduled qualification tracking issue
-    needs: [preflight, source, kubernetes, keycloak, workload, security-mutations, oci, rehearsal, system, installed-workload, installed-fleet, checks]
+    needs: [preflight, source, kubernetes, keycloak, workload, security-mutations, oci, rehearsal, system, installed-workload, installed-portable, installed-fleet, checks]
     if: always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.schedule_report_test == true))
     permissions:
       contents: read

@@ -156,6 +156,9 @@ func TestRealAuthentikPortableCorpus(t *testing.T) {
 				if status.Status.Phase != "Error" || len(obj.GetFinalizers()) > 0 {
 					t.Fatal("unsupported fixture was not refused before mutation")
 				}
+				if err := iamconformance.CheckPortableObservation(fixture, "authentik", data); err != nil {
+					t.Fatal(err)
+				}
 				iamconformance.NoSecrets(t, []string{string(tokenData), string(deniedToken)}, obj)
 				return
 			}
@@ -188,6 +191,10 @@ func TestRealAuthentikPortableCorpus(t *testing.T) {
 			}
 			if app.Status.Phase != "Ready" || app.Status.AppliedPlanHash == "" || !app.Status.ObservationComplete {
 				t.Fatalf("real provider failed fixture %s; phase=%s", fixture.Name, app.Status.Phase)
+			}
+			observed, _ := json.Marshal(app)
+			if err := iamconformance.CheckPortableObservation(fixture, "authentik", observed); err != nil {
+				t.Fatal(err)
 			}
 			before := count()
 			if _, err := r.Reconcile(ctx, req); err != nil {

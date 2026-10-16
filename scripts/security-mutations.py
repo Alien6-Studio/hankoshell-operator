@@ -20,7 +20,10 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_LIMIT = 2 * 1024**2
 COMMAND_SECONDS = 120
-TOTAL_SECONDS = 480
+# Cold compilation plus isolated controller rebuilds exceeded eight minutes in
+# the mandatory CI gate. Keep per-command and per-test limits unchanged; allow
+# the entire reviewed inventory to finish, including its unmutated baselines.
+TOTAL_SECONDS = 900
 
 
 def mutation(name, file, before, after, package, test):

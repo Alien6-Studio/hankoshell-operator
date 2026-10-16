@@ -4,6 +4,7 @@
     "TestRealKeycloakFleetDisconnectedAuthority",
     "TestRealKeycloakIAMContract",
     "TestRealKeycloakManagedTransport",
+    "TestRealKeycloakPortableCorpus",
     "TestRealKeycloakTenantRouting"
   ],
   "adoption": [

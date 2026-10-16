@@ -85,7 +85,7 @@ def generated(root=ROOT, data=None):
                 "keycloak": data["keycloak"]["versions"],
                 "workload-keycloak": sorted(data["keycloak"]["versions"])}
     for name, values in matrices.items():
-        count = 3 if name == "workload-keycloak" else (4 if name == "kubernetes" else 1)
+        count = 4 if name == "workload-keycloak" else (5 if name == "kubernetes" else 1)
         replace(ci, rf"^(        (?:version|keycloak|kubernetes): ).+(?= # versions:{name}$)",
                 json.dumps(values), count)
     for family in ("kubernetes", "keycloak"):

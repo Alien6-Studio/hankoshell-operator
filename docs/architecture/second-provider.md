@@ -147,8 +147,50 @@ The real adapter gate is mandatory in the CI source job. `make integration-test`
 also validates every fixture manifest and proves the connection policy denies a
 ConfigMap writer while allowing an independent administrator.
 
-The corpus currently has in-memory identity/classification checks and complete
-real authentik execution/refusal coverage. Connecting every literal fixture to
-the real Keycloak suite (including installed Kubernetes workload trust bindings)
-is remaining work in #73. The six-cell installed two-provider matrix is remaining
-work in #75. Existing independent Keycloak suites remain mandatory.
+`TestRealKeycloakPortableCorpus` executes the same fourteen literal fixtures on
+both supported native HTTPS versions. Its core shard is mandatory. Kubernetes
+storage and public discovery are injected in that source-layer suite; the
+installed suite uses actual cluster CA/UID anchors and public issuer discovery.
+The one source-layer CA placeholder is an operational binding, not a claim of
+workload authentication. Existing native workload authentication gates remain.
+
+`make portable-installed-test` uses `OCI_ARCHIVE`, `OCI_EVIDENCE`, `OCI_DIGEST`,
+`REVISION`, `KEYCLOAK_VERSION`, `KUBERNETES_VERSION`, `KIND`, `KUBECTL`, `HELM`,
+`ORAS`, `OPENSSL` and `PORTABLE_OUTPUT`. It verifies the scanned immutable graph,
+mirrors it into an owned disposable registry and installs the actual chart.
+Every one of the six supported Kubernetes/Keycloak cells runs **both** real
+providers. No production registry, trust installation or publication is involved.
+The additional job is required by the aggregate CI check; existing gates remain.
+
+The corpus freezes classifications, current refusal reasons, expected phases
+and application intent identities shared by the two compilers. A supported
+application must retain that exact identity in its real-controller status and
+publish current, matching evaluation/application/observation proof. Native
+organization/service-account/realm/trust statuses keep their existing domain
+contracts and receive independent native read-back assertions. An IAM profile
+is a local policy-validation fixture, not a claim of remote MFA execution;
+existing applied realm-policy qualification remains mandatory.
+
+Unsupported fixtures must issue **zero attempted provider mutations**, create no
+cleanup finalizer, publish no applied proof and expose the reviewed current
+finding. They are independently removed before the next authentik attempt;
+an unsupported realm is never treated as authority for an application's policy.
+The corpus's extra `portable-writer` prerequisite role is bootstrap-only. Source
+specs otherwise remain identical. Only provider-selection metadata, endpoint/CA/
+credential connections and real workload-cluster issuer/anchors are bound by
+the executor. There are no accepted `lossy` outcomes.
+
+Installed negative scenarios cover refused native attributes (no silent drop),
+foreign duplicate client identities, a provider outage followed by operator
+restart without duplicate creation, and provider switches in both directions.
+Provider journals cannot become another adapter's ownership authority. Owned
+authentik registrations are deleted and native absence is confirmed. The
+portable SPA/web use case qualifies IAM registration; web runtime credential
+delivery remains explicitly unsupported and is not promoted to operational readiness.
+
+Each cell emits a bounded, non-publishable difference report with all 28
+provider/fixture outcomes, corpus/harness hashes, image identities, exact
+versions, explicit bindings and no accepted losses. Failed execution retains
+`complete: false`. Logs, events, CRs and ConfigMaps are scanned for actual private
+bootstrap and generated client credentials. Hub stays disabled; this fixture
+neither assigns it new authority nor claims to qualify Hub execution.

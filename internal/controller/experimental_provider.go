@@ -215,7 +215,6 @@ func (r *HankoApplicationReconciler) reconcileExperimentalApplication(ctx contex
 		return r.experimentalFailure(ctx, app, iamcontract.ErrStale)
 	}
 	app = after.app
-	patch := client.MergeFromWithOptions(app.DeepCopy(), client.MergeFromWithOptimisticLock{})
 	evidence := applicationEvidence(&app.Status)
 	evidence.process(app.Generation, !manage)
 	evidence.evaluate(app.Generation, current.plan.Identity())
@@ -249,7 +248,11 @@ func (r *HankoApplicationReconciler) reconcileExperimentalApplication(ctx contex
 	}
 	iamCondition(&app.Status.Conditions, app.Generation, "Synced", synced, reason, "experimental provider observation completed")
 	iamCondition(&app.Status.Conditions, app.Generation, "Operational", metav1.ConditionFalse, "CredentialBindingUnsupported", "experimental provider credential delivery is not qualified")
-	return ctrl.Result{RequeueAfter: requeueWithJitter()}, r.Status().Patch(ctx, app, patch)
+	// A merge diff against the typed zero-value capability snapshot omits false
+	// members when the API has no snapshot yet. They are required booleans in the
+	// existing schema. Send the complete status with the fresh resourceVersion;
+	// concurrent spec/status changes still produce an optimistic-lock conflict.
+	return ctrl.Result{RequeueAfter: requeueWithJitter()}, r.Status().Update(ctx, app)
 }
 func (r *HankoApplicationReconciler) experimentalFailure(ctx context.Context, app *api.HankoApplication, err error) (ctrl.Result, error) {
 	patch := client.MergeFromWithOptions(app.DeepCopy(), client.MergeFromWithOptimisticLock{})

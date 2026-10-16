@@ -14,6 +14,8 @@ func TestPortableCorpusInventoryAndPrivacy(t *testing.T) {
 	raw, _ := json.Marshal(corpus)
 	for _, mutate := range []func(*PortableCorpus){
 		func(c *PortableCorpus) { delete(c.Fixtures[0].Expected, "authentik") },
+		func(c *PortableCorpus) { c.Fixtures[2].IntentIdentity = "" },
+		func(c *PortableCorpus) { c.Fixtures[0].Manifest.Kind = "HankoApplication" },
 		func(c *PortableCorpus) { c.Fixtures[0].Capability = "future-capability" },
 		func(c *PortableCorpus) { c.Fixtures[1].Capability = c.Fixtures[0].Capability },
 		func(c *PortableCorpus) {

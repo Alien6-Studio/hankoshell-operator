@@ -50,6 +50,9 @@ func TestPortableApplicationIdentityAcrossBackends(t *testing.T) {
 			if kc.Identity().Intent != other.Identity().Intent || kc.Identity().Plan == other.Identity().Plan {
 				t.Fatal("portable meaning or execution authority crossed backend boundary")
 			}
+			if kc.Identity().Intent != fixture.IntentIdentity {
+				t.Fatal("portable compiler changed the reviewed golden identity")
+			}
 			reversed := intent
 			reversed.RedirectURIs = append([]string(nil), intent.RedirectURIs...)
 			slices.Reverse(reversed.RedirectURIs)
