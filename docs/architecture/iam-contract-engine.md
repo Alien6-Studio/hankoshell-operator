@@ -7,8 +7,9 @@ This implementation resolves [RFC #22](https://github.com/Alien6-Studio/hankoshe
 and the execution boundary of [RFC #23](https://github.com/Alien6-Studio/hankoshell-operator/issues/23).
 It qualifies `HankoResourceServer` and `HankoRole`.
 Application Identity extends this pattern to `HankoApplication`; see the
-[application domain contract](application-identity.md). Keycloak remains the only
-backend. Public evidence implements [#27](https://github.com/Alien6-Studio/hankoshell-operator/issues/27),
+[application domain contract](application-identity.md). Keycloak remains the supported backend. The opt-in
+[authentik preview](second-provider.md) reuses application plans for a bounded
+registration subset; its installed qualification remains separate. Public evidence implements [#27](https://github.com/Alien6-Studio/hankoshell-operator/issues/27),
 with matching application semantics in #24; other controllers retain their implementation.
 
 The [organizational authorization design](organizational-authorization.md)
@@ -34,7 +35,8 @@ normalize → resolve references → evaluate capabilities → compile locally
 `internal/iamcontract` contains only versioned digests, backend identity,
 classifications/findings, plan identity, local preconditions and safe errors.
 Business operations remain in domain-specific drivers. There is no universal
-provider interface and no second production adapter.
+production provider interface. The experimental authentik adapter implements the
+application driver without constraining native Keycloak features.
 
 Plans are sealed in-process snapshots, not public Kubernetes objects. **No
 `HankoPlan` CRD is introduced.** JSON serialization emits identity only; decoding

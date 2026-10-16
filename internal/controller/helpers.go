@@ -69,7 +69,7 @@ func generationOrReconcileRequestChanged() predicate.Predicate {
 					return true
 				}
 			}
-			return update.ObjectOld.GetLabels()[importedByLabel] != update.ObjectNew.GetLabels()[importedByLabel] || update.ObjectOld.GetLabels()["hanko.sh/tenant"] != update.ObjectNew.GetLabels()["hanko.sh/tenant"] || !update.ObjectOld.GetDeletionTimestamp().Equal(update.ObjectNew.GetDeletionTimestamp())
+			return providerConnectionChanged(update.ObjectOld.GetLabels(), update.ObjectNew.GetLabels()) || update.ObjectOld.GetLabels()[importedByLabel] != update.ObjectNew.GetLabels()[importedByLabel] || update.ObjectOld.GetLabels()["hanko.sh/tenant"] != update.ObjectNew.GetLabels()["hanko.sh/tenant"] || !update.ObjectOld.GetDeletionTimestamp().Equal(update.ObjectNew.GetDeletionTimestamp())
 		}},
 	)
 }
@@ -345,4 +345,10 @@ func importResourceName(realmID, clientID string) string {
 		name = name[:63]
 	}
 	return strings.Trim(name, "-")
+}
+
+func providerConnectionChanged(oldLabels, newLabels map[string]string) bool {
+	oldValue, oldPresent := oldLabels[providerConnectionLabel]
+	newValue, newPresent := newLabels[providerConnectionLabel]
+	return oldValue != newValue || oldPresent != newPresent
 }

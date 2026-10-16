@@ -7,6 +7,7 @@
     "internal/adoption": 84.6,
     "internal/applicationbinding": 78.2,
     "internal/applications": 34.7,
+    "internal/authentik": 80,
     "internal/authorization": 70.3,
     "internal/controller": 73.4,
     "internal/decommission": 80.8,

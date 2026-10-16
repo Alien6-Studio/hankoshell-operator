@@ -1,0 +1,506 @@
+{
+  "schemaVersion": 1,
+  "name": "portable-v1",
+  "providers": [
+    "keycloak",
+    "authentik"
+  ],
+  "fixtures": [
+    {
+      "name": "realm",
+      "capability": "identity_domain",
+      "manifest": {
+        "apiVersion": "hanko.sh/v1alpha1",
+        "kind": "HankoRealm",
+        "metadata": {
+          "name": "realm"
+        },
+        "spec": {
+          "displayName": "Portable identity domain"
+        }
+      },
+      "expected": {
+        "keycloak": {
+          "classification": "lossless",
+          "reason": "",
+          "evidence": "docs/architecture/provider-boundaries.md"
+        },
+        "authentik": {
+          "classification": "unsupported",
+          "reason": "identity_domain_unsupported",
+          "evidence": "docs/architecture/second-provider.md"
+        }
+      }
+    },
+    {
+      "name": "profile",
+      "capability": "iam_profile",
+      "manifest": {
+        "apiVersion": "hanko.sh/v1alpha1",
+        "kind": "HankoIAMProfile",
+        "metadata": {
+          "name": "profile"
+        },
+        "spec": {
+          "security": {
+            "mfaPolicy": "required"
+          }
+        }
+      },
+      "expected": {
+        "keycloak": {
+          "classification": "lossless",
+          "reason": "",
+          "evidence": "docs/architecture/provider-boundaries.md"
+        },
+        "authentik": {
+          "classification": "unsupported",
+          "reason": "iam_profile_unsupported",
+          "evidence": "docs/architecture/second-provider.md"
+        }
+      }
+    },
+    {
+      "name": "spa",
+      "capability": "oidc_public",
+      "manifest": {
+        "apiVersion": "hanko.sh/v1alpha1",
+        "kind": "HankoApplication",
+        "metadata": {
+          "name": "spa"
+        },
+        "spec": {
+          "realmRef": "portable",
+          "clientID": "portable-spa",
+          "type": "spa",
+          "redirectURIs": [
+            "https://app.example/callback",
+            "https://app.example/other"
+          ]
+        }
+      },
+      "expected": {
+        "keycloak": {
+          "classification": "lossless",
+          "reason": "",
+          "evidence": "docs/architecture/provider-boundaries.md"
+        },
+        "authentik": {
+          "classification": "lossless",
+          "reason": "",
+          "evidence": "docs/architecture/second-provider.md"
+        }
+      }
+    },
+    {
+      "name": "web",
+      "capability": "oidc_confidential",
+      "manifest": {
+        "apiVersion": "hanko.sh/v1alpha1",
+        "kind": "HankoApplication",
+        "metadata": {
+          "name": "web"
+        },
+        "spec": {
+          "realmRef": "portable",
+          "clientID": "portable-web",
+          "type": "web",
+          "redirectURIs": [
+            "https://web.example/callback"
+          ]
+        }
+      },
+      "expected": {
+        "keycloak": {
+          "classification": "lossless",
+          "reason": "",
+          "evidence": "docs/architecture/provider-boundaries.md"
+        },
+        "authentik": {
+          "classification": "lossless",
+          "reason": "",
+          "evidence": "docs/architecture/second-provider.md"
+        }
+      }
+    },
+    {
+      "name": "m2m",
+      "capability": "machine_identity",
+      "manifest": {
+        "apiVersion": "hanko.sh/v1alpha1",
+        "kind": "HankoApplication",
+        "metadata": {
+          "name": "m2m"
+        },
+        "spec": {
+          "realmRef": "portable",
+          "clientID": "portable-m2m",
+          "type": "m2m"
+        }
+      },
+      "expected": {
+        "keycloak": {
+          "classification": "lossless",
+          "reason": "",
+          "evidence": "docs/architecture/provider-boundaries.md"
+        },
+        "authentik": {
+          "classification": "unsupported",
+          "reason": "machine_identity_requires_user",
+          "evidence": "docs/architecture/second-provider.md"
+        }
+      }
+    },
+    {
+      "name": "saml",
+      "capability": "saml",
+      "manifest": {
+        "apiVersion": "hanko.sh/v1alpha1",
+        "kind": "HankoApplication",
+        "metadata": {
+          "name": "saml"
+        },
+        "spec": {
+          "realmRef": "portable",
+          "clientID": "https://sp.example/saml",
+          "protocol": "saml",
+          "saml": {
+            "assertionConsumerServices": [
+              "https://sp.example/acs"
+            ],
+            "requireSignedAssertions": true
+          }
+        }
+      },
+      "expected": {
+        "keycloak": {
+          "classification": "lossless",
+          "reason": "",
+          "evidence": "docs/architecture/provider-boundaries.md"
+        },
+        "authentik": {
+          "classification": "unsupported",
+          "reason": "protocol_unsupported",
+          "evidence": "docs/architecture/second-provider.md"
+        }
+      }
+    },
+    {
+      "name": "role",
+      "capability": "realm_roles",
+      "manifest": {
+        "apiVersion": "hanko.sh/v1alpha1",
+        "kind": "HankoRole",
+        "metadata": {
+          "name": "role"
+        },
+        "spec": {
+          "realmRef": "portable",
+          "name": "portable-reader",
+          "description": "Read portable objects"
+        }
+      },
+      "expected": {
+        "keycloak": {
+          "classification": "lossless",
+          "reason": "",
+          "evidence": "docs/architecture/provider-boundaries.md"
+        },
+        "authentik": {
+          "classification": "unsupported",
+          "reason": "realm_roles_unsupported",
+          "evidence": "docs/architecture/second-provider.md"
+        }
+      }
+    },
+    {
+      "name": "composite",
+      "capability": "composite_roles",
+      "manifest": {
+        "apiVersion": "hanko.sh/v1alpha1",
+        "kind": "HankoRole",
+        "metadata": {
+          "name": "composite"
+        },
+        "spec": {
+          "realmRef": "portable",
+          "name": "portable-composite",
+          "composites": [
+            "portable-reader",
+            "portable-writer"
+          ]
+        }
+      },
+      "expected": {
+        "keycloak": {
+          "classification": "lossless",
+          "reason": "",
+          "evidence": "docs/architecture/provider-boundaries.md"
+        },
+        "authentik": {
+          "classification": "unsupported",
+          "reason": "composite_roles_unsupported",
+          "evidence": "docs/architecture/second-provider.md"
+        }
+      }
+    },
+    {
+      "name": "organization",
+      "capability": "organization",
+      "manifest": {
+        "apiVersion": "hanko.sh/v1alpha1",
+        "kind": "HankoOrganization",
+        "metadata": {
+          "name": "organization"
+        },
+        "spec": {
+          "realmRef": "portable",
+          "name": "Portable team",
+          "slug": "portable-team",
+          "roles": [
+            "portable-reader"
+          ]
+        }
+      },
+      "expected": {
+        "keycloak": {
+          "classification": "lossless",
+          "reason": "",
+          "evidence": "docs/architecture/provider-boundaries.md"
+        },
+        "authentik": {
+          "classification": "unsupported",
+          "reason": "organization_unsupported",
+          "evidence": "docs/architecture/second-provider.md"
+        }
+      }
+    },
+    {
+      "name": "resource-server",
+      "capability": "resource_server",
+      "manifest": {
+        "apiVersion": "hanko.sh/v1alpha1",
+        "kind": "HankoResourceServer",
+        "metadata": {
+          "name": "resource-server"
+        },
+        "spec": {
+          "realmRef": "portable",
+          "applicationRef": "m2m",
+          "audience": "portable-api",
+          "scopes": [
+            {
+              "name": "read"
+            }
+          ],
+          "resources": [
+            {
+              "name": "document",
+              "scopes": [
+                "read"
+              ]
+            }
+          ],
+          "permissions": [
+            {
+              "name": "read-document",
+              "resources": [
+                "document"
+              ],
+              "scopes": [
+                "read"
+              ],
+              "principals": [
+                {
+                  "kind": "realm_role",
+                  "ref": "role"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expected": {
+        "keycloak": {
+          "classification": "lossless",
+          "reason": "",
+          "evidence": "docs/architecture/provider-boundaries.md"
+        },
+        "authentik": {
+          "classification": "unsupported",
+          "reason": "resource_server_unsupported",
+          "evidence": "docs/architecture/second-provider.md"
+        }
+      }
+    },
+    {
+      "name": "service-account",
+      "capability": "service_account",
+      "manifest": {
+        "apiVersion": "hanko.sh/v1alpha1",
+        "kind": "HankoServiceAccount",
+        "metadata": {
+          "name": "service-account"
+        },
+        "spec": {
+          "realmRef": "portable",
+          "clientID": "portable-service"
+        }
+      },
+      "expected": {
+        "keycloak": {
+          "classification": "lossless",
+          "reason": "",
+          "evidence": "docs/architecture/provider-boundaries.md"
+        },
+        "authentik": {
+          "classification": "unsupported",
+          "reason": "service_account_unsupported",
+          "evidence": "docs/architecture/second-provider.md"
+        }
+      }
+    },
+    {
+      "name": "workload-federation",
+      "capability": "workload_federation",
+      "manifest": {
+        "apiVersion": "hanko.sh/v1alpha1",
+        "kind": "HankoWorkloadTrust",
+        "metadata": {
+          "name": "workload-federation"
+        },
+        "spec": {
+          "realmRef": "portable",
+          "sourceRef": "source",
+          "dependentReaderRef": "dependent-reader",
+          "keycloakAlias": "portable-cluster",
+          "provider": "Kubernetes",
+          "kubernetes": {
+            "issuer": "https://kubernetes.default.svc",
+            "clusterAnchor": {
+              "kubeSystemNamespaceUID": "portable-synthetic-cluster",
+              "apiServerCAHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "assertionMaxAgeSeconds": 600
+          }
+        }
+      },
+      "expected": {
+        "keycloak": {
+          "classification": "lossless",
+          "reason": "",
+          "evidence": "docs/architecture/provider-boundaries.md"
+        },
+        "authentik": {
+          "classification": "unsupported",
+          "reason": "workload_federation_unsupported",
+          "evidence": "docs/architecture/second-provider.md"
+        }
+      }
+    },
+    {
+      "name": "delegation",
+      "capability": "bounded_delegation",
+      "manifest": {
+        "apiVersion": "hanko.sh/v1alpha1",
+        "kind": "HankoResourceServer",
+        "metadata": {
+          "name": "delegation"
+        },
+        "spec": {
+          "realmRef": "portable",
+          "applicationRef": "m2m",
+          "audience": "portable-api",
+          "scopes": [
+            {
+              "name": "read"
+            }
+          ],
+          "resources": [
+            {
+              "name": "document",
+              "scopes": [
+                "read"
+              ]
+            }
+          ],
+          "permissions": [
+            {
+              "name": "delegated",
+              "resources": [
+                "document"
+              ],
+              "scopes": [
+                "read"
+              ],
+              "principals": [
+                {
+                  "kind": "application",
+                  "ref": "spa"
+                }
+              ],
+              "delegation": {
+                "actor": {
+                  "kind": "application",
+                  "ref": "m2m"
+                },
+                "subject": {
+                  "kind": "application",
+                  "ref": "spa"
+                },
+                "maxDepth": 1,
+                "maxTTLSeconds": 60
+              }
+            }
+          ]
+        }
+      },
+      "expected": {
+        "keycloak": {
+          "classification": "unsupported",
+          "reason": "bounded_delegation_unsupported",
+          "evidence": "docs/architecture/provider-boundaries.md"
+        },
+        "authentik": {
+          "classification": "unsupported",
+          "reason": "bounded_delegation_unsupported",
+          "evidence": "docs/architecture/second-provider.md"
+        }
+      }
+    },
+    {
+      "name": "native-extension",
+      "capability": "native_extension",
+      "manifest": {
+        "apiVersion": "hanko.sh/v1alpha1",
+        "kind": "HankoApplication",
+        "metadata": {
+          "name": "native-extension"
+        },
+        "spec": {
+          "realmRef": "portable",
+          "clientID": "portable-native",
+          "type": "spa",
+          "redirectURIs": [
+            "https://native.example/callback"
+          ],
+          "attributes": {
+            "pkce.code.challenge.method": "S256"
+          }
+        }
+      },
+      "expected": {
+        "keycloak": {
+          "classification": "lossless",
+          "reason": "",
+          "evidence": "docs/architecture/provider-boundaries.md"
+        },
+        "authentik": {
+          "classification": "unsupported",
+          "reason": "native_extension_unsupported",
+          "evidence": "docs/architecture/second-provider.md"
+        }
+      }
+    }
+  ]
+}

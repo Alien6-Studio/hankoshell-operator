@@ -97,3 +97,18 @@ func TestReconcileRequestPredicateAppliesToHankoApplication(t *testing.T) {
 		t.Fatal("HankoApplication reconcile-request annotation change was filtered")
 	}
 }
+
+func TestProviderSelectionAlwaysReevaluatesAuthority(t *testing.T) {
+	p := generationOrReconcileRequestChanged()
+	for _, labels := range []map[string]string{{providerConnectionLabel: ""}, {providerConnectionLabel: "experimental"}} {
+		old := &hankoshv1alpha1.HankoApplication{ObjectMeta: metav1.ObjectMeta{Generation: 1}}
+		current := old.DeepCopy()
+		current.Labels = labels
+		if !p.Update(event.UpdateEvent{ObjectOld: old, ObjectNew: current}) || !p.Update(event.UpdateEvent{ObjectOld: current, ObjectNew: old}) {
+			t.Fatal("provider selector presence did not enqueue authority reevaluation")
+		}
+		if p.Update(event.UpdateEvent{ObjectOld: current, ObjectNew: current.DeepCopy()}) {
+			t.Fatal("unchanged selector re-enqueued status echo")
+		}
+	}
+}

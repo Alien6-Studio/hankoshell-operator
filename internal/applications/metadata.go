@@ -199,7 +199,7 @@ func validateMetadataNamespaces(data []byte) error {
 }
 
 func (d *KeycloakDriver) Metadata(ctx context.Context, p Plan) (Metadata, error) {
-	if err := p.Validate(p); err != nil {
+	if _, _, err := p.Inputs(iamcontract.Keycloak); err != nil {
 		return Metadata{}, err
 	}
 	base := p.resolved.PublicBase

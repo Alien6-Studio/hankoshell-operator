@@ -327,6 +327,9 @@ func (r *HankoWorkloadTrustReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if err := r.APIReader.Get(ctx, req.NamespacedName, &current); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	if _, selected := current.Labels[providerConnectionLabel]; selected {
+		return rejectExperimentalResource(ctx, r.Client, &current)
+	}
 	observe := effectiveWorkloadTrustMode(&current) == ModeObserve
 	approval, approvalError := adoption.ParseApproval(current.Annotations)
 	writes := !observe || approvalError == nil && approval.Requested && current.DeletionTimestamp.IsZero()

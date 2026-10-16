@@ -35,6 +35,20 @@ imageVerification:
   # Resolve and review these during release; no broad egress is enabled here.
   egressCIDRs: []
 
+# Opt-in registration preview; all other provider domains fail closed.
+# The administrator provisions same-namespace typed connection ConfigMaps/Secrets.
+experimental:
+  authentik:
+    enabled: false
+    connectionNames: []
+    # Additional administrator groups allowed to write protected connections.
+    # system:masters remains allowed; the operator is never a connection writer.
+    adminGroups: []
+    egress:
+      namespace: ""
+      selector: {}
+      port: 9443
+
 replicaCount: 1
 
 resources:

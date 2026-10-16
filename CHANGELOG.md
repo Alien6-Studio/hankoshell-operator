@@ -3,6 +3,17 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Experimental second provider and shared portability foundation
+
+- Select authentik 2026.8.4 after exact-version API comparison with Logto and
+  ZITADEL. Keep every unsupported domain explicit and all Keycloak-native features.
+- Add an opt-in HTTPS application adapter, origin-bound ownership, non-secret
+  recovery journal, strict connection configuration and fail-closed IAM routing.
+- Add fourteen provider-neutral intent fixtures, real-server restart/lost-ack and
+  native denied-credential checks, JUnit evidence and a required CI source gate.
+  Installed multi-provider qualification and the full shared Keycloak corpus
+  remain tracked separately; credential delivery and parity are not claimed.
+
 ### Initial public contract candidate and reusable compatibility corpus
 
 - Review all 17 resources and 352 field groups; select application, role and

@@ -23,7 +23,7 @@ RELEASE_VERSION := $(shell python3 scripts/versions.py get release version)
 
 .DEFAULT_GOAL := all
 
-.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-test integration-test keycloak-integration-test security-mutations licenses lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test fleet-installed-test
+.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-test integration-test keycloak-integration-test authentik-integration-test security-mutations licenses lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test fleet-installed-test
 versions-sync:
 	python3 scripts/versions.py sync
 
@@ -64,6 +64,7 @@ chart-test:
 	python3 $(CHART)/tests/keycloak-transport.py
 	python3 $(CHART)/tests/observability.py
 	python3 $(CHART)/tests/organization-projection.py
+	python3 $(CHART)/tests/experimental-provider.py
 	python3 $(CHART)/tests/kubernetes-compatibility.py
 	python3 $(CHART)/tests/workload-binding.py
 integration-test: $(GOTESTSUM)
@@ -73,6 +74,9 @@ integration-test: $(GOTESTSUM)
 keycloak-integration-test: $(GOTESTSUM)
 	KEYCLOAK_VERSION=$(KEYCLOAK_VERSION) python3 scripts/go-tests.py keycloak --shard "$(KEYCLOAK_SHARD)" \
 		--gotestsum "$(GOTESTSUM)" --output "$(TEST_REPORT_DIR)/keycloak-$(KEYCLOAK_VERSION)-$(KEYCLOAK_SHARD)"
+authentik-integration-test: $(GOTESTSUM)
+	python3 scripts/authentik-fixture.py --gotestsum "$(GOTESTSUM)" --output "$(TEST_REPORT_DIR)/authentik-2026.8.4"
+
 $(GOTESTSUM):
 	@mkdir -p "$(@D)"
 	GOBIN="$(@D)" go install gotest.tools/gotestsum@$(GOTESTSUM_VERSION)

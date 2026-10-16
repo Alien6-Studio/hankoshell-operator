@@ -28,6 +28,10 @@ func sameTenantScope(first, second client.Object) bool {
 // deletion paths. In particular, retain finalizers until the right provider can
 // be reached instead of treating an unavailable tenant as an absent remote object.
 func reconcileTenantClient(ctx context.Context, kube client.Client, obj client.Object, kc *keycloak.Client) (bool, ctrl.Result, error) {
+	if _, selected := obj.GetLabels()[providerConnectionLabel]; selected {
+		result, err := rejectExperimentalResource(ctx, kube, obj)
+		return true, result, err
+	}
 	if _, labelled := obj.GetLabels()["hanko.sh/tenant"]; !labelled || kc != nil {
 		return false, ctrl.Result{}, nil
 	}

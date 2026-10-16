@@ -116,6 +116,18 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
+      - name: Qualify the real experimental authentik adapter and portable corpus
+        run: |
+          make authentik-integration-test
+          go vet -tags=authentik_integration ./internal/controller
+          make lint LINT_BUILD_TAGS=authentik_integration
+      - name: Preserve real experimental provider outcomes
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: go-tests-authentik-2026.8.4-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .tools/test-results/authentik-2026.8.4/
+          if-no-files-found: error
       - name: Cross-compile both Linux architectures
         run: |
           make build GOARCH=amd64

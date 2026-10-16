@@ -119,7 +119,8 @@ least-privilege and ownership controls and update permission tests for new calls
    functionality; operational APIs may remain alpha beyond the stable IAM core.
 
 Hub and Continuum remain optional external integrations; this boundary does not
-alter their implementation or protocols. No new plan payload is exported. A
-second provider belongs to the later portability preview, with explicit semantic
-findings rather than parity assumptions. See the
+alter their implementation or protocols. No new plan payload is exported. The
+[second-provider preview](second-provider.md) selects authentik 2026.8.4 for a
+bounded OIDC registration experiment, with explicit unsupported findings and
+separate installed qualification. See the
 [engine contract and qualification](iam-contract-engine.md).

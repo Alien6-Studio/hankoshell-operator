@@ -219,7 +219,9 @@ func setupControllers(
 	fatalIfError((&controller.HankoApplicationReconciler{
 		Client: mgr.GetClient(), OwnershipReader: mgr.GetAPIReader(), SecretProjectionClient: applicationSecretProjectionClient, RuntimeClient: applicationSecretProjectionClient,
 		ProtectedClientIDs: protectedClientIDs, ProtectedRealm: protectedRealm,
-		Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName),
+		ExperimentalAuthentik:            os.Getenv("HANKO_EXPERIMENTAL_AUTHENTIK_ENABLED") == "true",
+		ExperimentalAuthentikConnections: strings.Split(os.Getenv("HANKO_EXPERIMENTAL_AUTHENTIK_CONNECTIONS"), ","),
+		Scheme:                           mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName),
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoApplication")
 	fatalIfError((&controller.HankoServiceAccountReconciler{
 		APIReader: mgr.GetAPIReader(), RuntimeClient: applicationSecretProjectionClient, WorkloadTrust: workloadTrust,

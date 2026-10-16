@@ -70,6 +70,7 @@ type ResolvedReferences struct {
 	IdentityMappers          []keycloak.IdentityProviderMapper
 	MigrationUUID            string
 	MigrationObservation     iamcontract.Digest
+	ConnectionIdentity       iamcontract.Digest `json:",omitempty"`
 }
 type Capabilities struct {
 	OIDC, PublicClient, ConfidentialClient, SAML, SAMLACS   bool
@@ -184,6 +185,15 @@ func IntentIdentity(i Intent) iamcontract.Digest {
 	return iamcontract.Hash(iamcontract.Version, "applications", "intent", data)
 }
 func Compile(i Intent, r ResolvedReferences, e CapabilityEvidence, pre iamcontract.Preconditions) (Plan, error) {
+	return CompileForBackend(iamcontract.Keycloak, i, r, e, pre)
+}
+
+// CompileForBackend keeps portable intent independent of provider execution.
+// Existing Keycloak canonical bytes remain unchanged.
+func CompileForBackend(backend iamcontract.BackendKind, i Intent, r ResolvedReferences, e CapabilityEvidence, pre iamcontract.Preconditions) (Plan, error) {
+	if backend != iamcontract.Keycloak && backend != iamcontract.Authentik {
+		return Plan{}, iamcontract.ErrRejected
+	}
 	i = Normalize(i)
 	e.Findings = append([]iamcontract.Finding(nil), e.Findings...)
 	data, _ := json.Marshal(r)
@@ -195,7 +205,7 @@ func Compile(i Intent, r ResolvedReferences, e CapabilityEvidence, pre iamcontra
 	if err := validate(i, resolved, e); err != nil {
 		return Plan{}, err
 	}
-	id := iamcontract.PlanIdentity{Contract: iamcontract.Version, Backend: iamcontract.Keycloak, Intent: IntentIdentity(i)}
+	id := iamcontract.PlanIdentity{Contract: iamcontract.Version, Backend: backend, Intent: IntentIdentity(i)}
 	canonical, _ := json.Marshal(struct {
 		Intent                iamcontract.Digest
 		Backend               iamcontract.BackendKind
@@ -307,4 +317,19 @@ func cloneAttributes(attributes map[string]string) map[string]string {
 		return map[string]string{}
 	}
 	return result
+}
+
+// Inputs returns independent private execution inputs only to the matching
+// adapter. Serialized identity alone never reconstructs an executable plan.
+func (p Plan) Inputs(backend iamcontract.BackendKind) (Intent, ResolvedReferences, error) {
+	if p.identity.Backend != backend {
+		return Intent{}, ResolvedReferences{}, iamcontract.ErrRejected
+	}
+	if err := p.Validate(p); err != nil {
+		return Intent{}, ResolvedReferences{}, err
+	}
+	data, _ := json.Marshal(p.resolved)
+	var refs ResolvedReferences
+	_ = json.Unmarshal(data, &refs)
+	return Normalize(p.intent), refs, nil
 }

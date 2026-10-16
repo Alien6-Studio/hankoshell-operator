@@ -20,6 +20,9 @@ type BackendKind string
 
 const Keycloak BackendKind = "keycloak"
 
+// Authentik is an opt-in experimental backend; it carries no parity promise.
+const Authentik BackendKind = "authentik"
+
 type Digest string
 
 // Hash domain-separates explicit canonical domain bytes. Callers must construct

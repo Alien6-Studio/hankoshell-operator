@@ -19,6 +19,8 @@ components:
     in: "/internal/controller"
   keycloak:
     in: "/internal/keycloak"
+  authentik:
+    in: "/internal/authentik"
   httpsecurity:
     in: "/internal/httpsecurity"
   iamconformance:
@@ -79,6 +81,7 @@ deps:
       - workloadbinding
       - workloadauth
       - keycloak
+      - authentik
       - authorization
       - organization
       - roles
@@ -105,6 +108,12 @@ deps:
       - httpsecurity
       - adoption
       - organization
+
+  authentik:
+    mayDependOn:
+      - httpsecurity
+      - iamcontract
+      - applications
 
   httpsecurity:
     anyVendorDeps: true

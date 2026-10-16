@@ -7,7 +7,12 @@ requirements into continuously reconciled Keycloak configuration: login clients,
 redirect URLs, roles, token claims and machine credentials. Declare the desired
 configuration in Kubernetes, review it in Git, and let the operator keep the
 fields it manages in sync with Keycloak.
-Keycloak is the first and currently only supported IAM backend.
+Keycloak is the supported IAM backend. An opt-in
+[authentik 2026.8.4 registration experiment](docs/architecture/second-provider.md)
+executes a bounded OIDC SPA/web subset. Roles, organizations, authorization graphs,
+M2M, SAML, federation, delegation and credential delivery remain unsupported on
+that adapter; its installed matrix is still unqualified. Keycloak-native features
+remain available.
 
 Platform teams can reuse authentication policies across realms, connect upstream
 identity providers and rotate client secrets. Application teams can keep their

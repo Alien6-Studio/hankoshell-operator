@@ -81,6 +81,8 @@ type tokenClaimOwner struct {
 // +kubebuilder:rbac:groups=hanko.sh,resources=hankoserviceaccounts,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
 type HankoApplicationReconciler struct {
+	ExperimentalAuthentik            bool
+	ExperimentalAuthentikConnections []string
 	client.Client
 	// OwnershipReader should be the manager's uncached API reader in production.
 	// It closes the cache-staleness window before finalizer, provider or secret
@@ -103,6 +105,10 @@ func (r *HankoApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	var app hankoshv1alpha1.HankoApplication
 	if err := r.Get(ctx, req.NamespacedName, &app); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	if _, selected := app.Labels[providerConnectionLabel]; selected || app.Annotations[providerJournalAnnotation] != "" || controllerutil.ContainsFinalizer(&app, providerFinalizer) {
+		return r.reconcileExperimentalApplication(ctx, &app)
 	}
 
 	kc := kcForObject(r.Pool, app.Namespace, app.Labels)

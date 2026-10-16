@@ -79,7 +79,7 @@ func desired(p Plan) keycloak.Application {
 // Provider UUIDs stay out of canonical state. Ownership is a classification,
 // never a copied provider owner UID. Extra mapper IDs/defaults are excluded.
 func (d *KeycloakDriver) Observe(ctx context.Context, p Plan) (State, error) {
-	if err := p.Validate(p); err != nil {
+	if _, _, err := p.Inputs(iamcontract.Keycloak); err != nil {
 		return State{}, err
 	}
 	got, err := d.client.GetApplication(ctx, p.resolved.Realm, p.intent.ClientID)
@@ -435,7 +435,7 @@ func (d *KeycloakDriver) adoptApproved(ctx context.Context, p Plan, state State)
 	return next, nil
 }
 func (d *KeycloakDriver) CheckOwned(ctx context.Context, p Plan) (State, error) {
-	if err := p.Validate(p); err != nil {
+	if _, _, err := p.Inputs(iamcontract.Keycloak); err != nil {
 		return State{}, err
 	}
 	got, err := d.client.GetApplication(ctx, p.resolved.Realm, p.intent.ClientID)

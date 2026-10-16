@@ -362,3 +362,22 @@ Native SAML remains an explicit Keycloak extension. Delegation, organization pri
 connected integrations and every other deferred field retain their named limitations in
 the complete selection; no planned capability is removed.
 <!-- public-selection:end -->
+
+## Experimental authentik registration
+
+`experimental.authentik.enabled` defaults to false. Enabling it requires explicit
+`experimental.authentik.connectionNames` and explicit
+`experimental.authentik.egress.namespace`, `.selector` and `.port`, with the baseline
+NetworkPolicy enabled. The chart adds only that namespace/pod/TCP grant and controls
+`HANKO_EXPERIMENTAL_AUTHENTIK_ENABLED` and the connection-name allow-list. A
+fail-closed admission policy protects the selected ConfigMaps against ordinary
+writers. Only `system:masters` and optional `experimental.authentik.adminGroups`
+may provision/update them. Review existing ConfigMaps before enabling their names.
+No provider credential or CA is generated.
+
+An application selects an administrator-owned, same-namespace typed connection
+ConfigMap using `hanko.sh/provider-connection`. See the
+[exact version, semantics, permissions and recovery boundary](../../docs/architecture/second-provider.md).
+The adapter currently qualifies registration of a bounded OIDC SPA/web subset on
+a real server. Its installed matrix and confidential credential delivery remain
+unqualified. Disabling it retains existing cleanup finalizers and refuses writes.
