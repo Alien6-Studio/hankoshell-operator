@@ -61,7 +61,9 @@ def objects(counts):
     def value(kind, name, spec, labels=None):
         return installed.object_value(kind, name, spec, labels={"hanko-fixture": "scale", **(labels or {})})
     realms = [f"scale-{index:03d}" for index in range(counts["realms"])]
-    result = [value("HankoRealm", name, {}, {"hanko.sh/imported-by": "scale-fixture"}) for name in realms]
+    # New leaf creation requires a managed parent. An Observe parent permits
+    # only independently acquired/owned leaves, not this fresh-object burst.
+    result = [value("HankoRealm", name, {}) for name in realms]
     for index in range(counts["roles"]):
         name = f"scale-role-{index:06d}"
         result.append(value("HankoRole", name, {"realmRef": realms[index % len(realms)], "name": name, "description": "scale baseline"}))
@@ -195,7 +197,7 @@ class Scale(installed.Installed):
             "measurement_sha256": hashlib.sha256((ROOT / "scripts/scale-evidence.py").read_bytes()).hexdigest(), "counts": self.counts,
             "workers": args.workers, "steady_seconds_requested": self.seconds, "samples": 0, "faults": {}, "complete": False,
             "resources": self.install_values["resources"], "limitations": ["single disposable kind node and dev-file provider",
-                "realms are preprovisioned and Observe; owned realm cascade deletion unqualified",
+                "realms are preprovisioned and managed during load, then switched to Observe; owned realm cascade deletion unqualified",
                 "counter gaps during leader replacement are lower bounds; steady phase rejects gaps",
                 "worker setting covers four IAM controllers only; journaled transaction HA remains separate",
                 "not a production capacity recommendation or full six-cell/24-hour qualification"]})
@@ -400,6 +402,12 @@ class Scale(installed.Installed):
         creates = sum(traffic["counts"].get(f"POST /admin/realms/scale-{index:03d}/clients", 0) for index in range(self.counts["realms"]))
         self.record("one_accepted_native_client_create_per_application", creates == self.counts["applications"])
         self.report["provider_traffic"] = {"accepted_client_creates": creates, **traffic["traffic"]}
+        self.kubectl("label", "hankorealm", "scale-000", "-n", "auth", "hanko.sh/imported-by=scale-preservation")
+        def observed_parent():
+            parent = self.get("hankorealm", "scale-000")
+            return not parent["metadata"].get("finalizers") and any(
+                condition.get("type") == "Synced" and condition.get("reason") == "Observed" for condition in parent.get("status", {}).get("conditions", []))
+        wait("scale parent explicitly becomes Observe before preservation deletion", observed_parent, 90)
         self.kubectl("delete", "hankorealm", "scale-000", "-n", "auth", "--wait=true", "--timeout=60s")
         self.record("observe_realm_deletion_preserves_native_dependents", self.snapshot_clients() == current)
         self.report["complete"] = True

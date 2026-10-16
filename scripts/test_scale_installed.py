@@ -129,7 +129,7 @@ class ScaleScenarioTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 scale.parameters(args)
 
-    def test_burst_manifest_references_are_complete_and_realms_remain_observe(self):
+    def test_burst_manifest_uses_managed_parents_and_complete_references(self):
         counts = {"realms": 2, "applications": 1000, "roles": 100, "organizations": 100, "grants": 20}
         objects = scale.objects(counts)
         indexed = {(obj["kind"], obj["metadata"]["name"]): obj for obj in objects}
@@ -138,7 +138,7 @@ class ScaleScenarioTests(unittest.TestCase):
             self.assertEqual(obj["metadata"]["labels"]["hanko-fixture"], "scale")
             self.assertEqual(obj["metadata"]["namespace"], "auth")
             if obj["kind"] == "HankoRealm":
-                self.assertTrue(obj["metadata"]["labels"]["hanko.sh/imported-by"])
+                self.assertNotIn("hanko.sh/imported-by", obj["metadata"]["labels"])
             else:
                 self.assertIn(("HankoRealm", obj["spec"]["realmRef"]), indexed)
             if obj["kind"] == "HankoResourceServer":

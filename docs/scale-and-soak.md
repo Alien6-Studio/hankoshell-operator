@@ -32,7 +32,8 @@ label presence/value changes still enqueue work. Periodic reconciliation remains
 
 ## Scenarios and measurements
 
-The driver provisions dedicated target-realm permissions, creates realm, role
+The driver preprovisions realms with dedicated target-realm permissions, manages
+those parents explicitly during load, and creates realm, role
 and organization fixtures, and submits an application burst. It terminates the
 actual lease holder while application workers are active, requires a different
 leader and two Ready replicas, then checks convergence against current
@@ -43,7 +44,8 @@ Separate HTTPS Keycloak 429/503 and Kubernetes API 429 injections block current
 authority. A changed role cannot report current Ready while authority is
 unavailable. Native state must remain unchanged while the API write is blocked;
 after release, the controller must converge without manually resetting status.
-Deleting an Observe realm CR must preserve the native clients. Owned-realm
+Switching the selected parent explicitly to Observe and waiting for its Observe
+checkpoint before deleting the realm CR must preserve the native clients. Owned-realm
 cascade deletion, split brain, clock skew, a five-minute API outage and every
 transaction kill point remain separate qualification work.
 
