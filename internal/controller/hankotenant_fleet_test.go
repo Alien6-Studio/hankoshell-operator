@@ -48,6 +48,25 @@ func TestFleetRefusalEventRetainsSanitizedDecision(t *testing.T) {
 	}
 }
 
+func TestTenantDecisionEventsIncludeAgentAndOfflineStates(t *testing.T) {
+	for _, reason := range []string{"AgentUpdateFailed", "FleetPlanDisconnected", "DecommissionFailed", "DecommissionExpired", "BundleTenantConflict"} {
+		t.Run(reason, func(t *testing.T) {
+			f := newFleetUnitFixture(t)
+			recorder := events.NewFakeRecorder(1)
+			f.r.Recorder = observability.SafeRecorder(recorder)
+			_, _ = f.r.setError(context.Background(), nil, f.tenant, fleetStatusPatch(f.tenant), reason, errors.New("secret-sentinel"))
+			select {
+			case event := <-recorder.Events:
+				if !strings.Contains(event, reason) || strings.Contains(event, "secret-sentinel") {
+					t.Fatal("Tenant Event lost decision identity or leaked caller text")
+				}
+			case <-time.After(time.Second):
+				t.Fatal("missing typed Tenant decision Event")
+			}
+		})
+	}
+}
+
 type fleetFaultClient struct {
 	client.Client
 	fail         string

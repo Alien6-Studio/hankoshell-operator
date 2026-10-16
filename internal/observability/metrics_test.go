@@ -80,8 +80,8 @@ func TestTenantFleetRefusalsPreserveOnlyReviewedReasons(t *testing.T) {
 	if TenantRefusalReason("BundleTenantConflict") != "BundleTenantConflict" {
 		t.Fatal("bundle ownership refusal lost its Event identity")
 	}
-	for reason := range EventMessages() {
-		if strings.HasPrefix(reason, "Fleet") && TenantRefusalReason(reason) != reason {
+	for reason := range tenantEventReasons {
+		if TenantRefusalReason(reason) != reason {
 			t.Fatal("reviewed Fleet refusal lost its Event identity", reason)
 		}
 	}
@@ -139,7 +139,7 @@ func TestCustomMetricSeriesUpperBound(t *testing.T) {
 			}
 		}
 	}
-	if series != 1045 {
+	if series != 1114 {
 		t.Fatalf("custom series bound changed: %d", series)
 	}
 }

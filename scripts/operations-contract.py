@@ -1,5 +1,6 @@
 """Freeze operational names, output boundaries, runbook links and diagnostic limits."""
 import json
+import ast
 import hashlib
 from pathlib import Path
 import re
@@ -30,8 +31,21 @@ def check(root=ROOT):
         raise ValueError("Tenant Fleet refusal Events must preserve bounded decision identity")
     installed = (root / "scripts/fleet-installed-test.py").read_text()
     expected = set(re.findall(r'"((?:Fleet|Bundle)[A-Z][A-Za-z]+)"', installed))
-    if not expected.issubset(reasons):
-        raise ValueError("Installed Fleet refusal Event missing from bounded catalog: " + ", ".join(sorted(expected - reasons)))
+    # Include table-driven reasons passed through a loop variable (for example
+    # DecommissionExpired), rather than relying on a reason-name prefix.
+    expected.update(node.value for node in ast.walk(ast.parse(installed))
+                    if isinstance(node, ast.Constant) and isinstance(node.value, str)
+                    and re.fullmatch(r"[A-Z][A-Za-z0-9]*(?:Failed|Expired|Invalid|Mismatch|Blocked|Unsupported|Unapproved|Unavailable|Refused|Conflict)", node.value))
+    for call in ast.walk(ast.parse(installed)):
+        if (isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute) and call.func.attr == "expect"
+                and len(call.args) > 1 and isinstance(call.args[1], ast.Constant) and isinstance(call.args[1].value, str)
+                and any(key.arg == "event" and isinstance(key.value, ast.Constant) and key.value.value is True for key in call.keywords)):
+            expected.add(call.args[1].value)
+    tenant_source = "\n".join(p.read_text() for p in (root / "internal/controller").glob("hankotenant*.go") if not p.name.endswith("_test.go"))
+    expected.update(re.findall(r'\.setError\([^";]{0,400}"([A-Z][A-Za-z0-9]+)"', tenant_source))
+    allowed = set(re.findall(r'^\s*"([A-Za-z]+)":\s*true,', events, re.M))
+    if not expected.issubset(reasons & allowed):
+        raise ValueError("Tenant decision/Event missing from bounded catalog or router: " + ", ".join(sorted(expected - (reasons & allowed))))
     main = (root / "cmd/operator/main.go").read_text()
     if main.count('mgr.GetEventRecorder(operatorRecorderName)') != main.count('observability.SafeRecorder(mgr.GetEventRecorder(operatorRecorderName))'):
         raise ValueError("Unfiltered production Event recorder")
