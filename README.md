@@ -574,7 +574,7 @@ and [second-provider contract review](docs/stable-provider-review.md) remain
 unratified development inputs. Lifecycle APIs are excluded from the stable 1.0
 contract and disabled by default; see [ADR-050](docs/architecture/decisions/ADR-050-experimental-lifecycle-authority.md).
 
-Qualification window: [support policy](docs/support-window.md), [compatibility proposal](docs/compatibility-policy.md).
+Qualification window: [support policy](docs/support-window.md), [compatibility proposal](docs/compatibility-policy.md), [production evidence reporting](docs/production-evidence.md).
 
 <!-- support-window:start -->
 | Component | Exact qualification versions | Default |

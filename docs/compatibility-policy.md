@@ -37,6 +37,11 @@ and exact qualification window must be recorded. Rollback is supported only wher
 real retained release fixtures reproduce it. Never call same-source Helm
 configuration rollback a public operator/provider/data rollback.
 
+Actual installations and upgrade paths use the [sanitized reporting procedure](production-evidence.md)
+and [per-release evidence summaries](compatibility-evidence/README.md). No public
+release or production report is currently recorded; development qualification
+does not populate that registry.
+
 Helm does not migrate CRDs. A served/storage version change needs a conversion
 decision, lossless round-trip fixtures, resumable migration, storedVersions review
 and actual upgrade/rollback evidence. Pending approvals, rotations, adoptions and

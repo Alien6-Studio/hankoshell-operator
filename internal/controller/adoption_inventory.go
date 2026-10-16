@@ -696,7 +696,8 @@ func candidateStatus(c adoption.Candidate) *api.AdoptionCandidateStatus {
 
 // updateImportEvidence always prepares the bounded import report. Target status
 // may be published only after the discovery checkpoint has been acknowledged.
-func (r *HankoImportReconciler) updateImportEvidence(ctx context.Context, operation *api.HankoImport, realms []importedRealmData, publishCandidates bool) {
+func (r *HankoImportReconciler) updateImportEvidence(ctx context.Context, operation *api.HankoImport, realms []importedRealmData, publishCandidates bool) error {
+	var publicationErrors []error
 	coverage := operation.Status.Coverage
 	operation.Status.Inventory = nil
 	coverage.InventoryCount = 0
@@ -740,7 +741,15 @@ func (r *HankoImportReconciler) updateImportEvidence(ctx context.Context, operat
 				coverage.CandidateCount++
 				summary.Target = &candidateStatus(c).Target
 				summary.CandidateHash = c.CandidateHash
-				if publishCandidates && !r.patchInventoryCandidate(ctx, target, c) {
+				published := true
+				if publishCandidates {
+					var err error
+					published, err = r.patchInventoryCandidate(ctx, target, c)
+					if err != nil {
+						publicationErrors = append(publicationErrors, err)
+					}
+				}
+				if !published {
 					coverage.Complete = false
 					summary.Complete = false
 					summary.Approvable = false
@@ -794,6 +803,7 @@ func (r *HankoImportReconciler) updateImportEvidence(ctx context.Context, operat
 		reason = "Incomplete"
 	}
 	setCondition(&operation.Status.Conditions, "InventoryComplete", status, reason, "discovery coverage is independent of terminal import completion")
+	return errors.Join(publicationErrors...)
 }
 
 func (r *HankoImportReconciler) verifyInventoryIdentity(ctx context.Context, inventory *realmAdoptionInventory, source *api.HankoKeycloakInstance, kc *keycloak.Client, realm keycloak.Realm) {

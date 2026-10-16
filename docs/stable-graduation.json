@@ -14,7 +14,7 @@
     },
     "production": {
       "threshold": "At least two independent installations, two public operator releases and one real upgrade/rollback path for this resource; sanitized reports linked.",
-      "evidence": "docs/stable-graduation.md"
+      "evidence": "docs/production-evidence.md"
     },
     "ownership": {
       "threshold": "Zero unexpected foreign writes; UID recreation, cleanup, replay, restart and concurrent-writer negatives pass.",

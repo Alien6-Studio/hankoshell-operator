@@ -127,11 +127,17 @@ func (r *HankoImportReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 	patch = client.MergeFromWithOptions(operation.DeepCopy(), client.MergeFromWithOptimisticLock{})
 	if operation.Spec.DryRun {
-		r.updateImportEvidence(ctx, &operation, discovered, true)
+		if err := r.updateImportEvidence(ctx, &operation, discovered, true); err != nil {
+			return ctrl.Result{}, fmt.Errorf("publish import evidence: %w", err)
+		}
 		return r.completeImportDryRun(ctx, &operation, discovered, patch)
 	}
 	applyErrors := r.applyImport(ctx, &operation, discovered)
-	r.updateImportEvidence(ctx, &operation, discovered, true)
+	if err := r.updateImportEvidence(ctx, &operation, discovered, true); err != nil {
+		// A concurrent leaf status update or API outage is not terminal partial
+		// inventory. Leave the discovery checkpoint resumable and rescan on retry.
+		return ctrl.Result{}, fmt.Errorf("publish import evidence: %w", err)
+	}
 	return r.completeImport(ctx, &operation, applyErrors, patch)
 }
 
@@ -213,7 +219,9 @@ func (r *HankoImportReconciler) discoverImport(ctx context.Context, operation *h
 		discovered = append(discovered, data)
 	}
 	operation.Status.Discovered = importDiscoveryCounts(discovered)
-	r.updateImportEvidence(ctx, operation, discovered, false)
+	if err := r.updateImportEvidence(ctx, operation, discovered, false); err != nil {
+		return nil, ctrl.Result{}, err
+	}
 	return discovered, ctrl.Result{}, nil
 }
 

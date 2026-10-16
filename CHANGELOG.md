@@ -3,6 +3,15 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Resumable import evidence and public compatibility reporting
+
+- Retry bounded adoption-candidate status conflicts with fresh target identity
+  checks and preserve concurrent leaf status. API publication failures leave
+  imports resumable instead of permanently failing a parent Clone.
+- Add a public compatibility report form, a typed privacy-reviewed registry and
+  generated per-release summaries with incident and historical-fixture links.
+  Enforce them in source and release gates. No public or production history is claimed.
+
 ### Keycloak concurrency and sustained qualification
 
 - Coalesce expired-token refreshes across ordinary and Fleet-guarded client views;

@@ -30,6 +30,10 @@ commit/digest, scenario, result and limitations. Production reports use anonymou
 installation references; omit credentials, tenant data and personal identifiers.
 Two fixtures or two clusters run by one test harness are not two independent
 production installations. An empty production evidence list prevents graduation.
+Use the [reporting and privacy review procedure](production-evidence.md), the
+public issue form and the reviewed per-release registry for #88. Its generated
+summaries retain open incidents and missing observations; they do not waive any
+resource-specific threshold or automatically prove installation independence.
 
 | Resource group | Current graduation record | Additional resource-specific evidence required |
 | --- | --- | --- |

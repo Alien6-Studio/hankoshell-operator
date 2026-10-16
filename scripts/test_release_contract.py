@@ -101,7 +101,7 @@ class ReleaseContractTests(unittest.TestCase):
         self.assertEqual(ci["checks"]["if"], "always()")
         self.assertIn("make preflight", [step.get("run") for step in ci["preflight"]["steps"]])
         makefile = (contract.ROOT / "Makefile").read_text()
-        self.assertRegex(makefile, r"(?m)^preflight: fmt-check vet generated-check\n\tpython3 scripts/public-contract\.py check\n\tpython3 scripts/stable-contract\.py\n\tpython3 scripts/compatibility-gate\.py check\n\tpython3 scripts/go-api-contract\.py check\n\tpython3 -m unittest discover -s scripts -p 'test_\*\.py'$")
+        self.assertRegex(makefile, r"(?m)^preflight: fmt-check vet generated-check\n\tpython3 scripts/public-contract\.py check\n\tpython3 scripts/stable-contract\.py\n\tpython3 scripts/compatibility-gate\.py check\n\tpython3 scripts/go-api-contract\.py check\n\tpython3 scripts/compatibility-evidence\.py check\n\tpython3 -m unittest discover -s scripts -p 'test_\*\.py'$")
         self.assertIn("make test chart-test arch lint vuln", [step.get("run") for step in ci["source"]["steps"]])
 
     def test_scheduled_failures_maintain_one_tracking_issue_with_scoped_write(self):
