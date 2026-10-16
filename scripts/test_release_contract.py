@@ -55,6 +55,7 @@ class ReleaseContractTests(unittest.TestCase):
         validation["run"] += " hooks-check"
         self.assertEqual(development["jobs"]["preflight"], expected)
         self.assertTrue(development["concurrency"]["cancel-in-progress"])
+        self.assertEqual(ci["concurrency"]["cancel-in-progress"], "${{ github.event_name != 'workflow_dispatch' }}")
         self.assertNotEqual(development["concurrency"]["group"], ci["concurrency"]["group"])
         self.assertEqual(ci[True]["push"], {"branches": ["main"]})
         self.assertIn("pull_request", ci[True])

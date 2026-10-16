@@ -27,7 +27,9 @@ permissions:
   contents: read
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # A manually requested batch must not discard the qualification already running.
+  # GitHub retains one pending run; subsequent manual requests replace that pending run.
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 jobs:
   preflight:
     name: Fast source preflight

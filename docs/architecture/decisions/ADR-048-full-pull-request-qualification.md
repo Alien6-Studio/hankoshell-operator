@@ -44,6 +44,11 @@ The optimizations retained instead of shrinking the matrix:
 
 - Superseded-push cancellation (`concurrency` with `cancel-in-progress`),
   measured: 47 of 147 pull-request runs (32%) were stopped early by a newer push.
+  Manual `workflow_dispatch` qualification is the explicit exception: it waits
+  behind the running qualification on the same ref, preserving already-started
+  batch evidence. GitHub retains one pending run; a newer manual request may
+  replace that pending run. This does not change the required matrix or PR
+  superseded-push cancellation.
 - Fast source preflight gating every expensive job, measured under 4 minutes, so
   obviously broken pushes never start the matrix.
 - Keycloak qualification sharded into core/adoption/protocols jobs per version,
