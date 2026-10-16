@@ -21,6 +21,12 @@ Each `keycloak.Client` connection and all its `WithMutationGuard` views share:
 | Mutation authority | Rechecked after acquiring the budget, immediately before HTTP execution |
 | Ambiguous or refused mutation | Returned to the reconciler; no automatic replay |
 
+Admin credential rotation discards an earlier negative probe only after the
+native activation succeeds, then verifies through a newly constructed client.
+Only an authentication refusal (401) can trigger activation of an inactive
+pending credential. A 403, 429, 5xx or transport failure keeps the old working
+credential and pending journal, without issuing a rotation write.
+
 These are engineering ceilings, not measured production capacity. Separate
 credential connections, tenant clients and replicas each have their own budget.
 Independently constructing clients with the same secret does not share a
@@ -73,6 +79,8 @@ runs these series independently. Each runs twenty single attempts on Keycloak
 26.7.5 with fresh native fixtures, `-race`, a three-minute test deadline, JUnit,
 bounded outcomes and a step summary. The aggregate binds every attempt to one
 clean SHA and stops at the first failure, skip, source change or dirty outcome.
+The shared Go runner records the starting revision, detects a changed checkout
+after execution and fails instead of labeling an old binary with the new SHA.
 Existing output directories cannot be reused to hide an attempt; choose a fresh
 `KEYCLOAK_STABILITY_OUTPUT` for a new deliberate series. No failing gate is retried
 or quarantined.

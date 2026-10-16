@@ -105,7 +105,15 @@ def parse_junit(path):
     return cases, suite_errors
 
 
-def write_summary(output, label, returncode, selected=None):
+def checkout_identity():
+    revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True, timeout=10).strip()
+    if not re.fullmatch(r"[0-9a-f]{40}", revision):
+        raise ValueError("Invalid checkout revision")
+    dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True, timeout=10).strip())
+    return revision, dirty
+
+
+def write_summary(output, label, returncode, selected=None, source=None):
     cases, suite_errors = parse_junit(output / "junit.xml")
     if selected is not None and returncode == 0:
         roots = {c["name"].split("/", 1)[0] for c in cases}
@@ -115,16 +123,20 @@ def write_summary(output, label, returncode, selected=None):
     if returncode == 0 and (failures or suite_errors):
         raise ValueError("Go exit status contradicts JUnit failures")
     counts = {value: sum(c["outcome"] == value for c in cases) for value in ("passed", "failed", "skipped")}
-    revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-    if not re.fullmatch(r"[0-9a-f]{40}", revision):
-        raise ValueError("Invalid checkout revision")
-    dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).strip())
+    current_revision, current_dirty = checkout_identity()
+    revision, initially_dirty = source or (current_revision, current_dirty)
+    changed = current_revision != revision or not initially_dirty and current_dirty
+    dirty = initially_dirty or current_dirty or changed
+    returncode = returncode or int(changed)
     report = {"schema": 1, "suite": label, "revision": revision, "returncode": returncode,
-              "worktree_dirty": dirty, "suite_errors": suite_errors, "counts": counts, "tests": cases}
+              "worktree_dirty": dirty, "source_changed": changed, "suite_errors": suite_errors, "counts": counts, "tests": cases}
     (output / "results.json").write_text(json.dumps(report, indent=2) + "\n")
     lines = [f"### Go tests: {html.escape(label)}", "",
              f"Exit code: {returncode}. Passed: {counts['passed']}; failed: {counts['failed']}; "
              f"skipped: {counts['skipped']}; package errors: {suite_errors}.", ""]
+    lines += [f"Revision: `{revision}`; checkout: {'modified' if dirty else 'clean'}.", ""]
+    if changed:
+        lines += ["Checkout changed during execution; this is not qualification of the ending revision.", ""]
     for case in failures[:100]:
         identity = html.escape(case["package"] + " / " + case["name"]).replace("\n", " ").replace("\r", " ")
         lines.append(f"- <code>{identity}</code>")
@@ -135,6 +147,7 @@ def write_summary(output, label, returncode, selected=None):
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as stream:
             stream.write(summary)
+    return changed
 
 
 def run(suite, gotestsum, output, shard="all", root=None):
@@ -147,6 +160,7 @@ def run(suite, gotestsum, output, shard="all", root=None):
     actual = subprocess.check_output([gotestsum, "--version"], text=True, timeout=10).strip()
     if actual != "gotestsum version " + versions.get("tools", "gotestsum"):
         raise ValueError("gotestsum does not match its reviewed version pin")
+    source = checkout_identity()
     selected = None
     args = ["-race", "-count=1"]
     if suite in ("unit", "kubernetes"):
@@ -175,11 +189,11 @@ def run(suite, gotestsum, output, shard="all", root=None):
         args += ["-tags=keycloak_integration", "-timeout=" + deadline, "-run", expression, "./internal/controller"]
     result = subprocess.run([gotestsum, "--format=standard-verbose", "--junitfile", str(output / "junit.xml"), "--", *args], cwd=ROOT, check=False)
     try:
-        write_summary(output, label, result.returncode, selected)
+        changed = write_summary(output, label, result.returncode, selected, source)
     except (OSError, ValueError, ET.ParseError) as error:
         print("Go test report failed: " + str(error), file=sys.stderr)
         return result.returncode or 1
-    return result.returncode
+    return result.returncode or int(changed)
 
 
 def main():

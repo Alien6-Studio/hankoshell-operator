@@ -11,6 +11,9 @@
 - Bound each credential connection to eight in-flight requests and a 50/s token
   bucket with burst 50. Respect bounded 429/503 retry hints across guarded views,
   recheck write authority after queueing, and never replay an ambiguous mutation.
+- Rebuild the pending-credential verifier after native activation, and refuse to
+  infer inactivity from throttling, provider outages or forbidden probes. Bind
+  Go test reports to their starting revision and fail a changed checkout.
 - Add real HTTPS concurrency/refusal/recovery qualification, reuse optimized
   disposable fixture build layers, and record twenty independent attempts of each
   historical flaky test with first-failure stop and per-attempt JUnit evidence.

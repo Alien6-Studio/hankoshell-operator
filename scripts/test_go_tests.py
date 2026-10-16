@@ -175,8 +175,30 @@ class GoTestGateTests(unittest.TestCase):
                     runner.run("unit", "gotestsum", output)
             version = "gotestsum version " + runner.versions.get("tools", "gotestsum")
             with patch.object(runner.subprocess, "check_output", return_value=version), \
+                    patch.object(runner, "checkout_identity", return_value=("a" * 40, False)), \
                     patch.object(runner.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)):
                 self.assertEqual(runner.run("unit", "gotestsum", output), 1)
+
+    def test_source_changes_fail_without_attributing_old_results_to_new_revision(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+
+            def execute(command, **kwargs):
+                self.junit(output / "junit.xml", '<testcase classname="pkg" name="TestOne"/>')
+                return subprocess.CompletedProcess(command, 0)
+
+            for final in (("b" * 40, False), ("a" * 40, True)):
+                with self.subTest(final=final), \
+                        patch.object(runner.subprocess, "check_output", return_value="gotestsum version " + runner.versions.get("tools", "gotestsum")), \
+                        patch.object(runner, "checkout_identity", side_effect=[("a" * 40, False), final]), \
+                        patch.object(runner.subprocess, "run", side_effect=execute), \
+                        patch.dict(os.environ, GITHUB_STEP_SUMMARY=""):
+                    self.assertEqual(runner.run("unit", "gotestsum", output), 1)
+                    report = json.loads((output / "results.json").read_text())
+                    self.assertEqual(report["revision"], "a" * 40)
+                    self.assertTrue(report["worktree_dirty"])
+                    self.assertTrue(report["source_changed"])
+                    self.assertEqual(report["returncode"], 1)
 
     def test_stability_targets_still_validate_inventory_and_exact_single_attempt(self):
         root = runner.STABILITY_ROOTS[0]
