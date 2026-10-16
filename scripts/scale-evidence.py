@@ -12,6 +12,13 @@ GAUGES = {"process_resident_memory_bytes": "rss_bytes", "go_memstats_heap_alloc_
 LINE = re.compile(r"([a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{([^\n]*)\})?\s+([^\s]+)(?:\s+[0-9]+)?")
 
 
+def sampling_gap(previous, current):
+    gap = current - previous
+    if not math.isfinite(gap) or not 0 <= gap <= 45:
+        raise ValueError("Continuous measurement lost its 45-second sampling bound")
+    return gap
+
+
 def label(labels, key):
     match = re.search(r'(?:^|,)' + key + r'="([A-Za-z0-9_.+-]+)"(?:,|$)', labels)
     return match[1] if match else None

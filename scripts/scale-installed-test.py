@@ -366,14 +366,21 @@ class Scale(installed.Installed):
         before = self.ledger.checkpoint()
         started = time.monotonic()
         self.observe()
+        previous = time.monotonic()
+        max_gap = measure.sampling_gap(started, previous)
         while time.monotonic() - started < self.seconds:
             time.sleep(max(0, min(10, self.seconds - (time.monotonic() - started))))
             self.observe()
+            observed = time.monotonic()
+            max_gap = max(max_gap, measure.sampling_gap(previous, observed))
+            previous = observed
             if not self.converged():
                 raise ValueError("Steady-state object lost current applied/read-back readiness")
             checkout(self.args.revision)
         elapsed = time.monotonic() - started
+        max_gap = max(max_gap, measure.sampling_gap(previous, started + elapsed))
         self.report["steady"] = self.ledger.window(before, elapsed, self.counts_by_kind())
+        self.report["steady"]["max_sample_gap_seconds"] = round(max_gap, 3)
         self.report["soak"] = {"required_seconds": 86400, "observed_seconds": round(elapsed, 3),
                                "qualified": self.args.profile == "soak" and elapsed >= 86400}
         self.record("steady_samples_have_no_status_echo_hot_loop_or_process_gap")

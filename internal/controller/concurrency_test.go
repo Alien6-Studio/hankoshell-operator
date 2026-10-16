@@ -95,6 +95,7 @@ func TestConcurrencyAndStatusPredicatesAreWiredOnlyToReviewedControllers(t *test
 		t.Fatal(err)
 	}
 	var concurrent, filtered []string
+	dependencyWatches := 0
 	for _, file := range files {
 		tree, err := parser.ParseFile(token.NewFileSet(), file, nil, 0)
 		if err != nil {
@@ -116,6 +117,9 @@ func TestConcurrencyAndStatusPredicatesAreWiredOnlyToReviewedControllers(t *test
 				if name, ok := call.Fun.(*ast.Ident); ok && name.Name == "generationOrReconcileRequestChanged" {
 					filtered = append(filtered, file)
 				}
+				if name, ok := call.Fun.(*ast.Ident); ok && name.Name == "authorizationDependencyChanged" && file == "hankoresourceserver_controller.go" {
+					dependencyWatches++
+				}
 				return true
 			})
 		}
@@ -128,5 +132,8 @@ func TestConcurrencyAndStatusPredicatesAreWiredOnlyToReviewedControllers(t *test
 		if !slices.Contains(filtered, file) {
 			t.Fatal("primary status-echo predicate was removed", file)
 		}
+	}
+	if dependencyWatches != 2 {
+		t.Fatal("organization/role dependency watches lack semantic status filtering")
 	}
 }

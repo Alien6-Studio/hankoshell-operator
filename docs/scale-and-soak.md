@@ -28,7 +28,10 @@ with burst 50 **per connection and process**. Replicas and separately constructe
 credential connections do not share a global limiter. Resource defaults are
 unchanged pending measured sizing. Organization and Issuer primary watches now
 ignore status echoes; generation, reconcile requests, deletion and authority
-label presence/value changes still enqueue work. Periodic reconciliation remains.
+label presence/value changes still enqueue work. ResourceServer dependency
+watches retain group identity/path/current Synced changes while ignoring Role
+observation times and optional organization projection updates. Periodic
+reconciliation remains.
 
 ## Scenarios and measurements
 
@@ -67,7 +70,8 @@ starts are not watch-event counts. The reported p95 is a histogram upper bound;
 
 Process epochs distinguish restarts from counter resets. Lost processes during
 intentional failover are recorded; counters across that phase are lower bounds.
-The steady interval rejects missing processes, multiple/no observed leaders,
+The steady interval rejects sampling gaps above 45 seconds, missing processes,
+multiple/no observed leaders,
 incorrect worker configuration and reconciliation above a generous dependency
 event allowance. RSS peaks and rates are observations, not leak proofs or sizing
 recommendations. Provider labels, endpoints, credentials, native IDs and object

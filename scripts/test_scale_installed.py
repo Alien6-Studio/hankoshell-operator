@@ -35,6 +35,13 @@ def frame(leader=1, started=10, requests=100, reconciles=3):
 
 
 class ScaleMeasurementTests(unittest.TestCase):
+    def test_continuous_measurement_cannot_count_a_long_unsampled_pause(self):
+        for gap in (0, 10, 45):
+            self.assertEqual(measure.sampling_gap(100, 100 + gap), gap)
+        for gap in (-1, 45.01, 86400, float("nan"), float("inf")):
+            with self.assertRaisesRegex(ValueError, "sampling bound"):
+                measure.sampling_gap(100, 100 + gap)
+
     def test_metrics_retain_only_numeric_allowlisted_measurements(self):
         text = '''# private-comment-sentinel
 process_resident_memory_bytes 1000

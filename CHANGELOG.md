@@ -7,7 +7,8 @@
 
 - Add explicit 1–8 worker configuration for four reviewed IAM controllers,
   defaulting to one; remove Organization/Issuer status-echo hot loops while
-  preserving authority and deletion wakes.
+  preserving authority and deletion wakes. Filter grant dependency status
+  timestamps while retaining current group synchronization and identity changes.
 - Add real installed burst, active-leader replacement, provider/API overload and
   numeric mTLS measurements, including a 24-hour-minimum soak profile and a
   six-cell manual short qualification workflow. Production sizing and full
