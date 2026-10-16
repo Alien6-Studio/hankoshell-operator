@@ -191,6 +191,7 @@ def main():
         parser.add_argument("--" + name, required=True)
     args = parser.parse_args()
     fixture = load_system()
+    fixture.publication.publish.contract.security.verify(args.evidence, args.revision, fixture.VERSION, args.digest, args.archive)
     with tempfile.TemporaryDirectory(prefix="hanko-observability-") as directory:
         system = fixture.System(args, Path(directory))
         try:
@@ -202,7 +203,8 @@ def main():
             args.output.write_text(json.dumps({"result": "pass", "scope": "installed operational smoke; not production HA",
                 "revision": args.revision, "image_digest": args.digest, "kubernetes": fixture.KUBERNETES_VERSION,
                 "keycloak": fixture.KEYCLOAK_VERSION, "checks": checks,
-                "harness_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}, indent=2) + "\n")
+                "harness_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                "system_harness_sha256": hashlib.sha256((ROOT / "scripts/system-test.py").read_bytes()).hexdigest()}, indent=2) + "\n")
         finally:
             system.cleanup()
 

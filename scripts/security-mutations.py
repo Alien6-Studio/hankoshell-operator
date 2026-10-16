@@ -201,7 +201,7 @@ MUTATIONS = [
              "if !instance.DeletionTimestamp.IsZero() {", "if false && !instance.DeletionTimestamp.IsZero() {",
              "internal/controller", "TestDeletingKeycloakInstanceStopsReconciliation"),
     mutation("metrics-uri-authorization", "internal/observability/tls.go",
-             "if allowed[identity.String()] {", "if true {",
+             "if allowed[identity.String()] {", "if allowed[identity.String()] || true {",
              "internal/observability", "TestMetricsMutualTLSAuthenticatesAuthorizesAndReloadsTrust"),
     mutation("metrics-client-authentication", "internal/observability/tls.go",
              "tls.RequireAndVerifyClientCert", "tls.NoClientCert",

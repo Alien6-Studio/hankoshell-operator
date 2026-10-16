@@ -80,5 +80,11 @@
     "production HA and soak",
     "bounded delegation",
     "connected installation and decommission"
+  ],
+  "installedEvidence": [
+    {
+      "report": "docs/qualification/operations/2026-10-16/observability-kubernetes-1.37.0-keycloak-26.8.0.json",
+      "sha256": "1a31fe66a3579e4e58f37cc3c17e4b1df411d50d5574b1aded14fe3cab6c5430"
+    }
   ]
 }

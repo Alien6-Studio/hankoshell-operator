@@ -165,3 +165,7 @@ qualifies the scanned OCI under real kind/Helm with authenticated scraping,
 anonymous/wrong-URI refusal, bounded metrics and current lease/standby probes.
 The full installed system fixture also executes that observability scenario.
 A report is evidence only for its recorded source/image/harness versions.
+
+The [retained installed smoke report](qualification/operations/2026-10-16/README.md)
+binds the exact scanned runtime and harness hashes; the release contract rejects
+altered, failed or stale-harness evidence. Full matrix qualification remains CI.

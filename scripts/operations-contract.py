@@ -1,5 +1,6 @@
 """Freeze operational names, output boundaries, runbook links and diagnostic limits."""
 import json
+import hashlib
 from pathlib import Path
 import re
 
@@ -50,6 +51,21 @@ def check(root=ROOT):
     dashboard = json.loads((root / "docs/observability-dashboard.json").read_text())
     if len(dashboard["panels"]) < 6:
         raise ValueError("Missing operational dashboard coverage")
+    for evidence in contract["installedEvidence"]:
+        path = root / evidence["report"]
+        if not path.resolve().is_relative_to((root / "docs/qualification/operations").resolve()):
+            raise ValueError("Operational evidence must be a retained public report")
+        raw = path.read_bytes()
+        report = json.loads(raw)
+        if hashlib.sha256(raw).hexdigest() != evidence["sha256"] or report["result"] != "pass":
+            raise ValueError("Operational installed evidence is altered or failed")
+        if not re.fullmatch(r"[0-9a-f]{40}", report["revision"]) or not re.fullmatch(r"sha256:[0-9a-f]{64}", report["image_digest"]):
+            raise ValueError("Operational evidence lacks immutable runtime identity")
+        for key, filename in (("harness_sha256", "observability-installed-test.py"), ("system_harness_sha256", "system-test.py")):
+            if report[key] != hashlib.sha256((root / "scripts" / filename).read_bytes()).hexdigest():
+                raise ValueError("Operational harness changed; retain new installed qualification")
+        if "not production HA" not in report["scope"] or len(report["checks"]) < 9:
+            raise ValueError("Operational smoke evidence cannot claim production HA")
     return contract
 
 
