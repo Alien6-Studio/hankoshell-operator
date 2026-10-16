@@ -28,6 +28,10 @@ def check(root=ROOT):
     tenant = (root / "internal/controller/hankotenant_controller.go").read_text()
     if "observability.TenantRefusalReason(reason)" not in tenant:
         raise ValueError("Tenant Fleet refusal Events must preserve bounded decision identity")
+    installed = (root / "scripts/fleet-installed-test.py").read_text()
+    expected = set(re.findall(r'"((?:Fleet|Bundle)[A-Z][A-Za-z]+)"', installed))
+    if not expected.issubset(reasons):
+        raise ValueError("Installed Fleet refusal Event missing from bounded catalog: " + ", ".join(sorted(expected - reasons)))
     main = (root / "cmd/operator/main.go").read_text()
     if main.count('mgr.GetEventRecorder(operatorRecorderName)') != main.count('observability.SafeRecorder(mgr.GetEventRecorder(operatorRecorderName))'):
         raise ValueError("Unfiltered production Event recorder")

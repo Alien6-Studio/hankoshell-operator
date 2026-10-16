@@ -76,7 +76,7 @@ inventory update. Labels contain only the following finite vocabularies:
 | `hanko_operator_provider_requests_total` | provider: keycloak, authentik, other; method: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, other; outcome: 2xx, 3xx, 4xx, 5xx, transport_error, other |
 | `hanko_operator_provider_request_duration_seconds` | provider/method; HTTP attempt and bounded response read; refused local preconditions do not issue a request |
 | `hanko_operator_verification_total` | domain: iam, fleet, image, other; outcome: accepted, refused; IAM role/resource-server evaluation decisions, signed fleet verification and image approval/signature verification |
-| `hanko_operator_events_total` | 62 catalog reasons, including fixed Fleet/bundle refusal decisions; type: Normal, Warning, other; submitted Events, not persisted acknowledgements |
+| `hanko_operator_events_total` | 66 catalog reasons, including fixed Fleet/bundle decisions; type: Normal, Warning, other; submitted Events, not persisted acknowledgements |
 | `hanko_operator_instances` | state: ready, degraded, pending; reported phase, not current-generation rollout proof; leader-only bounded inventory |
 | `hanko_operator_rotations` | kind: Application, ServiceAccount or KeycloakInstance (full Hanko kind names); state: scheduled, overdue, failed |
 | `hanko_operator_rotation_overdue_seconds` | same three kinds; maximum elapsed time past next scheduled rotation |
@@ -84,7 +84,7 @@ inventory update. Labels contain only the following finite vocabularies:
 | `hanko_operator_leader` | no labels; 1 only after this running manager acquired its lease |
 
 Histograms use the 11 Prometheus default finite buckets plus `+Inf` and sum/count.
-At most **1,033 custom time series per process**, including every fallback and
+At most **1,045 custom time series per process**, including every fallback and
 histogram series. Arbitrary provider strings, kind names and errors collapse to
 `other`; native identifiers, CR names/UIDs, realms, namespaces, URLs, Secret names,
 credential contents and plan hashes never label a custom metric. Scraper-added

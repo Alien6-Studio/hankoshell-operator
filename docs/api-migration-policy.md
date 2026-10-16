@@ -17,6 +17,11 @@ deprecated resources. The [field inventory](api-support.json) records their
 complete spec/status groups. Conversion `None` is not semantic conversion to a
 future API version. No automatic stored-object migration is implemented.
 
+The [executable development contract](go-api-contract.md) guards exported Go
+fixture APIs, the served/storage/conversion envelope and all 17 same-version
+typed readers on the real API matrix. It cannot substitute for future interversion
+conversion or stored-byte migration evidence.
+
 Within the development version, prefer additive optional fields. Any new required
 field, tightened validation, default change, list/map topology change, pruning,
 rename or removal needs a migration analysis, explicit fixture update and

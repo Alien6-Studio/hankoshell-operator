@@ -37,3 +37,13 @@ A follow-up runtime `2943933b3f6f14a3fa9bcf0487f549c1b014edf2` and its updated s
 harness passed the same nine installed checks. See [the new immutable report](observability-runtime-2943933.json);
 the earlier report remains historical evidence. The active machine entry points
 to the follow-up report and its current harness hashes.
+
+## Follow-up: Fleet refusal identity and rollout synchronization
+
+The immutable [f6b9e9b report](observability-runtime-f6b9e9b.json) repeats all nine
+installed operational checks on the final scanned f6b9e9b runtime. The harness
+waits for the actual Deployment rollout before selecting replicas and refuses
+connection/timeout/server failures as evidence of authentication rejection.
+Fleet/bundle refusal reasons are explicit catalog entries; text/labels remain
+bounded, with a 1,045-series static custom-metric ceiling. Historical reports
+remain unchanged. This smoke is not production HA/soak qualification.

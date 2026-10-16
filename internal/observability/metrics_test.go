@@ -139,7 +139,7 @@ func TestCustomMetricSeriesUpperBound(t *testing.T) {
 			}
 		}
 	}
-	if series != 1033 {
+	if series != 1045 {
 		t.Fatalf("custom series bound changed: %d", series)
 	}
 }

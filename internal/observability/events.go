@@ -18,6 +18,10 @@ func EventMessages() map[string]string {
 }
 
 var eventMessages = map[string]string{
+	"FleetPlanApplied":                    "Fleet signed plan applied",
+	"FleetPlanCurrent":                    "Fleet signed plan is current",
+	"FleetPlanDisconnected":               "Fleet plan disconnected; inspect condition reason",
+	"FleetPlanPartial":                    "Fleet signed plan partially applied; inspect condition reason",
 	"BundleTenantConflict":                "Tenant bundle ownership conflict requires administrator review",
 	"FleetAuthorityChanged":               "Fleet reconciliation refused; inspect condition reason",
 	"FleetCacheInvalid":                   "Fleet reconciliation refused; inspect condition reason",

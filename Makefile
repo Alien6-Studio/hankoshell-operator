@@ -37,7 +37,7 @@ preflight: fmt-check vet generated-check
 	python3 -m unittest discover -s scripts -p 'test_*.py'
 
 fmt-check:
-	@test -z "$$(gofmt -l $$(find api cmd internal -name '*.go'))" || { gofmt -l $$(find api cmd internal -name '*.go'); exit 1; }
+	@test -z "$$(gofmt -l $$(find api cmd internal scripts -name '*.go'))" || { gofmt -l $$(find api cmd internal scripts -name '*.go'); exit 1; }
 generate:
 	@test "$$($(CONTROLLER_GEN) --version)" = "Version: $(CONTROLLER_GEN_VERSION)"
 	$(CONTROLLER_GEN) object:headerFile="" paths="./api/..."

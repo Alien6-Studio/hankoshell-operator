@@ -70,11 +70,15 @@
     "FleetPayloadInvalid",
     "FleetPermissionDenied",
     "FleetPermissionEvidenceExpired",
+    "FleetPlanApplied",
+    "FleetPlanCurrent",
+    "FleetPlanDisconnected",
     "FleetPlanDowngrade",
     "FleetPlanExpired",
     "FleetPlanFailed",
     "FleetPlanFetchFailed",
     "FleetPlanNotYetValid",
+    "FleetPlanPartial",
     "FleetProviderScopeUnknown",
     "FleetProviderVersionMismatch",
     "FleetRollbackReferenceInvalid",
@@ -130,8 +134,8 @@
   ],
   "installedEvidence": [
     {
-      "report": "docs/qualification/operations/2026-10-16/observability-runtime-2943933.json",
-      "sha256": "c84927ac8043a7cb6172ab1e4dc16b43e00a4b281013b673cc4ae6646c328578"
+      "report": "docs/qualification/operations/2026-10-16/observability-runtime-f6b9e9b.json",
+      "sha256": "5a504fed6555055645a879218b4329745aed04c2eae17d854f3f89e6f437ca8b"
     }
   ]
 }

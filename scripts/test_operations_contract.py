@@ -23,10 +23,11 @@ class OperationalContractTests(unittest.TestCase):
 
     def test_release_contract_rejects_output_or_runbook_divergence(self):
         mutations = [
-            ("docs/qualification/operations/2026-10-16/observability-runtime-2943933.json", '"result": "pass"', '"result": "fail"'),
+            ("docs/qualification/operations/2026-10-16/observability-runtime-f6b9e9b.json", '"result": "pass"', '"result": "fail"'),
             ("internal/observability/metrics.go", "hanko_operator_reconcile_total", "hanko_operator_unreviewed_total"),
             ("internal/observability/metrics.go", '[]string{"kind", "outcome"}', '[]string{"object", "outcome"}'),
             ("internal/observability/events.go", '"ClientCreated"', '"UnreviewedReason"'),
+            ("scripts/fleet-installed-test.py", '"BundleTenantConflict"', '"BundleUnreviewedConflict"'),
             ("cmd/operator/main.go", "observability.SafeRecorder(mgr.GetEventRecorder(operatorRecorderName))", "mgr.GetEventRecorder(operatorRecorderName)"),
             ("internal/controller/hankoapplication_controller.go", 'observeReconciler("HankoApplication", r)', "r"),
             ("README.md", "operations-runbooks.md", "missing-runbooks.md"),
