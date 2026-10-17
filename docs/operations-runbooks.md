@@ -52,6 +52,24 @@ predecessor. All 17 resources remain experimental v1alpha1; HankoOperation and
 HankoSnapshot are outside stable 1.0 graduation. Managed Upgrade and DBSwitch are
 not qualified. Do not use those CRs as a substitute for a tested migration.
 
+Before deploying a development controller that uses realm-filtered ownership
+reads, apply the reviewed Application/ServiceAccount CRDs first. [Helm upgrades
+do not update files in `crds/`](https://helm.sh/docs/chart_best_practices/custom_resource_definitions/). Verify that both live API endpoints accept the
+new selectable field before rolling the controller:
+
+```sh
+kubectl apply --server-side -f "$chart_path/crds/hanko.sh_hankoapplications.yaml"
+kubectl apply --server-side -f "$chart_path/crds/hanko.sh_hankoserviceaccounts.yaml"
+kubectl -n "$namespace" get hankoapplications \
+  --field-selector="spec.realmRef=$realm" --limit=1 -o name
+kubectl -n "$namespace" get hankoserviceaccounts \
+  --field-selector="spec.realmRef=$realm" --limit=1 -o name
+```
+
+An empty list is valid; an unsupported-selector response blocks the upgrade.
+The controller refuses ownership authorization when these live lists fail.
+This prepares the current development API; it does not qualify a public upgrade.
+
 For development chart configuration changes only, the installed observability
 fixture exercises a real Helm upgrade and rollback to previous reviewed values:
 

@@ -1,0 +1,105 @@
+{
+  "revision": "0ca0b79f64f5a4e3edbc6ab1f5f547d91e4e0fae",
+  "runtime_unit_revision": "4d4ab53bd8ff83f80b866f779a7d413be8e18b4b",
+  "runtime_identical_since_unit_source": true,
+  "only_followup_change": [
+    "api/v1alpha1/ownership_selectors_integration_test.go"
+  ],
+  "suites": {
+    "unit": {
+      "suite": "unit",
+      "revision": "4d4ab53bd8ff83f80b866f779a7d413be8e18b4b",
+      "counts": {
+        "passed": 2374,
+        "failed": 0,
+        "skipped": 0
+      },
+      "worktree_dirty": false,
+      "source_changed": false,
+      "outcome_sha256": "sha256:e42a49ea56d7e52f09cdba9e9813f9c5818948976d61b278dcd854ed324f1dcc"
+    },
+    "kubernetes-1.35.0": {
+      "suite": "kubernetes/1.35.0",
+      "revision": "0ca0b79f64f5a4e3edbc6ab1f5f547d91e4e0fae",
+      "counts": {
+        "passed": 279,
+        "failed": 0,
+        "skipped": 0
+      },
+      "worktree_dirty": false,
+      "source_changed": false,
+      "outcome_sha256": "sha256:acb9016eb3585cd2217d625b349725b8f44ef0d5a36b585ab79dcd6f34f6b1e5"
+    },
+    "kubernetes-1.36.2": {
+      "suite": "kubernetes/1.36.2",
+      "revision": "0ca0b79f64f5a4e3edbc6ab1f5f547d91e4e0fae",
+      "counts": {
+        "passed": 279,
+        "failed": 0,
+        "skipped": 0
+      },
+      "worktree_dirty": false,
+      "source_changed": false,
+      "outcome_sha256": "sha256:3ae2fddb84cee37484d9a1d3c0a7a13dcc44b3cf2ca74839c0d627db09609f03"
+    },
+    "kubernetes-1.37.0": {
+      "suite": "kubernetes/1.37.0",
+      "revision": "0ca0b79f64f5a4e3edbc6ab1f5f547d91e4e0fae",
+      "counts": {
+        "passed": 279,
+        "failed": 0,
+        "skipped": 0
+      },
+      "worktree_dirty": false,
+      "source_changed": false,
+      "outcome_sha256": "sha256:d0a9e16ea0e535d3cb839196f5f29d262da8e0af72cb019d3e68edbee7e502bb"
+    },
+    "keycloak-26.7.5-core": {
+      "suite": "keycloak/26.7.5/core",
+      "revision": "4d4ab53bd8ff83f80b866f779a7d413be8e18b4b",
+      "counts": {
+        "passed": 32,
+        "failed": 0,
+        "skipped": 0
+      },
+      "worktree_dirty": false,
+      "source_changed": false,
+      "outcome_sha256": "sha256:d967fa3308d596fb9ed15313454090e49689436c341d55f14555868a2abb578f"
+    },
+    "keycloak-26.8.0-core": {
+      "suite": "keycloak/26.8.0/core",
+      "revision": "4d4ab53bd8ff83f80b866f779a7d413be8e18b4b",
+      "counts": {
+        "passed": 32,
+        "failed": 0,
+        "skipped": 0
+      },
+      "worktree_dirty": false,
+      "source_changed": false,
+      "outcome_sha256": "sha256:3d4de5d114b7a65cc2896a31b3a309eae06fa41a043ddc885dc1a29ec14f6c1b"
+    }
+  },
+  "coverage": "all reviewed floors passed",
+  "python_tests": 329,
+  "preflight": "pass",
+  "chart_tests": "pass",
+  "architecture": "pass",
+  "lint": "0 issues",
+  "tagged_lint": "0 issues",
+  "govulncheck": "no vulnerabilities found",
+  "repository_hooks": "pass",
+  "scope": "development qualification; installed mixed load result retained separately; no production, six-cell scale or completed 24-hour claim",
+  "installed_system": {
+    "revision": "0ca0b79f64f5a4e3edbc6ab1f5f547d91e4e0fae",
+    "checks": 20,
+    "public_fixtures": 6,
+    "operational_checks": 9
+  },
+  "mixed_load": {
+    "qualified": false,
+    "offered_applications": 1000,
+    "initial_burst_and_leader_replacement": "passed",
+    "overload_recovery_and_steady": "in progress",
+    "convergence_budget_seconds": 900
+  }
+}
