@@ -254,6 +254,20 @@ class ScaleScenarioTests(unittest.TestCase):
         self.assertEqual(upload["if"], "always()")
         self.assertEqual(upload["with"]["if-no-files-found"], "error")
         self.assertEqual(workflow[True]["workflow_dispatch"]["inputs"]["profile"]["options"], ["smoke", "scale"])
+        # A dispatch-only workflow added on the dev branch is not yet registered
+        # on GitHub's default branch. Reach it through the existing CI workflow
+        # without merging or bypassing any of that workflow's normal gates.
+        ci = yaml.safe_load((scale.ROOT / ".github/workflows/ci.yml").read_text())
+        self.assertEqual(ci[True]["workflow_dispatch"]["inputs"]["qualify_scale"]["default"], False)
+        scale_job = ci["jobs"]["installed-scale-qualification"]
+        self.assertEqual(scale_job["needs"], ["source", "oci"])
+        self.assertEqual(scale_job["strategy"], jobs["installed-scale"]["strategy"])
+        self.assertEqual(scale_job["if"], "github.event_name == 'workflow_dispatch' && inputs.qualify_scale == true")
+        download = next(step for step in scale_job["steps"] if "download-artifact@" in step.get("uses", ""))
+        self.assertEqual(download["with"]["artifact-ids"], "${{ needs.oci.outputs.artifact_id }}")
+        run = next(step for step in scale_job["steps"] if "scale-installed-test.py" in step.get("run", ""))
+        self.assertEqual(run["env"]["SCALE_PROFILE"], "scale")
+        self.assertEqual(run["env"]["OCI_DIGEST"], "${{ needs.oci.outputs.digest }}")
 
 
 class ScaleFaultTests(unittest.TestCase):

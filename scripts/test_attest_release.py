@@ -29,25 +29,35 @@ class QualificationGateTests(unittest.TestCase):
         self.assertEqual(set(aggregate["needs"]), set(workflow["jobs"]) - {"checks", "schedule-report"})
         step = aggregate["steps"][0]
         dependencies = {f"${{{{ needs.{job}.result }}}}" for job in aggregate["needs"]}
-        self.assertEqual(set(step["env"].values()), dependencies)
+        result_env = {name: value for name, value in step["env"].items() if name.endswith("_RESULT")}
+        self.assertEqual(set(result_env.values()), dependencies)
+        self.assertEqual(step["env"]["QUALIFY_SCALE"], "${{ github.event_name == 'workflow_dispatch' && inputs.qualify_scale == true }}")
         # Validate the closed conjunction, then execute every single-input
         # non-success. This proves each dependency is required without an
         # exponentially growing 4**N input stream as the matrix gains jobs.
-        for name in step["env"]:
+        for name in result_env:
             self.assertRegex(name, r"^[A-Z][A-Z_]*_RESULT$")
-        self.assertEqual(step["run"].strip(), " && ".join(
-            'test "$' + name + '" = success' for name in step["env"]))
-        baseline = ["success"] * len(step["env"])
-        combinations = [baseline]
-        for index in range(len(baseline)):
+        self.assertEqual(step["run"].splitlines()[0], " && ".join(
+            'test "$' + name + '" = success' for name in result_env if name != "INSTALLED_SCALE_RESULT") + " || exit 1")
+        names = list(step["env"])
+        baseline = ["success" if name in result_env else "true" for name in names]
+        combinations = [(baseline, True)]
+        for index, name in enumerate(names):
+            if name not in result_env:
+                continue
             for failure in ("failure", "cancelled", "skipped"):
                 changed = baseline.copy()
                 changed[index] = failure
-                combinations.append(changed)
-        combinations.append(["failure"] * len(baseline))
-        cases = "".join(" ".join(results) + (" success\n" if all(v == "success" for v in results) else " failure\n")
-                        for results in combinations)
-        script = "set -eu\nqualification_gate() {\n" + step["run"] + "\n}\nchecked=0\n"
+                combinations.append((changed, False))
+        for result in ("success", "failure", "cancelled", "skipped"):
+            changed = baseline.copy()
+            changed[names.index("QUALIFY_SCALE")] = "false"
+            changed[names.index("INSTALLED_SCALE_RESULT")] = result
+            combinations.append((changed, result == "skipped"))
+        cases = "".join(" ".join(results) + (" success\n" if passes else " failure\n")
+                        for results, passes in combinations)
+        # Isolate explicit failure exits while exercising every gate case.
+        script = "set -eu\nqualification_gate() (\n" + step["run"] + "\n)\nchecked=0\n"
         script += "while read -r " + " ".join(step["env"]) + " expected; do\n"
         script += '''
           if qualification_gate; then actual=success; else actual=failure; fi

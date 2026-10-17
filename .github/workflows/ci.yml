@@ -17,6 +17,10 @@ on:
         value: ${{ jobs.oci.outputs.candidate_digest }}
   workflow_dispatch:
     inputs:
+      qualify_scale:
+        description: Also run the six-cell installed 1000-application scale matrix
+        type: boolean
+        default: false
       schedule_report_test:
         description: Exercise the scheduled-failure tracking issue on this run
         type: boolean
@@ -31,6 +35,57 @@ concurrency:
   # GitHub retains one pending run; subsequent manual requests replace that pending run.
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 jobs:
+  installed-scale-qualification:
+    name: Scale KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
+    needs: [source, oci]
+    if: github.event_name == 'workflow_dispatch' && inputs.qualify_scale == true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        keycloak: ["26.7.5", "26.8.0"] # versions:workload-keycloak
+        kubernetes: ["1.35.0", "1.36.2", "1.37.0"] # versions:kubernetes
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ needs.oci.outputs.artifact_id }}
+          path: ${{ runner.temp }}/scale-oci
+          merge-multiple: true
+      - name: Install checksum-pinned fixture tools
+        run: |
+          python3 -m pip install -r scripts/requirements.txt
+          python3 scripts/install-system-tools.py "$RUNNER_TEMP/scale-tools"
+          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+      - name: Run measured scale, overload recovery and leader removal
+        env:
+          SCALE_PROFILE: scale
+          OCI_DIGEST: ${{ needs.oci.outputs.digest }}
+          KEYCLOAK_VERSION: ${{ matrix.keycloak }}
+          KUBERNETES_VERSION: ${{ matrix.kubernetes }}
+        run: |
+          python3 scripts/scale-installed-test.py --profile "$SCALE_PROFILE" --workers 4 \
+            --archive "$RUNNER_TEMP/scale-oci/image.tar" --evidence "$RUNNER_TEMP/scale-oci/evidence" \
+            --digest "$OCI_DIGEST" --revision "$GITHUB_SHA" --output "$RUNNER_TEMP/scale-report" \
+            --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
+            --kind "$RUNNER_TEMP/scale-tools/kind" --kubectl "$RUNNER_TEMP/scale-tools/kubectl" \
+            --oras "$RUNNER_TEMP/scale-tools/oras" --helm /tmp/linux-amd64/helm --openssl /usr/bin/openssl
+      - name: Preserve successful and incomplete measurements
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: NONPUBLISHABLE-scale-${{ matrix.keycloak }}-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/scale-report/
+            ${{ runner.temp }}/scale-report.diagnostics/
+          if-no-files-found: error
+          retention-days: 30
   preflight:
     name: Fast source preflight
     runs-on: ubuntu-24.04
@@ -617,7 +672,7 @@ jobs:
     name: Source and chart checks
     # Pull requests run the full qualification matrix (ADR-048); this required
     # gate must keep representing every qualification job before merge.
-    needs: [preflight, source, kubernetes, keycloak, keycloak-ordinary, keycloak-static, workload, security-mutations, oci, rehearsal, system, installed-workload, installed-portable, installed-fleet]
+    needs: [preflight, source, kubernetes, keycloak, keycloak-ordinary, keycloak-static, workload, security-mutations, oci, rehearsal, system, installed-workload, installed-portable, installed-fleet, installed-scale-qualification]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -637,10 +692,18 @@ jobs:
           INSTALLED_WORKLOAD_RESULT: ${{ needs.installed-workload.result }}
           INSTALLED_PORTABLE_RESULT: ${{ needs.installed-portable.result }}
           INSTALLED_FLEET_RESULT: ${{ needs.installed-fleet.result }}
-        run: test "$PREFLIGHT_RESULT" = success && test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$KEYCLOAK_ORDINARY_RESULT" = success && test "$KEYCLOAK_STATIC_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$MUTATIONS_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success && test "$INSTALLED_PORTABLE_RESULT" = success && test "$INSTALLED_FLEET_RESULT" = success
+          INSTALLED_SCALE_RESULT: ${{ needs.installed-scale-qualification.result }}
+          QUALIFY_SCALE: ${{ github.event_name == 'workflow_dispatch' && inputs.qualify_scale == true }}
+        run: |
+          test "$PREFLIGHT_RESULT" = success && test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$KEYCLOAK_ORDINARY_RESULT" = success && test "$KEYCLOAK_STATIC_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$MUTATIONS_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success && test "$INSTALLED_PORTABLE_RESULT" = success && test "$INSTALLED_FLEET_RESULT" = success || exit 1
+          if test "$QUALIFY_SCALE" = true; then
+            test "$INSTALLED_SCALE_RESULT" = success
+          else
+            test "$INSTALLED_SCALE_RESULT" = skipped
+          fi
   schedule-report:
     name: Scheduled qualification tracking issue
-    needs: [preflight, source, kubernetes, keycloak, keycloak-ordinary, keycloak-static, workload, security-mutations, oci, rehearsal, system, installed-workload, installed-portable, installed-fleet, checks]
+    needs: [preflight, source, kubernetes, keycloak, keycloak-ordinary, keycloak-static, workload, security-mutations, oci, rehearsal, system, installed-workload, installed-portable, installed-fleet, installed-scale-qualification, checks]
     if: always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.schedule_report_test == true))
     permissions:
       contents: read

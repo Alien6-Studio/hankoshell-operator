@@ -84,7 +84,7 @@ class ReleaseContractTests(unittest.TestCase):
         ci = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
         self.assertEqual(set(ci), {"preflight", "source", "kubernetes", "keycloak", "keycloak-ordinary", "keycloak-static", "workload", "oci",
                                    "rehearsal", "system", "installed-workload", "installed-portable", "installed-fleet", "security-mutations", "checks",
-                                   "schedule-report"})
+                                   "schedule-report", "installed-scale-qualification"})
         for job in ("source", "kubernetes", "keycloak", "keycloak-ordinary", "keycloak-static", "workload", "security-mutations", "oci"):
             with self.subTest(job=job):
                 self.assertEqual(ci[job].get("needs"), ["preflight"])
@@ -93,6 +93,7 @@ class ReleaseContractTests(unittest.TestCase):
         for job in ("rehearsal", "system", "installed-workload", "installed-portable", "installed-fleet"):
             self.assertEqual(ci[job]["needs"], ["source", "oci"])
             self.assertNotIn("if", ci[job])
+        self.assertEqual(ci["installed-scale-qualification"]["needs"], ["source", "oci"])
         self.assertNotIn("needs", ci["preflight"])
         self.assertNotIn("if", ci["preflight"])
         self.assertFalse(ci["preflight"].get("continue-on-error", False))

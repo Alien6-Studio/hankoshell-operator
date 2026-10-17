@@ -36,6 +36,9 @@ jobs:
           make preflight chart-test
   oci:
     needs: preflight
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/oci-security.yml
   installed-scale:
     name: Scale KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
