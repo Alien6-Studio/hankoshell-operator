@@ -1,0 +1,13 @@
+{
+  "revision": "824c8f17db1654bdf4bc9744522ba76059350db7",
+  "suite": "preflight Python",
+  "tests_run": 331,
+  "failures": 1,
+  "test": "OperationalContractTests.test_release_contract_rejects_output_or_runbook_divergence",
+  "mutation_target": "internal/controller/hankoapplication_controller.go",
+  "reason": "The negative-test mutation still expected the old observer call without the new scheduling decorator. Its before-pattern assertion failed before the instrumentation-removal mutation could run.",
+  "correction_revision": "c5c67871b71e822620199f25472349efbb4cc44a",
+  "correction": "Update only the negative-test pattern and preserve the scheduling decorator when removing instrumentation. The complete 331-test suite then passes.",
+  "runtime_changes_for_correction": false,
+  "original_log_sha256": "sha256:49cbac14e8a447814e514053f2477823d603cf611777322e2d59e9ab5f50b0cf"
+}

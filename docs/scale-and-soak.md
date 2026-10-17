@@ -5,6 +5,11 @@ chart and scanned, exact-source OCI image on disposable kind and real HTTPS
 Keycloak. Passing a short fixture does not qualify production capacity, all six
 supported cells, a 24-hour soak, or every transaction journal.
 
+The [2026-10-17 queue recovery packet](qualification/scale/2026-10-17/runtime-824c8f1/README.md)
+records the current development source, source checks, installed results and
+remaining qualification. Its predecessor's final 429 deadline failure is
+retained alongside the new measurements.
+
 ## Bounded IAM workers
 
 `reconciliation.maxConcurrent` defaults to **1**. Explicit integers **1–8** set
@@ -126,6 +131,16 @@ Use `SCALE_PROFILE=scale` for the thousand-application burst or `soak` for the
 The manual `Installed scale qualification` workflow covers the six pinned
 Kubernetes/Keycloak cells for short profiles. Hosted jobs do not claim a 24-hour
 soak; run that profile on a persistent disposable runner.
+
+Before this new workflow exists on the default branch, invoke it through the
+existing CI workflow on the development ref:
+
+```sh
+gh workflow run ci.yml --ref feat/1.0.0-dev -f qualify_scale=true
+```
+
+This opt-in adds the six-cell 1,000-application matrix alongside the full normal
+CI. Ordinary CI runs keep their existing qualification gates and workload.
 
 The output directory must be new. `report.json` records pass/fail and bounded
 measurements; `samples.jsonl` retains numeric samples. Atomic `progress.json`
