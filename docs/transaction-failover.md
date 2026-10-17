@@ -20,6 +20,10 @@ The proxy forwards the original caller's authority. A rejected write does not
 consume an acknowledgement-loss rule. Rotation filters select the exact journal
 annotation and step; plan filters select the new verified identity, so ordinary
 status updates cannot accidentally trigger the intended boundary.
+Persisted Kubernetes child creation counts only non-dry-run HTTP 201 responses,
+including Server-Side Apply PATCH creation. Successful dry-run POSTs and updates
+cannot count as persisted creations. The first plan fixture's route-only counter
+did not distinguish these operations; its incomplete result is retained.
 
 After each accepted write, the administrator deletes the exact lease-holder pod
 and waits for that process to disappear before releasing the proxies. The fixture

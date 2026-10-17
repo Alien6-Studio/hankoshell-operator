@@ -12,10 +12,19 @@ import socket
 import ssl
 import threading
 from urllib.error import HTTPError
+from urllib.parse import parse_qs, urlsplit
 from urllib.request import Request, urlopen
 
 LOCK = threading.Lock()
 STATE = {"rule": None, "blocked": False, "triggered": False, "counts": {}, "attempted_counts": {}, "metadata_activations": {}, "upstream_status": None, "traffic": {}}
+
+
+def persisted_application_create(method, path, status):
+    route = urlsplit(path)
+    parts = route.path.strip("/").split("/")
+    dry_run = any("All" in value.split(",") for value in parse_qs(route.query).get("dryRun", []))
+    return (status == 201 and method in ("POST", "PATCH") and not dry_run and len(parts) in (6, 7)
+            and parts[0:2] == ["apis", "hanko.sh"] and parts[3] == "namespaces" and parts[5] == "hankoapplications")
 
 
 def matches(rule, method, path, body):
@@ -149,6 +158,9 @@ class Proxy(BaseHTTPRequestHandler):
             if self.command in ("POST", "PUT", "PATCH", "DELETE") and 200 <= status < 300:
                 key = self.command + " " + self.path.split("?")[0]
                 STATE["counts"][key] = STATE["counts"].get(key, 0) + 1
+                if persisted_application_create(self.command, self.path, status):
+                    traffic = STATE.setdefault("traffic", {})
+                    traffic["kubernetes_application_creates"] = traffic.get("kubernetes_application_creates", 0) + 1
                 if self.command == "PATCH" and "/configmaps/" in self.path:
                     try:
                         document = json.loads(json.loads(body).get("data", {}).get("workload-identity.json", "{}"))

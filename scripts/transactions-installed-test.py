@@ -247,9 +247,11 @@ class Transactions(fleet.Fleet):
         wait("recovered HA plan child", lambda: ready_current(self.get("hankoapplication", "ha-checkpoint-app")), 180)
         state = self.control("keycloak", None)
         api_state = self.control("api", None)
-        if (len(self.api("GET", "/admin/realms/managed/clients?clientId=ha-checkpoint-app")) != 1
-                or state["counts"].get("POST /admin/realms/managed/clients") != 1
-                or api_state["counts"].get("POST /apis/hanko.sh/v1alpha1/namespaces/auth/hankoapplications") != 1):
+        counts = {"candidate_native_clients": len(self.api("GET", "/admin/realms/managed/clients?clientId=ha-checkpoint-app")),
+                  "accepted_native_creates": state["counts"].get("POST /admin/realms/managed/clients", 0),
+                  "accepted_child_creates": api_state.get("traffic", {}).get("kubernetes_application_creates", 0)}
+        self.report["plan_counts"] = counts
+        if any(value != 1 for value in counts.values()):
             raise ValueError("Verified plan resumed with duplicate native or Kubernetes children")
         self.checkpoint("verified_plan", accepted_native_creates=1, accepted_child_creates=1)
 
@@ -285,7 +287,7 @@ class Transactions(fleet.Fleet):
         self.report.update(complete=True, completed_at=datetime.now(timezone.utc).isoformat())
 
     def public_evidence(self):
-        return {**super().public_evidence(), **{key: self.report[key] for key in ("checkpoints", "limitations", "cleanup_complete", "reader_profile") if key in self.report}}
+        return {**super().public_evidence(), **{key: self.report[key] for key in ("checkpoints", "limitations", "cleanup_complete", "reader_profile", "plan_counts") if key in self.report}}
 
     def cleanup(self):
         if self.scraper:

@@ -226,6 +226,15 @@ class InstalledEvidenceTests(unittest.TestCase):
             self.assertNotIn("private", json.dumps(proxy.STATE["traffic"]))
         handler.reply.assert_called_once_with(503, b"{}")
 
+    def test_persisted_child_creates_include_server_side_apply_but_never_dry_run_or_update(self):
+        root = "/apis/hanko.sh/v1alpha1/namespaces/auth/hankoapplications"
+        for method, path, status, expected in (("POST", root, 201, True), ("PATCH", root+"/child", 201, True),
+                ("POST", root+"?dryRun=All", 201, False), ("PATCH", root+"/child?fieldManager=fleet&dryRun=All", 201, False),
+                ("PATCH", root+"/child", 200, False), ("POST", root, 409, False), ("GET", root, 201, False),
+                ("POST", root.replace("hankoapplications", "hankoserviceaccounts"), 201, False)):
+            with self.subTest(method=method, path=path, status=status):
+                self.assertEqual(proxy.persisted_application_create(method, path, status), expected)
+
     def test_lost_ack_requires_upstream_acceptance_before_downstream_drop(self):
         handler = proxy.Proxy.__new__(proxy.Proxy)
         handler.headers = Message()
