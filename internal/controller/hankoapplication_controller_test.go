@@ -18,6 +18,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/controller"
@@ -49,12 +50,19 @@ func newFakeClient(t *testing.T, objs ...client.Object) client.Client {
 	for _, object := range objs {
 		_, app := object.(*hankoshv1alpha1.HankoApplication)
 		_, account := object.(*hankoshv1alpha1.HankoServiceAccount)
-		if (app || account) && object.GetUID() == "" {
+		_, secret := object.(*corev1.Secret)
+		if (app || account || secret) && object.GetUID() == "" {
 			object.SetUID(types.UID("fixture-" + object.GetNamespace() + "-" + object.GetName()))
 		}
 	}
 	return fake.NewClientBuilder().
 		WithScheme(newScheme(t)).
+		WithInterceptorFuncs(interceptor.Funcs{Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+			if _, ok := obj.(*corev1.Secret); ok && obj.GetUID() == "" {
+				obj.SetUID(types.UID("fixture-" + obj.GetNamespace() + "-" + obj.GetName()))
+			}
+			return c.Create(ctx, obj, opts...)
+		}}).
 		WithIndex(&hankoshv1alpha1.HankoApplication{}, controller.RealmClientIndexKey, realmClientIndexer).
 		WithObjects(objs...).
 		WithStatusSubresource(&hankoshv1alpha1.HankoApplication{}, &hankoshv1alpha1.HankoImport{}, &hankoshv1alpha1.HankoOrganization{}, &hankoshv1alpha1.HankoRealm{}, &hankoshv1alpha1.HankoServiceAccount{}, &hankoshv1alpha1.HankoTheme{}, &hankoshv1alpha1.HankoRole{}, &hankoshv1alpha1.HankoResourceServer{}).
@@ -173,7 +181,7 @@ func TestReconcile_ManageRotatesConfidentialSecretDeclaratively(t *testing.T) {
 		},
 	}
 	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: "hanko-app-myclient", Namespace: "default"},
+		ObjectMeta: metav1.ObjectMeta{Name: "hanko-app-myclient", Namespace: "default", OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(app, hankoshv1alpha1.GroupVersion.WithKind("HankoApplication"))}},
 		Data:       map[string][]byte{"client_secret": []byte("old-secret")},
 	}
 	projected := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{
@@ -199,8 +207,8 @@ func TestReconcile_ManageRotatesConfidentialSecretDeclaratively(t *testing.T) {
 	if err := c.Get(context.Background(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, &updatedSecret); err != nil {
 		t.Fatal(err)
 	}
-	if updatedSecret.StringData["client_secret"] != "rotated-secret" {
-		t.Fatalf("secret StringData = %#v", updatedSecret.StringData)
+	if string(updatedSecret.Data["client_secret"]) != "rotated-secret" {
+		t.Fatal("canonical Secret did not receive the rotated credential")
 	}
 	var updatedProjection corev1.Secret
 	if err := c.Get(context.Background(), types.NamespacedName{Name: projected.Name, Namespace: projected.Namespace}, &updatedProjection); err != nil {
@@ -220,6 +228,75 @@ func TestReconcile_ManageRotatesConfidentialSecretDeclaratively(t *testing.T) {
 
 func controllerutilContainsFinalizer(app *hankoshv1alpha1.HankoApplication) bool {
 	return slices.Contains(app.Finalizers, controller.FinalizerName)
+}
+
+func TestApplicationRepairsOwnedCredentialFromCurrentProviderWithoutRotation(t *testing.T) {
+	kc := newMockKeycloak(t)
+	kc.addClient("myrealm", "portal", "native-uuid")
+	app := &hankoshv1alpha1.HankoApplication{ObjectMeta: metav1.ObjectMeta{Name: "portal", Namespace: "default", UID: "application-uid"}, Spec: hankoshv1alpha1.HankoApplicationSpec{RealmRef: "myrealm", ClientID: "portal", Type: "web"}}
+	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "hanko-app-portal", Namespace: "default", OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(app, hankoshv1alpha1.GroupVersion.WithKind("HankoApplication"))}}, Data: map[string][]byte{"client_secret": []byte("stale"), "other": []byte("retained")}}
+	kube := newFakeClient(t, app, secret)
+	kc.ownApplication(app)
+	r := newReconciler(t, kube, kc.client())
+	for range 2 {
+		if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(app)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var current corev1.Secret
+	if err := kube.Get(context.Background(), client.ObjectKeyFromObject(secret), &current); err != nil {
+		t.Fatal(err)
+	}
+	if string(current.Data["client_secret"]) != "mock-secret" || string(current.Data["other"]) != "retained" || kc.count("rotateSecret") != 0 {
+		t.Fatal("stale credential was trusted or repair rotated/overwrote unrelated data")
+	}
+	if getApp(t, kube, app.Name).Status.Phase != "Ready" {
+		t.Fatal("owned credential repair did not converge")
+	}
+}
+
+func TestApplicationProjectionRechecksCompiledUIDBeforeWrite(t *testing.T) {
+	kc := newMockKeycloak(t)
+	kc.addClient("myrealm", "portal", "native-uuid")
+	app := &hankoshv1alpha1.HankoApplication{ObjectMeta: metav1.ObjectMeta{Name: "portal", Namespace: "default", UID: "application-uid"}, Spec: hankoshv1alpha1.HankoApplicationSpec{RealmRef: "myrealm", ClientID: "portal", Type: "web", ClientSecretProjections: []hankoshv1alpha1.ApplicationSecretProjection{{Namespace: "workload", Name: "identity"}}}}
+	target := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "identity", Namespace: "workload", UID: "original-target", Labels: map[string]string{"hanko.sh/client-secret-projection": "true"}, Annotations: map[string]string{"hanko.sh/application-name": app.Name, "hanko.sh/application-namespace": app.Namespace, "hanko.sh/application-uid": string(app.UID), "hanko.sh/client-id": app.Spec.ClientID}}, Data: map[string][]byte{"client_secret": []byte("retained")}}
+	base := newFakeClient(t, app, target)
+	kc.ownApplication(app)
+	replaced, patches := false, 0
+	kube := interceptor.NewClient(base.(client.WithWatch), interceptor.Funcs{
+		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			if err := c.Get(ctx, key, obj, opts...); err != nil {
+				return err
+			}
+			if _, ok := obj.(*corev1.Secret); ok && key == client.ObjectKeyFromObject(target) && !replaced {
+				replaced = true
+				if err := c.Delete(ctx, target); err != nil {
+					return err
+				}
+				replacement := target.DeepCopy()
+				replacement.UID, replacement.ResourceVersion = "replacement-target", ""
+				return c.Create(ctx, replacement)
+			}
+			return nil
+		},
+		Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, p client.Patch, opts ...client.PatchOption) error {
+			if obj.GetNamespace() == target.Namespace {
+				patches++
+			}
+			return c.Patch(ctx, obj, p, opts...)
+		},
+	})
+	r := newReconciler(t, kube, kc.client())
+	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(app)}); err == nil || !replaced || patches != 0 {
+		t.Fatalf("stale compiled projection reached a write: replaced=%v patches=%d error=%v", replaced, patches, err)
+	}
+	var current corev1.Secret
+	if err := base.Get(context.Background(), client.ObjectKeyFromObject(target), &current); err != nil {
+		t.Fatal(err)
+	}
+	if string(current.Data["client_secret"]) != "retained" {
+		t.Fatal("replacement received credentials")
+	}
 }
 
 func TestApplicationDeletionRetryWhenProviderAlreadyAbsent(t *testing.T) {

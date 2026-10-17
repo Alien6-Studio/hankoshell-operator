@@ -50,7 +50,12 @@ class MutationRunnerTests(unittest.TestCase):
                     "operation-managed-provider-binding", "managed-probe-rollout-fence",
                     "managed-infrastructure-owner", "managed-infrastructure-live-owner",
                     "managed-infrastructure-write-version", "managed-pdb-delete-identity",
-                    "managed-instance-live-intent", "managed-instance-deletion"}
+                    "managed-instance-live-intent", "managed-instance-deletion",
+                    "hub-enrollment-redirect", "hub-error-body-redaction", "legacy-bundle-stream-count",
+                    "legacy-bundle-json-ambiguity", "legacy-bundle-before-api", "application-canonical-owner",
+                    "application-canonical-write-version", "application-projection-write-version",
+                    "application-projection-cleanup-version", "application-canonical-readback-uid",
+                    "application-projection-live-plan"}
         self.assertEqual({entry["name"] for entry in gate.MUTATIONS}, required)
         self.assertEqual(len(gate.MUTATIONS), len(required))
         for entry in gate.MUTATIONS:

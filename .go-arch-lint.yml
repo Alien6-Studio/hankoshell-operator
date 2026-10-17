@@ -183,6 +183,7 @@ deps:
   hub:
     mayDependOn:
       - supervision
+      - httpsecurity
 
   fleetplan:
     mayDependOn:

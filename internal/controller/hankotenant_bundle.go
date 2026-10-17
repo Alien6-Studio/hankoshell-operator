@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/fleetplan"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/hub"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -93,6 +94,9 @@ func (r *HankoTenantReconciler) applyBundleGuarded(ctx context.Context, tenant *
 }
 
 func (r *HankoTenantReconciler) prepareBundle(ctx context.Context, tenant *api.HankoTenant, bundle *hub.Bundle) ([]bundleObject, error) {
+	if bundle == nil || len(bundle.IAMProfiles)+len(bundle.Realms)+len(bundle.Apps)+len(bundle.Themes)+len(bundle.ServiceAccounts) > fleetplan.MaxObjects {
+		return nil, refuseBundle("BundleObjectLimit", "bundle exceeds the aggregate object budget")
+	}
 	groups := []struct {
 		count string
 		kind  string

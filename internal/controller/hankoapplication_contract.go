@@ -254,6 +254,7 @@ func (r *HankoApplicationReconciler) reconcileApplicationContract(ctx context.Co
 	e.evaluate(app.Generation, plan.Identity())
 	app.Status.Capabilities = applicationCapabilityStatus(plan.Evidence().Supported)
 	driver := applications.NewKeycloakDriver(kc)
+	credentialGuard := func(ctx context.Context) error { return r.validateOwnedApplicationExecution(ctx, app, kc, plan) }
 	var state applications.State
 	if observe {
 		app.Status.ClientSecret = nil
@@ -307,7 +308,7 @@ func (r *HankoApplicationReconciler) reconcileApplicationContract(ctx context.Co
 			if state.Created && app.Status.LastRotated == nil && app.Spec.Type != "spa" {
 				app.Status.LastRotated = &metav1.Time{Time: time.Now()}
 			}
-			if err = r.ensureSecret(ctx, app, kc); err != nil {
+			if err = r.ensureSecret(ctx, app, kc, credentialGuard); err != nil {
 				return r.applicationContractError(ctx, app, patch, &plan, &state, iamcontract.SafeError(err))
 			}
 			policy, err := effectiveSecretRotationPolicy(ctx, r.Client, app.Namespace, app.Spec.RealmRef, app.Spec.SecretRotationPolicy)
@@ -321,7 +322,7 @@ func (r *HankoApplicationReconciler) reconcileApplicationContract(ctx context.Co
 			if state.Created && app.Status.LastRotated == nil && app.Spec.Type != "spa" {
 				setApplicationSecretStatus(app, &now, policy)
 			}
-			if err = r.maybeRotateApplicationSecret(ctx, app, policy, &now, kc); err != nil {
+			if err = r.maybeRotateApplicationSecret(ctx, app, policy, &now, kc, credentialGuard); err != nil {
 				return r.applicationContractError(ctx, app, patch, &plan, &state, iamcontract.SafeError(err))
 			}
 		} else {

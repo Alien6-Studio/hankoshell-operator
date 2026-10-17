@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/fleetplan"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/hub"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,6 +18,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
+
+func TestLegacyBundleObjectBudgetPrecedesKubernetesIO(t *testing.T) {
+	requests := 0
+	kube := fake.NewClientBuilder().WithScheme(controllerTestScheme(t)).WithInterceptorFuncs(interceptor.Funcs{
+		Get: func(context.Context, client.WithWatch, client.ObjectKey, client.Object, ...client.GetOption) error {
+			requests++
+			return errors.New("unexpected Kubernetes request")
+		},
+		Create: func(context.Context, client.WithWatch, client.Object, ...client.CreateOption) error {
+			requests++
+			return errors.New("unexpected Kubernetes request")
+		},
+	}).Build()
+	bundle := &hub.Bundle{Apps: make([]json.RawMessage, fleetplan.MaxObjects), Realms: []json.RawMessage{json.RawMessage(`{}`)}}
+	r := &HankoTenantReconciler{Client: kube}
+	if _, err := r.applyBundle(context.Background(), &api.HankoTenant{}, bundle); err == nil || bundleApplyReason(err) != "BundleObjectLimit" || requests != 0 {
+		t.Fatalf("over-budget bundle reached Kubernetes: %d requests, %v", requests, err)
+	}
+}
 
 func TestTenantBundleMetadataRefusedBeforeAnyWrite(t *testing.T) {
 	for name, tc := range map[string]struct{ raw, reason string }{

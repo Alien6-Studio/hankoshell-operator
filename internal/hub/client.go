@@ -169,6 +169,8 @@ func EnrollWithIdentity(ctx context.Context, endpoint, enrollToken string, ident
 }
 
 func enrollWithClient(ctx context.Context, endpoint, enrollToken string, identity EnrollmentIdentity, httpClient *http.Client) (*EnrollResult, error) {
+	bounded := *httpClient
+	bounded.CheckRedirect = refuseHubRedirect
 	body, err := json.Marshal(struct {
 		EnrollToken string `json:"enrollToken"`
 		EnrollmentIdentity
@@ -186,7 +188,7 @@ func enrollWithClient(ctx context.Context, endpoint, enrollToken string, identit
 	// Enrollment deliberately uses the system trust store. A private CA used
 	// for the Continuum-only synchronization endpoint must never broaden the
 	// trust boundary of the public, single-use bootstrap exchange.
-	resp, err := httpClient.Do(req)
+	resp, err := bounded.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("enroll with hub: %w", err)
 	}
@@ -197,11 +199,11 @@ func enrollWithClient(ctx context.Context, endpoint, enrollToken string, identit
 		return nil, fmt.Errorf("read enrollment response: %w", err)
 	}
 	if resp.StatusCode != http.StatusCreated {
-		return nil, fmt.Errorf("hub enrollment returned %d: %s", resp.StatusCode, respBody)
+		return nil, fmt.Errorf("hub enrollment returned HTTP %d", resp.StatusCode)
 	}
 	var out EnrollResult
 	if err := json.Unmarshal(respBody, &out); err != nil {
-		return nil, fmt.Errorf("decode enrollment response: %w", err)
+		return nil, errors.New("invalid hub enrollment response")
 	}
 	if out.Token == "" || out.TenantID == "" || out.ClusterID == "" || out.ExpiresAt.IsZero() {
 		return nil, fmt.Errorf("hub enrollment response is missing credentials")
@@ -231,11 +233,11 @@ func (c *Client) PrepareRotation(ctx context.Context, rotationID string) (*Enrol
 		return nil, fmt.Errorf("read credential rotation response: %w", err)
 	}
 	if resp.StatusCode != http.StatusCreated {
-		return nil, fmt.Errorf("hub credential rotation returned %d: %s", resp.StatusCode, responseBody)
+		return nil, fmt.Errorf("hub credential rotation returned HTTP %d", resp.StatusCode)
 	}
 	var out EnrollResult
 	if err := json.Unmarshal(responseBody, &out); err != nil {
-		return nil, fmt.Errorf("decode credential rotation response: %w", err)
+		return nil, errors.New("invalid hub credential rotation response")
 	}
 	if out.Token == "" || out.TenantID == "" || out.ClusterID == "" || out.ExpiresAt.IsZero() {
 		return nil, fmt.Errorf("hub credential rotation response is missing credentials")
@@ -256,11 +258,11 @@ func (c *Client) ConfirmRotation(ctx context.Context) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		body, readErr := readHubResponse(resp, maxHubControlResponseBytes)
+		_, readErr := readHubResponse(resp, maxHubControlResponseBytes)
 		if readErr != nil {
 			return fmt.Errorf("read credential rotation confirmation: %w", readErr)
 		}
-		return fmt.Errorf("hub credential rotation confirmation returned %d: %s", resp.StatusCode, body)
+		return fmt.Errorf("hub credential rotation confirmation returned HTTP %d", resp.StatusCode)
 	}
 	return nil
 }
@@ -301,12 +303,16 @@ func NewWithHTTPClient(endpoint, tenantID, token string, httpClient *http.Client
 	if httpClient == nil {
 		httpClient = defaultHTTPClient()
 	}
+	// Never mutate the caller's shared client or follow a response-selected
+	// destination with credentials, including same-origin redirects.
+	bounded := *httpClient
+	bounded.CheckRedirect = refuseHubRedirect
 	return &Client{
 		endpoint:   strings.TrimRight(endpoint, "/"),
 		tenantID:   tenantID,
 		token:      token,
 		hmacKey:    sum[:],
-		httpClient: httpClient,
+		httpClient: &bounded,
 	}
 }
 
@@ -345,7 +351,7 @@ func NewHTTPClient(caFile string) (*http.Client, error) {
 	}
 
 	transport.TLSClientConfig = tlsConfig
-	return &http.Client{Timeout: requestTimeout, Transport: transport}, nil
+	return &http.Client{Timeout: requestTimeout, Transport: transport, CheckRedirect: refuseHubRedirect}, nil
 }
 
 func defaultHTTPClient() *http.Client {
@@ -353,7 +359,7 @@ func defaultHTTPClient() *http.Client {
 	if err != nil {
 		// NewHTTPClient cannot fail without a CA file. Keep this fallback local
 		// and secure if that invariant changes in the future.
-		return &http.Client{Timeout: requestTimeout}
+		return &http.Client{Timeout: requestTimeout, CheckRedirect: refuseHubRedirect}
 	}
 	return client
 }
@@ -377,14 +383,9 @@ func (c *Client) FetchBundle(ctx context.Context) (*SignedBundle, error) {
 		return nil, fmt.Errorf("read bundle response: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("hub returned %d: %s", resp.StatusCode, body)
+		return nil, fmt.Errorf("hub bundle returned HTTP %d", resp.StatusCode)
 	}
-
-	var sb SignedBundle
-	if err := json.Unmarshal(body, &sb); err != nil {
-		return nil, fmt.Errorf("decode signed bundle: %w", err)
-	}
-	return &sb, nil
+	return decodeLegacyBundle(body)
 }
 
 // FetchMeshPolicy retrieves an opaque signed policy envelope. The operator is
@@ -406,7 +407,7 @@ func (c *Client) FetchMeshPolicy(ctx context.Context) ([]byte, error) {
 		return nil, fmt.Errorf("read mesh policy response: %w", readErr)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("hub mesh policy returned %d: %s", resp.StatusCode, body)
+		return nil, fmt.Errorf("hub mesh policy returned HTTP %d", resp.StatusCode)
 	}
 	if resp.Header.Get("X-Hanko-Mesh-Policy-Mode") != "audit-only" {
 		return nil, fmt.Errorf("hub mesh policy response is missing the audit-only mode binding")
@@ -419,6 +420,9 @@ func (c *Client) FetchMeshPolicy(ctx context.Context) ([]byte, error) {
 
 // VerifyBundle verifies a token-derived HMAC, not an independent signing key.
 func (c *Client) VerifyBundle(sb *SignedBundle) bool {
+	if sb == nil || legacyBundleObjectCount(&sb.Bundle) > maxLegacyBundleObjects {
+		return false
+	}
 	payload, err := json.Marshal(sb.Bundle)
 	if err != nil {
 		return false
@@ -504,8 +508,8 @@ func (c *Client) ReportStatus(ctx context.Context, status OperatorStatus) (*Stat
 	if err != nil {
 		return nil, fmt.Errorf("read status acknowledgement: %w", err)
 	}
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("hub status report returned %d: %s", resp.StatusCode, body)
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("hub status report returned HTTP %d", resp.StatusCode)
 	}
 	ack := &StatusAck{OK: true}
 	// A legacy or proxy-altered body never fails the heartbeat itself; without
@@ -540,11 +544,11 @@ func (c *Client) ConfirmDecommission(ctx context.Context, removedResources map[s
 		return ErrDecommissionUnauthorized
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, readErr := readHubResponse(resp, maxHubControlResponseBytes)
+		_, readErr := readHubResponse(resp, maxHubControlResponseBytes)
 		if readErr != nil {
 			return fmt.Errorf("read decommission confirmation: %w", readErr)
 		}
-		return fmt.Errorf("hub decommission confirmation returned %d: %s", resp.StatusCode, body)
+		return fmt.Errorf("hub decommission confirmation returned HTTP %d", resp.StatusCode)
 	}
 	return nil
 }

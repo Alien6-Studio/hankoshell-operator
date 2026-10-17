@@ -3,6 +3,19 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Application credentials and legacy Hub boundaries
+
+- Refuse canonical application Secrets without the current controller owner;
+  compare credentials with the provider before delivery. Fence canonical and
+  legacy projection writes with resource versions, current execution authority
+  and identity/value read-back, including projection cleanup.
+- Refuse redirects on enrollment and every legacy Hub route without modifying
+  shared HTTP clients. Keep remote response bodies out of returned errors and
+  reject non-success heartbeat responses before accepting acknowledgements.
+- Bound legacy bundles to 200 aggregate objects before object allocation,
+  HMAC verification and Kubernetes access. Reject ambiguous or excessively
+  nested JSON while preserving the existing decompressed-byte budgets.
+
 ### Installed load and bounded IAM concurrency
 
 - Add six installed accepted-write checkpoints across actual leader replacement:

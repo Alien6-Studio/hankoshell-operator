@@ -129,7 +129,7 @@ func TestApplicationSecretProjectionFollowsRotationAndRemoval(t *testing.T) {
 	reconciler := &HankoApplicationReconciler{Client: k8sClient, Scheme: scheme}
 	ctx := context.Background()
 
-	if err := reconciler.reconcileSecretProjections(ctx, application, "first-secret"); err != nil {
+	if err := reconciler.reconcileSecretProjections(ctx, application, "first-secret", nil); err != nil {
 		t.Fatalf("create projection: %v", err)
 	}
 	key := types.NamespacedName{Namespace: "workload", Name: "hanko-app-portal"}
@@ -152,7 +152,7 @@ func TestApplicationSecretProjectionFollowsRotationAndRemoval(t *testing.T) {
 	if err := k8sClient.Update(ctx, &projected); err != nil {
 		t.Fatalf("tamper projection: %v", err)
 	}
-	if err := reconciler.reconcileSecretProjections(ctx, application, "rotated-secret"); err != nil {
+	if err := reconciler.reconcileSecretProjections(ctx, application, "rotated-secret", nil); err != nil {
 		t.Fatalf("reconcile rotated projection: %v", err)
 	}
 	if err := k8sClient.Get(ctx, key, &projected); err != nil {
@@ -163,7 +163,7 @@ func TestApplicationSecretProjectionFollowsRotationAndRemoval(t *testing.T) {
 	}
 
 	application.Spec.ClientSecretProjections = nil
-	if err := reconciler.reconcileSecretProjections(ctx, application, "rotated-secret"); err != nil {
+	if err := reconciler.reconcileSecretProjections(ctx, application, "rotated-secret", nil); err != nil {
 		t.Fatalf("remove stale projection: %v", err)
 	}
 	if err := k8sClient.Get(ctx, key, &projected); err != nil {
@@ -193,7 +193,7 @@ func TestApplicationSecretProjectionRefusesUnownedSecret(t *testing.T) {
 	k8sClient := controllerTestClient(scheme, application, existing)
 	reconciler := &HankoApplicationReconciler{Client: k8sClient, Scheme: scheme}
 
-	err := reconciler.reconcileSecretProjections(context.Background(), application, "new-secret")
+	err := reconciler.reconcileSecretProjections(context.Background(), application, "new-secret", nil)
 	if err == nil || !strings.Contains(err.Error(), "not pre-authorized") {
 		t.Fatalf("projection collision error = %v", err)
 	}
@@ -216,7 +216,7 @@ func TestApplicationSecretProjectionRequiresPreprovisionedTarget(t *testing.T) {
 	}
 	scheme := controllerTestScheme(t)
 	reconciler := &HankoApplicationReconciler{Client: controllerTestClient(scheme, application), Scheme: scheme}
-	err := reconciler.reconcileSecretProjections(context.Background(), application, "secret")
+	err := reconciler.reconcileSecretProjections(context.Background(), application, "secret", nil)
 	if err == nil || !strings.Contains(err.Error(), "not pre-provisioned") {
 		t.Fatalf("missing projection error = %v", err)
 	}

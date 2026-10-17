@@ -15,6 +15,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
@@ -39,11 +40,18 @@ func controllerTestClient(scheme *runtime.Scheme, objects ...client.Object) clie
 	for _, object := range objects {
 		_, app := object.(*hankoshv1alpha1.HankoApplication)
 		_, account := object.(*hankoshv1alpha1.HankoServiceAccount)
-		if (app || account) && object.GetUID() == "" {
+		_, secret := object.(*corev1.Secret)
+		if (app || account || secret) && object.GetUID() == "" {
 			object.SetUID(types.UID("fixture-" + object.GetNamespace() + "-" + object.GetName()))
 		}
 	}
 	return fake.NewClientBuilder().WithScheme(scheme).
+		WithInterceptorFuncs(interceptor.Funcs{Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+			if _, ok := obj.(*corev1.Secret); ok && obj.GetUID() == "" {
+				obj.SetUID(types.UID("fixture-" + obj.GetNamespace() + "-" + obj.GetName()))
+			}
+			return c.Create(ctx, obj, opts...)
+		}}).
 		WithStatusSubresource(
 			&hankoshv1alpha1.HankoApplication{},
 			&hankoshv1alpha1.HankoRole{},

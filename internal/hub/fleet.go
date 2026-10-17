@@ -10,15 +10,10 @@ import (
 // Authentication, redirects, invalid bodies and other refusals do not qualify.
 var ErrFleetUnavailable = errors.New("signed fleet Hub unavailable")
 
-// NewFleetClient refuses redirects for every authenticated Fleet route,
-// including rotation, heartbeats and command confirmation. It does not change
-// the shared synchronization client or legacy consumers.
+// NewFleetClient uses the redirect refusal shared by every Hub route, including
+// rotation, heartbeats and command confirmation. The caller's client is copied.
 func NewFleetClient(endpoint, tenantID, token string, transport *http.Client) *Client {
-	c := NewWithHTTPClient(endpoint, tenantID, token, transport)
-	bounded := *c.httpClient
-	bounded.CheckRedirect = func(*http.Request, []*http.Request) error { return errors.New("signed Fleet redirects refused") }
-	c.httpClient = &bounded
-	return c
+	return NewWithHTTPClient(endpoint, tenantID, token, transport)
 }
 
 // FetchFleetPlan fetches opaque signed bytes through the existing authenticated

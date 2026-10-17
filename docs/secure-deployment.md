@@ -577,6 +577,29 @@ and read-only import/observe. Admin write-event history must remain unchanged
 during observation. CRD specs/status, controller logs and Kubernetes events
 must contain no credential values or bearer tokens.
 
+Canonical application credential Secrets must have a controller owner reference
+matching the current HankoApplication name, UID, kind and API version. An existing
+foreign or ownerless Secret at the canonical name is a conflict, never implicitly
+adopted. Resolve such a collision through its owner before retrying. The controller
+compares an owned credential with the current provider value without rotating it,
+and repairs drift before reporting credential readiness. This adds a bounded
+credential read during each managed confidential-application reconciliation.
+Observe, public-client and SAML paths do not gain credential reads.
+
+Canonical and legacy projected Secret writes use resource-version preconditions
+and live identity/value read-back. Legacy projections retain their documented
+initial authorization compatibility; replacement, deletion or revoked consent
+cannot be acknowledged as current delivery. A conflict requires a fresh reconcile.
+
+All Hub clients refuse redirects, including public enrollment and legacy HMAC
+routes. Configure the final endpoint directly instead of relying on a redirect.
+Hub error responses expose only locally authored operation/status diagnostics,
+never their remote response bodies. Legacy bundles share the signed Fleet
+aggregate maximum of 200 objects across all kinds; larger bundles must be split
+at the publisher before retrying. Byte limits remain independently enforced.
+These transport checks do not independently authorize the initially configured
+Hub origin or bind arbitrary provider Secret references to a local approval.
+
 The fixture creates a temporary bootstrap administrator only for setup, drift
 injection and state verification. Normal reconcilers use a dedicated master
 service client with target-scoped `manage-realm`, `manage-clients`, `manage-events`,

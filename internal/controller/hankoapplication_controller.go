@@ -484,40 +484,42 @@ func setApplicationNextRotation(app *hankoshv1alpha1.HankoApplication, policy *h
 
 // ensureSecret verifies the K8s Secret exists for confidential clients and recovers
 // it from Keycloak if it was deleted while the Keycloak client still exists.
-func (r *HankoApplicationReconciler) ensureSecret(ctx context.Context, app *hankoshv1alpha1.HankoApplication, kc *keycloak.Client) error {
+func (r *HankoApplicationReconciler) ensureSecret(ctx context.Context, app *hankoshv1alpha1.HankoApplication, kc *keycloak.Client, guard func(context.Context) error) error {
 	if app.Spec.Type == "spa" || isSAMLApplication(app) {
 		return nil // public/SAML client — no secret
 	}
 	var s corev1.Secret
 	err := r.applicationCredentialReader().Get(ctx, types.NamespacedName{Name: secretName(app.Spec.ClientID), Namespace: app.Namespace}, &s)
 	if err == nil {
+		if !ownedApplicationCredential(&s, app) {
+			return fmt.Errorf("canonical application Secret is not owned by the current application")
+		}
 		recoverApplicationRotationCheckpoint(app, &s)
-		current := string(s.Data["client_secret"])
-		if current == "" {
-			current = s.StringData["client_secret"]
-		}
-		if current != "" {
-			setApplicationCredentialReference(app)
-			return r.reconcileSecretProjections(ctx, app, current)
-		}
 	}
 	if err != nil && client.IgnoreNotFound(err) != nil {
 		return err
 	}
-	// Secret is missing or malformed — fetch the current value from Keycloak
-	// without rotating, then repair the canonical and projected copies.
+	// Ownership alone does not prove that the stored credential is current.
+	// Read the provider without rotating before trusting or projecting a value.
 	current, fetchErr := kc.GetClientSecret(ctx, app.Spec.RealmRef, app.Spec.ClientID)
 	if fetchErr != nil {
 		return fmt.Errorf("recover secret for %q: %w", app.Spec.ClientID, fetchErr)
 	}
-	if err := r.upsertSecret(ctx, app, current); err != nil {
+	if current == "" {
+		return fmt.Errorf("provider returned an empty application credential")
+	}
+	if err == nil && string(s.Data["client_secret"]) == current {
+		if err := r.acknowledgeApplicationCredential(ctx, app, &s, current, guard); err != nil {
+			return err
+		}
+	} else if err := r.upsertSecret(ctx, app, current, guard); err != nil {
 		return err
 	}
 	setApplicationCredentialReference(app)
 	return nil
 }
 
-func (r *HankoApplicationReconciler) maybeRotateApplicationSecret(ctx context.Context, app *hankoshv1alpha1.HankoApplication, policy *hankoshv1alpha1.SecretRotationPolicy, now *metav1.Time, kc *keycloak.Client) error {
+func (r *HankoApplicationReconciler) maybeRotateApplicationSecret(ctx context.Context, app *hankoshv1alpha1.HankoApplication, policy *hankoshv1alpha1.SecretRotationPolicy, now *metav1.Time, kc *keycloak.Client, guard func(context.Context) error) error {
 	if policy == nil || !policy.Enabled {
 		app.Status.NextRotation = nil
 		return nil
@@ -531,6 +533,9 @@ func (r *HankoApplicationReconciler) maybeRotateApplicationSecret(ctx context.Co
 		return nil
 	}
 
+	if err := checkCredentialAuthority(ctx, guard); err != nil {
+		return err
+	}
 	secret, err := kc.RotateClientSecret(ctx, app.Spec.RealmRef, app.Spec.ClientID)
 	if err != nil {
 		return fmt.Errorf("rotate secret for %q: %w", app.Spec.ClientID, err)
@@ -538,7 +543,7 @@ func (r *HankoApplicationReconciler) maybeRotateApplicationSecret(ctx context.Co
 	// Persist the non-secret rotation checkpoint with the canonical credential.
 	// A later runtime/status failure must not repeat this provider rotation.
 	app.Status.LastRotated = now
-	if err := r.upsertSecret(ctx, app, secret); err != nil {
+	if err := r.upsertSecret(ctx, app, secret, guard); err != nil {
 		return err
 	}
 	app.Status.LastRotated = now
@@ -1201,11 +1206,20 @@ func boolOrDefault(value *bool, fallback bool) bool {
 	return *value
 }
 
-func (r *HankoApplicationReconciler) upsertSecret(ctx context.Context, app *hankoshv1alpha1.HankoApplication, secret string) error {
+func (r *HankoApplicationReconciler) upsertSecret(ctx context.Context, app *hankoshv1alpha1.HankoApplication, secret string, guard func(context.Context) error) error {
+	if secret == "" {
+		return fmt.Errorf("refusing to write an empty application credential")
+	}
 	name := secretName(app.Spec.ClientID)
 	s := &corev1.Secret{}
 	err := r.applicationCredentialReader().Get(ctx, types.NamespacedName{Name: name, Namespace: app.Namespace}, s)
 	if client.IgnoreNotFound(err) != nil {
+		return err
+	}
+	if err == nil && !ownedApplicationCredential(s, app) {
+		return fmt.Errorf("refusing to update a canonical Secret not owned by the current application")
+	}
+	if err := checkCredentialAuthority(ctx, guard); err != nil {
 		return err
 	}
 	if err != nil {
@@ -1216,7 +1230,7 @@ func (r *HankoApplicationReconciler) upsertSecret(ctx context.Context, app *hank
 				Labels:      map[string]string{"app.kubernetes.io/managed-by": "hanko-operator"},
 				Annotations: applicationRotationCheckpoint(app),
 			},
-			StringData: map[string]string{"client_secret": secret},
+			Data: map[string][]byte{"client_secret": []byte(secret)},
 		}
 		if err := controllerutil.SetControllerReference(app, s, r.Scheme); err != nil {
 			return fmt.Errorf("set owner reference on secret: %w", err)
@@ -1224,23 +1238,27 @@ func (r *HankoApplicationReconciler) upsertSecret(ctx context.Context, app *hank
 		if err := r.Create(ctx, s); err != nil {
 			return err
 		}
-		return r.reconcileSecretProjections(ctx, app, secret)
+		return r.acknowledgeApplicationCredential(ctx, app, s, secret, guard)
 	}
-	p := client.MergeFrom(s.DeepCopy())
+	p := client.MergeFromWithOptions(s.DeepCopy(), client.MergeFromWithOptimisticLock{})
 	if s.Annotations == nil {
 		s.Annotations = map[string]string{}
 	}
 	for key, value := range applicationRotationCheckpoint(app) {
 		s.Annotations[key] = value
 	}
-	s.StringData = map[string]string{"client_secret": secret}
+	if s.Data == nil {
+		s.Data = map[string][]byte{}
+	}
+	s.Data["client_secret"] = []byte(secret)
+	s.StringData = nil
 	if err := r.Patch(ctx, s, p); err != nil {
 		return err
 	}
-	return r.reconcileSecretProjections(ctx, app, secret)
+	return r.acknowledgeApplicationCredential(ctx, app, s, secret, guard)
 }
 
-func (r *HankoApplicationReconciler) reconcileSecretProjections(ctx context.Context, app *hankoshv1alpha1.HankoApplication, secret string) error {
+func (r *HankoApplicationReconciler) reconcileSecretProjections(ctx context.Context, app *hankoshv1alpha1.HankoApplication, secret string, guard func(context.Context) error) error {
 	desired := make(map[types.NamespacedName]struct{}, len(app.Spec.ClientSecretProjections))
 	canonical := types.NamespacedName{Name: secretName(app.Spec.ClientID), Namespace: app.Namespace}
 	for _, target := range app.Spec.ClientSecretProjections {
@@ -1255,12 +1273,12 @@ func (r *HankoApplicationReconciler) reconcileSecretProjections(ctx context.Cont
 			return fmt.Errorf("duplicate client secret projection %s/%s", key.Namespace, key.Name)
 		}
 		desired[key] = struct{}{}
-		if err := r.upsertSecretProjection(ctx, app, key, secret); err != nil {
+		if err := r.upsertSecretProjection(ctx, app, key, secret, guard); err != nil {
 			return err
 		}
 		recordManagedSecretProjection(app, target)
 	}
-	if err := r.cleanupStaleSecretProjections(ctx, app, desired); err != nil {
+	if err := r.cleanupStaleSecretProjections(ctx, app, desired, guard); err != nil {
 		return err
 	}
 	setCondition(&app.Status.Conditions, "SecretProjections", metav1.ConditionTrue, "Synced",
@@ -1268,7 +1286,7 @@ func (r *HankoApplicationReconciler) reconcileSecretProjections(ctx context.Cont
 	return nil
 }
 
-func (r *HankoApplicationReconciler) upsertSecretProjection(ctx context.Context, app *hankoshv1alpha1.HankoApplication, key types.NamespacedName, secret string) error {
+func (r *HankoApplicationReconciler) upsertSecretProjection(ctx context.Context, app *hankoshv1alpha1.HankoApplication, key types.NamespacedName, secret string, guard func(context.Context) error) error {
 	projectionClient := r.secretProjectionClient()
 	var projected corev1.Secret
 	err := projectionClient.Get(ctx, key, &projected)
@@ -1281,7 +1299,10 @@ func (r *HankoApplicationReconciler) upsertSecretProjection(ctx context.Context,
 	if !secretProjectionOwnedBy(&projected, app) {
 		return fmt.Errorf("refusing to overwrite client secret projection %s/%s not pre-authorized for %s/%s", key.Namespace, key.Name, app.Namespace, app.Name)
 	}
-	patch := client.MergeFrom(projected.DeepCopy())
+	if err := checkCredentialAuthority(ctx, guard); err != nil {
+		return err
+	}
+	patch := client.MergeFromWithOptions(projected.DeepCopy(), client.MergeFromWithOptimisticLock{})
 	if projected.Annotations == nil {
 		projected.Annotations = map[string]string{}
 	}
@@ -1294,7 +1315,7 @@ func (r *HankoApplicationReconciler) upsertSecretProjection(ctx context.Context,
 	if err := projectionClient.Patch(ctx, &projected, patch); err != nil {
 		return fmt.Errorf("update client secret projection %s/%s: %w", key.Namespace, key.Name, err)
 	}
-	return nil
+	return r.acknowledgeSecretProjection(ctx, app, &projected, secret, false, guard)
 }
 
 func secretProjectionAnnotations(app *hankoshv1alpha1.HankoApplication) map[string]string {
@@ -1310,7 +1331,8 @@ func secretProjectionAnnotations(app *hankoshv1alpha1.HankoApplication) map[stri
 func secretProjectionOwnedBy(secret *corev1.Secret, app *hankoshv1alpha1.HankoApplication) bool {
 	annotations := secret.GetAnnotations()
 	ownerUID := annotations[clientSecretProjectionOwnerUID]
-	return secret.GetLabels()[clientSecretProjectionLabel] == "true" &&
+	return secret.UID != "" && secret.ResourceVersion != "" && secret.DeletionTimestamp.IsZero() &&
+		app.UID != "" && secret.GetLabels()[clientSecretProjectionLabel] == "true" &&
 		annotations[clientSecretProjectionOwnerName] == app.Name &&
 		annotations[clientSecretProjectionOwnerNamespace] == app.Namespace &&
 		annotations[clientSecretProjectionClientID] == app.Spec.ClientID &&
@@ -1326,13 +1348,13 @@ func recordManagedSecretProjection(app *hankoshv1alpha1.HankoApplication, target
 	app.Status.ManagedClientSecretProjections = append(app.Status.ManagedClientSecretProjections, target)
 }
 
-func (r *HankoApplicationReconciler) cleanupStaleSecretProjections(ctx context.Context, app *hankoshv1alpha1.HankoApplication, desired map[types.NamespacedName]struct{}) error {
+func (r *HankoApplicationReconciler) cleanupStaleSecretProjections(ctx context.Context, app *hankoshv1alpha1.HankoApplication, desired map[types.NamespacedName]struct{}, guard func(context.Context) error) error {
 	for _, previous := range app.Status.ManagedClientSecretProjections {
 		key := types.NamespacedName{Name: previous.Name, Namespace: previous.Namespace}
 		if _, keep := desired[key]; keep {
 			continue
 		}
-		if err := r.clearSecretProjection(ctx, app, key); err != nil {
+		if err := r.clearSecretProjection(ctx, app, key, guard); err != nil {
 			return err
 		}
 	}
@@ -1347,14 +1369,14 @@ func (r *HankoApplicationReconciler) cleanupSecretProjections(ctx context.Contex
 		targets[types.NamespacedName{Name: target.Name, Namespace: target.Namespace}] = struct{}{}
 	}
 	for key := range targets {
-		if err := r.clearSecretProjection(ctx, app, key); err != nil {
+		if err := r.clearSecretProjection(ctx, app, key, nil); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (r *HankoApplicationReconciler) clearSecretProjection(ctx context.Context, app *hankoshv1alpha1.HankoApplication, key types.NamespacedName) error {
+func (r *HankoApplicationReconciler) clearSecretProjection(ctx context.Context, app *hankoshv1alpha1.HankoApplication, key types.NamespacedName, guard func(context.Context) error) error {
 	projectionClient := r.secretProjectionClient()
 	var projected corev1.Secret
 	if err := projectionClient.Get(ctx, key, &projected); err != nil {
@@ -1366,13 +1388,16 @@ func (r *HankoApplicationReconciler) clearSecretProjection(ctx context.Context, 
 	if !secretProjectionOwnedBy(&projected, app) {
 		return fmt.Errorf("refusing to clear client secret projection %s/%s not owned by %s/%s", key.Namespace, key.Name, app.Namespace, app.Name)
 	}
-	patch := client.MergeFrom(projected.DeepCopy())
+	if err := checkCredentialAuthority(ctx, guard); err != nil {
+		return err
+	}
+	patch := client.MergeFromWithOptions(projected.DeepCopy(), client.MergeFromWithOptimisticLock{})
 	projected.Data = map[string][]byte{}
 	projected.StringData = nil
 	if err := projectionClient.Patch(ctx, &projected, patch); err != nil {
 		return fmt.Errorf("clear stale client secret projection %s/%s: %w", key.Namespace, key.Name, err)
 	}
-	return nil
+	return r.acknowledgeSecretProjection(ctx, app, &projected, "", true, guard)
 }
 
 func (r *HankoApplicationReconciler) secretProjectionClient() client.Client {
