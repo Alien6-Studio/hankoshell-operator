@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -93,9 +94,22 @@ func TestRealmDeletionUsesLiveInventoryForEveryKind(t *testing.T) {
 			}
 			_, stale := realmDeletionFixture(t)
 			r := &HankoRealmReconciler{Client: stale, APIReader: live}
-			// A nil provider proves the guard returns before any provider access.
-			result, err := r.reconcileRealmDeletion(t.Context(), realm, nil, false)
-			if err != nil || result.RequeueAfter < 30*time.Second || realm.Status.Phase != "Reconciling" || conditionReason(realm.Status.Conditions, "Synced") != "DependenciesRemain" {
+			var calls atomic.Int64
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				calls.Add(1)
+				switch req.Method {
+				case http.MethodPost:
+					_, _ = w.Write([]byte(`{"access_token":"fixture-token","expires_in":300}`))
+				case http.MethodGet:
+					_ = json.NewEncoder(w).Encode(keycloak.Realm{ID: "realm-id", RealmName: realm.Name})
+				case http.MethodDelete:
+					w.WriteHeader(http.StatusNoContent)
+				}
+			}))
+			defer server.Close()
+			provider := keycloak.New(server.URL, "id", "secret", keycloak.WithInsecureHTTP())
+			result, err := r.reconcileRealmDeletion(t.Context(), realm, provider, false)
+			if calls.Load() != 0 || err != nil || result.RequeueAfter < 30*time.Second || realm.Status.Phase != "Reconciling" || conditionReason(realm.Status.Conditions, "Synced") != "DependenciesRemain" {
 				t.Fatalf("live %s must block cleanup with a bounded retry: %v, %v", kind, result, err)
 			}
 			for _, condition := range realm.Status.Conditions {

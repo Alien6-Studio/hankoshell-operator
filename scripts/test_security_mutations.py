@@ -29,7 +29,7 @@ def events(result="pass", test="TestProtection", extra=None):
 class MutationRunnerTests(unittest.TestCase):
     def test_all_reviewed_anchors_are_unique_and_commands_select_real_tests(self):
         required = {"metrics-uri-authorization", "metrics-client-authentication", "provider-error-redaction", "lifecycle-independent-approval", "lifecycle-mutation-recheck", "lifecycle-parent-revocation", "lifecycle-database-tenant", "fleet-command-log-sanitization", "fleet-all-route-redirect", "fleet-independent-decommission", "fleet-hub-destination", "fleet-provider-mutation-guard", "fleet-cache-uid", "fleet-rollback-content", "fleet-sticky-expiry", "fleet-expiry", "fleet-native-permission", "fleet-atomic-refusal", "fleet-local-pause", "fleet-provider-version-scope", "fleet-provider-client-binding", "fleet-signature", "fleet-target", "fleet-sequence", "fleet-sticky-signature-mode", "hub-hmac", "image-sha256", "image-keyless-identity", "tls-peer-verification", "tls-minimum",
-                    "keycloak-redirect", "unowned-realm-deletion", "unowned-client-role-deletion",
+                    "keycloak-redirect", "realm-live-inventory", "realm-complete-dependencies", "realm-complete-pages", "realm-deletion-authority-recheck", "unowned-realm-deletion", "unowned-client-role-deletion",
                     "bundle-tenant-namespace", "bundle-live-tenant-ownership", "bundle-forced-ownership",
                     "bundle-write-version-precondition", "secret-cache-exclusion",
                     "snapshot-tenant-inventory", "snapshot-stored-tenant-scope", "operation-child-tenant-presence",
