@@ -382,6 +382,29 @@ jobs:
           path: ${{ runner.temp }}/workload-identity.diagnostics
           if-no-files-found: warn
           retention-days: 7
+  security-fuzz:
+    name: Security parser fuzzing
+    needs: [preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Fuzz every reviewed parser and preserve seeds and failures
+        run: make security-fuzz FUZZ_OUTPUT="$RUNNER_TEMP/security-fuzz"
+      - name: Preserve complete and incomplete fuzz evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: security-fuzz-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/security-fuzz/
+          if-no-files-found: error
+          retention-days: 30
   security-mutations:
     name: Security mutation checks
     needs: [preflight]
@@ -706,7 +729,7 @@ jobs:
     name: Source and chart checks
     # Pull requests run the full qualification matrix (ADR-048); this required
     # gate must keep representing every qualification job before merge.
-    needs: [preflight, source, kubernetes, keycloak, keycloak-ordinary, keycloak-static, workload, security-mutations, oci, rehearsal, system, installed-workload, installed-portable, installed-fleet, installed-scale-qualification]
+    needs: [preflight, source, kubernetes, keycloak, keycloak-ordinary, keycloak-static, workload, security-fuzz, security-mutations, oci, rehearsal, system, installed-workload, installed-portable, installed-fleet, installed-scale-qualification]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -719,6 +742,7 @@ jobs:
           KEYCLOAK_ORDINARY_RESULT: ${{ needs.keycloak-ordinary.result }}
           KEYCLOAK_STATIC_RESULT: ${{ needs.keycloak-static.result }}
           WORKLOAD_RESULT: ${{ needs.workload.result }}
+          FUZZ_RESULT: ${{ needs.security-fuzz.result }}
           MUTATIONS_RESULT: ${{ needs.security-mutations.result }}
           OCI_RESULT: ${{ needs.oci.result }}
           REHEARSAL_RESULT: ${{ needs.rehearsal.result }}
@@ -729,7 +753,7 @@ jobs:
           INSTALLED_SCALE_RESULT: ${{ needs.installed-scale-qualification.result }}
           QUALIFY_SCALE: ${{ github.event_name == 'workflow_dispatch' && inputs.qualify_scale == true }}
         run: |
-          test "$PREFLIGHT_RESULT" = success && test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$KEYCLOAK_ORDINARY_RESULT" = success && test "$KEYCLOAK_STATIC_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$MUTATIONS_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success && test "$INSTALLED_PORTABLE_RESULT" = success && test "$INSTALLED_FLEET_RESULT" = success || exit 1
+          test "$PREFLIGHT_RESULT" = success && test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$KEYCLOAK_ORDINARY_RESULT" = success && test "$KEYCLOAK_STATIC_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$FUZZ_RESULT" = success && test "$MUTATIONS_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success && test "$INSTALLED_PORTABLE_RESULT" = success && test "$INSTALLED_FLEET_RESULT" = success || exit 1
           if test "$QUALIFY_SCALE" = true; then
             test "$INSTALLED_SCALE_RESULT" = success
           else
@@ -737,7 +761,7 @@ jobs:
           fi
   schedule-report:
     name: Scheduled qualification tracking issue
-    needs: [preflight, source, kubernetes, keycloak, keycloak-ordinary, keycloak-static, workload, security-mutations, oci, rehearsal, system, installed-workload, installed-portable, installed-fleet, installed-scale-qualification, checks]
+    needs: [preflight, source, kubernetes, keycloak, keycloak-ordinary, keycloak-static, workload, security-fuzz, security-mutations, oci, rehearsal, system, installed-workload, installed-portable, installed-fleet, installed-scale-qualification, checks]
     if: always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.schedule_report_test == true))
     permissions:
       contents: read

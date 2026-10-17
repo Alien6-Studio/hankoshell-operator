@@ -28,7 +28,7 @@ RELEASE_VERSION := $(shell python3 scripts/versions.py get release version)
 
 .DEFAULT_GOAL := all
 
-.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-test integration-test keycloak-integration-test keycloak-stability-test authentik-integration-test security-mutations licenses lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test fleet-installed-test portable-installed-test scale-installed-test
+.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-test integration-test keycloak-integration-test keycloak-stability-test authentik-integration-test security-mutations security-fuzz licenses lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test fleet-installed-test portable-installed-test scale-installed-test
 versions-sync:
 	python3 scripts/versions.py sync
 
@@ -64,6 +64,8 @@ coverage: test
 	python3 scripts/check-coverage.py --profile "$(TEST_REPORT_DIR)/unit/coverage.out"
 security-mutations:
 	python3 scripts/security-mutations.py $(if $(MUTATION_OUTPUT),--output "$(MUTATION_OUTPUT)")
+security-fuzz:
+	python3 scripts/security-fuzz.py $(if $(FUZZ_SECONDS),--seconds "$(FUZZ_SECONDS)") $(if $(FUZZ_OUTPUT),--output "$(FUZZ_OUTPUT)")
 chart-test:
 	helm lint $(CHART) --kube-version $(KUBERNETES_VERSION) --set-string image.tag=lint
 	bash $(CHART)/tests/image-verification.sh

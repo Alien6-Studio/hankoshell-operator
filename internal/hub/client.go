@@ -202,7 +202,7 @@ func enrollWithClient(ctx context.Context, endpoint, enrollToken string, identit
 		return nil, fmt.Errorf("hub enrollment returned HTTP %d", resp.StatusCode)
 	}
 	var out EnrollResult
-	if err := json.Unmarshal(respBody, &out); err != nil {
+	if !decodeControlResponse(respBody, &out) {
 		return nil, errors.New("invalid hub enrollment response")
 	}
 	if out.Token == "" || out.TenantID == "" || out.ClusterID == "" || out.ExpiresAt.IsZero() {
@@ -236,7 +236,7 @@ func (c *Client) PrepareRotation(ctx context.Context, rotationID string) (*Enrol
 		return nil, fmt.Errorf("hub credential rotation returned HTTP %d", resp.StatusCode)
 	}
 	var out EnrollResult
-	if err := json.Unmarshal(responseBody, &out); err != nil {
+	if !decodeControlResponse(responseBody, &out) {
 		return nil, errors.New("invalid hub credential rotation response")
 	}
 	if out.Token == "" || out.TenantID == "" || out.ClusterID == "" || out.ExpiresAt.IsZero() {
@@ -515,7 +515,7 @@ func (c *Client) ReportStatus(ctx context.Context, status OperatorStatus) (*Stat
 	// A legacy or proxy-altered body never fails the heartbeat itself; without
 	// a decoded acknowledgement no command is delivered and Hub re-sends it on
 	// the next heartbeat.
-	if err := json.Unmarshal(body, ack); err != nil {
+	if !decodeControlResponse(body, ack) {
 		return &StatusAck{OK: true}, nil
 	}
 	return ack, nil

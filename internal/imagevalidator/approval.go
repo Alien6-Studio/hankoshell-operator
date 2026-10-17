@@ -9,13 +9,14 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/Alien6-Studio/hankoshell-operator/internal/observability"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/Alien6-Studio/hankoshell-operator/internal/httpsecurity"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/observability"
 	"github.com/distribution/reference"
 )
 
@@ -197,6 +198,14 @@ func readPolicy(path string) (approvalPolicy, error) {
 	data, err := readBoundedFile(path, maxPolicyBytes)
 	if err != nil {
 		return policy, err
+	}
+	return decodePolicy(data)
+}
+
+func decodePolicy(data []byte) (approvalPolicy, error) {
+	var policy approvalPolicy
+	if len(data) > maxPolicyBytes || httpsecurity.ValidateJSON(data) != nil {
+		return policy, ErrVerificationDenied
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()

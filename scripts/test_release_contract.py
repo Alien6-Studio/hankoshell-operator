@@ -44,7 +44,7 @@ class ReleaseContractTests(unittest.TestCase):
         ci = yaml.safe_load((workflows / "ci.yml").read_text())
         # PyYAML's YAML 1.1 loader represents the Actions "on" key as True.
         self.assertEqual(development[True], {"push": {"branches": ["feat/1.0.0-dev"]}})
-        self.assertEqual(set(development["jobs"]), {"preflight"})
+        self.assertEqual(set(development["jobs"]), {"preflight", "security-fuzz"})
         expected = copy.deepcopy(ci["jobs"]["preflight"])
         expected["name"] = "Development source preflight"
         # Development adds the same hooks enforced in source, retaining every
@@ -83,9 +83,9 @@ class ReleaseContractTests(unittest.TestCase):
     def test_ci_preflight_blocks_every_expensive_job_and_remains_required(self):
         ci = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
         self.assertEqual(set(ci), {"preflight", "source", "kubernetes", "keycloak", "keycloak-ordinary", "keycloak-static", "workload", "oci",
-                                   "rehearsal", "system", "installed-workload", "installed-portable", "installed-fleet", "security-mutations", "checks",
+                                   "rehearsal", "system", "installed-workload", "installed-portable", "installed-fleet", "security-fuzz", "security-mutations", "checks",
                                    "schedule-report", "installed-scale-qualification"})
-        for job in ("source", "kubernetes", "keycloak", "keycloak-ordinary", "keycloak-static", "workload", "security-mutations", "oci"):
+        for job in ("source", "kubernetes", "keycloak", "keycloak-ordinary", "keycloak-static", "workload", "security-fuzz", "security-mutations", "oci"):
             with self.subTest(job=job):
                 self.assertEqual(ci[job].get("needs"), ["preflight"])
                 self.assertNotIn("if", ci[job])  # Keep implicit success(), including for reusable OCI.

@@ -46,7 +46,11 @@ func ReadPublicDocument(ctx context.Context, c *http.Client, endpoint string, ta
 	if err != nil || len(data) > PublicDocumentLimit {
 		return ErrDiscovery
 	}
-	if httpsecurity.ValidateJSON(data) != nil || json.Unmarshal(data, target) != nil {
+	return decodePublicDocument(data, target)
+}
+
+func decodePublicDocument(data []byte, target any) error {
+	if len(data) > PublicDocumentLimit || httpsecurity.ValidateJSON(data) != nil || json.Unmarshal(data, target) != nil {
 		return ErrDiscovery
 	}
 	return nil

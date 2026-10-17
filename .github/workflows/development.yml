@@ -35,3 +35,27 @@ jobs:
           make install-preflight-tools install-hook-tools
       - name: Validate formatting, vet, generated schemas and delivery contracts
         run: make preflight hooks-check
+
+  security-fuzz:
+    name: Security parser fuzzing
+    needs: [preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Fuzz every reviewed parser and preserve seeds and failures
+        run: make security-fuzz FUZZ_OUTPUT="$RUNNER_TEMP/security-fuzz"
+      - name: Preserve complete and incomplete fuzz evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: security-fuzz-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/security-fuzz/
+          if-no-files-found: error
+          retention-days: 30

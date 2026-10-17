@@ -21,6 +21,9 @@ func legacyBundleObjectCount(b *Bundle) int {
 
 func decodeLegacyBundle(body []byte) (*SignedBundle, error) {
 	invalid := errors.New("invalid or oversized hub bundle")
+	if len(body) > maxBundleEnvelopeBytes {
+		return nil, invalid
+	}
 	if httpsecurity.ValidateJSON(body) != nil {
 		return nil, invalid
 	}
@@ -47,6 +50,10 @@ func decodeLegacyBundle(body []byte) (*SignedBundle, error) {
 		return nil, err
 	}
 	return sb, nil
+}
+
+func decodeControlResponse(data []byte, target any) bool {
+	return len(data) <= maxHubControlResponseBytes && httpsecurity.ValidateJSON(data) == nil && json.Unmarshal(data, target) == nil
 }
 
 func decodeLegacyGroups(fields map[string]json.RawMessage, bundle *Bundle, count *int) error {

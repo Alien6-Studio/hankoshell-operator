@@ -161,6 +161,7 @@ deps:
 
   applications:
     mayDependOn:
+      - httpsecurity
       - keycloak
       - iamcontract
       - adoption
@@ -198,6 +199,7 @@ deps:
   imagevalidator:
     anyVendorDeps: true
     mayDependOn:
+      - httpsecurity
       - observability
 
   # Supervision reads operator CRDs and exposes a bounded transport DTO.

@@ -16,6 +16,8 @@ import (
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
 
@@ -88,6 +90,22 @@ func TestRealKeycloakLegacyApplicationMigration(t *testing.T) {
 		}
 		app.Annotations = map[string]string{applications.MigrationUUIDAnnotation: before["id"].(string), applications.MigrationObservationAnnotation: observation}
 		f.requireNoError(kube.Update(ctx, &app))
+		if kind != "spa" {
+			// Provider acquisition does not authorize an ownerless historical
+			// Kubernetes credential. An administrator must bind that exact Secret
+			// to the application after reviewing its identity and current value.
+			if _, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(&app)}); err == nil {
+				t.Fatal("migration implicitly adopted an ownerless credential")
+			}
+			var secret corev1.Secret
+			f.requireNoError(kube.Get(ctx, client.ObjectKey{Namespace: app.Namespace, Name: "hanko-app-" + app.Spec.ClientID}, &secret))
+			fixtureEqual(t, "refused credential remains unchanged", string(secret.Data["client_secret"]), credential)
+			if len(secret.OwnerReferences) != 0 {
+				t.Fatal("migration changed credential ownership")
+			}
+			secret.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(&app, api.GroupVersion.WithKind("HankoApplication"))}
+			f.requireNoError(kube.Update(ctx, &secret))
+		}
 		fixtureReconcile(f, ctx, r, &app)
 		fixtureGet(f, ctx, kube, &app)
 		if app.Status.Phase != "Ready" || app.Status.Protocol != "oidc" {

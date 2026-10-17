@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func testPlan(t *testing.T) Plan {
+func testPlan(t testing.TB) Plan {
 	t.Helper()
 	h := Digest("test", "public")
 	p, err := Compile(Intent{RealmRef: "managed", Alias: "cluster", Issuer: "https://cluster.example.test", NamespaceUID: "namespace-uid", CAHash: h, MaxAge: 600}, References{Owner: "trust-uid", Generation: 1, RealmID: "realm-uuid", ProviderID: "provider-uuid", SourceHash: h, FreshReferencesHash: h, FlowHash: h, DependenciesHash: h})

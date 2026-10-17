@@ -35,6 +35,21 @@ def mutation(name, file, before, after, package, test):
 
 
 MUTATIONS = [
+    mutation("hub-control-json-ambiguity", "internal/hub/legacy_bundle.go",
+             'len(data) <= maxHubControlResponseBytes && httpsecurity.ValidateJSON(data) == nil &&',
+             'len(data) <= maxHubControlResponseBytes &&',
+             "internal/hub", "TestControlResponsesRefuseAmbiguousJSONBeforeCommands"),
+    mutation("image-policy-json-ambiguity", "internal/imagevalidator/approval.go",
+             'len(data) > maxPolicyBytes || httpsecurity.ValidateJSON(data) != nil',
+             'len(data) > maxPolicyBytes || false && httpsecurity.ValidateJSON(data) != nil',
+             "internal/imagevalidator", "TestImagePolicyRefusesAmbiguousPublisherApproval"),
+    mutation("oidc-discovery-json-ambiguity", "internal/applications/metadata.go",
+             'len(data) > maxProtocolDocument || httpsecurity.ValidateJSON(data) != nil',
+             'len(data) > maxProtocolDocument || false && httpsecurity.ValidateJSON(data) != nil',
+             "internal/applications", "TestOIDCDiscoveryRefusesAmbiguousIdentity"),
+    mutation("authorization-journal-json-ambiguity", "internal/keycloak/authorization_ownership.go",
+             'httpsecurity.ValidateJSON([]byte(value)) != nil ||', 'false && httpsecurity.ValidateJSON([]byte(value)) != nil ||',
+             "internal/keycloak", "TestAuthorizationJournalRejectsAmbiguousIdentity"),
     mutation("lifecycle-independent-approval", "internal/controller/lifecycle_authority.go",
              'if object.GetAnnotations()[lifecycleApprovalAnnotation] == expected {',
              'if true || object.GetAnnotations()[lifecycleApprovalAnnotation] == expected {',

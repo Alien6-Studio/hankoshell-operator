@@ -23,7 +23,7 @@ type fixture struct {
 	private ed25519.PrivateKey
 }
 
-func newFixture(t *testing.T) fixture {
+func newFixture(t testing.TB) fixture {
 	t.Helper()
 	public, private, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -41,7 +41,7 @@ func newFixture(t *testing.T) fixture {
 	}
 }
 
-func marshal(t *testing.T, value any) []byte {
+func marshal(t testing.TB, value any) []byte {
 	t.Helper()
 	raw, err := json.Marshal(value)
 	if err != nil {
@@ -50,7 +50,7 @@ func marshal(t *testing.T, value any) []byte {
 	return raw
 }
 
-func (f fixture) signed(t *testing.T, payload []byte) []byte {
+func (f fixture) signed(t testing.TB, payload []byte) []byte {
 	t.Helper()
 	if payload == nil {
 		payload = marshal(t, f.plan)

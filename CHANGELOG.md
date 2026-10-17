@@ -3,6 +3,20 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Security parser qualification (#99)
+
+- Add twenty Go fuzz targets with positive and hostile seeds for discovery,
+  SAML metadata, fleet envelopes/signed payloads/trust, ownership and transaction
+  journals, approvals, Hub responses, image references and publisher policies.
+  Run bounded campaigns on development pushes and in mandatory full CI; preserve
+  exact source identity, execution counts and minimized/interesting corpora.
+- Refuse ambiguous JSON in OIDC discovery, Hub control responses, image approvals
+  and provider ownership journals. Enforce parser byte budgets independently of
+  transport reads; retain additive legacy Hub fields.
+- Qualify historical confidential-client migration with an explicit administrator
+  binding of the reviewed canonical Secret. Provider adoption cannot silently
+  adopt an ownerless Kubernetes credential.
+
 ### Application credentials and legacy Hub boundaries
 
 - Refuse canonical application Secrets without the current controller owner;
