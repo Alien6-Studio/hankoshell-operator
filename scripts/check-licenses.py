@@ -221,8 +221,9 @@ def cosign_workspace(directory):
         (directory / name).unlink(missing_ok=True)
     run(["go", "mod", "init", "hankoshell.local/cosign-build"], directory)
     run(["go", "get", f"{COSIGN_TARGET.rsplit('/cmd/', 1)[0]}/cmd/cosign@{cosign['version']}"], directory)
-    for module, version in cosign["dependencies"].items():
-        run(["go", "get", f"{module}@{version}"], directory)
+    # Resolve all overrides together, as Docker does. Sequential updates can
+    # silently upgrade an earlier pin and hide an incompatible image build.
+    run(["go", "get", *[f"{module}@{version}" for module, version in cosign["dependencies"].items()]], directory)
     return directory
 
 

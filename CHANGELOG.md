@@ -3,6 +3,16 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Reviewed extension integration and dependency maintenance
+
+- Advance the standalone Keycloak extension pin to its signed `d9423db` revision,
+  including native administrative forms and provider hardening. Build with its
+  checksum-pinned Maven wrapper; keep Hanko's external-writer ownership and
+  26.7.5/26.8.0 qualification window explicit.
+- Update etree, Go network dependencies, the digest-pinned Go build image and
+  Node 24 artifact/Java actions. Apply the network dependency pins to the embedded
+  cosign build as well, and regenerate both shipped license inventories.
+
 ### Standalone Keycloak extension and CI qualification
 
 - Move the Java extension, unit tests and upstream proposal into the independent

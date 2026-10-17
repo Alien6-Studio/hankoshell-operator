@@ -28,16 +28,17 @@ def build():
     target = module / "target" / version
     manifest = target / "build.json"
     manifest.unlink(missing_ok=True)
-    command = ["mvn", "-B", "-ntp", "-Dkeycloak.version=" + version,
+    command = [str(module / "mvnw"), "-B", "-ntp", "-Dkeycloak.version=" + version,
                "-Dmaven.repo.local=" + str(ROOT / ".tools/delegation-maven"), "-f", str(module / "pom.xml"), "clean", "verify"]
-    subprocess.run(command, cwd=ROOT, check=True)
+    env = dict(os.environ, MAVEN_USER_HOME=str(ROOT / ".tools/maven-user"))
+    subprocess.run(command, cwd=module, env=env, timeout=600, check=True)
     cases = []
     for path in sorted((target / "surefire-reports").glob("TEST-*.xml")):
         suite = ET.parse(path).getroot()
         if suite.tag != "testsuite" or any(int(suite.get(key, "0")) for key in ("failures", "errors", "skipped")):
             raise ValueError("Java qualification requires all tests to pass without skips")
         cases += [case.get("classname", "") + "/" + case.get("name", "") for case in suite.findall("testcase")]
-    if len(cases) < 15 or len(cases) != len(set(cases)):
+    if len(cases) < 16 or len(cases) != len(set(cases)):
         raise ValueError("Missing or duplicate Java test evidence")
     extension.verify(module, dependency)
     if runner.checkout_identity() != source or extension.pin() != dependency:

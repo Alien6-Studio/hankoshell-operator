@@ -42,6 +42,17 @@ cache and retain its identity and the matching JAR SHA256 in each SDK report.
 No Java implementation is duplicated in the operator tree. Stock characterization below remains
 unchanged. The controller fixture uses a fake Kubernetes client with a real
 provider; it does not replace #71's installed Kubernetes/cluster qualification.
+
+The reviewed extension revision also provides optional native administrative
+forms. Hanko remains the writer of its external `oauth.bounded-delegation.v1`
+documents: manage those grants through their Kubernetes resources. The extension
+refuses console/API grant creation for an audience with an external document;
+it neither overwrites nor merges Hanko's configuration. Enabling `declarative-ui`
+is an explicit server choice, independent of operator reconciliation. See the
+[extension administration guide](https://github.com/Alien6-Studio/keycloak-bounded-delegation/blob/d9423db16e2bbe31bfb1dcc83c9a9441a18a6075/docs/administration.md)
+for native permissions, writer conflicts and safe withdrawal. The extension's
+26.8.1 native qualification does not expand Hanko's reviewed 26.7.5/26.8.0 window.
+
 Public status adds observed portable delegation origin and bounds, not token
 subjects or native user IDs. This additive unpublished-alpha schema change is
 recorded in [the development contract notice](../go-api-contract.md).
