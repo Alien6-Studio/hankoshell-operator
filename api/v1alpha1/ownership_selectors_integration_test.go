@@ -4,8 +4,10 @@ package v1alpha1_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -101,5 +103,57 @@ func checkRealmOwnershipSelectors(t *testing.T, ctx context.Context, admin clien
 	}
 	if err := admin.List(ctx, &applications, client.InNamespace("auth"), client.MatchingFields{"spec.realmRef": "ownership-realm"}); err != nil || len(applications.Items) != 0 {
 		t.Fatalf("realm selector returned stale ownership candidates: %v", err)
+	}
+}
+
+// The live API must page beyond 200 children even when the controller cache
+// claims there are no children. No provider request is authorized by that cache.
+type emptyRealmInventoryCache struct{ client.Client }
+
+func (c emptyRealmInventoryCache) List(context.Context, client.ObjectList, ...client.ListOption) error {
+	return nil
+}
+
+func checkRealmDeletionInventory(t *testing.T, ctx context.Context, admin client.Client) {
+	t.Helper()
+	realm := &api.HankoRealm{ObjectMeta: metav1.ObjectMeta{Name: "delete-inventory", Namespace: "auth", Finalizers: []string{"hanko.sh/realm-cleanup"}}}
+	if err := admin.Create(ctx, realm); err != nil {
+		t.Fatal(err)
+	}
+	for index := range 201 {
+		name := fmt.Sprintf("delete-role-%03d", index)
+		role := &api.HankoRole{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "auth", Labels: map[string]string{"hanko-fixture": "delete-inventory"}}, Spec: api.HankoRoleSpec{RealmRef: realm.Name, Name: name}}
+		if err := admin.Create(ctx, role); err != nil {
+			t.Fatal(err)
+		}
+	}
+	defer func() {
+		if err := admin.DeleteAllOf(ctx, &api.HankoRole{}, client.InNamespace("auth"), client.MatchingLabels{"hanko-fixture": "delete-inventory"}); err != nil {
+			t.Error(err)
+		}
+	}()
+	if err := admin.Delete(ctx, realm); err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { calls++; w.WriteHeader(http.StatusForbidden) }))
+	defer server.Close()
+	reconciler := &controller.HankoRealmReconciler{Client: emptyRealmInventoryCache{admin}, APIReader: admin,
+		Pool: keycloak.NewPool(keycloak.New(server.URL, "id", "secret", keycloak.WithInsecureHTTP()))}
+	result, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(realm)})
+	if err != nil || result.RequeueAfter < 30*time.Second || calls != 0 {
+		t.Fatalf("incomplete inventory authorized provider access: result=%v err=%v calls=%d", result, err, calls)
+	}
+	if err := admin.Get(ctx, client.ObjectKeyFromObject(realm), realm); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, c := range realm.Status.Conditions {
+		if c.Type == "Synced" && c.Status == metav1.ConditionFalse && c.Reason == "DependenciesRemain" && strings.Contains(c.Message, "HankoRole:201") {
+			found = true
+		}
+	}
+	if realm.Status.Phase != "Reconciling" || !found {
+		t.Fatal("paginated live dependency evidence missing")
 	}
 }

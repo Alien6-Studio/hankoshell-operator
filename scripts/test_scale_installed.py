@@ -268,6 +268,13 @@ class ScaleScenarioTests(unittest.TestCase):
         run = next(step for step in scale_job["steps"] if "scale-installed-test.py" in step.get("run", ""))
         self.assertEqual(run["env"]["SCALE_PROFILE"], "scale")
         self.assertEqual(run["env"]["OCI_DIGEST"], "${{ needs.oci.outputs.digest }}")
+        for job, standalone in ((scale_job, False), (jobs["installed-scale"], True)):
+            recovery_step = next(step for step in job["steps"] if "recovery-installed-test.py" in step.get("run", ""))
+            self.assertEqual(recovery_step["env"]["OCI_DIGEST"], "${{ needs.oci.outputs.digest }}")
+            self.assertNotIn("continue-on-error", recovery_step)
+            self.assertEqual(recovery_step.get("if"), "inputs.profile == 'scale'" if standalone else None)
+            self.assertIn("recovery-report/", job["steps"][-1]["with"]["path"])
+
 
 
 class ScaleFaultTests(unittest.TestCase):

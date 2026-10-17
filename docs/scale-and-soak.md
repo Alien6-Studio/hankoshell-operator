@@ -81,8 +81,12 @@ unavailable. Native state must remain unchanged while the API write is blocked;
 after release, the controller must converge without manually resetting status.
 Switching the selected parent explicitly to Observe and waiting for its Observe
 checkpoint before deleting the realm CR must preserve the native clients. Owned-realm
-cascade deletion, split brain, clock skew, a five-minute API outage and every
-transaction kill point remain separate qualification work.
+cascade deletion uses explicit child-first cleanup. The separate
+[recovery fixture](recovery-and-realm-deletion.md) exercises a managed realm with
+222 dependents, lost DELETE acknowledgement, leader replacement and a five-minute
+operator API transport outage. Split brain, clock skew and every transaction
+kill point remain separate qualification work. Only retained actual results
+qualify either fixture.
 
 | Profile | Realms | Applications | Roles | Organizations | Resource servers | Steady interval |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -140,7 +144,8 @@ gh workflow run ci.yml --ref feat/1.0.0-dev -f qualify_scale=true
 ```
 
 This opt-in adds the six-cell 1,000-application matrix alongside the full normal
-CI. Ordinary CI runs keep their existing qualification gates and workload.
+CI, including the owned-realm/API-outage recovery fixture using the same scanned
+archive. Ordinary CI runs keep their existing qualification gates and workload.
 
 The output directory must be new. `report.json` records pass/fail and bounded
 measurements; `samples.jsonl` retains numeric samples. Atomic `progress.json`

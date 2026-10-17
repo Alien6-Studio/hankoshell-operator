@@ -39,7 +39,7 @@ RESOURCE = {"HankoRealm": "hankorealms", "HankoApplication": "hankoapplications"
 DEFAULTS = {"smoke": (2, 40, 8, 8, 2), "scale": (10, 1000, 100, 100, 20), "soak": (10, 1000, 100, 100, 20)}
 SELECTOR = "hanko-fixture=scale"
 PHASES = {"initial_dependencies", "applications_after_leader_loss", "authorization_graph",
-          "keycloak_429_recovery", "keycloak_503_recovery", "api_429_recovery"}
+          "keycloak_429_recovery", "keycloak_503_recovery", "api_429_recovery", "api_outage_recovery"}
 
 
 def parameters(args):

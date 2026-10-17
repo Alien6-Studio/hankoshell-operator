@@ -107,6 +107,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 	t.Run("frozen public contract corpus", func(t *testing.T) { checkPublicContractCorpus(t, ctx, admin) })
 	t.Run("single-version conversion and typed reader contract", func(t *testing.T) { checkConversionContract(t, ctx, admin, environment.CRDs) })
 	t.Run("fresh realm ownership selectors", func(t *testing.T) { checkRealmOwnershipSelectors(t, ctx, admin) })
+	t.Run("fresh paginated realm deletion inventory", func(t *testing.T) { checkRealmDeletionInventory(t, ctx, admin) })
 
 	t.Run("organization principal admission and capabilities", func(t *testing.T) { checkOrganizationPrincipalAdmission(t, ctx, admin) })
 	t.Run("delegation admission and capability refusal schema", func(t *testing.T) { checkDelegationAdmission(t, ctx, admin) })

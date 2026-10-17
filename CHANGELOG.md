@@ -5,6 +5,11 @@
 <!-- release-notes:start -->
 ### Installed load and bounded IAM concurrency
 
+- Refuse managed realm deletion until all eight realm-reference kinds have been
+  inventoried directly from complete API pages. Recheck authority after provider
+  preflight; report bounded dependency counts with a jittered wait instead of
+  rapid error retries. Add installed five-minute API transport loss, 222-dependent
+  child-first cleanup and leader replacement after lost realm DELETE acknowledgement.
 - Add explicit 1–8 worker configuration for four reviewed IAM controllers,
   defaulting to one; remove Organization/Issuer status-echo hot loops while
   preserving authority and deletion wakes. Filter grant dependency status

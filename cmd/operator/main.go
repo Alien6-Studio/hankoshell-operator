@@ -222,7 +222,7 @@ func setupControllers(
 	workloadTrust := &controller.HankoWorkloadTrustReconciler{Client: mgr.GetClient(), APIReader: mgr.GetAPIReader(), ClusterConfig: mgr.GetConfig()}
 	fatalIfError(workloadTrust.SetupWithManager(mgr), controllerSetupError, "controller", "HankoWorkloadTrust")
 	fatalIfError((&controller.HankoIAMProfileReconciler{Client: mgr.GetClient()}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoIAMProfile")
-	fatalIfError((&controller.HankoRealmReconciler{Client: mgr.GetClient(), ProtectedRealm: protectedRealm, Scheme: mgr.GetScheme(), Pool: pool, Recorder: observability.SafeRecorder(mgr.GetEventRecorder(operatorRecorderName))}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoRealm")
+	fatalIfError((&controller.HankoRealmReconciler{Client: mgr.GetClient(), APIReader: mgr.GetAPIReader(), ProtectedRealm: protectedRealm, Scheme: mgr.GetScheme(), Pool: pool, Recorder: observability.SafeRecorder(mgr.GetEventRecorder(operatorRecorderName))}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoRealm")
 	fatalIfError((&controller.HankoEmailProviderReconciler{
 		Client: mgr.GetClient(),
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoEmailProvider")

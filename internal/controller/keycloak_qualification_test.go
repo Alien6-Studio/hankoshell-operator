@@ -519,8 +519,8 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 	// Explicit realm deletion must wait until managed applications and SAs are
 	// deleted; unmanaged contents belong to the explicitly owned realm boundary.
 	f.requireNoError(k8s.Delete(ctx, realm))
-	_, err = rr.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(realm)})
-	if err == nil || !strings.Contains(err.Error(), "managed resource(s) still present") {
+	blocked, err := rr.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(realm)})
+	if err != nil || blocked.RequeueAfter < 30*time.Second {
 		t.Fatal("realm deletion did not fail closed while managed children remained")
 	}
 	if _, err := f.kc.GetRealm(ctx, "managed"); err != nil {

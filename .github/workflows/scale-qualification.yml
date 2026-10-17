@@ -80,6 +80,19 @@ jobs:
             --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
             --kind "$RUNNER_TEMP/scale-tools/kind" --kubectl "$RUNNER_TEMP/scale-tools/kubectl" \
             --oras "$RUNNER_TEMP/scale-tools/oras" --helm /tmp/linux-amd64/helm --openssl /usr/bin/openssl
+      - name: Qualify five-minute API outage and owned-realm cleanup
+        if: inputs.profile == 'scale'
+        env:
+          OCI_DIGEST: ${{ needs.oci.outputs.digest }}
+          KEYCLOAK_VERSION: ${{ matrix.keycloak }}
+          KUBERNETES_VERSION: ${{ matrix.kubernetes }}
+        run: |
+          python3 scripts/recovery-installed-test.py \
+            --archive "$RUNNER_TEMP/scale-oci/image.tar" --evidence "$RUNNER_TEMP/scale-oci/evidence" \
+            --digest "$OCI_DIGEST" --revision "$GITHUB_SHA" --output "$RUNNER_TEMP/recovery-report" \
+            --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
+            --kind "$RUNNER_TEMP/scale-tools/kind" --kubectl "$RUNNER_TEMP/scale-tools/kubectl" \
+            --oras "$RUNNER_TEMP/scale-tools/oras" --helm /tmp/linux-amd64/helm --openssl /usr/bin/openssl
       - name: Preserve successful and incomplete measurements
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -88,5 +101,7 @@ jobs:
           path: |
             ${{ runner.temp }}/scale-report/
             ${{ runner.temp }}/scale-report.diagnostics/
+            ${{ runner.temp }}/recovery-report/
+            ${{ runner.temp }}/recovery-report.diagnostics/
           if-no-files-found: error
           retention-days: 30

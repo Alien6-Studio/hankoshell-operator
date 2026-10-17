@@ -125,5 +125,13 @@
   "runtime_identical_to_ci_matrix_source": true,
   "ci_matrix_preflight": "pass; 331 Python tests",
   "actionlint": "pass",
-  "repository_hooks": "pass"
+  "repository_hooks": "pass",
+  "mixed_load": {
+    "revision": "824c8f17db1654bdf4bc9744522ba76059350db7",
+    "complete": true,
+    "applications": 1000,
+    "accepted_native_client_creates": 1000,
+    "steady_seconds": 300.845,
+    "soak_qualified": false
+  }
 }

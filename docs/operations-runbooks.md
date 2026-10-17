@@ -232,3 +232,18 @@ The installed fixtures inject credential sentinels and scan logs, Events and all
 Hanko CRDs; the observability fixture also scans actual scraped metrics. This is a
 regression check, not blanket permission to publish raw logs. Preserve incident
 evidence privately; security escalation follows [SECURITY.md](../SECURITY.md).
+
+
+### Managed realm waits for explicit child cleanup
+
+`Reconciling` on a terminating realm with `Synced=False/DependenciesRemain` preserves the provider realm
+until every namespace-local realm reference is gone, including roles,
+organizations, resource servers, shared workload trust and tenants. The status
+contains counts by kind; remove those declarations explicitly in dependency
+order. Observe declarations also block deletion of their managed parent.
+Unchanged waits retry every 30–35 seconds without rewriting status. An API list
+or authority recheck failure refuses provider deletion; repair access and allow
+normal reconciliation. Do not force-remove finalizers to bypass this guard.
+See [the installed recovery scenarios](recovery-and-realm-deletion.md) for the
+five-minute operator API outage and lost realm DELETE acknowledgement tests.
+These cover selected checkpoints and do not establish full production HA.

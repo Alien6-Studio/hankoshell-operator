@@ -168,3 +168,11 @@ scale-installed-test:
 		--archive "$(OCI_ARCHIVE)" --evidence "$(OCI_EVIDENCE)" --digest "$(OCI_DIGEST)" --revision "$(REVISION)" \
 		--keycloak-version "$(KEYCLOAK_VERSION)" --kubernetes-version "$(KUBERNETES_VERSION)" \
 		--kind "$(KIND)" --kubectl "$(KUBECTL)" --helm "$(HELM)" --oras "$(ORAS)" --openssl "$(OPENSSL)" --output "$(SCALE_OUTPUT)"
+
+.PHONY: recovery-installed-test
+recovery-installed-test:
+	python3 scripts/recovery-installed-test.py \
+		--archive "$(OCI_ARCHIVE)" --evidence "$(OCI_EVIDENCE)" --digest "$(OCI_DIGEST)" --revision "$(REVISION)" \
+		--keycloak-version "$(KEYCLOAK_VERSION)" --kubernetes-version "$(KUBERNETES_VERSION)" \
+		--output "$(RECOVERY_OUTPUT)" --kind "$(KIND)" --kubectl "$(KUBECTL)" \
+		--helm "$(HELM)" --oras "$(ORAS)" --openssl "$(OPENSSL)"

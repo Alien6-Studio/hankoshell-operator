@@ -78,6 +78,14 @@ The [older heavy soak's setup](previous-heavy-soak-setup-failure.json) also
 failed its convergence deadline and cleaned up, before the measured soak
 interval started. It is not 24-hour evidence.
 
+The [final mixed result](mixed-final.json) now supersedes that intermediate
+snapshot. The entire fixture passed: 1,000 accepted client creates, preserved
+identities, all three recovery scenarios, 300.845 measured steady seconds and
+cleanup. Recovery took 103.636 seconds after Keycloak 429, 103.461 seconds after
+Keycloak 503 and 3.928 seconds after API 429, all within the unchanged budget.
+These are observations for this runtime and this one version pair. They do not
+qualify the later realm-deletion changes, every scale cell or a 24-hour soak.
+
 ## Remaining qualification
 
 Issue #95 stays open until the required matrix, larger per-kind bounds, owned
