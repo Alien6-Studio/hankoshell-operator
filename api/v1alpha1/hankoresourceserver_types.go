@@ -30,7 +30,9 @@ type HankoResourceServer struct {
 type HankoResourceServerSpec struct {
 	// RealmRef references the HankoRealm containing every referenced principal.
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	RealmRef string `json:"realmRef"`
 
 	// Audience is the immutable identifier of the protected API.
@@ -46,7 +48,9 @@ type HankoResourceServerSpec struct {
 
 	// ApplicationRef names the HankoApplication backing this resource server.
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	ApplicationRef string `json:"applicationRef"`
 
 	// Mode controls provider write authority.

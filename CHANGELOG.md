@@ -3,6 +3,17 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Admission bounds and RBAC review (#99, #94, #103)
+
+- Bound Kubernetes realm/application references at admission, with real-API
+  boundary fixtures and an explicit stored-manifest migration notice in
+  docs/security-surface.md. Update the frozen unpublished candidate schemas;
+  provider identifiers, defaults, plan identity and storage versions are unchanged.
+- Reduce leader election to Lease CREATE plus exact-lock GET/UPDATE; verify the
+  native client-go lock and denied foreign authority against real API servers.
+- Inventory declared validation bounds and chart RBAC/bindings on four profiles.
+  Fail preflight on unreviewed drift; retain explicit unresolved review gaps.
+
 ### Security parser qualification (#99)
 
 - Add twenty Go fuzz targets with positive and hostile seeds for discovery,

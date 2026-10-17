@@ -67,7 +67,9 @@ spec:
               applicationRef:
                 description: ApplicationRef names the HankoApplication backing this
                   resource server.
-                pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
+                maxLength: 253
+                minLength: 1
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
               audience:
                 description: Audience is the immutable identifier of the protected
@@ -234,7 +236,9 @@ spec:
               realmRef:
                 description: RealmRef references the HankoRealm containing every referenced
                   principal.
-                pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
+                maxLength: 253
+                minLength: 1
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
               resources:
                 description: Resources is a name-keyed set of protected resource objects.

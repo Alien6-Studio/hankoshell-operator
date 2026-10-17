@@ -70,6 +70,17 @@ operations. The [deployment trust model](../../secure-deployment.md) and
 resource-specific contracts remain authoritative. This checkpoint does not grant
 new authority or accept unresolved candidate findings.
 
+## Admission and RBAC inventory
+
+The [schema/grant review](../../security-surface.md) now records 962 declared
+fields/collections and every rendered RBAC rule/binding on four chart profiles.
+Seven reference fields gained explicit length bounds and Kubernetes-name checks;
+the common real-API fixture also covers the existing workload-trust reference.
+The leader lock loses broad read/renew/delete privileges. Preflight checks the
+reviewed inventory. 348 explicit length/cardinality gaps and broad dynamic
+Secret/Deployment authority remain contextual review work; inventory is not
+acceptance. See the migration notice before applying changed alpha CRDs.
+
 ## Remaining acceptance work
 
 - Complete stable API/conversion and stored-object migration first, then fuzz

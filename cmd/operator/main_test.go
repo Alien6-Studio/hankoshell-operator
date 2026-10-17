@@ -24,6 +24,9 @@ func TestManagerOptionsConfineCacheAndLeaderElection(t *testing.T) {
 	if _, ok := opts.Cache.DefaultNamespaces[cache.AllNamespaces]; ok {
 		t.Fatal("DefaultNamespaces must not contain cache.AllNamespaces")
 	}
+	if opts.LeaderElectionID != "hanko-operator.hanko.sh" {
+		t.Fatal("leader identity differs from the chart grant")
+	}
 	if opts.LeaderElectionNamespace != namespace {
 		t.Fatalf("LeaderElectionNamespace = %q, want %q", opts.LeaderElectionNamespace, namespace)
 	}

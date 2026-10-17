@@ -12,6 +12,11 @@ Choose an approved chart/image digest and reviewed namespace-specific values;
 never copy test credentials, fixture CAs or synthetic approvals to production.
 Commands with `$variables` require administrator-supplied reviewed inputs.
 
+The [CRD/RBAC security inventory](security-surface.md) records current admission
+bounds, grant justifications, unresolved authority limits and the reference-field
+migration notice. [The development execution map](development-backlog.md) groups
+the remaining 22 issues and distinguishes code from external acceptance evidence.
+
 ## Install: standalone and connected
 
 Load and leader-loss reproduction uses `scripts/scale-installed-test.py` with

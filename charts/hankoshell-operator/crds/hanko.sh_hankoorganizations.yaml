@@ -134,6 +134,9 @@ spec:
               realmRef:
                 description: RealmRef references the HankoRealm this organization
                   belongs to.
+                maxLength: 253
+                minLength: 1
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
               roles:
                 description: |-

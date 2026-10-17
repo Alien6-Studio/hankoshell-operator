@@ -35,6 +35,8 @@ type HankoIssuerSpec struct {
 	// RealmRef is the HankoRealm served through this public authority.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
 	RealmRef string `json:"realmRef"`
 }
 

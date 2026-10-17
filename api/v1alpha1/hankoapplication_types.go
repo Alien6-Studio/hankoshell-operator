@@ -35,6 +35,9 @@ type HankoApplication struct {
 type HankoApplicationSpec struct {
 	// RealmRef references the HankoRealm this application belongs to.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	RealmRef string `json:"realmRef"`
 
 	// ClientID is the Keycloak client identifier.

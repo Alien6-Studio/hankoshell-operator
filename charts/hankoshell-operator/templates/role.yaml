@@ -115,9 +115,15 @@ rules:
   - apiGroups: ["", "events.k8s.io"]
     resources: ["events"]
     verbs: ["create", "patch"]
+  # client-go LeaseLock uses Create/Get/Update only. Kubernetes RBAC cannot
+  # restrict create by resourceName; reads and renewals need only this lock.
   - apiGroups: ["coordination.k8s.io"]
     resources: ["leases"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+    verbs: ["create"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    resourceNames: ["hanko-operator.hanko.sh"]
+    verbs: ["get", "update"]
   # Hub-driven decommission: every extra verb below is pinned by resourceName
   # to the exact release-owned objects the operator removes when Hub asks it
   # to uninstall itself. The Hub credential Secret is deliberately absent.

@@ -106,6 +106,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 	t.Run("condition ownership across all CRDs", func(t *testing.T) { checkConditionApply(t, ctx, admin, environment.CRDs) })
 	t.Run("frozen public contract corpus", func(t *testing.T) { checkPublicContractCorpus(t, ctx, admin) })
 	t.Run("single-version conversion and typed reader contract", func(t *testing.T) { checkConversionContract(t, ctx, admin, environment.CRDs) })
+	t.Run("bounded realm and application references", func(t *testing.T) { checkBoundedReferences(t, ctx, admin) })
 	t.Run("fresh realm ownership selectors", func(t *testing.T) { checkRealmOwnershipSelectors(t, ctx, admin) })
 	t.Run("fresh paginated realm deletion inventory", func(t *testing.T) { checkRealmDeletionInventory(t, ctx, admin) })
 
@@ -301,6 +302,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Run("leader election named lock RBAC", func(t *testing.T) { checkLeaderLeaseRBAC(t, ctx, admin, operator, user.Config()) })
 	t.Run("runtime bindings and exact cross-namespace RBAC", func(t *testing.T) { checkRuntimeBindings(t, ctx, admin, operator) })
 	t.Run("workload binding named read/patch RBAC", func(t *testing.T) { checkWorkloadBindingDeliveryRBAC(t, ctx, admin, operator) })
 	t.Run("server-side-apply-and-status", func(t *testing.T) {

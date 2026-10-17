@@ -1651,3 +1651,11 @@ snapshots and must be reviewed before promoting new pins. See [support policy](s
 | kubernetes | `1.35.0`, `1.36.2`, `1.37.0` | `1.37.0` |
 | keycloak | `26.7.5`, `26.8.0` | `26.8.0` |
 <!-- support-window:end -->
+
+## Executable CRD and RBAC review inventory
+
+Review [the validation/grant inventory](security-surface.md) and its migration
+notice before applying the candidate CRDs. Preflight freezes all served schema
+hashes and four rendered RBAC profiles. The inventory records remaining bound
+and authority gaps; it does not accept them. Native lease election is exercised
+with only CREATE and exact-lock GET/UPDATE on real Kubernetes API servers.
