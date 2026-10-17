@@ -31,7 +31,7 @@ class OperationalContractTests(unittest.TestCase):
             ("internal/observability/events.go", '"ClientCreated"', '"UnreviewedReason"'),
             ("scripts/fleet-installed-test.py", '"BundleTenantConflict"', '"BundleUnreviewedConflict"'),
             ("cmd/operator/main.go", "observability.SafeRecorder(mgr.GetEventRecorder(operatorRecorderName))", "mgr.GetEventRecorder(operatorRecorderName)"),
-            ("internal/controller/hankoapplication_controller.go", 'observeReconciler("HankoApplication", r)', "r"),
+            ("internal/controller/hankoapplication_controller.go", 'observeReconciler("HankoApplication", scheduleIAMReconciler(r))', "scheduleIAMReconciler(r)"),
             ("README.md", "operations-runbooks.md", "missing-runbooks.md"),
             ("docs/operations-runbooks.md", "AuditRecorderUnavailable", "UnreviewedState"),
         ]
