@@ -133,10 +133,10 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 	fixtureEqual(t, "denied management access left no proxy", len(forbiddenProxies), 0)
 
 	scheme := newScheme(t)
-	k8s := fake.NewClientBuilder().WithScheme(scheme).
+	k8s := runtimeKube(fake.NewClientBuilder().WithScheme(scheme).
 		WithIndex(&hanko.HankoApplication{}, controller.RealmClientIndexKey, realmClientIndexer).
 		WithStatusSubresource(&hanko.HankoApplication{}, &hanko.HankoServiceAccount{}, &hanko.HankoRealm{},
-			&hanko.HankoRole{}, &hanko.HankoIAMProfile{}, &hanko.HankoImport{}, &hanko.HankoKeycloakInstance{}).Build()
+			&hanko.HankoRole{}, &hanko.HankoIAMProfile{}, &hanko.HankoImport{}, &hanko.HankoKeycloakInstance{}).Build())
 	pool := keycloak.NewPool(f.kc)
 	recorder := events.NewFakeRecorder(100)
 	rr := &controller.HankoRealmReconciler{Client: k8s, Scheme: scheme, Pool: pool, Recorder: recorder}
