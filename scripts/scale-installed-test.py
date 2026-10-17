@@ -38,6 +38,8 @@ RESOURCE = {"HankoRealm": "hankorealms", "HankoApplication": "hankoapplications"
             "HankoOrganization": "hankoorganizations", "HankoResourceServer": "hankoresourceservers"}
 DEFAULTS = {"smoke": (2, 40, 8, 8, 2), "scale": (10, 1000, 100, 100, 20), "soak": (10, 1000, 100, 100, 20)}
 SELECTOR = "hanko-fixture=scale"
+PHASES = {"initial_dependencies", "applications_after_leader_loss", "authorization_graph",
+          "keycloak_429_recovery", "keycloak_503_recovery", "api_429_recovery"}
 
 
 def parameters(args):
@@ -230,7 +232,15 @@ class Scale(installed.Installed):
         with (self.args.output / "samples.jsonl").open("a") as stream:
             stream.write(native.safe_report(frame, self.sensitive).replace("\n", "") + "\n")
         self.report["samples"] = self.ledger.frames
+        self.persist_progress()
         return frame
+
+    def persist_progress(self):
+        # Readers never see a half-written JSON file. Only the same reviewed
+        # public allowlist as the final report leaves this fixture process.
+        temporary = self.args.output / "progress.json.tmp"
+        temporary.write_text(native.safe_report(self.public_evidence(), self.sensitive))
+        temporary.replace(self.args.output / "progress.json")
 
     def provision(self):
         self.api("POST", "/admin/realms/master/clients", {"clientId": "system-operator", "secret": self.credential, "protocol": "openid-connect",
@@ -260,25 +270,44 @@ class Scale(installed.Installed):
             if kinds and kind not in kinds:
                 continue
             values = self.current(kind)
-            if len(values) != count:
-                return False
+            current = 0
             for obj in values:
                 status, generation = obj.get("status", {}), obj["metadata"]["generation"]
-                if status.get("phase") != "Ready" or status.get("observedGeneration") != generation:
-                    return False
-                if kind in ("HankoApplication", "HankoRole", "HankoResourceServer") and (
-                        status.get("appliedGeneration") != generation or status.get("observationComplete") is not True or status.get("driftState") != "InSync"):
-                    return False
+                ready = status.get("phase") == "Ready" and status.get("observedGeneration") == generation
+                if kind in ("HankoApplication", "HankoRole", "HankoResourceServer"):
+                    ready = ready and status.get("appliedGeneration") == generation and status.get("observationComplete") is True and status.get("driftState") == "InSync"
+                current += bool(ready)
+            # Never copy arbitrary status values, names, IDs or conditions.
+            self.report.setdefault("convergence_progress", {})[kind] = {"count": len(values), "expected": count, "current": current,
+                "observed_elapsed_seconds": round(time.monotonic() - self.started, 3)}
+            if len(values) != count:
+                return False
+            if current != count:
+                return False
         return True
 
-    def await_converged(self, kinds=None):
-        deadline = time.monotonic() + self.args.converge_timeout
-        while time.monotonic() < deadline:
-            self.observe()
-            if self.converged(kinds):
-                return
-            time.sleep(2)
-        raise system.diagnostics.DeadlineExceeded("scale current-generation convergence", self.args.converge_timeout, self.args.converge_timeout)
+    def await_converged(self, kinds=None, *, phase):
+        if phase not in PHASES:
+            raise ValueError("Unknown fixed scale convergence phase")
+        started = time.monotonic()
+        self.report["active_phase"] = phase
+        measurement = {"budget_seconds": self.args.converge_timeout, "seconds": 0, "complete": False}
+        self.report.setdefault("convergence", {})[phase] = measurement
+        print("Scale phase: " + phase, flush=True)
+        try:
+            while time.monotonic() - started < self.args.converge_timeout:
+                measurement["seconds"] = round(time.monotonic() - started, 3)
+                self.observe()
+                if self.converged(kinds):
+                    if time.monotonic() - started <= self.args.converge_timeout:
+                        measurement["complete"] = True
+                        return
+                    break
+                time.sleep(2)
+            raise system.diagnostics.DeadlineExceeded("scale " + phase, self.args.converge_timeout, self.args.converge_timeout)
+        finally:
+            measurement["seconds"] = round(time.monotonic() - started, 3)
+            self.persist_progress()
 
     def snapshot_clients(self):
         identities = {}
@@ -304,7 +333,7 @@ class Scale(installed.Installed):
     def create_load(self):
         base = [o for o in self.objects if o["kind"] in ("HankoRealm", "HankoRole", "HankoOrganization")]
         self.apply(*base)
-        self.await_converged({"HankoRealm", "HankoRole", "HankoOrganization"})
+        self.await_converged({"HankoRealm", "HankoRole", "HankoOrganization"}, phase="initial_dependencies")
         old_holder = self.get("lease", "hanko-operator.hanko.sh")["spec"]["holderIdentity"]
         leader = old_holder.rsplit("_", 1)[0]
         path = self.private / "burst.yaml"
@@ -335,9 +364,9 @@ class Scale(installed.Installed):
             raise ValueError("Resource burst did not finish within its budget") from None
         if code:
             raise ValueError("Resource burst failed; raw command output withheld")
-        self.await_converged({"HankoApplication", "HankoRole", "HankoOrganization", "HankoRealm"})
+        self.await_converged({"HankoApplication", "HankoRole", "HankoOrganization", "HankoRealm"}, phase="applications_after_leader_loss")
         self.apply(*(o for o in self.objects if o["kind"] == "HankoResourceServer"))
-        self.await_converged()
+        self.await_converged(phase="authorization_graph")
         self.report["client_ids_sha256"] = hashlib.sha256(json.dumps(self.snapshot_clients(), sort_keys=True).encode()).hexdigest()
         self.record("burst_and_leader_replacement_converge_without_duplicate_native_clients")
 
@@ -358,11 +387,12 @@ class Scale(installed.Installed):
         state = self.control(target, None)
         self.report["faults"][target + "_" + str(status)] = {"triggered": triggered["triggered"],
             "refused_requests": state["traffic"].get("refused_requests", 0) - armed["traffic"].get("refused_requests", 0)}
-        self.await_converged()
+        self.await_converged(phase=f"{target}_{status}_recovery")
         self.record(target + "_" + str(status) + "_recovers_without_manual_status_reset",
                     self.api("GET", "/admin/realms/scale-000/roles/scale-role-000000")["description"] == description)
 
     def steady(self):
+        self.report["active_phase"] = "steady"
         before = self.ledger.checkpoint()
         started = time.monotonic()
         self.observe()
@@ -423,7 +453,8 @@ class Scale(installed.Installed):
     def public_evidence(self):
         keys = ("schema_version", "layer", "profile", "revision", "image_digest", "fixture_sha256", "measurement_sha256", "keycloak_version", "kubernetes_version",
                 "publishable", "complete", "started_at", "completed_at", "counts", "workers", "steady_seconds_requested", "samples", "checks", "faults", "resources",
-                "limitations", "steady", "soak", "provider_traffic", "client_ids_sha256", "failure_type", "cleanup_complete")
+                "limitations", "steady", "soak", "provider_traffic", "client_ids_sha256", "failure_type", "cleanup_complete",
+                "active_phase", "convergence", "convergence_progress")
         return {key: self.report[key] for key in keys if key in self.report}
 
     def cleanup(self):

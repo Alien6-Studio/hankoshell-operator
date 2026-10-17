@@ -26,8 +26,8 @@ func TestIAMConcurrencyIsBoundedAndDoesNotEchoInput(t *testing.T) {
 	if err != nil || options.MaxConcurrentReconciles != 1 {
 		t.Fatal("default concurrency changed", options, err)
 	}
-	if options.UsePriorityQueue == nil || *options.UsePriorityQueue {
-		t.Fatal("IAM recovery must use FIFO instead of deprioritizing cold initial-list work")
+	if options.UsePriorityQueue == nil || !*options.UsePriorityQueue || options.NewQueue == nil || options.RateLimiter == nil {
+		t.Fatal("IAM recovery needs normalized initial-list priority and the existing retry limiter")
 	}
 	for _, value := range []string{"1", "4", "8", "", "0", "9", "-1", "+2", "02", "1.0", " 2", "private-input-sentinel"} {
 		t.Run(value, func(t *testing.T) {
@@ -40,8 +40,8 @@ func TestIAMConcurrencyIsBoundedAndDoesNotEchoInput(t *testing.T) {
 			if err != nil && strings.Contains(err.Error(), "private-input-sentinel") {
 				t.Fatal("invalid environment value escaped fixed diagnostic")
 			}
-			if valid && (options.UsePriorityQueue == nil || *options.UsePriorityQueue) {
-				t.Fatal("worker configuration re-enabled cold-backlog starvation")
+			if valid && (options.UsePriorityQueue == nil || !*options.UsePriorityQueue || options.NewQueue == nil) {
+				t.Fatal("worker configuration bypassed the IAM scheduler")
 			}
 		})
 	}
@@ -95,12 +95,70 @@ func TestOrganizationAndIssuerIgnoreStatusEchoButRetainAuthorityWakes(t *testing
 	}
 }
 
+func TestAuthorizationReferencesIgnoreStatusButRetainAllAuthorityChanges(t *testing.T) {
+	for _, old := range []client.Object{&api.HankoApplication{}, &api.HankoRealm{}, &api.HankoServiceAccount{}} {
+		old.SetGeneration(1)
+		old.SetUID("original")
+		next := old.DeepCopyObject().(client.Object)
+		next.SetResourceVersion("status-update")
+		switch object := next.(type) {
+		case *api.HankoApplication:
+			object.Status.Phase = "Error"
+			object.Status.ObservedGeneration = 1
+		case *api.HankoRealm:
+			object.Status.Phase = "Ready"
+			object.Status.ObservedGeneration = 1
+		case *api.HankoServiceAccount:
+			object.Status.Phase = "Ready"
+			object.Status.ObservedGeneration = 1
+		}
+		if authorizationDependencyChanged().Update(event.UpdateEvent{ObjectOld: old, ObjectNew: next}) {
+			t.Fatal("provider observation status broadcast to spec-only authorization consumers")
+		}
+		for _, change := range []func(client.Object){
+			func(o client.Object) { o.SetUID("recreated") },
+			func(o client.Object) { o.SetGeneration(2) },
+			func(o client.Object) { now := metav1.Now(); o.SetDeletionTimestamp(&now) },
+			func(o client.Object) { o.SetLabels(map[string]string{"hanko.sh/tenant": ""}) },
+			func(o client.Object) { o.SetLabels(map[string]string{importedByLabel: ""}) },
+			func(o client.Object) { o.SetLabels(map[string]string{providerConnectionLabel: "connection"}) },
+			func(o client.Object) { o.SetAnnotations(map[string]string{reconcileRequestAnnotation: "new"}) },
+		} {
+			changed := old.DeepCopyObject().(client.Object)
+			change(changed)
+			if !authorizationDependencyChanged().Update(event.UpdateEvent{ObjectOld: old, ObjectNew: changed}) {
+				t.Fatal("reference authority change was filtered")
+			}
+		}
+		if !authorizationDependencyChanged().Create(event.CreateEvent{Object: old}) || !authorizationDependencyChanged().Delete(event.DeleteEvent{Object: old}) {
+			t.Fatal("reference creation/deletion was filtered")
+		}
+	}
+}
+
+func TestRealmDefaultRotationChangesWakeConsumersButStatusDoesNot(t *testing.T) {
+	old := &api.HankoRealm{ObjectMeta: metav1.ObjectMeta{Generation: 1}}
+	status := old.DeepCopy()
+	status.Status.Phase = "Ready"
+	status.Status.LastReconciled = &metav1.Time{Time: metav1.Now().Time}
+	if generationOrReconcileRequestChanged().Update(event.UpdateEvent{ObjectOld: old, ObjectNew: status}) {
+		t.Fatal("realm status re-enqueued clients inheriting defaults")
+	}
+	next := old.DeepCopy()
+	next.Generation++
+	days := 10
+	next.Spec.SecurityProfile = &api.RealmSecurityProfile{ClientSecretRotationDays: &days}
+	if !generationOrReconcileRequestChanged().Update(event.UpdateEvent{ObjectOld: old, ObjectNew: next}) {
+		t.Fatal("new realm credential defaults did not wake inheriting clients")
+	}
+}
+
 func TestConcurrencyAndStatusPredicatesAreWiredOnlyToReviewedControllers(t *testing.T) {
 	files, err := filepath.Glob("*_controller.go")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var concurrent, filtered []string
+	var concurrent, filtered, scheduled []string
 	dependencyWatches := 0
 	for _, file := range files {
 		tree, err := parser.ParseFile(token.NewFileSet(), file, nil, 0)
@@ -123,6 +181,9 @@ func TestConcurrencyAndStatusPredicatesAreWiredOnlyToReviewedControllers(t *test
 				if name, ok := call.Fun.(*ast.Ident); ok && name.Name == "generationOrReconcileRequestChanged" {
 					filtered = append(filtered, file)
 				}
+				if name, ok := call.Fun.(*ast.Ident); ok && name.Name == "scheduleIAMReconciler" {
+					scheduled = append(scheduled, file)
+				}
 				if name, ok := call.Fun.(*ast.Ident); ok && name.Name == "authorizationDependencyChanged" && file == "hankoresourceserver_controller.go" {
 					dependencyWatches++
 				}
@@ -134,12 +195,16 @@ func TestConcurrencyAndStatusPredicatesAreWiredOnlyToReviewedControllers(t *test
 	if !slices.Equal(concurrent, []string{"hankoapplication_controller.go", "hankoorganization_controller.go", "hankoresourceserver_controller.go", "hankorole_controller.go"}) {
 		t.Fatal("concurrency widened beyond the reviewed request-local IAM controllers", concurrent)
 	}
+	slices.Sort(scheduled)
+	if !slices.Equal(concurrent, scheduled) {
+		t.Fatal("IAM queue priorities and result scheduling must cover the same four controllers", scheduled)
+	}
 	for _, file := range []string{"hankoorganization_controller.go", "hankoissuer_controller.go"} {
 		if !slices.Contains(filtered, file) {
 			t.Fatal("primary status-echo predicate was removed", file)
 		}
 	}
-	if dependencyWatches != 2 {
-		t.Fatal("organization/role dependency watches lack semantic status filtering")
+	if dependencyWatches != 5 {
+		t.Fatal("authorization dependency watches lack semantic status filtering")
 	}
 }

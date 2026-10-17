@@ -694,8 +694,8 @@ func (r *HankoResourceServerReconciler) SetupWithManager(mgr ctrl.Manager) error
 		For(&hankoshv1alpha1.HankoResourceServer{}, builder.WithPredicates(resourceServerAuthorityChanged())).
 		Watches(&hankoshv1alpha1.HankoOrganization{}, handler.EnqueueRequestsFromMapFunc(r.organizationRequests), builder.WithPredicates(authorizationDependencyChanged())).
 		Watches(&hankoshv1alpha1.HankoRole{}, handler.EnqueueRequestsFromMapFunc(r.organizationRequests), builder.WithPredicates(authorizationDependencyChanged())).
-		Watches(&hankoshv1alpha1.HankoRealm{}, handler.EnqueueRequestsFromMapFunc(r.delegationRequests)).
-		Watches(&hankoshv1alpha1.HankoApplication{}, handler.EnqueueRequestsFromMapFunc(r.delegationRequests)).
-		Watches(&hankoshv1alpha1.HankoServiceAccount{}, handler.EnqueueRequestsFromMapFunc(r.delegationRequests)).
-		Complete(observeReconciler("HankoResourceServer", r))
+		Watches(&hankoshv1alpha1.HankoRealm{}, handler.EnqueueRequestsFromMapFunc(r.delegationRequests), builder.WithPredicates(authorizationDependencyChanged())).
+		Watches(&hankoshv1alpha1.HankoApplication{}, handler.EnqueueRequestsFromMapFunc(r.delegationRequests), builder.WithPredicates(authorizationDependencyChanged())).
+		Watches(&hankoshv1alpha1.HankoServiceAccount{}, handler.EnqueueRequestsFromMapFunc(r.delegationRequests), builder.WithPredicates(authorizationDependencyChanged())).
+		Complete(observeReconciler("HankoResourceServer", scheduleIAMReconciler(r)))
 }

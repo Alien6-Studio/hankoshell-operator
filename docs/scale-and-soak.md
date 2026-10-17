@@ -20,9 +20,15 @@ supported cells, a 24-hour soak, or every transaction journal.
 The runtime rejects empty, noncanonical and out-of-range values before controller
 registration. The chart rejects an environment override that would bypass the
 typed setting. All other controllers retain one worker. Controller-runtime
-serializes a queued object key. These four controllers explicitly use FIFO so
-live dependency refreshes cannot starve cold initial-list objects after a leader
-change. Rate-limited retries and per-key coalescing remain active. This does not serialize distinct objects with
+serializes a queued object key. For these four controllers, cold initial-list
+events and live changes use the same FIFO priority **0**. Successful periodic
+resyncs (at least 30 seconds) use background priority **-200**. Errors and short
+checkpoints return to priority 0, so recovery does not wait behind a thousand
+background resyncs. Upstream initial-list priority -100 is normalized to 0;
+simply enabling the default priority queue would starve cold recovery again.
+The upstream queue still owns synchronization, delayed work, coalescing and
+per-key serialization; the existing exponential/global retry limiter is retained.
+There is no new worker pool or provider budget. This does not serialize distinct objects with
 conflicting external intent. Existing ownership guards remain necessary.
 
 Observation traffic is bounded within each attempt. A settled non-composite role
@@ -47,8 +53,12 @@ unchanged pending measured sizing. Organization and Issuer primary watches now
 ignore status echoes; generation, reconcile requests, deletion and authority
 label presence/value changes still enqueue work. ResourceServer dependency
 watches retain group identity/path/current Synced changes while ignoring Role
-observation times and optional organization projection updates. Periodic
-reconciliation remains.
+observation times and optional organization projection updates. Realm,
+Application and ServiceAccount references consume spec/identity/authority and
+ignore status-only updates. Realm default-policy consumers also ignore realm
+status writes; spec, manual requests, authority and deletion remain immediate
+wakes. Periodic reconciliation remains. A resync interval is not a guaranteed
+per-object service deadline under a saturated provider budget.
 
 ## Scenarios and measurements
 
@@ -118,7 +128,14 @@ Kubernetes/Keycloak cells for short profiles. Hosted jobs do not claim a 24-hour
 soak; run that profile on a persistent disposable runner.
 
 The output directory must be new. `report.json` records pass/fail and bounded
-measurements; `samples.jsonl` retains numeric samples. A failed run remains
+measurements; `samples.jsonl` retains numeric samples. Atomic `progress.json`
+snapshots expose the current phase, numeric current-generation object counts
+and elapsed convergence/recovery durations without object names or raw status.
+Use the final `report.json` for the verdict: an intermediate phase completion
+does not complete the fixture. Each phase retains its 900-second default budget;
+completion after the deadline, including sampling/status reads, is refused.
+Phase timing includes queue waiting, which the reconcile duration histogram
+does not. A failed run remains
 partial and cannot become a passing report by reusing its output directory.
 SIGTERM triggers cleanup of this fixture's owned resources. No global Docker
 pruning or production-resource mutation is performed.

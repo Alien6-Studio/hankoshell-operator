@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import tempfile
 import threading
+import time
 from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, patch
@@ -159,6 +160,58 @@ class ScaleScenarioTests(unittest.TestCase):
         fixture.report = {"complete": False, "layer": "installed-scale", "counts": {"applications": 1000}, "password": "private",
                           "discovery": {"issuer": "private"}, "cluster_namespace_uid": "private", "native": {"secret": "private"}}
         self.assertEqual(fixture.public_evidence(), {"complete": False, "layer": "installed-scale", "counts": {"applications": 1000}})
+
+    def test_progress_is_atomic_numeric_and_requires_complete_current_generation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = scale.Scale.__new__(scale.Scale)
+            fixture.args = SimpleNamespace(output=Path(directory))
+            fixture.report = {"complete": False, "password": "private-status-sentinel"}
+            fixture.sensitive, fixture.started = ["private-status-sentinel"], time.monotonic()
+            fixture.counts_by_kind = MagicMock(return_value={"HankoApplication": 2})
+            ready = {"metadata": {"generation": 2, "name": "private-status-sentinel"},
+                     "status": {"phase": "Ready", "observedGeneration": 2, "appliedGeneration": 2, "observationComplete": True, "driftState": "InSync"}}
+            stale = copy.deepcopy(ready)
+            stale["status"].update(phase="private-status-sentinel", observedGeneration=1)
+            fixture.current = MagicMock(return_value=[ready, stale])
+            self.assertFalse(fixture.converged())
+            fixture.persist_progress()
+            progress = json.loads((Path(directory) / "progress.json").read_text())
+            self.assertEqual(progress["convergence_progress"]["HankoApplication"]["current"], 1)
+            self.assertNotIn("private-status-sentinel", json.dumps(progress))
+            self.assertFalse((Path(directory) / "progress.json.tmp").exists())
+            for key, value in (("appliedGeneration", 1), ("observationComplete", False), ("driftState", "Drifted")):
+                invalid = copy.deepcopy(ready)
+                invalid["status"][key] = value
+                fixture.current.return_value = [ready, invalid]
+                self.assertFalse(fixture.converged())
+            fixture.current.return_value = [ready, ready]
+            self.assertTrue(fixture.converged())
+
+    def test_phase_times_include_queueing_and_cannot_accept_late_completion(self):
+        for outcome in ("pass", "timeout", "late"):
+            with self.subTest(outcome=outcome):
+                fixture = scale.Scale.__new__(scale.Scale)
+                fixture.args = SimpleNamespace(converge_timeout=3)
+                fixture.report = {}
+                fixture.persist_progress = MagicMock()
+                clock = SimpleNamespace(now=0)
+                fixture.observe = MagicMock(side_effect=lambda: setattr(clock, "now", 4 if outcome == "late" else 2 if outcome == "pass" else clock.now))
+                fixture.converged = MagicMock(return_value=outcome != "timeout")
+                with patch.object(scale.time, "monotonic", side_effect=lambda: clock.now), \
+                        patch.object(scale.time, "sleep", side_effect=lambda _: setattr(clock, "now", clock.now + 2)):
+                    if outcome == "pass":
+                        fixture.await_converged(phase="keycloak_429_recovery")
+                    else:
+                        with self.assertRaises(scale.system.diagnostics.DeadlineExceeded):
+                            fixture.await_converged(phase="keycloak_429_recovery")
+                measurement = fixture.report["convergence"]["keycloak_429_recovery"]
+                self.assertEqual(measurement["complete"], outcome == "pass")
+                self.assertEqual(measurement["budget_seconds"], 3)
+                self.assertEqual(measurement["seconds"], 2 if outcome == "pass" else 4)
+                fixture.persist_progress.assert_called_once()
+                with self.assertRaisesRegex(ValueError, "fixed scale"):
+                    fixture.await_converged(phase="private-input-sentinel")
+                self.assertNotIn("private-input-sentinel", json.dumps(fixture.report))
 
     def test_startup_waits_for_reconciliation_leadership_but_refuses_split_brain_and_stale_holder(self):
         fixture = scale.Scale.__new__(scale.Scale)

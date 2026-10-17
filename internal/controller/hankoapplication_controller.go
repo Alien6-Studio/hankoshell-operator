@@ -1465,6 +1465,6 @@ func (r *HankoApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&hankoshv1alpha1.HankoApplication{}, builder.WithPredicates(generationOrReconcileRequestChanged())).
 		Watches(&hankoshv1alpha1.HankoServiceAccount{}, handler.EnqueueRequestsFromMapFunc(r.requestsForServiceAccountOwnership)).
 		Watches(&hankoshv1alpha1.HankoTheme{}, handler.EnqueueRequestsFromMapFunc(r.requestsForApplicationTheme)).
-		Watches(&hankoshv1alpha1.HankoRealm{}, handler.EnqueueRequestsFromMapFunc(r.requestsForApplicationRealm)).
-		Complete(observeReconciler("HankoApplication", r))
+		Watches(&hankoshv1alpha1.HankoRealm{}, handler.EnqueueRequestsFromMapFunc(r.requestsForApplicationRealm), builder.WithPredicates(generationOrReconcileRequestChanged())).
+		Complete(observeReconciler("HankoApplication", scheduleIAMReconciler(r)))
 }

@@ -571,6 +571,6 @@ func (r *HankoServiceAccountReconciler) SetupWithManager(mgr ctrl.Manager) error
 				}
 				return requests
 			},
-		)).
+		), builder.WithPredicates(generationOrReconcileRequestChanged())).
 		Complete(observeReconciler("HankoServiceAccount", r))
 }

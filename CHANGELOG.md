@@ -9,8 +9,10 @@
   defaulting to one; remove Organization/Issuer status-echo hot loops while
   preserving authority and deletion wakes. Filter grant dependency status
   timestamps while retaining current group synchronization and identity changes.
-- Use FIFO for the four IAM queues so dependency refreshes cannot starve cold
-  initial-list work following a leader change.
+- Give cold initial-list work and live IAM changes the same FIFO priority;
+  place successful periodic resyncs behind changes and retries while preserving
+  per-key serialization, coalescing and the existing retry limiter. Filter
+  spec-only realm/application/service-account dependency status echoes.
 - Reduce IAM observation traffic without caching authority: settled simple roles
   use one complete read, application children stay pinned to the observed client
   UUID, and uncached ownership lists use a server-side realm selector. Apply the
@@ -19,6 +21,9 @@
   numeric mTLS measurements, including a 24-hour-minimum soak profile and a
   six-cell manual short qualification workflow. Production sizing and full
   transaction HA still require retained evidence.
+- Report per-phase end-to-end convergence/recovery duration and numeric current
+  object counts in atomic progress snapshots. Refuse convergence completed after
+  its deadline, including time spent sampling and reading status.
 - Require explicit TLS peer alerts in negative metrics authentication probes.
   Move ordinary tagged tests and static checks into separate required CI jobs
   while preserving exhaustive test inventory and JUnit reporting.
