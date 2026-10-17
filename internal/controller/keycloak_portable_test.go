@@ -40,9 +40,9 @@ func TestRealKeycloakPortableCorpus(t *testing.T) {
 		return len(events)
 	}
 	scheme := newScheme(t)
-	kube := fake.NewClientBuilder().WithScheme(scheme).
+	kube := runtimeKube(fake.NewClientBuilder().WithScheme(scheme).
 		WithIndex(&api.HankoApplication{}, controller.RealmClientIndexKey, realmClientIndexer).
-		WithStatusSubresource(&api.HankoApplication{}, &api.HankoRealm{}, &api.HankoIAMProfile{}, &api.HankoRole{}, &api.HankoOrganization{}, &api.HankoServiceAccount{}, &api.HankoResourceServer{}, &api.HankoWorkloadTrust{}).Build()
+		WithStatusSubresource(&api.HankoApplication{}, &api.HankoRealm{}, &api.HankoIAMProfile{}, &api.HankoRole{}, &api.HankoOrganization{}, &api.HankoServiceAccount{}, &api.HankoResourceServer{}, &api.HankoWorkloadTrust{}).Build())
 	pool := keycloak.NewPool(kc)
 	recorder := events.NewFakeRecorder(1000)
 	caHash, err := workloadtrust.APICAHash(f.ca)
