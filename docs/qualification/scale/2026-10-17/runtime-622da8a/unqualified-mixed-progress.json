@@ -1,0 +1,38 @@
+{
+  "revision": "622da8a3cd9046791c567143475e5bb63217fc0d",
+  "scope": "mixed load progress snapshot; not passing scale evidence",
+  "progress": [
+    {
+      "applications": 1000,
+      "phases": {
+        "Ready": 578,
+        "Pending": 422
+      },
+      "without_observed_generation": 422
+    }
+  ],
+  "last_sample": {
+    "sample": 311,
+    "rss_bytes": 146137088.0,
+    "rss_peak_bytes": 154521600.0,
+    "heap_bytes": 54030104.0,
+    "goroutines": 547.0,
+    "api_requests": 45227.0,
+    "provider_requests": 36679.0,
+    "cpu_seconds": 197.90999999999988,
+    "reconciles": {
+      "HankoRealm": 230.0,
+      "HankoRole": 2229.0,
+      "HankoOrganization": 2459.0,
+      "HankoApplication": 578.0
+    },
+    "peak_workers": {
+      "HankoRole": 4.0,
+      "HankoOrganization": 4.0,
+      "HankoResourceServer": 0,
+      "HankoApplication": 4.0
+    },
+    "lost_processes": 1,
+    "elapsed_seconds": 927.099
+  }
+}
