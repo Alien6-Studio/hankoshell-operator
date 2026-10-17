@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "layer": "installed-transactions",
+  "keycloak_version": "26.8.0",
+  "kubernetes_version": "1.37.0",
+  "publishable": false,
+  "complete": false,
+  "started_at": "2026-10-17T11:43:19.216447+00:00",
+  "fixture_sha256": "39a75951c31f2e9c16f767e949455193b378fc7a68ea24e0177f9d642d14a3d4",
+  "node_image": "kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5",
+  "keycloak_image": "quay.io/keycloak/keycloak:26.8.0@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc",
+  "revision": "07e9ce1463b4c895647569f8e7db70ccac0d5c93",
+  "image_digest": "sha256:2e6f35e481cccf3632d73792c8925bfca99a44edfa625822a70389000850f888",
+  "checks": {
+    "exact_keycloak_version": true,
+    "operator_cannot_rewrite_fleet_trust": true,
+    "native_rotation_recovers_after_actual_leader_replacement": true,
+    "secret_output_recovers_after_actual_leader_replacement": true,
+    "rotation_commit_recovers_after_actual_leader_replacement": true,
+    "client_acquisition_recovers_after_actual_leader_replacement": true,
+    "role_acquisition_recovers_after_actual_leader_replacement": true
+  },
+  "checkpoints": {
+    "native_rotation": {
+      "complete": true,
+      "leader_replaced": true,
+      "accepted_rotations": 1,
+      "attempted_rotations": 1,
+      "accepted_secret_patches": 1
+    },
+    "secret_output": {
+      "complete": true,
+      "leader_replaced": true,
+      "accepted_rotations": 1,
+      "attempted_rotations": 1,
+      "accepted_secret_patches": 1
+    },
+    "rotation_commit": {
+      "complete": true,
+      "leader_replaced": true,
+      "accepted_rotations": 1,
+      "attempted_rotations": 1,
+      "accepted_secret_patches": 1
+    },
+    "client_acquisition": {
+      "complete": true,
+      "leader_replaced": true,
+      "accepted_receipt_writes": 1,
+      "attempted_receipt_writes": 1
+    },
+    "role_acquisition": {
+      "complete": true,
+      "leader_replaced": true,
+      "accepted_receipt_writes": 1,
+      "attempted_receipt_writes": 1
+    }
+  },
+  "limitations": [
+    "single disposable kind node and dev-file provider",
+    "six selected accepted-write checkpoints",
+    "not delegation apply, every journal, stale-lease split brain, replica clock skew or production HA"
+  ],
+  "cleanup_complete": true
+}

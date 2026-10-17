@@ -5,6 +5,10 @@ scanned exact-source OCI archive, real HTTPS Keycloak and external fault proxies
 It does not qualify every journal, delegation apply, stale-lease split brain,
 replica clock skew or production HA.
 
+The [2026-10-17 qualification packet](qualification/transactions/2026-10-17/runtime-5d5e3f7/README.md)
+retains both completed Keycloak cells, initial incomplete reports, source checks
+and the exact scanned image binding.
+
 ## Six deterministic checkpoints
 
 | Transaction | Accepted write whose response is lost | Required recovery |
