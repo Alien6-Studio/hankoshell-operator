@@ -269,6 +269,10 @@ class ScaleScenarioTests(unittest.TestCase):
         self.assertEqual(run["env"]["SCALE_PROFILE"], "scale")
         self.assertEqual(run["env"]["OCI_DIGEST"], "${{ needs.oci.outputs.digest }}")
         for job, standalone in ((scale_job, False), (jobs["installed-scale"], True)):
+            go = next(step for step in job["steps"] if "actions/setup-go@" in step.get("uses", ""))
+            self.assertEqual(go["with"]["go-version-file"], "go.mod")
+            tools = next(step for step in job["steps"] if "install-system-tools.py" in step.get("run", ""))
+            self.assertIn('GOBIN="$RUNNER_TEMP/scale-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"', tools["run"])
             recovery_step = next(step for step in job["steps"] if "recovery-installed-test.py" in step.get("run", ""))
             self.assertEqual(recovery_step["env"]["OCI_DIGEST"], "${{ needs.oci.outputs.digest }}")
             self.assertNotIn("continue-on-error", recovery_step)

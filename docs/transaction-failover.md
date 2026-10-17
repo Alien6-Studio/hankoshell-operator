@@ -39,8 +39,10 @@ Ready, and reject a later rotation that happens to produce another valid Secret.
 Only numeric counts and fixed decisions enter the public report. Private values
 are compared in memory and included in the existing credential leakage scan.
 
-The initial 26.7.5 fixture found that its `view-clients` reader profile can read
-the native client secret; the same endpoint is denied on 26.8.0. Reports retain
+The initial fixture incorrectly expected credential-read denial on both versions.
+The existing [permissions contract](keycloak-permissions.md) records that the
+26.7.5 `view-clients` profile can read the native client secret, while that endpoint
+is denied on 26.8.0. Reports retain
 the exact version-specific HTTP outcome and refuse client writes in both cells.
 This does not qualify provider-level credential-read separation on 26.7.5.
 Independently, acquisition must attempt **zero** credential endpoint reads through
@@ -62,6 +64,9 @@ cleanup. Partial reports and unit tests do not qualify an installed scenario.
 The opt-in six-cell scale CI also executes this fixture on the same scanned OCI;
 the additive scale/recovery/transaction group has a 75-minute job budget. Smoke
 dispatch keeps its shorter workload. Normal CI retains its existing required gates.
+Both dispatch paths install the pinned ORAS version into the exact tool directory
+used by image mirroring. The first scale CI attempt failed before provider setup
+because this executable was absent; that result is not a measured load failure.
 
 ## Security mutation compilation
 
