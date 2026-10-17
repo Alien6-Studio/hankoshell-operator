@@ -89,7 +89,7 @@ func fixtureTLS(t *testing.T, publicIP ...bool) ([]byte, []byte) {
 func (f *keycloakFixture) docker(timeout time.Duration, environment []string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd := exec.CommandContext(ctx, "docker", args...) // #nosec G702 -- Reviewed fixture argv, no shell; the local JAR is a single read-only mount argument.
 	cmd.Env = append(os.Environ(), environment...)
 	return cmd.CombinedOutput()
 }
@@ -119,6 +119,10 @@ func newKeycloakFixtureWithTransport(t *testing.T, managed, publicIP bool) *keyc
 }
 
 func newKeycloakFixtureWithTransportAndDiscovery(t *testing.T, managed, publicIP, selfDiscovery bool, features ...string) *keycloakFixture {
+	return newKeycloakFixtureConfigured(t, managed, publicIP, selfDiscovery, "", features...)
+}
+
+func newKeycloakFixtureConfigured(t *testing.T, managed, publicIP, selfDiscovery bool, extension string, features ...string) *keycloakFixture {
 	t.Helper()
 	// Use exactly the same reviewed image indexes as the installed qualification.
 	var pins struct {
@@ -175,7 +179,7 @@ func newKeycloakFixtureWithTransportAndDiscovery(t *testing.T, managed, publicIP
 	if managed {
 		serverArgs, mountPath = managedFixtureTemplate(t, image, cert, key)
 		image = f.buildOptimizedFixture(image)
-	} else if len(features) == 0 {
+	} else if len(features) == 0 && extension == "" {
 		// Reuse Docker's immutable build layer instead of repeating Quarkus
 		// augmentation in every disposable container. Preview builds retain
 		// their explicit feature-specific path and production assertions.
@@ -206,6 +210,20 @@ func newKeycloakFixtureWithTransportAndDiscovery(t *testing.T, managed, publicIP
 		"--publish", "127.0.0.1::8443", "--env", "KC_BOOTSTRAP_ADMIN_USERNAME=fixture-admin",
 		"--env", "KC_BOOTSTRAP_ADMIN_PASSWORD",
 		"--volume", directory + ":" + mountPath + ":ro"}
+	if extension != "" {
+		if managed {
+			t.Fatal("extension qualification requires an isolated unmanaged fixture")
+		}
+		path, err := filepath.Abs(extension)
+		if err != nil {
+			t.Fatal("invalid extension path")
+		}
+		info, err := os.Stat(path) // #nosec G703 -- Explicit local test artifact, regular-file/size checked below; never a network or application input.
+		if err != nil || !info.Mode().IsRegular() || info.Size() < 1 || info.Size() > 5*1024*1024 {
+			t.Fatal("build the bounded-delegation extension before running its qualification")
+		}
+		dockerArgs = append(dockerArgs, "--volume", path+":/opt/keycloak/providers/bounded-delegation.jar:ro")
+	}
 	if managed {
 		dockerArgs = append(dockerArgs, "--read-only", "--tmpfs", "/tmp:rw,nosuid,nodev",
 			"--tmpfs", "/opt/keycloak/data:rw,uid=1000,gid=1000,mode=0770",

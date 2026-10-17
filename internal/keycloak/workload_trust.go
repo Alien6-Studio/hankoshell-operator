@@ -412,6 +412,13 @@ func (d *DependentClient) UnmarshalJSON(data []byte) error {
 
 func dependentOwnershipAmbiguous(attributes map[string]json.RawMessage, d DependentClient) bool {
 	for key := range attributes {
+		if key == BoundedDelegationActorAttribute && d.OwnerKind == "HankoServiceAccount" {
+			var marker string
+			if json.Unmarshal(attributes[key], &marker) == nil && boundedClientEnvelope(&Application{ID: d.ID,
+				Attributes: map[string]string{BoundedDelegationActorAttribute: marker}}, d.OwnerUID, adoption.ClientOwnerUIDKey) {
+				continue
+			}
+		}
 		if key != adoption.ClientOwnerKindKey && key != adoption.ClientOwnerUIDKey && key != adoption.ReceiptKey && adoption.ReservedAttribute(key) {
 			return true
 		}

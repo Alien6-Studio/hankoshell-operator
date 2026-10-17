@@ -6,7 +6,7 @@ schema hash, declared string/array/typed-map bounds, rendered Role/ClusterRole
 rule and binding on four reviewed chart profiles. It is not stable-contract
 acceptance or an independent security audit.
 
-The inventory contains **962 declared fields/collections across 17 schemas**.
+The inventory contains **966 declared fields/collections across 17 schemas**.
 **348 lack an explicit maximum length/cardinality** (finite string enums count as
 bounded). A regex, runtime validator, HTTP byte budget or Kubernetes metadata
 limit may impose an independent bound; these gaps are not automatically
@@ -122,3 +122,13 @@ tests. The command never updates the baseline implicitly or changes cluster RBAC
 The full public CRD/least-privilege acceptance and stable conversion matrix
 remain open; see the [security workstream](qualification/security/README.md) and
 [22-issue execution map](development-backlog.md).
+
+## Observed delegation status (2026-10-17)
+
+The optional explanation origin adds four bounded identity kind/reference strings
+and the finite `delegated` relationship. Bounds reuse the existing typed depth/TTL
+contract. This raises the inventoried string/collection count from 962 to 966;
+348 remain without an explicit maximum. Chart RBAC and served/storage versions
+are unchanged. The frozen unpublished ResourceServer schema and Go development
+contract are updated in this batch; regenerate clients/CRDs before enabling it.
+The extension/profile remains experimental and is not stable-contract acceptance.

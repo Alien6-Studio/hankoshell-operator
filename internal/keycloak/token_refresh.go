@@ -10,14 +10,15 @@ import (
 // Guarded views share the credential cache and budget. Constructing a new view
 // must not bypass cooldowns or multiply token refreshes for the same connection.
 type clientSession struct {
-	mu           sync.Mutex
-	token        string
-	tokenExpiry  time.Time
-	tokenFlight  *tokenRefresh
-	tokenEpoch   uint64
-	tokenRetryAt time.Time
-	tokenError   error
-	requests     requestBudget
+	mu                    sync.Mutex
+	token                 string
+	tokenExpiry           time.Time
+	tokenFlight           *tokenRefresh
+	tokenEpoch            uint64
+	tokenRetryAt          time.Time
+	tokenError            error
+	requests              requestBudget
+	delegationTransaction chan struct{}
 }
 
 type tokenRefresh struct {

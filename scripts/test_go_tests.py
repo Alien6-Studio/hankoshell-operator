@@ -48,6 +48,22 @@ class GoTestGateTests(unittest.TestCase):
             with patch.object(runner.subprocess, "check_output", return_value=output), self.assertRaises(ValueError):
                 runner.test_inventory(False)
 
+    def test_extension_inventory_is_separate_and_missing_cases_fail(self):
+        ordinary = {"TestNative", "TestOrdinary"}
+        with patch.object(runner, "test_inventory", side_effect=[ordinary | set(runner.EXTENSION_ROOTS), ordinary]):
+            self.assertEqual(runner.extension_selection(), list(runner.EXTENSION_ROOTS))
+        for extra in (set(), set(runner.EXTENSION_ROOTS) | {"TestUnassigned"}):
+            with patch.object(runner, "test_inventory", side_effect=[ordinary | extra, ordinary]), self.assertRaises(ValueError):
+                runner.extension_selection()
+
+    def test_extension_skip_cannot_be_published_as_success(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory)
+            self.junit(output / "junit.xml", '<testcase classname="pkg" name="TestExtension"><skipped/></testcase>')
+            with patch.dict(os.environ, GITHUB_STEP_SUMMARY=""):
+                runner.write_summary(output,"keycloak-extension",0,["TestExtension"],require_all_pass=True)
+            self.assertEqual(json.loads((output / "results.json").read_text())["returncode"],1)
+
     def junit(self, path, cases, errors=0):
         path.write_text(f'<testsuites><testsuite name="pkg" errors="{errors}">{cases}</testsuite></testsuites>')
 
@@ -239,7 +255,7 @@ class GoTestGateTests(unittest.TestCase):
         self.assertEqual(set(keycloak["strategy"]["matrix"]["shard"]), set(runner.SHARDS))
         self.assertEqual(keycloak["strategy"]["matrix"]["version"], runner.versions.get("keycloak", "versions"))
         self.assertFalse(keycloak["strategy"]["fail-fast"])
-        for name in ("source", "kubernetes", "keycloak", "keycloak-ordinary"):
+        for name in ("source", "kubernetes", "keycloak", "keycloak-ordinary", "keycloak-extension"):
             job = ci[name]
             self.assertFalse(job.get("continue-on-error", False))
             upload = next(step for step in job["steps"] if step.get("name") == "Preserve Go test outcomes")
@@ -251,6 +267,7 @@ class GoTestGateTests(unittest.TestCase):
         commands = "\n".join(step.get("run", "") for step in keycloak["steps"])
         self.assertIn("KEYCLOAK_SHARD=${{ matrix.shard }}", commands)
         self.assertNotIn("--rerun-fails", commands)
+        self.assertEqual(ci["keycloak-extension"]["strategy"]["matrix"]["version"], runner.versions.get("keycloak", "versions"))
         manifest = json.loads((runner.ROOT / "scripts/keycloak-shards.json").read_text())
         self.assertEqual(set(manifest), set(runner.SHARDS))
 

@@ -306,7 +306,7 @@ func ReservedAttribute(key string) bool {
 	if sensitiveMetadata(k) {
 		return true
 	}
-	if strings.HasPrefix(k, "saml") || strings.HasPrefix(k, "hanko.") || strings.HasPrefix(k, "hanko.sh/") {
+	if strings.HasPrefix(k, "saml") || strings.HasPrefix(k, "hanko.") || strings.HasPrefix(k, "hanko.sh/") || strings.HasPrefix(k, "oauth.bounded-delegation.") {
 		return true
 	}
 	return slices.Contains([]string{"protocol", "login_theme", "post.logout.redirect.uris", "password", "client_secret", "client-secret", "access_token", "bearer-token", "private_key", "private-key", "credential"}, k)

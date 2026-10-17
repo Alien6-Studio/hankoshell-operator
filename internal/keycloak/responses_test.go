@@ -86,6 +86,13 @@ func TestAllKeycloakOperationsBoundNetworkReadsAndCloseBodies(t *testing.T) {
 					if strings.HasSuffix(operation.Capability, "cleanup-members") {
 						request.URL.RawQuery = "first=0&max=1"
 					}
+					if operation.Capability == "bounded-delegation" {
+						request = request.WithContext(context.WithValue(request.Context(), boundedDelegationReadKey{},
+							boundedDelegationRead{realm: "fixture", clientID: "fixture", userID: "fixture"}))
+						if strings.HasSuffix(operation.Path, "/groups") {
+							request.URL.RawQuery = "first=0&max=129&briefRepresentation=true"
+						}
+					}
 					response, err := c.do(request)
 					if response != nil || !errors.Is(err, ErrResponseTooLarge) {
 						t.Fatalf("HTTP %d accepted an oversized response: %v", status, err)

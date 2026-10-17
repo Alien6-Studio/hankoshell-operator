@@ -77,6 +77,11 @@ func validateDelegationReferences(ctx context.Context, reader client.Reader, obj
 		return err
 	}
 	for _, permission := range obj.Spec.Permissions {
+		for _, principal := range permission.Principals {
+			if err := validateDelegationGrantReference(ctx, reader, obj, &realm, principal); err != nil {
+				return err
+			}
+		}
 		if permission.Delegation == nil {
 			continue
 		}
@@ -91,6 +96,38 @@ func validateDelegationReferences(ctx context.Context, reader client.Reader, obj
 		if actor == subject {
 			return errors.New("delegation references resolve to the same provider identity")
 		}
+	}
+	return nil
+}
+
+func validateDelegationGrantReference(ctx context.Context, reader client.Reader, obj *api.HankoResourceServer, realm *api.HankoRealm, principal api.AuthorizationPrincipal) error {
+	key := client.ObjectKey{Namespace: obj.Namespace, Name: principal.Ref}
+	var reference client.Object
+	var realmRef string
+	switch principal.Kind {
+	case "application", "service_account":
+		_, err := readDelegationIdentity(ctx, reader, obj, api.AuthorizationDelegationIdentity{Kind: principal.Kind, Ref: principal.Ref})
+		return err
+	case "realm_role":
+		if slices.ContainsFunc(realm.Spec.Roles, func(role api.RealmRole) bool { return role.Name == principal.Ref }) {
+			return nil
+		}
+		role := &api.HankoRole{}
+		if err := reader.Get(ctx, key, role); err != nil {
+			return err
+		}
+		reference, realmRef = role, role.Spec.RealmRef
+	case "organization":
+		organization := &api.HankoOrganization{}
+		if err := reader.Get(ctx, key, organization); err != nil {
+			return err
+		}
+		reference, realmRef = organization, organization.Spec.RealmRef
+	default:
+		return errors.New("unsupported delegation grant principal")
+	}
+	if !delegationReferenceCurrent(obj, reference) || realmRef != obj.Spec.RealmRef {
+		return errors.New("delegation grant reference is stale or outside the realm/tenant")
 	}
 	return nil
 }

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.alien6.keycloak</groupId>
+  <artifactId>bounded-delegation</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <name>Bounded OAuth token exchange</name>
+  <description>Opt-in bounds for RFC 8693 token exchange, independent of the Hanko API.</description>
+  <licenses><license><name>Apache License, Version 2.0</name><url>https://www.apache.org/licenses/LICENSE-2.0</url></license></licenses>
+  <properties>
+    <maven.compiler.release>21</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.build.outputTimestamp>2026-10-17T00:00:00Z</project.build.outputTimestamp>
+    <keycloak.version>26.7.5</keycloak.version>
+  </properties>
+  <dependencies>
+    <dependency><groupId>org.keycloak</groupId><artifactId>keycloak-services</artifactId><version>${keycloak.version}</version><scope>provided</scope></dependency>
+    <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>5.12.2</version><scope>test</scope></dependency>
+  </dependencies>
+  <build>
+    <directory>target/${keycloak.version}</directory>
+    <finalName>bounded-delegation-keycloak-${keycloak.version}</finalName>
+    <plugins>
+      <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-resources-plugin</artifactId><version>3.4.0</version></plugin>
+      <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.14.0</version></plugin>
+      <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.5.3</version></plugin>
+      <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-jar-plugin</artifactId><version>3.4.2</version></plugin>
+    </plugins>
+  </build>
+</project>

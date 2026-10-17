@@ -30,6 +30,13 @@ func (DelegationError) Unwrap() error { return ErrCapabilityUnsupported }
 
 func DelegationUnsupported() error { return DelegationError{} }
 
+type DelegationRejection struct{ Findings []Finding }
+
+func (DelegationRejection) Error() string {
+	return "delegated authority exceeds the current intersection"
+}
+func (DelegationRejection) Unwrap() error { return ErrCapabilityUnsupported }
+
 // HasDelegation also protects conversion, adoption and cleanup entry points:
 // silently dropping this field would turn a constrained grant into an ordinary one.
 func HasDelegation(model Model) bool {

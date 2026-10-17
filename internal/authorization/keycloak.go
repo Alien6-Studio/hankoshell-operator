@@ -11,19 +11,34 @@ import (
 
 // KeycloakDriver adapts Keycloak Authorization Services to the neutral Driver.
 type KeycloakDriver struct {
-	client *keycloak.Client
+	client            *keycloak.Client
+	boundedDelegation bool
+}
+
+// NewKeycloakDelegationDriver discovers only the explicitly deployed, reviewed
+// software extension. Ordinary drivers retain their stock-provider behavior.
+func NewKeycloakDelegationDriver(client *keycloak.Client) *KeycloakDriver {
+	return &KeycloakDriver{client: client, boundedDelegation: true}
 }
 
 func NewKeycloakDriver(client *keycloak.Client) *KeycloakDriver {
 	return &KeycloakDriver{client: client}
 }
 
-func (*KeycloakDriver) Capabilities(context.Context, string) (Capabilities, error) {
-	return Capabilities{
+func (d *KeycloakDriver) Capabilities(ctx context.Context, realm string) (Capabilities, error) {
+	capabilities := Capabilities{
 		ScopeGrants: true, RolePrincipals: true, ApplicationPrincipals: true,
 		ServiceAccountPrincipals: true, ResourceObjects: true, OrganizationPrincipals: true, OrganizationDescendants: true,
 		ResourceURIMatching: true, UMARPT: true, NativePermissionClaim: true,
-	}, nil
+	}
+	if d.boundedDelegation && d.client != nil {
+		_, err := d.client.BoundedDelegationCapability(ctx, realm)
+		if err != nil && !errors.Is(err, keycloak.ErrBoundedDelegationUnsupported) {
+			return capabilities, iamcontract.SafeError(err)
+		}
+		capabilities.BoundedDelegation = err == nil
+	}
+	return capabilities, nil
 }
 
 func (d *KeycloakDriver) Observe(ctx context.Context, plan Plan) (State, error) {
@@ -31,6 +46,9 @@ func (d *KeycloakDriver) Observe(ctx context.Context, plan Plan) (State, error) 
 		return State{}, err
 	}
 	model := plan.resolved.model
+	if HasDelegation(model) && d.boundedDelegation {
+		return d.observeBoundedDelegation(ctx, plan)
+	}
 	native, err := modelForPlan(plan)
 	if err != nil {
 		return State{}, err
@@ -73,6 +91,9 @@ func (d *KeycloakDriver) Reconcile(ctx context.Context, plan Plan, owned Managed
 	if err := ValidateCapabilities(model, capabilities); err != nil {
 		return State{}, errors.Join(ErrCapabilityUnsupported, iamcontract.SafeError(err))
 	}
+	if HasDelegation(model) && d.boundedDelegation {
+		return d.reconcileBoundedDelegation(ctx, plan, owned)
+	}
 	native, err := modelForPlan(plan)
 	if err != nil {
 		return State{}, err
@@ -100,7 +121,11 @@ func (d *KeycloakDriver) DeleteOwned(ctx context.Context, model Model, owned Man
 	if ownerUID == "" {
 		return iamcontract.ErrRejected
 	}
-	native, err := toKeycloakModel(model)
+	base := model
+	if HasDelegation(model) && d.boundedDelegation {
+		base = ordinaryDelegationModel(model)
+	}
+	native, err := toKeycloakModel(base)
 	if err != nil {
 		return err
 	}

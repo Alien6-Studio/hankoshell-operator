@@ -85,8 +85,9 @@ class FuzzGateTests(unittest.TestCase):
                 with patch("sys.argv", ["security-fuzz.py", "--seconds", "1", "--output", directory]), \
                      patch.object(gate, "source_identity", side_effect=[identity, later]), \
                      patch.object(gate, "target_inventory", return_value=[("internal/fixture", "FuzzFixture")]), \
-                     patch.object(gate, "run_target", side_effect=runner), patch.object(gate, "preserve_corpus"):
+                     patch.object(gate, "run_target", side_effect=runner), patch.object(gate, "prepare_package") as build, patch.object(gate, "preserve_corpus"):
                     self.assertEqual(gate.main(), 0 if passed and not changed else 1)
+                    build.assert_called_once_with("internal/fixture", "FuzzFixture", Path(directory).resolve())
                 report = json.loads((Path(directory) / "results.json").read_text())
                 self.assertEqual(report["complete"], passed and not changed)
                 self.assertEqual(report["source_changed"], changed)
@@ -101,6 +102,19 @@ class FuzzGateTests(unittest.TestCase):
             report = json.loads((Path(directory) / "results.json").read_text())
             self.assertFalse(report["complete"])
             self.assertIn("TimeoutExpired", report["error"])
+
+    def test_instrumentation_build_failure_does_not_run_or_pass_a_campaign(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             patch("sys.argv", ["security-fuzz.py", "--output", directory]), \
+             patch.object(gate, "source_identity", return_value={}), \
+             patch.object(gate, "target_inventory", return_value=[("internal/fixture", "FuzzFixture")]), \
+             patch.object(gate, "prepare_package", side_effect=ValueError("cold build failed")), \
+             patch.object(gate, "run_target") as campaign, patch.object(gate, "preserve_corpus"):
+            self.assertEqual(gate.main(), 1)
+            campaign.assert_not_called()
+            report=json.loads((Path(directory)/"results.json").read_text())
+            self.assertFalse(report["complete"])
+            self.assertEqual(report["targets"],[])
 
 
 if __name__ == "__main__":

@@ -6915,6 +6915,42 @@
           "missing_explicit_bound": false,
           "type": "string"
         },
+        "status.authorizationExplanation.paths[].delegation.actor.kind": {
+          "limits": {
+            "enum": [
+              "application",
+              "service_account"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.authorizationExplanation.paths[].delegation.actor.ref": {
+          "limits": {
+            "maxLength": 253,
+            "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.authorizationExplanation.paths[].delegation.subject.kind": {
+          "limits": {
+            "enum": [
+              "application",
+              "service_account"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.authorizationExplanation.paths[].delegation.subject.ref": {
+          "limits": {
+            "maxLength": 253,
+            "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
         "status.authorizationExplanation.paths[].organizationRef": {
           "limits": {
             "maxLength": 255
@@ -6938,7 +6974,8 @@
               "generic",
               "mapped_role",
               "mapped_composite_role",
-              "mapped_client_role"
+              "mapped_client_role",
+              "delegated"
             ]
           },
           "missing_explicit_bound": false,
@@ -7301,7 +7338,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "3c9fb60fa88558562f2dadd7be133a7248ffbaa52d4e160f703f4d8a9cb5f907"
+      "schema_sha256": "5f7f83ef11130172c9cd0b85f111d607028601e4fb198f2c2a3ad9d3a6ae3eda"
     },
     "HankoRole/v1alpha1": {
       "nodes": {

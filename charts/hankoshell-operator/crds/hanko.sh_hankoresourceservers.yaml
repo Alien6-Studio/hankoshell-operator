@@ -639,6 +639,70 @@ spec:
                             type: string
                           maxItems: 33
                           type: array
+                        delegation:
+                          description: |-
+                            Delegation is projected only after current native grant read-back. It
+                            contains namespace-local references and bounds, never token subjects.
+                          properties:
+                            actor:
+                              description: Actor is the software identity acting on
+                                behalf of Subject.
+                              properties:
+                                kind:
+                                  enum:
+                                  - application
+                                  - service_account
+                                  type: string
+                                ref:
+                                  maxLength: 253
+                                  pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
+                                  type: string
+                              required:
+                              - kind
+                              - ref
+                              type: object
+                            maxDepth:
+                              default: 1
+                              description: MaxDepth bounds the complete delegation
+                                chain, including this actor.
+                              format: int32
+                              maximum: 4
+                              minimum: 1
+                              type: integer
+                            maxTTLSeconds:
+                              default: 120
+                              description: MaxTTLSeconds also remains bounded by both
+                                input token expirations.
+                              format: int32
+                              maximum: 600
+                              minimum: 1
+                              type: integer
+                            subject:
+                              description: Subject is the software identity whose
+                                authority is delegated.
+                              properties:
+                                kind:
+                                  enum:
+                                  - application
+                                  - service_account
+                                  type: string
+                                ref:
+                                  maxLength: 253
+                                  pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
+                                  type: string
+                              required:
+                              - kind
+                              - ref
+                              type: object
+                          required:
+                          - actor
+                          - subject
+                          type: object
+                          x-kubernetes-validations:
+                          - message: delegation actor and subject must be different
+                              identities
+                            rule: self.actor.kind != self.subject.kind || self.actor.ref
+                              != self.subject.ref
                         organizationRef:
                           maxLength: 255
                           type: string
@@ -654,6 +718,7 @@ spec:
                           - mapped_role
                           - mapped_composite_role
                           - mapped_client_role
+                          - delegated
                           type: string
                         resource:
                           maxLength: 255

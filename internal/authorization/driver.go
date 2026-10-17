@@ -34,14 +34,30 @@ type Capabilities struct {
 
 // Model is the portable desired state passed to a provider driver.
 type Model struct {
-	Name           string
-	Realm          string
-	Audience       string
-	DisplayName    string
-	ApplicationRef string
-	Scopes         []Scope
-	Resources      []Resource
-	Permissions    []Permission
+	Name              string
+	Realm             string
+	Audience          string
+	DisplayName       string
+	ApplicationRef    string
+	Scopes            []Scope
+	Resources         []Resource
+	Permissions       []Permission
+	DelegationContext *ResolvedDelegationContext `json:",omitempty"`
+}
+
+// ResolvedDelegationContext is private execution evidence. Normalization removes
+// it from portable intent; executable plan identity binds its current proof.
+type ResolvedDelegationContext struct {
+	AudienceUID string
+	Runtime     iamcontract.Digest `json:",omitempty"`
+}
+
+type DelegationPlanner interface {
+	PrepareDelegation(context.Context, Model, string) (Model, error)
+}
+
+type DelegationMutationGuard interface {
+	WithDelegationMutationGuard(func(context.Context) error) Driver
 }
 
 type Scope struct {
@@ -72,6 +88,7 @@ type Principal struct {
 	IncludeDescendants bool   `json:",omitempty"`
 	// Organization is private execution evidence; Normalize removes it from intent.
 	Organization *ResolvedOrganizationPrincipal `json:",omitempty"`
+	SoftwareUID  string                         `json:",omitempty"`
 }
 
 // ResolvedOrganizationPrincipal keeps verified execution groups separate from

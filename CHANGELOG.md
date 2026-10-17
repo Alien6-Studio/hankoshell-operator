@@ -3,6 +3,23 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Experimental bounded software delegation (#69, #70)
+
+- Add a standalone, version-matched Keycloak SPI extension with an independent
+  Java policy kernel and explicit per-realm activation. Bound delegated UMA
+  permissions by both inputs and live native policy, audience, inherited depth
+  and minimum expiration; consume actor inputs atomically and refuse bypasses.
+- Resolve existing local software references and current UID/tenant/role/group
+  evidence into sealed plans. Journal owned grants through four native phases,
+  recover lost acknowledgements, preserve shared actors and revoke only owned
+  delegation. Keep stock-provider and adoption refusal explicit.
+- Add observed delegation origin/bounds to alpha explanation status. This is an
+  additive development schema/Go fixture change with no storage-version change;
+  installed/multi-node qualification and stable API graduation remain separate.
+- Build/test both supported SDKs and require a separate real-HTTPS token gate
+  in CI. Prepare a generic upstream discussion locally; nothing is submitted to
+  Keycloak by this batch.
+
 ### Admission bounds and RBAC review (#99, #94, #103)
 
 - Bound Kubernetes realm/application references at admission, with real-API
@@ -16,6 +33,9 @@
 
 ### Security parser qualification (#99)
 
+- Give cold fuzz-instrumentation builds a separate bounded phase before each
+  package's campaign. Retain campaign duration, workers, memory/output limits,
+  completeness checks and source identity; report build failures separately.
 - Add twenty Go fuzz targets with positive and hostile seeds for discovery,
   SAML metadata, fleet envelopes/signed payloads/trust, ownership and transaction
   journals, approvals, Hub responses, image references and publisher policies.

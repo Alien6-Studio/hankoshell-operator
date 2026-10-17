@@ -253,6 +253,9 @@ func ServiceAccountOwned(a *Application, uid string) bool {
 		return false
 	}
 	for key := range a.Attributes {
+		if key == BoundedDelegationActorAttribute && boundedClientEnvelope(a, uid, adoption.ClientOwnerUIDKey) {
+			continue
+		}
 		if adoption.ReservedAttribute(key) && key != adoption.ClientOwnerKindKey && key != adoption.ClientOwnerUIDKey && key != adoption.ReceiptKey {
 			return false
 		}
@@ -266,6 +269,9 @@ func ApplicationOwned(a *Application, uid string) bool {
 		return false
 	}
 	for key := range a.Attributes {
+		if (key == BoundedDelegationAttribute || key == BoundedDelegationActorAttribute) && boundedClientEnvelope(a, uid, adoption.ApplicationOwnerKey) {
+			continue
+		}
 		if adoption.ReservedAttribute(key) && key != adoption.ApplicationOwnerKey && key != adoption.ReceiptKey && key != authorizationOwnerAttribute {
 			return false
 		}

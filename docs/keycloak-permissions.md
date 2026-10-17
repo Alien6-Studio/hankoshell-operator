@@ -590,6 +590,9 @@ using the dedicated client's credentials.
 | authorization | GET,PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/scope/{object}` | view-authorization / manage-authorization or manage-clients |
 | authorization-native-dependencies | GET | `/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/resource` | view-authorization or manage-authorization or manage-clients |
 | authorization | DELETE | `/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/{object}` | manage-authorization or manage-clients |
+| bounded-delegation | GET | `/admin/realms/{realm}/clients/{client}/service-account-user` | view-clients and view-users; UID-verified software client only |
+| bounded-delegation | GET | `/admin/realms/{realm}/users/{user}/role-mappings/realm/composite` | view-users; verified software service-account ID only |
+| bounded-delegation | GET | `/admin/realms/{realm}/users/{user}/groups` | view-users; verified software service-account ID only, max=129 |
 <!-- admin-operation-contract:end -->
 
 

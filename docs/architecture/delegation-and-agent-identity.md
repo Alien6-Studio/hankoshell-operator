@@ -6,9 +6,45 @@ operator, provider and trust boundaries.
 This is the provider characterization and authority contract for
 [RFC #68](https://github.com/Alien6-Studio/hankoshell-operator/issues/68).
 The first implementation of #69 accepts typed intent and refuses unqualified
-execution. **Neither supported Keycloak version currently qualifies bounded
-delegated authority.** Successful OAuth token exchange alone must not enable that
-capability.
+execution on stock Keycloak. **Neither supported stock Keycloak version qualifies
+bounded delegated authority.** An explicitly installed experimental
+[software delegation extension](../../extensions/keycloak-bounded-delegation/README.md)
+and selected realm profile provide a separate enforcement path for #69/#70.
+Successful ordinary OAuth token exchange alone never enables that capability.
+
+## Dedicated extension profile
+
+The extension was explicitly authorized on 2026-10-17. Its generic Java kernel
+is independent of Kubernetes; the operator adapter separately resolves local
+actor/subject/audience references, verifies UID/tenant ownership and seals current
+realm, effective memberships and composite closures into execution identity.
+Only the exact advertised profile on the two reviewed SDKs is accepted.
+
+Delegated permissions must be contained in ordinary declared grants to **both**
+software identities. Excess findings identify the permission/resource/scope.
+The bridge issues only attenuated UMA resource/scope permissions: ambient OAuth
+scopes, realm/client roles and mapper claims are removed. Realm roles (including
+effective composites), software clients and resolved organization groups can
+constrain these grants. Unsupported authority dimensions are never unioned in.
+
+Native non-secret metadata journals Prepared/Applied/Verified/Committed, gates
+issuance until commit and survives restart/lost write acknowledgements. Actor
+markers are reference counted across owned resource servers. Cleanup disables
+issuance first, preserves foreign state and restores the previous exchange
+setting after the last owner. Observe/import stay read-only; adoption refuses
+delegation. No manage-realm/manage-users is added to the delegation writer.
+
+`make keycloak-extension-test KEYCLOAK_VERSION=VERSION` builds Java and runs its
+separate mandatory real-HTTPS profile gate. Stock characterization below remains
+unchanged. The controller fixture uses a fake Kubernetes client with a real
+provider; it does not replace #71's installed Kubernetes/cluster qualification.
+Public status adds observed portable delegation origin and bounds, not token
+subjects or native user IDs. This additive unpublished-alpha schema change is
+recorded in [the development contract notice](../go-api-contract.md).
+
+See the [local upstream discussion draft](keycloak-bounded-delegation-upstream.md)
+for the optional generic policy proposal. No upstream discussion or PR has been
+submitted, and no upstream acceptance or maintenance commitment is assumed.
 
 ## Existing identity model
 
@@ -130,7 +166,7 @@ another human using `requested_subject`. Unsupported provider versions, features
 or any unproven invariant require `ErrCapabilityUnsupported`, not a best-effort
 exchange or a switch to deprecated legacy exchange.
 
-The current evidence supplies counterexamples to intersection, replay, depth,
+The stock-provider evidence supplies counterexamples to intersection, replay, depth,
 expiry and revocation assumptions. It therefore does **not** authorize a production
 delegation capability on either supported version. No custom token broker or
 proprietary claims are proposed to conceal these gaps.

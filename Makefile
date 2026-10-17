@@ -27,6 +27,7 @@ KEYCLOAK_VERSION ?= $(shell python3 scripts/versions.py get keycloak default)
 RELEASE_VERSION := $(shell python3 scripts/versions.py get release version)
 
 .DEFAULT_GOAL := all
+.PHONY: keycloak-extension-build keycloak-extension-test
 
 .PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-test integration-test keycloak-integration-test keycloak-stability-test authentik-integration-test security-mutations security-fuzz licenses lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test fleet-installed-test portable-installed-test scale-installed-test
 versions-sync:
@@ -88,6 +89,11 @@ integration-test: $(GOTESTSUM)
 keycloak-integration-test: $(GOTESTSUM)
 	KEYCLOAK_VERSION=$(KEYCLOAK_VERSION) python3 scripts/go-tests.py keycloak --shard "$(KEYCLOAK_SHARD)" \
 		--gotestsum "$(GOTESTSUM)" --output "$(TEST_REPORT_DIR)/keycloak-$(KEYCLOAK_VERSION)-$(KEYCLOAK_SHARD)"
+keycloak-extension-build:
+	KEYCLOAK_VERSION=$(KEYCLOAK_VERSION) python3 scripts/keycloak-extension.py
+keycloak-extension-test: keycloak-extension-build $(GOTESTSUM)
+	KEYCLOAK_VERSION=$(KEYCLOAK_VERSION) KEYCLOAK_EXTENSION_JAR="$(CURDIR)/extensions/keycloak-bounded-delegation/target/$(KEYCLOAK_VERSION)/bounded-delegation-keycloak-$(KEYCLOAK_VERSION).jar" \
+		python3 scripts/go-tests.py keycloak-extension --gotestsum "$(GOTESTSUM)" --output "$(TEST_REPORT_DIR)/keycloak-extension-$(KEYCLOAK_VERSION)"
 keycloak-stability-test: $(GOTESTSUM)
 	KEYCLOAK_VERSION=26.7.5 python3 scripts/keycloak-stability.py --root "$(KEYCLOAK_STABILITY_ROOT)" \
 		--gotestsum "$(GOTESTSUM)" --output "$(KEYCLOAK_STABILITY_OUTPUT)"

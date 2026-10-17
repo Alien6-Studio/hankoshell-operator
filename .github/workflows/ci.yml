@@ -319,6 +319,48 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
+  keycloak-extension:
+    name: Bounded delegation extension KC ${{ matrix.version }}
+    needs: [preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ["26.8.0", "26.7.5"] # versions:keycloak
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Build the matching SPI and qualify native delegated tokens
+        run: make keycloak-extension-test KEYCLOAK_VERSION=${{ matrix.version }}
+      - name: Preserve Go test outcomes
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: go-tests-keycloak-extension-${{ matrix.version }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .tools/test-results/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve Java test and artifact identity
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: keycloak-extension-java-${{ matrix.version }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            extensions/keycloak-bounded-delegation/target/${{ matrix.version }}/build.json
+            extensions/keycloak-bounded-delegation/target/${{ matrix.version }}/surefire-reports/
+          if-no-files-found: error
+          retention-days: 30
   keycloak-static:
     name: Keycloak tagged vet and lint
     needs: [preflight]
@@ -334,8 +376,8 @@ jobs:
           cache: true
       - name: Vet and lint every Keycloak-tagged package
         run: |
-          go vet -tags=keycloak_integration ./...
-          make lint LINT_BUILD_TAGS=keycloak_integration
+          go vet -tags=keycloak_integration,keycloak_extension_integration ./...
+          make lint LINT_BUILD_TAGS=keycloak_integration,keycloak_extension_integration
   workload:
     name: Workload identity KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
     needs: [preflight]
@@ -729,7 +771,7 @@ jobs:
     name: Source and chart checks
     # Pull requests run the full qualification matrix (ADR-048); this required
     # gate must keep representing every qualification job before merge.
-    needs: [preflight, source, kubernetes, keycloak, keycloak-ordinary, keycloak-static, workload, security-fuzz, security-mutations, oci, rehearsal, system, installed-workload, installed-portable, installed-fleet, installed-scale-qualification]
+    needs: [preflight, source, kubernetes, keycloak, keycloak-ordinary, keycloak-extension, keycloak-static, workload, security-fuzz, security-mutations, oci, rehearsal, system, installed-workload, installed-portable, installed-fleet, installed-scale-qualification]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -740,6 +782,7 @@ jobs:
           KUBERNETES_RESULT: ${{ needs.kubernetes.result }}
           KEYCLOAK_RESULT: ${{ needs.keycloak.result }}
           KEYCLOAK_ORDINARY_RESULT: ${{ needs.keycloak-ordinary.result }}
+          KEYCLOAK_EXTENSION_RESULT: ${{ needs.keycloak-extension.result }}
           KEYCLOAK_STATIC_RESULT: ${{ needs.keycloak-static.result }}
           WORKLOAD_RESULT: ${{ needs.workload.result }}
           FUZZ_RESULT: ${{ needs.security-fuzz.result }}
@@ -753,7 +796,7 @@ jobs:
           INSTALLED_SCALE_RESULT: ${{ needs.installed-scale-qualification.result }}
           QUALIFY_SCALE: ${{ github.event_name == 'workflow_dispatch' && inputs.qualify_scale == true }}
         run: |
-          test "$PREFLIGHT_RESULT" = success && test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$KEYCLOAK_ORDINARY_RESULT" = success && test "$KEYCLOAK_STATIC_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$FUZZ_RESULT" = success && test "$MUTATIONS_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success && test "$INSTALLED_PORTABLE_RESULT" = success && test "$INSTALLED_FLEET_RESULT" = success || exit 1
+          test "$PREFLIGHT_RESULT" = success && test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$KEYCLOAK_ORDINARY_RESULT" = success && test "$KEYCLOAK_EXTENSION_RESULT" = success && test "$KEYCLOAK_STATIC_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$FUZZ_RESULT" = success && test "$MUTATIONS_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success && test "$INSTALLED_PORTABLE_RESULT" = success && test "$INSTALLED_FLEET_RESULT" = success || exit 1
           if test "$QUALIFY_SCALE" = true; then
             test "$INSTALLED_SCALE_RESULT" = success
           else
@@ -761,7 +804,7 @@ jobs:
           fi
   schedule-report:
     name: Scheduled qualification tracking issue
-    needs: [preflight, source, kubernetes, keycloak, keycloak-ordinary, keycloak-static, workload, security-fuzz, security-mutations, oci, rehearsal, system, installed-workload, installed-portable, installed-fleet, installed-scale-qualification, checks]
+    needs: [preflight, source, kubernetes, keycloak, keycloak-ordinary, keycloak-extension, keycloak-static, workload, security-fuzz, security-mutations, oci, rehearsal, system, installed-workload, installed-portable, installed-fleet, installed-scale-qualification, checks]
     if: always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.schedule_report_test == true))
     permissions:
       contents: read

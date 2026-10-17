@@ -90,6 +90,17 @@ def run_target(args, output, seconds):
             process.wait()
 
 
+def prepare_package(package, name, output):
+    # Instrumentation can compile the Kubernetes dependency graph on a cold CI
+    # runner. Give that build a separate finite budget, preserving campaign limits.
+    with tempfile.TemporaryDirectory(prefix="hanko-fuzz-build-") as directory:
+        binary = Path(directory) / "fuzz.test"
+        args = ["go", "test", "-c", "-fuzz=^" + name + "$", "-o", str(binary), "./" + package]
+        code = run_target(args, output / (package.replace("/", "-") + "-build.log"), 240)
+        if code or not binary.is_file() or not binary.stat().st_size:
+            raise ValueError("Fuzz instrumentation build failed: " + package)
+
+
 def outcome(code, data, package, name):
     rows = [json.loads(line) for line in data.splitlines() if line.strip()]
     tests = [r for r in rows if r.get("Test") == name and r.get("Package") == MODULE + package]
@@ -121,7 +132,7 @@ def main():
         parser.error("--seconds must be between 1 and 300 per target")
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    report = {"schema": 1, "complete": False, "seconds_per_target": args.seconds,
+    report = {"schema": 1, "complete": False, "phase": "inventory", "seconds_per_target": args.seconds,
               "workers": 2, "memory_target": "256MiB (soft)", "targets": []}
     targets = []
     started = time.monotonic()
@@ -130,7 +141,16 @@ def main():
         report["source"] = source
         targets = target_inventory()
         report["expected_targets"] = len(targets)
+        prepared = set()
+        report["builds"] = []
         for package, name in targets:
+            if package not in prepared:
+                report["phase"] = "instrumentation"
+                began = time.monotonic()
+                prepare_package(package, name, output)
+                report["builds"].append({"package": package, "seconds": round(time.monotonic() - began, 3)})
+                prepared.add(package)
+            report["phase"] = "fuzz"
             began = time.monotonic()
             log = output / (name + ".jsonl")
             code = run_target(command(package, name, args.seconds), log, args.seconds)
@@ -140,6 +160,7 @@ def main():
             print(name + ": " + ("PASS" if result["passed"] else "FAIL"), flush=True)
         report["source_changed"] = source_identity() != source
         report["complete"] = not report["source_changed"] and all(r["passed"] for r in report["targets"])
+        report["phase"] = "complete"
     except (ValueError, OSError, subprocess.SubprocessError) as error:
         report["error"] = type(error).__name__ + ": " + str(error)
     finally:

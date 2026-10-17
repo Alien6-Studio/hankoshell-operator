@@ -3,7 +3,7 @@
 `docs/go-api-contract.json` selects seven exact local packages used by the public
 contract fixtures. `scripts/api-surface` reads compiler export data using the pinned
 Go toolchain. It does not run package initializers. The reviewed development
-snapshot in `docs/contracts/go-api-development.json` contains 1,571 exports,
+snapshot in `docs/contracts/go-api-development.json` contains 1,586 exports,
 including signatures, constant values, named types and aliases, fields/JSON tags,
 interface requirements, generic constraints and value/pointer/promoted methods.
 Names use full import paths so local import aliases cannot conceal a change.
@@ -54,3 +54,22 @@ pointer/promoted methods, generic constraints and alias identity. Python tests
 exercise removed/changed exports, package expansion, baseline tampering, missing
 public API evidence, storage flips, unreviewed webhooks and missing deprecations.
 No stable maturity, public history or community acceptance is created by these tools.
+
+## Delegation development contract change (2026-10-17)
+
+This unpublished-alpha batch adds optional `delegation` origin/bounds and the
+`delegated` relationship to HankoResourceServer explanation status. Readers that
+exhaustively switch on relationship enums must handle this new value; Go callers
+must use keyed literals when constructing the extended explanation/model types.
+The neutral driver adds optional delegation-planning/guard interfaces and private
+UID/runtime evidence fields. Existing ordinary-driver interfaces, persisted plan
+intent and non-delegation hash goldens remain unchanged. The private execution
+fields are omitted from portable intent but deliberately bind delegated plan
+identity; recompile/reapprove a delegated plan after its runtime evidence changes.
+
+The development Go snapshot/hash, frozen unpublished ResourceServer schema and
+security-surface inventory are explicitly updated together for these reviewed
+additions. Regenerate clients/CRDs before enabling the extension. Older strict
+schemas cannot store the new status origin. No spec default, resource scope,
+storage version, stable API or published compatibility predecessor is added.
+Existing stable/conversion/public-corpus and future publication gates still apply.

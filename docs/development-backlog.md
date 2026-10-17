@@ -24,9 +24,12 @@ of #94/#103: parser fuzzing, explicit CRD bound inventory, named-reference
 admission, rendered RBAC review and a reduced leader-lock grant. These do not
 satisfy stable conversion or historical public-release qualification.
 
-Next, develop the delegation implementation and its attenuation/revocation
-checks together (#69/#70), then run #71's installed flows on the actual provider
-capabilities. A refused unsupported intent is not a successful delegation flow.
+The next coherent batch implements delegation and attenuation/revocation together
+(#69/#70), using the explicitly authorized standalone Keycloak extension. Stock
+26.7.5/26.8.0 remain unsupported; only the selected software profile is eligible.
+Build/native matrix evidence and a local upstream discussion draft accompany the
+implementation. #71 still requires installed flows on the actual provider; a fake
+Kubernetes client with real Keycloak does not satisfy it.
 
 Stable versions (#91) follow the resource decision in #89; storage movement and
 rollback (#92) follow the implemented conversion contract. #93/#101/#105 require

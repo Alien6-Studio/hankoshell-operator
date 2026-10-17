@@ -603,7 +603,7 @@
       "kind": "HankoResourceServer",
       "path": "spec.permissions[].delegation",
       "classification": "experimental",
-      "rationale": "Bounded delegation is unsupported on both qualified Keycloak versions; #69\u2013#71 retain implementation/enforcement qualification."
+      "rationale": "Stock Keycloak remains unsupported. The explicitly installed software extension has separate #69/#70 qualification; #71 installed flows and stable graduation remain pending."
     },
     {
       "kind": "HankoResourceServer",

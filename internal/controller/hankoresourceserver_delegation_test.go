@@ -150,8 +150,8 @@ func TestDelegationReferencesAndBoundsAreValidatedLocally(t *testing.T) {
 func TestDelegationPlanBindsUIDsAndWatchesExactReferences(t *testing.T) {
 	obj, objects := delegatedResourceServerObjects()
 	backend := fake.NewClientBuilder().WithScheme(resourceServerScheme(t)).WithObjects(objects...).WithStatusSubresource(&api.HankoResourceServer{}).WithIndex(&api.HankoResourceServer{}, delegationReferenceIndex, delegationIndexValues).Build()
-	driver := &recordingAuthorizationDriver{capabilities: supportedAuthorizationCapabilities()}
-	driver.capabilities.BoundedDelegation = true // Synthetic compiler only; native adapter refuses.
+	driver := &syntheticDelegationPlanDriver{recordingAuthorizationDriver: &recordingAuthorizationDriver{capabilities: supportedAuthorizationCapabilities()}}
+	driver.capabilities.BoundedDelegation = true // Synthetic compiler only; no native execution proof.
 	r := &HankoResourceServerReconciler{Client: backend}
 	plan, err := r.compileAuthorizationPlan(context.Background(), obj, driver, ModeManage)
 	if err != nil {
@@ -196,4 +196,11 @@ func TestDelegationPlanBindsUIDsAndWatchesExactReferences(t *testing.T) {
 	if _, err := readResourceServerAdoption(context.Background(), backend, backend, nil, obj); !errors.Is(err, authorization.ErrCapabilityUnsupported) {
 		t.Fatal("adoption accepted delegation")
 	}
+}
+
+type syntheticDelegationPlanDriver struct{ *recordingAuthorizationDriver }
+
+func (*syntheticDelegationPlanDriver) PrepareDelegation(_ context.Context, model authorization.Model, _ string) (authorization.Model, error) {
+	model.DelegationContext.Runtime = iamcontract.Hash(iamcontract.Version, "test", "synthetic-delegation", []byte("not-provider-evidence"))
+	return model, nil
 }

@@ -157,3 +157,54 @@ func TestKeycloakDelegationCannotBeDroppedByObserveWriteAdoptionOrCleanup(t *tes
 		t.Fatal("unsupported delegation reached provider transport")
 	}
 }
+
+func TestDelegationRuntimeAndUIDsArePrivateButSealExecution(t *testing.T) {
+	model := delegationModel()
+	intent := Normalize(model)
+	compile := func(model Model) Plan {
+		t.Helper()
+		resolved, err := Resolve(intent, model)
+		if err != nil {
+			t.Fatal(err)
+		}
+		caps, _ := NewKeycloakDriver(nil).Capabilities(context.Background(), "")
+		caps.BoundedDelegation = true
+		plan, err := Compile(intent, resolved, KeycloakEvidence(caps), iamcontract.Preconditions{ResourceUID: "resource-owner"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return plan
+	}
+	model.DelegationContext = &ResolvedDelegationContext{AudienceUID: "api-uid", Runtime: iamcontract.Digest("sha256:" + strings.Repeat("a", 64))}
+	model.Permissions[0].Delegation.Actor.SoftwareUID = "actor-uid"
+	model.Permissions[0].Delegation.Subject.SoftwareUID = "subject-uid"
+	before := compile(model)
+	if Normalize(model).Identity() != intent.Identity() {
+		t.Fatal("runtime evidence contaminated portable intent")
+	}
+	for _, change := range []struct {
+		name string
+		edit func(*Model)
+	}{
+		{"audience UID", func(m *Model) { m.DelegationContext.AudienceUID = "replacement-api" }},
+		{"actor UID", func(m *Model) { m.Permissions[0].Delegation.Actor.SoftwareUID = "replacement-actor" }},
+		{"subject UID", func(m *Model) { m.Permissions[0].Delegation.Subject.SoftwareUID = "replacement-subject" }},
+		{"live authority", func(m *Model) { m.DelegationContext.Runtime = iamcontract.Digest("sha256:" + strings.Repeat("b", 64)) }},
+	} {
+		t.Run(change.name, func(t *testing.T) {
+			changed := canonicalModel(model)
+			change.edit(&changed)
+			if Normalize(changed).Identity() != intent.Identity() {
+				t.Fatal("private identity changed portable intent")
+			}
+			after := compile(changed)
+			if after.Identity().Plan == before.Identity().Plan || !errors.Is(before.Validate(after), iamcontract.ErrStale) {
+				t.Fatal("changed execution evidence retained approval authority")
+			}
+		})
+	}
+	model.DelegationContext.AudienceUID = "caller-mutated"
+	if before.resolved.model.DelegationContext.AudienceUID != "api-uid" {
+		t.Fatal("sealed plan aliases caller evidence")
+	}
+}

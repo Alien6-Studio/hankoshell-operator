@@ -141,6 +141,16 @@ func (r *HankoResourceServerReconciler) compileAuthorizationPlan(ctx context.Con
 	if err != nil {
 		return authorization.Plan{}, err
 	}
+	if authorization.HasDelegation(model) {
+		planner, ok := driver.(authorization.DelegationPlanner)
+		if !ok {
+			return authorization.Plan{}, authorization.DelegationUnsupported()
+		}
+		model, err = planner.PrepareDelegation(ctx, model, string(obj.UID))
+		if err != nil {
+			return authorization.Plan{}, err
+		}
+	}
 	intent := authorizationIntent(obj)
 	resolved, err := authorization.Resolve(intent, model)
 	if err != nil {
@@ -255,7 +265,17 @@ func (r *HankoResourceServerReconciler) manageResourceServer(ctx context.Context
 	if err := r.validateAuthorizationExecution(ctx, resourceServer, driver, plan); err != nil {
 		return ctrl.Result{RequeueAfter: requeueOnError}, r.statusPlanError(ctx, resourceServer, &plan, "StalePlan", err, nil)
 	}
-	state, err := driver.Reconcile(ctx, plan, managedObjectsFromStatus(resourceServer.Status))
+	writer := driver
+	if resourceServerHasDelegation(resourceServer) {
+		guarded, ok := driver.(authorization.DelegationMutationGuard)
+		if !ok {
+			return ctrl.Result{RequeueAfter: requeueOnError}, r.statusPlanError(ctx, resourceServer, &plan, "DelegationUnsupported", authorization.DelegationUnsupported(), nil)
+		}
+		writer = guarded.WithDelegationMutationGuard(func(ctx context.Context) error {
+			return r.validateAuthorizationExecution(ctx, resourceServer, driver, plan)
+		})
+	}
+	state, err := writer.Reconcile(ctx, plan, managedObjectsFromStatus(resourceServer.Status))
 	if err != nil {
 		reason := "ReconcileFailed"
 		if errors.Is(err, authorization.ErrOwnershipConflict) {
@@ -273,7 +293,11 @@ func (r *HankoResourceServerReconciler) driverFor(resourceServer *hankoshv1alpha
 	if r.DriverFactory != nil {
 		return r.DriverFactory(resourceServer.Namespace, resourceServer.Labels)
 	}
-	return authorization.NewKeycloakDriver(kcForObject(r.Pool, resourceServer.Namespace, resourceServer.Labels))
+	provider := kcForObject(r.Pool, resourceServer.Namespace, resourceServer.Labels)
+	if resourceServerHasDelegation(resourceServer) {
+		return authorization.NewKeycloakDelegationDriver(provider)
+	}
+	return authorization.NewKeycloakDriver(provider)
 }
 
 func (r *HankoResourceServerReconciler) resolveAuthorizationModel(ctx context.Context, resourceServer *hankoshv1alpha1.HankoResourceServer) (authorization.Model, error) {
@@ -302,6 +326,9 @@ func (r *HankoResourceServerReconciler) resolveAuthorizationModel(ctx context.Co
 		Name: resourceServer.Name, Realm: resourceServer.Spec.RealmRef,
 		Audience: resourceServer.Spec.Audience, DisplayName: resourceServer.Spec.DisplayName,
 		ApplicationRef: application.Spec.ClientID,
+	}
+	if resourceServerHasDelegation(resourceServer) {
+		model.DelegationContext = &authorization.ResolvedDelegationContext{AudienceUID: string(application.UID)}
 	}
 	for _, scope := range resourceServer.Spec.Scopes {
 		model.Scopes = append(model.Scopes, authorization.Scope{Name: scope.Name, Description: scope.Description})
@@ -344,12 +371,26 @@ func (r *HankoResourceServerReconciler) resolveAuthorizationPermission(ctx conte
 
 func (r *HankoResourceServerReconciler) resolveAuthorizationPrincipal(ctx context.Context, resourceServer *hankoshv1alpha1.HankoResourceServer, realm *hankoshv1alpha1.HankoRealm, principal hankoshv1alpha1.AuthorizationPrincipal) (authorization.Principal, error) {
 	resolvedRef := principal.Ref
+	softwareUID := ""
 	switch principal.Kind {
 	case "organization":
 		if r.organizationResolver == nil {
 			return authorization.Principal{}, authorization.OrganizationFailure("OrganizationPolicyUnsupported")
 		}
-		return r.organizationResolver.resolve(ctx, principal)
+		resolved, err := r.organizationResolver.resolve(ctx, principal)
+		if err != nil {
+			return authorization.Principal{}, err
+		}
+		if resourceServerHasDelegation(resourceServer) {
+			for _, group := range resolved.Organization.Groups {
+				var organization hankoshv1alpha1.HankoOrganization
+				if err := r.Get(ctx, client.ObjectKey{Namespace: group.Namespace, Name: group.Ref}, &organization); err != nil ||
+					!delegationReferenceCurrent(resourceServer, &organization) || string(organization.UID) != group.UID {
+					return authorization.Principal{}, iamcontract.ErrRejected
+				}
+			}
+		}
+		return resolved, nil
 	case "realm_role":
 		roleName, err := r.roleInRealm(ctx, resourceServer.Namespace, principal.Ref, resourceServer.Spec.RealmRef, realm)
 		if err != nil {
@@ -362,6 +403,12 @@ func (r *HankoResourceServerReconciler) resolveAuthorizationPrincipal(ctx contex
 			return authorization.Principal{}, err
 		}
 		resolvedRef = application.Spec.ClientID
+		if resourceServerHasDelegation(resourceServer) {
+			if !delegationReferenceCurrent(resourceServer, application) {
+				return authorization.Principal{}, iamcontract.ErrRejected
+			}
+			softwareUID = string(application.UID)
+		}
 	case "service_account":
 		var account hankoshv1alpha1.HankoServiceAccount
 		if err := r.Get(ctx, types.NamespacedName{Name: principal.Ref, Namespace: resourceServer.Namespace}, &account); err != nil {
@@ -380,8 +427,14 @@ func (r *HankoResourceServerReconciler) resolveAuthorizationPrincipal(ctx contex
 			}
 		}
 		resolvedRef = account.Spec.ClientID
+		if resourceServerHasDelegation(resourceServer) {
+			if !delegationReferenceCurrent(resourceServer, &account) {
+				return authorization.Principal{}, iamcontract.ErrRejected
+			}
+			softwareUID = string(account.UID)
+		}
 	}
-	return authorization.Principal{Kind: principal.Kind, Ref: resolvedRef, PortableRef: principal.Ref}, nil
+	return authorization.Principal{Kind: principal.Kind, Ref: resolvedRef, PortableRef: principal.Ref, SoftwareUID: softwareUID}, nil
 }
 
 func (r *HankoResourceServerReconciler) applicationInRealm(ctx context.Context, namespace, name, realm string) (*hankoshv1alpha1.HankoApplication, error) {
@@ -555,6 +608,13 @@ func (r *HankoResourceServerReconciler) statusPlanError(ctx context.Context, obj
 		obj.Status.Findings = findingsStatus([]authorization.Finding{{Classification: iamcontract.Unsupported, ObjectKind: "delegation", Code: reason, Message: delegationError.Error()}})
 		iamCondition(&obj.Status.Conditions, obj.Generation, "CapabilitiesSatisfied", metav1.ConditionFalse, reason, delegationError.Error())
 	}
+	var delegationRejection authorization.DelegationRejection
+	if errors.As(err, &delegationRejection) {
+		reason = "DelegationAuthorityExceeded"
+		obj.Status.Findings = findingsStatus(delegationRejection.Findings)
+		obj.Status.AuthorizationExplanation = nil
+		iamCondition(&obj.Status.Conditions, obj.Generation, "CapabilitiesSatisfied", metav1.ConditionFalse, reason, delegationRejection.Error())
+	}
 	safe := iamcontract.SafeError(err)
 	for _, kind := range []string{"Synced", "DriftFree"} {
 		iamCondition(&obj.Status.Conditions, obj.Generation, kind, metav1.ConditionFalse, reason, safe.Error())
@@ -567,7 +627,11 @@ func (r *HankoResourceServerReconciler) statusPlanError(ctx context.Context, obj
 func (r *HankoResourceServerReconciler) statusCapabilityError(ctx context.Context, obj *hankoshv1alpha1.HankoResourceServer, caps authorization.Capabilities, err error) error {
 	// Capability lookup and reference resolution have completed. The rejection
 	// identity is carried by the compile error, never supplied by status.
-	_ = caps
+	var existing iamEvaluationRejected
+	if !errors.As(err, &existing) {
+		err = iamEvaluationRejected{cause: err, authorizationCaps: caps,
+			identity: iamcontract.PlanIdentity{Contract: iamcontract.Version, Backend: iamcontract.Keycloak, Intent: authorizationIntent(obj).Identity()}}
+	}
 	return r.statusPlanError(ctx, obj, nil, "UnsupportedCapability", err, nil)
 }
 func (r *HankoResourceServerReconciler) statusObservation(ctx context.Context, obj *hankoshv1alpha1.HankoResourceServer, state authorization.State, plan authorization.Plan, observe bool) (ctrl.Result, error) {

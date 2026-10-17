@@ -15,6 +15,7 @@ type ResolvedReferences struct{ model Model }
 
 func Normalize(model Model) Intent {
 	model = canonicalModel(model)
+	model.DelegationContext = nil
 	for i := range model.Permissions {
 		if d := model.Permissions[i].Delegation; d != nil {
 			portableDelegationReferences(d)
@@ -22,6 +23,7 @@ func Normalize(model Model) Intent {
 		for j := range model.Permissions[i].Principals {
 			model.Permissions[i].Principals[j].Organization = nil
 			model.Permissions[i].Principals[j].PortableRef = ""
+			model.Permissions[i].Principals[j].SoftwareUID = ""
 		}
 	}
 	return Intent{model: model}
@@ -49,6 +51,7 @@ func relationshipModel(model Model) Model {
 	m := canonicalModel(model)
 	m.Realm = ""
 	m.ApplicationRef = ""
+	m.DelegationContext = nil
 	for i := range m.Permissions {
 		if d := m.Permissions[i].Delegation; d != nil {
 			// Keep portable identity relationships when substituting native IDs.
@@ -61,6 +64,7 @@ func relationshipModel(model Model) Model {
 			}
 			p.Organization = nil
 			p.PortableRef = ""
+			p.SoftwareUID = ""
 		}
 		slices.SortFunc(m.Permissions[i].Principals, comparePrincipal)
 	}
@@ -73,6 +77,7 @@ func portableDelegationReferences(d *Delegation) {
 			identity.Ref = identity.PortableRef
 		}
 		identity.PortableRef = ""
+		identity.SoftwareUID = ""
 	}
 }
 
@@ -180,6 +185,10 @@ func knownSet(values []string, known map[string]bool) bool {
 }
 func canonicalModel(m Model) Model {
 	result := m
+	if m.DelegationContext != nil {
+		context := *m.DelegationContext
+		result.DelegationContext = &context
+	}
 	result.Scopes = append([]Scope{}, m.Scopes...)
 	slices.SortFunc(result.Scopes, func(a, b Scope) int { return strings.Compare(a.Name, b.Name) })
 	result.Resources = append([]Resource{}, m.Resources...)

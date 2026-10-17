@@ -23,12 +23,13 @@ ROOT = Path(__file__).resolve().parents[1]
 ROOT_NAME = re.compile(r"(?:Test|Example|Fuzz)[A-Za-z0-9_]+")
 SHARDS = ("core", "adoption", "protocols")
 STABILITY_ROOTS = ("TestRealKeycloakAdoptionCharacterization", "TestRealKeycloakApplicationProtocolsAndFlows")
+EXTENSION_ROOTS = ("TestRealKeycloakBoundedDelegationExtension",)
 
 
-def test_inventory(tagged):
+def test_inventory(tagged, extension=False):
     command = ["go", "test", "-list", "."]
     if tagged:
-        command += ["-tags=keycloak_integration"]
+        command += ["-tags=keycloak_integration,keycloak_extension_integration" if extension else "-tags=keycloak_integration"]
     output = subprocess.check_output(command + ["./internal/controller"], cwd=ROOT, text=True, timeout=180)
     names = [line for line in output.splitlines() if ROOT_NAME.fullmatch(line)]
     if not names or len(names) != len(set(names)):
@@ -60,6 +61,12 @@ def keycloak_selection(shard):
                        json.loads((ROOT / "scripts/keycloak-shards.json").read_text()))
     selected = set.union(*groups.values()) if shard == "all" else groups[shard]
     return sorted(selected)
+
+
+def extension_selection():
+    if test_inventory(True, True) - test_inventory(True) != set(EXTENSION_ROOTS):
+        raise ValueError("Keycloak extension test inventory drift")
+    return list(EXTENSION_ROOTS)
 
 
 def parse_junit(path):
@@ -114,7 +121,7 @@ def checkout_identity():
     return revision, dirty
 
 
-def write_summary(output, label, returncode, selected=None, source=None):
+def write_summary(output, label, returncode, selected=None, source=None, require_all_pass=False):
     cases, suite_errors = parse_junit(output / "junit.xml")
     if selected is not None and returncode == 0:
         roots = {c["name"].split("/", 1)[0] for c in cases}
@@ -124,6 +131,8 @@ def write_summary(output, label, returncode, selected=None, source=None):
     if returncode == 0 and (failures or suite_errors):
         raise ValueError("Go exit status contradicts JUnit failures")
     counts = {value: sum(c["outcome"] == value for c in cases) for value in ("passed", "failed", "skipped")}
+    if require_all_pass and returncode == 0 and counts["skipped"]:
+        returncode = 1
     current_revision, current_dirty = checkout_identity()
     revision, initially_dirty = source or (current_revision, current_dirty)
     changed = current_revision != revision or not initially_dirty and current_dirty
@@ -179,18 +188,31 @@ def run(suite, gotestsum, output, shard="all", root=None):
         version = os.environ.get("KEYCLOAK_VERSION", versions.get("keycloak", "default"))
         if version not in versions.get("keycloak", "versions"):
             raise ValueError("Unsupported Keycloak version")
-        label += "/" + version + "/" + ("stability/" + root if root else shard)
-        selected = keycloak_selection(shard)
+        if suite == "keycloak-extension":
+            jar = Path(os.environ.get("KEYCLOAK_EXTENSION_JAR", ""))
+            expected = ROOT / "extensions/keycloak-bounded-delegation/target" / version / ("bounded-delegation-keycloak-" + version + ".jar")
+            if jar.resolve() != expected.resolve() or not jar.is_file() or not 0 < jar.stat().st_size <= 5 * 1024 * 1024:
+                raise ValueError("Build the exact version-matched extension JAR before qualification")
+            selected = extension_selection()
+            label += "/" + version
+        else:
+            label += "/" + version + "/" + ("stability/" + root if root else shard)
+            selected = keycloak_selection(shard)
         if root:
             if root not in selected:
                 raise ValueError("Stability root is absent from the complete shard inventory")
             selected = [root]
         expression = "^(" + "|".join(selected) + ")$"
-        deadline = "3m" if root else "25m" if shard == "all" else "10m"
-        args += ["-tags=keycloak_integration", "-timeout=" + deadline, "-run", expression, "./internal/controller"]
+        deadline = "8m" if suite == "keycloak-extension" else "3m" if root else "25m" if shard == "all" else "10m"
+        tags = "keycloak_integration,keycloak_extension_integration" if suite == "keycloak-extension" else "keycloak_integration"
+        args += ["-tags=" + tags, "-timeout=" + deadline, "-run", expression, "./internal/controller"]
     result = subprocess.run([gotestsum, "--format=standard-verbose", "--junitfile", str(output / "junit.xml"), "--", *args], cwd=ROOT, check=False)
     try:
-        changed = write_summary(output, label, result.returncode, selected, source)
+        changed = write_summary(output, label, result.returncode, selected, source, suite == "keycloak-extension")
+        if suite == "keycloak-extension" and result.returncode == 0:
+            cases, errors = parse_junit(output / "junit.xml")
+            if errors or any(c["outcome"] != "passed" for c in cases):
+                raise ValueError("Extension qualification requires every selected test to pass without skips")
     except (OSError, ValueError, ET.ParseError) as error:
         print("Go test report failed: " + str(error), file=sys.stderr)
         return result.returncode or 1
@@ -199,7 +221,7 @@ def run(suite, gotestsum, output, shard="all", root=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("suite", choices=("unit", "kubernetes", "keycloak"))
+    parser.add_argument("suite", choices=("unit", "kubernetes", "keycloak", "keycloak-extension"))
     parser.add_argument("--gotestsum", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--shard", choices=(*SHARDS, "ordinary", "all"), default="all")
