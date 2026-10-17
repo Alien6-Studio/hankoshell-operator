@@ -84,7 +84,13 @@ func checkRealmOwnershipSelectors(t *testing.T, ctx context.Context, admin clien
 	if err := admin.Get(ctx, client.ObjectKeyFromObject(account), account); err != nil {
 		t.Fatal(err)
 	}
-	if account.Status.Phase != "Conflict" || reader.lists != 2 || providerRequests != 0 {
+	conflict := false
+	for _, condition := range account.Status.Conditions {
+		if condition.Type == "Synced" && condition.Status == metav1.ConditionFalse && condition.Reason == "OwnershipConflict" {
+			conflict = true
+		}
+	}
+	if account.Status.Phase != "Error" || !conflict || reader.lists != 2 || providerRequests != 0 {
 		t.Fatal("realm selector hid a whitespace client alias or conflict reached the provider")
 	}
 	// A realm edit must affect the very next uncached list. No prior list or
