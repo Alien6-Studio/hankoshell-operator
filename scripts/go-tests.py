@@ -18,6 +18,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 import versions
+import keycloak_extension_source as extension
 
 ROOT = Path(__file__).resolve().parents[1]
 ROOT_NAME = re.compile(r"(?:Test|Example|Fuzz)[A-Za-z0-9_]+")
@@ -190,9 +191,7 @@ def run(suite, gotestsum, output, shard="all", root=None):
             raise ValueError("Unsupported Keycloak version")
         if suite == "keycloak-extension":
             jar = Path(os.environ.get("KEYCLOAK_EXTENSION_JAR", ""))
-            expected = ROOT / "extensions/keycloak-bounded-delegation/target" / version / ("bounded-delegation-keycloak-" + version + ".jar")
-            if jar.resolve() != expected.resolve() or not jar.is_file() or not 0 < jar.stat().st_size <= 5 * 1024 * 1024:
-                raise ValueError("Build the exact version-matched extension JAR before qualification")
+            extension.verify_artifact(version, jar)
             selected = extension_selection()
             label += "/" + version
         else:

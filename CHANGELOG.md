@@ -3,6 +3,16 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Standalone Keycloak extension and CI qualification
+
+- Move the Java extension, unit tests and upstream proposal into the independent
+  `Alien6-Studio/keycloak-bounded-delegation` repository. Retain the operator's
+  adapter and real-provider tests; consume an immutable source revision and
+  verify the built JAR's source, SDK and SHA256 before native qualification.
+- Add unit coverage for every native journal acknowledgement loss, status-free
+  recovery, exact attribute cleanup and observed-only delegation explanations.
+  Retain the existing package and security-function coverage floors.
+
 ### Experimental bounded software delegation (#69, #70)
 
 - Add a standalone, version-matched Keycloak SPI extension with an independent

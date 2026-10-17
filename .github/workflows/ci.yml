@@ -357,8 +357,9 @@ jobs:
         with:
           name: keycloak-extension-java-${{ matrix.version }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            extensions/keycloak-bounded-delegation/target/${{ matrix.version }}/build.json
-            extensions/keycloak-bounded-delegation/target/${{ matrix.version }}/surefire-reports/
+            .tools/keycloak-bounded-delegation/*/target/${{ matrix.version }}/build.json
+            .tools/keycloak-bounded-delegation/*/target/${{ matrix.version }}/surefire-reports/
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
   keycloak-static:

@@ -8,7 +8,7 @@ This is the provider characterization and authority contract for
 The first implementation of #69 accepts typed intent and refuses unqualified
 execution on stock Keycloak. **Neither supported stock Keycloak version qualifies
 bounded delegated authority.** An explicitly installed experimental
-[software delegation extension](../../extensions/keycloak-bounded-delegation/README.md)
+[software delegation extension](https://github.com/Alien6-Studio/keycloak-bounded-delegation)
 and selected realm profile provide a separate enforcement path for #69/#70.
 Successful ordinary OAuth token exchange alone never enables that capability.
 
@@ -35,7 +35,11 @@ setting after the last owner. Observe/import stay read-only; adoption refuses
 delegation. No manage-realm/manage-users is added to the delegation writer.
 
 `make keycloak-extension-test KEYCLOAK_VERSION=VERSION` builds Java and runs its
-separate mandatory real-HTTPS profile gate. Stock characterization below remains
+separate mandatory real-HTTPS profile gate. The extension is maintained in its
+own repository. [The consumer pin](../../extensions/keycloak-bounded-delegation.json)
+selects an immutable commit; builds fetch only that revision into an ignored
+cache and retain its identity and the matching JAR SHA256 in each SDK report.
+No Java implementation is duplicated in the operator tree. Stock characterization below remains
 unchanged. The controller fixture uses a fake Kubernetes client with a real
 provider; it does not replace #71's installed Kubernetes/cluster qualification.
 Public status adds observed portable delegation origin and bounds, not token

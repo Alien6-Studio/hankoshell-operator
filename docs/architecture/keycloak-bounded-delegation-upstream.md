@@ -74,7 +74,11 @@ This source review is distinct from runtime qualification of that optional polic
 
 ## Candidate implementation and review boundaries
 
-The prototype lives in `extensions/keycloak-bounded-delegation`. A pure Java
+The prototype lives in the standalone
+[keycloak-bounded-delegation repository](https://github.com/Alien6-Studio/keycloak-bounded-delegation),
+with its [own proposal draft](https://github.com/Alien6-Studio/keycloak-bounded-delegation/blob/main/docs/upstream-proposal.md).
+The operator retains only its [reviewed consumer pin](../../extensions/keycloak-bounded-delegation.json)
+and adapter; the Java implementation is no longer duplicated here. A pure Java
 policy kernel has no Kubernetes, Hanko CRD, controller or Hub dependency. A
 version-specific SPI bridge must validate native tokens, enforce live provider
 authority and bound the token before signing. It must never trust client-supplied

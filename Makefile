@@ -92,7 +92,7 @@ keycloak-integration-test: $(GOTESTSUM)
 keycloak-extension-build:
 	KEYCLOAK_VERSION=$(KEYCLOAK_VERSION) python3 scripts/keycloak-extension.py
 keycloak-extension-test: keycloak-extension-build $(GOTESTSUM)
-	KEYCLOAK_VERSION=$(KEYCLOAK_VERSION) KEYCLOAK_EXTENSION_JAR="$(CURDIR)/extensions/keycloak-bounded-delegation/target/$(KEYCLOAK_VERSION)/bounded-delegation-keycloak-$(KEYCLOAK_VERSION).jar" \
+	KEYCLOAK_VERSION=$(KEYCLOAK_VERSION) KEYCLOAK_EXTENSION_JAR="$$(python3 scripts/keycloak_extension_source.py $(KEYCLOAK_VERSION))" \
 		python3 scripts/go-tests.py keycloak-extension --gotestsum "$(GOTESTSUM)" --output "$(TEST_REPORT_DIR)/keycloak-extension-$(KEYCLOAK_VERSION)"
 keycloak-stability-test: $(GOTESTSUM)
 	KEYCLOAK_VERSION=26.7.5 python3 scripts/keycloak-stability.py --root "$(KEYCLOAK_STABILITY_ROOT)" \

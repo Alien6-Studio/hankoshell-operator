@@ -472,6 +472,15 @@ dedicated scoped writer where possible and review the
 
 ## Development
 
+The experimental bounded-delegation Java extension is maintained in
+[Alien6-Studio/keycloak-bounded-delegation](https://github.com/Alien6-Studio/keycloak-bounded-delegation),
+a sibling checkout of this repository and `hanko-platform`. The operator keeps
+its adapter and [immutable consumer pin](extensions/keycloak-bounded-delegation.json).
+`make keycloak-extension-test KEYCLOAK_VERSION=VERSION` builds that exact source
+and checks the JAR's source, SDK and SHA256 before real HTTPS interoperability.
+Installed and multi-node delegation qualification remains in
+[#71](https://github.com/Alien6-Studio/hankoshell-operator/issues/71).
+
 Adopt Existing Keycloak completes reviewed acquisition, native
 preservation and explicit Manage. Organizational Authorization retains explicit
 grants and bounded structural provenance. **Workload Identity is implemented and

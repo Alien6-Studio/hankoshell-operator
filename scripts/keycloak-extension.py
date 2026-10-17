@@ -10,9 +10,9 @@ import sys
 import xml.etree.ElementTree as ET
 
 import versions
+import keycloak_extension_source as extension
 
 ROOT = Path(__file__).resolve().parents[1]
-MODULE = ROOT / "extensions/keycloak-bounded-delegation"
 spec = importlib.util.spec_from_file_location("go_tests", ROOT / "scripts/go-tests.py")
 runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
@@ -23,11 +23,13 @@ def build():
     if version not in versions.get("keycloak", "versions"):
         raise ValueError("Unreviewed Keycloak SDK")
     source = runner.checkout_identity()
-    target = MODULE / "target" / version
+    dependency = extension.pin()
+    module = extension.checkout()
+    target = module / "target" / version
     manifest = target / "build.json"
     manifest.unlink(missing_ok=True)
     command = ["mvn", "-B", "-ntp", "-Dkeycloak.version=" + version,
-               "-Dmaven.repo.local=" + str(ROOT / ".tools/delegation-maven"), "-f", str(MODULE / "pom.xml"), "clean", "verify"]
+               "-Dmaven.repo.local=" + str(ROOT / ".tools/delegation-maven"), "-f", str(module / "pom.xml"), "clean", "verify"]
     subprocess.run(command, cwd=ROOT, check=True)
     cases = []
     for path in sorted((target / "surefire-reports").glob("TEST-*.xml")):
@@ -37,14 +39,15 @@ def build():
         cases += [case.get("classname", "") + "/" + case.get("name", "") for case in suite.findall("testcase")]
     if len(cases) < 15 or len(cases) != len(set(cases)):
         raise ValueError("Missing or duplicate Java test evidence")
-    if runner.checkout_identity() != source:
+    extension.verify(module, dependency)
+    if runner.checkout_identity() != source or extension.pin() != dependency:
         raise ValueError("Checkout changed during the extension build")
     jar = target / ("bounded-delegation-keycloak-" + version + ".jar")
     if not jar.is_file() or not 0 < jar.stat().st_size <= 5 * 1024 * 1024:
         raise ValueError("Missing or oversized extension artifact")
     manifest.write_text(json.dumps({"schema": 1, "experimental": True, "keycloak": version,
         "revision": source[0], "worktree_dirty": source[1], "jar_sha256": hashlib.sha256(jar.read_bytes()).hexdigest(),
-        "java_tests": cases}, indent=2) + "\n")
+        "extension": dependency, "java_tests": cases}, indent=2) + "\n")
     return 0
 
 
