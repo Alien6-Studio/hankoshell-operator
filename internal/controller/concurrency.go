@@ -20,5 +20,10 @@ func iamControllerOptions() (runtimecontroller.Options, error) {
 		}
 		workers = parsed
 	}
-	return runtimecontroller.Options{MaxConcurrentReconciles: workers}, nil
+	// Initial-list events have lower priority in controller-runtime's default
+	// queue. Repeated live dependency events can otherwise keep warm objects
+	// ahead of the cold backlog after leadership changes. FIFO retains per-key
+	// serialization/coalescing and the normal retry limiter without starvation.
+	priorityQueue := false
+	return runtimecontroller.Options{MaxConcurrentReconciles: workers, UsePriorityQueue: &priorityQueue}, nil
 }

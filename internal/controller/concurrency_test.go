@@ -26,6 +26,9 @@ func TestIAMConcurrencyIsBoundedAndDoesNotEchoInput(t *testing.T) {
 	if err != nil || options.MaxConcurrentReconciles != 1 {
 		t.Fatal("default concurrency changed", options, err)
 	}
+	if options.UsePriorityQueue == nil || *options.UsePriorityQueue {
+		t.Fatal("IAM recovery must use FIFO instead of deprioritizing cold initial-list work")
+	}
 	for _, value := range []string{"1", "4", "8", "", "0", "9", "-1", "+2", "02", "1.0", " 2", "private-input-sentinel"} {
 		t.Run(value, func(t *testing.T) {
 			t.Setenv(key, value)
@@ -36,6 +39,9 @@ func TestIAMConcurrencyIsBoundedAndDoesNotEchoInput(t *testing.T) {
 			}
 			if err != nil && strings.Contains(err.Error(), "private-input-sentinel") {
 				t.Fatal("invalid environment value escaped fixed diagnostic")
+			}
+			if valid && (options.UsePriorityQueue == nil || *options.UsePriorityQueue) {
+				t.Fatal("worker configuration re-enabled cold-backlog starvation")
 			}
 		})
 	}

@@ -20,7 +20,9 @@ supported cells, a 24-hour soak, or every transaction journal.
 The runtime rejects empty, noncanonical and out-of-range values before controller
 registration. The chart rejects an environment override that would bypass the
 typed setting. All other controllers retain one worker. Controller-runtime
-serializes a queued object key; this does not serialize distinct objects with
+serializes a queued object key. These four controllers explicitly use FIFO so
+live dependency refreshes cannot starve cold initial-list objects after a leader
+change. Rate-limited retries and per-key coalescing remain active. This does not serialize distinct objects with
 conflicting external intent. Existing ownership guards remain necessary.
 
 The credential budget remains eight in-flight operations and 50 requests/second

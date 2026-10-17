@@ -9,6 +9,8 @@
   defaulting to one; remove Organization/Issuer status-echo hot loops while
   preserving authority and deletion wakes. Filter grant dependency status
   timestamps while retaining current group synchronization and identity changes.
+- Use FIFO for the four IAM queues so dependency refreshes cannot starve cold
+  initial-list work following a leader change.
 - Add real installed burst, active-leader replacement, provider/API overload and
   numeric mTLS measurements, including a 24-hour-minimum soak profile and a
   six-cell manual short qualification workflow. Production sizing and full
