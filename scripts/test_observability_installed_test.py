@@ -27,6 +27,12 @@ class InstalledObservabilityTrustTests(unittest.TestCase):
                 self.assertIn("-verify_return_error", run.call_args.args[0])
                 self.assertIn("-verify_hostname", run.call_args.args[0])
                 self.assertEqual(run.call_args.kwargs["timeout"], 10)
+                self.assertEqual(run.call_args.kwargs["input"], b"")
+                command = run.call_args.args[0]
+                self.assertEqual(command[command.index("-connect") + 1], "127.0.0.1:12345")
+                self.assertEqual(command[command.index("-servername") + 1], "localhost")
+                self.assertIn("-ign_eof", command)
+
         with patch.object(installed.subprocess, "run", side_effect=subprocess.TimeoutExpired([], 10)), self.assertRaisesRegex(ValueError, "transport"):
             installed.require_tls_authentication_refusal("openssl", "https://localhost:12345/metrics", "ca.crt")
 

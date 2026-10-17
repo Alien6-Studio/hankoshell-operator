@@ -204,12 +204,16 @@ def require_tls_authentication_refusal(openssl, url, ca, client=None):
     address = urlsplit(url)
     if address.scheme != "https" or address.hostname != "localhost" or not address.port:
         raise ValueError("TLS fixture probe must target its local forward")
-    command = [str(openssl), "s_client", "-connect", "localhost:" + str(address.port), "-servername", "localhost",
-               "-CAfile", str(ca), "-verify_return_error", "-verify_hostname", "localhost", "-tls1_3", "-quiet"]
+    command = [str(openssl), "s_client", "-connect", "127.0.0.1:" + str(address.port), "-servername", "localhost",
+               "-CAfile", str(ca), "-verify_return_error", "-verify_hostname", "localhost", "-tls1_3", "-quiet", "-ign_eof"]
     if client:
         command += ["-cert", str(client[0]), "-key", str(client[1])]
     try:
-        result = subprocess.run(command, input=b"GET /metrics HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n",
+        # TLS 1.3 client authentication finishes on the server after the
+        # client has sent its Finished. Sending HTTP immediately can leave
+        # unread application bytes when the server closes on refusal, causing
+        # a reset that masks its fatal TLS alert. Probe the handshake alone.
+        result = subprocess.run(command, input=b"",
                                 capture_output=True, timeout=10, check=False)
     except (OSError, subprocess.TimeoutExpired):
         raise ValueError("TLS authentication probe failed at transport") from None
