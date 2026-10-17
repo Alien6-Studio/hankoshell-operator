@@ -30,7 +30,9 @@ func FuzzFleetEnvelope(f *testing.F) {
 func FuzzFleetSignedPayload(f *testing.F) {
 	fixture := newFuzzFixture(f)
 	trust := marshal(f, fixture.trust)
-	for _, data := range [][]byte{marshal(f, fixture.plan), []byte(`{}`), []byte(`{"sequence":1,"sequence":2}`), []byte(strings.Repeat("[", 33) + "0" + strings.Repeat("]", 33))} {
+	largest := fixture.plan
+	largest.Sequence = 1<<63 - 1
+	for _, data := range [][]byte{marshal(f, fixture.plan), marshal(f, largest), []byte(`{}`), []byte(`{"sequence":1,"sequence":2}`), []byte(strings.Repeat("[", 33) + "0" + strings.Repeat("]", 33))} {
 		f.Add(data)
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
@@ -70,8 +72,15 @@ func qualifyFuzzVerified(t *testing.T, v fleetplan.Verified, envelope, trust []b
 	if err != nil || !replay.Current() || replay.Identity() != v.Identity() {
 		t.Fatal("same-plan recovery changed identity")
 	}
-	checkpoint.Sequence++
-	if _, err := fleetplan.Verify(envelope, trust, p.Target, fixture.now, checkpoint); fleetplan.Reason(err) != "FleetPlanDowngrade" {
+	// Verify an older signed plan without overflowing a maximal checkpoint.
+	older := p
+	if p.Sequence == 1 {
+		checkpoint.Sequence = 2
+	} else {
+		older.Sequence--
+	}
+	olderEnvelope := fixture.signed(t, marshal(t, older))
+	if _, err := fleetplan.Verify(olderEnvelope, trust, p.Target, fixture.now, checkpoint); fleetplan.Reason(err) != "FleetPlanDowngrade" {
 		t.Fatal("downgrade bypassed checkpoint")
 	}
 	target := p.Target
