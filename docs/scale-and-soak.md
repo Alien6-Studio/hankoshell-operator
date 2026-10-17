@@ -25,6 +25,21 @@ live dependency refreshes cannot starve cold initial-list objects after a leader
 change. Rate-limited retries and per-key coalescing remain active. This does not serialize distinct objects with
 conflicting external intent. Existing ownership guards remain necessary.
 
+Observation traffic is bounded within each attempt. A settled non-composite role
+uses one complete provider read; drift still triggers mutation and independent
+read-back. Application child reads use the physical UUID from the same attempt's
+exact lookup/full client read, so replacing a client cannot splice different
+clients into one observation. No provider snapshot is cached between attempts.
+
+Application/ServiceAccount ownership lists remain uncached and namespace scoped,
+with `spec.realmRef` filtered at the API server. They deliberately do not filter
+`clientID`, because legacy whitespace aliases must still collide. The updated
+CRDs declare that selectable field; **apply both CRDs before upgrading the
+controller**, including for Helm upgrades, which do not upgrade files under
+`crds/`. Missing server-side selector support fails the ownership check closed.
+This uses the supported Kubernetes field-selector contract, stable since 1.32
+([Kubernetes documentation](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)).
+
 The credential budget remains eight in-flight operations and 50 requests/second
 with burst 50 **per connection and process**. Replicas and separately constructed
 credential connections do not share a global limiter. Resource defaults are

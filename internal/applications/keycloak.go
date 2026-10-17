@@ -111,11 +111,13 @@ func (d *KeycloakDriver) observe(ctx context.Context, p Plan, got *keycloak.Appl
 		o.Ownership = ownershipClass(got.Attributes[OwnerAttribute], p.resolved.Owner)
 		o.Adopted = got.Attributes["hanko.sh/adoption-receipt"] != ""
 		o.Client, o.Complete = observedClient(*got, p)
-		if err := d.observeRoles(ctx, p, &o); err != nil {
+		children, err := d.client.ReadApplicationChildren(ctx, p.resolved.Realm, *got, p.intent.ScopesManaged)
+		if err != nil {
 			return State{}, iamcontract.SafeError(err)
 		}
+		observeRoles(p, &o, children)
 		if state.Protocol == "oidc" {
-			if err := d.observeMappers(ctx, p, &o); err != nil {
+			if err := d.observeMappers(ctx, p, &o, children.Mappers); err != nil {
 				return State{}, iamcontract.SafeError(err)
 			}
 		}
@@ -178,33 +180,20 @@ func sanitizeObservedConfig(config map[string]string) bool {
 	}
 	return complete
 }
-func (d *KeycloakDriver) observeRoles(ctx context.Context, p Plan, o *observedApplication) error {
-	roles, err := d.client.ListClientRoles(ctx, p.resolved.Realm, p.intent.ClientID)
-	if err != nil {
-		return err
-	}
-	for _, role := range roles {
+func observeRoles(p Plan, o *observedApplication, children keycloak.ApplicationChildren) {
+	for _, role := range children.Roles {
 		o.Roles = append(o.Roles, Role{role.Name, role.Description})
 	}
 	slices.SortFunc(o.Roles, func(a, b Role) int { return strings.Compare(a.Name, b.Name) })
 	if !p.intent.ScopesManaged {
-		return nil
+		return
 	}
-	scopes, err := d.client.GetClientRealmRoleScopes(ctx, p.resolved.Realm, p.intent.ClientID)
-	if err != nil {
-		return err
-	}
-	for _, role := range scopes {
+	for _, role := range children.Scopes {
 		o.Scopes = append(o.Scopes, role.Name)
 	}
 	o.Scopes, o.ScopesManaged = stringSet(o.Scopes), true
-	return nil
 }
-func (d *KeycloakDriver) observeMappers(ctx context.Context, p Plan, o *observedApplication) error {
-	mappers, err := d.client.ListClientProtocolMappers(ctx, p.resolved.Realm, p.intent.ClientID)
-	if err != nil {
-		return err
-	}
+func (d *KeycloakDriver) observeMappers(ctx context.Context, p Plan, o *observedApplication, mappers []keycloak.ProtocolMapper) error {
 	for _, mapper := range mappers {
 		qualified := keycloak.QualifiedAdoptionMapper(mapper) || mapper.Config[OwnerAttribute] == p.resolved.Owner && p.resolved.Owner != "" || !o.Adopted && representedLegacyMapper(mapper, p)
 		mapper = keycloak.CanonicalProtocolMapper(mapper)

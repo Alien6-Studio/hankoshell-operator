@@ -54,6 +54,42 @@ func (c *Client) GetApplication(ctx context.Context, realm, clientID string) (*A
 	return &result, nil
 }
 
+// ApplicationChildren contains the non-secret children of one physical client.
+// It is request-local evidence, never an ownership grant or a reusable cache.
+type ApplicationChildren struct {
+	Roles   []ClientRole
+	Scopes  []RealmRole
+	Mappers []ProtocolMapper
+}
+
+// ReadApplicationChildren pins reads to the UUID from GetApplication's exact
+// lookup and full read. Resolving clientID again for each child wastes budget
+// and can mix children from a replacement client into the same observation.
+// A removed UUID or any unreadable child fails the entire observation.
+func (c *Client) ReadApplicationChildren(ctx context.Context, realm string, app Application, scopes bool) (ApplicationChildren, error) {
+	var result ApplicationChildren
+	if app.ID == "" || app.ClientID == "" {
+		return result, ErrApplicationPrecondition
+	}
+	base := applicationPath(realm, app.ID)
+	if err := c.get(ctx, base+rolesPath, &result.Roles); err != nil {
+		return ApplicationChildren{}, err
+	}
+	if scopes {
+		if err := c.get(ctx, base+"/scope-mappings/realm", &result.Scopes); err != nil {
+			return ApplicationChildren{}, err
+		}
+	}
+	if app.Protocol == "openid-connect" {
+		mappers, err := c.listClientProtocolMappersByUUID(ctx, realm, app.ID)
+		if err != nil {
+			return ApplicationChildren{}, err
+		}
+		result.Mappers = mappers
+	}
+	return result, nil
+}
+
 func (c *Client) GetClientRealmRoleScopes(ctx context.Context, realm, clientID string) ([]RealmRole, error) {
 	id, err := c.resolveClientUUID(ctx, realm, clientID)
 	if err != nil || id == "" {

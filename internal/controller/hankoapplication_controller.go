@@ -400,7 +400,7 @@ func (r *HankoApplicationReconciler) applicationOwnershipConflict(ctx context.Co
 	}
 	candidates := []clientOwnershipCandidate{newClientOwnershipCandidate("HankoApplication", app)}
 	var applications hankoshv1alpha1.HankoApplicationList
-	if err := reader.List(ctx, &applications, client.InNamespace(app.Namespace)); err != nil {
+	if err := reader.List(ctx, &applications, ownershipCandidatesInRealm(app.Namespace, app.Spec.RealmRef)); err != nil {
 		return "", "", fmt.Errorf("list HankoApplication ownership candidates: %w", err)
 	}
 	for i := range applications.Items {
@@ -412,7 +412,7 @@ func (r *HankoApplicationReconciler) applicationOwnershipConflict(ctx context.Co
 	}
 
 	var accounts hankoshv1alpha1.HankoServiceAccountList
-	if err := reader.List(ctx, &accounts, client.InNamespace(app.Namespace)); err != nil {
+	if err := reader.List(ctx, &accounts, ownershipCandidatesInRealm(app.Namespace, app.Spec.RealmRef)); err != nil {
 		return "", "", fmt.Errorf("list HankoServiceAccount ownership candidates: %w", err)
 	}
 	// Fleet-authority clients are application-owned by definition. The service

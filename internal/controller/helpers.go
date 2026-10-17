@@ -12,6 +12,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -172,6 +173,17 @@ func clientOwnershipPrecedes(left, right clientOwnershipCandidate) bool {
 
 func sameClientIdentity(leftRealm, leftClientID, rightRealm, rightClientID string) bool {
 	return leftRealm == rightRealm && strings.TrimSpace(leftClientID) == strings.TrimSpace(rightClientID)
+}
+
+// Keep ownership decisions on the uncached API reader, but let the API server
+// omit unrelated realms. Raw is deliberate: this is a server-side selector;
+// cached/fake readers may return a superset, which callers still filter below.
+// Never select clientID: ownership compares its trimmed value, so an exact
+// selector would hide legacy whitespace aliases and authorize two managers.
+func ownershipCandidatesInRealm(namespace, realm string) client.ListOption {
+	return &client.ListOptions{Namespace: namespace, Raw: &metav1.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("spec.realmRef", realm).String(),
+	}}
 }
 
 func isProtectedControlPlaneClient(protectedRealm string, protectedClientIDs []string, realmRef, clientID string) bool {

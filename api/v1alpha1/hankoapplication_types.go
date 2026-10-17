@@ -7,6 +7,7 @@ import (
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:selectablefield:JSONPath=".spec.realmRef"
 // +kubebuilder:resource:scope=Namespaced,shortName=happ,categories=hanko
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="Realm",type=string,JSONPath=".spec.realmRef"

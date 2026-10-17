@@ -48,9 +48,15 @@ func (d *KeycloakDriver) Observe(ctx context.Context, p Plan) (State, error) {
 	if err != nil {
 		return State{}, iamcontract.SafeError(err)
 	}
-	nativeClosure, err := d.client.GetRealmRoleClosure(ctx, p.resolved.Realm, p.intent.Name)
-	if err != nil {
-		return State{}, iamcontract.SafeError(err)
+	// A full non-composite representation already proves the entire closure.
+	// Composite roles still traverse every edge and fail closed on unreadable
+	// children; no observation is shared across reconciliation attempts.
+	nativeClosure := []keycloak.RealmRole{*got}
+	if got.Composite {
+		nativeClosure, err = d.client.GetRealmRoleClosure(ctx, p.resolved.Realm, p.intent.Name)
+		if err != nil {
+			return State{}, iamcontract.SafeError(err)
+		}
 	}
 	closure := []string{}
 	clientComposite := false
@@ -86,8 +92,11 @@ func (d *KeycloakDriver) Reconcile(ctx context.Context, p Plan) (State, error) {
 		if err := d.apply(ctx, p); err != nil {
 			return State{}, err
 		}
+		return d.Observe(ctx, p)
 	}
-	return d.Observe(ctx, p)
+	// The current attempt's complete read is sufficient when no provider write
+	// occurred. Mutations retain independent read-back above.
+	return state, nil
 }
 func (d *KeycloakDriver) apply(ctx context.Context, p Plan) error {
 	// Resolve all child roles before any mutation. Provider IDs stay in this adapter.

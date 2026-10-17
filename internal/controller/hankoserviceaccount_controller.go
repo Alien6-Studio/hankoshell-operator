@@ -162,7 +162,7 @@ func (r *HankoServiceAccountReconciler) serviceAccountOwnershipConflict(ctx cont
 	}
 	candidates := []clientOwnershipCandidate{newClientOwnershipCandidate("HankoServiceAccount", sa)}
 	var accounts hankoshv1alpha1.HankoServiceAccountList
-	if err := reader.List(ctx, &accounts, client.InNamespace(sa.Namespace)); err != nil {
+	if err := reader.List(ctx, &accounts, ownershipCandidatesInRealm(sa.Namespace, sa.Spec.RealmRef)); err != nil {
 		return "", fmt.Errorf("list HankoServiceAccount ownership candidates: %w", err)
 	}
 	for i := range accounts.Items {
@@ -174,7 +174,7 @@ func (r *HankoServiceAccountReconciler) serviceAccountOwnershipConflict(ctx cont
 	}
 
 	var applications hankoshv1alpha1.HankoApplicationList
-	if err := reader.List(ctx, &applications, client.InNamespace(sa.Namespace)); err != nil {
+	if err := reader.List(ctx, &applications, ownershipCandidatesInRealm(sa.Namespace, sa.Spec.RealmRef)); err != nil {
 		return "", fmt.Errorf("list HankoApplication ownership candidates: %w", err)
 	}
 	for i := range applications.Items {

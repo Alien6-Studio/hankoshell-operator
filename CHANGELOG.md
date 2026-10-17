@@ -11,6 +11,10 @@
   timestamps while retaining current group synchronization and identity changes.
 - Use FIFO for the four IAM queues so dependency refreshes cannot starve cold
   initial-list work following a leader change.
+- Reduce IAM observation traffic without caching authority: settled simple roles
+  use one complete read, application children stay pinned to the observed client
+  UUID, and uncached ownership lists use a server-side realm selector. Apply the
+  updated Application and ServiceAccount CRDs before upgrading the controller.
 - Add real installed burst, active-leader replacement, provider/API overload and
   numeric mTLS measurements, including a 24-hour-minimum soak profile and a
   six-cell manual short qualification workflow. Production sizing and full
