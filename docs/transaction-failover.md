@@ -35,6 +35,15 @@ Ready, and reject a later rotation that happens to produce another valid Secret.
 Only numeric counts and fixed decisions enter the public report. Private values
 are compared in memory and included in the existing credential leakage scan.
 
+The initial 26.7.5 fixture found that its `view-clients` reader profile can read
+the native client secret; the same endpoint is denied on 26.8.0. Reports retain
+the exact version-specific HTTP outcome and refuse client writes in both cells.
+This does not qualify provider-level credential-read separation on 26.7.5.
+Independently, acquisition must attempt **zero** credential endpoint reads through
+the operator transport, including requests refused by an active fault. No Observe
+acquisition may project a Secret or rotate the native credential. The earlier
+26.7.5 run that expected a 403 is retained as incomplete, not a passing HA result.
+
 ```sh
 make transactions-installed-test \
   OCI_ARCHIVE="$archive" OCI_EVIDENCE="$evidence" OCI_DIGEST="$digest" \

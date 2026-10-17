@@ -75,6 +75,7 @@ class Transactions(fleet.Fleet):
         self.report.update(layer="installed-transactions", complete=False,
             fixture_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), checkpoints={},
             limitations=["single disposable kind node and dev-file provider", "six selected accepted-write checkpoints",
+                "26.7.5 reader profile can read native credentials; provider-level credential-read separation not qualified",
                 "not delegation apply, every journal, stale-lease split brain, replica clock skew or production HA"])
 
     def replace_leader(self):
@@ -157,6 +158,19 @@ class Transactions(fleet.Fleet):
             installed.object_value("HankoKeycloakInstance", "ha-reader", {"mode": "external", "adminRef": {"name": "ha-reader"},
                 "tlsCARef": "operator-ca"}, labels=TENANT))
 
+    def inspect_reader_permissions(self, path, before, credential):
+        self.api("PUT", path, before, token=self.reader_token, expected=(403,))
+        # These are measured pinned-provider behaviours, not interchangeable
+        # successful authorization outcomes. 26.7.5's view-clients profile can
+        # read credentials; do not claim provider-level separation on that cell.
+        expected = {"26.7.5": 200, "26.8.0": 403}[self.args.keycloak_version]
+        response = self.api("GET", path + "/client-secret", token=self.reader_token, expected=(expected,))
+        if expected == 200 and response.get("value") != credential:
+            raise ValueError("Reader credential response did not prove the observed provider permission")
+        self.report["reader_profile"] = {"credential_read_http_status": expected,
+            "provider_credential_read_separation": expected == 403, "native_client_writes_refused": True}
+        self.record("inventory_reader_native_client_writes_refused")
+
     def acquisition(self, kind):
         role = kind == "HankoRole"
         name = "ha-acquire-role" if role else "ha-acquire-client"
@@ -173,16 +187,18 @@ class Transactions(fleet.Fleet):
             path = base + "/clients/" + self.client("managed", name)["id"]
             for scope in self.api("GET", path + "/default-client-scopes"):
                 self.api("DELETE", path + "/default-client-scopes/" + scope["id"])
-            self.api("GET", path + "/client-secret", token=self.reader_token, expected=(403,))
             credential = self.native_secret(name)
             spec = {"realmRef": "managed", "clientID": name, "mode": "Observe"}
         before = self.api("GET", path)
+        if not role:
+            self.inspect_reader_permissions(path, before, credential)
+        self.control("keycloak", None, reset=True)
         self.apply(installed.object_value(kind, name, spec, labels=TENANT, annotations={"hanko.sh/adoption-source": "ha-reader"}))
         resource = "hankorole" if role else "hankoserviceaccount"
         wait("reviewable acquisition candidate", lambda: self.get(resource, name).get("status", {}).get("adoptionCandidate", {}).get("approvable") is True, 180)
         target = self.get(resource, name)
         candidate = target["status"]["adoptionCandidate"]["candidateHash"]
-        self.control("keycloak", {"method": "PUT", "path": path, "action": "lost-ack"}, reset=True)
+        self.control("keycloak", {"method": "PUT", "path": path, "action": "lost-ack"})
         self.patch(resource, name, {"metadata": {"annotations": {"hanko.sh/adoption-contract": "hanko.sh/adoption-contract/v1alpha1",
             "hanko.sh/adoption-candidate": candidate}}})
         fault = self.await_fault("keycloak")
@@ -198,14 +214,16 @@ class Transactions(fleet.Fleet):
                     "targetUID": target["metadata"]["uid"], "candidateHash": candidate}
         if (receipt != expected or native_semantics(after) != native_semantics(before) or acquired["metadata"].get("finalizers")
                 or acquired.get("status", {}).get("secretRef") or state["counts"].get("PUT " + path) != 1
-                or state["attempted_counts"].get("PUT " + path) != 1):
+                or state["attempted_counts"].get("PUT " + path) != 1
+                or state.get("traffic", {}).get("credential_read_requests", 0) != 0):
             raise ValueError("Acquisition replayed, changed semantics or acquired unapproved authority")
         secrets = json.loads(self.kubectl("get", "secrets", "-n", "auth", "-o", "json"))["items"]
         if any(ref.get("uid") == target["metadata"]["uid"] for secret in secrets for ref in secret["metadata"].get("ownerReferences", [])):
             raise ValueError("Observe acquisition projected credentials")
         if not role and self.native_secret(name) != credential:
             raise ValueError("Client acquisition rotated its existing credential")
-        self.checkpoint("role_acquisition" if role else "client_acquisition", accepted_receipt_writes=1, attempted_receipt_writes=1)
+        self.checkpoint("role_acquisition" if role else "client_acquisition", accepted_receipt_writes=1,
+            attempted_receipt_writes=1, credential_read_requests=0)
 
     def verified_plan(self):
         candidate = self.plan("tenant-a", 2, "After HA checkpoint")
@@ -267,7 +285,7 @@ class Transactions(fleet.Fleet):
         self.report.update(complete=True, completed_at=datetime.now(timezone.utc).isoformat())
 
     def public_evidence(self):
-        return {**super().public_evidence(), **{key: self.report[key] for key in ("checkpoints", "limitations", "cleanup_complete") if key in self.report}}
+        return {**super().public_evidence(), **{key: self.report[key] for key in ("checkpoints", "limitations", "cleanup_complete", "reader_profile") if key in self.report}}
 
     def cleanup(self):
         if self.scraper:

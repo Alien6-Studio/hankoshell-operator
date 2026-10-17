@@ -2,6 +2,7 @@ import copy
 import importlib.util
 import json
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -11,6 +12,22 @@ spec.loader.exec_module(transactions)
 
 
 class TransactionEvidenceTests(unittest.TestCase):
+    def test_reader_permissions_are_version_specific_and_never_a_generic_200_success(self):
+        fixture = transactions.Transactions.__new__(transactions.Transactions)
+        fixture.reader_token, fixture.report = "independent-reader", {"checks": {}}
+        for version, expected in (("26.7.5", 200), ("26.8.0", 403)):
+            fixture.args = SimpleNamespace(keycloak_version=version)
+            fixture.api = MagicMock(return_value={"value": "private-sentinel"})
+            fixture.inspect_reader_permissions("/fixture/client", {"id": "physical"}, "private-sentinel")
+            fixture.api.assert_any_call("PUT", "/fixture/client", {"id": "physical"}, token="independent-reader", expected=(403,))
+            fixture.api.assert_any_call("GET", "/fixture/client/client-secret", token="independent-reader", expected=(expected,))
+            self.assertEqual(fixture.report["reader_profile"]["provider_credential_read_separation"], expected == 403)
+            self.assertNotIn("private-sentinel", json.dumps(fixture.public_evidence()))
+        fixture.args = SimpleNamespace(keycloak_version="26.7.5")
+        fixture.api.return_value = {"message": "generic HTTP success"}
+        with self.assertRaisesRegex(ValueError, "did not prove"):
+            fixture.inspect_reader_permissions("/fixture/client", {}, "private-sentinel")
+
     def test_rotation_recovery_requires_current_ready_same_request_and_exact_status_time(self):
         journal = {"requestID": "reviewed-request", "rotatedAt": "2026-10-17T12:00:00.123456789Z"}
         value = {"metadata": {"generation": 2, "annotations": {transactions.ROTATION: json.dumps({

@@ -81,6 +81,8 @@ class Proxy(BaseHTTPRequestHandler):
             traffic["requests"] = traffic.get("requests", 0) + 1
             if self.path.split("?")[0].endswith("/protocol/openid-connect/token"):
                 traffic["token_requests"] = traffic.get("token_requests", 0) + 1
+            if self.command == "GET" and self.path.split("?")[0].endswith("/client-secret"):
+                traffic["credential_read_requests"] = traffic.get("credential_read_requests", 0) + 1
             rule = STATE["rule"]
             selected = matches(rule, self.command, self.path, body) and not STATE["triggered"]
             blocked = STATE["blocked"]

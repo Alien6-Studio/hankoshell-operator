@@ -215,6 +215,17 @@ class InstalledEvidenceTests(unittest.TestCase):
         self.assertNotIn("accept-encoding", {key.lower() for key, _ in upstream.call_args.args[0].header_items()})
         handler.reply.assert_called_once_with(200, b"protobuf-fixture", "application/vnd.kubernetes.protobuf")
 
+    def test_credential_endpoint_attempts_are_counted_even_while_the_proxy_blocks(self):
+        handler = proxy.Proxy.__new__(proxy.Proxy)
+        handler.headers, handler.rfile = Message(), BytesIO()
+        handler.command, handler.path = "GET", "/admin/realms/private/clients/private/client-secret?private=query"
+        handler.reply = MagicMock()
+        with patch.dict(proxy.STATE, {"rule": None, "blocked": True, "triggered": False, "traffic": {}}, clear=True):
+            handler.handle_request()
+            self.assertEqual(proxy.STATE["traffic"], {"requests": 1, "credential_read_requests": 1})
+            self.assertNotIn("private", json.dumps(proxy.STATE["traffic"]))
+        handler.reply.assert_called_once_with(503, b"{}")
+
     def test_lost_ack_requires_upstream_acceptance_before_downstream_drop(self):
         handler = proxy.Proxy.__new__(proxy.Proxy)
         handler.headers = Message()
