@@ -6,9 +6,12 @@ Keycloak. Passing a short fixture does not qualify production capacity, all six
 supported cells, a 24-hour soak, or every transaction journal.
 
 The [2026-10-17 queue recovery packet](qualification/scale/2026-10-17/runtime-824c8f1/README.md)
-records the current development source, source checks, installed results and
+records the queue-recovery source, source checks, installed results and
 remaining qualification. Its predecessor's final 429 deadline failure is
 retained alongside the new measurements.
+
+The [later realm-deletion and API-recovery packet](qualification/recovery/2026-10-17/runtime-64e4890/README.md)
+records the newer runtime and its separate recovery qualification.
 
 ## Bounded IAM workers
 

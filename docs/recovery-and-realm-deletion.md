@@ -15,6 +15,8 @@ This is child-first cleanup, not permission to cascade-delete arbitrary children
 
 The controller reads the parent and every complete dependency page directly
 from the API. An unreadable, malformed or incomplete inventory refuses deletion.
+Custom RBAC must permit namespace-local listing of all eight reference kinds;
+the chart already provides these permissions even when optional features are disabled.
 After provider preflight it rechecks the parent UID, generation, deletion,
 finalizer, labels and annotations immediately before the provider DELETE.
 A switch to Observe or a changed tenant/connection requires a new attempt.
@@ -68,3 +70,9 @@ The opt-in six-cell CI scale matrix also runs this fixture against its same
 scanned OCI archive. Ordinary CI keeps its existing gates. The standalone scale
 workflow adds recovery only for its `scale` profile. None of these runs qualifies
 a 24-hour soak, every transaction checkpoint or production resource defaults.
+
+The outage recovery convergence timer starts after rollout and lease reacquisition;
+it does not measure total latency from fault release to recovery.
+
+The [2026-10-17 qualification packet](qualification/recovery/2026-10-17/runtime-64e4890/README.md)
+binds actual results to their source and scanned image.
