@@ -4,6 +4,9 @@ This development qualification addresses parts of #95 and #96. It uses the
 scanned exact-source image, actual chart, two replicas and real HTTPS Keycloak.
 It does not qualify every journal, split brain, clock skew or production HA.
 
+The separate [transaction failover fixture](transaction-failover.md) exercises six
+accepted-write boundaries during rotation, leaf acquisition and signed plan verification.
+
 ## Safe parent deletion
 
 A managed realm waits while any namespace-local declaration references it:

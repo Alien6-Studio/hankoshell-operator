@@ -40,7 +40,7 @@ jobs:
     needs: [source, oci]
     if: github.event_name == 'workflow_dispatch' && inputs.qualify_scale == true
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
@@ -88,6 +88,18 @@ jobs:
             --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
             --kind "$RUNNER_TEMP/scale-tools/kind" --kubectl "$RUNNER_TEMP/scale-tools/kubectl" \
             --oras "$RUNNER_TEMP/scale-tools/oras" --helm /tmp/linux-amd64/helm --openssl /usr/bin/openssl
+      - name: Qualify six transaction checkpoints across actual leader replacement
+        env:
+          OCI_DIGEST: ${{ needs.oci.outputs.digest }}
+          KEYCLOAK_VERSION: ${{ matrix.keycloak }}
+          KUBERNETES_VERSION: ${{ matrix.kubernetes }}
+        run: |
+          python3 scripts/transactions-installed-test.py \
+            --archive "$RUNNER_TEMP/scale-oci/image.tar" --evidence "$RUNNER_TEMP/scale-oci/evidence" \
+            --digest "$OCI_DIGEST" --revision "$GITHUB_SHA" --output "$RUNNER_TEMP/transactions-report.json" \
+            --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
+            --kind "$RUNNER_TEMP/scale-tools/kind" --kubectl "$RUNNER_TEMP/scale-tools/kubectl" \
+            --oras "$RUNNER_TEMP/scale-tools/oras" --helm /tmp/linux-amd64/helm --openssl /usr/bin/openssl
       - name: Preserve successful and incomplete measurements
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -98,6 +110,8 @@ jobs:
             ${{ runner.temp }}/scale-report.diagnostics/
             ${{ runner.temp }}/recovery-report/
             ${{ runner.temp }}/recovery-report.diagnostics/
+            ${{ runner.temp }}/transactions-report.json
+            ${{ runner.temp }}/transactions-report.diagnostics/
           if-no-files-found: error
           retention-days: 30
   preflight:
@@ -367,6 +381,7 @@ jobs:
     name: Security mutation checks
     needs: [preflight]
     runs-on: ubuntu-24.04
+    # Cold race compilation and assertion execution retain the existing job cap.
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

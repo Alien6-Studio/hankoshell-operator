@@ -176,3 +176,11 @@ recovery-installed-test:
 		--keycloak-version "$(KEYCLOAK_VERSION)" --kubernetes-version "$(KUBERNETES_VERSION)" \
 		--output "$(RECOVERY_OUTPUT)" --kind "$(KIND)" --kubectl "$(KUBECTL)" \
 		--helm "$(HELM)" --oras "$(ORAS)" --openssl "$(OPENSSL)"
+
+.PHONY: transactions-installed-test
+transactions-installed-test:
+	python3 scripts/transactions-installed-test.py \
+		--archive "$(OCI_ARCHIVE)" --evidence "$(OCI_EVIDENCE)" --digest "$(OCI_DIGEST)" --revision "$(REVISION)" \
+		--keycloak-version "$(KEYCLOAK_VERSION)" --kubernetes-version "$(KUBERNETES_VERSION)" \
+		--output "$(TRANSACTIONS_OUTPUT)" --kind "$(KIND)" --kubectl "$(KUBECTL)" \
+		--helm "$(HELM)" --oras "$(ORAS)" --openssl "$(OPENSSL)"

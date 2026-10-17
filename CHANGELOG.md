@@ -5,6 +5,10 @@
 <!-- release-notes:start -->
 ### Installed load and bounded IAM concurrency
 
+- Add six installed accepted-write checkpoints across actual leader replacement:
+  three Secret rotation boundaries, Observe client/role acquisition and signed
+  plan verification. Compile race-enabled mutation packages separately from
+  unchanged security assertion limits and retain the failing phase in evidence.
 - Refuse managed realm deletion until all eight realm-reference kinds have been
   inventoried directly from complete API pages. Recheck authority after provider
   preflight; report bounded dependency counts with a jittered wait instead of

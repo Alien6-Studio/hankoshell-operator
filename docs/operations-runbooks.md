@@ -96,6 +96,10 @@ or restore old schemas over objects with unknown fields.
 
 ## Leader failover and provider outage
 
+The [installed transaction failover fixture](transaction-failover.md) reproduces
+six selected accepted-write boundaries with actual lease-holder replacement.
+Its final report and cleanup are required before treating a scenario as qualified.
+
 Process liveness, serving readiness and leader reconciliation readiness are
 specified in [observability](operational-observability.md#health-readiness-and-leader-semantics).
 The installed observability fixture starts two replicas, proves exactly one lease

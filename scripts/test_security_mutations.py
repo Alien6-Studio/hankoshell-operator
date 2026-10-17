@@ -27,6 +27,20 @@ def events(result="pass", test="TestProtection", extra=None):
 
 
 class MutationRunnerTests(unittest.TestCase):
+    def test_cold_compilation_is_separate_and_never_a_mutation_or_baseline_verdict(self):
+        def runner(command, root, seconds):
+            self.assertEqual(command[:6], ["go", "test", "-json", "-race", "-run", "^$"])
+            self.assertEqual(seconds, 300)
+            return 0, json.dumps({"Action": "pass", "Package": item()["package"]}) + "\n"
+        prepared = gate.prepare_compilation(Path("."), [item(), item()], runner)
+        self.assertEqual(prepared["packages"], 1)
+        self.assertEqual(prepared["tests_executed"], 0)
+        for code, output in ((1, ""), (0, ""), (0, events()), (0, "not JSON"),
+                             (0, json.dumps({"Action": "skip", "Package": item()["package"]})),
+                             (0, json.dumps({"Action": "pass", "Package": "wrong"}))):
+            with self.subTest(output=output), self.assertRaises(gate.GateError):
+                gate.prepare_compilation(Path("."), [item()], lambda *_: (code, output))
+
     def test_all_reviewed_anchors_are_unique_and_commands_select_real_tests(self):
         required = {"metrics-uri-authorization", "metrics-client-authentication", "provider-error-redaction", "lifecycle-independent-approval", "lifecycle-mutation-recheck", "lifecycle-parent-revocation", "lifecycle-database-tenant", "fleet-command-log-sanitization", "fleet-all-route-redirect", "fleet-independent-decommission", "fleet-hub-destination", "fleet-provider-mutation-guard", "fleet-cache-uid", "fleet-rollback-content", "fleet-sticky-expiry", "fleet-expiry", "fleet-native-permission", "fleet-atomic-refusal", "fleet-local-pause", "fleet-provider-version-scope", "fleet-provider-client-binding", "fleet-signature", "fleet-target", "fleet-sequence", "fleet-sticky-signature-mode", "hub-hmac", "image-sha256", "image-keyless-identity", "tls-peer-verification", "tls-minimum",
                     "keycloak-redirect", "realm-live-inventory", "realm-complete-dependencies", "realm-complete-pages", "realm-deletion-authority-recheck", "unowned-realm-deletion", "unowned-client-role-deletion",

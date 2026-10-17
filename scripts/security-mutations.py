@@ -20,6 +20,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_LIMIT = 2 * 1024**2
 COMMAND_SECONDS = 120
+COMPILATION_SECONDS = 300
 # Cold compilation plus isolated controller rebuilds exceeded eight minutes in
 # the mandatory CI gate. Keep per-command and per-test limits unchanged; allow
 # the entire reviewed inventory to finish, including its unmutated baselines.
@@ -330,6 +331,29 @@ def outcome(returncode, output, item):
     return test_results[0]
 
 
+def prepare_compilation(source, items, runner=run_command):
+    """Bound cold race compilation separately; it never detects a mutation."""
+    packages = sorted({item["package"] for item in items})
+    started = time.monotonic()
+    code, output = runner(["go", "test", "-json", "-race", "-run", "^$", *packages], source, COMPILATION_SECONDS)
+    completed = []
+    for line in output.splitlines():
+        try:
+            event = json.loads(line)
+        except (ValueError, TypeError) as error:
+            raise GateError("compilation did not produce a complete Go JSON stream") from error
+        if not isinstance(event, dict) or event.get("Test") is not None:
+            raise GateError("compilation unexpectedly executed a test")
+        if event.get("Action") in ("pass", "fail", "skip"):
+            if event["Action"] != "pass":
+                raise GateError("race compilation failed")
+            completed.append(event.get("Package"))
+    if code != 0 or sorted(completed) != packages:
+        raise GateError("race compilation did not complete every selected package")
+    return {"result": "pass", "seconds": round(time.monotonic() - started, 3),
+            "packages": len(packages), "tests_executed": 0, "budget_seconds": COMPILATION_SECONDS}
+
+
 def qualify(source, items, runner=run_command):
     if not items:
         raise GateError("at least one reviewed mutation is required")
@@ -340,7 +364,7 @@ def qualify(source, items, runner=run_command):
         root = Path(directory)
         snapshot(source, root)
         for item in items:
-            entry = {"name": item["name"], "file": item["file"], "test": item["test"]}
+            entry = {"name": item["name"], "file": item["file"], "test": item["test"], "phase": "baseline"}
             original = None
             step_started = time.monotonic()
             try:
@@ -351,6 +375,7 @@ def qualify(source, items, runner=run_command):
                         raise GateError("unmodified baseline test failed")
                     baselines.add(key)
                 original = apply_mutation(root, item)
+                entry["phase"] = "mutation"
                 code, output = runner(item["command"], root, min(COMMAND_SECONDS, deadline - time.monotonic()))
                 entry["result"] = "detected" if outcome(code, output, item) == "fail" else "survived"
             except (GateError, OSError, subprocess.SubprocessError) as error:
@@ -377,7 +402,13 @@ def main():
     parser.add_argument("--output", type=Path, default=ROOT / ".tools/security-mutations.json")
     args = parser.parse_args()
     items = [item for item in MUTATIONS if not args.only or item["name"] == args.only]
-    report = qualify(ROOT, items)
+    try:
+        compilation = prepare_compilation(ROOT, items)
+    except (GateError, OSError, subprocess.SubprocessError) as error:
+        report = {"complete": False, "result": "fail", "mutations": [], "compilation": {
+            "result": "fail", "reason": str(error) if isinstance(error, GateError) else type(error).__name__}}
+    else:
+        report = {**qualify(ROOT, items), "compilation": compilation}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n")
     if summary := os.environ.get("GITHUB_STEP_SUMMARY"):

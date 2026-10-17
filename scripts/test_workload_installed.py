@@ -182,6 +182,19 @@ class InstalledEvidenceTests(unittest.TestCase):
         self.assertFalse(proxy.matches(rule, "PUT", "/fixture/hsa", body))
         self.assertFalse(proxy.matches(rule, "PATCH", "/other/hsa", body))
 
+    def test_fault_filters_select_exact_rotation_annotation_and_signed_plan_identity(self):
+        rule = {"method": "PATCH", "path": "/fixture/hsa", "annotation": "hanko.sh/sa-secret-rotation", "step": "Committed"}
+        body = {"metadata": {"annotations": {installed.JOURNAL: json.dumps({"step": "Committed"})}}}
+        self.assertFalse(proxy.matches(rule, "PATCH", rule["path"], json.dumps(body).encode()))
+        body["metadata"]["annotations"][rule["annotation"]] = json.dumps({"step": "Committed"})
+        self.assertTrue(proxy.matches(rule, "PATCH", rule["path"], json.dumps(body).encode()))
+        for invalid in (b"not-json", b'[]', b'{"metadata":null}'):
+            self.assertFalse(proxy.matches(rule, "PATCH", rule["path"], invalid))
+        rule = {"method": "PATCH", "path": "/fixture/tenant/status", "json_path": ["status", "fleetPlan", "identity"], "equals": "reviewed"}
+        for value, expected in (({}, False), ({"status": None}, False), ({"status": {"fleetPlan": {"identity": "old"}}}, False),
+                                ({"status": {"fleetPlan": {"identity": "reviewed"}}}, True)):
+            self.assertEqual(proxy.matches(rule, "PATCH", rule["path"], json.dumps(value).encode()), expected)
+
     def test_proxy_preserves_native_media_type_without_forwarding_gzip(self):
         handler = proxy.Proxy.__new__(proxy.Proxy)
         handler.headers = Message()

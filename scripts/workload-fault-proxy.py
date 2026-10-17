@@ -25,8 +25,22 @@ def matches(rule, method, path, body):
     if not (actual.startswith(rule["path"]) if rule.get("path_prefix") else actual == rule["path"]):
         return False
     if "step" in rule:
-        value = json.loads(body).get("metadata", {}).get("annotations", {}).get("hanko.sh/workload-auth-transition", "{}")
-        return json.loads(value).get("step") == rule["step"]
+        try:
+            value = json.loads(body).get("metadata", {}).get("annotations", {}).get(
+                rule.get("annotation", "hanko.sh/workload-auth-transition"), "{}")
+            if json.loads(value).get("step") != rule["step"]:
+                return False
+        except (ValueError, TypeError, AttributeError):
+            return False
+    if "json_path" in rule:
+        try:
+            value = json.loads(body)
+            for key in rule["json_path"]:
+                value = value[key]
+            if value != rule["equals"]:
+                return False
+        except (ValueError, TypeError, KeyError, IndexError):
+            return False
     return True
 
 
