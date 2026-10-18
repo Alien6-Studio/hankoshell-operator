@@ -50,6 +50,13 @@ def matches(rule, method, path, body):
                 return False
         except (ValueError, TypeError, KeyError, IndexError):
             return False
+    if "document_attribute" in rule:
+        try:
+            value = json.loads(json.loads(body)["attributes"][rule["document_attribute"]])
+            if value.get("phase") != rule["phase"]:
+                return False
+        except (ValueError, TypeError, KeyError, AttributeError):
+            return False
     return True
 
 

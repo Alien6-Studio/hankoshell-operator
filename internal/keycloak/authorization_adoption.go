@@ -71,11 +71,15 @@ func (c *Client) ReadAuthorizationAdoption(ctx context.Context, model Authorizat
 }
 
 func (c *Client) readNativeResourcePermissionDependencies(ctx context.Context, realm, clientID string, graph *InventoryAuthorizationGraph) error {
+	return c.readResourcePermissionDependencies(ctx, realm, clientID, graph, 128)
+}
+
+func (c *Client) readResourcePermissionDependencies(ctx context.Context, realm, clientID string, graph *InventoryAuthorizationGraph, limit int) error {
 	var typed []authorizationPermissionRepresentation
 	if err := readAuthorizationCollection(ctx, c, authorizationBase(realm, clientID)+"/permission/resource?fields=*", &typed); err != nil {
 		return err
 	}
-	if len(typed) > 128 {
+	if len(typed) > limit {
 		return ErrAuthorizationReadLimit
 	}
 	byID := map[string]authorizationPermissionRepresentation{}

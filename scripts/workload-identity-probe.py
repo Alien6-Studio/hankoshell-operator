@@ -161,12 +161,16 @@ class Fixture(system.System):
         self.node_image = self.built_node_image
         self.report["node_build"] = {"server_archive_sha256": digest, "base_image": NODE_BASE, "architecture": architecture}
 
+    def keycloak_build(self, build, image):
+        dockerfile = build / "Dockerfile"
+        dockerfile.write_text(f"FROM {image}\nRUN /opt/keycloak/bin/kc.sh build --db=dev-file --health-enabled=true\n")
+        return dockerfile
+
     def keycloak(self):
         build = self.private / "keycloak-build"
         build.mkdir()
         image = KEYCLOAK_IMAGES[self.args.keycloak_version]
-        dockerfile = build / "Dockerfile"
-        dockerfile.write_text(f"FROM {image}\nRUN /opt/keycloak/bin/kc.sh build --db=dev-file --health-enabled=true\n")
+        dockerfile = self.keycloak_build(build, image)
         self.keycloak_image = self.name + "-keycloak:fixture"
         run(["docker", "build", "--network=none", "--tag", self.keycloak_image, "--file", dockerfile, build])
         run([self.args.kind, "load", "docker-image", self.keycloak_image, "--name", self.name])

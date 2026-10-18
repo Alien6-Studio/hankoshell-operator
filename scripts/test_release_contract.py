@@ -83,7 +83,7 @@ class ReleaseContractTests(unittest.TestCase):
     def test_ci_preflight_blocks_every_expensive_job_and_remains_required(self):
         ci = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
         self.assertEqual(set(ci), {"preflight", "source", "kubernetes", "keycloak", "keycloak-ordinary", "keycloak-extension", "keycloak-static", "workload", "oci",
-                                   "rehearsal", "system", "installed-workload", "installed-portable", "installed-fleet", "security-fuzz", "security-mutations", "checks",
+                                   "rehearsal", "system", "installed-workload", "installed-delegation", "installed-portable", "installed-fleet", "security-fuzz", "security-mutations", "checks",
                                    "schedule-report", "installed-scale-qualification"})
         for job in ("source", "kubernetes", "keycloak", "keycloak-ordinary", "keycloak-extension", "keycloak-static", "workload", "security-fuzz", "security-mutations", "oci"):
             with self.subTest(job=job):
@@ -93,6 +93,8 @@ class ReleaseContractTests(unittest.TestCase):
         for job in ("rehearsal", "system", "installed-workload", "installed-portable", "installed-fleet"):
             self.assertEqual(ci[job]["needs"], ["source", "oci"])
             self.assertNotIn("if", ci[job])
+        self.assertEqual(ci["installed-delegation"]["needs"], ["source", "oci", "keycloak-extension"])
+        self.assertNotIn("if", ci["installed-delegation"])
         self.assertEqual(ci["installed-scale-qualification"]["needs"], ["source", "oci"])
         self.assertNotIn("needs", ci["preflight"])
         self.assertNotIn("if", ci["preflight"])

@@ -176,6 +176,7 @@ class Installed(native.Fixture):
                     "workload-writer": ["manage-identity-providers", "view-realm"],
                     "workload-dependent-reader": ["view-clients"],
                     "workload-client-writer": ["manage-clients", "view-realm"]}
+        profiles["system-operator"] += getattr(self, "additional_operator_roles", [])
         for name, roles in profiles.items():
             credential = self.adoption_identity(name, "managed", roles)
             self.credentials[name] = credential

@@ -131,7 +131,7 @@ class QualificationDiagnosticsTests(unittest.TestCase):
 
     def test_ci_failure_artifacts_are_separate_short_lived_and_nonpublishable(self):
         workflow = yaml.safe_load((Path(__file__).parents[1] / ".github/workflows/ci.yml").read_text())
-        for name in ("workload", "system", "installed-workload", "installed-portable", "installed-fleet", "rehearsal"):
+        for name in ("workload", "system", "installed-workload", "installed-delegation", "installed-portable", "installed-fleet", "rehearsal"):
             steps = [step for step in workflow["jobs"][name]["steps"]
                      if step.get("with", {}).get("name", "").startswith("NONPUBLISHABLE-diagnostics-")]
             self.assertEqual(len(steps), 1, name)

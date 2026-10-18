@@ -28,6 +28,7 @@ RELEASE_VERSION := $(shell python3 scripts/versions.py get release version)
 
 .DEFAULT_GOAL := all
 .PHONY: keycloak-extension-build keycloak-extension-test
+.PHONY: delegation-installed-test
 
 .PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-test integration-test keycloak-integration-test keycloak-stability-test authentik-integration-test security-mutations security-fuzz licenses lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test fleet-installed-test portable-installed-test scale-installed-test
 versions-sync:
@@ -162,6 +163,13 @@ workload-installed-test:
 		--archive "$(OCI_ARCHIVE)" --evidence "$(OCI_EVIDENCE)" --digest "$(DIGEST)" --revision "$(REVISION)" \
 		--kind "$(KIND)" --kubectl "$(KUBECTL)" --openssl "$(OPENSSL)" --helm "$$(command -v helm)" \
 		--oras "$(ORAS)" --output "$(WORKLOAD_OUTPUT)"
+
+# Uses an already scanned immutable archive; never publishes a registry artifact.
+delegation-installed-test:
+	python3 scripts/delegation-installed-test.py --keycloak-version $(KEYCLOAK_VERSION) \
+		--kubernetes-version $(KUBERNETES_VERSION) --archive "$(OCI_ARCHIVE)" --evidence "$(OCI_EVIDENCE)" \
+		--digest "$(DIGEST)" --revision "$(REVISION)" --kind "$(KIND)" --kubectl "$(KUBECTL)" \
+		--openssl "$(OPENSSL)" --helm "$$(command -v helm)" --oras "$(ORAS)" --output "$(DELEGATION_OUTPUT)"
 
 # Uses an already scanned immutable archive; never publishes a registry artifact.
 fleet-installed-test:

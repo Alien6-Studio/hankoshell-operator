@@ -317,6 +317,15 @@ func (c *Client) DeleteAuthorizationOwned(ctx context.Context, model Authorizati
 	if enabled, ok := representation["authorizationServicesEnabled"].(bool); ok && !enabled {
 		return c.clearAuthorizationOwnership(ctx, model, resourceServerID)
 	}
+	if model.OwnerUID != "" {
+		if err := c.checkAuthorizationCleanupDependencies(ctx, model.Realm, resourceServerID, owned); err != nil {
+			return err
+		}
+	}
+	return c.deleteAuthorizationOwnedGraph(ctx, model, resourceServerID, owned, representation)
+}
+
+func (c *Client) deleteAuthorizationOwnedGraph(ctx context.Context, model AuthorizationModel, resourceServerID string, owned AuthorizationManagedObjects, representation map[string]any) error {
 	base := authorizationBase(model.Realm, resourceServerID)
 	foreignRemain := false
 	for _, collection := range []struct {
@@ -339,7 +348,7 @@ func (c *Client) DeleteAuthorizationOwned(ctx context.Context, model Authorizati
 	if foreignRemain {
 		return c.clearAuthorizationOwnership(ctx, model, resourceServerID)
 	}
-	return c.disableLegacyAuthorization(ctx, model, clientPath, representation)
+	return c.disableLegacyAuthorization(ctx, model, authorizationClientPath(model.Realm, resourceServerID), representation)
 }
 
 func (c *Client) disableLegacyAuthorization(ctx context.Context, model AuthorizationModel, path string, representation map[string]any) error {

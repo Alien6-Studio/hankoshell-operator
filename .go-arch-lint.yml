@@ -15,6 +15,8 @@ components:
     in: "/cmd/operator"
   fixture_review:
     in: "/scripts/workload-auth-review"
+  fixture_resource:
+    in: "/scripts/delegation-resource-server"
   api_surface:
     in: "/scripts/api-surface"
   api_surface_fixture:

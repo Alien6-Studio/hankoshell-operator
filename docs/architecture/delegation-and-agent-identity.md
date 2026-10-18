@@ -57,6 +57,38 @@ Public status adds observed portable delegation origin and bounds, not token
 subjects or native user IDs. This additive unpublished-alpha schema change is
 recorded in [the development contract notice](../go-api-contract.md).
 
+## Installed qualification gate (#71)
+
+`scripts/delegation-installed-test.py` requires the exact clean Operator revision,
+its scanned OCI graph and the matching JAR already built/tested by the same CI run.
+The required six-cell Kubernetes/Keycloak matrix runs the reviewed chart with
+constrained credentials and three actual kubelet-bound federated workloads.
+The broad ordinary resource grants deliberately exceed the narrow delegated
+read grant. A separate HTTPS resource server verifies native RS256 signatures,
+issuer, exact audience, expiry and resource/scope permissions before allowing access.
+
+The scenarios cover native depth/replay refusal, identity/audience/resource
+negatives, expiry and measured withdrawal, stale intent/provider outage recovery,
+and accepted writes with lost acknowledgements at all four native phases.
+Each phase also loses Kubernetes status and refuses the post-commit status write
+before a second restart. There is no Kubernetes status write at the intermediate
+native phases; the evidence names the actual post-commit failure boundary.
+An interrupted deletion retains foreign objects and blocks on incoming foreign
+dependencies. The final scan covers current/retired logs and Kubernetes objects;
+Hub is disabled and its payload count is explicitly zero.
+
+Runtime results are recorded only after these installed cells pass. These fixtures
+use one Kubernetes node and one Keycloak replica; they do not qualify Keycloak
+cluster failover, signing-key rotation, human delegation or production readiness.
+An offline JWT remains valid until its bounded expiry after grant withdrawal.
+
+When cleanup reports `CleanupConflict`, inspect and remove or migrate the foreign
+dependency through its owner, then let Hanko retry. Delegated issuance is withdrawn
+before graph cleanup. Existing UID-owned and adopted graphs both require complete
+incoming-dependency observation; unavailable or over-budget reads retain the
+finalizer. Do not force-remove the finalizer or delete foreign permissions to
+make qualification pass. Coordinate native writers during the reviewed cleanup.
+
 See the [local upstream discussion draft](keycloak-bounded-delegation-upstream.md)
 for the optional generic policy proposal. No upstream discussion or PR has been
 submitted, and no upstream acceptance or maintenance commitment is assumed.

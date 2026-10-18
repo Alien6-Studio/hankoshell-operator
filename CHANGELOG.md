@@ -3,6 +3,17 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Installed bounded-delegation qualification (#71)
+
+- Add a mandatory six-cell installed delegation gate using the scanned Operator,
+  the matching provider JAR, actual projected workload identities and an independent
+  HTTPS resource verifier. Exercise depth, replay, scope/resource bounds, expiry,
+  withdrawal, native journal recovery and interrupted cleanup without storing tokens.
+- Refuse UID-owned authorization cleanup when a foreign permission depends on owned
+  resources, scopes or policies. Retain the finalizer and foreign graph; after its
+  owner removes the dependency, cleanup can resume. Preserve existing pagination
+  budgets and the narrower adoption inventory limits.
+
 ### Reviewed extension integration and dependency maintenance
 
 - Advance the standalone Keycloak extension pin to its signed `d9423db` revision,
