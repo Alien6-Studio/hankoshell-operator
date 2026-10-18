@@ -34,6 +34,11 @@ issuance first, preserves foreign state and restores the previous exchange
 setting after the last owner. Observe/import stay read-only; adoption refuses
 delegation. No manage-realm/manage-users is added to the delegation writer.
 
+Federated authentication preserves the native exchange activation only alongside
+a valid actor marker bound to that client's own UID. This avoids treating an
+owned delegation as authentication drift. General CR/adoption attributes still
+cannot activate native exchange; malformed or foreign markers remain rejected.
+
 `make keycloak-extension-test KEYCLOAK_VERSION=VERSION` builds Java and runs its
 separate mandatory real-HTTPS profile gate. The extension is maintained in its
 own repository. [The consumer pin](../../extensions/keycloak-bounded-delegation.json)

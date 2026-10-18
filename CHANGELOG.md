@@ -13,6 +13,9 @@
   resources, scopes or policies. Retain the finalizer and foreign graph; after its
   owner removes the dependency, cleanup can resume. Preserve existing pagination
   budgets and the narrower adoption inventory limits.
+- Keep committed federated service accounts ready when the delegation controller
+  activates native token exchange with a valid actor marker bound to that client's
+  UID. Continue refusing unmarked activation, foreign markers and unknown settings.
 
 ### Reviewed extension integration and dependency maintenance
 
