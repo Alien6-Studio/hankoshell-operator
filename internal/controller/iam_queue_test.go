@@ -8,10 +8,12 @@ import (
 	"time"
 
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -93,6 +95,30 @@ func TestIAMColdBacklogIsNotStarvedByContinuousLiveDependencyWakes(t *testing.T)
 	q.Done(request)
 }
 
+func TestIAMOrganizationOwnershipRecoveryKeepsForegroundPriority(t *testing.T) {
+	org := &api.HankoOrganization{ObjectMeta: metav1.ObjectMeta{Name: "root", Namespace: "auth", UID: "root-owner", Generation: 1}}
+	r := &HankoOrganizationReconciler{Client: controllerTestClient(controllerTestScheme(t), org)}
+	scheduled := scheduleIAMReconciler(reconcile.Func(func(ctx context.Context, _ ctrl.Request) (ctrl.Result, error) {
+		return r.recordOrganizationProviderSecurityError(ctx, org, client.MergeFrom(org.DeepCopy()), keycloak.ErrOrganizationOwnershipConflict)
+	}))
+	result, err := scheduled.Reconcile(context.Background(), iamRequest("root"))
+	if err != nil || result.RequeueAfter < requeueInterval || org.Status.Phase != "Error" {
+		t.Fatal("ownership refusal lost its fail-closed status or retry delay", result, err)
+	}
+	q := iamTestQueue(t, workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
+	// Simulate the elapsed retry delay, retaining the actual controller's
+	// scheduling decision. A thousand pending children must not starve the root.
+	q.AddWithOpts(priorityqueue.AddOpts{Priority: result.Priority}, iamRequest("root"))
+	for index := range 1000 {
+		q.Add(iamRequest(fmt.Sprintf("waiting-child-%04d", index)))
+	}
+	request, priority := iamTake(t, q)
+	defer q.Done(request)
+	if request.Name != "root" || priority != 0 {
+		t.Fatal("ownership recovery was demoted behind waiting children", request, priority)
+	}
+}
+
 func TestIAMFreshEventPromotesDelayedPeriodicWorkWithoutDuplicates(t *testing.T) {
 	q := iamTestQueue(t, workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
 	request := iamRequest("changed")
@@ -155,6 +181,7 @@ func TestIAMRetryKeepsBackoffAndLeavesPeriodicPriority(t *testing.T) {
 
 func TestIAMSchedulerPreservesErrorsDelaysAndShortCheckpoints(t *testing.T) {
 	failure := errors.New("fixture failure")
+	foreground, background := 0, iamPeriodicPriority
 	for _, test := range []struct {
 		name     string
 		result   ctrl.Result
@@ -167,6 +194,9 @@ func TestIAMSchedulerPreservesErrorsDelaysAndShortCheckpoints(t *testing.T) {
 		{name: "periodic", result: ctrl.Result{RequeueAfter: requeueInterval}, priority: iamPeriodicPriority},
 		{name: "jittered periodic", result: ctrl.Result{RequeueAfter: requeueInterval + requeueJitter}, priority: iamPeriodicPriority},
 		{name: "error from periodic", result: ctrl.Result{RequeueAfter: requeueInterval}, err: failure},
+		{name: "explicit foreground recovery", result: ctrl.Result{RequeueAfter: requeueInterval, Priority: &foreground}},
+		{name: "explicit periodic", result: ctrl.Result{RequeueAfter: requeueInterval, Priority: &background}, priority: iamPeriodicPriority},
+		{name: "error overrides explicit periodic", result: ctrl.Result{RequeueAfter: requeueInterval, Priority: &background}, err: failure},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			r := scheduleIAMReconciler(reconcile.Func(func(context.Context, ctrl.Request) (ctrl.Result, error) { return test.result, test.err }))

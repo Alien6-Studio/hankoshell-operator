@@ -34,6 +34,12 @@ resyncs (at least 30 seconds) use background priority **-200**. Errors and short
 checkpoints return to priority 0, so recovery does not wait behind a thousand
 background resyncs. Upstream initial-list priority -100 is normalized to 0;
 simply enabling the default priority queue would starve cold recovery again.
+Organization ownership refusals also retain explicit priority 0 with their
+unchanged 30–35-second delay, even though they return no Go error. Pending
+children must not starve the fresh ownership read needed after an ambiguous
+create. The scheduler preserves that explicit priority; an actual Go error
+always returns to priority 0. The real-queue regression exercises the controller's
+ownership-refusal path with 1,000 waiting children. No owner check is bypassed.
 The upstream queue still owns synchronization, delayed work, coalescing and
 per-key serialization; the existing exponential/global retry limiter is retained.
 There is no new worker pool or provider budget. This does not serialize distinct objects with

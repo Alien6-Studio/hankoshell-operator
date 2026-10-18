@@ -396,7 +396,10 @@ func (r *HankoOrganizationReconciler) recordOrganizationProviderSecurityError(ct
 		return ctrl.Result{}, patchErr
 	}
 	if isOrganizationProviderSecurityViolation(err) {
-		return ctrl.Result{RequeueAfter: requeueWithJitter()}, nil
+		// A fresh read can prove a previously ambiguous owned create. Keep this
+		// retry alongside pending children, rather than behind their live wakes.
+		priority := 0
+		return ctrl.Result{RequeueAfter: requeueWithJitter(), Priority: &priority}, nil
 	}
 	return ctrl.Result{RequeueAfter: requeueOnError}, err
 }

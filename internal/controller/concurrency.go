@@ -63,7 +63,9 @@ func scheduleIAMReconciler(delegate reconcile.Reconciler) reconcile.Reconciler {
 		result, err := delegate.Reconcile(ctx, request)
 		if err != nil || result.RequeueAfter > 0 {
 			priority := 0
-			if err == nil && result.RequeueAfter >= requeueInterval {
+			if err == nil && result.Priority != nil {
+				priority = *result.Priority
+			} else if err == nil && result.RequeueAfter >= requeueInterval {
 				priority = iamPeriodicPriority
 			}
 			result.Priority = &priority
