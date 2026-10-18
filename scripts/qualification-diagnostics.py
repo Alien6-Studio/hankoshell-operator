@@ -176,7 +176,7 @@ def capture(fixture, error):
         for index, pod in enumerate(selected[:8]):
             metadata = pod["metadata"]
             for previous in (False, True):
-                command = [*base, "logs", metadata["name"], "-n", metadata["namespace"], "--all-containers=true", "--tail=200"]
+                command = [*base, "logs", metadata["name"], "-n", metadata["namespace"], "--all-containers=true", "--tail=30"]
                 if previous:
                     command.append("--previous")
                 text = collector.command(command)

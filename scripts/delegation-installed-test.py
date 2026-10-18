@@ -9,10 +9,13 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import subprocess
 import tempfile
 import time
+from urllib.parse import quote, urlencode
+from urllib.request import Request, urlopen
 
 import keycloak_extension_source as extension
 
@@ -60,6 +63,45 @@ def post_commit_status_fault(path):
     # Failed reconciles can report Error before native recovery has committed.
     # Only refuse the successful write after the driver verified its journal.
     return {"method": "PATCH", "path": path, "action": "deny", "json_path": ["status", "phase"], "equals": "Ready"}
+
+
+def ownership_summary(current, kind, uid, resource_uid):
+    """Fixed booleans/counts only; no native values or private representations."""
+    attrs = current.get("attributes", {})
+    key = "hanko.sh/application-owner" if kind == "HankoApplication" else "hanko.sh/client-owner-uid"
+    result = {"kind": kind, "uid_matches": bool(uid) and attrs.get(key) == uid,
+              "kind_matches": kind == "HankoApplication" or attrs.get("hanko.sh/client-owner-kind") == kind,
+              "protocol_matches": current.get("protocol") == "openid-connect",
+              "client_enabled": current.get("enabled") is True,
+              "service_accounts_enabled": current.get("serviceAccountsEnabled") is True,
+              "authorization_enabled": current.get("authorizationServicesEnabled") is True,
+              "exchange_enabled": attrs.get("standard.token.exchange.enabled") == "true"}
+    for label, attribute in (("delegation", ATTRIBUTE), ("actor", "oauth.bounded-delegation.actor.v1"),
+                             ("authorization", "hanko.sh/resource-server-ownership")):
+        result[label + "_present"] = attribute in attrs
+        if attribute not in attrs:
+            continue
+        try:
+            document = json.loads(attrs[attribute])
+            if not isinstance(document, dict):
+                raise ValueError()
+            result[label + "_json_object"] = True
+            result[label + "_version_supported"] = type(document.get("version")) is int and document["version"] in ((1, 2) if label == "authorization" else (1,))
+            if label == "actor":
+                result["actor_self_matches"] = document.get("actor") == {"id": current.get("id"), "attribute": key, "value": uid}
+                result["actor_owner_count"] = len(document["owners"]) if isinstance(document.get("owners"), dict) else 0
+            else:
+                result[label + "_owner_matches"] = document.get("ownerUID") == resource_uid
+                if label == "delegation":
+                    result["delegation_audience_matches"] = document.get("audience") == {"id": current.get("id"), "attribute": key, "value": uid}
+                    result["delegation_phase"] = document.get("phase") if document.get("phase") in PHASES else "unknown"
+                else:
+                    result["journal_client_matches"] = document.get("objects", {}).get("resourceServerID") == current.get("id")
+                    result["journal_counts"] = {name: len(document.get("objects", {}).get(name, []))
+                                                for name in ("scopes", "resources", "policies", "permissions")}
+        except (ValueError, TypeError, KeyError, AttributeError):
+            result[label + "_json_object"] = False
+    return result
 
 
 class Delegation(installed.Installed):
@@ -434,8 +476,82 @@ class Delegation(installed.Installed):
 
     def public_evidence(self):
         keys = ("schema_version", "layer", "revision", "image_digest", "extension", "resource_verifier_sha256", "fixture_sha256", "node_image", "node_build", "keycloak_image",
-                "keycloak_version", "kubernetes_version", "complete", "publishable", "started_at", "completed_at", "checks", "recovery", "initial_convergence_seconds", "revocation_seconds", "keycloak_profiles", "hub_payloads_inspected", "limits", "active_phase")
+                "keycloak_version", "kubernetes_version", "complete", "publishable", "started_at", "completed_at", "checks", "recovery", "initial_convergence_seconds", "revocation_seconds", "keycloak_profiles", "hub_payloads_inspected", "limits", "active_phase", "failure_ownership")
         return {key: self.report[key] for key in keys if key in self.report}
+
+    def capture_ownership_failure(self):
+        # Best effort, read-only, <=25 seconds plus a final token/read pair
+        # (<=4 seconds). Diagnostic failures never replace the original error.
+        snapshot = {"complete": False, "clients": [], "native_counts": {}, "journal_coverage": {}}
+        self.report["failure_ownership"] = snapshot
+        deadline = time.monotonic() + 25
+        diagnostic_token = None
+
+        def kube(kind, name):
+            if time.monotonic() >= deadline:
+                raise ValueError()
+            raw = system.diagnostics.bounded_command([str(self.args.kubectl), "--kubeconfig", str(self.config),
+                "--request-timeout=2s", "get", kind, name, "-n", "auth", "-o", "json"], 2)
+            return json.loads(raw)["metadata"]["uid"]
+
+        def get(path):
+            nonlocal diagnostic_token
+            if time.monotonic() >= deadline:
+                raise ValueError()
+            if diagnostic_token is None:
+                fields = {"client_id": "admin-cli", "grant_type": "password", "username": "fixture-admin", "password": self.password}
+                request = Request(self.endpoint + "/realms/master/protocol/openid-connect/token", data=urlencode(fields).encode())
+                with urlopen(request, context=self.http, timeout=2) as response:
+                    raw = response.read(65_537)
+                if len(raw) > 65_536:
+                    raise ValueError()
+                diagnostic_token = json.loads(raw)["access_token"]
+                if not isinstance(diagnostic_token, str) or not diagnostic_token:
+                    raise ValueError()
+                self.sensitive.append(diagnostic_token)
+            request = Request(self.endpoint + path, headers={"Authorization": "Bearer " + diagnostic_token})
+            with urlopen(request, context=self.http, timeout=2) as response:
+                raw = response.read(1_048_577)
+            if len(raw) > 1_048_576:
+                raise ValueError()
+            return json.loads(raw)
+
+        try:
+            resource_uid = kube("hankoresourceserver", "installed-server")
+            clients = get("/admin/realms/managed/clients?first=0&max=100")
+            if not isinstance(clients, list) or len(clients) >= 100:
+                raise ValueError()
+            by_name = {value["clientId"]: value["id"] for value in clients}
+            audience_objects = {}
+            for name, kind, resource in [("installed-api", "HankoApplication", "hankoapplication"),
+                                          *((name, "HankoServiceAccount", "hankoserviceaccount") for name in IDENTITIES)]:
+                uid = kube(resource, name)
+                identifier = by_name[name]
+                if not isinstance(identifier, str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,128}", identifier):
+                    raise ValueError()
+                current = get("/admin/realms/managed/clients/" + quote(identifier, safe=""))
+                summary = ownership_summary(current, kind, uid, resource_uid)
+                summary["native_id_matches"] = current.get("id") == identifier
+                snapshot["clients"].append(summary)
+                if name == "installed-api":
+                    try:
+                        journal = json.loads(current.get("attributes", {}).get("hanko.sh/resource-server-ownership", "{}"))
+                        audience_objects = journal.get("objects", {})
+                    except (ValueError, TypeError, AttributeError):
+                        pass
+            audience = quote(by_name["installed-api"], safe="")
+            for name, key in (("scope", "scopes"), ("resource", "resources"), ("policy", "policies"), ("permission", "permissions")):
+                values = get(f"/admin/realms/managed/clients/{audience}/authz/resource-server/{name}?first=0&max=100")
+                if not isinstance(values, list) or len(values) >= 100:
+                    raise ValueError()
+                snapshot["native_counts"][name] = len(values)
+                owned = {value.get("id") for value in audience_objects.get(key, []) if isinstance(value, dict) and isinstance(value.get("id"), str)}
+                live = {value.get("id") or value.get("_id") for value in values if isinstance(value, dict)
+                        and isinstance(value.get("id") or value.get("_id"), str)}
+                snapshot["journal_coverage"][name] = {"recorded": len(owned), "recorded_missing_live": len(owned - live), "live_unrecorded": len(live - owned)}
+            snapshot["complete"] = True
+        except Exception:
+            pass
 
     def cleanup(self):
         try:
@@ -466,6 +582,7 @@ def main():
             checkout(args.revision)
         except Exception as error:
             fixture.report["complete"] = False
+            fixture.capture_ownership_failure()
             system.diagnostics.capture(fixture, error)
             raise
         finally:

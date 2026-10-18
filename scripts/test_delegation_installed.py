@@ -9,6 +9,7 @@ import io
 import json
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
@@ -26,6 +27,110 @@ probe = module("delegation_pod_probe", "delegation-pod-probe.py")
 
 
 class DelegationEvidenceTests(unittest.TestCase):
+    def test_failure_ownership_summary_retains_only_fixed_decisions_and_counts(self):
+        attributes = {"hanko.sh/application-owner": "private-app-uid", "private-key": "private-value",
+            installed.ATTRIBUTE: json.dumps({"ownerUID": "private-server-uid", "phase": "Prepared",
+                "audience": {"id": "private-native-id", "attribute": "hanko.sh/application-owner", "value": "private-app-uid"}}),
+            "hanko.sh/resource-server-ownership": json.dumps({"ownerUID": "private-server-uid", "objects": {"scopes": [{"id": "private-scope"}]}})}
+        current = {"id": "private-native-id", "secret": "private-secret", "attributes": attributes}
+        result = installed.ownership_summary(current, "HankoApplication", "private-app-uid", "private-server-uid")
+        self.assertTrue(result["uid_matches"])
+        self.assertTrue(result["delegation_owner_matches"])
+        self.assertTrue(result["delegation_audience_matches"])
+        self.assertEqual(result["delegation_phase"], "Prepared")
+        self.assertEqual(result["journal_counts"], {"scopes": 1, "resources": 0, "policies": 0, "permissions": 0})
+        self.assertNotIn("private", json.dumps(result))
+        for malformed in ("private-invalid-json", "[]", "null", json.dumps({"objects": None})):
+            attributes["hanko.sh/resource-server-ownership"] = malformed
+            result = installed.ownership_summary(current, "HankoApplication", "private-app-uid", "private-server-uid")
+            self.assertFalse(result["authorization_json_object"])
+            self.assertNotIn("private", json.dumps(result))
+
+    def test_failure_snapshot_stops_on_budget_or_refused_reads_without_private_exceptions(self):
+        for mode in ("deadline", "provider"):
+            with self.subTest(mode=mode):
+                fixture = installed.Delegation.__new__(installed.Delegation)
+                fixture.report = {}
+                fixture.args = SimpleNamespace(kubectl="kubectl")
+                fixture.config = Path("private-kubeconfig")
+                fixture.password, fixture.endpoint, fixture.http, fixture.sensitive = "private-password", "https://fixture.invalid", None, []
+                with patch.object(installed.time, "monotonic", side_effect=[0, 26] if mode == "deadline" else lambda: 0), \
+                        patch.object(installed.system.diagnostics, "bounded_command", return_value='{"metadata":{"uid":"private-server-uid"}}'), \
+                        patch.object(installed, "urlopen", side_effect=RuntimeError("private-provider-response")) as request:
+                    fixture.capture_ownership_failure()
+                result = fixture.public_evidence()
+                self.assertFalse(result["failure_ownership"]["complete"])
+                self.assertNotIn("private", json.dumps(result))
+                if mode == "deadline":
+                    request.assert_not_called()
+                else:
+                    self.assertEqual(request.call_args.kwargs["timeout"], 2)
+
+    def test_complete_failure_snapshot_uses_only_bounded_reads_and_omits_native_values(self):
+        fixture = installed.Delegation.__new__(installed.Delegation)
+        fixture.report, fixture.config = {}, Path("private-kubeconfig")
+        fixture.args = SimpleNamespace(kubectl="kubectl")
+        fixture.password, fixture.endpoint, fixture.http, fixture.sensitive = "private-password", "https://fixture.invalid", None, []
+        names = ["installed-api", *installed.IDENTITIES]
+
+        def native(path):
+            if "/authz/" in path:
+                return [{"id": "private-native-value", "secret": "private-secret"}] * 2
+            if "?" in path:
+                return [{"clientId": name, "id": "native-" + str(index)} for index, name in enumerate(names)]
+            audience = path.endswith("native-0")
+            return {"id": "private-native-id", "secret": "private-secret", "attributes": {
+                "hanko.sh/application-owner" if audience else "hanko.sh/client-owner-uid": "private-uid",
+                "hanko.sh/client-owner-kind": "HankoServiceAccount"}}
+
+        @contextlib.contextmanager
+        def response(request, context, timeout):
+            self.assertEqual(timeout, 2)
+            if request.get_method() == "POST":
+                self.assertTrue(request.full_url.endswith("/realms/master/protocol/openid-connect/token"))
+                data = {"access_token": "private-admin-token"}
+            else:
+                self.assertEqual(request.get_method(), "GET")
+                data = native(request.full_url)
+            yield SimpleNamespace(read=lambda _: json.dumps(data).encode())
+
+        with patch.object(installed.time, "monotonic", return_value=0), \
+                patch.object(installed.system.diagnostics, "bounded_command", return_value='{"metadata":{"uid":"private-uid"}}') as kube, \
+                patch.object(installed, "urlopen", side_effect=response) as request:
+            fixture.capture_ownership_failure()
+        snapshot = fixture.public_evidence()["failure_ownership"]
+        self.assertTrue(snapshot["complete"])
+        self.assertEqual(len(snapshot["clients"]), 4)
+        self.assertTrue(all(value["uid_matches"] for value in snapshot["clients"]))
+        self.assertEqual(snapshot["native_counts"], {kind: 2 for kind in ("scope", "resource", "policy", "permission")})
+        self.assertEqual(snapshot["journal_coverage"]["scope"], {"recorded": 0, "recorded_missing_live": 0, "live_unrecorded": 1})
+        self.assertNotIn("private", json.dumps(snapshot))
+        self.assertEqual(request.call_count, 10)
+        self.assertIn("private-admin-token", fixture.sensitive)
+        for call in kube.call_args_list:
+            self.assertIn("get", call.args[0])
+            self.assertEqual(call.args[1], 2)
+
+    def test_failure_snapshot_refuses_oversized_admin_token_or_native_document(self):
+        for target in ("token", "native"):
+            with self.subTest(target=target):
+                fixture = installed.Delegation.__new__(installed.Delegation)
+                fixture.report, fixture.config, fixture.args = {}, Path("private-config"), SimpleNamespace(kubectl="kubectl")
+                fixture.password, fixture.endpoint, fixture.http, fixture.sensitive = "private-password", "https://fixture.invalid", None, []
+
+                @contextlib.contextmanager
+                def response(request, **kwargs):
+                    token = request.get_method() == "POST"
+                    raw = b"x" * (65_537 if token else 1_048_577) if target == ("token" if token else "native") else b'{"access_token":"private-admin-token"}'
+                    yield SimpleNamespace(read=lambda limit: raw[:limit])
+
+                with patch.object(installed.time, "monotonic", return_value=0), \
+                        patch.object(installed.system.diagnostics, "bounded_command", return_value='{"metadata":{"uid":"private-uid"}}'), \
+                        patch.object(installed, "urlopen", side_effect=response):
+                    fixture.capture_ownership_failure()
+                self.assertFalse(fixture.report["failure_ownership"]["complete"])
+                self.assertNotIn("private", json.dumps(fixture.public_evidence()))
+
     def test_application_refresh_preserves_authority_across_plan_revisions(self):
         for mutation in ("revision", "grant", "objects"):
             with self.subTest(mutation=mutation):

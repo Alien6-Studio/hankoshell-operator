@@ -106,6 +106,31 @@ class QualificationDiagnosticsTests(unittest.TestCase):
                 self.assertIsNone(collector.command(["never-start"]))
                 command.assert_not_called()
 
+    def test_pod_log_tail_fits_the_existing_file_budget(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config = root / "kubeconfig"
+            config.touch()
+            fixture = SimpleNamespace(args=SimpleNamespace(output=root / "failed.json", kubectl="kubectl"),
+                config=config, sensitive=["private-sentinel"], scanned_operators=[("auth", "system-operator")])
+            pod = {"metadata": {"name": "system-operator-fixture", "namespace": "auth"}}
+
+            def command(args, *_positional, **_kwargs):
+                if "pods" in args:
+                    return json.dumps({"items": [pod]})
+                if "logs" in args:
+                    lines = int(next(str(arg).split("=")[1] for arg in args if str(arg).startswith("--tail=")))
+                    return ("x" * 1000 + " private-sentinel OwnershipConflict\n") * lines
+                return "" if "api-resources" in args else '{"items": []}'
+
+            with patch.object(diagnostics, "bounded_command", side_effect=command):
+                diagnostics.capture(fixture, RuntimeError())
+            log = (root / "failed.diagnostics/pod-0-current.log").read_text()
+            self.assertIn("OwnershipConflict", log)
+            self.assertNotIn("private-sentinel", log)
+            self.assertNotIn("omitted", log)
+            self.assertLessEqual(len(log.encode()), diagnostics.FILE_LIMIT)
+
     def test_collection_failure_does_not_replace_original_failure(self):
         fixture = SimpleNamespace(args=SimpleNamespace(output=Path("unused")), sensitive=[])
         original = RuntimeError("private failed command")

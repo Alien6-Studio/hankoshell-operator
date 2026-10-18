@@ -94,10 +94,19 @@ An interrupted deletion retains foreign objects and blocks on incoming foreign
 dependencies. The final scan covers current/retired logs and Kubernetes objects;
 Hub is disabled and its payload count is explicitly zero.
 
-Runtime results are recorded only after these installed cells pass. These fixtures
-use one Kubernetes node and one Keycloak replica; they do not qualify Keycloak
-cluster failover, signing-key rotation, human delegation or production readiness.
-An offline JWT remains valid until its bounded expiry after grant withdrawal.
+The [2026-10-18 installed audit](../qualification/delegation/2026-10-18/runtime-e29b3d5/README.md)
+records all six passing local cells on clean runtime `e29b3d5`, with 88 fixed
+assertions and four native-phase recoveries per cell. Initial convergence ranges
+from 85.274 to 159.354 seconds; withdrawal ranges from 7.680 to 19.000 seconds,
+within the unchanged 600/180-second budgets. The packet binds the scanned OCI,
+extension JARs, source/security results and runner outcomes. CI separately records
+an initial `OwnershipConflict` on 26.7.5 / 1.35.0; its cause remains unresolved,
+so #71 remains open. Local successes do not waive that failed installed cell or
+the required aggregate gate.
+These fixtures use one Kubernetes node and one Keycloak replica; they do not
+qualify Keycloak cluster failover, signing-key rotation, human delegation or
+production readiness. An offline JWT remains valid until its bounded expiry
+after grant withdrawal.
 
 When cleanup reports `CleanupConflict`, inspect and remove or migrate the foreign
 dependency through its owner, then let Hanko retry. Delegated issuance is withdrawn
@@ -308,5 +317,6 @@ the unsupported capability result until provider enforcement is proven;
 intersection/depth/TTL proof, including composite escalation and replay negatives.
 [#71](https://github.com/Alien6-Studio/hankoshell-operator/issues/71) then requires
 installed Pod-to-resource proof and recovery/ownership isolation on Kubernetes
-1.35.0, 1.36.2 and 1.37.0 × Keycloak 26.7.5 and 26.8.0. The direct provider tests
-here do not replace those six installed cells or close the RFC's merge/review gates.
+1.35.0, 1.36.2 and 1.37.0 × Keycloak 26.7.5 and 26.8.0. The installed audit above
+records those six local cells. Direct provider tests remain a separate layer;
+neither result closes the RFC's protected integration/review gates.
