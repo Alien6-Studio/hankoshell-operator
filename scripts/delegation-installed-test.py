@@ -54,6 +54,12 @@ def server_spec(ttl=30, delegated=True):
             "resources": [{"name": name, "scopes": ["read", "write"]} for name in ("allowed", "denied")], "permissions": permissions}
 
 
+def post_commit_status_fault(path):
+    # Failed reconciles can report Error before native recovery has committed.
+    # Only refuse the successful write after the driver verified its journal.
+    return {"method": "PATCH", "path": path, "action": "deny", "json_path": ["status", "phase"], "equals": "Ready"}
+
+
 class Delegation(installed.Installed):
     def __init__(self, args, private):
         super().__init__(args, private)
@@ -166,7 +172,31 @@ class Delegation(installed.Installed):
         self.record("independent_scope_outside_grant_denied", self.access(token, scope="write") == {"http_status": 403, "allowed": False})
         return result
 
+    def audience_isolation(self):
+        self.apply(installed.object_value("HankoApplication", "other-api", {"realmRef": "managed", "clientID": "other-api", "type": "m2m"}))
+        wait("other audience application", lambda: self.ready("hankoapplication", "other-api"), 180)
+        spec = server_spec(delegated=False)
+        spec.update(applicationRef="other-api", audience="other-api")
+        self.apply(installed.object_value("HankoResourceServer", "other-server", spec))
+        wait("other audience ordinary authorization", lambda: self.iam_reconciled("hankoresourceserver", "other-server"), 180)
+        result = self.probe("input", audience="other-api", permissions=["allowed#read"])
+        if result.get("http_status") != 200 or not result.get("access_token"):
+            raise ValueError("Other-audience native input issuance failed")
+        token = result["access_token"]
+        claims = native.claims(token)
+        self.record("independent_undeclared_audience_refused", claims.get("iss") == native.REALM_ISSUER
+            and claims.get("aud") in ("other-api", ["other-api"]) and claims.get("exp", 0) > time.time()
+            and bool(claims.get("authorization", {}).get("permissions"))
+            and self.access(token) == {"http_status": 401, "allowed": False})
+        self.refused("subject_for_other_audience_refused", self.exchange(token))
+        master = self.access_token({"client_id": "admin-cli", "grant_type": "password", "username": "fixture-admin", "password": self.password})
+        self.token, self.token_at = master, time.monotonic()
+        claims = native.claims(master)
+        self.record("independent_foreign_issuer_refused", claims.get("iss") != native.REALM_ISSUER
+            and claims.get("exp", 0) > time.time() and self.access(master) == {"http_status": 401, "allowed": False})
+
     def negatives(self):
+        self.audience_isolation()
         subject = self.input("delegation-subject")
         actor = self.input()
         for label, fields in (("invalid_actor", {"actor_token": "invalid"}), ("omitted_actor", {"actor_token": None, "actor_token_type": None}),
@@ -220,10 +250,12 @@ class Delegation(installed.Installed):
             self.stop_operator()
             self.patch("hankoresourceserver", "installed-server", {"status": None}, subresource="status")
             self.control("keycloak", None)
-            self.control("api", {"method": "PATCH", "path": status_path, "action": "deny"}, reset=True)
+            self.control("api", post_commit_status_fault(status_path), reset=True)
             self.start_operator()
             failure = self.await_fault("api")
-            self.record("post_commit_status_failure_after_" + phase, failure["triggered"] is True and self.document()["phase"] == "Committed")
+            observed_phase = self.document().get("phase")
+            print("Post-commit boundary: " + phase + " native_phase=" + (observed_phase if observed_phase in PHASES else "unavailable"), flush=True)
+            self.record("post_commit_status_failure_after_" + phase, failure["triggered"] is True and observed_phase == "Committed")
             self.stop_operator()
             self.control("api", None)
             self.patch("hankoresourceserver", "installed-server", {"status": None}, subresource="status")

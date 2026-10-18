@@ -71,6 +71,8 @@ constrained credentials and three actual kubelet-bound federated workloads.
 The broad ordinary resource grants deliberately exceed the narrow delegated
 read grant. A separate HTTPS resource server verifies native RS256 signatures,
 issuer, exact audience, expiry and resource/scope permissions before allowing access.
+It also rejects a genuine UMA token minted for a separate ordinary resource server
+and a freshly issued token from the foreign realm.
 
 The scenarios cover native depth/replay refusal, identity/audience/resource
 negatives, expiry and measured withdrawal, stale intent/provider outage recovery,
@@ -78,6 +80,8 @@ and accepted writes with lost acknowledgements at all four native phases.
 Each phase also loses Kubernetes status and refuses the post-commit status write
 before a second restart. There is no Kubernetes status write at the intermediate
 native phases; the evidence names the actual post-commit failure boundary.
+The fault selects only the verified `Ready` patch, allowing transient error reports
+while native recovery progresses; the native `Committed` phase is still asserted.
 An interrupted deletion retains foreign objects and blocks on incoming foreign
 dependencies. The final scan covers current/retired logs and Kubernetes objects;
 Hub is disabled and its payload count is explicitly zero.

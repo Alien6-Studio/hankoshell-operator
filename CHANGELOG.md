@@ -16,6 +16,8 @@
 - Keep committed federated service accounts ready when the delegation controller
   activates native token exchange with a valid actor marker bound to that client's
   UID. Continue refusing unmarked activation, foreign markers and unknown settings.
+- Target installed status-write faults at the verified Ready patch and reject
+  genuine native tokens for another audience or realm at the HTTPS resource server.
 
 ### Reviewed extension integration and dependency maintenance
 

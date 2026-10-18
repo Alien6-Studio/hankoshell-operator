@@ -56,6 +56,17 @@ class DelegationEvidenceTests(unittest.TestCase):
         self.assertFalse(proxy.matches(rule, "PUT", "/other/client", json.dumps(valid).encode()))
         self.assertFalse(proxy.matches(rule, "POST", "/native/client", json.dumps(valid).encode()))
 
+    def test_post_commit_failure_refuses_only_the_verified_ready_status(self):
+        path = "/apis/hanko.sh/v1alpha1/namespaces/auth/hankoresourceservers/installed-server/status"
+        rule = installed.post_commit_status_fault(path)
+        self.assertTrue(proxy.matches(rule, "PATCH", path, json.dumps({"status": {"phase": "Ready"}}).encode()))
+        for body in ({"status": {"phase": "Error"}}, {"status": {"phase": "Pending"}}, {"status": {}}, {}, [], {"status": None}):
+            with self.subTest(body=body):
+                self.assertFalse(proxy.matches(rule, "PATCH", path, json.dumps(body).encode()))
+        body = json.dumps({"status": {"phase": "Ready"}}).encode()
+        self.assertFalse(proxy.matches(rule, "PUT", path, body))
+        self.assertFalse(proxy.matches(rule, "PATCH", path.replace("installed-server", "foreign-server"), body))
+
     def test_incoming_provider_artifact_cannot_come_from_another_or_dirty_revision(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
