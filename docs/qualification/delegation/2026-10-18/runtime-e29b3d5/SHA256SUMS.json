@@ -1,5 +1,13 @@
 {
-  "README.md": "sha256:b5d2ff20694754548ba2343c2ba5ba9979d7ea92bcf2adb6096b3a048e12d52c",
+  "README.md": "sha256:4017c8e78675ff8b1918284a39b1481f1cd857ed62e66b1a216f9ca7c542ed02",
+  "ci/keycloak-26.7.5-kubernetes-1.35.0.json": "sha256:5fb9730405fadd0e4a87054618ad122f42db703c1f05d7f6527fb550f8dbb60b",
+  "ci/keycloak-26.7.5-kubernetes-1.36.2.json": "sha256:330cc98c3e0bcd7555a956fa2d22486e8559082ef8d2b895731c1d01466a600b",
+  "ci/keycloak-26.7.5-kubernetes-1.37.0.json": "sha256:bfc69886b23b6396b0a866c8f2c28f2c638a45807cdc8df260713a0af1e42b50",
+  "ci/keycloak-26.8.0-kubernetes-1.35.0.json": "sha256:48e0bee4ba72bed4421cb2d6e3b37babfb4034ae1e9d00ffb963315d9921f0b3",
+  "ci/keycloak-26.8.0-kubernetes-1.36.2.json": "sha256:81ea0725ceeb9465fafaae90e1d2905ce4f6547dcf0649788dca1059d17851a9",
+  "ci/keycloak-26.8.0-kubernetes-1.37.0.json": "sha256:1c64a6768a919638441c2e0e2c8962cbdd9f7ca84001ba94d03522d17838a312",
+  "ci/oci-summary.json": "sha256:1cfa56a070413813f3799b5468225a64bfc754523f5d762abdb16264953c663d",
+  "ci/results.json": "sha256:b9102f57e9222d4f2b6564a6750a50caa36bf56d665e095e418ceabf2b937044",
   "ci-incomplete-keycloak-26.7.5-kubernetes-1.35.0.json": "sha256:5fb9730405fadd0e4a87054618ad122f42db703c1f05d7f6527fb550f8dbb60b",
   "ci-incomplete-wait.json": "sha256:5f7a9ced4c54a5d12c4c845984a297ae04351050280497a6bd938d09ef9b19d6",
   "java-26.7.5.json": "sha256:1c3214714b4a4b7511e75393692b73e34f334db7bccb8eabce5a80030e17d16c",
@@ -14,5 +22,5 @@
   "runtime-comparison.json": "sha256:f2b6bc8bf353cd5d363592af265b336dffe90fd86df865131849ac8da28ba8f5",
   "security-fuzz.json": "sha256:a196094e3ec872fe36a4e0b0c8915e2ba2e1136f1fbaf0e8ea699d8216a1b8b1",
   "security-mutations.json": "sha256:6360651d263c30534d79f0056fb847d12c9314f423ff09338dc6a0163b242615",
-  "source-results.json": "sha256:a9e49e9e9cdb0f3fbfeac5bf2bb0c0d9706904e388c813b0c64c7cf97bbe10f3"
+  "source-results.json": "sha256:da7c6a48bfb63210ad9064a9c79a1e995f6cfdf6074537347f934586a276cac9"
 }

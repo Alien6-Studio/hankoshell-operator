@@ -45,6 +45,9 @@
       "initial_readback_deadline_seconds": 600,
       "cause": "unresolved"
     },
-    "complete": false
+    "workflow_completed": true,
+    "workflow_conclusion": "failure",
+    "qualified": false,
+    "successful_installed_cells": 5
   }
 }

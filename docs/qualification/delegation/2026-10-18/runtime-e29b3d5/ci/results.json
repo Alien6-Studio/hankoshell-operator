@@ -1,0 +1,84 @@
+{
+  "run": 39154403460,
+  "revision": "e29b3d5de672b8a2634da10bcac6633c937e74e6",
+  "workflow_completed": true,
+  "workflow_conclusion": "failure",
+  "qualified": false,
+  "success_jobs": 50,
+  "failed_jobs": [
+    {
+      "name": "Installed delegation KC 26.7.5 / K8s 1.35.0",
+      "id": 117764948966
+    },
+    {
+      "name": "Source and chart checks",
+      "id": 117779392802
+    }
+  ],
+  "skipped_jobs": [
+    "Scale KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}",
+    "Scheduled qualification tracking issue"
+  ],
+  "installed_cells": [
+    {
+      "keycloak": "26.7.5",
+      "kubernetes": "1.35.0",
+      "complete": false,
+      "checks": 6,
+      "recovery_phases": 0,
+      "report": "ci/keycloak-26.7.5-kubernetes-1.35.0.json",
+      "initial_convergence_seconds": null,
+      "withdrawal_seconds": null
+    },
+    {
+      "keycloak": "26.7.5",
+      "kubernetes": "1.36.2",
+      "complete": true,
+      "checks": 88,
+      "recovery_phases": 4,
+      "report": "ci/keycloak-26.7.5-kubernetes-1.36.2.json",
+      "initial_convergence_seconds": 211.57,
+      "withdrawal_seconds": 27.023
+    },
+    {
+      "keycloak": "26.7.5",
+      "kubernetes": "1.37.0",
+      "complete": true,
+      "checks": 88,
+      "recovery_phases": 4,
+      "report": "ci/keycloak-26.7.5-kubernetes-1.37.0.json",
+      "initial_convergence_seconds": 227.646,
+      "withdrawal_seconds": 27.987
+    },
+    {
+      "keycloak": "26.8.0",
+      "kubernetes": "1.35.0",
+      "complete": true,
+      "checks": 88,
+      "recovery_phases": 4,
+      "report": "ci/keycloak-26.8.0-kubernetes-1.35.0.json",
+      "initial_convergence_seconds": 257.53,
+      "withdrawal_seconds": 27.646
+    },
+    {
+      "keycloak": "26.8.0",
+      "kubernetes": "1.36.2",
+      "complete": true,
+      "checks": 88,
+      "recovery_phases": 4,
+      "report": "ci/keycloak-26.8.0-kubernetes-1.36.2.json",
+      "initial_convergence_seconds": 216.337,
+      "withdrawal_seconds": 26.86
+    },
+    {
+      "keycloak": "26.8.0",
+      "kubernetes": "1.37.0",
+      "complete": true,
+      "checks": 88,
+      "recovery_phases": 4,
+      "report": "ci/keycloak-26.8.0-kubernetes-1.37.0.json",
+      "initial_convergence_seconds": 153.936,
+      "withdrawal_seconds": 20.943
+    }
+  ]
+}

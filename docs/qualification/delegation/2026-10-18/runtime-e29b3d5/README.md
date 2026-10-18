@@ -81,8 +81,15 @@ this failed cell is not qualified by the six successful local results.
 The diagnostic follow-up keeps a smaller Pod-log tail and captures only fixed
 ownership booleans and native/journal counts on failure, with bounded read-only
 requests. It does not change provider execution or make this failure a pass.
-The remaining CI cells and required aggregate gate are tracked to their actual
-outcome. Issue #71 remains open.
+The [final CI summary](ci/results.json) retains all six CI reports and their
+separate scanned OCI identity: **five cells pass all 88 assertions and four
+recoveries; the initial 26.7.5 / 1.35.0 cell remains incomplete**. Fifty jobs pass;
+that cell and the required aggregate gate fail. Two unrequested optional jobs
+are skipped. Issue #71 remains open.
+
+The source follow-up `a65f157` fixes foreground scheduling
+of organization ownership retries and starts a new full matrix. That new runtime
+is not qualified by this older six-cell local audit.
 
 ## Limits
 
