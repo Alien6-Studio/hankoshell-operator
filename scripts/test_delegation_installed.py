@@ -1,5 +1,6 @@
 """Keep delegation qualification evidence narrow and exercise genuine attenuation."""
 
+import base64
 import copy
 import hashlib
 import importlib.util
@@ -19,9 +20,32 @@ def module(name, filename):
 
 installed = module("installed_delegation", "delegation-installed-test.py")
 proxy = module("delegation_proxy", "workload-fault-proxy.py")
+probe = module("delegation_pod_probe", "delegation-pod-probe.py")
 
 
 class DelegationEvidenceTests(unittest.TestCase):
+    def test_pod_input_reports_permission_presence_without_expanding_host_claims(self):
+        def token(claims):
+            payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip("=")
+            return "e30." + payload + ".fixture"
+
+        issuer = installed.native.REALM_ISSUER
+        settings = {"action": "input", "issuer": issuer, "endpoint": issuer + "/protocol/openid-connect/token",
+                    "audience": "other-api", "client": "delegation-actor", "account": "worker", "uid": "worker-uid", "permissions": ["allowed#read"]}
+        assertion = token({"aud": [issuer], "iat": 100, "exp": 700, "sub": "system:serviceaccount:workload:worker",
+                           "kubernetes.io": {"serviceaccount": {"uid": "worker-uid"}}})
+        cases = (({"permissions": [{"rsid": "other-resource", "scopes": ["read"]}]}, True),
+                 ({"permissions": []}, False), (None, False), ({"permissions": "invalid"}, False))
+        for authorization, present in cases:
+            with self.subTest(authorization=authorization):
+                rpt = token({"iss": issuer, "aud": "other-api", "exp": 900, "authorization": authorization})
+                with patch.object(probe.ssl, "create_default_context"), patch.object(probe.Path, "read_text", return_value=assertion), \
+                        patch.object(probe, "request", side_effect=[(200, {"access_token": token({})}), (200, {"access_token": rpt})]):
+                    result = probe.execute(settings)
+                self.assertEqual(result["http_status"], 200)
+                self.assertIs(result["permissions_present"], present)
+                self.assertNotIn("authorization", installed.native.claims(result["access_token"]))
+
     def test_ordinary_inputs_are_broader_than_the_delegation(self):
         spec = installed.server_spec()
         ordinary, bounded = spec["permissions"]

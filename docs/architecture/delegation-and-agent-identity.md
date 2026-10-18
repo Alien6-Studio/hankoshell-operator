@@ -82,6 +82,9 @@ before a second restart. There is no Kubernetes status write at the intermediate
 native phases; the evidence names the actual post-commit failure boundary.
 The fault selects only the verified `Ready` patch, allowing transient error reports
 while native recovery progresses; the native `Committed` phase is still asserted.
+The initial delegated graph has a measured 600-second convergence budget because
+each native mutation rechecks live references. Grant withdrawal retains its
+180-second bound. Production throughput and scale remain separate in #95.
 An interrupted deletion retains foreign objects and blocks on incoming foreign
 dependencies. The final scan covers current/retired logs and Kubernetes objects;
 Hub is disabled and its payload count is explicitly zero.

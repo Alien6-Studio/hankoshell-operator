@@ -297,8 +297,8 @@ class Installed(native.Fixture):
             "permissions": [{"name": "worker-read", "resources": ["allowed"], "scopes": ["read"], "principals": [{"kind": "service_account", "ref": principal}]}]}))
         self.resource_ready()
 
-    def resource_ready(self):
-        wait("installed resource applied/read-back", lambda: self.iam_reconciled("hankoresourceserver", "installed-server"), 180)
+    def resource_ready(self, timeout=180):
+        wait("installed resource applied/read-back", lambda: self.iam_reconciled("hankoresourceserver", "installed-server"), timeout)
         status = self.get("hankoresourceserver", "installed-server")["status"]
         self.record("resource_service_account_capability", status["capabilities"]["serviceAccountPrincipals"] is True)
         client = self.client("managed", "installed-api")

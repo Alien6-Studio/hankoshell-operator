@@ -68,12 +68,15 @@ def execute(settings):
     if not isinstance(token, str) or not token:
         raise ValueError("No native token returned")
     claims = decode(token)
+    authorization = claims.get("authorization")
+    permissions = authorization.get("permissions") if isinstance(authorization, dict) else None
     depth, actor = 0, claims.get("act")
     while isinstance(actor, dict):
         depth, actor = depth + 1, actor.get("act")
         if depth > 4:
             raise ValueError("Over-limit native actor history")
     return {"http_status": status, "access_token": token, "expires_at": claims.get("exp"),
+            "permissions_present": isinstance(permissions, list) and bool(permissions),
             "depth": depth, "refresh_token_absent": not body.get("refresh_token"),
             "ordinary_claims_absent": not ((claims.get("realm_access") or {}).get("roles") or claims.get("resource_access") or claims.get("scope")),
             "issuer_matches": claims.get("iss") == settings["issuer"], "checked_at": int(time.time())}

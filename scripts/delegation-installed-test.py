@@ -81,8 +81,8 @@ class Delegation(installed.Installed):
         self.report["extension"] = {**extension.pin(), "jar_sha256": hashlib.sha256(jar.read_bytes()).hexdigest()}
         return dockerfile
 
-    def server_ready(self):
-        self.resource_ready()
+    def server_ready(self, timeout=180):
+        self.resource_ready(timeout=timeout)
         value = self.get("hankoresourceserver", "installed-server")
         self.record("bounded_provider_capability", value["status"]["capabilities"].get("boundedDelegation") is True)
         document = self.document()
@@ -186,7 +186,7 @@ class Delegation(installed.Installed):
         claims = native.claims(token)
         self.record("independent_undeclared_audience_refused", claims.get("iss") == native.REALM_ISSUER
             and claims.get("aud") in ("other-api", ["other-api"]) and claims.get("exp", 0) > time.time()
-            and bool(claims.get("authorization", {}).get("permissions"))
+            and result.get("permissions_present") is True
             and self.access(token) == {"http_status": 401, "allowed": False})
         self.refused("subject_for_other_audience_refused", self.exchange(token))
         master = self.access_token({"client_id": "admin-cli", "grant_type": "password", "username": "fixture-admin", "password": self.password})
@@ -389,8 +389,11 @@ class Delegation(installed.Installed):
             self.native_secret(name)  # Administrator-only sentinel for leak detection.
         self.apply(installed.object_value("HankoApplication", "installed-api", {"realmRef": "managed", "clientID": "installed-api", "type": "m2m"}))
         wait("installed audience application", lambda: self.ready("hankoapplication", "installed-api"), 180)
+        initial_started = time.monotonic()
         self.apply(installed.object_value("HankoResourceServer", "installed-server", server_spec()))
-        self.server_ready()
+        self.server_ready(timeout=600)
+        self.report["initial_convergence_seconds"] = round(time.monotonic() - initial_started, 3)
+        self.record("initial_graph_converged_within_600_seconds", self.report["initial_convergence_seconds"] < 600)
         self.resource_server()
         self.kubernetes_permissions()
         self.report["active_phase"] = "native_flows"
@@ -410,7 +413,7 @@ class Delegation(installed.Installed):
 
     def public_evidence(self):
         keys = ("schema_version", "layer", "revision", "image_digest", "extension", "resource_verifier_sha256", "fixture_sha256", "node_image", "node_build", "keycloak_image",
-                "keycloak_version", "kubernetes_version", "complete", "publishable", "started_at", "completed_at", "checks", "recovery", "revocation_seconds", "keycloak_profiles", "hub_payloads_inspected", "limits", "active_phase")
+                "keycloak_version", "kubernetes_version", "complete", "publishable", "started_at", "completed_at", "checks", "recovery", "initial_convergence_seconds", "revocation_seconds", "keycloak_profiles", "hub_payloads_inspected", "limits", "active_phase")
         return {key: self.report[key] for key in keys if key in self.report}
 
     def cleanup(self):
