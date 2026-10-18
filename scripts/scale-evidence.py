@@ -151,6 +151,10 @@ class Ledger:
         return {"counters": dict(self.counters), "reconciles": dict(self.reconciles),
                 "latency": {k: dict(v) for k, v in self.latency.items()}, "lost_processes": self.lost_processes, "frames": self.frames}
 
+    def require_continuity(self, before):
+        if self.lost_processes != before["lost_processes"]:
+            raise ValueError("A steady-state process disappeared; counters are incomplete")
+
     def window(self, before, seconds, counts):
         if seconds < 1 or self.frames - before["frames"] < 2:
             raise ValueError("Insufficient measured interval")
@@ -160,8 +164,7 @@ class Ledger:
         ceilings = {kind: max(10, count * (seconds / 30 + 2) * 3) for kind, count in counts.items()}
         if any(attempts[kind] > ceilings[kind] for kind in counts):
             raise ValueError("Steady-state reconciliation exceeds the hot-loop bound")
-        if self.lost_processes != before["lost_processes"]:
-            raise ValueError("A steady-state process disappeared; counters are incomplete")
+        self.require_continuity(before)
         latency = {}
         for kind, buckets in self.latency.items():
             delta = {bound: count - before["latency"].get(kind, {}).get(bound, 0) for bound, count in buckets.items()}

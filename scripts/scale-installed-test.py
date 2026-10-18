@@ -394,26 +394,38 @@ class Scale(installed.Installed):
     def steady(self):
         self.report["active_phase"] = "steady"
         before = self.ledger.checkpoint()
-        started = time.monotonic()
-        self.observe()
-        previous = time.monotonic()
-        max_gap = measure.sampling_gap(started, previous)
-        while time.monotonic() - started < self.seconds:
-            time.sleep(max(0, min(10, self.seconds - (time.monotonic() - started))))
+        started, started_wall = time.monotonic(), time.time()
+        max_gap, complete = 0, False
+        try:
             self.observe()
-            observed = time.monotonic()
-            max_gap = max(max_gap, measure.sampling_gap(previous, observed))
-            previous = observed
-            if not self.converged():
-                raise ValueError("Steady-state object lost current applied/read-back readiness")
-            checkout(self.args.revision)
-        elapsed = time.monotonic() - started
-        max_gap = max(max_gap, measure.sampling_gap(previous, started + elapsed))
-        self.report["steady"] = self.ledger.window(before, elapsed, self.counts_by_kind())
-        self.report["steady"]["max_sample_gap_seconds"] = round(max_gap, 3)
-        self.report["soak"] = {"required_seconds": 86400, "observed_seconds": round(elapsed, 3),
-                               "qualified": self.args.profile == "soak" and elapsed >= 86400}
-        self.record("steady_samples_have_no_status_echo_hot_loop_or_process_gap")
+            previous, previous_wall = time.monotonic(), time.time()
+            max_gap = max(measure.sampling_gap(started, previous), measure.sampling_gap(started_wall, previous_wall))
+            self.ledger.require_continuity(before)
+            while time.monotonic() - started < self.seconds:
+                time.sleep(max(0, min(10, self.seconds - (time.monotonic() - started))))
+                self.observe()
+                observed, observed_wall = time.monotonic(), time.time()
+                max_gap = max(max_gap, measure.sampling_gap(previous, observed), measure.sampling_gap(previous_wall, observed_wall))
+                previous, previous_wall = observed, observed_wall
+                # A doomed 24-hour interval must stop at its first broken
+                # process epoch, including a loss during the first sample.
+                self.ledger.require_continuity(before)
+                if not self.converged():
+                    raise ValueError("Steady-state object lost current applied/read-back readiness")
+                checkout(self.args.revision)
+            elapsed, ended_wall = time.monotonic() - started, time.time()
+            max_gap = max(max_gap, measure.sampling_gap(previous, started + elapsed), measure.sampling_gap(previous_wall, ended_wall))
+            self.report["steady"] = self.ledger.window(before, elapsed, self.counts_by_kind())
+            self.report["steady"]["max_sample_gap_seconds"] = round(max_gap, 3)
+            self.record("steady_samples_have_no_status_echo_hot_loop_or_process_gap")
+            complete = True
+        finally:
+            elapsed = time.monotonic() - started
+            self.report["steady_observation"] = {"elapsed_seconds": round(elapsed, 3),
+                "samples": self.ledger.frames - before["frames"],
+                "lost_processes": self.ledger.lost_processes - before["lost_processes"], "complete": complete}
+            self.report["soak"] = {"required_seconds": 86400, "observed_seconds": round(elapsed, 3),
+                "qualified": complete and self.args.profile == "soak" and elapsed >= 86400}
 
     def qualify(self):
         self.started = time.monotonic()
@@ -453,7 +465,7 @@ class Scale(installed.Installed):
     def public_evidence(self):
         keys = ("schema_version", "layer", "profile", "revision", "image_digest", "fixture_sha256", "measurement_sha256", "keycloak_version", "kubernetes_version",
                 "publishable", "complete", "started_at", "completed_at", "counts", "workers", "steady_seconds_requested", "samples", "checks", "faults", "resources",
-                "limitations", "steady", "soak", "provider_traffic", "client_ids_sha256", "failure_type", "cleanup_complete",
+                "limitations", "steady", "steady_observation", "soak", "provider_traffic", "client_ids_sha256", "failure_type", "cleanup_complete",
                 "active_phase", "convergence", "convergence_progress")
         return {key: self.report[key] for key in keys if key in self.report}
 

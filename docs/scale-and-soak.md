@@ -109,12 +109,23 @@ starts are not watch-event counts. The reported p95 is a histogram upper bound;
 
 Process epochs distinguish restarts from counter resets. Lost processes during
 intentional failover are recorded; counters across that phase are lower bounds.
-The steady interval rejects sampling gaps above 45 seconds, missing processes,
+The steady interval rejects sampling gaps above 45 seconds in both monotonic
+and wall time, missing processes,
 multiple/no observed leaders,
 incorrect worker configuration and reconciliation above a generous dependency
 event allowance. RSS peaks and rates are observations, not leak proofs or sizing
 recommendations. Provider labels, endpoints, credentials, native IDs and object
 names are excluded from public measurements.
+
+A process-epoch loss stops the interval at the first affected sample. Host sleep
+or a wall-clock rollback cannot qualify through a short monotonic gap. Failed
+intervals retain numeric elapsed time, sample and lost-process counts in
+`steady_observation`, with `complete: false` and `soak.qualified: false`.
+The retained [824c8f1](qualification/scale/2026-10-17/runtime-824c8f1/soak-final.json)
+and [64e4890](qualification/recovery/2026-10-17/runtime-64e4890/soak-final.json)
+endurance reports are failures, superseding their running snapshots. Neither
+provides 24-hour evidence; the cause of their provider 401 responses and
+process-epoch changes is unresolved.
 
 ## Run against an immutable checkout
 

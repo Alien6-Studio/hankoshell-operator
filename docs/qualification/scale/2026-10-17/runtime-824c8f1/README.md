@@ -90,9 +90,17 @@ qualify the later realm-deletion changes, every scale cell or a 24-hour soak.
 
 Issue #95 stays open until the required matrix, larger per-kind bounds, owned
 realm cascade deletion, measured resource defaults and a completed **24-hour**
-soak are available. A [new minimum-24-hour fixture](soak-start.json) is running on this runtime
-with 10 realms, 1,000 applications, 100 roles, 100 organizations and 20 resource
-servers. Setup and recovery must pass before its measured interval starts.
+soak are available. The [final endurance report](soak-final.json) supersedes the
+[running snapshot](soak-start.json). It failed during steady observation after
+3,638 samples and 36,632.936 seconds from the first fixture phase, before 24 hours.
+Nine of ten realms remained current; diagnostics record two realm read refusals
+with HTTP 401. [Bounded diagnostic observations](soak-failure-observations.json)
+retain their input hashes and reason codes. Metrics recorded 17 lost process
+epochs, including the intentional initial leader replacement.
+The surviving operator containers had zero restarts;
+an epoch change alone does not establish a container restart or its cause.
+The provider refusals and epoch changes remain unexplained. Disposable cleanup
+completed. No interval, readiness criterion or failure is waived.
 Existing long runs remain evidence for their own source revisions.
 No new worker default, production sizing, publication or completed
 24-hour claim follows from this packet.

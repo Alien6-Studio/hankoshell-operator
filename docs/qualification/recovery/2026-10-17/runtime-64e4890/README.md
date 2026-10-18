@@ -74,9 +74,17 @@ for cross-release qualification.
 
 ## Scope still open
 
-The [new runtime's endurance snapshot](soak-start.json) records an incomplete
-1,000-application, 10-realm run. Its active process continues in its frozen
-source worktree. This snapshot is neither a final result nor 24-hour evidence.
+The [final endurance report](soak-final.json) supersedes the
+[1,000-application, 10-realm running snapshot](soak-start.json). It failed during
+steady observation after 3,428 samples and 34,040.293 seconds from the first
+fixture phase, before 24 hours. Eight of ten realms remained current;
+diagnostics record two realm read refusals with HTTP 401. Metrics recorded 17
+lost process epochs, including the intentional initial leader replacement.
+[Bounded diagnostic observations](soak-failure-observations.json) retain their
+input hashes and reason codes.
+The surviving operator containers had zero restarts; an epoch change alone does
+not establish a container restart or its cause. The provider refusals and epoch
+changes remain unexplained. Disposable cleanup completed. This is failed evidence.
 
 The earlier [1,000-application result](../../../scale/2026-10-17/runtime-824c8f1/mixed-final.json)
 is complete for source `824c8f1`, including all three overload recoveries and five

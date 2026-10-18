@@ -229,6 +229,90 @@ class ScaleScenarioTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "differs"):
             fixture.await_leader()
 
+    def steady_fixture(self, seconds=86400):
+        fixture = scale.Scale.__new__(scale.Scale)
+        fixture.args = SimpleNamespace(profile="soak", revision="fixture")
+        fixture.seconds, fixture.report = seconds, {}
+        fixture.ledger = measure.Ledger()
+        fixture.ledger.observe({"a": frame(), "b": frame(leader=0)}, 4)
+        fixture.converged = MagicMock(return_value=True)
+        fixture.counts_by_kind = MagicMock(return_value={"HankoOrganization": 2})
+        fixture.record = MagicMock()
+        return fixture
+
+    def test_soak_stops_at_first_process_loss_and_retains_incomplete_interval(self):
+        for loss_sample in (1, 2):
+            with self.subTest(loss_sample=loss_sample):
+                fixture = self.steady_fixture()
+                clock = SimpleNamespace(now=0, samples=0)
+
+                def observe():
+                    clock.samples += 1
+                    fixture.ledger.observe({"a": frame(), "b": frame(leader=0, started=20 if clock.samples == loss_sample else 10)}, 4)
+
+                fixture.observe = MagicMock(side_effect=observe)
+                with patch.object(scale.time, "monotonic", side_effect=lambda: clock.now), \
+                        patch.object(scale.time, "time", side_effect=lambda: 1000 + clock.now), \
+                        patch.object(scale.time, "sleep", side_effect=lambda seconds: setattr(clock, "now", clock.now + seconds)), \
+                        patch.object(scale, "checkout"):
+                    with self.assertRaisesRegex(ValueError, "process disappeared"):
+                        fixture.steady()
+                self.assertEqual(clock.samples, loss_sample)
+                self.assertEqual(fixture.report["steady_observation"], {
+                    "elapsed_seconds": 10 * (loss_sample - 1), "samples": loss_sample, "lost_processes": 1, "complete": False})
+                self.assertFalse(fixture.report["soak"]["qualified"])
+                self.assertNotIn("steady", fixture.report)
+                fixture.record.assert_not_called()
+
+    def test_soak_refuses_wall_clock_pause_or_rollback_even_when_monotonic_gap_is_short(self):
+        for jump in (3600, -20):
+            with self.subTest(jump=jump):
+                fixture = self.steady_fixture()
+                clock = SimpleNamespace(now=0, offset=0)
+
+                def sleep(seconds):
+                    clock.now += seconds
+                    clock.offset = jump
+
+                fixture.observe = MagicMock(side_effect=lambda: fixture.ledger.observe({"a": frame(), "b": frame(leader=0)}, 4))
+                with patch.object(scale.time, "monotonic", side_effect=lambda: clock.now), \
+                        patch.object(scale.time, "time", side_effect=lambda: 1000 + clock.now + clock.offset), \
+                        patch.object(scale.time, "sleep", side_effect=sleep), patch.object(scale, "checkout"):
+                    with self.assertRaisesRegex(ValueError, "sampling bound"):
+                        fixture.steady()
+                self.assertEqual(fixture.observe.call_count, 2)
+                self.assertFalse(fixture.report["steady_observation"]["complete"])
+                self.assertFalse(fixture.report["soak"]["qualified"])
+
+    def test_failed_readback_preserves_elapsed_measurement_without_qualifying_soak(self):
+        fixture = self.steady_fixture()
+        clock = SimpleNamespace(now=0)
+        fixture.observe = MagicMock(side_effect=lambda: fixture.ledger.observe({"a": frame(), "b": frame(leader=0)}, 4))
+        fixture.converged.return_value = False
+        with patch.object(scale.time, "monotonic", side_effect=lambda: clock.now), \
+                patch.object(scale.time, "time", side_effect=lambda: 1000 + clock.now), \
+                patch.object(scale.time, "sleep", side_effect=lambda seconds: setattr(clock, "now", clock.now + seconds)):
+            with self.assertRaisesRegex(ValueError, "lost current"):
+                fixture.steady()
+        self.assertEqual(fixture.report["soak"], {"required_seconds": 86400, "observed_seconds": 10, "qualified": False})
+        self.assertIn("steady_observation", fixture.public_evidence())
+
+    def test_continuous_short_interval_keeps_full_measurements_without_24_hour_claim(self):
+        fixture = self.steady_fixture(seconds=60)
+        clock = SimpleNamespace(now=0)
+        fixture.observe = MagicMock(side_effect=lambda: fixture.ledger.observe({"a": frame(), "b": frame(leader=0)}, 4))
+        with patch.object(scale.time, "monotonic", side_effect=lambda: clock.now), \
+                patch.object(scale.time, "time", side_effect=lambda: 1000 + clock.now), \
+                patch.object(scale.time, "sleep", side_effect=lambda seconds: setattr(clock, "now", clock.now + seconds)), \
+                patch.object(scale, "checkout"):
+            fixture.steady()
+        self.assertTrue(fixture.report["steady_observation"]["complete"])
+        self.assertTrue(fixture.report["steady"]["counter_completeness"])
+        self.assertEqual(fixture.report["steady"]["seconds"], 60)
+        self.assertEqual(fixture.report["steady"]["max_sample_gap_seconds"], 10)
+        self.assertFalse(fixture.report["soak"]["qualified"])
+        fixture.record.assert_called_once_with("steady_samples_have_no_status_echo_hot_loop_or_process_gap")
+
     def test_wrong_image_graph_is_refused_before_any_cluster_or_output_directory(self):
         fixture_type = MagicMock()
         args = ["scale-test"]
