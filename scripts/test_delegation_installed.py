@@ -26,6 +26,30 @@ probe = module("delegation_pod_probe", "delegation-pod-probe.py")
 
 
 class DelegationEvidenceTests(unittest.TestCase):
+    def test_application_refresh_preserves_authority_across_plan_revisions(self):
+        for mutation in ("revision", "grant", "objects"):
+            with self.subTest(mutation=mutation):
+                fixture = installed.Delegation.__new__(installed.Delegation)
+                fixture.report = {"checks": {}}
+                before = {"phase": "Committed", "revision": "old", "ownerUID": "owner", "grants": [{"maxDepth": 2}]}
+                after = copy.deepcopy(before)
+                after["revision"] = "fresh"
+                if mutation == "grant":
+                    after["grants"][0]["maxDepth"] = 3
+                fixture.document = Mock(side_effect=[before, after])
+                fixture.native_inventory = Mock(side_effect=[{"resources": ["owned"]}, {"resources": ["foreign" if mutation == "objects" else "owned"]}])
+                fixture.get = Mock(side_effect=[{"status": {"appliedPlanHash": "old"}}, {"status": {"appliedPlanHash": "fresh"}}])
+                fixture.patch, fixture.ready = Mock(), Mock(return_value=True)
+                fixture.server_ready, fixture.positive = Mock(), Mock()
+                with contextlib.redirect_stdout(io.StringIO()):
+                    if mutation == "revision":
+                        fixture.application_coexistence()
+                        fixture.positive.assert_called_once_with()
+                    else:
+                        with self.assertRaisesRegex(ValueError, "application_update_preserves_native_delegation"):
+                            fixture.application_coexistence()
+                        fixture.positive.assert_not_called()
+
     def test_positive_flow_enforces_the_declared_lifetime(self):
         payload = base64.urlsafe_b64encode(json.dumps({"exp": 1000}).encode()).decode().rstrip("=")
         for declared, issued in ((8, 8), (8, 9), (30, 30), (30, 31), (300, 300), (300, 301)):

@@ -178,9 +178,16 @@ class Delegation(installed.Installed):
 
     def application_coexistence(self):
         document, inventory = self.document(), self.native_inventory()
+        prior_plan = self.get("hankoresourceserver", "installed-server")["status"]["appliedPlanHash"]
         self.patch("hankoapplication", "installed-api", {"spec": {"attributes": {"locale": "en"}}})
         wait("application update coexists with native delegation", lambda: self.ready("hankoapplication", "installed-api"), 180)
-        self.record("application_update_preserves_native_delegation", self.document() == document and self.native_inventory() == inventory)
+        wait("resource re-evaluates the changed application reference", lambda: self.get("hankoresourceserver", "installed-server").get("status", {}).get("appliedPlanHash") not in (None, "", prior_plan), 180)
+        self.server_ready()
+        # The changed application generation intentionally changes the sealed
+        # plan revision. Authority, ownership and native object IDs must agree.
+        after = self.document()
+        authority = lambda value: {key: item for key, item in value.items() if key != "revision"}
+        self.record("application_update_preserves_native_delegation", authority(after) == authority(document) and self.native_inventory() == inventory)
         self.positive()
 
     def audience_isolation(self):
