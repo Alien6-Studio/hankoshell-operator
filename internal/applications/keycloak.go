@@ -141,10 +141,11 @@ func ownershipClass(uid, owner string) string {
 	return "foreign"
 }
 func observedClient(got keycloak.Application, p Plan) (keycloak.Application, bool) {
+	got.Attributes = cloneAttributes(got.Attributes)
+	complete := projectApplicationDelegation(&got, p.resolved.Owner)
 	got.ID = ""
 	got.RedirectURIs = stringSet(got.RedirectURIs)
 	got.WebOrigins = stringSet(got.WebOrigins)
-	got.Attributes = cloneAttributes(got.Attributes)
 	delete(got.Attributes, OwnerAttribute)
 	delete(got.Attributes, "hanko.sh/adoption-receipt")
 	delete(got.Attributes, "hanko.sh/resource-server-ownership")
@@ -153,7 +154,7 @@ func observedClient(got keycloak.Application, p Plan) (keycloak.Application, boo
 		delete(got.Attributes, "saml.artifact.binding.identifier")
 	}
 	delete(got.Attributes, "client.secret.creation.time")
-	complete := sanitizeObservedConfig(got.Attributes)
+	complete = sanitizeObservedConfig(got.Attributes) && complete
 	for key, value := range got.Attributes {
 		if keycloak.QualifiedClientAttribute(key, value) {
 			continue
@@ -170,6 +171,28 @@ func observedClient(got keycloak.Application, p Plan) (keycloak.Application, boo
 	normalizeObservedAttributes(got.Attributes, p)
 	return got, complete
 }
+
+func projectApplicationDelegation(got *keycloak.Application, owner string) bool {
+	owned := keycloak.ApplicationOwned(got, owner)
+	actor := got.Attributes[keycloak.BoundedDelegationActorAttribute] != ""
+	complete := true
+	for key := range got.Attributes {
+		if !strings.HasPrefix(key, "oauth.bounded-delegation.") {
+			continue
+		}
+		// Verify sibling journals against their original client UUID and owner
+		// UID, then exclude them from this domain's public observation.
+		if !owned || (key != keycloak.BoundedDelegationAttribute && key != keycloak.BoundedDelegationActorAttribute) {
+			complete = false
+		}
+		delete(got.Attributes, key)
+	}
+	if owned && actor && got.Attributes["standard.token.exchange.enabled"] == "true" {
+		delete(got.Attributes, "standard.token.exchange.enabled")
+	}
+	return complete
+}
+
 func sanitizeObservedConfig(config map[string]string) bool {
 	complete := true
 	for key := range config {

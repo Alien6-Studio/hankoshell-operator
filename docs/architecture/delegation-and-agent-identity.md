@@ -85,6 +85,11 @@ while native recovery progresses; the native `Committed` phase is still asserted
 The initial delegated graph has a measured 600-second convergence budget because
 each native mutation rechecks live references. Grant withdrawal retains its
 180-second bound. Production throughput and scale remain separate in #95.
+The offline withdrawal comparison uses a declared 300-second token so it remains
+valid throughout that budget; a separate 8-second token proves actual expiry.
+An application metadata update must preserve the active delegation journal and
+authorization graph. Application writes share the delegation transaction lock;
+qualified sibling journals are excluded from application semantic observation.
 An interrupted deletion retains foreign objects and blocks on incoming foreign
 dependencies. The final scan covers current/retired logs and Kubernetes objects;
 Hub is disabled and its payload count is explicitly zero.

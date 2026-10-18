@@ -23,6 +23,8 @@ spec.loader.exec_module(installed)
 native, system, run, wait = installed.native, installed.system, installed.run, installed.wait
 ATTRIBUTE = "oauth.bounded-delegation.v1"
 PHASES = ("Prepared", "Applied", "Verified", "Committed")
+WITHDRAWAL_BOUND_SECONDS = 180
+WITHDRAWAL_TOKEN_SECONDS = 300
 IDENTITIES = {"delegation-actor": "worker", "delegation-subject": "subject-worker", "delegation-foreign": "foreign-worker"}
 
 
@@ -157,6 +159,8 @@ class Delegation(installed.Installed):
         return self.probe("access", token=token, resource_endpoint="https://delegation-resource.auth.svc:8445/" + resource + "?scope=" + scope)
 
     def positive(self, subject=None):
+        permission = next(p for p in self.get("hankoresourceserver", "installed-server")["spec"]["permissions"] if p.get("delegation"))
+        max_ttl = permission["delegation"]["maxTTLSeconds"]
         subject = self.input("delegation-subject") if subject is None else subject
         actor = self.input()
         if "independent_broad_input_allows_more_authority" not in self.report["checks"]:
@@ -164,13 +168,20 @@ class Delegation(installed.Installed):
         result = self.exchange(subject, actor)
         self.record("native_token_boundaries", result.get("http_status") == 200 and result.get("depth") == 1 and result.get("issuer_matches") is True
             and result.get("ordinary_claims_absent") is True and result.get("refresh_token_absent") is True
-            and 0 < result["expires_at"] - result["checked_at"] <= 30
+            and 0 < result["expires_at"] - result["checked_at"] <= max_ttl
             and result["expires_at"] <= min(native.claims(actor)["exp"], native.claims(subject)["exp"]))
         token = result["access_token"]
         self.record("independent_resource_read_allowed", self.access(token) == {"http_status": 200, "allowed": True})
         self.record("independent_resource_outside_grant_denied", self.access(token, "denied") == {"http_status": 403, "allowed": False})
         self.record("independent_scope_outside_grant_denied", self.access(token, scope="write") == {"http_status": 403, "allowed": False})
         return result
+
+    def application_coexistence(self):
+        document, inventory = self.document(), self.native_inventory()
+        self.patch("hankoapplication", "installed-api", {"spec": {"attributes": {"locale": "en"}}})
+        wait("application update coexists with native delegation", lambda: self.ready("hankoapplication", "installed-api"), 180)
+        self.record("application_update_preserves_native_delegation", self.document() == document and self.native_inventory() == inventory)
+        self.positive()
 
     def audience_isolation(self):
         self.apply(installed.object_value("HankoApplication", "other-api", {"realmRef": "managed", "clientID": "other-api", "type": "m2m"}))
@@ -305,18 +316,20 @@ class Delegation(installed.Installed):
         wait("delegated JWT real expiry", lambda: time.time() > result["expires_at"] + 1, 20)
         self.record("independent_expired_token_refused", self.access(result["access_token"]) == {"http_status": 401, "allowed": False})
         self.refused("expired_subject_cannot_chain", self.exchange(result["access_token"]))
-        self.set_spec(30)
+        # The offline comparison must remain possible throughout the entire
+        # withdrawal budget. Real short expiry is independently tested above.
+        self.set_spec(WITHDRAWAL_TOKEN_SECONDS)
         self.server_ready()
         issued = self.positive()
         actor, subject = self.input(), self.input("delegation-subject")
         started = time.monotonic()
         self.set_spec(delegated=False)
         self.resource_ready()
-        wait("native grant withdrawal", lambda: not self.document().get("grants"), 180)
+        wait("native grant withdrawal", lambda: not self.document().get("grants"), WITHDRAWAL_BOUND_SECONDS)
         self.refused("withdrawn_grant_refuses_unused_inputs", self.exchange(subject, actor))
         elapsed = round(time.monotonic() - started, 3)
         self.report["revocation_seconds"] = elapsed
-        self.record("withdrawal_observed_within_180_seconds", elapsed < 180)
+        self.record("withdrawal_observed_within_180_seconds", elapsed < WITHDRAWAL_BOUND_SECONDS)
         self.refused("withdrawn_ancestor_refuses_chaining", self.exchange(issued["access_token"]))
         self.record("offline_jwt_remains_valid_before_expiry", time.time() < issued["expires_at"] and self.access(issued["access_token"]) == {"http_status": 200, "allowed": True})
         self.set_spec()
@@ -398,6 +411,7 @@ class Delegation(installed.Installed):
         self.kubernetes_permissions()
         self.report["active_phase"] = "native_flows"
         self.positive()
+        self.application_coexistence()
         self.negatives()
         self.phase_recovery()
         self.report["active_phase"] = "drift_outage"

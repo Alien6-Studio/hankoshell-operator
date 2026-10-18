@@ -170,13 +170,22 @@ func (c *Client) DeleteApplicationIfOwned(ctx context.Context, realm, id, client
 // conditional transactional client writes; administrators must avoid concurrent
 // ownership edits. This method never performs an in-place protocol conversion.
 func (c *Client) UpdateApplication(ctx context.Context, realm string, desired Application, ownerKey, owner string) error {
+	release, err := c.beginBoundedDelegation(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
 	var current map[string]any
 	path := applicationPath(realm, desired.ID)
 	if err := c.get(ctx, path, &current); err != nil {
 		return err
 	}
 	attributes, _ := current["attributes"].(map[string]any)
-	if current["clientId"] != desired.ClientID || current["protocol"] != desired.Protocol || attributes[ownerKey] != owner || attributes["hanko.sh/client-owner-kind"] != nil || attributes["hanko.sh/client-owner-uid"] != nil || attributes["hanko.sh/role-owner"] != nil {
+	if current["clientId"] != desired.ClientID || current["protocol"] != desired.Protocol || attributes[ownerKey] != owner {
+		return ErrApplicationPrecondition
+	}
+	var ownership Application
+	if decodeSnapshot(current, &ownership) != nil || !ApplicationOwned(&ownership, owner) {
 		return ErrApplicationPrecondition
 	}
 	adopted := attributes[adoption.ReceiptKey] != nil
@@ -200,15 +209,24 @@ func (c *Client) UpdateApplication(ctx context.Context, realm string, desired Ap
 		delete(current, "serviceAccountsEnabled")
 	}
 	nextAttributes := applicationUpdateAttributes(attributes, desired.Attributes, adopted)
-	// The authorization-domain journal belongs to HankoResourceServer.
-	if receipt, ok := attributes["hanko.sh/adoption-receipt"].(string); ok {
-		nextAttributes["hanko.sh/adoption-receipt"] = receipt
-	}
-	if journal, ok := attributes[authorizationOwnerAttribute].(string); ok {
-		nextAttributes[authorizationOwnerAttribute] = journal
-	}
+	preserveApplicationSiblingAttributes(attributes, nextAttributes)
 	current["attributes"] = nextAttributes
 	return c.putJSON(ctx, path, current)
+}
+
+func preserveApplicationSiblingAttributes(current map[string]any, next map[string]string) {
+	// UpdateApplication has verified the complete application owner envelope.
+	// These journals and activation settings belong to sibling controllers.
+	for _, key := range []string{adoption.ReceiptKey, authorizationOwnerAttribute, BoundedDelegationAttribute, BoundedDelegationActorAttribute} {
+		if value, ok := current[key].(string); ok {
+			next[key] = value
+		}
+	}
+	if _, actor := current[BoundedDelegationActorAttribute].(string); actor {
+		if value, ok := current["standard.token.exchange.enabled"].(string); ok {
+			next["standard.token.exchange.enabled"] = value
+		}
+	}
 }
 
 // MarkApplicationOwner is deliberately separate from reconciliation. The

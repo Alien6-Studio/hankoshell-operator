@@ -2,13 +2,15 @@
 
 import base64
 import copy
+import contextlib
 import hashlib
 import importlib.util
+import io
 import json
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 def module(name, filename):
@@ -24,6 +26,27 @@ probe = module("delegation_pod_probe", "delegation-pod-probe.py")
 
 
 class DelegationEvidenceTests(unittest.TestCase):
+    def test_positive_flow_enforces_the_declared_lifetime(self):
+        payload = base64.urlsafe_b64encode(json.dumps({"exp": 1000}).encode()).decode().rstrip("=")
+        for declared, issued in ((8, 8), (8, 9), (30, 30), (30, 31), (300, 300), (300, 301)):
+            with self.subTest(declared=declared, issued=issued):
+                fixture = installed.Delegation.__new__(installed.Delegation)
+                fixture.report = {"checks": {"independent_broad_input_allows_more_authority": True}}
+                fixture.get = Mock(return_value={"spec": installed.server_spec(declared)})
+                fixture.input = Mock(return_value="e30." + payload + ".fixture")
+                fixture.exchange = Mock(return_value={"http_status": 200, "depth": 1, "issuer_matches": True,
+                    "ordinary_claims_absent": True, "refresh_token_absent": True, "expires_at": 100 + issued,
+                    "checked_at": 100, "access_token": "synthetic-delegated-token"})
+                fixture.access = Mock(side_effect=lambda token, resource="allowed", scope="read": {
+                    "http_status": 200 if resource == "allowed" and scope == "read" else 403,
+                    "allowed": resource == "allowed" and scope == "read"})
+                with contextlib.redirect_stdout(io.StringIO()):
+                    if issued <= declared:
+                        fixture.positive()
+                    else:
+                        with self.assertRaisesRegex(ValueError, "native_token_boundaries"):
+                            fixture.positive()
+
     def test_pod_input_reports_permission_presence_without_expanding_host_claims(self):
         def token(claims):
             payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip("=")
