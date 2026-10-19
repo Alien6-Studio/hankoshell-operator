@@ -182,5 +182,90 @@
     "input_bytes": 2097152,
     "objects": 1000,
     "depth": 64
+  },
+  "finalizer_recovery": {
+    "cli": "scripts/finalizer-recovery.py",
+    "module": "scripts/finalizer_recovery.py",
+    "tests": "scripts/test_finalizer_recovery.py",
+    "fixture": "scripts/finalizer-recovery-fixture.py",
+    "api_fixture": "api/v1alpha1/finalizer_recovery_integration_test.go",
+    "runbook": "docs/finalizer-recovery.md",
+    "profile": {
+      "FORMAT": "hanko.sh/finalizer-release/v1alpha1",
+      "AUDIT_NAMESPACE": "hanko-recovery-audit",
+      "POLICY_NAME": "hanko-finalizer-release-audit",
+      "EXECUTORS": "hanko:recovery-executors",
+      "APPROVERS": "hanko:recovery-approvers",
+      "CONSENT": "OrphanProviderStateAndAllowKubernetesGarbageCollection",
+      "MAX_BYTES": 2097152,
+      "MAX_DEPTH": 64,
+      "MAX_TTL": 3600,
+      "RESOURCES": {
+        "HankoApplication": [
+          "hankoapplications",
+          [
+            "hanko.sh/client-cleanup",
+            "hanko.sh/experimental-provider-cleanup"
+          ]
+        ],
+        "HankoRealm": [
+          "hankorealms",
+          [
+            "hanko.sh/realm-cleanup"
+          ]
+        ],
+        "HankoRole": [
+          "hankoroles",
+          [
+            "hanko.sh/role-cleanup"
+          ]
+        ],
+        "HankoOrganization": [
+          "hankoorganizations",
+          [
+            "hanko.sh/organization-cleanup"
+          ]
+        ],
+        "HankoServiceAccount": [
+          "hankoserviceaccounts",
+          [
+            "hanko.sh/sa-cleanup",
+            "hanko.sh/workload-runtime-cleanup"
+          ]
+        ],
+        "HankoWorkloadTrust": [
+          "hankoworkloadtrusts",
+          [
+            "hanko.sh/workload-trust-cleanup"
+          ]
+        ],
+        "HankoTheme": [
+          "hankothemes",
+          [
+            "hanko.sh/theme-cleanup"
+          ]
+        ],
+        "HankoResourceServer": [
+          "hankoresourceservers",
+          [
+            "hanko.sh/resource-server-cleanup"
+          ]
+        ]
+      }
+    },
+    "manifests": [
+      {
+        "path": "config/recovery/approval-policy.yaml",
+        "sha256": "2c85f498145a47b58c1f0e9faec3c8ce14a22338215a4d3845018e9542ab9f25"
+      },
+      {
+        "path": "config/recovery/audit-access.yaml",
+        "sha256": "7969e2ee97d39f43922397d81711e2b077c2bfe0e7bca6afc706cbeee26f131b"
+      },
+      {
+        "path": "config/recovery/target-access.yaml",
+        "sha256": "b9876e1a43be4e3660df3f41e4861ab9726fcdd85ab1a99d6fdfc2ee991f9543"
+      }
+    ]
   }
 }

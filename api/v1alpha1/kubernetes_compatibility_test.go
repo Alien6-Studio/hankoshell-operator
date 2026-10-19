@@ -130,6 +130,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 	t.Run("tenant bundle ownership and concurrent writes", func(t *testing.T) { checkTenantBundleBoundary(t, ctx, admin) })
 	t.Run("signed fleet authority and replay recovery", func(t *testing.T) { checkSignedFleetPlans(t, ctx, admin) })
 	t.Run("lifecycle independent approval admission", func(t *testing.T) { checkLifecycleAdmission(t, ctx, admin, environment, config) })
+	t.Run("audited administrator finalizer recovery", func(t *testing.T) { checkFinalizerRecovery(t, ctx, admin, environment, config) })
 	t.Run("experimental connection independent approval", func(t *testing.T) { checkExperimentalConnectionAdmission(t, ctx, admin, environment, config) })
 	t.Run("fleet trust independent local approval", func(t *testing.T) { checkFleetTrustAdmission(t, ctx, admin, environment, config) })
 	t.Run("tenant client routing and disconnected registration", func(t *testing.T) { checkTenantClientIsolation(t, ctx, admin) })

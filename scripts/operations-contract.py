@@ -85,6 +85,25 @@ def check(root=ROOT):
         raise ValueError("Incident collection must explicitly cover every reviewed resource/version")
     if incident["collector"] not in runbook or incident["tests"] not in runbook or not (root / incident["tests"]).is_file():
         raise ValueError("Missing executable incident evidence runbook/fixture")
+    recovery = contract["finalizer_recovery"]
+    profile = recovery["profile"]
+    source = ast.parse((root / recovery["module"]).read_text())
+    actual = {node.targets[0].id: ast.literal_eval(node.value) for node in source.body
+              if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name) and node.targets[0].id in profile}
+    if json.loads(json.dumps(actual)) != profile:
+        raise ValueError("Finalizer release authority or budget differs from the reviewed profile")
+    detailed = (root / recovery["runbook"]).read_text()
+    if Path(recovery["runbook"]).name not in runbook:
+        raise ValueError("Missing administrator recovery procedure link")
+    for key in ("cli", "module", "tests", "fixture", "api_fixture"):
+        if not (root / recovery[key]).is_file() or recovery[key] not in detailed:
+            raise ValueError("Missing executable finalizer release fixture or procedure")
+    for manifest in recovery["manifests"]:
+        path = root / manifest["path"]
+        if not path.is_relative_to(root / "config/recovery") or hashlib.sha256(path.read_bytes()).hexdigest() != manifest["sha256"]:
+            raise ValueError("Administrator recovery admission or RBAC differs from the reviewed manifest")
+        if manifest["path"] not in detailed:
+            raise ValueError("Missing exact administrator recovery manifest command")
     for path in re.findall(r'`((?:scripts|internal|api)/[^` ]+\.py|(?:internal|api)/[^` ]+\.go)`', runbook):
         if not (root / path).is_file():
             raise ValueError("Runbook references missing executable fixture: " + path)

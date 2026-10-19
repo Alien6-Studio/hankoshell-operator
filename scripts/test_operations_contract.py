@@ -14,6 +14,7 @@ class OperationalContractTests(unittest.TestCase):
     def fixture(self, root):
         for name in ("internal", "cmd", "api", "docs", "scripts"):
             shutil.copytree(contract.ROOT / name, root / name, ignore=shutil.ignore_patterns("__pycache__"))
+        shutil.copytree(contract.ROOT / "config/recovery", root / "config/recovery")
         chart = root / "charts/hankoshell-operator"
         chart.mkdir(parents=True)
         shutil.copyfile(contract.ROOT / "charts/hankoshell-operator/README.md", chart / "README.md")
@@ -38,6 +39,10 @@ class OperationalContractTests(unittest.TestCase):
             ("internal/controller/iam_evidence.go", 'return "ProviderUnavailable"', 'return "UnreviewedFailure"'),
             ("scripts/incident-evidence.py", "MAX_OBJECTS = 1000", "MAX_OBJECTS = 1001"),
             ("scripts/incident-evidence.py", '"HankoSnapshot", "HankoResourceServer"', '"HankoUnreviewed", "HankoResourceServer"'),
+            ("scripts/finalizer_recovery.py", "MAX_TTL = 3600", "MAX_TTL = 7200"),
+            ("config/recovery/approval-policy.yaml", "failurePolicy: Fail", "failurePolicy: Ignore"),
+            ("config/recovery/target-access.yaml", "verbs: [patch]", "verbs: [patch, delete]"),
+            ("docs/operations-runbooks.md", "finalizer-recovery.md", "missing-recovery.md"),
             ("scripts/evidence_privacy.py", 'value.find("eyJ")', 'value.find("other-marker")'),
         ]
         for name, before, after in mutations:

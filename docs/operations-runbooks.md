@@ -200,15 +200,22 @@ change an owner marker to make a foreign resource appear owned. `System.organiza
 foreign/replacement dependency preservation and resume after conflict removal.
 Controller adoption recovery tests cover current authority re-read before writes.
 
-**UNQUALIFIED: a generic administrator-approved, audited release-without-cleanup
-workflow.** No such cross-domain command is shipped. Retain the finalizer and
-record the incident for administrator review; never use `finalizers: []` as a
-substitute. The existing V2 ResourceServer `spec.mode: Observe` path withdraws
-lifecycle consent and releases that CR without provider cleanup, as documented
-in [existing-Keycloak adoption](architecture/existing-keycloak-adoption.md).
-This existing mode transition is not an independently audited emergency release
-mechanism. Do not generalize it to other domains. Recovery requiring that new
-approval/audit mechanism remains outstanding in #103.
+If normal recovery cannot complete and two administrators explicitly accept
+orphaned provider state and Kubernetes garbage collection, follow the
+[audited finalizer release procedure](finalizer-recovery.md). Its exact manifests
+are in `config/recovery/`; `scripts/finalizer-recovery.py` binds a short-lived plan
+to the terminating object, admission guard and cluster identities. It records
+independent approval and durable intent before one selective compare-and-swap
+patch. It preserves all other finalizers and never calls a provider. Do not use
+`finalizers: []`. `scripts/test_finalizer_recovery.py` covers interruption, stale
+authority, expiry and recorder failures; `api/v1alpha1/finalizer_recovery_integration_test.go`
+and `scripts/finalizer-recovery-fixture.py` exercise authenticated admission and
+the actual CLI on the supported Kubernetes API matrix. This API qualification
+does not certify native cleanup, connected audit recovery or production HA.
+
+The existing V2 ResourceServer `spec.mode: Observe` path withdraws lifecycle
+consent without provider cleanup; see [existing-Keycloak adoption](architecture/existing-keycloak-adoption.md).
+It remains separate from the independently approved emergency release procedure.
 
 ## Fleet plans, lifecycle approval and delegation
 
