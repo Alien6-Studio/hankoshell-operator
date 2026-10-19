@@ -1,14 +1,14 @@
 # Development backlog for the 1.0 workstream
 
-Snapshot: 2026-10-19, `feat/1.0.0-dev`, after implementation delivery of #94 and #103.
-There are **18 open issues**.
+Snapshot: 2026-10-19, `feat/1.0.0-dev`, after implementation delivery of #91, #92, #94 and #103.
+There are **16 open issues**.
 Recent batches advanced repairs and qualification for #71/#95; they did not complete the rest
 of this backlog. The branch name does not announce a stable API or public release.
 
 | Tracking category | Count | Issues and remaining work |
 | --- | ---: | --- |
 | `track:qualification` | 4 | #71 installed delegation; #86 complete initial candidate; #95 capacity/endurance/sizing; #96 complete HA transaction and fault matrix |
-| `track:stable-roadmap` | 12 | #87, #88, #89, #91, #92, #93, #99, #101, #104, #105, #106, #107: remaining stable implementation, public history, decisions and delivery |
+| `track:stable-roadmap` | 10 | #87, #88, #89, #93, #99, #101, #104, #105, #106, #107: remaining stable implementation, public history, decisions and delivery |
 | `track:external-evidence` | 2 | #21 independently verified publication trust; #110 usable twenty-consecutive-main-run history |
 
 These groups preserve all acceptance criteria. The stable-roadmap group contains
@@ -85,10 +85,11 @@ retained candidate matrix, outage coverage and endurance prerequisites.
 Remaining #99 scope includes stable conversion/storage fuzzing, complete stable
 admission/RBAC review, installed adversarial evidence and independent review.
 
-Stable versions (#91) follow the resource decision in #89; storage movement and
-rollback (#92) follow the implemented conversion contract. #93/#101/#105 require
-authentic public predecessor artifacts and real paths. Development guard tooling
-is already delivered in part; it does not provide those historical proofs.
+The version/conversion implementation (#91) and storage movement/rollback (#92)
+are delivered for the three reviewed IAM candidates. Their beta version remains
+experimental; stable resource selection and compatibility ratification remain
+in #89/#104. #93/#101/#105 require authentic public predecessor artifacts and real
+paths. Implementation delivery does not provide those historical proofs.
 
 ## Evidence that code alone cannot create
 
@@ -141,3 +142,16 @@ unqualified; #103 allows untested procedures when marked. Their actual installed
 or public-release evidence belongs to #86/#93/#101/#105/#106. Closing this
 documentation/operational implementation issue does not qualify those paths or
 graduate an API. Full protected integration remains required independently.
+
+## API and native storage delivery (#91/#92)
+
+The [current CI delivery packet](qualification/recovery/2026-10-19/api-storage-delivery/README.md)
+records passing API/security and native storage jobs on Kubernetes 1.35.0,
+1.36.2 and 1.37.0. Three fresh native reports prove 48 physical migrations and
+twelve real process interruptions with same-plan resume and alpha/beta rollback.
+Their artifact digests, source-component hashes and job links are retained.
+
+The implementation issues close under the push-based delivery rule in
+CONTRIBUTING.md. This does not mark the complete aggregate pipeline green,
+qualify a real-provider/public predecessor upgrade, or ratify a stable API.
+Those proofs and decisions remain in their dedicated open issues.
