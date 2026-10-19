@@ -44,11 +44,38 @@ the rendered RBAC and admission policies before installing. Do not export
 credentials. Metrics remain off unless the [mTLS configuration](operational-observability.md)
 is provided. The installed observability fixture tests enabling and disabling them.
 
-**UNQUALIFIED: connected installation.** The enterprise/Continuum Helm renders and
-transport refusal tests exercise configuration guards; no live Hub/Continuum
-end-to-end installation is proven here. Follow the enterprise prerequisites in
-the secure deployment guide and qualify your deployment separately. Do not reuse
-a standalone fixture as evidence of a connected installation.
+### Connected installation
+
+**UNQUALIFIED: live connected installation.** First provision the independently
+approved Hub/Continuum transport and existing tenant credential through their
+own administrator processes. This runbook covers the operator side. Review
+`charts/hankoshell-operator/values.yaml` and
+[the enterprise prerequisites](secure-deployment.md): the approved values must
+set `profile: enterprise`, immutable `image.digest`, `hub.enabled`, the exact
+HTTPS `hub.endpoint`, existing `hub.tenantID` and `hub.tokenSecret`, and the
+reviewed `continuum` relay address/hostname and API egress. The referenced
+credential Secret must already contain `hub_token`, `tenant_id`, `cluster_id`
+and `expires_at`; provision it through your private secret process. Keep consumed
+enrollment tokens out of the values retained for an existing tenant.
+
+```sh
+umask 077
+helm template "$release" "$chart_path" --namespace "$namespace" \
+  --kube-version "$kubernetes_version" --values "$approved_connected_values" > "$private_connected_manifest"
+helm install "$release" "$chart_path" --namespace "$namespace" \
+  --values "$approved_connected_values" --wait --timeout 180s
+kubectl -n "$namespace" rollout status deployment/"$deployment" --timeout=180s
+kubectl -n "$namespace" get hankotenant "$tenant" \
+  -o jsonpath='{.status.phase}{"\n"}{range .status.conditions[*]}{.type}{" "}{.status}{" "}{.reason}{"\n"}{end}'
+```
+
+`charts/hankoshell-operator/tests/keycloak-transport.py` exercises enterprise
+HTTPS configuration/refusals; `charts/hankoshell-operator/tests/fleet-plan.py`
+checks the independently owned local plan-trust reference. These are render
+fixtures. The install, rollout and tenant observation commands above have **not
+been qualified against a live Hub/Continuum installation**. Qualify them in the
+target environment before relying on them. A running Deployment does not prove
+tenant enrollment, a verified plan or successful audit delivery.
 
 ## Upgrade, rollback and storage
 
@@ -76,8 +103,9 @@ An empty list is valid; an unsupported-selector response blocks the upgrade.
 The controller refuses ownership authorization when these live lists fail.
 This prepares the current development API; it does not qualify a public upgrade.
 
-For development chart configuration changes only, the installed observability
-fixture exercises a real Helm upgrade and rollback to previous reviewed values:
+For development chart configuration changes only,
+`scripts/observability-installed-test.py` exercises a real Helm upgrade and
+rollback to previous reviewed values:
 
 ```sh
 helm upgrade "$release" "$chart_path" --namespace "$namespace" \
@@ -108,7 +136,7 @@ Its final report and cleanup are required before treating a scenario as qualifie
 
 Process liveness, serving readiness and leader reconciliation readiness are
 specified in [observability](operational-observability.md#health-readiness-and-leader-semantics).
-The installed observability fixture starts two replicas, proves exactly one lease
+`scripts/observability-installed-test.py` starts two replicas, proves exactly one lease
 holder, verifies standby probe semantics, removes that leader and observes a new
 holder with the same native managed client and credential. This is a bounded
 single-node smoke test. The separate
@@ -189,6 +217,13 @@ fixtures, **not a production rotation failover matrix**. Audit recorder outage
 recovery against a real connected API remains **UNQUALIFIED**. Do not clear its
 condition or acknowledge an undelivered audit locally.
 
+If the affected IAM object is already terminating and normal recovery is
+abandoned, the [audited release procedure](finalizer-recovery.md) is the only
+shipped emergency finalizer path. It requires an independently approved orphaning
+decision and preserves the audit failure as history. It does not acknowledge the
+missing rotation receipt or clean/revoke a credential. KeycloakInstance has no
+release profile in that utility; retain its pending state and repair the recorder.
+
 ## Adoption, cleanup conflicts and finalizers
 
 For `AdoptionRequired`, `AdoptionConflict`, `CleanupConflict`, ownership loss or
@@ -257,6 +292,14 @@ matrix remains **UNQUALIFIED** in #71 after the retained failed recovery cell.
 Withdrawal stops new exchanges; an offline delegated JWT remains valid until its
 bounded expiry. Do not promise immediate revocation at an offline resource server.
 
+For a terminating supported IAM resource whose cleanup cannot resume, use the
+[audited release procedure](finalizer-recovery.md) only after reviewing the
+orphaned grants and their remaining expiry. It never repairs signed-plan
+verification, resets a checkpoint or releases a Tenant/Operation/Snapshot.
+An unavailable Hub, credential refresh or mesh endpoint requires restoring the
+approved endpoint, trust and scoped authority; preserve the tenant identity and
+last verified plan. Live connected recovery remains **UNQUALIFIED**.
+
 ## Decommission
 
 The tenant decommission path must retain authenticated target binding and current
@@ -265,6 +308,36 @@ installed connected decommission is **UNQUALIFIED**. Review each owned native
 object and use the normal audited deletion path. Helm uninstall alone neither
 proves provider cleanup nor authorizes deleting CRDs, audit evidence or Secrets.
 Do not remove a namespace to make stuck finalizers disappear.
+
+Inspect only bounded decisions while the authenticated Hub command executes:
+
+```sh
+kubectl -n "$namespace" get hankotenant "$tenant" \
+  -o jsonpath='{.status.phase}{"\n"}{range .status.conditions[*]}{.type}{" "}{.status}{" "}{.reason}{"\n"}{end}'
+```
+
+`DecommissionExpired` requires a new authorized command with a fresh validity
+window from the existing issuer. `DecommissionBlocked` requires repairing the
+reviewed transport release/namespace and dependencies; `DecommissionFailed`
+retains the command for issuer-controlled redelivery. The exact window and
+deadline rules are in [secure deployment](secure-deployment.md). The controller
+fixture covers these decisions; a complete live connected teardown remains
+**UNQUALIFIED**. Do not synthesize a Hub confirmation or surrender credentials
+before the authenticated receipt. The finalizer release utility does not support
+Tenant or transport decommission.
+
+After independently confirming owned-resource cleanup and retaining private
+audit evidence, remove only the selected operator Helm release:
+
+```sh
+helm uninstall "$release" --namespace "$namespace" --wait --timeout 180s
+```
+
+`scripts/system-test.py` uses `System.cleanup` to remove its entire disposable
+fixture, not this production uninstall sequence. The standalone uninstall command
+above is **UNQUALIFIED** as a provider decommission procedure. Keep CRDs, shared
+trust, Secrets, audit records and other releases under their existing ownership
+processes.
 
 ## Incident evidence without secrets
 

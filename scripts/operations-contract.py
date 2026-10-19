@@ -8,6 +8,35 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def check_procedure_coverage(root, contract):
+    covered, identities = set(), set()
+    for entry in contract["procedure_coverage"]:
+        identity, group = entry["id"], entry["runbook"]
+        if identity in identities or group not in contract["runbooks"]:
+            raise ValueError("Duplicate or unknown operational procedure")
+        identities.add(identity)
+        covered.add(group)
+        path = (root / entry["document"]).resolve()
+        if not path.is_relative_to((root / "docs").resolve()):
+            raise ValueError("Operational procedures must be repository documentation")
+        text = path.read_text()
+        heading = re.search(r"^(#{1,6}) " + re.escape(entry["heading"]) + r"\s*$", text, re.M)
+        if heading is None:
+            raise ValueError("Operational procedure heading is missing: " + identity)
+        remaining = text[heading.end():]
+        end = re.search(r"^#{1," + str(len(heading[1])) + r"} ", remaining, re.M)
+        section = remaining[:end.start()] if end else remaining
+        commands = "\n".join(re.findall(r"```sh\n(.*?)```", section, re.S))
+        if not entry["commands"] or any(command not in commands for command in entry["commands"]):
+            raise ValueError("Operational procedure lacks its exact command: " + identity)
+        if entry["unqualified"] and "UNQUALIFIED" not in section:
+            raise ValueError("Untested operational procedure must retain its qualification limit: " + identity)
+        if not entry["fixtures"] or any(not (root / fixture).is_file() or fixture not in text for fixture in entry["fixtures"]):
+            raise ValueError("Operational procedure lacks its executable fixture: " + identity)
+    if covered != set(contract["runbooks"]):
+        raise ValueError("Operational procedures do not cover the complete runbook inventory")
+
+
 def check(root=ROOT):
     contract = json.loads((root / "docs/operational-contract.json").read_text())
     if contract["maturity"] != "initial development" or contract["api_version"] != "v1alpha1":
@@ -63,6 +92,7 @@ def check(root=ROOT):
         if not all(name in text for name in ("operations-runbooks.md", "operational-observability.md", "operational-contract.json")):
             raise ValueError("Missing operational contract link: " + path)
     runbook = (root / "docs/operations-runbooks.md").read_text()
+    check_procedure_coverage(root, contract)
     iam = (root / "internal/controller/iam_evidence.go").read_text().split("func iamFailureReason(", 1)[1].split("func iamCondition(", 1)[0]
     iam_reasons = sorted(set(re.findall(r'return "([A-Za-z]+)"', iam)))
     if iam_reasons != contract.get("iam_failure_reasons"):

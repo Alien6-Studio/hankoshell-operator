@@ -43,6 +43,9 @@ class OperationalContractTests(unittest.TestCase):
             ("config/recovery/approval-policy.yaml", "failurePolicy: Fail", "failurePolicy: Ignore"),
             ("config/recovery/target-access.yaml", "verbs: [patch]", "verbs: [patch, delete]"),
             ("docs/operations-runbooks.md", "finalizer-recovery.md", "missing-recovery.md"),
+            ("docs/operations-runbooks.md", "### Connected installation", "### Removed installation"),
+            ("docs/operations-runbooks.md", 'helm uninstall "$release"', 'removed-command "$release"'),
+            ("docs/operations-runbooks.md", "UNQUALIFIED: live connected installation", "QUALIFIED: live connected installation"),
             ("scripts/evidence_privacy.py", 'value.find("eyJ")', 'value.find("other-marker")'),
         ]
         for name, before, after in mutations:

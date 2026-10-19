@@ -267,5 +267,171 @@
         "sha256": "b9876e1a43be4e3660df3f41e4861ab9726fcdd85ab1a99d6fdfc2ee991f9543"
       }
     ]
-  }
+  },
+  "procedure_coverage": [
+    {
+      "id": "standalone-install",
+      "runbook": "install",
+      "document": "docs/operations-runbooks.md",
+      "heading": "Install: standalone and connected",
+      "commands": [
+        "helm template",
+        "helm install",
+        "kubectl -n"
+      ],
+      "fixtures": [
+        "scripts/system-test.py"
+      ],
+      "unqualified": false
+    },
+    {
+      "id": "connected-install",
+      "runbook": "install",
+      "document": "docs/operations-runbooks.md",
+      "heading": "Connected installation",
+      "commands": [
+        "helm template",
+        "helm install",
+        "get hankotenant"
+      ],
+      "fixtures": [
+        "charts/hankoshell-operator/tests/keycloak-transport.py",
+        "charts/hankoshell-operator/tests/fleet-plan.py"
+      ],
+      "unqualified": true
+    },
+    {
+      "id": "upgrade-and-rollback",
+      "runbook": "upgrade",
+      "document": "docs/operations-runbooks.md",
+      "heading": "Upgrade, rollback and storage",
+      "commands": [
+        "kubectl apply --server-side",
+        "helm upgrade"
+      ],
+      "fixtures": [
+        "scripts/observability-installed-test.py",
+        "api/v1alpha1/kubernetes_compatibility_test.go"
+      ],
+      "unqualified": true
+    },
+    {
+      "id": "storage-plan-and-run",
+      "runbook": "upgrade",
+      "document": "docs/storage-migration.md",
+      "heading": "Plan, approve and run",
+      "commands": [
+        "storage_migration.py plan",
+        "storage_migration.py run",
+        "storage_migration.py status"
+      ],
+      "fixtures": [
+        "scripts/storage-migration-installed-test.py"
+      ],
+      "unqualified": false
+    },
+    {
+      "id": "storage-resume-and-rollback",
+      "runbook": "upgrade",
+      "document": "docs/storage-migration.md",
+      "heading": "Interruption and rollback",
+      "commands": [
+        "storage_migration.py status",
+        "storage_migration.py run"
+      ],
+      "fixtures": [
+        "scripts/storage-migration-installed-test.py"
+      ],
+      "unqualified": false
+    },
+    {
+      "id": "leader-and-provider-recovery",
+      "runbook": "leader",
+      "document": "docs/operations-runbooks.md",
+      "heading": "Leader failover and provider outage",
+      "commands": [
+        "get lease",
+        "delete pod",
+        "rollout status"
+      ],
+      "fixtures": [
+        "scripts/observability-installed-test.py",
+        "scripts/system-test.py"
+      ],
+      "unqualified": false
+    },
+    {
+      "id": "rotation-and-audit-recovery",
+      "runbook": "rotation",
+      "document": "docs/operations-runbooks.md",
+      "heading": "Rotation and audit refusal",
+      "commands": [
+        "get hankokeycloakinstance",
+        "get hankoserviceaccount"
+      ],
+      "fixtures": [
+        "internal/controller/hankokeycloakinstance_rotation_test.go"
+      ],
+      "unqualified": true
+    },
+    {
+      "id": "independent-finalizer-release",
+      "runbook": "adoption",
+      "document": "docs/finalizer-recovery.md",
+      "heading": "Request, review and execute",
+      "commands": [
+        "finalizer-recovery.py",
+        "--finalizer hanko.sh/role-cleanup",
+        "--accept-orphaned-provider-state-and-garbage-collection"
+      ],
+      "fixtures": [
+        "scripts/test_finalizer_recovery.py",
+        "api/v1alpha1/finalizer_recovery_integration_test.go"
+      ],
+      "unqualified": false
+    },
+    {
+      "id": "fleet-and-delegation-recovery",
+      "runbook": "fleet",
+      "document": "docs/operations-runbooks.md",
+      "heading": "Fleet plans, lifecycle approval and delegation",
+      "commands": [
+        "get hankooperation",
+        "lifecycle-approval.py"
+      ],
+      "fixtures": [
+        "scripts/fleet-installed-test.py"
+      ],
+      "unqualified": true
+    },
+    {
+      "id": "decommission",
+      "runbook": "decommission",
+      "document": "docs/operations-runbooks.md",
+      "heading": "Decommission",
+      "commands": [
+        "get hankotenant",
+        "helm uninstall"
+      ],
+      "fixtures": [
+        "internal/controller/hankotenant_decommission_test.go"
+      ],
+      "unqualified": true
+    },
+    {
+      "id": "private-incident-collection",
+      "runbook": "incident",
+      "document": "docs/operations-runbooks.md",
+      "heading": "Incident evidence without secrets",
+      "commands": [
+        "get deployment",
+        "get hankoapplication",
+        "incident-evidence.py"
+      ],
+      "fixtures": [
+        "scripts/test_incident_evidence.py"
+      ],
+      "unqualified": false
+    }
+  ]
 }

@@ -1,14 +1,14 @@
 # Development backlog for the 1.0 workstream
 
-Snapshot: 2026-10-19, `feat/1.0.0-dev`, after implementation delivery of #94.
-There are **19 open issues**.
+Snapshot: 2026-10-19, `feat/1.0.0-dev`, after implementation delivery of #94 and #103.
+There are **18 open issues**.
 Recent batches advanced repairs and qualification for #71/#95; they did not complete the rest
 of this backlog. The branch name does not announce a stable API or public release.
 
 | Tracking category | Count | Issues and remaining work |
 | --- | ---: | --- |
 | `track:qualification` | 4 | #71 installed delegation; #86 complete initial candidate; #95 capacity/endurance/sizing; #96 complete HA transaction and fault matrix |
-| `track:stable-roadmap` | 13 | #87, #88, #89, #91, #92, #93, #99, #101, #103, #104, #105, #106, #107: remaining stable implementation, public history, decisions and delivery |
+| `track:stable-roadmap` | 12 | #87, #88, #89, #91, #92, #93, #99, #101, #104, #105, #106, #107: remaining stable implementation, public history, decisions and delivery |
 | `track:external-evidence` | 2 | #21 independently verified publication trust; #110 usable twenty-consecutive-main-run history |
 
 These groups preserve all acceptance criteria. The stable-roadmap group contains
@@ -59,8 +59,9 @@ Application, Role and ResourceServer status now distinguishes typed provider
 authentication, permission, overload, outage, conflict and cancellation failures.
 The operational contract binds every fixed reason to its recovery procedure,
 while regression tests reject string-spoofed status codes and private messages.
-The generic independently approved/audited finalizer-release workflow remains
-unfinished in #103; existing Observe transitions do not implement it.
+The administrator finalizer-release workflow now supplies independent approval,
+immutable audit intent, selective CAS removal and observation without replay.
+Its actual CLI/admission witness passes on all three reviewed Kubernetes versions.
 
 ## Current HA and security batch
 
@@ -123,5 +124,20 @@ The IAM admission budget reduces the inventory gaps from 440 to 397 across the
 authorizer/admission fixtures cover both lifecycle profiles. An offline incident
 collector exports only anonymous fixed decisions and generation/count evidence,
 with bounded parsing and private exclusive output. Stable field/RBAC acceptance,
-independent review, public upgrade evidence and the audited finalizer-release
-mechanism remain unfinished; these two roadmap issues are not closed by this lot.
+independent review and public upgrade evidence remain unfinished in #99 and the
+release qualification issues. The audited finalizer-release mechanism is delivered.
+
+## Operational procedures delivered (#103)
+
+Installation, upgrade/rollback, native storage migration, leader/provider
+recovery, rotation/audit refusal, adoption/finalizer release, Fleet/delegation,
+decommission and private incident collection now have explicit commands,
+executable fixture references and qualification limits. The operational contract
+checks eleven procedure records across all eight runbook groups and rejects
+missing commands, missing fixtures and erased unqualified notices.
+
+Connected installation/decommission and public predecessor paths remain explicitly
+unqualified; #103 allows untested procedures when marked. Their actual installed
+or public-release evidence belongs to #86/#93/#101/#105/#106. Closing this
+documentation/operational implementation issue does not qualify those paths or
+graduate an API. Full protected integration remains required independently.
