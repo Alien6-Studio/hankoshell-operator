@@ -1,0 +1,349 @@
+{
+  "schema": 1,
+  "scope": "experimental native storage and local IAM diagnostics; not public release or current full CI qualification",
+  "sources": [
+    {
+      "source_commit": "067ef1bf6e845fc9e01007144a0f3b8549cf60c5",
+      "files": [
+        {
+          "path": "scripts/storage-migration-installed-test.py",
+          "sha256": "c52ee38405ecb1223b4cc43855de53f3b41a3cb80833062d38b0ca53dc505ac0"
+        },
+        {
+          "path": "scripts/storage_migration.py",
+          "sha256": "ad1e0b244eb64c3688ac7224bf4a5635c2b59ca5e1388c447d80356628845410"
+        },
+        {
+          "path": "scripts/api_conversion_contract.py",
+          "sha256": "ec1d589179003ef14914ff7fd012dbeacead28b3a7b249bd98bd1b5158ca9eb6"
+        },
+        {
+          "path": "scripts/versions.py",
+          "sha256": "5bf8e81bd5cd6a13b5b94520097ac65564b9f43509d2627f3168687ce0a6d147"
+        },
+        {
+          "path": "versions.json",
+          "sha256": "0c24c721cfffb87dfcf2e90b6d19a9f33a892cc0b7d768f7d2952c4593ceece5"
+        },
+        {
+          "path": "internal/controller/iam_evidence.go",
+          "sha256": "e730dd6d4660ab479a89fd85383f000cf43b2508afc99cc6ceabb5e3637baeff"
+        },
+        {
+          "path": "internal/controller/iam_evidence_test.go",
+          "sha256": "60ba05ad5b0ebc0836533725498238610410e26dba76f3e1c899289ba373329e"
+        },
+        {
+          "path": "api/v1alpha1/conversion_contract_integration_test.go",
+          "sha256": "1a61b9fe9dc4a4ada2e6d7b85ed1b35bf4d885085e3e0e31b0b9a2b191afeaf4"
+        },
+        {
+          "path": ".github/workflows/ci.yml",
+          "sha256": "d952cc6aa923ee80a112e153890815922ff94156b226dd00181b4c14518505f4"
+        },
+        {
+          "path": "scripts/coverage-floors.json",
+          "sha256": "c1ef0a03225f1001d4e1674b4b5ae83bbf9566dcf95bbc9a21b036c448e31e2a"
+        },
+        {
+          "path": "charts/hankoshell-operator/crds/hanko.sh_hankoapplications.yaml",
+          "sha256": "159994a79a3c4b2517c657a8157a230fe3017a13ec87ba0315a4a3e03afe1a06"
+        },
+        {
+          "path": "charts/hankoshell-operator/crds/hanko.sh_hankoresourceservers.yaml",
+          "sha256": "9d28190b3849d8c2bc6426dcc3038e5466105b4bd5ac603ab2a59db04dba0820"
+        },
+        {
+          "path": "charts/hankoshell-operator/crds/hanko.sh_hankoroles.yaml",
+          "sha256": "024c882a646b14498915b7110c53b2816ce0e721828dc9f8f26bd212e1ad7c3a"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/_helpers.tpl",
+          "sha256": "730947af2e3d12ad33f8800f5a94120ebefd0ff8da19060388f115beba2f26b8"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/_metrics.tpl",
+          "sha256": "8d2ef4e8beada1b33984a3b987769889856792972850d051942a83d776f86e63"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/_networkpolicy.tpl",
+          "sha256": "4c5e38dda51e97b26858db15ef59d2b168a76576850540ae9656a6607e35736d"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/ciliumnetworkpolicy.yaml",
+          "sha256": "6cb6ecacdf7a7243deec054c9198caf8414e9a7f41e645bc2bb8365195e3e502"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/cluster-identity-reader.yaml",
+          "sha256": "e32f71264ac62c1a2b8f2fd7d882a1216e82abb9d5671ab600e99c9c1c931f99"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/crd-storage-guard.yaml",
+          "sha256": "720469c4a5eaef40dd6cb2a4c77c854af49257cee338847650805229136bcb5f"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/deployment.yaml",
+          "sha256": "2989594e84eac6c06c9516080f7a5fb61b1f1ecce4753722bd87961ffba57592"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/experimental-provider-admission.yaml",
+          "sha256": "dbe55cc548ab9e2f5eb91797253c94621f757d53a434fe387af5411989bd2c1b"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/lifecycle-admission.yaml",
+          "sha256": "9a4033fce87c80ad8eef95ae41f9b5ad523fd65c68cc34dc8cfcc5e89e341c01"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/mesh-egress-reader.yaml",
+          "sha256": "85d00ee63ec2fd552cce9a54a065f84cea527e763b56894ceb4bafc4e08e477d"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/mesh-policy-projection.yaml",
+          "sha256": "66233e8550028313f1ef49e2648231ee9df58fb01e8bc1848112e889f787a037"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/networkpolicy.yaml",
+          "sha256": "6f0cc7ff69f6e705abf9354ad7bec15056ce05f3d8f287f20a5f2c8fa3eb3857"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/node-reader.yaml",
+          "sha256": "c1c16ddd59f8d8fca8fc5fc62be49d517a233304725b0069a4573611e46f5b80"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/role.yaml",
+          "sha256": "4b69c610b450fae2cf4207fe4ad0df7fa1375f407be7d754fb5227ad5eb9b126"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/rolebinding.yaml",
+          "sha256": "679f56064c3878ee211781bdd43c6944554e57287a73dcfec4ff72cc88cbfaae"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/service.yaml",
+          "sha256": "28b5f606258e38355bb63f477b7906add2921c1d1157f63345062c713d8c04a1"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/serviceaccount.yaml",
+          "sha256": "9824cf5b0005f96c0bc3bb1b87416c9aca39a89d6fe29b96e0bc24e2485ff197"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/servicemonitor.yaml",
+          "sha256": "6e3948fc41fb26fac01558e7dbf628141e26ba9f23afd3cea71b7f2e1ad08708"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/tenant.yaml",
+          "sha256": "01ea6a429da88deeb8538a5c1120974f57b42d7d628401e2276ce557b937705f"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/theme-networkpolicy.yaml",
+          "sha256": "87bbca4e22a2de5315d7c6f6f937bc60f50cebcb04182d1edab55c23074660b8"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/transport-decommission.yaml",
+          "sha256": "6bae150524aa0ed0ab70fe0ba3a1b6ff005d47dea2ccd2105a542f64a436e38f"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/workload-binding-reader.yaml",
+          "sha256": "4bd90a74321f41f42c89c14f2c7b68a3ec4984f07cf9c57ebbc30f034579fd69"
+        },
+        {
+          "path": "docs/api-conversion.json",
+          "sha256": "22019569cdebef9fd8e8059e5ff7b36468fe6b8b5b67b3369a33ece750f859a6"
+        },
+        {
+          "path": "charts/hankoshell-operator/Chart.yaml",
+          "sha256": "1e190e89cd077863adac5056b34ff4daeaee6b271b7e645b8c1f385b0130dfb0"
+        },
+        {
+          "path": "charts/hankoshell-operator/values.yaml",
+          "sha256": "3fc696fb79ea9d04b48529dcd7fd1ed0c4eb53ae3aa485b5654cd8edb28ed469"
+        }
+      ]
+    },
+    {
+      "source_commit": "0d2b14348bbc739e4fed8b0563b6bca1d888ac4a",
+      "files": [
+        {
+          "path": "scripts/storage-migration-installed-test.py",
+          "sha256": "63a19b7de13c0eb32aebc7fe806d3074c75125d50a1581c13241e153b41097fa"
+        },
+        {
+          "path": "scripts/storage_migration.py",
+          "sha256": "ad1e0b244eb64c3688ac7224bf4a5635c2b59ca5e1388c447d80356628845410"
+        },
+        {
+          "path": "scripts/api_conversion_contract.py",
+          "sha256": "ec1d589179003ef14914ff7fd012dbeacead28b3a7b249bd98bd1b5158ca9eb6"
+        },
+        {
+          "path": "scripts/versions.py",
+          "sha256": "5bf8e81bd5cd6a13b5b94520097ac65564b9f43509d2627f3168687ce0a6d147"
+        },
+        {
+          "path": "versions.json",
+          "sha256": "0c24c721cfffb87dfcf2e90b6d19a9f33a892cc0b7d768f7d2952c4593ceece5"
+        },
+        {
+          "path": "internal/controller/iam_evidence.go",
+          "sha256": "e730dd6d4660ab479a89fd85383f000cf43b2508afc99cc6ceabb5e3637baeff"
+        },
+        {
+          "path": "internal/controller/iam_evidence_test.go",
+          "sha256": "60ba05ad5b0ebc0836533725498238610410e26dba76f3e1c899289ba373329e"
+        },
+        {
+          "path": "api/v1alpha1/conversion_contract_integration_test.go",
+          "sha256": "d6d9d56ffe9a237da1cf9595d2def5af0a99b0d661913f1d409f24e2c2b9110a"
+        },
+        {
+          "path": ".github/workflows/ci.yml",
+          "sha256": "afaf436e2ec580f090b26f982b4cb4f3c221e0405eb9f7a3c418596d3a9e4ca6"
+        },
+        {
+          "path": "scripts/coverage-floors.json",
+          "sha256": "663603e73707f91227de3ac99b20dce2329c274bbe0f3b154346ae4bc3677d55"
+        },
+        {
+          "path": "charts/hankoshell-operator/crds/hanko.sh_hankoapplications.yaml",
+          "sha256": "159994a79a3c4b2517c657a8157a230fe3017a13ec87ba0315a4a3e03afe1a06"
+        },
+        {
+          "path": "charts/hankoshell-operator/crds/hanko.sh_hankoresourceservers.yaml",
+          "sha256": "9d28190b3849d8c2bc6426dcc3038e5466105b4bd5ac603ab2a59db04dba0820"
+        },
+        {
+          "path": "charts/hankoshell-operator/crds/hanko.sh_hankoroles.yaml",
+          "sha256": "024c882a646b14498915b7110c53b2816ce0e721828dc9f8f26bd212e1ad7c3a"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/_helpers.tpl",
+          "sha256": "730947af2e3d12ad33f8800f5a94120ebefd0ff8da19060388f115beba2f26b8"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/_metrics.tpl",
+          "sha256": "8d2ef4e8beada1b33984a3b987769889856792972850d051942a83d776f86e63"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/_networkpolicy.tpl",
+          "sha256": "4c5e38dda51e97b26858db15ef59d2b168a76576850540ae9656a6607e35736d"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/ciliumnetworkpolicy.yaml",
+          "sha256": "6cb6ecacdf7a7243deec054c9198caf8414e9a7f41e645bc2bb8365195e3e502"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/cluster-identity-reader.yaml",
+          "sha256": "e32f71264ac62c1a2b8f2fd7d882a1216e82abb9d5671ab600e99c9c1c931f99"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/crd-storage-guard.yaml",
+          "sha256": "720469c4a5eaef40dd6cb2a4c77c854af49257cee338847650805229136bcb5f"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/deployment.yaml",
+          "sha256": "2989594e84eac6c06c9516080f7a5fb61b1f1ecce4753722bd87961ffba57592"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/experimental-provider-admission.yaml",
+          "sha256": "dbe55cc548ab9e2f5eb91797253c94621f757d53a434fe387af5411989bd2c1b"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/lifecycle-admission.yaml",
+          "sha256": "9a4033fce87c80ad8eef95ae41f9b5ad523fd65c68cc34dc8cfcc5e89e341c01"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/mesh-egress-reader.yaml",
+          "sha256": "85d00ee63ec2fd552cce9a54a065f84cea527e763b56894ceb4bafc4e08e477d"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/mesh-policy-projection.yaml",
+          "sha256": "66233e8550028313f1ef49e2648231ee9df58fb01e8bc1848112e889f787a037"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/networkpolicy.yaml",
+          "sha256": "6f0cc7ff69f6e705abf9354ad7bec15056ce05f3d8f287f20a5f2c8fa3eb3857"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/node-reader.yaml",
+          "sha256": "c1c16ddd59f8d8fca8fc5fc62be49d517a233304725b0069a4573611e46f5b80"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/role.yaml",
+          "sha256": "4b69c610b450fae2cf4207fe4ad0df7fa1375f407be7d754fb5227ad5eb9b126"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/rolebinding.yaml",
+          "sha256": "679f56064c3878ee211781bdd43c6944554e57287a73dcfec4ff72cc88cbfaae"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/service.yaml",
+          "sha256": "28b5f606258e38355bb63f477b7906add2921c1d1157f63345062c713d8c04a1"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/serviceaccount.yaml",
+          "sha256": "9824cf5b0005f96c0bc3bb1b87416c9aca39a89d6fe29b96e0bc24e2485ff197"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/servicemonitor.yaml",
+          "sha256": "6e3948fc41fb26fac01558e7dbf628141e26ba9f23afd3cea71b7f2e1ad08708"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/tenant.yaml",
+          "sha256": "01ea6a429da88deeb8538a5c1120974f57b42d7d628401e2276ce557b937705f"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/theme-networkpolicy.yaml",
+          "sha256": "87bbca4e22a2de5315d7c6f6f937bc60f50cebcb04182d1edab55c23074660b8"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/transport-decommission.yaml",
+          "sha256": "6bae150524aa0ed0ab70fe0ba3a1b6ff005d47dea2ccd2105a542f64a436e38f"
+        },
+        {
+          "path": "charts/hankoshell-operator/templates/workload-binding-reader.yaml",
+          "sha256": "4bd90a74321f41f42c89c14f2c7b68a3ec4984f07cf9c57ebbc30f034579fd69"
+        },
+        {
+          "path": "docs/api-conversion.json",
+          "sha256": "22019569cdebef9fd8e8059e5ff7b36468fe6b8b5b67b3369a33ece750f859a6"
+        },
+        {
+          "path": "charts/hankoshell-operator/Chart.yaml",
+          "sha256": "1e190e89cd077863adac5056b34ff4daeaee6b271b7e645b8c1f385b0130dfb0"
+        },
+        {
+          "path": "charts/hankoshell-operator/values.yaml",
+          "sha256": "3fc696fb79ea9d04b48529dcd7fd1ed0c4eb53ae3aa485b5654cd8edb28ed469"
+        }
+      ]
+    }
+  ],
+  "unchanged_native_qualification_functions": {
+    "execute": "941626bf3aca2470e75078e699e099277d094878877851910ca865d25910e19e",
+    "interrupt_after_checkpoint": "5da172043fd0a3fb50ab196bbce6697e62eb13d7d892ad910a99c49785597e8d",
+    "qualify": "e82d1fa61bf66a6ce599ecea1beb580c44a68ee2ead821a0cb936779dd170320"
+  },
+  "local_go_source": {
+    "commit": "caf9b67d68a149cc1be24f617f43dc0fc18bd8e6",
+    "tree": "51bc3a641d42ca981f315a049af10d4600627ac2"
+  },
+  "reports": [
+    {
+      "path": "storage-1.35.0.json",
+      "original_report_sha256": "f710dc20292442c6cb80f92d1fd53bee185ac90704903b37b01585ec30419617",
+      "retained_sha256": "afb88671a9b1669fcc10e196c693c0c6ad3f3e6b861b17aab3e2f213c76f00d4",
+      "normalization": "Only api_contract_sha256 renamed to contract_sha256 to avoid the generic credential-detector false positive on this public schema digest."
+    },
+    {
+      "path": "storage-1.36.2.json",
+      "original_report_sha256": "b4a00664b37435a354f19cf0230a668378652f37778aca7469fc23527c7e3f9f",
+      "retained_sha256": "0b21f210f98febc93987497c30613ecff4a8a15b7abb6cb164493293aade9959",
+      "normalization": "Only api_contract_sha256 renamed to contract_sha256 to avoid the generic credential-detector false positive on this public schema digest."
+    },
+    {
+      "path": "storage-1.37.0.json",
+      "original_report_sha256": "0b7198f310a290e39aa6bd438c2a3ad9d6e125ad7a02af4007867a68900bd2bd",
+      "retained_sha256": "179775e7beed0a62816278f78a355d5932d4bdebf412d7a2a03410533c45dee4",
+      "normalization": "Only api_contract_sha256 renamed to contract_sha256 to avoid the generic credential-detector false positive on this public schema digest."
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "excluded_attempts": [
+    "New fixture omitted approved status hash; not counted.",
+    "New fixture shadowed the approved plan path while rendering an older chart; not counted.",
+    "Initial assertion assumed storedVersions could not be pruned by the native controller; not counted.",
+    "Immediate native success assertion ignored the separate status publication after CRD cleanup; not counted.",
+    "Kubernetes 1.35 same-harness attempt raised during cluster deletion before report writing; initial qualification result unavailable, not counted. Cluster absence independently confirmed.",
+    "First complete Go race run executed 2772 passing cases with zero failures or skips, but its collector rejected the checkout change made during execution; rerun on frozen caf9b67 source, no test was quarantined or retried individually."
+  ],
+  "corrections": [
+    "Require the approved plan hash for status.",
+    "Keep the plan path separate from old chart CRD paths.",
+    "If the predecessor is already pruned, require the exact native job UID/resource, succeeded condition and physical target encoding, allowing bounded asynchronous status publication.",
+    "Persist bounded failure reports even if cleanup fails; always remove the disposable kubeconfig."
+  ],
+  "current_ci_failures": {
+    "run": 39282266290,
+    "source_job": 118159739802,
+    "source_cause": "api/v1beta1 had no reviewed coverage floor; measured 71/166 statements.",
+    "integration_job": 118159739892,
+    "integration_cause": "Three deprecated client.Apply references, after actual Kubernetes API tests passed.",
+    "secondary": "Authentik report upload ran even though that fixture was skipped.",
+    "codeql": "passed on integration revision 516364fab907918d2bce28e66805285ba752024c; a new revision still requires its own check."
+  }
+}
