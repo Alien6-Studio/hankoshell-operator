@@ -1,0 +1,1630 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Explicit size limits for public status evidence. Never truncate identities, checkpoints or cleanup inventories; controllers reserve capacity before native writes. Existing schema patterns, defaults, list ownership and alpha storage are retained.",
+  "bounds": [
+    {
+      "kind": "HankoApplication",
+      "path": "status.adoptionCandidate.candidateHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.adoptionCandidate.diffHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.adoptionCandidate.observationHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.adoptionReceipt.candidateHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.appliedPlanHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.clientSecret.secretRef.key",
+      "limits": {
+        "maxLength": 253
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.clientSecret.secretRef.name",
+      "limits": {
+        "maxLength": 253
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.conditions",
+      "limits": {
+        "maxItems": 32
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.evaluatedPlanHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.intentHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.lastReconciled",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.lastRotated",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedClientSecretProjections",
+      "limits": {
+        "maxItems": 128
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedIdentityMappings",
+      "limits": {
+        "maxItems": 128
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedIdentityMappings[].conditions",
+      "limits": {
+        "maxItems": 32
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedIdentityMappings[].conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedIdentityMappings[].identityProvider",
+      "limits": {
+        "maxLength": 255
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedIdentityMappings[].keycloakID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedIdentityMappings[].name",
+      "limits": {
+        "maxLength": 63
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedTokenClaims",
+      "limits": {
+        "maxItems": 128
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedTokenClaims[].conditions",
+      "limits": {
+        "maxItems": 32
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedTokenClaims[].conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedTokenClaims[].keycloakID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedTokenClaims[].name",
+      "limits": {
+        "maxLength": 63
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.nextRotation",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.observationPlanHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.observedStateHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.oidcEndpoints.authorization",
+      "limits": {
+        "maxLength": 4096
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.oidcEndpoints.issuer",
+      "limits": {
+        "maxLength": 4096
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.oidcEndpoints.jwks",
+      "limits": {
+        "maxLength": 4096
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.oidcEndpoints.token",
+      "limits": {
+        "maxLength": 4096
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.oidcEndpoints.userInfo",
+      "limits": {
+        "maxLength": 4096
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.runtimeBindings[].bindingRevision",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.runtimeBindings[].conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.runtimeBindings[].metadataHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.runtimeBindings[].sourceAppliedPlanHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoEmailProvider",
+      "path": "status.conditions",
+      "limits": {
+        "maxItems": 32
+      }
+    },
+    {
+      "kind": "HankoEmailProvider",
+      "path": "status.conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoEmailProvider",
+      "path": "status.credentialVersion",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoEmailProvider",
+      "path": "status.lastPreflight",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoIAMProfile",
+      "path": "status.conditions",
+      "limits": {
+        "maxItems": 32
+      }
+    },
+    {
+      "kind": "HankoIAMProfile",
+      "path": "status.conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoIAMProfile",
+      "path": "status.lastValidated",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoIAMProfile",
+      "path": "status.policyHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoImport",
+      "path": "status.completedAt",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoImport",
+      "path": "status.conditions",
+      "limits": {
+        "maxItems": 32
+      }
+    },
+    {
+      "kind": "HankoImport",
+      "path": "status.conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoImport",
+      "path": "status.coverage.observationHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoImport",
+      "path": "status.inventory[].candidateHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoImport",
+      "path": "status.lastReconciled",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoIssuer",
+      "path": "status.conditions",
+      "limits": {
+        "maxItems": 32
+      }
+    },
+    {
+      "kind": "HankoIssuer",
+      "path": "status.conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoIssuer",
+      "path": "status.configuredHost",
+      "limits": {
+        "maxLength": 253
+      }
+    },
+    {
+      "kind": "HankoIssuer",
+      "path": "status.lastReconciled",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "status.adminAPIURL",
+      "limits": {
+        "maxLength": 4096
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "status.conditions",
+      "limits": {
+        "maxItems": 32
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "status.conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "status.keycloakVersion",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "status.lastCredentialRotation",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "status.lastProbed",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "status.lastReconciled",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "status.managedObservation.deploymentUID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "status.nextCredentialRotation",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.audience",
+      "limits": {
+        "maxLength": 255
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.clusterID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.conditions",
+      "limits": {
+        "maxItems": 32
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.enforcementMode",
+      "limits": {
+        "maxLength": 32
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.lastResolved",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.realm",
+      "limits": {
+        "maxLength": 253
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.receiverNodeUIDs[]",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.resolvedEgress[].namespace",
+      "limits": {
+        "maxLength": 63
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.resolvedEgress[].ports",
+      "limits": {
+        "maxItems": 64
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.resolvedEgress[].serviceName",
+      "limits": {
+        "maxLength": 63
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.resolvedEgress[].serviceUID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.resolvedPorts",
+      "limits": {
+        "maxItems": 64
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.selectorSHA256",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.serviceUID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.tenantID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.workloadID",
+      "limits": {
+        "maxLength": 255
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.workloadServiceAccountUID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.completedAt",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.conditions",
+      "limits": {
+        "maxItems": 32
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.instanceUID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.intentHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.lastReconciled",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.snapshotRef",
+      "limits": {
+        "maxLength": 253
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.startedAt",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.steps",
+      "limits": {
+        "maxItems": 16
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.steps[].childUID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.steps[].completedAt",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.steps[].message",
+      "limits": {
+        "maxLength": 4096
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.steps[].name",
+      "limits": {
+        "maxLength": 253
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.steps[].startedAt",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.steps[].status",
+      "limits": {
+        "maxLength": 32
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.adoptionCandidate.candidateHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.adoptionCandidate.diffHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.adoptionCandidate.observationHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.adoptionReceipt.candidateHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.conditions",
+      "limits": {
+        "maxItems": 32
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.groupID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.groupPath",
+      "limits": {
+        "maxLength": 16384
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.lastReconciled",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.orgID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.positionID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.appliedMFAPolicy",
+      "limits": {
+        "maxLength": 32
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.conditions",
+      "limits": {
+        "maxItems": 32
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.effectiveIAMProfile",
+      "limits": {
+        "maxLength": 253
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.effectivePolicyHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.keycloakRealmID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.lastReconciled",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.managedIdentityProviders",
+      "limits": {
+        "maxItems": 128
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.managedIdentityProviders[].alias",
+      "limits": {
+        "maxLength": 255
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.managedIdentityProviders[].mappers",
+      "limits": {
+        "maxItems": 128
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.managedIdentityProviders[].mappers[].keycloakID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.managedIdentityProviders[].mappers[].name",
+      "limits": {
+        "maxLength": 253
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.adoptionCandidate.candidateHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.adoptionCandidate.diffHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.adoptionCandidate.observationHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.adoptionReceipt.candidateHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.appliedPlanHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.authorizationExplanation.explanationHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.authorizationExplanation.sourceObservationHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.authorizationExplanation.sourcePlanHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.evaluatedPlanHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.intentHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.lastReconciled",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.observationPlanHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.observedStateHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.adoptionCandidate.candidateHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.adoptionCandidate.diffHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.adoptionCandidate.observationHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.adoptionReceipt.candidateHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.appliedPlanHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.evaluatedPlanHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.intentHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.lastReconciled",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.observationPlanHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.observedStateHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.adoptionCandidate.candidateHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.adoptionCandidate.diffHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.adoptionCandidate.observationHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.adoptionReceipt.candidateHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.authenticationTransition.bindingRevision",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.authenticationTransition.clientUUID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.authenticationTransition.desiredMode",
+      "limits": {
+        "maxLength": 32
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.authenticationTransition.nativeStateHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.authenticationTransition.planHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.authenticationTransition.previousMode",
+      "limits": {
+        "maxLength": 32
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.authenticationTransition.requestID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.authenticationTransition.step",
+      "limits": {
+        "maxLength": 32
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.conditions",
+      "limits": {
+        "maxItems": 32
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.lastReconciled",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.lastRotated",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.managedTokenClaims",
+      "limits": {
+        "maxItems": 128
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.managedTokenClaims[].conditions",
+      "limits": {
+        "maxItems": 32
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.managedTokenClaims[].conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.managedTokenClaims[].keycloakID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.managedTokenClaims[].name",
+      "limits": {
+        "maxLength": 63
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.nextRotation",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.runtimeMetadata.bindingRevision",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.runtimeMetadata.metadataHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.secretRef.secretRef.key",
+      "limits": {
+        "maxLength": 253
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.secretRef.secretRef.name",
+      "limits": {
+        "maxLength": 253
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.workloadBinding.apiServerCAHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.workloadBinding.bindingRevision",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.workloadBinding.intentHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.workloadBinding.planHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.conditions",
+      "limits": {
+        "maxItems": 32
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.configHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.configMapRef",
+      "limits": {
+        "maxLength": 253
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.configMapUID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.dbJobRef",
+      "limits": {
+        "maxLength": 253
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.dbJobUID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.instanceUID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.intentHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.lastReconciled",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.takenAt",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.bundleVersion",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.clusterID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.conditions",
+      "limits": {
+        "maxItems": 32
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.connectedHub",
+      "limits": {
+        "maxLength": 2048
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.appliedIdentity",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.cache.acceptedAt",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.cache.identity",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.expiresAt",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.hubEndpointHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.identity",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.journal[].acceptedAt",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.journal[].identity",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.journal[].rollbackOf",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.previousCache.acceptedAt",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.previousCache.identity",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.previousIdentity",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.rollbackReference.acceptedAt",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.rollbackReference.identity",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.verifiedAt",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetRollout.identity",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetRollout.selectionHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.lastReconciled",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.lastSync",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.tenantID",
+      "limits": {
+        "maxLength": 128
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "status.buildJob",
+      "limits": {
+        "maxLength": 253
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "status.conditions",
+      "limits": {
+        "maxItems": 32
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "status.conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "status.installedBuildImage",
+      "limits": {
+        "maxLength": 2048
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "status.installedImagePullSecrets",
+      "limits": {
+        "maxItems": 32
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "status.installedImagePullSecrets[].name",
+      "limits": {
+        "maxLength": 253
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "status.installedPVC",
+      "limits": {
+        "maxLength": 253
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "status.jarPath",
+      "limits": {
+        "maxLength": 1024
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "status.lastBuilt",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "status.lastReconciled",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.adoptionCandidate.candidateHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.adoptionCandidate.diffHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.adoptionCandidate.observationHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.adoptionReceipt.candidateHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.appliedPlanHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.conditions[].lastTransitionTime",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.dependentInventoryHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.evaluatedPlanHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.intentHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.observedStateHash",
+      "limits": {
+        "maxLength": 71
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.sharedAgeReviewHash",
+      "limits": {
+        "maxLength": 71
+      }
+    }
+  ]
+}

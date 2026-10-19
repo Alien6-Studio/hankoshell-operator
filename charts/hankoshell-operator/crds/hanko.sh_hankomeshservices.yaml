@@ -207,15 +207,19 @@ spec:
               Policy compilers must consume a Ready status for the observed generation.
             properties:
               audience:
+                maxLength: 255
                 type: string
               clusterID:
+                maxLength: 128
                 type: string
               conditions:
+                maxItems: 32
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
                   properties:
                     lastTransitionTime:
+                      maxLength: 64
                       description: |-
                         lastTransitionTime is the last time the condition transitioned from one status to another.
                         This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -270,8 +274,10 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               enforcementMode:
+                maxLength: 32
                 type: string
               lastResolved:
+                maxLength: 64
                 format: date-time
                 type: string
               observedGeneration:
@@ -284,6 +290,7 @@ spec:
                 - Error
                 type: string
               realm:
+                maxLength: 253
                 description: |-
                   Realm is the controller-resolved Hanko realm shared by the caller
                   identity and destination resource server. It scopes otherwise reusable
@@ -295,6 +302,7 @@ spec:
                   currently hosting selected Running/Ready pods. Names, labels and pod IPs
                   are never receiver authority.
                 items:
+                  maxLength: 128
                   type: string
                 maxItems: 256
                 type: array
@@ -305,8 +313,10 @@ spec:
                     reported to Hub.
                   properties:
                     namespace:
+                      maxLength: 63
                       type: string
                     ports:
+                      maxItems: 64
                       items:
                         description: MeshServicePort identifies one exact L4 Service
                           port.
@@ -327,8 +337,10 @@ spec:
                         type: object
                       type: array
                     serviceName:
+                      maxLength: 63
                       type: string
                     serviceUID:
+                      maxLength: 128
                       type: string
                   required:
                   - namespace
@@ -343,6 +355,7 @@ spec:
                 - serviceName
                 x-kubernetes-list-type: map
               resolvedPorts:
+                maxItems: 64
                 items:
                   description: MeshServicePort identifies one exact L4 Service port.
                   properties:
@@ -366,14 +379,19 @@ spec:
                 - port
                 x-kubernetes-list-type: map
               selectorSHA256:
+                maxLength: 64
                 type: string
               serviceUID:
+                maxLength: 128
                 type: string
               tenantID:
+                maxLength: 128
                 type: string
               workloadID:
+                maxLength: 255
                 type: string
               workloadServiceAccountUID:
+                maxLength: 128
                 type: string
             required:
             - receiverNodeUIDs

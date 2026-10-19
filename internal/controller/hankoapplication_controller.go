@@ -741,6 +741,9 @@ func (r *HankoApplicationReconciler) reconcileApplicationMappings(ctx context.Co
 }
 
 func (r *HankoApplicationReconciler) reconcileIdentityMappings(ctx context.Context, app *hankoshv1alpha1.HankoApplication, kc *keycloak.Client) error {
+	if err := checkStatusInventoryCapacity(len(app.Status.ManagedIdentityMappings), len(app.Spec.IdentityMappings)); err != nil {
+		return err
+	}
 	previousMappings := append([]hankoshv1alpha1.ManagedIdentityMappingReference(nil), app.Status.ManagedIdentityMappings...)
 	roleNames := make(map[string]struct{}, len(app.Spec.Roles))
 	for _, role := range app.Spec.Roles {
@@ -869,6 +872,9 @@ func preflightTokenClaims(
 	claims []hankoshv1alpha1.ApplicationTokenClaim,
 	previousClaims []hankoshv1alpha1.ManagedTokenClaimReference,
 ) ([]hankoshv1alpha1.ManagedTokenClaimReference, error) {
+	if err := checkStatusInventoryCapacity(len(previousClaims), len(claims)); err != nil {
+		return previousClaims, err
+	}
 	seen := make(map[string]struct{}, len(claims))
 	for _, claim := range claims {
 		mapperStatus := previousTokenClaimStatus(previousClaims, claim.Name)
@@ -896,6 +902,9 @@ func reconcileClientTokenClaims(
 	claims []hankoshv1alpha1.ApplicationTokenClaim,
 	previousClaims []hankoshv1alpha1.ManagedTokenClaimReference,
 ) ([]hankoshv1alpha1.ManagedTokenClaimReference, error) {
+	if err := checkStatusInventoryCapacity(len(previousClaims), len(claims)); err != nil {
+		return previousClaims, err
+	}
 	previousClaims = append([]hankoshv1alpha1.ManagedTokenClaimReference(nil), previousClaims...)
 	seen := make(map[string]struct{}, len(claims))
 	managed := make([]hankoshv1alpha1.ManagedTokenClaimReference, 0, len(claims))
@@ -1259,6 +1268,9 @@ func (r *HankoApplicationReconciler) upsertSecret(ctx context.Context, app *hank
 }
 
 func (r *HankoApplicationReconciler) reconcileSecretProjections(ctx context.Context, app *hankoshv1alpha1.HankoApplication, secret string, guard func(context.Context) error) error {
+	if err := checkStatusInventoryCapacity(len(app.Status.ManagedClientSecretProjections), len(app.Spec.ClientSecretProjections)); err != nil {
+		return err
+	}
 	desired := make(map[types.NamespacedName]struct{}, len(app.Spec.ClientSecretProjections))
 	canonical := types.NamespacedName{Name: secretName(app.Spec.ClientID), Namespace: app.Namespace}
 	for _, target := range app.Spec.ClientSecretProjections {

@@ -294,16 +294,19 @@ spec:
               of the Keycloak instance.
             properties:
               adminAPIURL:
+                maxLength: 4096
                 description: AdminAPIURL is the base URL used to reach the Keycloak
                   Admin API.
                 type: string
               conditions:
+                maxItems: 32
                 description: Conditions holds standard Kubernetes condition objects.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
                   properties:
                     lastTransitionTime:
+                      maxLength: 64
                       description: |-
                         lastTransitionTime is the last time the condition transitioned from one status to another.
                         This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -358,22 +361,26 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               keycloakVersion:
+                maxLength: 128
                 description: |-
                   KeycloakVersion is discovered from the Admin API when permissions allow;
                   it can be empty for a restricted administrative identity.
                 type: string
               lastCredentialRotation:
+                maxLength: 64
                 description: |-
                   LastCredentialRotation is the last time the AdminRef service-account
                   credential was promoted after successful Keycloak verification.
                 format: date-time
                 type: string
               lastProbed:
+                maxLength: 64
                 description: LastProbed is the timestamp of the last successful Admin
                   API probe.
                 format: date-time
                 type: string
               lastReconciled:
+                maxLength: 64
                 description: LastReconciled is the timestamp of the last successful
                   reconciliation.
                 format: date-time
@@ -391,6 +398,7 @@ spec:
                     minimum: 1
                     type: integer
                   deploymentUID:
+                    maxLength: 128
                     description: DeploymentUID prevents replacement Deployments inheriting
                       a previous probe.
                     minLength: 1
@@ -400,6 +408,7 @@ spec:
                 - deploymentUID
                 type: object
               nextCredentialRotation:
+                maxLength: 64
                 description: |-
                   NextCredentialRotation is set only when spec.rotateAdminCredentials is enabled,
                   using the deadline derived from HANKO_KC_SA_MAX_AGE.

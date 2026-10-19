@@ -7,14 +7,14 @@ rule and binding on five reviewed chart profiles. It is not stable-contract
 acceptance or an independent security audit.
 
 The inventory contains **1,343 declared fields/collections across 20 served schemas**.
-**294 lack an explicit maximum length/cardinality**, all under status (finite string enums count as
-bounded). A regex, runtime validator, HTTP byte budget or Kubernetes metadata
-limit may impose an independent bound; these gaps are not automatically
-vulnerabilities. Opaque provider extensions and inherited Kubernetes schemas
-still need contextual review. Status is inventoried along with spec.
+**No inventoried string, list or typed map lacks an explicit maximum** (finite
+string enums count as bounded). These size controls are not an independent
+security review or proof of provider convergence. Opaque provider extensions,
+field semantics and inherited Kubernetes schemas still need contextual review.
+Status is inventoried along with spec.
 
 Every inventoried `spec` string, list and typed map now has an explicit maximum.
-The inventory rejects future spec gaps rather than recording them as an accepted
+The inventory rejects future spec/status gaps rather than recording them as an accepted
 baseline. Integer-or-string resource quantities also have a 64-character bound,
 and native attribute/configuration map keys require 1..255 characters.
 
@@ -233,6 +233,49 @@ Before upgrading these development CRDs, inspect saved manifests for oversized
 values and maps and use `kubectl apply --dry-run=server -f MANIFEST` against the
 candidate API. Correct configuration through the ordinary reviewed procedure;
 do not truncate identities, remove finalizers or recreate provider objects to
-make a manifest pass. The remaining 294 inventory gaps are status fields;
-Secret/Deployment write isolation, adversarial installed evidence and an
-independent security review remain required for #99.
+make a manifest pass. Status budgets are described below. Secret/Deployment
+write isolation, adversarial installed evidence and an independent security
+review remain required for #99.
+
+## Status budgets and recovery inventories
+
+The [status policy](../api/schema-status-bounds.json) closes the remaining 294
+served-schema inventory gaps using 232 reviewed paths, shared unchanged by
+alpha and beta. Fixed SHA-256 fields gain an explicit 71-character maximum;
+their existing patterns already imposed that format. Imported timestamps use
+64 characters. New condition-list bounds are 32 entries; existing stricter
+limits and type-keyed SSA ownership are retained. Provider IDs and UIDs use
+128 characters, discovery URLs 4,096, group paths 16,384, resource references
+their Kubernetes budgets, and lifecycle diagnostics 4,096. These limits do not
+turn copied status into ownership, approval or execution authority.
+
+Application identity/claim mapper inventories, Secret projection inventories,
+and realm broker/mapper inventories retain up to 128 entries. Before a native
+write batch, the controller reserves space for both the complete previous
+inventory and every desired entry. It refuses a batch that cannot preserve
+that worst-case checkpoint; it never clips identities or silently discards
+cleanup references. This reservation is deliberately conservative even when
+some desired entries may resolve to existing IDs. A zero-entry desired batch
+can still run its ordinary owned cleanup at the capacity limit. Resolve
+failed cleanup and review the desired batch size before introducing further
+identities; this guard does not authorize automatic pruning or deletion.
+
+A partial broker update retains every previous child mapper ID until the
+existing cleanup procedure acknowledges its removal. The mapper list now uses
+the compound `(name, keycloakID)` SSA key: an interrupted replacement can retain
+old and new IDs with the same name, while duplicate pairs are refused. Review
+existing field-manager ownership before applying this development CRD change.
+Oversized operation messages become a fixed public diagnostic without altering
+the step result, accepted child UID or timestamps. Identifiers and checkpoint
+hashes are never truncated.
+
+The independent status corpus tests accepted maxima and rejected oversized
+values at every newly constrained path on each served version, including the
+precise invalid field. Real API storage also exercises adoption from the previous
+mapper list schema with existing SSA ownership, same-name replacement IDs and
+duplicate-pair refusal, without forcing another writer's fields. Before applying these candidate CRDs, inspect
+existing status as well as spec for over-budget values. A spec-only dry run
+does not validate the stored status subresource. Do not erase recovery
+inventories or finalizers to pass validation; retain backups and complete the
+ordinary reviewed recovery procedure first. The inventory is a development
+record; external review and the remaining #99 admission/RBAC work are open.

@@ -1,4 +1,4 @@
-"""Apply reviewed input bounds that Go markers cannot attach to imported fields.
+"""Apply reviewed admission bounds for imported fields and status evidence.
 
 Paths and limits are explicit. Missing/changed types or conflicting constraints
 fail generation; this never widens validation or changes a served version.
@@ -25,10 +25,11 @@ def member(node, key):
 
 
 def resolve(schema, path):
-    if not re.fullmatch(r"spec(?:\.[A-Za-z][A-Za-z0-9]*|\[\]|\{\})+", path):
+    if not re.fullmatch(r"(?:spec|status)(?:\.[A-Za-z][A-Za-z0-9]*|\[\]|\{\})+", path):
         raise ValueError("Invalid input-bound path")
-    node = member(member(schema, "properties"), "spec")
-    for part in re.findall(r"\.[A-Za-z][A-Za-z0-9]*|\[\]|\{\}", path[4:]):
+    group, suffix = path.split(".", 1)
+    node = member(member(schema, "properties"), group)
+    for part in re.findall(r"\.[A-Za-z][A-Za-z0-9]*|\[\]|\{\}", "." + suffix):
         node = member(node, "items" if part == "[]" else "additionalProperties") if part in ("[]", "{}") else member(member(node, "properties"), part[1:])
     return node
 
@@ -57,15 +58,18 @@ def constrain(node, limits):
 
 
 def apply(root=ROOT):
-    policy = json.loads((root / "api/schema-input-bounds.json").read_text())
-    if set(policy) != {"schemaVersion", "purpose", "bounds"} or policy["schemaVersion"] != 1:
-        raise ValueError("Unknown input-bound policy")
     entries, seen = {}, set()
-    for entry in policy["bounds"]:
-        if set(entry) != {"kind", "path", "limits"} or (entry["kind"], entry["path"]) in seen:
-            raise ValueError("Duplicate or invalid input-bound entry")
-        seen.add((entry["kind"], entry["path"]))
-        entries.setdefault(entry["kind"], []).append(entry)
+    for group in ("input", "status"):
+        policy = json.loads((root / ("api/schema-" + group + "-bounds.json")).read_text())
+        if set(policy) != {"schemaVersion", "purpose", "bounds"} or policy["schemaVersion"] != 1:
+            raise ValueError("Unknown input-bound policy")
+        for entry in policy["bounds"]:
+            prefix = "spec." if group == "input" else "status."
+            if (set(entry) != {"kind", "path", "limits"} or not entry["path"].startswith(prefix)
+                    or (entry["kind"], entry["path"]) in seen):
+                raise ValueError("Duplicate or invalid input-bound entry")
+            seen.add((entry["kind"], entry["path"]))
+            entries.setdefault(entry["kind"], []).append(entry)
     changes, found, count = {}, set(), 0
     for path in sorted((root / "charts/hankoshell-operator/crds").glob("*.yaml")):
         text = path.read_text()

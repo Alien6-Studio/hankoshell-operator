@@ -206,9 +206,9 @@ def inventory(root=ROOT):
 
 def check_input_bounds(current):
     missing = [kind + ":" + path for kind, schema in current.items() for path, node in schema["nodes"].items()
-               if path.startswith("spec.") and node["missing_explicit_bound"]]
+               if path.startswith(("spec.", "status.")) and node["missing_explicit_bound"]]
     if missing:
-        raise ValueError("Public inputs require explicit size bounds: " + ", ".join(sorted(missing)))
+        raise ValueError("Public spec/status fields require explicit size bounds: " + ", ".join(sorted(missing)))
 
 
 def summary(data):

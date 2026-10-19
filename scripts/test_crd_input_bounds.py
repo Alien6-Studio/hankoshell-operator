@@ -28,7 +28,7 @@ class InputBoundsTests(unittest.TestCase):
     def test_application_is_idempotent_and_a_stale_policy_cannot_partially_write(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            for name in ("api/schema-input-bounds.json", *[str(p.relative_to(gate.ROOT)) for p in (gate.ROOT / "charts/hankoshell-operator/crds").glob("*.yaml")]):
+            for name in ("api/schema-input-bounds.json", "api/schema-status-bounds.json", *[str(p.relative_to(gate.ROOT)) for p in (gate.ROOT / "charts/hankoshell-operator/crds").glob("*.yaml")]):
                 target = root / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes((gate.ROOT / name).read_bytes())

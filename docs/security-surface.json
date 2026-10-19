@@ -4339,9 +4339,10 @@
         },
         "status.adoptionCandidate.candidateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.contractVersion": {
@@ -4362,9 +4363,10 @@
         },
         "status.adoptionCandidate.diffHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.diff[].classification": {
@@ -4509,9 +4511,10 @@
         },
         "status.adoptionCandidate.observationHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.providerIdentity.caIdentity": {
@@ -4654,9 +4657,10 @@
         },
         "status.adoptionReceipt.candidateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionReceipt.contractVersion": {
@@ -4682,9 +4686,10 @@
         },
         "status.appliedPlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.backendKind": {
@@ -4709,25 +4714,32 @@
           "type": "string"
         },
         "status.clientSecret.secretRef.key": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.clientSecret.secretRef.name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions[].message": {
@@ -4785,9 +4797,10 @@
         },
         "status.evaluatedPlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.findings": {
@@ -4838,28 +4851,33 @@
         },
         "status.intentHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastReconciled": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastRotated": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedClientSecretProjections": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 128
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.managedClientSecretProjections[].name": {
@@ -4881,20 +4899,25 @@
           "type": "string"
         },
         "status.managedIdentityMappings": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 128
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.managedIdentityMappings[].conditions": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.managedIdentityMappings[].conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedIdentityMappings[].conditions[].message": {
@@ -4933,35 +4956,46 @@
           "type": "string"
         },
         "status.managedIdentityMappings[].identityProvider": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedIdentityMappings[].keycloakID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedIdentityMappings[].name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 63
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedTokenClaims": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 128
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.managedTokenClaims[].conditions": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.managedTokenClaims[].conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedTokenClaims[].conditions[].message": {
@@ -5000,59 +5034,76 @@
           "type": "string"
         },
         "status.managedTokenClaims[].keycloakID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedTokenClaims[].name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 63
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.nextRotation": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.observationPlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.observedStateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.oidcEndpoints.authorization": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 4096
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.oidcEndpoints.issuer": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 4096
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.oidcEndpoints.jwks": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 4096
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.oidcEndpoints.token": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 4096
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.oidcEndpoints.userInfo": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 4096
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.phase": {
@@ -5088,9 +5139,10 @@
         },
         "status.runtimeBindings[].bindingRevision": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.runtimeBindings[].conditions": {
@@ -5102,9 +5154,10 @@
         },
         "status.runtimeBindings[].conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.runtimeBindings[].conditions[].message": {
@@ -5151,9 +5204,10 @@
         },
         "status.runtimeBindings[].metadataHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.runtimeBindings[].name": {
@@ -5193,9 +5247,10 @@
         },
         "status.runtimeBindings[].sourceAppliedPlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.samlEndpoints.issuer": {
@@ -5229,7 +5284,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "65cc5dab8fb8d6347ba9f6b5c4d8475c7c430da1e3d2474300d88d3090ede446"
+      "schema_sha256": "d66b7517f91c37862bde55305ed17db7ccab7dc0135a71e95e9e829f44813a98"
     },
     "HankoApplication/v1beta1": {
       "nodes": {
@@ -5646,9 +5701,10 @@
         },
         "status.adoptionCandidate.candidateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.contractVersion": {
@@ -5669,9 +5725,10 @@
         },
         "status.adoptionCandidate.diffHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.diff[].classification": {
@@ -5816,9 +5873,10 @@
         },
         "status.adoptionCandidate.observationHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.providerIdentity.caIdentity": {
@@ -5961,9 +6019,10 @@
         },
         "status.adoptionReceipt.candidateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionReceipt.contractVersion": {
@@ -5989,9 +6048,10 @@
         },
         "status.appliedPlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.backendKind": {
@@ -6016,25 +6076,32 @@
           "type": "string"
         },
         "status.clientSecret.secretRef.key": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.clientSecret.secretRef.name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions[].message": {
@@ -6092,9 +6159,10 @@
         },
         "status.evaluatedPlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.findings": {
@@ -6145,28 +6213,33 @@
         },
         "status.intentHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastReconciled": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastRotated": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedClientSecretProjections": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 128
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.managedClientSecretProjections[].name": {
@@ -6188,20 +6261,25 @@
           "type": "string"
         },
         "status.managedIdentityMappings": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 128
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.managedIdentityMappings[].conditions": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.managedIdentityMappings[].conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedIdentityMappings[].conditions[].message": {
@@ -6240,35 +6318,46 @@
           "type": "string"
         },
         "status.managedIdentityMappings[].identityProvider": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedIdentityMappings[].keycloakID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedIdentityMappings[].name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 63
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedTokenClaims": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 128
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.managedTokenClaims[].conditions": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.managedTokenClaims[].conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedTokenClaims[].conditions[].message": {
@@ -6307,59 +6396,76 @@
           "type": "string"
         },
         "status.managedTokenClaims[].keycloakID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedTokenClaims[].name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 63
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.nextRotation": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.observationPlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.observedStateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.oidcEndpoints.authorization": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 4096
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.oidcEndpoints.issuer": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 4096
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.oidcEndpoints.jwks": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 4096
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.oidcEndpoints.token": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 4096
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.oidcEndpoints.userInfo": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 4096
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.phase": {
@@ -6395,9 +6501,10 @@
         },
         "status.runtimeBindings[].bindingRevision": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.runtimeBindings[].conditions": {
@@ -6409,9 +6516,10 @@
         },
         "status.runtimeBindings[].conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.runtimeBindings[].conditions[].message": {
@@ -6458,9 +6566,10 @@
         },
         "status.runtimeBindings[].metadataHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.runtimeBindings[].name": {
@@ -6500,9 +6609,10 @@
         },
         "status.runtimeBindings[].sourceAppliedPlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.samlEndpoints.issuer": {
@@ -6536,7 +6646,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "65cc5dab8fb8d6347ba9f6b5c4d8475c7c430da1e3d2474300d88d3090ede446"
+      "schema_sha256": "d66b7517f91c37862bde55305ed17db7ccab7dc0135a71e95e9e829f44813a98"
     },
     "HankoEmailProvider/v1alpha1": {
       "nodes": {
@@ -6616,15 +6726,18 @@
           "type": "string"
         },
         "status.conditions": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions[].message": {
@@ -6663,15 +6776,18 @@
           "type": "string"
         },
         "status.credentialVersion": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastPreflight": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.phase": {
@@ -6689,7 +6805,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "34ebb34560279d655e2928a09d979a65244714c59965b0e35d30c6bc938c3328"
+      "schema_sha256": "27278072b333995487710b0df6dd3a4739d5d17d27ff4030ede0bbd011b607d7"
     },
     "HankoIAMProfile/v1alpha1": {
       "nodes": {
@@ -6765,15 +6881,18 @@
           "type": "string"
         },
         "status.conditions": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions[].message": {
@@ -6813,9 +6932,10 @@
         },
         "status.lastValidated": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.phase": {
@@ -6830,12 +6950,14 @@
           "type": "string"
         },
         "status.policyHash": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 71
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         }
       },
-      "schema_sha256": "c105b239ff66857743be0634a0702efd995225bc2f64e3949922bf97f3533fe9"
+      "schema_sha256": "52c51d107fc5f3cd0575a5c3384167c0814e10eb4d70c22b5c495cf276e9261d"
     },
     "HankoImport/v1alpha1": {
       "nodes": {
@@ -6864,21 +6986,25 @@
         },
         "status.completedAt": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions[].message": {
@@ -6918,9 +7044,10 @@
         },
         "status.coverage.observationHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.findings": {
@@ -6978,9 +7105,10 @@
         },
         "status.inventory[].candidateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.inventory[].findings": {
@@ -7076,9 +7204,10 @@
         },
         "status.lastReconciled": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.phase": {
@@ -7095,7 +7224,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "993c172faf658af78e0061a21400ecf60754ae5167e75af438b9c67ff70b5036"
+      "schema_sha256": "7dbeae7350407689e328716b24a8959979087b4d2f8e5c9f4754bd407392923e"
     },
     "HankoIssuer/v1alpha1": {
       "nodes": {
@@ -7117,15 +7246,18 @@
           "type": "string"
         },
         "status.conditions": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions[].message": {
@@ -7164,15 +7296,18 @@
           "type": "string"
         },
         "status.configuredHost": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastReconciled": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.phase": {
@@ -7187,7 +7322,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "6d726c46bc85b86b8ec13e78874bef8a3e48c4ef4608b2d8140d3923e9ed1227"
+      "schema_sha256": "d693c511a31e2f5c37f362d342681b2402d74d0bf40d5cfb0701e5768af96ba6"
     },
     "HankoKeycloakInstance/v1alpha1": {
       "nodes": {
@@ -7312,20 +7447,25 @@
           "type": "string"
         },
         "status.adminAPIURL": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 4096
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions[].message": {
@@ -7364,43 +7504,50 @@
           "type": "string"
         },
         "status.keycloakVersion": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastCredentialRotation": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastProbed": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastReconciled": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedObservation.deploymentUID": {
           "limits": {
+            "maxLength": 128,
             "minLength": 1
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.nextCredentialRotation": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.phase": {
@@ -7417,7 +7564,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "ad1846aaf20217f99cf81256f6469a22a40b55ce8f34626eef27409c80ca35cd"
+      "schema_sha256": "644e4ad868b0b177e47ee3f746cc8266f5c11bec0ed4c8d4b9a60c9b4ba50236"
     },
     "HankoMeshService/v1alpha1": {
       "nodes": {
@@ -7540,25 +7687,32 @@
           "type": "string"
         },
         "status.audience": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.clusterID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions[].message": {
@@ -7597,15 +7751,18 @@
           "type": "string"
         },
         "status.enforcementMode": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 32
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastResolved": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.phase": {
@@ -7620,8 +7777,10 @@
           "type": "string"
         },
         "status.realm": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.receiverNodeUIDs": {
@@ -7632,8 +7791,10 @@
           "type": "array"
         },
         "status.receiverNodeUIDs[]": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.resolvedEgress": {
@@ -7644,13 +7805,17 @@
           "type": "array"
         },
         "status.resolvedEgress[].namespace": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 63
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.resolvedEgress[].ports": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.resolvedEgress[].ports[].protocol": {
@@ -7664,18 +7829,24 @@
           "type": "string"
         },
         "status.resolvedEgress[].serviceName": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 63
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.resolvedEgress[].serviceUID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.resolvedPorts": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.resolvedPorts[].protocol": {
@@ -7689,32 +7860,42 @@
           "type": "string"
         },
         "status.selectorSHA256": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.serviceUID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.tenantID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.workloadID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.workloadServiceAccountUID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         }
       },
-      "schema_sha256": "00e4c4dad27442fd4dda6d88889d5df17b66d352acf6b05e86e594fe680e1289"
+      "schema_sha256": "16558c9346f149b7d540961777f62ca8f14e2d0b9233c610c86cc4f513cd7027"
     },
     "HankoOperation/v1alpha1": {
       "nodes": {
@@ -7776,21 +7957,25 @@
         },
         "status.completedAt": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions[].message": {
@@ -7829,22 +8014,26 @@
           "type": "string"
         },
         "status.instanceUID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.intentHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastReconciled": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.phase": {
@@ -7863,58 +8052,73 @@
           "type": "string"
         },
         "status.snapshotRef": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.startedAt": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.steps": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 16
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.steps[].childUID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.steps[].completedAt": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.steps[].message": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 4096
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.steps[].name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.steps[].startedAt": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.steps[].status": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 32
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         }
       },
-      "schema_sha256": "c3380a33c47b48343a70c91ef825957554d4042222f976496c628204d4b47406"
+      "schema_sha256": "c72851db2f3c8f8d3006d91338ba37a706227ce30424efce8368646c4a4420de"
     },
     "HankoOrganization/v1alpha1": {
       "nodes": {
@@ -8034,9 +8238,10 @@
         },
         "status.adoptionCandidate.candidateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.contractVersion": {
@@ -8057,9 +8262,10 @@
         },
         "status.adoptionCandidate.diffHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.diff[].classification": {
@@ -8204,9 +8410,10 @@
         },
         "status.adoptionCandidate.observationHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.providerIdentity.caIdentity": {
@@ -8349,9 +8556,10 @@
         },
         "status.adoptionReceipt.candidateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionReceipt.contractVersion": {
@@ -8376,15 +8584,18 @@
           "type": "string"
         },
         "status.conditions": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions[].message": {
@@ -8423,25 +8634,32 @@
           "type": "string"
         },
         "status.groupID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.groupPath": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 16384
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastReconciled": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.orgID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.phase": {
@@ -8457,12 +8675,14 @@
           "type": "string"
         },
         "status.positionID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         }
       },
-      "schema_sha256": "169cfef894d31b05d873437d4e36227281fe2edd67252db2f5e233b1e1b52d01"
+      "schema_sha256": "9dd517704b124317c25b94826c1bcba80121509ffc51664deaa657e077b6c03c"
     },
     "HankoRealm/v1alpha1": {
       "nodes": {
@@ -8755,20 +8975,25 @@
           "type": "string"
         },
         "status.appliedMFAPolicy": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 32
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions[].message": {
@@ -8807,50 +9032,67 @@
           "type": "string"
         },
         "status.effectiveIAMProfile": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.effectivePolicyHash": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 71
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.keycloakRealmID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastReconciled": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedIdentityProviders": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 128
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.managedIdentityProviders[].alias": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedIdentityProviders[].mappers": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 128
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.managedIdentityProviders[].mappers[].keycloakID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedIdentityProviders[].mappers[].name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.phase": {
@@ -8866,7 +9108,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "30473559e48290238989022ad8178c151bc794220d83c67da83f15b287e942c5"
+      "schema_sha256": "906f344c80db3c1664a1918146290a284e0a5d1fd8a2a1e81cf09250d40d48e3"
     },
     "HankoResourceServer/v1alpha1": {
       "nodes": {
@@ -9103,9 +9345,10 @@
         },
         "status.adoptionCandidate.candidateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.contractVersion": {
@@ -9126,9 +9369,10 @@
         },
         "status.adoptionCandidate.diffHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.diff[].classification": {
@@ -9273,9 +9517,10 @@
         },
         "status.adoptionCandidate.observationHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.providerIdentity.caIdentity": {
@@ -9418,9 +9663,10 @@
         },
         "status.adoptionReceipt.candidateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionReceipt.contractVersion": {
@@ -9445,15 +9691,18 @@
           "type": "string"
         },
         "status.appliedPlanHash": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 71
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.authorizationExplanation.explanationHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.authorizationExplanation.paths": {
@@ -9623,16 +9872,18 @@
         },
         "status.authorizationExplanation.sourceObservationHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.authorizationExplanation.sourcePlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.backendKind": {
@@ -9665,9 +9916,10 @@
         },
         "status.conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions[].message": {
@@ -9725,9 +9977,10 @@
         },
         "status.evaluatedPlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.findings": {
@@ -9778,16 +10031,18 @@
         },
         "status.intentHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastReconciled": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedObjects.permissions": {
@@ -9876,16 +10131,18 @@
         },
         "status.observationPlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.observedStateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.phase": {
@@ -9908,7 +10165,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "f8e84c2f91e6ac8b65d1a7b1d1ecde68b91b595dd0321d335ec9fc3608288b84"
+      "schema_sha256": "47d4f3cfb4cb1c16da559c3a29b900b1f1de9df77fbf2028dddf97439f1c5144"
     },
     "HankoResourceServer/v1beta1": {
       "nodes": {
@@ -10145,9 +10402,10 @@
         },
         "status.adoptionCandidate.candidateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.contractVersion": {
@@ -10168,9 +10426,10 @@
         },
         "status.adoptionCandidate.diffHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.diff[].classification": {
@@ -10315,9 +10574,10 @@
         },
         "status.adoptionCandidate.observationHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.providerIdentity.caIdentity": {
@@ -10460,9 +10720,10 @@
         },
         "status.adoptionReceipt.candidateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionReceipt.contractVersion": {
@@ -10487,15 +10748,18 @@
           "type": "string"
         },
         "status.appliedPlanHash": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 71
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.authorizationExplanation.explanationHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.authorizationExplanation.paths": {
@@ -10665,16 +10929,18 @@
         },
         "status.authorizationExplanation.sourceObservationHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.authorizationExplanation.sourcePlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.backendKind": {
@@ -10707,9 +10973,10 @@
         },
         "status.conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions[].message": {
@@ -10767,9 +11034,10 @@
         },
         "status.evaluatedPlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.findings": {
@@ -10820,16 +11088,18 @@
         },
         "status.intentHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastReconciled": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedObjects.permissions": {
@@ -10918,16 +11188,18 @@
         },
         "status.observationPlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.observedStateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.phase": {
@@ -10950,7 +11222,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "f8e84c2f91e6ac8b65d1a7b1d1ecde68b91b595dd0321d335ec9fc3608288b84"
+      "schema_sha256": "47d4f3cfb4cb1c16da559c3a29b900b1f1de9df77fbf2028dddf97439f1c5144"
     },
     "HankoRole/v1alpha1": {
       "nodes": {
@@ -11028,9 +11300,10 @@
         },
         "status.adoptionCandidate.candidateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.contractVersion": {
@@ -11051,9 +11324,10 @@
         },
         "status.adoptionCandidate.diffHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.diff[].classification": {
@@ -11198,9 +11472,10 @@
         },
         "status.adoptionCandidate.observationHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.providerIdentity.caIdentity": {
@@ -11343,9 +11618,10 @@
         },
         "status.adoptionReceipt.candidateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionReceipt.contractVersion": {
@@ -11371,9 +11647,10 @@
         },
         "status.appliedPlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.backendKind": {
@@ -11406,9 +11683,10 @@
         },
         "status.conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions[].message": {
@@ -11466,9 +11744,10 @@
         },
         "status.evaluatedPlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.findings": {
@@ -11519,30 +11798,34 @@
         },
         "status.intentHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastReconciled": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.observationPlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.observedStateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.phase": {
@@ -11558,7 +11841,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "8d7a16ff7acbb4d8070c493612ad221511485e7601222eb7ca327061f4b12309"
+      "schema_sha256": "938dc1dd0a3d85b3412ee8fa1e1225160e5dc80cd56276cd2bf767d76c3c37a8"
     },
     "HankoRole/v1beta1": {
       "nodes": {
@@ -11636,9 +11919,10 @@
         },
         "status.adoptionCandidate.candidateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.contractVersion": {
@@ -11659,9 +11943,10 @@
         },
         "status.adoptionCandidate.diffHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.diff[].classification": {
@@ -11806,9 +12091,10 @@
         },
         "status.adoptionCandidate.observationHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.providerIdentity.caIdentity": {
@@ -11951,9 +12237,10 @@
         },
         "status.adoptionReceipt.candidateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionReceipt.contractVersion": {
@@ -11979,9 +12266,10 @@
         },
         "status.appliedPlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.backendKind": {
@@ -12014,9 +12302,10 @@
         },
         "status.conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions[].message": {
@@ -12074,9 +12363,10 @@
         },
         "status.evaluatedPlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.findings": {
@@ -12127,30 +12417,34 @@
         },
         "status.intentHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastReconciled": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.observationPlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.observedStateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.phase": {
@@ -12166,7 +12460,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "8d7a16ff7acbb4d8070c493612ad221511485e7601222eb7ca327061f4b12309"
+      "schema_sha256": "938dc1dd0a3d85b3412ee8fa1e1225160e5dc80cd56276cd2bf767d76c3c37a8"
     },
     "HankoServiceAccount/v1alpha1": {
       "nodes": {
@@ -12453,9 +12747,10 @@
         },
         "status.adoptionCandidate.candidateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.contractVersion": {
@@ -12476,9 +12771,10 @@
         },
         "status.adoptionCandidate.diffHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.diff[].classification": {
@@ -12623,9 +12919,10 @@
         },
         "status.adoptionCandidate.observationHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.providerIdentity.caIdentity": {
@@ -12768,9 +13065,10 @@
         },
         "status.adoptionReceipt.candidateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionReceipt.contractVersion": {
@@ -12795,55 +13093,74 @@
           "type": "string"
         },
         "status.authenticationTransition.bindingRevision": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 71
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.authenticationTransition.clientUUID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.authenticationTransition.desiredMode": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 32
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.authenticationTransition.nativeStateHash": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 71
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.authenticationTransition.planHash": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 71
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.authenticationTransition.previousMode": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 32
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.authenticationTransition.requestID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.authenticationTransition.step": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 32
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions[].message": {
@@ -12883,33 +13200,40 @@
         },
         "status.lastReconciled": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastRotated": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedTokenClaims": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 128
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.managedTokenClaims[].conditions": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.managedTokenClaims[].conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedTokenClaims[].conditions[].message": {
@@ -12948,20 +13272,25 @@
           "type": "string"
         },
         "status.managedTokenClaims[].keycloakID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.managedTokenClaims[].name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 63
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.nextRotation": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.phase": {
@@ -12978,9 +13307,10 @@
         },
         "status.runtimeMetadata.bindingRevision": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.runtimeMetadata.configMapRef": {
@@ -12999,33 +13329,40 @@
         },
         "status.runtimeMetadata.metadataHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.secretRef.secretRef.key": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.secretRef.secretRef.name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.workloadBinding.apiServerCAHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.workloadBinding.bindingRevision": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.workloadBinding.clusterNamespaceUID": {
@@ -13037,16 +13374,18 @@
         },
         "status.workloadBinding.intentHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.workloadBinding.planHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.workloadBinding.providerID": {
@@ -13098,7 +13437,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "284e68029c1e33156bcd80d02c403f9b97786580cc389e70d9070311bf3cb606"
+      "schema_sha256": "0a3441df90e59cd27ea44ce0b694eee50d73ddf4b9b23101e392c7edcfd935dd"
     },
     "HankoSnapshot/v1alpha1": {
       "nodes": {
@@ -13138,15 +13477,18 @@
           "type": "string"
         },
         "status.conditions": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions[].message": {
@@ -13185,45 +13527,60 @@
           "type": "string"
         },
         "status.configHash": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 71
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.configMapRef": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.configMapUID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.dbJobRef": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.dbJobUID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.instanceUID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.intentHash": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 71
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastReconciled": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.phase": {
@@ -13240,13 +13597,14 @@
         },
         "status.takenAt": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         }
       },
-      "schema_sha256": "ae379566630dd668fb6b456be6c2a5e0985a150bb7d3c850ffa10f7e23b1f226"
+      "schema_sha256": "e99312a4b27b74883f35760580ee27837834e17a40c7a3e716905d4c5831ed31"
     },
     "HankoTenant/v1alpha1": {
       "nodes": {
@@ -13337,25 +13695,32 @@
           "type": "string"
         },
         "status.bundleVersion": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.clusterID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions[].message": {
@@ -13394,29 +13759,34 @@
           "type": "string"
         },
         "status.connectedHub": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 2048
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.fleetPlan.appliedIdentity": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.fleetPlan.cache.acceptedAt": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.fleetPlan.cache.identity": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.fleetPlan.cache.name": {
@@ -13437,23 +13807,26 @@
         },
         "status.fleetPlan.expiresAt": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.fleetPlan.hubEndpointHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.fleetPlan.identity": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.fleetPlan.journal": {
@@ -13465,23 +13838,26 @@
         },
         "status.fleetPlan.journal[].acceptedAt": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.fleetPlan.journal[].identity": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.fleetPlan.journal[].rollbackOf": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.fleetPlan.keyID": {
@@ -13494,16 +13870,18 @@
         },
         "status.fleetPlan.previousCache.acceptedAt": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.fleetPlan.previousCache.identity": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.fleetPlan.previousCache.name": {
@@ -13524,23 +13902,26 @@
         },
         "status.fleetPlan.previousIdentity": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.fleetPlan.rollbackReference.acceptedAt": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.fleetPlan.rollbackReference.identity": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.fleetPlan.rollbackReference.name": {
@@ -13569,9 +13950,10 @@
         },
         "status.fleetPlan.verifiedAt": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.fleetRollout.findings": {
@@ -13595,16 +13977,18 @@
         },
         "status.fleetRollout.identity": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.fleetRollout.selectionHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.fleetRollout.state": {
@@ -13622,16 +14006,18 @@
         },
         "status.lastReconciled": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastSync": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.phase": {
@@ -13646,12 +14032,14 @@
           "type": "string"
         },
         "status.tenantID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         }
       },
-      "schema_sha256": "a0fbe55e1cf8690c2708dabc3b7ca6add3092cae1128feca17c09dac74644a7f"
+      "schema_sha256": "6f450d09dee0a36f8c10cb1197395af3dfedd1698d032d70e75661d7664e0cca"
     },
     "HankoTheme/v1alpha1": {
       "nodes": {
@@ -13753,20 +14141,25 @@
           "type": "string"
         },
         "status.buildJob": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions[].message": {
@@ -13805,42 +14198,54 @@
           "type": "string"
         },
         "status.installedBuildImage": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 2048
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.installedImagePullSecrets": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "status.installedImagePullSecrets[].name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.installedPVC": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.jarPath": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 1024
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastBuilt": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.lastReconciled": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.phase": {
@@ -13857,7 +14262,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "c9cae1e863d821e9883725b36517f3945db2dbe8575836033f037e58e6df41a7"
+      "schema_sha256": "30611f7745d66827fe32d0354ab8395d9e5772a2ef4e9e866473a774dab38235"
     },
     "HankoWorkloadTrust/v1alpha1": {
       "nodes": {
@@ -13971,9 +14376,10 @@
         },
         "status.adoptionCandidate.candidateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.contractVersion": {
@@ -13994,9 +14400,10 @@
         },
         "status.adoptionCandidate.diffHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.diff[].classification": {
@@ -14141,9 +14548,10 @@
         },
         "status.adoptionCandidate.observationHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.providerIdentity.caIdentity": {
@@ -14286,9 +14694,10 @@
         },
         "status.adoptionReceipt.candidateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionReceipt.contractVersion": {
@@ -14314,9 +14723,10 @@
         },
         "status.appliedPlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.capabilityEvidence.qualificationWindow": {
@@ -14342,9 +14752,10 @@
         },
         "status.conditions[].lastTransitionTime": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions[].message": {
@@ -14391,30 +14802,34 @@
         },
         "status.dependentInventoryHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.evaluatedPlanHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.intentHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.observedStateHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.phase": {
@@ -14445,13 +14860,14 @@
         },
         "status.sharedAgeReviewHash": {
           "limits": {
+            "maxLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         }
       },
-      "schema_sha256": "fc6306ced44c4ff7dc28082ccca172547a76c43fddecaff7a441eca0c2005ed7"
+      "schema_sha256": "d9f781959f611061df2dcc8dc5092ed614fc0cd5e7e20a48142823030d694bdd"
     }
   },
   "stage": "development-inventory-not-security-acceptance"

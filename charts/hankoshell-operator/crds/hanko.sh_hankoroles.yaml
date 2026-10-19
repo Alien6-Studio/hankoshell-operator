@@ -144,6 +144,7 @@ spec:
                   approvable:
                     type: boolean
                   candidateHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   complete:
@@ -240,6 +241,7 @@ spec:
                     maxItems: 256
                     type: array
                   diffHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   findings:
@@ -265,6 +267,7 @@ spec:
                     maxItems: 32
                     type: array
                   observationHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   providerIdentity:
@@ -398,6 +401,7 @@ spec:
                   deletion authority. A failed status update can be recovered from the provider.
                 properties:
                   candidateHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   contractVersion:
@@ -424,6 +428,7 @@ spec:
                 minimum: 0
                 type: integer
               appliedPlanHash:
+                maxLength: 71
                 description: |-
                   AppliedPlanHash identifies the latest Manage plan proven by matching read-back.
                   Observe clears applied evidence and cannot claim provider application.
@@ -465,6 +470,7 @@ spec:
                     state of this API Resource.
                   properties:
                     lastTransitionTime:
+                      maxLength: 64
                       description: |-
                         lastTransitionTime is the last time the condition transitioned from one status to another.
                         This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -541,6 +547,7 @@ spec:
                 minimum: 0
                 type: integer
               evaluatedPlanHash:
+                maxLength: 71
                 description: |-
                   EvaluatedPlanHash identifies the locally compiled provider-bound plan.
                   It is absent for rejected evaluation and is never execution authority.
@@ -587,11 +594,13 @@ spec:
                 - code
                 x-kubernetes-list-type: map
               intentHash:
+                maxLength: 71
                 description: IntentHash identifies normalized portable semantics of
                   EvaluatedGeneration.
                 pattern: ^sha256:[a-f0-9]{64}$
                 type: string
               lastReconciled:
+                maxLength: 64
                 description: LastReconciled is the timestamp of the last successful
                   reconciliation.
                 format: date-time
@@ -609,6 +618,7 @@ spec:
                 minimum: 0
                 type: integer
               observationPlanHash:
+                maxLength: 71
                 pattern: ^sha256:[a-f0-9]{64}$
                 type: string
               observedGeneration:
@@ -619,6 +629,7 @@ spec:
                 minimum: 0
                 type: integer
               observedStateHash:
+                maxLength: 71
                 description: |-
                   ObservedStateHash identifies safe normalized provider semantics, including
                   observation coverage. It is neither an intent/plan identity nor a provider ID.
@@ -764,6 +775,7 @@ spec:
                   approvable:
                     type: boolean
                   candidateHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   complete:
@@ -860,6 +872,7 @@ spec:
                     maxItems: 256
                     type: array
                   diffHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   findings:
@@ -885,6 +898,7 @@ spec:
                     maxItems: 32
                     type: array
                   observationHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   providerIdentity:
@@ -1018,6 +1032,7 @@ spec:
                   deletion authority. A failed status update can be recovered from the provider.
                 properties:
                   candidateHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   contractVersion:
@@ -1044,6 +1059,7 @@ spec:
                 minimum: 0
                 type: integer
               appliedPlanHash:
+                maxLength: 71
                 description: |-
                   AppliedPlanHash identifies the latest Manage plan proven by matching read-back.
                   Observe clears applied evidence and cannot claim provider application.
@@ -1085,6 +1101,7 @@ spec:
                     state of this API Resource.
                   properties:
                     lastTransitionTime:
+                      maxLength: 64
                       description: |-
                         lastTransitionTime is the last time the condition transitioned from one status to another.
                         This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -1161,6 +1178,7 @@ spec:
                 minimum: 0
                 type: integer
               evaluatedPlanHash:
+                maxLength: 71
                 description: |-
                   EvaluatedPlanHash identifies the locally compiled provider-bound plan.
                   It is absent for rejected evaluation and is never execution authority.
@@ -1207,11 +1225,13 @@ spec:
                 - code
                 x-kubernetes-list-type: map
               intentHash:
+                maxLength: 71
                 description: IntentHash identifies normalized portable semantics of
                   EvaluatedGeneration.
                 pattern: ^sha256:[a-f0-9]{64}$
                 type: string
               lastReconciled:
+                maxLength: 64
                 description: LastReconciled is the timestamp of the last successful
                   reconciliation.
                 format: date-time
@@ -1229,6 +1249,7 @@ spec:
                 minimum: 0
                 type: integer
               observationPlanHash:
+                maxLength: 71
                 pattern: ^sha256:[a-f0-9]{64}$
                 type: string
               observedGeneration:
@@ -1239,6 +1260,7 @@ spec:
                 minimum: 0
                 type: integer
               observedStateHash:
+                maxLength: 71
                 description: |-
                   ObservedStateHash identifies safe normalized provider semantics, including
                   observation coverage. It is neither an intent/plan identity nor a provider ID.

@@ -24,6 +24,9 @@ class SecuritySurfaceTests(unittest.TestCase):
             gate.check_input_bounds(schema)
         schema["Thing/v1"]["nodes"]["spec.values[]"] = gate.schema_nodes({"type": "string", "maxLength": 10}, "spec.values[]")["spec.values[]"]
         schema["Thing/v1"]["nodes"].update(gate.schema_nodes({"type": "string"}, "status.legacy"))
+        with self.assertRaisesRegex(ValueError, "status.legacy"):
+            gate.check_input_bounds(schema)
+        schema["Thing/v1"]["nodes"]["status.legacy"] = gate.schema_nodes({"type": "string", "maxLength": 64}, "status.legacy")["status.legacy"]
         gate.check_input_bounds(schema)
 
     def test_nested_maps_lists_and_enum_bounds_are_inventoried(self):

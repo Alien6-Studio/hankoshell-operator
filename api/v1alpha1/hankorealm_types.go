@@ -393,6 +393,7 @@ type ManagedRealmIdentityProviderReference struct {
 
 	// +listType=map
 	// +listMapKey=name
+	// +listMapKey=keycloakID
 	Mappers []ManagedRealmIdentityProviderMapperReference `json:"mappers,omitempty"`
 }
 
