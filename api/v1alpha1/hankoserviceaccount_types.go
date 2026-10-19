@@ -6,6 +6,7 @@ import (
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:selectablefield:JSONPath=".spec.realmRef"
 // +kubebuilder:resource:scope=Namespaced,shortName=hsa,categories=hanko
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="Realm",type=string,JSONPath=".spec.realmRef"
@@ -40,6 +41,9 @@ type HankoServiceAccountSpec struct {
 
 	// RealmRef references the HankoRealm this service account belongs to.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	RealmRef string `json:"realmRef"`
 
 	// ClientID is the Keycloak client identifier for the M2M client.
@@ -114,6 +118,8 @@ type HankoServiceAccountStatus struct {
 	LastReconciled *metav1.Time `json:"lastReconciled,omitempty"`
 
 	// Conditions holds standard Kubernetes condition objects.
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// ManagedTokenClaims records client-scoped protocol mappers managed for this service account.

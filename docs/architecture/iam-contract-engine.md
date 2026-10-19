@@ -1,11 +1,15 @@
 # IAM contract engine and evidence
 
+See the [accepted architecture decisions](decisions/README.md) for the underlying
+operator, provider and trust boundaries.
+
 This implementation resolves [RFC #22](https://github.com/Alien6-Studio/hankoshell-operator/issues/22)
 and the execution boundary of [RFC #23](https://github.com/Alien6-Studio/hankoshell-operator/issues/23).
 It qualifies `HankoResourceServer` and `HankoRole`.
 Application Identity extends this pattern to `HankoApplication`; see the
-[application domain contract](application-identity.md). Keycloak remains the only
-backend. Public evidence implements [#27](https://github.com/Alien6-Studio/hankoshell-operator/issues/27),
+[application domain contract](application-identity.md). Keycloak remains the supported backend. The opt-in
+[authentik preview](second-provider.md) reuses application plans for a bounded
+registration subset; its installed qualification remains separate. Public evidence implements [#27](https://github.com/Alien6-Studio/hankoshell-operator/issues/27),
 with matching application semantics in #24; other controllers retain their implementation.
 
 The [organizational authorization design](organizational-authorization.md)
@@ -31,7 +35,8 @@ normalize → resolve references → evaluate capabilities → compile locally
 `internal/iamcontract` contains only versioned digests, backend identity,
 classifications/findings, plan identity, local preconditions and safe errors.
 Business operations remain in domain-specific drivers. There is no universal
-provider interface and no second production adapter.
+production provider interface. The experimental authentik adapter implements the
+application driver without constraining native Keycloak features.
 
 Plans are sealed in-process snapshots, not public Kubernetes objects. **No
 `HankoPlan` CRD is introduced.** JSON serialization emits identity only; decoding
@@ -40,6 +45,11 @@ is refused. This decision can be revisited when API stability or fleet transport
 requires storage; it does not preselect a future Hub trust protocol.
 
 ## Canonicalization and identity
+
+The initial public candidate's exact defaults, ownership markers, evidence shape
+and reusable golden/API/installed corpus are frozen in
+[public contract semantics](../public-contract-semantics.md). Selection and
+qualification remain separate from publishing a public API commitment.
 
 The internal version is `hanko.sh/iam-contract/v1alpha1`. It versions normalization
 and execution semantics, independently of `hanko.sh/v1alpha1` Kubernetes APIs.
@@ -307,3 +317,16 @@ The current supervision heartbeat schema is duplicated in the Hub store. No
 receiving-Hub qualification exists for the new IAM DTO, so live transport activation
 is deferred. The tested helper is available without Hub installation. The existing
 HMAC bundle authentication and Continuum transport/enforcement remain unchanged.
+
+## Development schema and compatibility preparation
+
+The [support inventory](../api-support.md) records every CRD spec/status field
+group and native extension boundary. It is checked against the generated CRDs;
+new groups require review. It does not freeze public normalization or ownership
+semantics before #81 selects the public contract and #82 supplies its goldens.
+
+All status Conditions use type-keyed map semantics, including nested mapper
+Conditions. The real API fixtures verify independent SSA writers, same-type
+conflicts and duplicate rejection on every CRD. Existing atomic-list field
+ownership requires the explicit [migration procedure](../api-migration-policy.md#conditions-list-migration);
+these tests do not establish an installed topology upgrade/downgrade.

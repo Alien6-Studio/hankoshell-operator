@@ -35,6 +35,8 @@ type HankoIssuerSpec struct {
 	// RealmRef is the HankoRealm served through this public authority.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
 	RealmRef string `json:"realmRef"`
 }
 
@@ -51,6 +53,8 @@ type HankoIssuerStatus struct {
 	LastReconciled *metav1.Time `json:"lastReconciled,omitempty"`
 
 	// Conditions holds standard Kubernetes condition objects.
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 

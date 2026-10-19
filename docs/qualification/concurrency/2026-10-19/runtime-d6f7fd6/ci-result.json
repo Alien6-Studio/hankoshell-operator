@@ -1,0 +1,485 @@
+{
+  "conclusion": "failure",
+  "headSha": "d6f7fd66e2f6bee220ad17632d0bf4fbe7b60cae",
+  "jobs": [
+    {
+      "completedAt": "2026-10-19T08:44:06Z",
+      "conclusion": "success",
+      "databaseId": 117967582047,
+      "name": "Fast source preflight",
+      "startedAt": "2026-10-19T08:41:51Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T08:49:51Z",
+      "conclusion": "success",
+      "databaseId": 117968611111,
+      "name": "Bounded delegation extension KC 26.7.5",
+      "startedAt": "2026-10-19T08:45:48Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T08:48:00Z",
+      "conclusion": "success",
+      "databaseId": 117968611113,
+      "name": "Kubernetes 1.36.2 API and security",
+      "startedAt": "2026-10-19T08:44:55Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:15:40Z",
+      "conclusion": "success",
+      "databaseId": 117968611145,
+      "name": "Source checks",
+      "startedAt": "2026-10-19T08:54:57Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T08:58:51Z",
+      "conclusion": "success",
+      "databaseId": 117968611166,
+      "name": "Security mutation checks",
+      "startedAt": "2026-10-19T08:44:52Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T08:50:27Z",
+      "conclusion": "success",
+      "databaseId": 117968611170,
+      "name": "Keycloak 26.7.5 tagged ordinary race tests",
+      "startedAt": "2026-10-19T08:44:16Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T08:56:32Z",
+      "conclusion": "success",
+      "databaseId": 117968611211,
+      "name": "Bounded delegation extension KC 26.8.0",
+      "startedAt": "2026-10-19T08:51:33Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:04:52Z",
+      "conclusion": "success",
+      "databaseId": 117968611249,
+      "name": "Keycloak 26.8.0 tagged ordinary race tests",
+      "startedAt": "2026-10-19T08:57:16Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T08:59:19Z",
+      "conclusion": "success",
+      "databaseId": 117968611279,
+      "name": "Keycloak tagged vet and lint",
+      "startedAt": "2026-10-19T08:57:27Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:04:01Z",
+      "conclusion": "success",
+      "databaseId": 117968611303,
+      "name": "Security parser fuzzing",
+      "startedAt": "2026-10-19T08:54:51Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T08:57:08Z",
+      "conclusion": "success",
+      "databaseId": 117968611336,
+      "name": "Keycloak 26.8.0 / adoption Admin API and security",
+      "startedAt": "2026-10-19T08:48:33Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:08:19Z",
+      "conclusion": "success",
+      "databaseId": 117968611363,
+      "name": "Kubernetes 1.37.0 API and security",
+      "startedAt": "2026-10-19T09:03:58Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T08:53:29Z",
+      "conclusion": "success",
+      "databaseId": 117968611365,
+      "name": "Keycloak 26.7.5 / adoption Admin API and security",
+      "startedAt": "2026-10-19T08:45:16Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T08:52:06Z",
+      "conclusion": "success",
+      "databaseId": 117968611367,
+      "name": "Keycloak 26.7.5 / core Admin API and security",
+      "startedAt": "2026-10-19T08:45:48Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T08:55:06Z",
+      "conclusion": "success",
+      "databaseId": 117968611396,
+      "name": "Keycloak 26.8.0 / protocols Admin API and security",
+      "startedAt": "2026-10-19T08:46:48Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:06:46Z",
+      "conclusion": "success",
+      "databaseId": 117968611469,
+      "name": "Kubernetes 1.35.0 API and security",
+      "startedAt": "2026-10-19T09:04:26Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:04:20Z",
+      "conclusion": "success",
+      "databaseId": 117968611495,
+      "name": "Keycloak 26.8.0 / core Admin API and security",
+      "startedAt": "2026-10-19T08:57:55Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:05:49Z",
+      "conclusion": "success",
+      "databaseId": 117968611536,
+      "name": "Keycloak 26.7.5 / protocols Admin API and security",
+      "startedAt": "2026-10-19T08:58:53Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:09:21Z",
+      "conclusion": "success",
+      "databaseId": 117968611561,
+      "name": "Workload identity KC 26.8.0 / K8s 1.36.2",
+      "startedAt": "2026-10-19T08:55:07Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:11:11Z",
+      "conclusion": "success",
+      "databaseId": 117968611570,
+      "name": "Workload identity KC 26.8.0 / K8s 1.37.0",
+      "startedAt": "2026-10-19T08:56:34Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:05:51Z",
+      "conclusion": "success",
+      "databaseId": 117968611643,
+      "name": "Workload identity KC 26.7.5 / K8s 1.37.0",
+      "startedAt": "2026-10-19T08:52:08Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T08:50:48Z",
+      "conclusion": "success",
+      "databaseId": 117968611659,
+      "name": "oci / Final OCI image security",
+      "startedAt": "2026-10-19T08:44:35Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:13:37Z",
+      "conclusion": "success",
+      "databaseId": 117968611676,
+      "name": "Workload identity KC 26.7.5 / K8s 1.35.0",
+      "startedAt": "2026-10-19T08:59:11Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:05:25Z",
+      "conclusion": "success",
+      "databaseId": 117968611686,
+      "name": "Workload identity KC 26.8.0 / K8s 1.35.0",
+      "startedAt": "2026-10-19T08:51:38Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:16:58Z",
+      "conclusion": "success",
+      "databaseId": 117968611696,
+      "name": "Workload identity KC 26.7.5 / K8s 1.36.2",
+      "startedAt": "2026-10-19T09:03:05Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:36:49Z",
+      "conclusion": "success",
+      "databaseId": 117981197802,
+      "name": "Release contract dry run",
+      "startedAt": "2026-10-19T09:27:06Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:49:00Z",
+      "conclusion": "success",
+      "databaseId": 117981197818,
+      "name": "Installed operator system test",
+      "startedAt": "2026-10-19T09:36:10Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:40:30Z",
+      "conclusion": "success",
+      "databaseId": 117981197837,
+      "name": "Installed workload KC 26.7.5 / K8s 1.35.0",
+      "startedAt": "2026-10-19T09:27:06Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T10:12:23Z",
+      "conclusion": "success",
+      "databaseId": 117981197851,
+      "name": "Installed delegation KC 26.8.0 / K8s 1.36.2",
+      "startedAt": "2026-10-19T09:29:13Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:30:37Z",
+      "conclusion": "success",
+      "databaseId": 117981197882,
+      "name": "Portable KC + authentik / KC 26.7.5 / K8s 1.36.2",
+      "startedAt": "2026-10-19T09:23:54Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:53:38Z",
+      "conclusion": "failure",
+      "databaseId": 117981197885,
+      "name": "Scale KC 26.7.5 / K8s 1.36.2",
+      "startedAt": "2026-10-19T09:21:56Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:55:19Z",
+      "conclusion": "success",
+      "databaseId": 117981197893,
+      "name": "Installed delegation KC 26.7.5 / K8s 1.35.0",
+      "startedAt": "2026-10-19T09:22:51Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:57:47Z",
+      "conclusion": "success",
+      "databaseId": 117981197894,
+      "name": "Installed workload KC 26.8.0 / K8s 1.37.0",
+      "startedAt": "2026-10-19T09:24:53Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:35:46Z",
+      "conclusion": "success",
+      "databaseId": 117981197910,
+      "name": "Portable KC + authentik / KC 26.7.5 / K8s 1.37.0",
+      "startedAt": "2026-10-19T09:29:18Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T10:04:16Z",
+      "conclusion": "failure",
+      "databaseId": 117981197911,
+      "name": "Scale KC 26.7.5 / K8s 1.37.0",
+      "startedAt": "2026-10-19T09:33:21Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:55:32Z",
+      "conclusion": "success",
+      "databaseId": 117981197920,
+      "name": "Installed delegation KC 26.8.0 / K8s 1.37.0",
+      "startedAt": "2026-10-19T09:27:38Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T10:35:55Z",
+      "conclusion": "success",
+      "databaseId": 117981197948,
+      "name": "Installed delegation KC 26.7.5 / K8s 1.37.0",
+      "startedAt": "2026-10-19T09:53:26Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:52:54Z",
+      "conclusion": "failure",
+      "databaseId": 117981197952,
+      "name": "Scale KC 26.7.5 / K8s 1.35.0",
+      "startedAt": "2026-10-19T09:32:42Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T10:16:32Z",
+      "conclusion": "failure",
+      "databaseId": 117981197963,
+      "name": "Scale KC 26.8.0 / K8s 1.35.0",
+      "startedAt": "2026-10-19T09:45:15Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:55:01Z",
+      "conclusion": "success",
+      "databaseId": 117981197966,
+      "name": "Installed workload KC 26.8.0 / K8s 1.36.2",
+      "startedAt": "2026-10-19T09:41:24Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T10:04:02Z",
+      "conclusion": "failure",
+      "databaseId": 117981197983,
+      "name": "Scale KC 26.8.0 / K8s 1.36.2",
+      "startedAt": "2026-10-19T09:32:19Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:37:02Z",
+      "conclusion": "success",
+      "databaseId": 117981197990,
+      "name": "Portable KC + authentik / KC 26.8.0 / K8s 1.35.0",
+      "startedAt": "2026-10-19T09:30:38Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T10:12:24Z",
+      "conclusion": "success",
+      "databaseId": 117981198032,
+      "name": "Installed workload KC 26.8.0 / K8s 1.35.0",
+      "startedAt": "2026-10-19T09:58:10Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T10:35:01Z",
+      "conclusion": "success",
+      "databaseId": 117981198050,
+      "name": "Installed delegation KC 26.7.5 / K8s 1.36.2",
+      "startedAt": "2026-10-19T09:55:19Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T10:17:59Z",
+      "conclusion": "failure",
+      "databaseId": 117981198070,
+      "name": "Scale KC 26.8.0 / K8s 1.37.0",
+      "startedAt": "2026-10-19T09:46:22Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:46:25Z",
+      "conclusion": "success",
+      "databaseId": 117981198078,
+      "name": "Installed Fleet KC 26.7.5 / K8s 1.36.2",
+      "startedAt": "2026-10-19T09:37:03Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T10:15:21Z",
+      "conclusion": "failure",
+      "databaseId": 117981198085,
+      "name": "Installed delegation KC 26.8.0 / K8s 1.35.0",
+      "startedAt": "2026-10-19T09:54:43Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T10:29:17Z",
+      "conclusion": "success",
+      "databaseId": 117981198086,
+      "name": "Installed workload KC 26.7.5 / K8s 1.37.0",
+      "startedAt": "2026-10-19T09:57:18Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T10:09:19Z",
+      "conclusion": "success",
+      "databaseId": 117981198120,
+      "name": "Installed workload KC 26.7.5 / K8s 1.36.2",
+      "startedAt": "2026-10-19T09:55:33Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:45:30Z",
+      "conclusion": "success",
+      "databaseId": 117981198136,
+      "name": "Installed Fleet KC 26.8.0 / K8s 1.37.0",
+      "startedAt": "2026-10-19T09:36:12Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:58:09Z",
+      "conclusion": "success",
+      "databaseId": 117981198221,
+      "name": "Installed Fleet KC 26.8.0 / K8s 1.36.2",
+      "startedAt": "2026-10-19T09:48:49Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:46:39Z",
+      "conclusion": "success",
+      "databaseId": 117981198224,
+      "name": "Installed Fleet KC 26.8.0 / K8s 1.35.0",
+      "startedAt": "2026-10-19T09:37:14Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T10:07:57Z",
+      "conclusion": "success",
+      "databaseId": 117981198229,
+      "name": "Installed Fleet KC 26.7.5 / K8s 1.37.0",
+      "startedAt": "2026-10-19T09:58:36Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:56:03Z",
+      "conclusion": "success",
+      "databaseId": 117981198305,
+      "name": "Portable KC + authentik / KC 26.8.0 / K8s 1.36.2",
+      "startedAt": "2026-10-19T09:49:15Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:58:45Z",
+      "conclusion": "success",
+      "databaseId": 117981198322,
+      "name": "Portable KC + authentik / KC 26.7.5 / K8s 1.35.0",
+      "startedAt": "2026-10-19T09:52:19Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T09:59:27Z",
+      "conclusion": "success",
+      "databaseId": 117981198346,
+      "name": "Portable KC + authentik / KC 26.8.0 / K8s 1.37.0",
+      "startedAt": "2026-10-19T09:52:56Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T10:07:32Z",
+      "conclusion": "success",
+      "databaseId": 117981198388,
+      "name": "Installed Fleet KC 26.7.5 / K8s 1.35.0",
+      "startedAt": "2026-10-19T09:58:27Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T10:35:59Z",
+      "conclusion": "failure",
+      "databaseId": 118013625700,
+      "name": "Source and chart checks",
+      "startedAt": "2026-10-19T10:35:57Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-10-19T10:35:59Z",
+      "conclusion": "skipped",
+      "databaseId": 118013655331,
+      "name": "Scheduled qualification tracking issue",
+      "startedAt": "2026-10-19T10:35:59Z",
+      "status": "completed"
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/Alien6-Studio/hankoshell-operator/actions/runs/39224363295",
+  "job_outcomes": {
+    "success": 50,
+    "failure": 8,
+    "skipped": 1
+  }
+}

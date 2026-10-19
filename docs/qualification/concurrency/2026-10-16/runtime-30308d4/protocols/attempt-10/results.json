@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "suite": "keycloak/26.7.5/stability/TestRealKeycloakApplicationProtocolsAndFlows",
+  "revision": "30308d42a8dbe4fb05ec1ac3448a44cf606b737d",
+  "returncode": 0,
+  "worktree_dirty": false,
+  "source_changed": false,
+  "suite_errors": 0,
+  "counts": {
+    "passed": 5,
+    "failed": 0,
+    "skipped": 0
+  },
+  "tests": [
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakApplicationProtocolsAndFlows/runtime_spa",
+      "outcome": "passed",
+      "seconds": 2.15
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakApplicationProtocolsAndFlows/runtime_web",
+      "outcome": "passed",
+      "seconds": 6.45
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakApplicationProtocolsAndFlows/runtime_m2m",
+      "outcome": "passed",
+      "seconds": 6.92
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakApplicationProtocolsAndFlows/runtime_saml",
+      "outcome": "passed",
+      "seconds": 1.68
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakApplicationProtocolsAndFlows",
+      "outcome": "passed",
+      "seconds": 49.21
+    }
+  ]
+}

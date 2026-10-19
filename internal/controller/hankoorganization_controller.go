@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -61,6 +62,9 @@ func (r *HankoOrganizationReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	kc := kcForObject(r.Pool, org.Namespace, org.Labels)
+	if handled, result, err := reconcileTenantClient(ctx, r.Client, &org, kc); handled {
+		return result, err
+	}
 	if handled, result, err := r.reconcileOrganizationAcquisition(ctx, &org, kc); handled {
 		return result, err
 	}
@@ -392,7 +396,10 @@ func (r *HankoOrganizationReconciler) recordOrganizationProviderSecurityError(ct
 		return ctrl.Result{}, patchErr
 	}
 	if isOrganizationProviderSecurityViolation(err) {
-		return ctrl.Result{RequeueAfter: requeueWithJitter()}, nil
+		// A fresh read can prove a previously ambiguous owned create. Keep this
+		// retry alongside pending children, rather than behind their live wakes.
+		priority := 0
+		return ctrl.Result{RequeueAfter: requeueWithJitter(), Priority: &priority}, nil
 	}
 	return ctrl.Result{RequeueAfter: requeueOnError}, err
 }
@@ -455,12 +462,17 @@ func (r *HankoOrganizationReconciler) ensureOrgFinalizer(ctx context.Context, or
 }
 
 func (r *HankoOrganizationReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	options, err := iamControllerOptions()
+	if err != nil {
+		return err
+	}
 	if r.APIReader == nil {
 		r.APIReader = mgr.GetAPIReader()
 	}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&hankoshv1alpha1.HankoOrganization{}).
-		Complete(r)
+		WithOptions(options).
+		For(&hankoshv1alpha1.HankoOrganization{}, builder.WithPredicates(generationOrReconcileRequestChanged())).
+		Complete(observeReconciler("HankoOrganization", scheduleIAMReconciler(r)))
 }
 
 // orgSlug returns the organization's slug, deriving it from the name when the

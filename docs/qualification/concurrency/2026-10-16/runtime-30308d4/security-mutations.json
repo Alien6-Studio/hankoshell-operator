@@ -1,0 +1,350 @@
+{
+  "complete": true,
+  "result": "pass",
+  "seconds": 365.945,
+  "mutations": [
+    {
+      "name": "lifecycle-independent-approval",
+      "file": "internal/controller/lifecycle_authority.go",
+      "test": "TestLifecycleGuardRequiresExactApprovalBeforeAnyEffect",
+      "result": "detected",
+      "seconds": 19.442
+    },
+    {
+      "name": "lifecycle-mutation-recheck",
+      "file": "internal/controller/lifecycle_authority.go",
+      "test": "TestLifecycleRevocationIsRecheckedAtTheInstanceMutation",
+      "result": "detected",
+      "seconds": 12.957
+    },
+    {
+      "name": "lifecycle-parent-revocation",
+      "file": "internal/controller/lifecycle_authority.go",
+      "test": "TestLifecycleSnapshotDelegationRequiresTheExactCurrentParentStep",
+      "result": "detected",
+      "seconds": 13.368
+    },
+    {
+      "name": "lifecycle-database-tenant",
+      "file": "internal/controller/lifecycle_authority.go",
+      "test": "TestLifecycleDatabaseReferenceValidationIsBounded",
+      "result": "detected",
+      "seconds": 12.006
+    },
+    {
+      "name": "fleet-command-log-sanitization",
+      "file": "internal/controller/hankotenant_agent_update.go",
+      "test": "TestFleetUnapprovedCommandFieldsNeverReachLogs",
+      "result": "detected",
+      "seconds": 11.043
+    },
+    {
+      "name": "fleet-all-route-redirect",
+      "file": "internal/hub/fleet.go",
+      "test": "TestFleetAuthenticatedRoutesNeverFollowRedirects",
+      "result": "detected",
+      "seconds": 5.618
+    },
+    {
+      "name": "fleet-independent-decommission",
+      "file": "internal/fleetplan/authority.go",
+      "test": "TestFleetIndependentHubAndCommandApproval",
+      "result": "detected",
+      "seconds": 3.0
+    },
+    {
+      "name": "fleet-hub-destination",
+      "file": "internal/fleetplan/authority.go",
+      "test": "TestFleetIndependentHubAndCommandApproval",
+      "result": "detected",
+      "seconds": 0.785
+    },
+    {
+      "name": "fleet-provider-mutation-guard",
+      "file": "internal/keycloak/permissions.go",
+      "test": "TestMutationGuardRunsBeforeEveryProviderWrite",
+      "result": "detected",
+      "seconds": 7.613
+    },
+    {
+      "name": "fleet-cache-uid",
+      "file": "internal/controller/hankotenant_recovery.go",
+      "test": "TestFleetProviderAuthorityFailsClosed",
+      "result": "detected",
+      "seconds": 12.329
+    },
+    {
+      "name": "fleet-rollback-content",
+      "file": "internal/fleetplan/recovery.go",
+      "test": "TestFleetReferencedRollback",
+      "result": "detected",
+      "seconds": 2.252
+    },
+    {
+      "name": "fleet-sticky-expiry",
+      "file": "internal/fleetplan/recovery.go",
+      "test": "TestFleetRecoveryClockAndStickyExpiry",
+      "result": "detected",
+      "seconds": 2.317
+    },
+    {
+      "name": "fleet-expiry",
+      "file": "internal/fleetplan/verify.go",
+      "test": "TestFleetPlanRejectsUnqualifiedAuthorityAndFreshness",
+      "result": "detected",
+      "seconds": 2.641
+    },
+    {
+      "name": "fleet-native-permission",
+      "file": "internal/fleetplan/rollout.go",
+      "test": "TestFleetRolloutCapabilityPermissionAndMode",
+      "result": "detected",
+      "seconds": 2.272
+    },
+    {
+      "name": "fleet-atomic-refusal",
+      "file": "internal/fleetplan/rollout.go",
+      "test": "TestFleetRolloutCapabilityPermissionAndMode",
+      "result": "detected",
+      "seconds": 0.794
+    },
+    {
+      "name": "fleet-local-pause",
+      "file": "internal/fleetplan/rollout.go",
+      "test": "TestFleetRolloutSchemaVersionAndOverrides",
+      "result": "detected",
+      "seconds": 2.362
+    },
+    {
+      "name": "fleet-provider-version-scope",
+      "file": "internal/fleetplan/rollout.go",
+      "test": "TestFleetRolloutSchemaVersionAndOverrides",
+      "result": "detected",
+      "seconds": 0.933
+    },
+    {
+      "name": "fleet-provider-client-binding",
+      "file": "internal/keycloak/fleet_permissions.go",
+      "test": "TestFleetPermissionEvidenceComesFromProviderTLS",
+      "result": "detected",
+      "seconds": 6.692
+    },
+    {
+      "name": "fleet-signature",
+      "file": "internal/fleetplan/verify.go",
+      "test": "TestFleetPlanClosedDecodingAndSignature",
+      "result": "detected",
+      "seconds": 2.354
+    },
+    {
+      "name": "fleet-target",
+      "file": "internal/fleetplan/verify.go",
+      "test": "TestFleetPlanClosedDecodingAndSignature",
+      "result": "detected",
+      "seconds": 0.895
+    },
+    {
+      "name": "fleet-sequence",
+      "file": "internal/fleetplan/verify.go",
+      "test": "TestFleetDecodingAndCheckpointReasons",
+      "result": "detected",
+      "seconds": 2.351
+    },
+    {
+      "name": "fleet-sticky-signature-mode",
+      "file": "internal/controller/hankotenant_controller.go",
+      "test": "TestSignedFleetPlanControllerRecovery",
+      "result": "detected",
+      "seconds": 12.299
+    },
+    {
+      "name": "hub-hmac",
+      "file": "internal/hub/client.go",
+      "test": "TestBundleHMACRejectsTamperingAndOtherCredentials",
+      "result": "detected",
+      "seconds": 4.771
+    },
+    {
+      "name": "image-sha256",
+      "file": "internal/imagevalidator/approval.go",
+      "test": "TestApprovalCannotAuthorizeMutableOrUnsupportedDigest",
+      "result": "detected",
+      "seconds": 4.513
+    },
+    {
+      "name": "image-keyless-identity",
+      "file": "internal/imagevalidator/approval.go",
+      "test": "TestOperatorApprovalRejectsOtherWorkflowsAndAmbiguousTrust",
+      "result": "detected",
+      "seconds": 4.102
+    },
+    {
+      "name": "tls-peer-verification",
+      "file": "internal/httpsecurity/client.go",
+      "test": "TestEnterpriseClientRejectsUntrustedPeersAndTLS12",
+      "result": "detected",
+      "seconds": 2.322
+    },
+    {
+      "name": "tls-minimum",
+      "file": "internal/httpsecurity/client.go",
+      "test": "TestEnterpriseClientRejectsUntrustedPeersAndTLS12",
+      "result": "detected",
+      "seconds": 0.768
+    },
+    {
+      "name": "keycloak-redirect",
+      "file": "internal/keycloak/permissions.go",
+      "test": "TestPermissionGatewayDoesNotFollowRedirects",
+      "result": "detected",
+      "seconds": 6.034
+    },
+    {
+      "name": "unowned-realm-deletion",
+      "file": "internal/controller/hankorealm_controller.go",
+      "test": "TestImportedRealmDeletionDoesNotDeleteKeycloakRealm",
+      "result": "detected",
+      "seconds": 11.53
+    },
+    {
+      "name": "unowned-client-role-deletion",
+      "file": "internal/controller/hankoapplication_controller.go",
+      "test": "TestApplicationWithoutDeclaredRolesPreservesProviderRoles",
+      "result": "detected",
+      "seconds": 11.038
+    },
+    {
+      "name": "bundle-tenant-namespace",
+      "file": "internal/controller/hankotenant_bundle.go",
+      "test": "TestTenantBundleApplyPreservesExplicitValuesAndTenantBoundary",
+      "result": "detected",
+      "seconds": 11.549
+    },
+    {
+      "name": "bundle-live-tenant-ownership",
+      "file": "internal/controller/hankotenant_bundle.go",
+      "test": "TestTenantBundleUsesCurrentOwnershipForEveryKind",
+      "result": "detected",
+      "seconds": 11.878
+    },
+    {
+      "name": "bundle-forced-ownership",
+      "file": "internal/controller/hankotenant_bundle.go",
+      "test": "TestTenantBundleApplyPreservesExplicitValuesAndTenantBoundary",
+      "result": "detected",
+      "seconds": 7.748
+    },
+    {
+      "name": "bundle-write-version-precondition",
+      "file": "internal/controller/hankotenant_bundle.go",
+      "test": "TestTenantBundleApplyPreservesExplicitValuesAndTenantBoundary",
+      "result": "detected",
+      "seconds": 8.064
+    },
+    {
+      "name": "secret-cache-exclusion",
+      "file": "cmd/operator/main.go",
+      "test": "TestManagerOptionsConfineCacheAndLeaderElection",
+      "result": "detected",
+      "seconds": 9.2
+    },
+    {
+      "name": "snapshot-tenant-inventory",
+      "file": "internal/controller/hankosnapshot_controller.go",
+      "test": "TestSnapshotCaptureIsTenantScoped",
+      "result": "detected",
+      "seconds": 12.634
+    },
+    {
+      "name": "snapshot-stored-tenant-scope",
+      "file": "internal/controller/hankosnapshot_checkpoint.go",
+      "test": "TestSnapshotRecoveryRejectsCrossScopeStoredCapture",
+      "result": "detected",
+      "seconds": 12.716
+    },
+    {
+      "name": "operation-child-tenant-presence",
+      "file": "internal/controller/hankooperation_checkpoint.go",
+      "test": "TestOperationSnapshotRetainsExactTenantScope",
+      "result": "detected",
+      "seconds": 11.661
+    },
+    {
+      "name": "operation-managed-provider-binding",
+      "file": "internal/controller/hankooperation_controller.go",
+      "test": "TestOperationProviderObservationBindsManagedRollout",
+      "result": "detected",
+      "seconds": 11.819
+    },
+    {
+      "name": "managed-probe-rollout-fence",
+      "file": "internal/controller/hankokeycloakinstance_controller.go",
+      "test": "TestManagedProbeRequiresStableDeployment",
+      "result": "detected",
+      "seconds": 12.765
+    },
+    {
+      "name": "managed-infrastructure-owner",
+      "file": "internal/controller/managed_infrastructure.go",
+      "test": "TestManagedInfrastructurePreservesForeignObjects",
+      "result": "detected",
+      "seconds": 13.448
+    },
+    {
+      "name": "managed-infrastructure-live-owner",
+      "file": "internal/controller/managed_infrastructure.go",
+      "test": "TestManagedInfrastructurePreservesForeignObjects",
+      "result": "detected",
+      "seconds": 8.482
+    },
+    {
+      "name": "managed-infrastructure-write-version",
+      "file": "internal/controller/managed_infrastructure.go",
+      "test": "TestManagedInfrastructureRejectsConcurrentOwnerChanges",
+      "result": "detected",
+      "seconds": 12.051
+    },
+    {
+      "name": "managed-pdb-delete-identity",
+      "file": "internal/controller/hankokeycloakinstance_controller.go",
+      "test": "TestManagedInfrastructureRejectsConcurrentOwnerChanges",
+      "result": "detected",
+      "seconds": 7.712
+    },
+    {
+      "name": "managed-instance-live-intent",
+      "file": "internal/controller/hankokeycloakinstance_controller.go",
+      "test": "TestDeletingKeycloakInstanceStopsReconciliation",
+      "result": "detected",
+      "seconds": 12.241
+    },
+    {
+      "name": "managed-instance-deletion",
+      "file": "internal/controller/hankokeycloakinstance_controller.go",
+      "test": "TestDeletingKeycloakInstanceStopsReconciliation",
+      "result": "detected",
+      "seconds": 7.584
+    },
+    {
+      "name": "metrics-uri-authorization",
+      "file": "internal/observability/tls.go",
+      "test": "TestMetricsMutualTLSAuthenticatesAuthorizesAndReloadsTrust",
+      "result": "detected",
+      "seconds": 4.947
+    },
+    {
+      "name": "metrics-client-authentication",
+      "file": "internal/observability/tls.go",
+      "test": "TestMetricsMutualTLSAuthenticatesAuthorizesAndReloadsTrust",
+      "result": "detected",
+      "seconds": 2.035
+    },
+    {
+      "name": "provider-error-redaction",
+      "file": "internal/keycloak/responses.go",
+      "test": "TestKeycloakGatewaySuppressesNativeErrorBodyBeforeAnyCaller",
+      "result": "detected",
+      "seconds": 5.729
+    }
+  ]
+}

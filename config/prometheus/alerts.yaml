@@ -1,0 +1,51 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: hanko-operator-example
+  # Add the namespace and labels selected by your existing Prometheus installation.
+spec:
+  groups:
+    - name: hanko-operator
+      rules:
+        - alert: HankoInstanceDegraded
+          expr: sum by (job, namespace) (hanko_operator_instances{state="degraded"}) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Hanko provider instances remain degraded
+        - alert: HankoVerificationRefused
+          expr: sum by (job, namespace, domain) (increase(hanko_operator_verification_total{outcome="refused"}[10m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Hanko verification is refusing execution
+        - alert: HankoRotationOverdue
+          expr: max by (job, namespace, kind) (hanko_operator_rotation_overdue_seconds) > 900
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Hanko credential rotation is overdue
+        - alert: HankoInventoryIncomplete
+          expr: (hanko_operator_inventory_complete == 0) and on (job, namespace, pod) (hanko_operator_leader == 1)
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: Hanko bounded inventory is incomplete
+        - alert: HankoLeaderUnavailable
+          expr: max by (job, namespace) (hanko_operator_leader) == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: No scraped Hanko replica reports an acquired lease
+        - alert: HankoReconcileHotLoop
+          expr: sum by (job, namespace, kind) (rate(hanko_operator_reconcile_total[5m])) > 10
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Hanko reconciliation exceeds the example attempt budget

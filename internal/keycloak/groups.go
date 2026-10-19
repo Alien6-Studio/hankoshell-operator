@@ -381,8 +381,8 @@ func (c *Client) DeleteGroup(ctx context.Context, realm, groupID string) error {
 	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusNotFound {
 		return nil
 	}
-	body, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf("delete group %q in realm %q: keycloak %d: %s", groupID, realm, resp.StatusCode, body)
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return &StatusError{Code: resp.StatusCode}
 }
 
 // postJSONLocation POSTs a JSON payload and returns the Location header and
@@ -409,8 +409,8 @@ func (c *Client) postJSONExpect(ctx context.Context, path string, payload any, a
 	if slices.Contains(accepted, resp.StatusCode) {
 		return resp.StatusCode, nil
 	}
-	body, _ := io.ReadAll(resp.Body)
-	return resp.StatusCode, fmt.Errorf("keycloak %s %s: %d: %s", http.MethodPost, path, resp.StatusCode, body)
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return resp.StatusCode, &StatusError{Code: resp.StatusCode}
 }
 
 // doJSON issues an authenticated JSON request and returns the raw response for

@@ -1,0 +1,35 @@
+# Install independently before enabling signed fleet plans. Customize auth/name
+# together with the local operator deployment; Hub/CR authors never own this root.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: hanko-fleet-trust-owner
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE", "DELETE"]
+        resources: ["configmaps"]
+        scope: Namespaced
+  matchConditions:
+    - name: fleet-trust-root
+      expression: >-
+        request.namespace == 'auth' &&
+        ((object != null && object.metadata.name == 'hanko-fleet-plan-trust') ||
+         (oldObject != null && oldObject.metadata.name == 'hanko-fleet-plan-trust'))
+  validations:
+    - expression: >-
+        authorizer.group('').resource('configmaps').namespace('kube-system')
+          .name('hanko-fleet-trust-authority').check('update').allowed()
+      message: Only independent local fleet policy administrators may change publisher trust.
+      reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: hanko-fleet-trust-owner
+spec:
+  policyName: hanko-fleet-trust-owner
+  validationActions: [Deny]

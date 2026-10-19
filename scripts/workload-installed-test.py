@@ -39,11 +39,42 @@ def object_value(kind, name, spec=None, namespace="auth", **metadata):
     return result
 
 
+def snapshot_capture_valid(snapshot, capture, expected_name):
+    """Require stored content and scope, not only a successful controller phase."""
+    status, metadata = snapshot.get("status", {}), snapshot["metadata"]
+    raw = capture.get("data", {}).get("snapshot.json", "")
+    if (status.get("phase") != "Done" or capture.get("immutable") is not True
+            or capture.get("metadata", {}).get("uid") != status.get("configMapUID")
+            or not status.get("configMapUID") or set(capture.get("data", {})) != {"snapshot.json"}
+            or hashlib.sha256(raw.encode()).hexdigest() != status.get("configHash")):
+        return False
+    try:
+        payload = json.loads(raw)
+        if not isinstance(payload, dict):
+            return False
+        for kind in ("realms", "applications", "serviceAccounts", "issuers"):
+            items = payload.get(kind)
+            if not isinstance(items, list) or sum(item.get("metadata", {}).get("name") == expected_name for item in items) != 1:
+                return False
+            for item in items:
+                current = item.get("metadata", {})
+                labels, expected = current.get("labels", {}), metadata.get("labels", {})
+                if (current.get("namespace") != metadata["namespace"]
+                        or ("hanko.sh/tenant" in labels) != ("hanko.sh/tenant" in expected)
+                        or labels.get("hanko.sh/tenant") != expected.get("hanko.sh/tenant")):
+                    return False
+    except (ValueError, TypeError, AttributeError):
+        return False
+    return True
+
+
 class Installed(native.Fixture):
     def __init__(self, args, private):
         super().__init__(args, private)
         self.registry_name = self.name + "-registry"
         self.extra_certificate_names = ",DNS:fault-keycloak.auth.svc,DNS:keycloak-upstream.auth.svc"
+        # This fixture explicitly exercises administrator-approved snapshots.
+        self.install_values = {"lifecycle": {"enabled": True}}
         self.workload_grants = [{"namespace": "workload", "serviceAccounts": ["worker"], "configMaps": ["identity"]}]
         if args.deep_migration:
             self.workload_grants[0]["serviceAccounts"] += ["migration-worker", "creation-worker", "flow-worker"]
@@ -145,6 +176,7 @@ class Installed(native.Fixture):
                     "workload-writer": ["manage-identity-providers", "view-realm"],
                     "workload-dependent-reader": ["view-clients"],
                     "workload-client-writer": ["manage-clients", "view-realm"]}
+        profiles["system-operator"] += getattr(self, "additional_operator_roles", [])
         for name, roles in profiles.items():
             credential = self.adoption_identity(name, "managed", roles)
             self.credentials[name] = credential
@@ -265,8 +297,8 @@ class Installed(native.Fixture):
             "permissions": [{"name": "worker-read", "resources": ["allowed"], "scopes": ["read"], "principals": [{"kind": "service_account", "ref": principal}]}]}))
         self.resource_ready()
 
-    def resource_ready(self):
-        wait("installed resource applied/read-back", lambda: self.iam_reconciled("hankoresourceserver", "installed-server"), 180)
+    def resource_ready(self, timeout=180):
+        wait("installed resource applied/read-back", lambda: self.iam_reconciled("hankoresourceserver", "installed-server"), timeout)
         status = self.get("hankoresourceserver", "installed-server")["status"]
         self.record("resource_service_account_capability", status["capabilities"]["serviceAccountPrincipals"] is True)
         client = self.client("managed", "installed-api")
@@ -792,7 +824,7 @@ class Installed(native.Fixture):
         run([self.args.openssl, "req", "-new", "-newkey", "rsa:2048", "-nodes", "-keyout", key, "-out", csr,
             "-subj", "/CN=fault-api.auth.svc", "-addext", "subjectAltName=DNS:fault-api.auth.svc,DNS:localhost"])
         run([self.args.openssl, "x509", "-req", "-in", csr, "-CA", ca_path, "-CAkey", key_path, "-CAcreateserial", "-out", cert,
-            "-days", "1", "-sha256", "-copy_extensions", "copy"])
+            "-days", str(getattr(self, "certificate_days", 1)), "-sha256", "-copy_extensions", "copy"])
         self.apply(self.secret("fixture-api-tls", {"tls.crt": cert.read_text(), "tls.key": key.read_text()}))
         self.api_proxy = self.setup_proxy("fault-api", "https://kubernetes.default.svc", ca, 8444, "fixture-api-tls")
         self.api_proxy_context = ssl.create_default_context(cafile=str(ca_path))
@@ -819,10 +851,20 @@ class Installed(native.Fixture):
         self.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=180s")
         self.start_log_capture()
 
-    def control(self, target, rule, reset=False):
+    def control(self, target, rule, reset=False, *, track_document=None):
         url = getattr(self, target + "_proxy") + "/__fixture/control"
         context = self.api_proxy_context if target == "api" else self.http
-        with urlopen(Request(url, data=json.dumps({"rule": rule, "reset_counts": reset}).encode()), context=context, timeout=10) as response:
+        value = {"rule": rule, "reset_counts": reset}
+        if track_document is not None:
+            value["track_document"] = track_document
+        with urlopen(Request(url, data=json.dumps(value).encode()), context=context, timeout=10) as response:
+            return json.load(response)
+
+    def observe_control(self, target):
+        """Observe a fault without releasing it or changing its counters."""
+        url = getattr(self, target + "_proxy") + "/__fixture/control"
+        context = self.api_proxy_context if target == "api" else self.http
+        with urlopen(url, context=context, timeout=10) as response:
             return json.load(response)
 
     def await_fault(self, target):
@@ -990,9 +1032,83 @@ class Installed(native.Fixture):
         self.start_rotation("federated-b")
         self.finish_rotation()
         self.containment("federated-b")
+        self.snapshot_isolation()
         self.leak_scan()
         self.report["complete"] = True
         self.report["completed_at"] = datetime.now(timezone.utc).isoformat()
+
+    def snapshot_isolation(self):
+        for scope in ("unlabelled", "empty", "tenant-a", "tenant-b"):
+            name = "snapshot-" + scope
+            labels = {} if scope == "unlabelled" else {"hanko.sh/tenant": "" if scope == "empty" else scope}
+            realm = object_value("HankoRealm", name, {}, labels={**labels, "hanko.sh/imported-by": "fixture-observe"})
+            self.apply(realm,
+                object_value("HankoApplication", name, {"realmRef": name, "clientID": name, "type": "spa", "mode": "Observe"}, labels=labels),
+                object_value("HankoServiceAccount", name, {"realmRef": name, "clientID": name, "mode": "Observe"}, labels=labels),
+                object_value("HankoIssuer", name, {"realmRef": name, "host": name + ".example.test"}, labels=labels),
+                object_value("HankoKeycloakInstance", name, {"mode": "external", "adminRef": {"name": "workload-observer"}, "tlsCARef": "operator-ca"}, labels=labels))
+        for scope in ("unlabelled", "empty", "tenant-a", "tenant-b"):
+            name = "snapshot-" + scope
+            labels = {} if scope == "unlabelled" else {"hanko.sh/tenant": "" if scope == "empty" else scope}
+            lost_ack = scope == "tenant-a" and self.args.deep_migration
+            if lost_ack:
+                path = "/api/v1/namespaces/auth/configmaps"
+                self.control("api", {"method": "POST", "path": path, "action": "lost-ack"}, reset=True)
+            self.apply(object_value("HankoSnapshot", name, {"instanceRef": name}, labels=labels))
+            self.approve_lifecycle("hankosnapshot", name, "auth", operator_name="system-operator")
+            self.record("snapshot_independent_approval_" + scope)
+            captured = None
+            if lost_ack:
+                fault = self.await_fault("api")
+                self.record("snapshot_capture_ack_loss_accepted", fault["upstream_status"] == 201)
+                captured = self.get("configmap", "snap-" + name + "-config")
+                self.restart()
+            wait("installed scoped snapshot " + scope, lambda name=name: self.get("hankosnapshot", name).get("status", {}).get("phase") == "Done", 180)
+            snapshot = self.get("hankosnapshot", name)
+            capture = self.get("configmap", snapshot["status"]["configMapRef"])
+            self.record("snapshot_scope_" + scope, snapshot_capture_valid(snapshot, capture, name))
+            if lost_ack:
+                state = self.control("api", None)
+                self.record("snapshot_capture_restart_no_recreate", capture["metadata"]["uid"] == captured["metadata"]["uid"]
+                    and capture["data"] == captured["data"] and state["counts"].get("POST " + path) == 1
+                    and state["attempted_counts"].get("POST " + path) == 1)
+        if self.args.deep_migration:
+            self.legacy_snapshot_recovery()
+
+    def legacy_snapshot_recovery(self):
+        # Pause the real manager after its authority checkpoint and before the
+        # capture write. Seed a historical immutable capture through the fixture
+        # administrator, then let a fresh manager inspect it without alteration.
+        name, path = "legacy-cross-tenant", "/api/v1/namespaces/auth/configmaps"
+        self.control("api", {"method": "POST", "path": path, "action": "deny"}, reset=True)
+        self.apply(object_value("HankoSnapshot", name, {"instanceRef": "snapshot-tenant-a"}, labels={"hanko.sh/tenant": "tenant-a"}))
+        self.approve_lifecycle("hankosnapshot", name, "auth", operator_name="system-operator")
+        self.record("snapshot_legacy_independent_approval")
+        self.await_fault("api")
+        snapshot = self.get("hankosnapshot", name)
+        self.record("snapshot_legacy_authority_persisted", bool(snapshot.get("status", {}).get("intentHash")))
+        self.stop_log_capture()
+        self.kubectl("scale", "deployment/system-operator", "-n", "auth", "--replicas=0")
+        self.kubectl("wait", "--for=delete", "pods", "-n", "auth", "-l", "app.kubernetes.io/instance=system", "--timeout=90s")
+        raw = json.dumps({kind: [self.get(resource, "snapshot-tenant-b")] for kind, resource in (
+            ("realms", "hankorealm"), ("applications", "hankoapplication"),
+            ("serviceAccounts", "hankoserviceaccount"), ("issuers", "hankoissuer"))})
+        self.apply({"apiVersion": "v1", "kind": "ConfigMap", "metadata": {
+            "name": "snap-" + name + "-config", "namespace": "auth", "labels": {"hanko.sh/tenant": "tenant-a"},
+            "annotations": {"hanko.sh/snapshot-intent": snapshot["status"]["intentHash"], "hanko.sh/snapshot-hash": hashlib.sha256(raw.encode()).hexdigest()},
+            "ownerReferences": [{"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoSnapshot", "name": name, "uid": snapshot["metadata"]["uid"], "controller": True}]},
+            "immutable": True, "data": {"snapshot.json": raw}})
+        capture = self.get("configmap", "snap-" + name + "-config")
+        self.restart()
+        wait("legacy cross-tenant snapshot refusal", lambda: self.get("hankosnapshot", name).get("status", {}).get("phase") == "Failed", 180)
+        status = self.get("hankosnapshot", name)["status"]
+        stored = self.get("configmap", capture["metadata"]["name"])
+        self.record("snapshot_legacy_cross_tenant_refused", not status.get("configMapUID")
+            and any(c.get("type") == "SnapshotReady" and c.get("status") == "False" and c.get("reason") == "ConfigMapContractMismatch"
+                    for c in status.get("conditions", [])))
+        self.record("snapshot_legacy_capture_preserved_no_backup", stored["metadata"]["uid"] == capture["metadata"]["uid"]
+            and stored["data"] == capture["data"] and not self.exists("job", "snap-" + name + "-pgdump")
+            and self.control("api", None)["counts"].get("POST " + path, 0) == 0)
 
     def cleanup(self):
         self.stop_log_capture()

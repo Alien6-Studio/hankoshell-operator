@@ -3,6 +3,7 @@ package hub
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -72,7 +73,7 @@ func TestEnrollmentRejectionNeverRetriesWithoutIdentity(t *testing.T) {
 			}))
 			defer server.Close()
 			_, err := EnrollWithIdentity(context.Background(), server.URL, "single-use-fixture", EnrollmentIdentity{ClusterName: "Paris", ClusterUID: "stable-uid"})
-			if err == nil || !strings.Contains(err.Error(), "identity metadata rejected") || calls != 1 {
+			if err == nil || !strings.Contains(err.Error(), fmt.Sprintf("HTTP %d", status)) || strings.Contains(err.Error(), "identity metadata rejected") || calls != 1 {
 				t.Fatalf("rejected enrollment: calls = %d, error = %v", calls, err)
 			}
 		})

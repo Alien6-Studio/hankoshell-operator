@@ -1,0 +1,48 @@
+{
+  "archive_sha256": "08488d37cadfc6742d097d55db754f7b9839c0ea7f5c771a453222cf7ecf830d",
+  "database": {
+    "metadata": {
+      "DownloadedAt": "2026-10-18T19:02:30.656684069Z",
+      "NextUpdate": "2026-10-19T13:11:41.355239192Z",
+      "UpdatedAt": "2026-10-18T13:11:41.355239553Z",
+      "Version": 2
+    },
+    "sha256": "ce41cffc78163052ee3cb0632639c82c58534658aefcc0f5d5d0bed8f95a1b65"
+  },
+  "index_digest": "sha256:5c0c2727aa44b3d0c72684095692c7b9345271111c0d52b51241a64aa6be5351",
+  "licenses_sha256": {
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "NOTICE": "8eae90fd0bbc85b1acf82ad9e5760a5589f34513dbd41078ca8c857fda96aa3b",
+    "THIRD_PARTY_NOTICES": "6ab3cccfc59ee198b09a6cc5871e958afb73a452aa44ada5cfd78a5c1ee17a39",
+    "THIRD_PARTY_NOTICES.cosign": "ae057bdfcc09ff1a4f3766bcf67317ef75fbfc5d110c74d213345fd2544d0070"
+  },
+  "platforms": {
+    "linux/amd64": {
+      "blocked": [],
+      "config_digest": "sha256:c8ad351593c059a331553232aaa932bb760e945cb76bef02c5d814abc25a26cb",
+      "digest": "sha256:4b325d3f4833b890b57973d150a89c11149241bf2a2bbfb7339f5e7ce679187c",
+      "exceptions_applied": [],
+      "report_sha256": "489d15883a2dd6ee2bf17e9e6d7f3573f877521d1d0f540eecaef97d1d7c1f6c",
+      "unfixed_high_critical": []
+    },
+    "linux/arm64": {
+      "blocked": [],
+      "config_digest": "sha256:09e6858f7e9b986c7010d6e7624d9c957ad1d7525a43ea3620778ebb1eb17901",
+      "digest": "sha256:16d80d022512e2944900d7c7cf057dc7523a11e9f7c575c50071b17e0c819d59",
+      "exceptions_applied": [],
+      "report_sha256": "fb6b02d861895f8f013ece8c652976f1caa02d07dae8b8bb2e83f087e9835636",
+      "unfixed_high_critical": []
+    }
+  },
+  "policy_sha256": "b6273b9b896f555480d51b7607c17ebbd7181259474a1e18801cbd9f8cb3bfcb",
+  "revision": "e29b3d5de672b8a2634da10bcac6633c937e74e6",
+  "scanned_at": "2026-10-18T19:02:30.684686+00:00",
+  "scanner": {
+    "binary_sha256": "93f9da8e4ba5e0c1c76d8234ed2494cf9afb0a96fd21953e424bb795f3299b8e",
+    "name": "trivy",
+    "version": "0.75.0"
+  },
+  "schema_version": 1,
+  "verdict": "pass",
+  "version": "0.1.0-dev.0"
+}

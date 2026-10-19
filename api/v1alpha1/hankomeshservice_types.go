@@ -153,8 +153,10 @@ type HankoMeshServiceStatus struct {
 	// +kubebuilder:validation:MaxItems=64
 	ResolvedEgress []ResolvedMeshServiceEgress `json:"resolvedEgress,omitempty"`
 
-	LastResolved *metav1.Time       `json:"lastResolved,omitempty"`
-	Conditions   []metav1.Condition `json:"conditions,omitempty"`
+	LastResolved *metav1.Time `json:"lastResolved,omitempty"`
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true

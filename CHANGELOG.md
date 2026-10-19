@@ -3,11 +3,374 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Experimental API versions and storage migration (#91, #92, #94)
+
+- Serve structurally equivalent v1beta1 candidates for Application, Role and
+  ResourceServer, with explicit object/list conversions and the existing alpha
+  controller hub/default storage. Freeze schema equivalence and extend Go/API
+  guards, cross-version field ownership tests and conversion fuzzing.
+- Add administrator-approved native storage migration, resumable progress,
+  separately approved rollback, CRD upgrade preflight preserving live storage
+  and a chart guard against unreadable stored versions. Preserve ownership,
+  approvals, journals, finalizers and managedFields; refuse pending transactions.
+- Provide a disposable Kubernetes fixture that checks actual etcd encoding and
+  native completion. This is development capability, not stable graduation or
+  qualified public predecessor/production upgrade evidence.
+
+### Installed bounded-delegation qualification (#71)
+
+- Add a mandatory six-cell installed delegation gate using the scanned Operator,
+  the matching provider JAR, actual projected workload identities and an independent
+  HTTPS resource verifier. Exercise depth, replay, scope/resource bounds, expiry,
+  withdrawal, native journal recovery and interrupted cleanup without storing tokens.
+- Refuse UID-owned authorization cleanup when a foreign permission depends on owned
+  resources, scopes or policies. Retain the finalizer and foreign graph; after its
+  owner removes the dependency, cleanup can resume. Preserve existing pagination
+  budgets and the narrower adoption inventory limits.
+- Keep committed federated service accounts ready when the delegation controller
+  activates native token exchange with a valid actor marker bound to that client's
+  UID. Continue refusing unmarked activation, foreign markers and unknown settings.
+- Target installed status-write faults at the verified Ready patch and reject
+  genuine native tokens for another audience or realm at the HTTPS resource server.
+
+### Reviewed extension integration and dependency maintenance
+
+- Advance the standalone Keycloak extension pin to its signed `d9423db` revision,
+  including native administrative forms and provider hardening. Build with its
+  checksum-pinned Maven wrapper; keep Hanko's external-writer ownership and
+  26.7.5/26.8.0 qualification window explicit.
+- Update etree, Go network dependencies, the digest-pinned Go build image and
+  Node 24 artifact/Java actions. Apply the network dependency pins to the embedded
+  cosign build as well, and regenerate both shipped license inventories.
+
+### Standalone Keycloak extension and CI qualification
+
+- Move the Java extension, unit tests and upstream proposal into the independent
+  `Alien6-Studio/keycloak-bounded-delegation` repository. Retain the operator's
+  adapter and real-provider tests; consume an immutable source revision and
+  verify the built JAR's source, SDK and SHA256 before native qualification.
+- Add unit coverage for every native journal acknowledgement loss, status-free
+  recovery, exact attribute cleanup and observed-only delegation explanations.
+  Retain the existing package and security-function coverage floors.
+
+### Experimental bounded software delegation (#69, #70)
+
+- Add a standalone, version-matched Keycloak SPI extension with an independent
+  Java policy kernel and explicit per-realm activation. Bound delegated UMA
+  permissions by both inputs and live native policy, audience, inherited depth
+  and minimum expiration; consume actor inputs atomically and refuse bypasses.
+- Resolve existing local software references and current UID/tenant/role/group
+  evidence into sealed plans. Journal owned grants through four native phases,
+  recover lost acknowledgements, preserve shared actors and revoke only owned
+  delegation. Keep stock-provider and adoption refusal explicit.
+- Add observed delegation origin/bounds to alpha explanation status. This is an
+  additive development schema/Go fixture change with no storage-version change;
+  installed/multi-node qualification and stable API graduation remain separate.
+- Build/test both supported SDKs and require a separate real-HTTPS token gate
+  in CI. Prepare a generic upstream discussion locally; nothing is submitted to
+  Keycloak by this batch.
+
+### Admission bounds and RBAC review (#99, #94, #103)
+
+- Bound Kubernetes realm/application references at admission, with real-API
+  boundary fixtures and an explicit stored-manifest migration notice in
+  docs/security-surface.md. Update the frozen unpublished candidate schemas;
+  provider identifiers, defaults, plan identity and storage versions are unchanged.
+- Reduce leader election to Lease CREATE plus exact-lock GET/UPDATE; verify the
+  native client-go lock and denied foreign authority against real API servers.
+- Inventory declared validation bounds and chart RBAC/bindings on four profiles.
+  Fail preflight on unreviewed drift; retain explicit unresolved review gaps.
+
+### Security parser qualification (#99)
+
+- Give cold fuzz-instrumentation builds a separate bounded phase before each
+  package's campaign. Retain campaign duration, workers, memory/output limits,
+  completeness checks and source identity; report build failures separately.
+- Add twenty Go fuzz targets with positive and hostile seeds for discovery,
+  SAML metadata, fleet envelopes/signed payloads/trust, ownership and transaction
+  journals, approvals, Hub responses, image references and publisher policies.
+  Run bounded campaigns on development pushes and in mandatory full CI; preserve
+  exact source identity, execution counts and minimized/interesting corpora.
+- Refuse ambiguous JSON in OIDC discovery, Hub control responses, image approvals
+  and provider ownership journals. Enforce parser byte budgets independently of
+  transport reads; retain additive legacy Hub fields.
+- Qualify historical confidential-client migration with an explicit administrator
+  binding of the reviewed canonical Secret. Provider adoption cannot silently
+  adopt an ownerless Kubernetes credential.
+
+### Application credentials and legacy Hub boundaries
+
+- Refuse canonical application Secrets without the current controller owner;
+  compare credentials with the provider before delivery. Fence canonical and
+  legacy projection writes with resource versions, current execution authority
+  and identity/value read-back, including projection cleanup.
+- Refuse redirects on enrollment and every legacy Hub route without modifying
+  shared HTTP clients. Keep remote response bodies out of returned errors and
+  reject non-success heartbeat responses before accepting acknowledgements.
+- Bound legacy bundles to 200 aggregate objects before object allocation,
+  HMAC verification and Kubernetes access. Reject ambiguous or excessively
+  nested JSON while preserving the existing decompressed-byte budgets.
+
+### Installed load and bounded IAM concurrency
+
+- Add six installed accepted-write checkpoints across actual leader replacement:
+  three Secret rotation boundaries, Observe client/role acquisition and signed
+  plan verification. Compile race-enabled mutation packages separately from
+  unchanged security assertion limits and retain the failing phase in evidence.
+  Record the older reader profile's credential access separately from zero
+  operator credential-endpoint attempts during Observe acquisition.
+- Refuse managed realm deletion until all eight realm-reference kinds have been
+  inventoried directly from complete API pages. Recheck authority after provider
+  preflight; report bounded dependency counts with a jittered wait instead of
+  rapid error retries. Add installed five-minute API transport loss, 222-dependent
+  child-first cleanup and leader replacement after lost realm DELETE acknowledgement.
+- Add explicit 1–8 worker configuration for four reviewed IAM controllers,
+  defaulting to one; remove Organization/Issuer status-echo hot loops while
+  preserving authority and deletion wakes. Filter grant dependency status
+  timestamps while retaining current group synchronization and identity changes.
+- Give cold initial-list work and live IAM changes the same FIFO priority;
+  place successful periodic resyncs behind changes and retries while preserving
+  per-key serialization, coalescing and the existing retry limiter. Filter
+  spec-only realm/application/service-account dependency status echoes.
+- Reduce IAM observation traffic without caching authority: settled simple roles
+  use one complete read, application children stay pinned to the observed client
+  UUID, and uncached ownership lists use a server-side realm selector. Apply the
+  updated Application and ServiceAccount CRDs before upgrading the controller.
+- Add real installed burst, active-leader replacement, provider/API overload and
+  numeric mTLS measurements, including a 24-hour-minimum soak profile and a
+  six-cell manual short qualification workflow. Production sizing and full
+  transaction HA still require retained evidence.
+- Report per-phase end-to-end convergence/recovery duration and numeric current
+  object counts in atomic progress snapshots. Refuse convergence completed after
+  its deadline, including time spent sampling and reading status.
+- Require explicit TLS peer alerts in negative metrics authentication probes.
+  Move ordinary tagged tests and static checks into separate required CI jobs
+  while preserving exhaustive test inventory and JUnit reporting.
+
+### Resumable import evidence and public compatibility reporting
+
+- Retry bounded adoption-candidate status conflicts with fresh target identity
+  checks and preserve concurrent leaf status. API publication failures leave
+  imports resumable instead of permanently failing a parent Clone.
+- Add a public compatibility report form, a typed privacy-reviewed registry and
+  generated per-release summaries with incident and historical-fixture links.
+  Enforce them in source and release gates. No public or production history is claimed.
+
+### Keycloak concurrency and sustained qualification
+
+- Coalesce expired-token refreshes across ordinary and Fleet-guarded client views;
+  fence invalidated observations, allow canceled waiters to leave, and cool down
+  failed refreshes. Fleet permission decisions still require newly issued tokens.
+- Bound each credential connection to eight in-flight requests and a 50/s token
+  bucket with burst 50. Respect bounded 429/503 retry hints across guarded views,
+  recheck write authority after queueing, and never replay an ambiguous mutation.
+- Rebuild the pending-credential verifier after native activation, and refuse to
+  infer inactivity from throttling, provider outages or forbidden probes. Bind
+  Go test reports to their starting revision and fail a changed checkout.
+- Add real HTTPS concurrency/refusal/recovery qualification, reuse optimized
+  disposable fixture build layers, and record twenty independent attempts of each
+  historical flaky test with first-failure stop and per-attempt JUnit evidence.
+  These guards do not establish a production scale or 24-hour soak bound.
+
+### Executable compatibility and installed diagnostics
+
+- Freeze 1,571 compiler-resolved exports in seven fixture-facing Go packages;
+  guard signatures, constants, aliases, fields/tags, interfaces, generic constraints
+  and promoted methods alongside the existing plan identity/defaulting goldens.
+- Qualify the single-version typed read/write boundary of all 17 CRDs on real
+  API servers. Reject unreviewed served/storage/conversion changes, unannounced
+  version deprecation and optional additions that silently introduce defaults.
+  These development guards do not establish a public predecessor or a stable conversion.
+- Preserve fixed Fleet refusal Event reasons while discarding private details;
+  wait for the updated ReplicaSet before metrics qualification and reject transport
+  failures as evidence of authentication denial. Custom metric cardinality remains
+  bounded at 1,114 series per process.
+
+### Qualification windows and compatibility review
+
+- Formalize the three-minor Kubernetes/two-minor Keycloak qualification window,
+  reviewed patch cadence, upstream support check and retirement procedure in the
+  [support policy](docs/support-window.md). All current versions derive from versions.json.
+- Add bounded official release discovery and review packets, with draft PR creation
+  available only through explicit manual input. No fixture pin is auto-promoted.
+- Prepare the [0.x compatibility proposal](docs/compatibility-policy.md), deprecation
+  registry and adversarial stable-schema diff gate. No public predecessor, stable
+  conversion, production compatibility or completed community review is claimed.
+- Restore typed, redacted TLS refusal classification in native qualification and
+  independently approve opt-in installed snapshots before capture/recovery tests.
+
+### Deprecations
+
+No public API deprecation is announced in this development delivery. Current
+v1alpha1 APIs remain experimental; no published predecessor exists. The proposed
+notice policy requires community review under #87 before public acceptance.
+
+### Operational qualification and recovery runbooks
+
+- Require TLS 1.3, client CA authentication and exact client URI authorization for
+  metrics, including trust reload and authenticated ServiceMonitor discovery.
+  Existing plaintext/annotation scraping must migrate before enabling the endpoint.
+- Instrument all 17 controllers, provider HTTP attempts and verification decisions
+  with fixed labels. Add bounded leader-only inventory, credential-safe Events,
+  typed Keycloak errors, alerts, a dashboard and a checked operational inventory.
+- Separate serving and leader readiness; retain provider readiness for standby
+  Pods. Add installed mTLS, lease failover, native credential preservation and
+  same-source Helm configuration rollback smoke tests.
+- Publish runbooks with executable fixture references and explicit unqualified
+  public upgrade/storage/connected/delegation/production HA and soak paths.
+
+
+### Stable-contract preparation and experimental lifecycle authority
+
+- Define measurable graduation criteria and records for all 17 resources and
+  every spec/status group. No resource graduates without public production,
+  migration/rollback, security and operational evidence.
+- Review all fourteen cross-provider semantics, retain the six installed reports,
+  and freeze registration intent goldens/outcomes in preflight and release gates.
+  OIDC SPA/web registration are portable candidates; authentik remains experimental.
+- Formally exclude Operation/Snapshot from the stable 1.0 contract and disable
+  their controllers/RBAC by default. Require independent administrator approval
+  bound to exact object UID/generation/intent/source UID, protect child provenance
+  through admission, recheck approval before effects, and validate DBSwitch Secrets.
+  Existing pending work requires explicit review; revocation does not undo effects.
+  Upgrade/DBSwitch and portable restore remain unqualified. See ADR-050 and the
+  lifecycle approval procedure before enabling or resuming experimental writers.
+
+
+### Experimental second provider and shared portability foundation
+
+- Select authentik 2026.8.4 after exact-version API comparison with Logto and
+  ZITADEL. Keep every unsupported domain explicit and all Keycloak-native features.
+- Add an opt-in HTTPS application adapter, origin-bound ownership, non-secret
+  recovery journal, strict connection configuration and fail-closed IAM routing.
+- Add fourteen provider-neutral intent fixtures, real-server restart/lost-ack and
+  native denied-credential checks, JUnit evidence and a required CI source gate.
+  Qualify the literal shared corpus in all six installed cells with both real
+  providers, current proof, refusal, restart and cleanup assertions. Credential
+  delivery and parity are not claimed.
+
+### Initial public contract candidate and reusable compatibility corpus
+
+- Review all 17 resources and 352 field groups; select application, role and
+  resource-server subsets for initial public qualification. Keep every deferred
+  standalone, operational, connected and native capability explicitly classified.
+- Freeze real compiler identities, stored schemas/defaults, public evidence and
+  UID ownership readers. Add corpus coverage, schema drift diagnostics and
+  adversarial gates to release validation without announcing a public API.
+- Reuse the corpus in all three real API cells and the exact-scanned installed
+  system. Verify SSA/round-trip ownership and restart without replacement.
+  Record `NoPublishedPredecessor`; cross-release qualification needs real artifacts.
+
+### Installed Fleet qualification and local command authority
+
+- Add a required installed six-cell Fleet CI matrix consuming the exact scanned
+  OCI artifact, with real HTTPS Hub/Keycloak, two dedicated tenants, refusal,
+  offline/reconnect/rollback and external checkpoint-loss/restart scenarios.
+- Pin accepted Hub destinations, refuse authenticated Fleet redirects and require
+  independent exact command approval before Fleet decommission. Keep remote error
+  bodies and unapproved command fields out of signed status/logs/Events;
+  preserve separate image-update trust.
+- Support explicit per-tenant CA bundles, generation-bound tenant conditions and
+  status-only watch filtering. Keep public evidence bounded and private fixture
+  inputs outside uploaded artifacts; qualification audit requires actual runs.
+
+### Disconnected Fleet authority and referenced rollback
+
+- Persist immutable signed envelopes before acceptance, recover the exact plan
+  after restart/Hub loss, and recheck current local trust, target and time before
+  every native tenant-provider mutation. Local pause/revocation, altered cache,
+  strict expiry and backward clock jumps fail closed without shared-client fallback.
+- Accept rollback only as a fresh higher-sequence signed plan bound to retained,
+  reverified historical content/source/policy. Journal bounded transitions; never
+  prune foreign or omitted desired-state/provider objects.
+- Add API recovery/expiry/rollback cases and real HTTPS Keycloak tests with an
+  actually stopped Hub listener. Installed six-cell Fleet qualification is
+  described above; no release is published.
+
+### Capability-aware Fleet delivery
+
+- Evaluate inferred and explicitly signed capabilities against qualified provider
+  support and fresh effective native permissions; require existing target realms
+  and the local realm-isolation binding. Whole-target requirements and semantic
+  minimum operator versions fail before desired-state delivery.
+- Support explicit partial selection, propagate refused in-plan dependencies and
+  preserve whole-plan refusal for incompatible atomic plans. Report bounded public
+  findings, acknowledged delivery counts and selection identity without promoting
+  a partial plan to Synced or full applied identity.
+- Honour independent protected local pause/refuse controls before fetch and before
+  conditional writes, including races after checkpoint acceptance. Disconnected provider authority and referenced rollback are described above;
+  installed Fleet qualification is described above. No publication or protected merge is implied.
+
+### Locally approved signed fleet plans
+
+- Add an explicit Ed25519 fleet transition with independently protected local
+  publisher keys, exact tenant/cluster/namespace/UID and source bindings, bounded
+  closed JSON, validity windows and monotonically increasing signed sequences.
+- Persist accepted and applied identities with optimistic concurrency; recover
+  after lost status acknowledgements, refuse lower/conflicting sequences and
+  retain the signed-mode requirement after restart or removal of configuration.
+  Preflight all content with typed decoding and Kubernetes dry-run before child
+  writes, preserving existing tenant and field ownership protections.
+- Add real HTTPS Hub/API fixtures and a local trust admission policy. Signing
+  and distribution require a compatible Hub. Disconnected provider authorization and referenced rollback are described
+  above; installed fleet qualification is described above;
+  no production fleet contract or release publication is implied.
+
+### Managed lifecycle provider observation
+
+- Refuse existing managed Deployments, Services, NetworkPolicies and disruption
+  budgets without exact current-instance controller ownership. Read authority
+  through the uncached API and use resource-version preconditions for updates
+  and UID/version preconditions for stale-budget deletion. Foreign objects and
+  concurrent ownership changes cannot be silently overwritten or removed.
+  Read the instance intent through the uncached API and stop reconciliation when
+  deletion has begun, including when the cache still contains an active record.
+- Bind managed instance readiness to the UID and generation of an owned,
+  fully ready Deployment observed through the uncached API before and after
+  the Admin API probe. Invalidate the binding while probing or on failure;
+  a rollout changed during the probe cannot inherit its successful result.
+- Recheck the current rollout and its provider binding at Upgrade/DBSwitch
+  validation, including after a persisted `WaitRollout` step. Refuse legacy
+  Ready status, replacement Deployments and newer rollouts until a fresh
+  bound probe succeeds. These controller/API guards do not qualify installed
+  managed upgrades, database transitions or production recovery.
+
+### Installed configuration-only Clone recovery
+
+- Preserve exact tenant-label presence on operation children and bind an explicit
+  empty label in lifecycle intent hashes. Composed controller/API tests prevent
+  standalone operation snapshots from being misclassified into an empty tenant.
+- Exercise a same-namespace external-source Clone alias with the exact scanned
+  operator on Kubernetes 1.37.0 / HTTPS Keycloak 26.8.0. Use read-only provider
+  identities and real ConfigMap-create RBAC denial, persist operation/snapshot
+  checkpoints, restart the manager and require the original children, immutable
+  capture, complete import and current target observation before completion.
+- Refuse an existing foreign target and propagate a real denied inventory read
+  as failed import/operation while preserving provider configuration. Keep all
+  lifecycle APIs experimental; managed-source Clone, Upgrade, DBSwitch, database
+  copying and automatic rollback remain unqualified.
+
+### Snapshot tenant isolation
+
+- Scope configuration captures to the exact namespace and tenant label identity,
+  including a distinct unlabelled standalone scope. Refuse recovery of owned,
+  correctly hashed legacy captures containing another tenant or namespace before
+  checkpoint acceptance or a database Job. Preserve immutable captures for
+  administrator review; existing terminal snapshots remain historical records.
+- Qualify all four configuration kinds, empty versus absent tenant labels,
+  restart preservation and rejection of legacy cross-scope captures. Retain the
+  experimental lifecycle and unqualified database backup/restore boundaries.
+- Extend all six installed workload cells with real configuration captures and
+  independent stored-content checks. On both deep-migration cells, interrupt an
+  accepted ConfigMap write, restart the manager and require the same UID/content
+  without a second create; seed an owned legacy cross-tenant capture and require
+  refusal without rewriting it or starting a backup Job.
+
 ### Installed workload identity and migration qualification
 
 - Qualify the exact scanned operator image with real installed Pods on Kubernetes
   1.35.0/1.36.2/1.37.0 and Keycloak 26.7.5/26.8.0. Required native 6×57 checks
-  and the general installed 19 checks remain separate gates. Projected assertions
+  and the general installed 20 checks remain separate gates. Projected assertions
   obtain access tokens and independently exercise native resource ALLOW/DENY;
   real rotation, expiry, UID replacement, containment and leakage checks run in
   all six installed cells.
@@ -64,6 +427,13 @@ Provider Portability, Fleet Reconciliation and Initial Public Contract
 Stabilization, plus #21's real trust/publication evidence. These are work subjects,
 not product versions. A later 1.0 decision depends on public use and a proven
 compatibility commitment.
+All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibility commitment has been selected. Candidate `v1beta1` additionally serves Application, Role and ResourceServer with identical schemas; storage remains `v1alpha1`.
+
+Experimental surfaces: managed lifecycle, portable backup and restore, delegation
+and agent identity, a second IAM provider, mesh traffic enforcement and cloud/CNI/CSI
+remain unqualified beyond their named fixture subsets. Hub and Continuum remain
+optional alpha integrations. See [the support inventory](docs/api-support.md) and
+[API migration policy](docs/api-migration-policy.md).
 <!-- release-notes:end -->
 
 Early development used milestone-like version labels before the first public
@@ -103,6 +473,17 @@ release; those labels did not identify public packages or GitHub Releases.
 
 ### Keycloak foundation, operations and security
 
+- Key all CRD status Conditions by type, so independent top-level SSA status
+  managers preserve each other's entries. Nested mapper Conditions also declare
+  type keys; their containing lists retain the existing ownership topology.
+  Duplicate types are rejected; competing writes to the same type still conflict.
+  Existing atomic-list installations need the documented ownership migration;
+  changing the schema does not transfer old managedFields automatically.
+- Record all 17 resources and 350 spec/status field groups in a reviewed support
+  inventory, enforce matching README/chart/release-note classifications and
+  document CRD ordering, stored versions, journal formats and rollback limits.
+  This is development preparation for #82/#83/#85, not public surface selection.
+
 Apache-2.0 licensed standalone Keycloak IAM reconciliation.
 
 #### Capability and qualification details
@@ -113,7 +494,7 @@ and client-secret rotation. Keycloak still performs login, token issuance and
 authentication email delivery. The operator is not a general user-provisioning tool.
 
 Qualification covers Linux Kubernetes **1.35–1.37**, using API-server/etcd fixtures
-**1.35.0, 1.36.2 and 1.37.0** for all 16 CRDs, server-side apply, RBAC and Restricted
+**1.35.0, 1.36.2 and 1.37.0** for all 17 CRDs, server-side apply, RBAC and Restricted
 admission. Real HTTPS Keycloak Admin API v1 tests cover **26.8.0 and 26.7.5**,
 including reconciliation, least-privilege identities, denied operations and
 ownership/finalizers. Other Keycloak patches/major lines and Kubernetes minors
@@ -157,7 +538,9 @@ purposes; none guarantees absence of vulnerabilities.
 
 The `hanko.sh/v1alpha1` APIs are experimental and may change across minor versions
 before 1.0. `HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are
-experimental; their completion, interruption/retry and recovery are unqualified.
+experimental. The installed same-namespace external-source configuration Clone
+subset covers checkpoint restart, provenance, completion and failure on Kubernetes
+1.37.0 / Keycloak 26.8.0. Other installed lifecycle workflows remain unqualified.
 Future qualification has no scheduled release version. Portable backup/restore
 is not qualified; snapshots, clones and database-reference switches are not a tested
 disaster-recovery path. Rolling back
@@ -269,7 +652,7 @@ response targets and supported versions are in SECURITY.md.
   refuse redirects, require inventory updates and reject network-call bypasses
   in regression tests.
 
-- Qualify Kubernetes 1.35–1.37 with real API-server/etcd tests of all 16 CRDs,
+- Qualify Kubernetes 1.35–1.37 with real API-server/etcd tests of all 17 CRDs,
   server-side apply, CEL, status, RBAC and Restricted admission. Require every
   matrix result before merge or Attest delivery; reject unqualified cluster minors.
 - Schedule the operator on Linux nodes and add optional RuntimeDefault AppArmor
@@ -773,4 +1156,4 @@ https://github.com/Alien6-Studio/hankoshell-operator/security/advisories/new.
   reusable rollback fixtures and real first-publication trust in #21. Alpha APIs
   can remain alpha with documented limits; this is no SemVer 1.0 guarantee.
 
-See [ROADMAP.md](ROADMAP.md) for the complete scope and exit criteria.
+See the [Release 1.0.0 milestone](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11) for the remaining work and issue acceptance criteria.

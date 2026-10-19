@@ -1,12 +1,10 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -17,19 +15,21 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
+	hankoshv1beta1 "github.com/Alien6-Studio/hankoshell-operator/api/v1beta1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/controller"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/decommission"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/hankoapi"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/hub"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/imagevalidator"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/observability"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/selfupdate"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/supervision"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 var scheme = runtime.NewScheme()
@@ -41,14 +41,19 @@ const (
 
 type runtimeConfig struct {
 	metricsAddr          string
+	metricsCertDir       string
+	metricsClientCA      string
+	metricsClientURIs    string
 	probeAddr            string
 	watchNamespace       string
 	enableLeaderElection bool
+	enableLifecycle      bool
 }
 
 func init() { //nolint:gochecknoinits // controller-runtime requires scheme registration before manager startup.
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(hankoshv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(hankoshv1beta1.AddToScheme(scheme))
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(batchv1.AddToScheme(scheme))
 	utilruntime.Must(appsv1.AddToScheme(scheme))
@@ -83,12 +88,19 @@ func main() {
 	if hubPolicy != nil && projection.Mode == hankoapi.ProjectionEnabled {
 		fatalIfError(projection.Client.RequireHTTPS(), "enterprise organization transport is invalid")
 	}
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), managerOptions(
+	managerConfig := managerOptions(
 		config.metricsAddr,
 		config.probeAddr,
 		config.enableLeaderElection,
 		config.watchNamespace,
-	))
+	)
+	if config.metricsAddr != "0" {
+		secureTLS, tlsErr := observability.MetricsTLS(config.metricsCertDir, config.metricsClientCA, strings.Split(config.metricsClientURIs, ","))
+		fatalIfError(tlsErr, "invalid metrics TLS configuration")
+		managerConfig.Metrics.TLSOpts = append(managerConfig.Metrics.TLSOpts, secureTLS)
+	}
+	observability.Default.Register(metrics.Registry)
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), managerConfig)
 	fatalIfError(err, "unable to start manager")
 
 	hubHTTPClient, err := hub.NewHTTPClient(os.Getenv("HANKO_HUB_CA_FILE"))
@@ -102,8 +114,8 @@ func main() {
 		meshPolicyClient, err = client.New(mgr.GetConfig(), client.Options{Scheme: mgr.GetScheme()})
 		fatalIfError(err, "unable to initialise cross-namespace mesh policy projection client")
 	}
-	setupControllers(mgr, pool, projection, config.watchNamespace, hubHTTPClient, meshPolicyClient, meshPolicyNamespace, hubPolicy)
-	setupHealthChecks(mgr, kc)
+	setupControllers(mgr, pool, projection, config.watchNamespace, hubHTTPClient, meshPolicyClient, meshPolicyNamespace, hubPolicy, config.enableLifecycle)
+	setupHealthChecks(mgr, kc, config.watchNamespace, config.metricsAddr != "0")
 
 	ctrl.Log.Info("starting hanko-operator", "watchNamespace", config.watchNamespace)
 	fatalIfError(mgr.Start(ctrl.SetupSignalHandler()), "problem running manager")
@@ -112,8 +124,12 @@ func main() {
 func parseRuntimeConfig() runtimeConfig {
 	config := runtimeConfig{}
 	flag.StringVar(&config.metricsAddr, "metrics-bind-address", "0", "Address for the metrics endpoint; 0 disables it.")
+	flag.StringVar(&config.metricsCertDir, "metrics-cert-dir", "", "Directory with metrics server tls.crt and tls.key; required when metrics are enabled.")
+	flag.StringVar(&config.metricsClientCA, "metrics-client-ca", "", "PEM CA file for metrics client authentication.")
+	flag.StringVar(&config.metricsClientURIs, "metrics-client-uris", "", "Comma-separated exact SPIFFE client URI SAN allowlist (maximum 16).")
 	flag.StringVar(&config.probeAddr, "health-probe-bind-address", ":8081", "Address for the health probe endpoint.")
 	flag.BoolVar(&config.enableLeaderElection, "leader-elect", true, "Enable leader election for controller manager.")
+	flag.BoolVar(&config.enableLifecycle, "lifecycle-enabled", false, "Enable experimental operations and snapshots; requires independent approval admission protection.")
 	flag.StringVar(&config.watchNamespace, "watch-namespace", os.Getenv("WATCH_NAMESPACE"), "Required namespace watched and managed by the operator.")
 	opts := zap.Options{Development: os.Getenv("HANKO_LOG_DEV") == "true"}
 	opts.BindFlags(flag.CommandLine)
@@ -199,6 +215,7 @@ func setupControllers(
 	meshPolicyClient client.Client,
 	meshPolicyNamespace string,
 	hubPolicy *hub.ContinuumPolicy,
+	lifecycleEnabled bool,
 ) {
 	applicationSecretProjectionClient, err := client.New(mgr.GetConfig(), client.Options{Scheme: mgr.GetScheme()})
 	fatalIfError(err, "unable to initialise application secret projection client")
@@ -207,7 +224,7 @@ func setupControllers(
 	workloadTrust := &controller.HankoWorkloadTrustReconciler{Client: mgr.GetClient(), APIReader: mgr.GetAPIReader(), ClusterConfig: mgr.GetConfig()}
 	fatalIfError(workloadTrust.SetupWithManager(mgr), controllerSetupError, "controller", "HankoWorkloadTrust")
 	fatalIfError((&controller.HankoIAMProfileReconciler{Client: mgr.GetClient()}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoIAMProfile")
-	fatalIfError((&controller.HankoRealmReconciler{Client: mgr.GetClient(), ProtectedRealm: protectedRealm, Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName)}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoRealm")
+	fatalIfError((&controller.HankoRealmReconciler{Client: mgr.GetClient(), APIReader: mgr.GetAPIReader(), ProtectedRealm: protectedRealm, Scheme: mgr.GetScheme(), Pool: pool, Recorder: observability.SafeRecorder(mgr.GetEventRecorder(operatorRecorderName))}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoRealm")
 	fatalIfError((&controller.HankoEmailProviderReconciler{
 		Client: mgr.GetClient(),
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoEmailProvider")
@@ -219,22 +236,24 @@ func setupControllers(
 	fatalIfError((&controller.HankoApplicationReconciler{
 		Client: mgr.GetClient(), OwnershipReader: mgr.GetAPIReader(), SecretProjectionClient: applicationSecretProjectionClient, RuntimeClient: applicationSecretProjectionClient,
 		ProtectedClientIDs: protectedClientIDs, ProtectedRealm: protectedRealm,
-		Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName),
+		ExperimentalAuthentik:            os.Getenv("HANKO_EXPERIMENTAL_AUTHENTIK_ENABLED") == "true",
+		ExperimentalAuthentikConnections: strings.Split(os.Getenv("HANKO_EXPERIMENTAL_AUTHENTIK_CONNECTIONS"), ","),
+		Scheme:                           mgr.GetScheme(), Pool: pool, Recorder: observability.SafeRecorder(mgr.GetEventRecorder(operatorRecorderName)),
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoApplication")
 	fatalIfError((&controller.HankoServiceAccountReconciler{
 		APIReader: mgr.GetAPIReader(), RuntimeClient: applicationSecretProjectionClient, WorkloadTrust: workloadTrust,
 		Client: mgr.GetClient(), OwnershipReader: mgr.GetAPIReader(), Scheme: mgr.GetScheme(), Pool: pool,
-		Recorder: mgr.GetEventRecorder(operatorRecorderName), ProtectedClientIDs: protectedClientIDs, ProtectedRealm: protectedRealm,
+		Recorder: observability.SafeRecorder(mgr.GetEventRecorder(operatorRecorderName)), ProtectedClientIDs: protectedClientIDs, ProtectedRealm: protectedRealm,
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoServiceAccount")
-	fatalIfError((&controller.HankoRoleReconciler{Client: mgr.GetClient(), ProtectedRealm: protectedRealm, Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName)}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoRole")
-	organizationReconciler := &controller.HankoOrganizationReconciler{Client: mgr.GetClient(), ProtectedRealm: protectedRealm, Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName), ProjectionMode: projection.Mode}
+	fatalIfError((&controller.HankoRoleReconciler{Client: mgr.GetClient(), ProtectedRealm: protectedRealm, Scheme: mgr.GetScheme(), Pool: pool, Recorder: observability.SafeRecorder(mgr.GetEventRecorder(operatorRecorderName))}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoRole")
+	organizationReconciler := &controller.HankoOrganizationReconciler{Client: mgr.GetClient(), ProtectedRealm: protectedRealm, Scheme: mgr.GetScheme(), Pool: pool, Recorder: observability.SafeRecorder(mgr.GetEventRecorder(operatorRecorderName)), ProjectionMode: projection.Mode}
 	// Keep an unavailable client visibly nil; the installation mode remains
 	// independent and enabled reconciliation reports ProjectorUnavailable.
 	if projection.Client != nil {
 		organizationReconciler.Positions = projection.Client
 	}
 	fatalIfError(organizationReconciler.SetupWithManager(mgr), controllerSetupError, "controller", "HankoOrganization")
-	fatalIfError((&controller.HankoResourceServerReconciler{Client: mgr.GetClient(), WorkloadTrust: workloadTrust, Scheme: mgr.GetScheme(), Pool: pool, Recorder: mgr.GetEventRecorder(operatorRecorderName)}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoResourceServer")
+	fatalIfError((&controller.HankoResourceServerReconciler{Client: mgr.GetClient(), WorkloadTrust: workloadTrust, Scheme: mgr.GetScheme(), Pool: pool, Recorder: observability.SafeRecorder(mgr.GetEventRecorder(operatorRecorderName))}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoResourceServer")
 	fatalIfError((&controller.HankoMeshServiceReconciler{
 		APIReader: mgr.GetAPIReader(), WorkloadTrust: workloadTrust,
 		Client: mgr.GetClient(), NodeReader: mgr.GetAPIReader(), EgressReader: mgr.GetAPIReader(),
@@ -251,9 +270,10 @@ func setupControllers(
 		Scheme:                 mgr.GetScheme(),
 		KeycloakDeploymentName: keycloakDeploymentName(),
 		ImageValidator:         imgValidator,
-		Recorder:               mgr.GetEventRecorder(operatorRecorderName),
+		Recorder:               observability.SafeRecorder(mgr.GetEventRecorder(operatorRecorderName)),
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoTheme")
 	fatalIfError((&controller.HankoTenantReconciler{
+		Recorder:                     observability.SafeRecorder(mgr.GetEventRecorder(operatorRecorderName)),
 		Client:                       mgr.GetClient(),
 		ClusterIdentityReader:        mgr.GetAPIReader(),
 		Scheme:                       mgr.GetScheme(),
@@ -261,6 +281,7 @@ func setupControllers(
 		Supervision:                  supervision,
 		HubHTTPClient:                hubHTTPClient,
 		HubTransportPolicy:           hubPolicy,
+		FleetTrustConfigMapName:      os.Getenv("HANKO_FLEET_TRUST_CONFIGMAP"),
 		MeshPolicyConfigMapName:      os.Getenv("HANKO_MESH_POLICY_CONFIGMAP_NAME"),
 		MeshPolicyConfigMapNamespace: meshPolicyNamespace,
 		MeshPolicyProjectionClient:   meshPolicyClient,
@@ -276,7 +297,7 @@ func setupControllers(
 	}
 	fatalIfError((&controller.HankoKeycloakInstanceReconciler{
 		Client: mgr.GetClient(), Scheme: mgr.GetScheme(), ImageValidator: imgValidator,
-		Recorder: mgr.GetEventRecorder(operatorRecorderName), CredentialRotationAudit: rotationAudit,
+		Recorder: observability.SafeRecorder(mgr.GetEventRecorder(operatorRecorderName)), CredentialRotationAudit: rotationAudit,
 		ServiceAccountMaxAge: serviceAccountMaxAge,
 		RequireHTTPS:         hubPolicy != nil,
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoKeycloakInstance")
@@ -285,10 +306,12 @@ func setupControllers(
 		ProtectedClientIDs: protectedClientIDs, ProtectedRealm: protectedRealm,
 		RequireHTTPS: hubPolicy != nil,
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoImport")
-	fatalIfError((&controller.HankoSnapshotReconciler{
-		Client: mgr.GetClient(), Scheme: mgr.GetScheme(), ImageValidator: imgValidator,
-	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoSnapshot")
-	fatalIfError((&controller.HankoOperationReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoOperation")
+	if lifecycleEnabled {
+		fatalIfError((&controller.HankoSnapshotReconciler{
+			Client: mgr.GetClient(), Scheme: mgr.GetScheme(), ImageValidator: imgValidator,
+		}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoSnapshot")
+		fatalIfError((&controller.HankoOperationReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme()}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoOperation")
+	}
 }
 
 // decommissionConfig reads the Helm-provided identity of this release for the
@@ -360,20 +383,6 @@ func newCredentialRotationAuditor() *hankoapi.AuditClient {
 	return client
 }
 
-func setupHealthChecks(mgr ctrl.Manager, kc *keycloak.Client) {
-	fatalIfError(mgr.AddHealthzCheck("healthz", healthz.Ping), "unable to set up health check")
-	fatalIfError(mgr.AddReadyzCheck("readyz", healthz.Ping), "unable to set up ready check")
-	if spokeMode() {
-		return
-	}
-	fatalIfError(mgr.AddReadyzCheck("keycloak", func(_ *http.Request) error {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_, err := kc.ServerVersion(ctx)
-		return err
-	}), "unable to set up keycloak ready check")
-}
-
 func fatalIfError(err error, message string, keysAndValues ...any) {
 	if err != nil {
 		ctrl.Log.Error(err, message, keysAndValues...)
@@ -395,7 +404,8 @@ func managerOptions(metricsAddr, probeAddr string, enableLeaderElection bool, wa
 			},
 		},
 		Metrics: metricsserver.Options{
-			BindAddress: metricsAddr,
+			BindAddress:   metricsAddr,
+			SecureServing: true,
 		},
 		HealthProbeBindAddress:  probeAddr,
 		LeaderElection:          enableLeaderElection,

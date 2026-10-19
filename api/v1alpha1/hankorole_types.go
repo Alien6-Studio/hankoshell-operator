@@ -5,6 +5,7 @@ import (
 )
 
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=hrole,categories=hanko
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=".status.phase"
@@ -36,6 +37,9 @@ type HankoRoleSpec struct {
 
 	// RealmRef references the HankoRealm this role belongs to.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	RealmRef string `json:"realmRef"`
 
 	// Name is the Keycloak realm role name.
@@ -145,6 +149,8 @@ type HankoRoleStatus struct {
 
 	// Conditions holds standard Kubernetes condition objects.
 	// +kubebuilder:validation:MaxItems=8
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 

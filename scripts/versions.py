@@ -2,8 +2,8 @@
 
 Docker base images and Go modules stay visible to Dependabot. Their reviewed
 toolchain must agree with the manifest. Generated literals are checked in
-preflight; executable consumers read the manifest directly. An unused tool
-(currently gotestsum) has a null pin and cannot be installed through this API.
+preflight; executable consumers read the manifest directly. A disabled tool
+has a null pin and cannot be installed through this API.
 """
 
 import argparse
@@ -36,9 +36,11 @@ def crd_inventory(root=ROOT, data=None):
         crd = yaml.safe_load(path.read_text())
         spec = crd["spec"]
         kind = spec["names"]["kind"]
+        candidate_versions = [name for name, item in api.get("candidate_versions", {}).items() if kind in item["kinds"]]
         if (crd["kind"] != "CustomResourceDefinition" or spec["group"] != "hanko.sh"
-                or [v["name"] for v in spec["versions"]] != [api["version"]]
+                or [v["name"] for v in spec["versions"]] != [api["version"], *candidate_versions]
                 or not spec["versions"][0]["served"] or not spec["versions"][0]["storage"]
+                or any(not v["served"] or v["storage"] for v in spec["versions"][1:])
                 or kind in kinds):
             raise ValueError("Invalid or duplicate served API: " + str(path))
         kinds.add(kind)
@@ -51,6 +53,15 @@ def crd_inventory(root=ROOT, data=None):
     if not kinds or kinds != source_kinds or kinds != registered:
         raise ValueError(f"CRD/source/scheme kinds differ: manifests={sorted(kinds)}, "
                          f"types={sorted(source_kinds)}, scheme={sorted(registered)}")
+    for version, entry in api.get("candidate_versions", {}).items():
+        directory = root / entry["types"]
+        declarations = "\n".join(p.read_text() for p in directory.glob("*_types.go"))
+        declared = set(re.findall(r"(?m)^type (\w+) struct \{\s*metav1\.TypeMeta\b", declarations))
+        declared = {kind for kind in declared if not kind.endswith("List")}
+        registration = (directory / "groupversion_info.go").read_text()
+        registered = {kind for kind in re.findall(r"&(\w+)\{\}", registration) if not kind.endswith("List")}
+        if set(entry["kinds"]) != declared or declared != registered or f'Version: "{version}"' not in registration:
+            raise ValueError("Candidate source/scheme inventory differs from reviewed kinds")
     return {"version": api["version"], "crd_count": len(kinds), "kinds": sorted(kinds)}
 
 
@@ -68,6 +79,8 @@ def generated(root=ROOT, data=None):
 
     release = data["release"]["version"]
     replace("go.mod", r"^(toolchain go)\S+$", data["go"]["toolchain"])
+    replace(".pre-commit-config.yaml", r"^(minimum_pre_commit_version: )'.+'$",
+            "'" + data["tools"]["pre_commit"]["version"] + "'")
     replace("Dockerfile", r"^(ARG VERSION=)\S+$", release)
     replace("internal/version/version.go", r'^(var Agent = ).+$', json.dumps(release))
     chart = "charts/hankoshell-operator/Chart.yaml"
@@ -83,12 +96,31 @@ def generated(root=ROOT, data=None):
                 "keycloak": data["keycloak"]["versions"],
                 "workload-keycloak": sorted(data["keycloak"]["versions"])}
     for name, values in matrices.items():
-        count = 2 if name == "workload-keycloak" else (3 if name == "kubernetes" else 1)
+        count = 7 if name == "workload-keycloak" else (8 if name == "kubernetes" else 3)
         replace(ci, rf"^(        (?:version|keycloak|kubernetes): ).+(?= # versions:{name}$)",
                 json.dumps(values), count)
-    for family in ("kubernetes", "keycloak"):
-        replace(ci, rf"^(        if: matrix.version == ).+(?= # versions:{family}-lint$)",
+    for family in ("kubernetes",):
+        replace(ci, rf"^(        if: matrix.version == )'[^']+'(?=(?: && matrix.shard == 'core')? # versions:{family}-lint$)",
                 "'" + data[family]["default"] + "'")
+
+    scale_workflow = ".github/workflows/scale-qualification.yml"
+    for name, values in (("keycloak", sorted(data["keycloak"]["versions"])), ("kubernetes", data["kubernetes"]["versions"])):
+        marker = "workload-keycloak" if name == "keycloak" else "kubernetes"
+        replace(scale_workflow, rf"^(        {name}: ).+(?= # versions:{marker}$)", json.dumps(values))
+
+    window = ["| Component | Exact qualification versions | Default |", "| --- | --- | --- |"]
+    for family in ("kubernetes", "keycloak"):
+        window.append("| " + family + " | " + ", ".join("`" + value + "`" for value in sorted(data[family]["versions"], key=lambda v: tuple(map(int, v.split("."))))) + " | `" + data[family]["default"] + "` |")
+    block = "<!-- support-window:start -->\n" + "\n".join(window) + "\n<!-- support-window:end -->"
+    for filename in ("README.md", "SECURITY.md", "charts/hankoshell-operator/README.md", "docs/support-window.md", "docs/version-reference-inventory.md", "docs/secure-deployment.md"):
+        original = output.get(filename, (root / filename).read_text())
+        if original.count("<!-- support-window:start -->") != 1 or original.count("<!-- support-window:end -->") != 1:
+            raise ValueError("Missing unique generated support window in " + filename)
+        output[filename] = re.sub(r"<!-- support-window:start -->.*?<!-- support-window:end -->", lambda _: block, original, flags=re.S)
+
+    minor_values = sorted(tuple(map(int, value.split(".")))[:2] for value in data["kubernetes"]["versions"])
+    badge = ".".join(map(str, minor_values[0])) + "%E2%80%93" + ".".join(map(str, minor_values[-1]))
+    replace("README.md", r"^(\[!\[Kubernetes\]\(https://img.shields.io/badge/kubernetes-).*?(?=-326CE5\.svg)", badge)
 
     cosign = data["tools"]["cosign"]
     # One generated shell fragment is sourced by both native and image builds.
@@ -139,7 +171,8 @@ def validate(data):
             if not re.fullmatch(re.escape(prefix + version) + r"@sha256:[0-9a-f]{64}", image):
                 raise ValueError("Fixture image version or checksum differs: " + version)
     hashes = [(values, 128) for values in kubernetes["envtest_sha512"].values()]
-    hashes += [(data["tools"][tool]["sha256"], 64) for tool in ("helm", "kind", "kubectl")]
+    hashes += [(data["tools"][tool]["sha256"], 64) for tool in ("helm", "kind", "kubectl", "gitleaks")]
+    hashes += [({"pyz": data["tools"]["pre_commit"]["sha256"]}, 64)]
     hashes += [(kubernetes["built_node"]["sha256"], 64)]
     for values, length in hashes:
         if not values or any(not re.fullmatch(r"[0-9a-f]{" + str(length) + "}", digest) for digest in values.values()):
@@ -169,7 +202,8 @@ def check_consumers(root):
             raise ValueError("Cosign builders must share the generated module pins")
     makefile = (root / "Makefile").read_text()
     for variable in ("VERSION", "RELEASE_VERSION", "CONTROLLER_GEN_VERSION", "GOLANGCI_LINT_VERSION",
-                     "GO_ARCH_LINT_VERSION", "GOVULNCHECK_VERSION", "KUBERNETES_VERSION", "KEYCLOAK_VERSION"):
+                     "GO_ARCH_LINT_VERSION", "GOVULNCHECK_VERSION", "GOTESTSUM_VERSION", "GO_LICENSES_VERSION",
+                     "KUBERNETES_VERSION", "KEYCLOAK_VERSION"):
         if not re.search(r"^" + variable + r" [?:]= \$\(shell python3 scripts/versions.py get [a-z_ ]+\)$", makefile, re.M):
             raise ValueError("Makefile must read the reviewed pin: " + variable)
     # Qualification-specific protocol expectations remain explicit tests. Active

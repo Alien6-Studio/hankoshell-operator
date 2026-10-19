@@ -1,0 +1,10 @@
+{
+  "reference_runtime_revision": "64e48902e918be843c2bed32567cc1b6898820bb",
+  "revision": "5d5e3f7381d7215d29a1b2b43e113766e5b2da45",
+  "operator_binary_sha256": {
+    "linux/amd64": "sha256:9c907e7d7d8ad94de79e9b47b7033387f4d311b9d89f0a0936514804a4ab206f",
+    "linux/arm64": "sha256:0995b3b99a9dd36e3ef63ddcb40cfa0c56e4b79b5df42783e1a7ad02cdc64cd7"
+  },
+  "identical_operator_binaries": true,
+  "runtime_source_chart_dependencies_unchanged": true
+}

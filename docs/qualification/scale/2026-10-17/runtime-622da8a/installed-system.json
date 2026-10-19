@@ -1,0 +1,48 @@
+{
+  "version": "0.1.0-dev.0",
+  "revision": "622da8a3cd9046791c567143475e5bb63217fc0d",
+  "image_digest": "sha256:017cb49dd8eb42760a257c93c6b46cb9580ea6d9d14a39db60394bf7b677fd6d",
+  "kubernetes": "1.37.0",
+  "keycloak": "26.8.0",
+  "result": "pass",
+  "checks": [
+    "Helm installation and real pod startup under Restricted admission",
+    "namespace RBAC and current-API event recording",
+    "verified private-CA HTTPS, wrong-CA readiness/write denial and trust repair",
+    "scoped Keycloak identity and denied authority",
+    "realm/client/roles/Secret reconciliation",
+    "IAM role and authorization evaluated/applied/read-back evidence, UID ownership and finalizer cleanup",
+    "legacy OIDC and SAML installed contracts, metadata, UID ownership, Observe/no SAML Secret and deletion",
+    "imported M2M and role reviewed leaf acquisition, exact candidate/receipt/UUID, no acquisition credential access, import latch, explicit Manage, native locale/composite preservation and restart/status-loss recovery",
+    "receipt-backed safe M2M cleanup; role cleanup holds unqualified foreign-reference boundary and explicit Observe preserves the provider",
+    "standalone root/child organization and owned direct-only organizational descendant grant, current applied/read-back evidence, grant cleanup preserving organizations; native alias/domains, role bindings, Synced=True and Projection=Unknown/Disabled, no API URL/token/PositionID and child-first finalizer cleanup",
+    "Organization group/native owner-only checkpoints, same receipt, explicit Manage, native drift repair, foreign child cleanup refusal and safe selected cleanup in an external realm",
+    "Application acquisition followed by ResourceServer selective V2 journal, sibling receipt preservation, exact selected IDs, status-loss/restart recovery, drift repair, late shared dependency cleanup refusal and foreign graph survival",
+    "drift recovery after manager restart without duplicate client or credential rotation",
+    "managed finalizer and Observe preservation",
+    "runtime M2M projected-credential token and rotation",
+    "SAML metadata binding and target-preserving cleanup",
+    "independent typed shared trust in external Observe realm; actual current kube-system UID/public API CA DER anchor and verified issuer/JWKS, three dedicated credentials, native UUID/journal, manager restart, explicit shared-age inventory review and zero-dependent provider-only cleanup",
+    "workload binding and native federated activation: actual cross-namespace named SA/CM get/patch, explicit approved UID and target UID consent, current owned native client and active public-only metadata, recreated-SA containment preserves complete native state except enabled=false; no TokenRequest/list/create/delete grant",
+    "configuration-only Clone alias: explicit lifecycle opt-in and UID/intent approval, ordinary author/operator self-approval and forged-child denial, read-only provider identities, actual ConfigMap-create RBAC denial, durable snapshot checkpoint, manager restart, same child UIDs, immutable capture, complete import and current verified-TLS target observation; foreign target refused and actual denied inventory propagated as failure without provider mutation",
+    "no credentials in logs/events/CRDs"
+  ],
+  "public_contract": {
+    "fixture_sha256": "34f93530cb9e0ac18b9345c54155409323ef35fb34e0133ca4f63b4013af679b",
+    "fixtures": 6,
+    "restart_preserves_native_identity": true,
+    "cross_release": "NoPublishedPredecessor"
+  },
+  "operational_checks": [
+    "real Helm upgrade enables mandatory mTLS on two Restricted replicas",
+    "runbook public image/status/reason/lease jsonpath commands",
+    "authorized certificate scrapes; anonymous and unapproved URI denied on every replica",
+    "actual metrics contain no credential or native client-ID sentinel",
+    "registered reconcile/provider outcomes and complete bounded leader inventory",
+    "liveness/serving remain healthy on standby; full readiness requires leadership",
+    "leader removal acquires a new lease without duplicate native client or credential rotation",
+    "credential sentinel scan of logs, Events and all Hanko CRDs",
+    "real Helm configuration rollback disables metrics and returns to one replica"
+  ],
+  "raw_report_sha256": "7079bfde9cb4e9fa57afbce7aab45cbcc3d0f47340324fd581f6a3699b1c941c"
+}

@@ -23,3 +23,12 @@ Historical Git commits/PRs/CI and signed objects are retained without history
 rewrites. Removing erroneous tag refs does not alter their underlying commits.
 Milestones use functional work subjects; later 1.0 mentions describe a future
 compatibility decision, not a scheduled milestone.
+
+Qualification window: [support policy](support-window.md), [compatibility proposal](compatibility-policy.md).
+
+<!-- support-window:start -->
+| Component | Exact qualification versions | Default |
+| --- | --- | --- |
+| kubernetes | `1.35.0`, `1.36.2`, `1.37.0` | `1.37.0` |
+| keycloak | `26.7.5`, `26.8.0` | `26.8.0` |
+<!-- support-window:end -->

@@ -1,0 +1,14 @@
+{
+  "runtime_revision": "64e48902e918be843c2bed32567cc1b6898820bb",
+  "result": "fail",
+  "stage": "installed-system operational TLS authentication probe",
+  "error_type": "ValueError",
+  "server_recorded_missing_certificate_refusal": true,
+  "client_probe_observed_qualified_peer_alert": false,
+  "public_corpus_and_restart_passed": true,
+  "precise_client_transport_cause": "not established; the private OpenSSL transcript was not retained",
+  "correction_revision": "f072c4893de07c7540a49d746e89e10eb4655233",
+  "correction": "Verify the TLS handshake without early HTTP application bytes; use the exact IPv4 forward while retaining localhost SNI/hostname verification. Keep the explicit peer-certificate alert requirement.",
+  "local_regression": "100/100 handshake-only refusals and an authorized positive control pass. The original intermittent failure was not reproduced; the old HTTP-request mode also passed locally.",
+  "initial_log_sha256": "sha256:ecd844ce29aa92fcc2ed16e0dce887d301628f56ae7cd3f7b142f97fdc73ca0e"
+}

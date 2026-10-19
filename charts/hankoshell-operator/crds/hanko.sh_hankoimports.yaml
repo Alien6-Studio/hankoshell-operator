@@ -195,6 +195,9 @@ spec:
                   - type
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
               coverage:
                 description: Coverage measures discovery; terminal Done does not imply
                   complete inventory.

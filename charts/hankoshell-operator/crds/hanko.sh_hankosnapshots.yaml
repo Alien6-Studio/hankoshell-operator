@@ -158,13 +158,32 @@ spec:
                   - type
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              configHash:
+                type: string
               configMapRef:
                 description: ConfigMapRef is the name of the ConfigMap holding the
                   serialized CRD config.
                 type: string
+              configMapUID:
+                description: ConfigMapUID and ConfigHash bind the immutable configuration
+                  captured on the first successful create.
+                type: string
               dbJobRef:
                 description: DBJobRef is the name of the pg_dump Job (set only when
                   includeData=true).
+                type: string
+              dbJobUID:
+                description: DBJobUID prevents replay when a previously accepted backup
+                  Job disappears or is replaced.
+                type: string
+              instanceUID:
+                description: InstanceUID identifies the source instance before any
+                  child is created.
+                type: string
+              intentHash:
                 type: string
               lastReconciled:
                 description: LastReconciled is the timestamp of the last reconcile
@@ -179,6 +198,11 @@ spec:
                 - Done
                 - Failed
                 type: string
+              startedGeneration:
+                description: StartedGeneration and IntentHash bind retries to the
+                  original specification and tenant.
+                format: int64
+                type: integer
               takenAt:
                 description: TakenAt is when the snapshot completed successfully.
                 format: date-time

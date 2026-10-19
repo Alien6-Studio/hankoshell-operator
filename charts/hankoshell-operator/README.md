@@ -1,6 +1,9 @@
 # hankoShell Operator chart
 
 Helm chart for declarative Keycloak IAM configuration with hankoShell Operator.
+`reconciliation.maxConcurrent` defaults to 1 and accepts integers 1–8 for the four
+reviewed IAM controllers. See the [concurrency review and scale qualification](../../docs/scale-and-soak.md)
+before increasing it; this setting is not a measured capacity recommendation.
 Target 0.1.0 is in initial development; current chart/app metadata is the
 prerelease `0.1.0-dev.0`. No public release has been published yet.
 The source includes the [OIDC/SAML application contract](../../docs/architecture/application-identity.md),
@@ -14,7 +17,48 @@ The chart installs 17 experimental `hanko.sh/v1alpha1` CRDs. These APIs may chan
 between minor versions. All controllers are registered; integration flags
 configure their connections to optional services.
 
-Kubernetes **1.35–1.37** and Linux nodes are the qualification window. CI uses
+<!-- api-support:start -->
+All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibility commitment has been selected. Candidate `v1beta1` additionally serves Application, Role and ResourceServer with identical schemas; storage remains `v1alpha1`.
+
+| Resource | Surface | Compatibility |
+| --- | --- | --- |
+| `HankoApplication` | standalone IAM | experimental |
+| `HankoEmailProvider` | deprecated | experimental |
+| `HankoIAMProfile` | standalone IAM | experimental |
+| `HankoImport` | instance and operations | experimental |
+| `HankoIssuer` | standalone IAM | experimental |
+| `HankoKeycloakInstance` | instance and operations | experimental |
+| `HankoMeshService` | connected | experimental |
+| `HankoOperation` | instance and operations | experimental |
+| `HankoOrganization` | standalone IAM | experimental |
+| `HankoRealm` | standalone IAM | experimental |
+| `HankoResourceServer` | standalone IAM | experimental |
+| `HankoRole` | standalone IAM | experimental |
+| `HankoServiceAccount` | standalone IAM | experimental |
+| `HankoSnapshot` | instance and operations | experimental |
+| `HankoTenant` | connected | experimental |
+| `HankoTheme` | instance and operations | experimental |
+| `HankoWorkloadTrust` | standalone IAM | experimental |
+
+| Additional surface | Compatibility |
+| --- | --- |
+| Delegation and agent identity | experimental |
+| Second IAM provider | experimental |
+| Hub and Continuum | alpha |
+| Mesh traffic enforcement | experimental |
+| Portable backup and restore | experimental |
+| Managed lifecycle | experimental |
+| Cloud, CNI and CSI | experimental |
+<!-- api-support:end -->
+
+Before changing storage or applying CRDs to an existing installation, follow the
+[storage migration runbook](../../docs/storage-migration.md). Helm upgrades do not
+update crds/; the live stored-version guard refuses an unreadable rollback.
+
+See the [support and field-group inventory](../../docs/api-support.md) and
+[API migration policy](../../docs/api-migration-policy.md) before upgrading CRDs.
+
+The generated support table below defines the exact Kubernetes qualification window on Linux nodes. CI uses
 real API-server/etcd fixtures to check CRDs, server-side apply, RBAC and Restricted
 admission on each minor. Future minors and upstream alpha/beta/RC builds are rejected
 until qualified. Install the latest provider security patch; fixed CI fixtures
@@ -46,11 +90,18 @@ also exposes realm users. No chart flag grants this authority. See the
 [organization-grant contract](../../docs/keycloak-permissions.md#organization-principals-010)
 for direct/descendant semantics, ownership, bounds and the reconciliation window.
 
-Real HTTPS Admin API v1 qualification covers Keycloak **26.8.0 and 26.7.5** only.
+Real HTTPS Admin API v1 qualification covers only the exact Keycloak versions in the generated support table below.
 Other patches and major lines are unqualified. Hub/Continuum integrations are
 optional; standalone Keycloak reconciliation does not depend on them. See the
 [qualification limits](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md#keycloak-compatibility)
 and project website [hanko.sh](https://hanko.sh).
+
+Signed fleet plans are opt-in: set `hub.enabled: true` and
+`fleetPlanVerification.trustConfigMap: hanko-fleet-plan-trust` only after a local
+policy administrator provisions and protects that ConfigMap and Hub supports the
+new signed media type. The chart does not create publisher trust or admission
+authority. See the [transition and rollback guide](../../docs/secure-deployment.md#signed-fleet-plan-transition).
+An accepted signed checkpoint forbids returning that tenant to legacy HMAC.
 
 Instance `spec.hardenMasterRealm` and `spec.rotateAdminCredentials` default to
 `false`, including in managed mode. Set them explicitly only when the operator
@@ -125,69 +176,19 @@ default. Review image policy ownership before enabling workload execution.
 
 ## Metrics and Prometheus
 
-`metrics.enabled` is the global switch, defaulting to `false`. Disabled metrics
-set the manager bind address to `0` and render no metrics port, Service,
-ServiceMonitor, Prometheus annotations or metrics ingress. Health probes keep
-their separate port 8081. The standalone binary also defaults to disabled metrics;
-an explicit `--metrics-bind-address=:8080` enables it outside Helm.
-The global switch overrides a retained `serviceMonitor.enabled: true`, so disabling
-metrics requires no secondary toggle and no Prometheus API.
+Metrics are off by default. When enabled, TLS 1.3, trusted client certificates
+and exact authorized SPIFFE URI SANs are required. Server certificates and client
+CA trust come from pre-existing namespace-local Secrets. The ServiceMonitor uses
+HTTPS with server CA/DNS verification and client certificate authentication.
+No pod scrape annotations or anonymous/plaintext mode are provided. Exact
+Prometheus namespace AND pod labels still constrain ingress on TCP/8080.
+The Pod readiness probe excludes the leader check so healthy standbys remain Ready;
+the full `/readyz` endpoint reports reconciliation readiness.
 
-Enabled metrics bind port 8080 and expose the existing release-owned ClusterIP
-Service. With `metrics.serviceMonitor.enabled: false`, pod annotations advertise
-`/metrics` on 8080; your Prometheus configuration must implement annotation
-discovery. With it set to `true`, the chart instead creates a ServiceMonitor and
-omits the pod scrape annotations to avoid duplicate discovery. This requires the
-installed Prometheus Operator API; offline rendering needs
-`--api-versions monitoring.coreos.com/v1/ServiceMonitor`.
+Operational procedures: [runbooks](../../docs/operations-runbooks.md), [secure observability](../../docs/operational-observability.md) and the [machine contract](../../docs/operational-contract.json).
 
-When `networkPolicy.enabled` is true, **every enabled metrics configuration**
-requires both `metrics.networkPolicy.namespaceSelector` and `podSelector`, even
-without a ServiceMonitor. Only nonempty exact `matchLabels` are accepted.
-The namespace selector must include `kubernetes.io/metadata.name` for one actual
-Prometheus namespace; expressions, empty identities and IP grants are rejected.
-One ingress peer combines both selectors with AND and permits only TCP/8080.
-Other ingress remains denied. Example (replace labels with those on your pods):
-
-```yaml
-metrics:
-  enabled: true
-  serviceMonitor:
-    enabled: true
-    labels:
-      release: prometheus-stack
-  networkPolicy:
-    namespaceSelector:
-      matchLabels:
-        kubernetes.io/metadata.name: monitoring
-    podSelector:
-      matchLabels:
-        app.kubernetes.io/name: prometheus
-        prometheus: platform
-```
-
-Ensure Prometheus selects ServiceMonitors in the operator's namespace and their
-metadata labels. `serviceMonitor.labels` can match its discovery filter (for
-example `release`), but cannot override chart identity labels. The monitor selects
-only this release's Service in its own namespace. Creating it does not install
-Prometheus or change Prometheus's discovery or egress configuration.
-
-Metrics are unauthenticated HTTP and may disclose operational details. NetworkPolicy
-limits network reachability; it does not provide encryption or application
-authentication. CNI enforcement and other additive policies require installation
-verification. The optional Cilium egress policy does not add metrics ingress.
-Disabling baseline NetworkPolicy in a standard installation explicitly relinquishes
-this chart's ingress restriction; enterprise still requires it.
-
-**Migration:** the previous `metrics.enabled` controlled only ServiceMonitor
-creation. To retain that discovery, set both `metrics.enabled: true` and
-`metrics.serviceMonitor.enabled: true`, configure the explicit Prometheus identity
-and discovery labels. The old flag alone fails rendering with default networking.
-Existing names and port 8080 are retained. Keeping the default `false` now removes
-the previously always-on listener, Service and annotations. Rolling back to an
-older chart restores its previous exposure and flag meaning; review the render.
-
-See the [verification steps and network limitations](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/secure-deployment.md#metrics-and-prometheus).
+See the observability guide for complete values, trust rotation, migration,
+label bounds, alerts, dashboard and qualification limits.
 
 For Keycloak in another namespace, set `networkPolicy.keycloakNamespace`,
 `keycloakSelector` and `keycloakPorts` to its actual pod labels and Service/target
@@ -286,3 +287,68 @@ imported latch. Exact current ownership and qualified native preservation are
 required; foreign dependencies hold cleanup. Chart/app source metadata is 0.1.0-dev.0;
 source freeze requires exact-main qualification. Production publication remains
 pending in #21.
+
+## Initial public contract selection
+
+See the [complete candidate review](../../docs/public-contract-selection.md).
+
+<!-- public-selection:start -->
+Initial 0.1.0 selection: 3 public resource candidates; qualification and first publication remain pending. Current development APIs remain experimental.
+
+| Resource | Selected scope | Public spec groups |
+| --- | --- | --- |
+| `HankoApplication` | public | `clientID`, `mode`, `postLogoutRedirectURIs`, `protocol`, `realmRef`, `realmRoleScopes`, `redirectURIs`, `roles`, `saml`, `type` |
+| `HankoEmailProvider` | experimental | — |
+| `HankoIAMProfile` | alpha | — |
+| `HankoImport` | experimental | — |
+| `HankoIssuer` | alpha | — |
+| `HankoKeycloakInstance` | experimental | — |
+| `HankoMeshService` | experimental | — |
+| `HankoOperation` | experimental | — |
+| `HankoOrganization` | alpha | — |
+| `HankoRealm` | alpha | — |
+| `HankoResourceServer` | public | `applicationRef`, `audience`, `displayName`, `mode`, `permissions`, `realmRef`, `resources`, `scopes` |
+| `HankoRole` | public | `composite`, `composites`, `description`, `mode`, `name`, `realmRef` |
+| `HankoServiceAccount` | alpha | — |
+| `HankoSnapshot` | experimental | — |
+| `HankoTenant` | experimental | — |
+| `HankoTheme` | experimental | — |
+| `HankoWorkloadTrust` | alpha | — |
+
+Native SAML remains an explicit Keycloak extension. Delegation, organization principals,
+connected integrations and every other deferred field retain their named limitations in
+the complete selection; no planned capability is removed.
+<!-- public-selection:end -->
+
+## Experimental authentik registration
+
+`experimental.authentik.enabled` defaults to false. Enabling it requires explicit
+`experimental.authentik.connectionNames` and explicit
+`experimental.authentik.egress.namespace`, `.selector` and `.port`, with the baseline
+NetworkPolicy enabled. The chart adds only that namespace/pod/TCP grant and controls
+`HANKO_EXPERIMENTAL_AUTHENTIK_ENABLED` and the connection-name allow-list. A
+fail-closed admission policy protects the selected ConfigMaps against ordinary
+writers. Only `system:masters` and optional `experimental.authentik.adminGroups`
+may provision/update them. Review existing ConfigMaps before enabling their names.
+No provider credential or CA is generated.
+
+An application selects an administrator-owned, same-namespace typed connection
+ConfigMap using `hanko.sh/provider-connection`. See the
+[exact version, semantics, permissions and recovery boundary](../../docs/architecture/second-provider.md).
+The adapter currently qualifies registration of a bounded OIDC SPA/web subset on
+a real server. Its installed matrix and confidential credential delivery remain
+unqualified. Disabling it retains existing cleanup finalizers and refuses writes.
+
+The [1.0 graduation criteria and per-resource records](../../docs/stable-graduation.md)
+and [second-provider contract review](../../docs/stable-provider-review.md) remain
+unratified development inputs. Lifecycle APIs are excluded from the stable 1.0
+contract and disabled by default; see [ADR-050](../../docs/architecture/decisions/ADR-050-experimental-lifecycle-authority.md).
+
+Qualification window: [support policy](../../docs/support-window.md), [compatibility proposal](../../docs/compatibility-policy.md).
+
+<!-- support-window:start -->
+| Component | Exact qualification versions | Default |
+| --- | --- | --- |
+| kubernetes | `1.35.0`, `1.36.2`, `1.37.0` | `1.37.0` |
+| keycloak | `26.7.5`, `26.8.0` | `26.8.0` |
+<!-- support-window:end -->

@@ -26,6 +26,9 @@ func (r *HankoIAMProfileReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	if err := r.Get(ctx, req.NamespacedName, &profile); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	if _, selected := profile.Labels[providerConnectionLabel]; selected {
+		return rejectExperimentalResource(ctx, r.Client, &profile)
+	}
 	patch := client.MergeFrom(profile.DeepCopy())
 	profile.Status.ObservedGeneration = profile.Generation
 
@@ -54,5 +57,5 @@ func (r *HankoIAMProfileReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 func (r *HankoIAMProfileReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoIAMProfile{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Complete(r)
+		Complete(observeReconciler("HankoIAMProfile", r))
 }

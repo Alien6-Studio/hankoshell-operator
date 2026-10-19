@@ -1,0 +1,11 @@
+{
+  "revision": "4d4ab53bd8ff83f80b866f779a7d413be8e18b4b",
+  "suite": "kubernetes/1.35.0",
+  "counts": {
+    "passed": 277,
+    "failed": 2,
+    "skipped": 0
+  },
+  "reason": "New fixture incorrectly expected Conflict phase; existing service-account contract is Error with Synced=False/OwnershipConflict. Only the fixture assertion changed; all three corrected API suites passed.",
+  "outcome_sha256": "sha256:cb055de89d10893ddbc802ff7603af8a702005fd27e1ad4ef9cc97e0a2d13071"
+}

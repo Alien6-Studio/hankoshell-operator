@@ -110,8 +110,117 @@ type HankoTenantStatus struct {
 	// LastReconciled is the timestamp of the last reconciliation attempt.
 	LastReconciled *metav1.Time `json:"lastReconciled,omitempty"`
 
+	// FleetPlan is the durable signed-plan high-water mark. Its presence forbids
+	// legacy HMAC fallback, including after restart or trust configuration loss.
+	FleetPlan *FleetPlanStatus `json:"fleetPlan,omitempty"`
+	// FleetRollout is bounded delivery evidence, not provider convergence.
+	FleetRollout *FleetRolloutStatus `json:"fleetRollout,omitempty"`
+
 	// Conditions holds standard Kubernetes condition objects.
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
+// FleetPlanStatus contains only public verification/checkpoint evidence. It does
+// not store plan content, keys, tokens or a provider completion attestation.
+type FleetPlanStatus struct {
+	// +kubebuilder:validation:Minimum=1
+	Sequence int64 `json:"sequence"`
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	Identity string `json:"identity"`
+	// PreviousIdentity is evidence only; rollback also requires a retained,
+	// independently reverified envelope and a new monotonic signed plan.
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	PreviousIdentity string `json:"previousIdentity,omitempty"`
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	AppliedIdentity string `json:"appliedIdentity,omitempty"`
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=128
+	KeyID string `json:"keyID"`
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=128
+	TenantUID string      `json:"tenantUID"`
+	ExpiresAt metav1.Time `json:"expiresAt"`
+	// HubEndpointHash pins the last locally accepted credential destination.
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	HubEndpointHash   string              `json:"hubEndpointHash,omitempty"`
+	Cache             *FleetPlanReference `json:"cache,omitempty"`
+	PreviousCache     *FleetPlanReference `json:"previousCache,omitempty"`
+	RollbackReference *FleetPlanReference `json:"rollbackReference,omitempty"`
+	// VerifiedAt detects wall-clock regression across restarts. Expired is
+	// sticky for this identity; moving the clock back cannot revive it.
+	VerifiedAt *metav1.Time `json:"verifiedAt,omitempty"`
+	Expired    bool         `json:"expired,omitempty"`
+	// Journal retains the last sixteen accepted transitions, not provider
+	// completion attestations. Superseded objects are never pruned by rollback.
+	// +kubebuilder:validation:MaxItems=16
+	// +listType=atomic
+	Journal []FleetPlanTransition `json:"journal,omitempty"`
+}
+
+// FleetPlanReference binds an immutable envelope to its acknowledged acceptance.
+type FleetPlanReference struct {
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=128
+	UID string `json:"uid"`
+	// +kubebuilder:validation:Minimum=1
+	Sequence int64 `json:"sequence"`
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	Identity   string      `json:"identity"`
+	AcceptedAt metav1.Time `json:"acceptedAt"`
+}
+
+type FleetPlanTransition struct {
+	// +kubebuilder:validation:Minimum=1
+	Sequence int64 `json:"sequence"`
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	Identity string `json:"identity"`
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	RollbackOf string      `json:"rollbackOf,omitempty"`
+	AcceptedAt metav1.Time `json:"acceptedAt"`
+}
+
+// FleetRolloutStatus reports decisions without remote names or configuration.
+// +kubebuilder:validation:XValidation:rule="self.applied + self.refused + self.pending <= 200",message="rollout evidence exceeds the plan object budget"
+type FleetRolloutStatus struct {
+	// +kubebuilder:validation:Minimum=1
+	Sequence int64 `json:"sequence,omitempty"`
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	Identity string `json:"identity,omitempty"`
+	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	SelectionHash      string `json:"selectionHash,omitempty"`
+	ObservedGeneration int64  `json:"observedGeneration"`
+	// +kubebuilder:validation:Enum=Pending;Applied;Partial;Refused;Paused
+	State string `json:"state"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=200
+	Applied int32 `json:"applied"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=200
+	Refused int32 `json:"refused"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=200
+	Pending int32 `json:"pending"`
+	// +kubebuilder:validation:MaxItems=32
+	// +listType=map
+	// +listMapKey=index
+	Findings []FleetRolloutFinding `json:"findings,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=200
+	Omitted int32 `json:"omitted"`
+}
+
+type FleetRolloutFinding struct {
+	// Index is the zero-based position in the fixed kind-array order.
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=199
+	Index int32 `json:"index"`
+	// +kubebuilder:validation:Enum=FleetCapabilityUnsupported;FleetPermissionDenied;FleetDependencyRefused;FleetCapabilityInventoryUnavailable
+	Reason string `json:"reason"`
 }
 
 // +kubebuilder:object:root=true

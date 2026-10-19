@@ -52,7 +52,12 @@ func TestInstanceUsesOnlyExplicitlyRequestedCapabilities(t *testing.T) {
 				instance.Spec.Adopted = &hanko.AdoptedKeycloakSpec{DeploymentRef: deployment.Name, ServiceRef: service.Name}
 			}
 			scheme := controllerTestScheme(t)
-			kube := controllerTestClient(scheme, instance, secret, service, deployment)
+			objects := []client.Object{instance, secret, service, deployment}
+			if mode == "managed" {
+				instance.UID = "managed-instance"
+				objects = append(objects, readyManagedTestDeployment(instance))
+			}
+			kube := controllerTestClient(scheme, objects...)
 			var before corev1.Secret
 			if err := kube.Get(context.Background(), client.ObjectKeyFromObject(secret), &before); err != nil {
 				t.Fatal(err)

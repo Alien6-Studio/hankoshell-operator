@@ -2,11 +2,13 @@ package keycloak
 
 import (
 	"fmt"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/observability"
 	"net/http"
 	"net/url"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // AdminOperation is the reviewed permission contract, not a replacement for
@@ -80,6 +82,9 @@ var adminOperations = []AdminOperation{
 	{"authorization", "GET,PUT", "/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/scope/{object}", "view-authorization / manage-authorization or manage-clients"},
 	{"authorization-native-dependencies", "GET", "/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/resource", "view-authorization or manage-authorization or manage-clients"},
 	{"authorization", "DELETE", "/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/{object}", "manage-authorization or manage-clients"},
+	{"bounded-delegation", "GET", "/admin/realms/{realm}/clients/{client}/service-account-user", "view-clients and view-users; UID-verified software client only"},
+	{"bounded-delegation", "GET", "/admin/realms/{realm}/users/{user}/role-mappings/realm/composite", "view-users; verified software service-account ID only"},
+	{"bounded-delegation", "GET", "/admin/realms/{realm}/users/{user}/groups", "view-users; verified software service-account ID only, max=129"},
 }
 
 // AdminOperations returns an independent copy for documentation and regression
@@ -123,13 +128,34 @@ func (c *Client) do(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	response, err := c.httpClient.Do(req)
+	guarded, err := c.mutationGuardRequired(req)
 	if err != nil {
 		return nil, err
 	}
+	if guarded {
+		releaseGuard, err := c.requests.acquireGuard(req.Context())
+		if err != nil {
+			return nil, err
+		}
+		defer releaseGuard()
+	}
+	release, err := c.admitRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	started := time.Now()
+	response, err := c.httpClient.Do(req)
+	if err != nil {
+		observability.Default.Provider("keycloak", req.Method, 0, err, time.Since(started))
+		return nil, safeTransportError(err)
+	}
+	c.requests.observe(response)
 	// Callers receive only a complete bounded buffer, never the network stream.
 	// Validate even bodies ignored by success/Location handlers before returning.
-	return boundedKeycloakResponse(response, limit)
+	buffered, readErr := boundedKeycloakResponse(response, limit)
+	observability.Default.Provider("keycloak", req.Method, response.StatusCode, readErr, time.Since(started))
+	return buffered, readErr
 }
 
 func (c *Client) responseBudget(req *http.Request) (int64, error) {
@@ -148,6 +174,9 @@ func (c *Client) responseBudget(req *http.Request) (int64, error) {
 	if !found || req.URL.Scheme != base.Scheme || req.URL.Host != base.Host || req.URL.User != nil {
 		return 0, fmt.Errorf("keycloak operation outside configured endpoint")
 	}
+	if err := validateBoundedDelegationRead(req, path); err != nil {
+		return 0, err
+	}
 	if isBootstrapTokenRequest(req.Method, path) {
 		return maxKeycloakCredentialResponseBytes, nil
 	}
@@ -157,10 +186,7 @@ func (c *Client) responseBudget(req *http.Request) (int64, error) {
 
 	// Public protocol documents: no administrative authority and no token.
 	if isPublicProtocolDocument(req.Method, path) {
-		if req.Header.Get(authorizationHeader) != "" {
-			return 0, fmt.Errorf("protocol metadata must not carry administrative credentials")
-		}
-		return maxKeycloakAdminResponseBytes, nil
+		return publicProtocolResponseBudget(req)
 	}
 	if matchAdminPath("/admin/realms/{realm}/groups/{group}/members", path) || matchAdminPath("/admin/realms/{realm}/organizations/{organization}/members", path) {
 		if err := validateCleanupMembershipQuery(req.URL.Query()); err != nil {
@@ -168,6 +194,13 @@ func (c *Client) responseBudget(req *http.Request) (int64, error) {
 		}
 	}
 	return c.adminResponseBudget(req.Method, path)
+}
+
+func publicProtocolResponseBudget(req *http.Request) (int64, error) {
+	if req.Header.Get(authorizationHeader) != "" {
+		return 0, fmt.Errorf("protocol metadata must not carry administrative credentials")
+	}
+	return maxKeycloakAdminResponseBytes, nil
 }
 
 func (c *Client) dependentResponseBudget(req *http.Request, path string) (int64, error) {
@@ -264,7 +297,7 @@ func inventoryOperation(path string) bool {
 }
 
 func isPublicProtocolDocument(method, path string) bool {
-	return method == http.MethodGet && (matchAdminPath("/realms/{realm}/.well-known/openid-configuration", path) || matchAdminPath("/realms/{realm}/protocol/saml/descriptor", path))
+	return method == http.MethodGet && (matchAdminPath("/realms/{realm}/.well-known/openid-configuration", path) || matchAdminPath("/realms/{realm}/protocol/saml/descriptor", path) || matchAdminPath("/realms/{realm}/bounded-delegation", path))
 }
 
 func isBootstrapTokenRequest(method, path string) bool {

@@ -58,12 +58,12 @@ func (c *Client) EnsureIdentityProvider(ctx context.Context, realm string, desir
 	}
 	collectionPath := identityProvidersPath(realm)
 	if !found {
-		resp, body, requestErr := c.mapperRequest(ctx, http.MethodPost, collectionPath, desired)
+		resp, _, requestErr := c.mapperRequest(ctx, http.MethodPost, collectionPath, desired)
 		if requestErr != nil {
 			return IdentityProvider{}, fmt.Errorf("create identity provider %q: %w", desired.Alias, requestErr)
 		}
 		if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
-			return IdentityProvider{}, fmt.Errorf("create identity provider %q: keycloak %d: %s", desired.Alias, resp.StatusCode, strings.TrimSpace(string(body)))
+			return IdentityProvider{}, &StatusError{Code: resp.StatusCode}
 		}
 		return desired, nil
 	}
@@ -103,12 +103,12 @@ func (c *Client) DeleteIdentityProvider(ctx context.Context, realm, alias string
 	if workloadTrustReserved(current.Config) {
 		return ErrWorkloadTrustConflict
 	}
-	resp, body, err := c.mapperRequest(ctx, http.MethodDelete, providerPath, nil)
+	resp, _, err := c.mapperRequest(ctx, http.MethodDelete, providerPath, nil)
 	if err != nil {
 		return fmt.Errorf("delete identity provider %q: %w", alias, err)
 	}
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusNotFound {
-		return fmt.Errorf("delete identity provider %q: keycloak %d: %s", alias, resp.StatusCode, strings.TrimSpace(string(body)))
+		return &StatusError{Code: resp.StatusCode}
 	}
 	return nil
 }

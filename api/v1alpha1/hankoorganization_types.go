@@ -37,6 +37,9 @@ type HankoOrganizationSpec struct {
 
 	// RealmRef references the HankoRealm this organization belongs to.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	RealmRef string `json:"realmRef"`
 
 	// Name is the organization's display name and Keycloak group name.
@@ -134,6 +137,8 @@ type HankoOrganizationStatus struct {
 
 	// Conditions separates provider Synced from optional platform Projection.
 	// Disabled projection is Unknown/Disabled, not a synchronization failure.
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 

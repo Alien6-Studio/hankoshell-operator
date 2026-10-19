@@ -42,7 +42,7 @@ def write_evidence(directory, revision, version, digest):
     summary = {"schema_version": 1, "verdict": "pass", "scanner": {"name": "trivy", "version": oci.SCANNER_VERSION, "binary_sha256": "b" * 64},
                "index_digest": digest, "archive_sha256": "a" * 64, "revision": revision, "version": version,
                "scanned_at": datetime.now(timezone.utc).isoformat(), "policy_sha256": oci.sha256(oci.POLICY),
-               "database": {"sha256": "c" * 64, "metadata": {}}, "platforms": {}}
+               "database": {"sha256": "c" * 64, "metadata": {}}, "licenses_sha256": oci.repository_licenses(), "platforms": {}}
     for i, platform in enumerate(oci.PLATFORMS):
         config = "sha256:" + str(i + 1) * 64
         path = directory / oci.REPORTS[platform]
@@ -51,6 +51,17 @@ def write_evidence(directory, revision, version, digest):
                                          "report_sha256": oci.sha256(path), **oci.evaluate(report(config), config, oci.read_policy())}
     (directory / oci.SUMMARY).write_text(json.dumps(summary))
     return summary
+
+
+def runtime_layer():
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz") as layer:
+        for name in oci.LICENSE_FILES:
+            data = (ROOT / name).read_bytes()
+            member = tarfile.TarInfo(oci.LICENSE_DIR + "/" + name)
+            member.size = len(data)
+            layer.addfile(member, io.BytesIO(data))
+    return buffer.getvalue()
 
 
 def archive_fixture(path, omit=None, revision=None):
@@ -65,7 +76,7 @@ def archive_fixture(path, omit=None, revision=None):
             continue
         arch = platform.split("/")[1]
         config = blob({"architecture": arch, "os": "linux", "config": {"Labels": {"org.opencontainers.image.revision": revision}}})
-        image = blob({"schemaVersion": 2, "config": config, "layers": [blob(b"synthetic runtime layer")]})
+        image = blob({"schemaVersion": 2, "config": config, "layers": [blob(runtime_layer())]})
         image["platform"] = {"architecture": arch, "os": "linux"}
         manifests.append(image)
         layers = [blob({"subject": [], "predicateType": predicate}) for predicate in
@@ -269,7 +280,8 @@ class ImageEvidenceTests(unittest.TestCase):
             summary = write_evidence(root, revision, "0.1.0-dev.0", digest)
             oci.verify(root, revision, "0.1.0-dev.0", digest)
             for field, value in (("index_digest", "sha256:" + "b" * 64), ("revision", "2" * 40),
-                                 ("verdict", "fail"), ("scanned_at", "2020-01-01T00:00:00+00:00")):
+                                 ("verdict", "fail"), ("scanned_at", "2020-01-01T00:00:00+00:00"),
+                                 ("licenses_sha256", {})):
                 changed = dict(summary, **{field: value})
                 (root / oci.SUMMARY).write_text(json.dumps(changed))
                 with self.assertRaises(ValueError):

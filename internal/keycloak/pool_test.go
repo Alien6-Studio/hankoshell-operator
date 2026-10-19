@@ -1,6 +1,7 @@
 package keycloak_test
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -16,9 +17,9 @@ func TestPool_GetReturnsDefault(t *testing.T) {
 	def := newTestClient("http://default")
 	pool := keycloak.NewPool(def)
 
-	got := pool.Get("no-such-key")
+	got := pool.Get("")
 	if got != def {
-		t.Error("Get on empty pool must return the default client")
+		t.Error("Get with empty key must return the default client")
 	}
 }
 
@@ -35,7 +36,7 @@ func TestPool_RegisterAndGet(t *testing.T) {
 	}
 }
 
-func TestPool_GetUnknownKeyFallsBack(t *testing.T) {
+func TestPool_GetUnknownKeyFailsClosed(t *testing.T) {
 	def := newTestClient("http://default")
 	pool := keycloak.NewPool(def)
 
@@ -43,12 +44,12 @@ func TestPool_GetUnknownKeyFallsBack(t *testing.T) {
 	pool.Register("ns/name", c)
 
 	got := pool.Get("ns/other")
-	if got != def {
-		t.Error("Get with unknown key must return the default client")
+	if got != nil {
+		t.Error("Get with unknown key must not return the default client")
 	}
 }
 
-func TestPool_RemoveRestoresDefault(t *testing.T) {
+func TestPool_RemoveRevokesRegistration(t *testing.T) {
 	def := newTestClient("http://default")
 	pool := keycloak.NewPool(def)
 
@@ -57,8 +58,8 @@ func TestPool_RemoveRestoresDefault(t *testing.T) {
 	pool.Remove("ns/name")
 
 	got := pool.Get("ns/name")
-	if got != def {
-		t.Error("Get after Remove must return the default client again")
+	if got != nil {
+		t.Error("Get after Remove must not return the default client")
 	}
 }
 
@@ -82,11 +83,43 @@ func TestPool_Concurrent(t *testing.T) {
 				t.Errorf("goroutine %d: Get returned wrong client", i)
 			}
 			pool.Remove(key)
-			// After removal, result is either default or still the client
-			// depending on race timing — we just ensure no panic/data race.
-			_ = pool.Get(key)
+			if pool.Get(key) != nil {
+				t.Error("removed tenant retained a client")
+			}
 		}(i)
 	}
 
 	wg.Wait()
+}
+
+func TestPool_RealmIsolationRequiresExplicitRegistration(t *testing.T) {
+	def := newTestClient("https://shared.example")
+	pool := keycloak.NewPool(def)
+	if pool.Get("ns/realm-tenant") != nil {
+		t.Fatal("unregistered realm tenant reached shared client")
+	}
+	pool.RegisterShared("ns/realm-tenant")
+	if pool.Get("ns/realm-tenant") != def || pool.Get("other/realm-tenant") != nil {
+		t.Fatal("shared registration crossed tenant or namespace boundary")
+	}
+	pool.Remove("ns/realm-tenant")
+	if pool.Get("ns/realm-tenant") != nil || pool.Get("") != def {
+		t.Fatal("revoking a tenant changed the installation default")
+	}
+}
+
+func TestMissingPoolAndClientFailClosed(t *testing.T) {
+	var pool *keycloak.Pool
+	pool.Remove("ns/tenant")
+	pool.RegisterShared("ns/tenant")
+	if pool.Get("ns/tenant") != nil {
+		t.Fatal("nil registry returned a client")
+	}
+	var kc *keycloak.Client
+	if kc.BaseURL() != "" {
+		t.Fatal("nil client published an endpoint")
+	}
+	if _, err := kc.GetRealm(context.Background(), "test"); err == nil {
+		t.Fatal("missing client accepted a provider read")
+	}
 }

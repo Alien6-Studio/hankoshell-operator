@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "state": "prepublication-proposal",
+  "review": {"state": "pending", "issue": 87, "started_at": null, "accepted_at": null},
+  "public_releases": [],
+  "baseline": null,
+  "notices": [],
+  "exceptions": [],
+  "notice_rules": {"minimum_minor_releases": 2, "minimum_days": 90},
+  "qualification": {
+    "kubernetes_minors": 3,
+    "keycloak_minors": 2,
+    "patch_review_days": 14,
+    "patch_grace_days": 30,
+    "upstream_eol_extends_support": false,
+    "production_requires_upstream_support_review": true
+  },
+  "security": {"supported_public_minor_series": 1, "latest_patch_only": true, "lts": false}
+}

@@ -24,6 +24,9 @@ func TestManagerOptionsConfineCacheAndLeaderElection(t *testing.T) {
 	if _, ok := opts.Cache.DefaultNamespaces[cache.AllNamespaces]; ok {
 		t.Fatal("DefaultNamespaces must not contain cache.AllNamespaces")
 	}
+	if opts.LeaderElectionID != "hanko-operator.hanko.sh" {
+		t.Fatal("leader identity differs from the chart grant")
+	}
 	if opts.LeaderElectionNamespace != namespace {
 		t.Fatalf("LeaderElectionNamespace = %q, want %q", opts.LeaderElectionNamespace, namespace)
 	}
@@ -45,14 +48,14 @@ func TestParseRuntimeConfigRequiresExplicitNamespaceAndHonorsFlags(t *testing.T)
 	flag.CommandLine = flag.NewFlagSet("operator-test", flag.ContinueOnError)
 	os.Args = []string{
 		"operator", "--metrics-bind-address=:9090", "--health-probe-bind-address=:9091",
-		"--leader-elect=false", "--watch-namespace= auth ",
+		"--leader-elect=false", "--lifecycle-enabled=true", "--watch-namespace= auth ",
 	}
 
 	config := parseRuntimeConfig()
 	if config.metricsAddr != ":9090" || config.probeAddr != ":9091" {
 		t.Fatalf("unexpected listener configuration: %#v", config)
 	}
-	if config.enableLeaderElection || config.watchNamespace != "auth" {
+	if config.enableLeaderElection || !config.enableLifecycle || config.watchNamespace != "auth" {
 		t.Fatalf("unexpected runtime configuration: %#v", config)
 	}
 }
@@ -76,7 +79,7 @@ func TestDefaultMetricsDoNotCreateAServer(t *testing.T) {
 	flag.CommandLine = flag.NewFlagSet("operator-test", flag.ContinueOnError)
 	os.Args = []string{"operator", "--watch-namespace=auth"}
 	config := parseRuntimeConfig()
-	if config.metricsAddr != "0" || config.probeAddr != ":8081" {
+	if config.metricsAddr != "0" || config.probeAddr != ":8081" || config.enableLifecycle {
 		t.Fatalf("unexpected default listener configuration: %#v", config)
 	}
 	opts := managerOptions(config.metricsAddr, config.probeAddr, true, "auth")

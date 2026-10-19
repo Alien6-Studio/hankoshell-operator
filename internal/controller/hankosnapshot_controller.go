@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -33,6 +34,7 @@ import (
 type HankoSnapshotReconciler struct {
 	client.Client
 	Scheme         *runtime.Scheme
+	APIReader      client.Reader
 	ImageValidator *imagevalidator.Validator
 }
 
@@ -46,29 +48,35 @@ type snapshotData struct {
 
 func (r *HankoSnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var snapshot hankoshv1alpha1.HankoSnapshot
-	if err := r.Get(ctx, req.NamespacedName, &snapshot); err != nil {
+	if err := r.snapshotReader().Get(ctx, req.NamespacedName, &snapshot); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	if snapshot.Status.Phase == "Done" || snapshot.Status.Phase == "Failed" {
+	if snapshot.Status.Phase == "Done" || snapshot.Status.Phase == "Failed" || !snapshot.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
-
-	patch := client.MergeFrom(snapshot.DeepCopy())
-	snapshot.Status.Phase = "Running"
-	if err := r.Status().Patch(ctx, &snapshot, patch); err != nil {
-		log.FromContext(ctx).Error(err, "patch status to Running")
+	patch := snapshotPatch(&snapshot)
+	instance, handled, err := r.snapshotInstance(ctx, &snapshot, patch)
+	if handled || err != nil {
+		return ctrl.Result{}, err
 	}
-	patch = client.MergeFrom(snapshot.DeepCopy())
-
-	instance, handled := r.snapshotInstance(ctx, &snapshot, patch)
-	if handled {
-		return ctrl.Result{}, nil
+	if reason := validateSnapshotCheckpoint(&snapshot, instance); reason != "" {
+		return ctrl.Result{}, r.failSnapshot(ctx, &snapshot, patch, snapshotFailure{"CheckpointRejected", reason, "checkpoint rejected"})
 	}
-	if r.ensureSnapshotConfig(ctx, &snapshot, patch) {
-		return ctrl.Result{}, nil
+	if snapshot.Status.IntentHash == "" {
+		snapshot.Status.Phase = "Running"
+		snapshot.Status.StartedGeneration = snapshot.Generation
+		snapshot.Status.InstanceUID = string(instance.UID)
+		snapshot.Status.IntentHash = snapshotIntentHash(&snapshot)
+		if err := r.Status().Patch(ctx, &snapshot, patch); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
-	if result, handled := r.reconcileSnapshotData(ctx, &snapshot, instance, patch); handled {
-		return result, nil
+	if handled, err := r.ensureSnapshotConfig(ctx, &snapshot, snapshotPatch(&snapshot)); handled || err != nil {
+		return ctrl.Result{}, err
+	}
+	patch = snapshotPatch(&snapshot)
+	if result, handled, err := r.reconcileSnapshotData(ctx, &snapshot, instance, patch); handled || err != nil {
+		return result, err
 	}
 	return r.completeSnapshot(ctx, &snapshot, patch)
 }
@@ -79,169 +87,138 @@ type snapshotFailure struct {
 	logMessage string
 }
 
-func (r *HankoSnapshotReconciler) failSnapshot(ctx context.Context, snapshot *hankoshv1alpha1.HankoSnapshot, patch client.Patch, failure snapshotFailure) {
+func (r *HankoSnapshotReconciler) failSnapshot(ctx context.Context, snapshot *hankoshv1alpha1.HankoSnapshot, patch client.Patch, failure snapshotFailure) error {
 	snapshot.Status.Phase = "Failed"
-	setCondition(&snapshot.Status.Conditions, "SnapshotReady", metav1.ConditionFalse, failure.reason, failure.message)
+	iamCondition(&snapshot.Status.Conditions, snapshot.Generation, "SnapshotReady", metav1.ConditionFalse, failure.reason, failure.message)
 	if err := r.Status().Patch(ctx, snapshot, patch); err != nil {
-		log.FromContext(ctx).Error(err, failure.logMessage)
+		return fmt.Errorf("%s: %w", failure.logMessage, err)
 	}
+	return nil
 }
 
-func (r *HankoSnapshotReconciler) snapshotInstance(ctx context.Context, snapshot *hankoshv1alpha1.HankoSnapshot, patch client.Patch) (*hankoshv1alpha1.HankoKeycloakInstance, bool) {
+func (r *HankoSnapshotReconciler) snapshotInstance(ctx context.Context, snapshot *hankoshv1alpha1.HankoSnapshot, patch client.Patch) (*hankoshv1alpha1.HankoKeycloakInstance, bool, error) {
 	var instance hankoshv1alpha1.HankoKeycloakInstance
-	err := r.Get(ctx, types.NamespacedName{Name: snapshot.Spec.InstanceRef, Namespace: snapshot.Namespace}, &instance)
+	err := r.snapshotReader().Get(ctx, types.NamespacedName{Name: snapshot.Spec.InstanceRef, Namespace: snapshot.Namespace}, &instance)
 	if err == nil {
-		return &instance, false
-	}
-	failure := snapshotFailure{
-		reason:     "InstanceNotFound",
-		message:    fmt.Sprintf("HankoKeycloakInstance %q not found in namespace %q", snapshot.Spec.InstanceRef, snapshot.Namespace),
-		logMessage: "patch status after instance error",
+		return &instance, false, nil
 	}
 	if !errors.IsNotFound(err) {
-		failure.reason = "InstanceError"
-		failure.message = fmt.Sprintf("get HankoKeycloakInstance %q: %v", snapshot.Spec.InstanceRef, err)
+		return nil, true, err
 	}
-	r.failSnapshot(ctx, snapshot, patch, failure)
-	return nil, true
+	return nil, true, r.failSnapshot(ctx, snapshot, patch, snapshotFailure{
+		"InstanceNotFound", "referenced HankoKeycloakInstance no longer exists", "instance not found",
+	})
 }
 
-func (r *HankoSnapshotReconciler) ensureSnapshotConfig(ctx context.Context, snapshot *hankoshv1alpha1.HankoSnapshot, patch client.Patch) bool {
-	raw, failure := r.snapshotPayload(ctx, snapshot.Namespace)
-	if failure != nil {
-		r.failSnapshot(ctx, snapshot, patch, *failure)
-		return true
+func (r *HankoSnapshotReconciler) snapshotPayload(ctx context.Context, snapshot *hankoshv1alpha1.HankoSnapshot) ([]byte, error) {
+	// An unlabelled snapshot belongs to the standalone scope, not every tenant
+	// in its namespace. Presence of an empty tenant label is also a distinct scope.
+	scope := &metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "hanko.sh/tenant", Operator: metav1.LabelSelectorOpDoesNotExist}}}
+	if tenant, present := snapshot.Labels["hanko.sh/tenant"]; present {
+		scope = &metav1.LabelSelector{MatchLabels: map[string]string{"hanko.sh/tenant": tenant}}
 	}
-	name := "snap-" + snapshot.Name + "-config"
-	configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: snapshot.Namespace}}
-	if err := controllerutil.SetControllerReference(snapshot, configMap, r.Scheme); err != nil {
-		r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"OwnerRefError", err.Error(), "patch status after owner ref error"})
-		return true
+	selector, err := metav1.LabelSelectorAsSelector(scope)
+	if err != nil {
+		return nil, fmt.Errorf("SnapshotScopeError: %w", err)
 	}
-	if failure := r.createSnapshotConfigMap(ctx, configMap, raw); failure != nil {
-		r.failSnapshot(ctx, snapshot, patch, *failure)
-		return true
-	}
-	snapshot.Status.ConfigMapRef = name
-	return false
-}
-
-func (r *HankoSnapshotReconciler) snapshotPayload(ctx context.Context, namespace string) ([]byte, *snapshotFailure) {
+	options := []client.ListOption{client.InNamespace(snapshot.Namespace), client.MatchingLabelsSelector{Selector: selector}}
 	var payload snapshotData
 	var realms hankoshv1alpha1.HankoRealmList
-	if err := r.List(ctx, &realms, client.InNamespace(namespace)); err != nil {
-		return nil, &snapshotFailure{"ListRealmsError", err.Error(), "patch status after list realms error"}
+	if err := r.snapshotReader().List(ctx, &realms, options...); err != nil {
+		return nil, fmt.Errorf("ListRealmsError: %w", err)
 	}
 	payload.Realms = realms.Items
 	var applications hankoshv1alpha1.HankoApplicationList
-	if err := r.List(ctx, &applications, client.InNamespace(namespace)); err != nil {
-		return nil, &snapshotFailure{"ListAppsError", err.Error(), "patch status after list apps error"}
+	if err := r.snapshotReader().List(ctx, &applications, options...); err != nil {
+		return nil, fmt.Errorf("ListAppsError: %w", err)
 	}
 	payload.Applications = applications.Items
 	var serviceAccounts hankoshv1alpha1.HankoServiceAccountList
-	if err := r.List(ctx, &serviceAccounts, client.InNamespace(namespace)); err != nil {
-		return nil, &snapshotFailure{"ListSAsError", err.Error(), "patch status after list service accounts error"}
+	if err := r.snapshotReader().List(ctx, &serviceAccounts, options...); err != nil {
+		return nil, fmt.Errorf("ListSAsError: %w", err)
 	}
 	payload.ServiceAccounts = serviceAccounts.Items
 	var issuers hankoshv1alpha1.HankoIssuerList
-	if err := r.List(ctx, &issuers, client.InNamespace(namespace)); err != nil {
-		return nil, &snapshotFailure{"ListIssuersError", err.Error(), "patch status after list issuers error"}
+	if err := r.snapshotReader().List(ctx, &issuers, options...); err != nil {
+		return nil, fmt.Errorf("ListIssuersError: %w", err)
 	}
 	payload.Issuers = issuers.Items
 	raw, err := json.Marshal(payload)
 	if err != nil {
-		return nil, &snapshotFailure{"SerializeError", err.Error(), "patch status after serialize error"}
+		return nil, fmt.Errorf("SerializeError: %w", err)
 	}
 	return raw, nil
 }
 
-func (r *HankoSnapshotReconciler) createSnapshotConfigMap(ctx context.Context, configMap *corev1.ConfigMap, raw []byte) *snapshotFailure {
-	var existing corev1.ConfigMap
-	err := r.Get(ctx, types.NamespacedName{Name: configMap.Name, Namespace: configMap.Namespace}, &existing)
-	if err == nil {
-		return nil
-	}
-	if !errors.IsNotFound(err) {
-		return &snapshotFailure{"ConfigMapGetError", err.Error(), "patch status after configmap get error"}
-	}
-	configMap.Data = map[string]string{"snapshot.json": string(raw)}
-	if err := r.Create(ctx, configMap); err != nil {
-		return &snapshotFailure{"ConfigMapCreateError", err.Error(), "patch status after configmap create error"}
-	}
-	log.FromContext(ctx).Info("created snapshot ConfigMap", "configmap", configMap.Name)
-	return nil
-}
-
-func (r *HankoSnapshotReconciler) reconcileSnapshotData(ctx context.Context, snapshot *hankoshv1alpha1.HankoSnapshot, instance *hankoshv1alpha1.HankoKeycloakInstance, patch client.Patch) (ctrl.Result, bool) {
+func (r *HankoSnapshotReconciler) reconcileSnapshotData(ctx context.Context, snapshot *hankoshv1alpha1.HankoSnapshot, instance *hankoshv1alpha1.HankoKeycloakInstance, patch client.Patch) (ctrl.Result, bool, error) {
 	if !snapshot.Spec.IncludeData {
-		return ctrl.Result{}, false
+		return ctrl.Result{}, false, nil
+	}
+	fail := func(f snapshotFailure) (ctrl.Result, bool, error) {
+		return ctrl.Result{}, true, r.failSnapshot(ctx, snapshot, patch, f)
 	}
 	if snapshot.Spec.BackupPVC == "" {
-		r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"BackupPVCMissing", "includeData=true requires backupPVC to be set", "patch status after backup PVC missing"})
-		return ctrl.Result{}, true
+		return fail(snapshotFailure{"BackupPVCMissing", "includeData=true requires backupPVC to be set", "backup PVC missing"})
 	}
 	if instance.Spec.Mode != "managed" || instance.Spec.Managed == nil || instance.Spec.Managed.Database.Name == "" {
-		r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"ManagedSpecMissing", "includeData=true requires mode=managed with a Database secret", "patch status after managed spec missing"})
-		return ctrl.Result{}, true
+		return fail(snapshotFailure{"ManagedSpecMissing", "includeData=true requires mode=managed with a Database secret", "managed spec missing"})
 	}
 	if failure := r.validateSnapshotBackup(ctx, snapshot, instance); failure != nil {
-		r.failSnapshot(ctx, snapshot, patch, *failure)
-		return ctrl.Result{}, true
+		return fail(*failure)
 	}
-
 	jobName := "snap-" + snapshot.Name + "-pgdump"
-	snapshot.Status.DBJobRef = jobName
 	var job batchv1.Job
-	err := r.Get(ctx, types.NamespacedName{Name: jobName, Namespace: snapshot.Namespace}, &job)
+	err := r.snapshotReader().Get(ctx, types.NamespacedName{Name: jobName, Namespace: snapshot.Namespace}, &job)
 	if errors.IsNotFound(err) {
-		return r.createSnapshotJob(ctx, snapshot, instance, patch, jobName), true
+		if snapshot.Status.DBJobUID != "" {
+			return fail(snapshotFailure{"JobContractMismatch", "checkpointed pg_dump Job disappeared; inspect the backup before starting a new snapshot", "job missing"})
+		}
+		result, err := r.createSnapshotJob(ctx, snapshot, instance, patch, jobName)
+		return result, true, err
 	}
 	if err != nil {
-		r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"JobGetError", err.Error(), "patch status after job get error"})
-		return ctrl.Result{}, true
+		return ctrl.Result{}, true, err
 	}
-	if !r.snapshotJobMatches(snapshot, &job) {
-		r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"JobContractMismatch", "existing pg_dump Job is not owned by this snapshot or does not match its approved workload contract; inspect it manually", "patch status after job contract mismatch"})
-		return ctrl.Result{}, true
+	if !r.snapshotJobMatches(snapshot, &job) || (snapshot.Status.DBJobUID != "" && snapshot.Status.DBJobUID != string(job.UID)) {
+		return fail(snapshotFailure{"JobContractMismatch", "existing pg_dump Job differs from this snapshot's ownership, identity or approved workload contract; inspect it manually", "job contract mismatch"})
 	}
 	if err := r.ImageValidator.VerifyImage(ctx, imagevalidator.DatabaseBackup, snapshot.Spec.BackupImage); err != nil {
-		r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"UntrustedBackupImage", err.Error(), "patch status after backup image verification"})
-		return ctrl.Result{}, true
+		return fail(snapshotFailure{"UntrustedBackupImage", err.Error(), "backup image verification"})
+	}
+	snapshot.Status.DBJobRef, snapshot.Status.DBJobUID = jobName, string(job.UID)
+	// A contradictory terminal state is never evidence of a successful backup.
+	if isJobFailed(&job) {
+		return fail(snapshotFailure{"JobFailed", fmt.Sprintf("pg_dump Job %q failed", jobName), "job failed"})
 	}
 	if !isJobComplete(&job) {
-		if isJobFailed(&job) {
-			message := fmt.Sprintf("pg_dump Job %q failed", jobName)
-			r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"JobFailed", message, "patch status after job failed"})
-			return ctrl.Result{}, true
-		}
-		r.patchSnapshotWhileWaiting(ctx, snapshot, patch)
-		return ctrl.Result{RequeueAfter: requeueOnError}, true
+		return ctrl.Result{RequeueAfter: requeueOnError}, true, r.Status().Patch(ctx, snapshot, patch)
 	}
-	log.FromContext(ctx).Info("pg_dump Job completed", "job", jobName)
-	return ctrl.Result{}, false
+	return ctrl.Result{}, false, nil
 }
 
-func (r *HankoSnapshotReconciler) createSnapshotJob(ctx context.Context, snapshot *hankoshv1alpha1.HankoSnapshot, instance *hankoshv1alpha1.HankoKeycloakInstance, patch client.Patch, jobName string) ctrl.Result {
+func (r *HankoSnapshotReconciler) createSnapshotJob(ctx context.Context, snapshot *hankoshv1alpha1.HankoSnapshot, instance *hankoshv1alpha1.HankoKeycloakInstance, patch client.Patch, jobName string) (ctrl.Result, error) {
 	if failure := r.validateSnapshotBackup(ctx, snapshot, instance); failure != nil {
-		r.failSnapshot(ctx, snapshot, patch, *failure)
-		return ctrl.Result{}
+		return ctrl.Result{}, r.failSnapshot(ctx, snapshot, patch, *failure)
 	}
 	if err := r.ImageValidator.VerifyImage(ctx, imagevalidator.DatabaseBackup, snapshot.Spec.BackupImage); err != nil {
-		r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"UntrustedBackupImage", err.Error(), "patch status after backup image verification"})
-		return ctrl.Result{}
+		return ctrl.Result{}, r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"UntrustedBackupImage", err.Error(), "backup image verification"})
 	}
 	job := r.buildPGDumpJob(jobName, snapshot)
+	job.Annotations = map[string]string{snapshotIntentAnnotation: snapshot.Status.IntentHash}
+	job.Labels = map[string]string{"hanko.sh/tenant": snapshot.Labels["hanko.sh/tenant"]}
 	if err := controllerutil.SetControllerReference(snapshot, job, r.Scheme); err != nil {
-		r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"JobOwnerRefError", err.Error(), "patch status after job owner ref error"})
-		return ctrl.Result{}
+		return ctrl.Result{}, r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"JobOwnerRefError", err.Error(), "job owner ref error"})
+	}
+	// A failed acknowledgement can conceal a successful create. Retry by reading
+	// the deterministic name, never by declaring this execution failed.
+	if err := checkLifecycleAuthority(ctx); err != nil {
+		return ctrl.Result{}, err
 	}
 	if err := r.Create(ctx, job); err != nil {
-		r.failSnapshot(ctx, snapshot, patch, snapshotFailure{"JobCreateError", err.Error(), "patch status after job create error"})
-		return ctrl.Result{}
+		return ctrl.Result{}, err
 	}
-	log.FromContext(ctx).Info("created pg_dump Job", "job", jobName)
-	r.patchSnapshotWhileWaiting(ctx, snapshot, patch)
-	return ctrl.Result{RequeueAfter: requeueOnError}
+	snapshot.Status.DBJobRef, snapshot.Status.DBJobUID = job.Name, string(job.UID)
+	return ctrl.Result{RequeueAfter: requeueOnError}, r.Status().Patch(ctx, snapshot, patch)
 }
 
 // validateSnapshotBackup never includes credential values or an untrusted image
@@ -255,7 +232,7 @@ func (r *HankoSnapshotReconciler) validateSnapshotBackup(ctx context.Context, sn
 		return &snapshotFailure{"BackupCredentialsInvalid", "backupSecretRef must name a dedicated database backup Secret", "patch status after backup credential validation"}
 	}
 	var secret corev1.Secret
-	if err := r.Get(ctx, types.NamespacedName{Name: ref, Namespace: snapshot.Namespace}, &secret); err != nil {
+	if err := r.snapshotReader().Get(ctx, types.NamespacedName{Name: ref, Namespace: snapshot.Namespace}, &secret); err != nil {
 		return &snapshotFailure{"BackupCredentialsInvalid", "cannot read the dedicated backup Secret", "patch status after backup credential lookup"}
 	}
 	for _, key := range []string{"PGHOST", "PGDATABASE", "PGUSER", "PGPASSWORD"} {
@@ -269,7 +246,7 @@ func (r *HankoSnapshotReconciler) validateSnapshotBackup(ctx context.Context, sn
 // Existing Jobs are not adopted by name. Check the credential-bearing execution
 // contract before trusting even a completed Job; legacy mutable Jobs fail closed.
 func (r *HankoSnapshotReconciler) snapshotJobMatches(snapshot *hankoshv1alpha1.HankoSnapshot, job *batchv1.Job) bool {
-	if !metav1.IsControlledBy(job, snapshot) {
+	if !snapshotChildMatches(snapshot, job) {
 		return false
 	}
 	actual := job.Spec.Template.Spec
@@ -283,22 +260,27 @@ func (r *HankoSnapshotReconciler) snapshotJobMatches(snapshot *hankoshv1alpha1.H
 		actual.RestartPolicy == expected.RestartPolicy
 }
 
-func (r *HankoSnapshotReconciler) patchSnapshotWhileWaiting(ctx context.Context, snapshot *hankoshv1alpha1.HankoSnapshot, patch client.Patch) {
-	if err := r.Status().Patch(ctx, snapshot, patch); err != nil {
-		log.FromContext(ctx).Error(err, "patch snapshot status while waiting for job")
-	}
-}
-
 func (r *HankoSnapshotReconciler) completeSnapshot(ctx context.Context, snapshot *hankoshv1alpha1.HankoSnapshot, patch client.Patch) (ctrl.Result, error) {
 	now := metav1.Now()
 	snapshot.Status.Phase = "Done"
 	snapshot.Status.TakenAt = &now
-	setCondition(&snapshot.Status.Conditions, "SnapshotReady", metav1.ConditionTrue, "Completed", "snapshot completed successfully")
+	iamCondition(&snapshot.Status.Conditions, snapshot.Generation, "SnapshotReady", metav1.ConditionTrue, "Completed", "snapshot completed successfully")
 	if err := r.Status().Patch(ctx, snapshot, patch); err != nil {
 		return ctrl.Result{}, fmt.Errorf("patch HankoSnapshot status to Done: %w", err)
 	}
 	log.FromContext(ctx).Info("HankoSnapshot completed", "snapshot", snapshot.Name, "configmap", snapshot.Status.ConfigMapRef)
 	return ctrl.Result{}, nil
+}
+
+// snapshotDumpPath names a dump file unique to this snapshot so snapshots
+// sharing one backup PVC never overwrite each other's archive. The UID digest
+// also separates archives when a snapshot is deleted and recreated by name.
+func snapshotDumpPath(snapshot *hankoshv1alpha1.HankoSnapshot) string {
+	suffix := ""
+	if snapshot.UID != "" {
+		suffix = "-" + snapshotHash([]byte(snapshot.UID))[:8]
+	}
+	return "/backup/snap-" + snapshot.Name + suffix + ".dump"
 }
 
 // buildPGDumpJob constructs a pg_dump Job that writes to a persistent PVC.
@@ -335,7 +317,7 @@ func (r *HankoSnapshotReconciler) buildPGDumpJob(jobName string, snapshot *hanko
 								"--format=custom",
 								"--no-acl",
 								"--no-owner",
-								"--file=/backup/keycloak.dump",
+								"--file=" + snapshotDumpPath(snapshot),
 							},
 							Env: snapshotBackupEnv(snapshot.Spec.BackupSecretRef),
 							SecurityContext: &corev1.SecurityContext{
@@ -402,9 +384,12 @@ func isJobFailed(job *batchv1.Job) bool {
 
 // SetupWithManager registers the reconciler and declares owned resources.
 func (r *HankoSnapshotReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.APIReader == nil {
+		r.APIReader = mgr.GetAPIReader()
+	}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&hankoshv1alpha1.HankoSnapshot{}).
+		For(&hankoshv1alpha1.HankoSnapshot{}, builder.WithPredicates(generationOrReconcileRequestChanged())).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&batchv1.Job{}).
-		Complete(r)
+		Complete(observeReconciler("HankoSnapshot", &lifecycleApprovalGuard{Client: r.Client, reader: r.APIReader, inner: r, snapshot: true}))
 }

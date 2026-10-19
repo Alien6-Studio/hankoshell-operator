@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "experimental": true,
+  "keycloak": "26.7.5",
+  "revision": "e29b3d5de672b8a2634da10bcac6633c937e74e6",
+  "worktree_dirty": false,
+  "jar_sha256": "4bd3952a52ec4d18f7bc43a96f3d944acedd0bcd2bb9da5f60fbb16a66f5d4d2",
+  "extension": {
+    "repository": "Alien6-Studio/keycloak-bounded-delegation",
+    "revision": "d9423db16e2bbe31bfb1dcc83c9a9441a18a6075",
+    "contract": "bounded-delegation/software-v1"
+  },
+  "java_tests": [
+    "io.alien6.keycloak.delegation.BoundsTest/refusesInvalidBounds",
+    "io.alien6.keycloak.delegation.BoundsTest/randomizedDecisionsNeverWidenAuthority",
+    "io.alien6.keycloak.delegation.BoundsTest/choosesEarliestExpiryWithoutRaisingNativeLifetimes",
+    "io.alien6.keycloak.delegation.BoundsTest/refusesMalformedAndOversizedAuthority",
+    "io.alien6.keycloak.delegation.BoundsTest/refusesExpiredActorSubjectOrNativeSession",
+    "io.alien6.keycloak.delegation.BoundsTest/checksBothBranchesOfTheChain",
+    "io.alien6.keycloak.delegation.BoundsTest/refusesWiderSubjectOrActorOrGrantOrCurrentAuthority",
+    "io.alien6.keycloak.delegation.BoundsTest/checksEachAuthorityDimensionIndependently",
+    "io.alien6.keycloak.delegation.BoundsTest/immutableAuthorityDoesNotFollowCallerMutations",
+    "io.alien6.keycloak.delegation.GrantDocumentTest/acceptsBoundedTypedConfiguration",
+    "io.alien6.keycloak.delegation.GrantDocumentTest/refusesOversizedAndDeeplyNestedConfiguration",
+    "io.alien6.keycloak.delegation.GrantDocumentTest/refusesAmbiguousJsonAndCoercions",
+    "io.alien6.keycloak.delegation.GrantDocumentTest/refusesMissingIdentityAndUnboundedGrant",
+    "io.alien6.keycloak.delegation.NativeAuthorityTest/stripsMapperAuthorityAndUnselectedPermissionClaims",
+    "io.alien6.keycloak.delegation.NativeAuthorityTest/refusesMalformedActorHistoryWithoutFollowingUnboundedChains",
+    "io.alien6.keycloak.delegation.SoftwareProfileTest/discoveryUsesPackagedVersionAndExposesNoAdministrativeState"
+  ]
+}

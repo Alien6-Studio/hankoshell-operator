@@ -1,5 +1,8 @@
 # Organizational authorization: accepted organizational authorization contract
 
+See the [accepted architecture decisions](decisions/README.md) for the underlying
+operator, provider and trust boundaries.
+
 This is the implemented **Organizational Authorization** source contract,
 accepted in [RFC #40](https://github.com/Alien6-Studio/hankoshell-operator/issues/40),
 with grants in #41 and bounded explanation in #42. Current packaging metadata is `0.1.0-dev.0`; first-publication readiness

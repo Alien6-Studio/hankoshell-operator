@@ -169,7 +169,10 @@ func TestSnapshotDataValidationBranches(t *testing.T) {
 			testCase.mutate(snapshot, currentInstance)
 			k8sClient := controllerTestClient(scheme, snapshot)
 			reconciler := &HankoSnapshotReconciler{Client: k8sClient, Scheme: scheme}
-			_, handled := reconciler.reconcileSnapshotData(ctx, snapshot, currentInstance, client.MergeFrom(snapshot.DeepCopy()))
+			_, handled, err := reconciler.reconcileSnapshotData(ctx, snapshot, currentInstance, client.MergeFrom(snapshot.DeepCopy()))
+			if err != nil {
+				t.Fatal(err)
+			}
 			if !handled || snapshot.Status.Phase != "Failed" || realmConditionForSnapshot(snapshot, testCase.expected) == nil {
 				t.Fatalf("unexpected validation status: %#v", snapshot.Status)
 			}

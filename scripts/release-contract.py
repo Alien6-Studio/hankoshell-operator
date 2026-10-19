@@ -23,6 +23,14 @@ def module(name, filename):
 metadata = module("release_metadata", "release-metadata.py")
 security = module("oci_security", "oci-security.py")
 pins = module("versions", "versions.py")
+support = module("api_support", "api-support.py")
+public = module("public_contract", "public-contract.py")
+stable = module("stable_contract", "stable-contract.py")
+operations = module("operations_contract", "operations-contract.py")
+window = module("support_window", "support-window.py")
+compatibility = module("compatibility_gate", "compatibility-gate.py")
+go_api = module("go_api_contract", "go-api-contract.py")
+production_evidence = module("compatibility_evidence", "compatibility-evidence.py")
 versioning = metadata.versioning
 VERSION = versioning.VERSION
 
@@ -48,6 +56,14 @@ def check(version=VERSION):
         raise ValueError("The Attest receipt key is not a Helm chart signing key")
     ci = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
     pins.check(ROOT)
+    support.check(ROOT)
+    public.check(ROOT)
+    stable.check(ROOT)
+    operations.check(ROOT)
+    window.check(ROOT)
+    compatibility.check(ROOT)
+    go_api.check(ROOT)
+    production_evidence.check(ROOT)
     for job in ("kubernetes", "keycloak"):
         if ci[job]["strategy"]["matrix"]["version"] != pins.DATA[job]["versions"]:
             raise ValueError("Qualification matrix differs from versions.json")
@@ -74,6 +90,9 @@ def prepare(version, image, revision, archive, evidence, chart_output, dist, hel
     for name in ("oci-security.json", "trivy-amd64.json", "trivy-arm64.json"):
         shutil.copyfile(evidence / name, dist / name)
     shutil.copyfile(security.POLICY, dist / security.POLICY.name)
+    for name in ("THIRD_PARTY_NOTICES", "THIRD_PARTY_NOTICES.cosign"):
+        shutil.copyfile(ROOT / name, dist / name)
+    shutil.copyfile(ROOT / "security/dependency-policy.json", dist / "dependency-policy.json")
     subprocess.run([str(helm), "lint", str(chart_output), "--kube-version", pins.DATA["kubernetes"]["default"]], check=True, timeout=60)
     subprocess.run([str(helm), "package", str(chart_output), "-d", str(dist)], check=True, timeout=60)
     (dist / "image-digest.txt").write_text(image + "\n")

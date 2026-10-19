@@ -32,7 +32,8 @@ class VersionContractTests(unittest.TestCase):
             destination = root / filename
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(versions.ROOT / filename, destination)
-        for directory in (versions.DATA["api"]["crds"], versions.DATA["api"]["types"]):
+        for directory in (versions.DATA["api"]["crds"], versions.DATA["api"]["types"],
+                          *(v["types"] for v in versions.DATA["api"].get("candidate_versions", {}).values())):
             shutil.copytree(versions.ROOT / directory, root / directory)
         return root
 
@@ -41,8 +42,9 @@ class VersionContractTests(unittest.TestCase):
         self.assertEqual(result["crd_count"], len(result["kinds"]))
         self.assertGreater(result["crd_count"], 0)
         self.assertEqual(versions.get("release", "version"), versions.DATA["release"]["version"])
+        self.assertRegex(versions.get("tools", "gotestsum"), r"^v\d+\.\d+\.\d+$")
         with self.assertRaisesRegex(ValueError, "not enabled/pinned"):
-            versions.get("tools", "gotestsum")
+            versions.get("disabled", data={"disabled": None})
 
     def test_drift_is_rejected_at_each_build_entry_point(self):
         mutations = {

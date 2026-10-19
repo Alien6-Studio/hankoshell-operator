@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	beta "github.com/Alien6-Studio/hankoshell-operator/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	eventsv1 "k8s.io/api/events/v1"
@@ -71,6 +72,9 @@ func TestKubernetesCompatibility(t *testing.T) {
 	if err := hankoshv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
+	if err := beta.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
 	expectedKinds := make(map[string]bool)
 	for kind, typ := range scheme.KnownTypes(hankoshv1alpha1.GroupVersion) {
 		if _, ok := reflect.New(typ).Interface().(client.Object); ok {
@@ -94,7 +98,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	policyVersion := "v" + strings.Join(strings.Split(version, ".")[:2], ".")
-	for _, name := range []string{"auth", "other"} {
+	for _, name := range []string{"auth", "other", "condition-fixtures"} {
 		namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: map[string]string{
 			"pod-security.kubernetes.io/enforce":         "restricted",
 			"pod-security.kubernetes.io/enforce-version": policyVersion,
@@ -103,12 +107,31 @@ func TestKubernetesCompatibility(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	t.Run("condition ownership across all CRDs", func(t *testing.T) { checkConditionApply(t, ctx, admin, environment.CRDs) })
+	t.Run("frozen public contract corpus", func(t *testing.T) { checkPublicContractCorpus(t, ctx, admin) })
+	t.Run("served-version conversion and typed reader contract", func(t *testing.T) { checkConversionContract(t, ctx, admin, environment.CRDs) })
+	t.Run("bounded realm and application references", func(t *testing.T) { checkBoundedReferences(t, ctx, admin) })
+	t.Run("fresh realm ownership selectors", func(t *testing.T) { checkRealmOwnershipSelectors(t, ctx, admin) })
+	t.Run("fresh paginated realm deletion inventory", func(t *testing.T) { checkRealmDeletionInventory(t, ctx, admin) })
 
 	t.Run("organization principal admission and capabilities", func(t *testing.T) { checkOrganizationPrincipalAdmission(t, ctx, admin) })
+	t.Run("delegation admission and capability refusal schema", func(t *testing.T) { checkDelegationAdmission(t, ctx, admin) })
 	t.Run("organization dependency watches", func(t *testing.T) { checkOrganizationDependencyWatch(t, ctx, admin, config) })
 	t.Run("authorization explanation schema", func(t *testing.T) { checkAuthorizationExplanationSchema(t, ctx, admin) })
 	t.Run("adoption candidate and import coverage schema", func(t *testing.T) { checkAdoptionStatusContract(t, ctx, admin) })
 	t.Run("initial import status with partial inventory", func(t *testing.T) { checkInitialImportStatus(t, ctx, admin) })
+	t.Run("import status acknowledgement and concurrent changes", func(t *testing.T) { checkImportRecovery(t, ctx, admin) })
+	t.Run("operation checkpoints and child recovery", func(t *testing.T) { checkOperationRecovery(t, ctx, admin) })
+	t.Run("managed operation provider observation", func(t *testing.T) { checkManagedOperationObservation(t, ctx, admin) })
+	t.Run("managed infrastructure ownership concurrency", func(t *testing.T) { checkManagedInfrastructureConcurrency(t, ctx, admin) })
+	t.Run("snapshot checkpoints and child recovery", func(t *testing.T) { checkSnapshotRecovery(t, ctx, admin) })
+	t.Run("snapshot tenant inventory isolation", func(t *testing.T) { checkSnapshotTenantCapture(t, ctx, admin) })
+	t.Run("tenant bundle ownership and concurrent writes", func(t *testing.T) { checkTenantBundleBoundary(t, ctx, admin) })
+	t.Run("signed fleet authority and replay recovery", func(t *testing.T) { checkSignedFleetPlans(t, ctx, admin) })
+	t.Run("lifecycle independent approval admission", func(t *testing.T) { checkLifecycleAdmission(t, ctx, admin, environment, config) })
+	t.Run("experimental connection independent approval", func(t *testing.T) { checkExperimentalConnectionAdmission(t, ctx, admin, environment, config) })
+	t.Run("fleet trust independent local approval", func(t *testing.T) { checkFleetTrustAdmission(t, ctx, admin, environment, config) })
+	t.Run("tenant client routing and disconnected registration", func(t *testing.T) { checkTenantClientIsolation(t, ctx, admin) })
 	t.Run("IAM evidence status schema", func(t *testing.T) { checkIAMStatusEvidence(t, ctx, admin) })
 	t.Run("application protocols admission and status", func(t *testing.T) { checkApplicationProtocols(t, ctx, admin) })
 	t.Run("standalone organization status and finalizers", func(t *testing.T) { checkOrganizationStandaloneStatus(t, ctx, admin) })
@@ -230,6 +253,11 @@ func TestKubernetesCompatibility(t *testing.T) {
 		values := filepath.Join(t.TempDir(), "metrics.yaml")
 		if err := os.WriteFile(values, []byte(`metrics:
   enabled: true
+  tls:
+    serverSecret: metrics-server
+    clientCASecret: metrics-client-ca
+    allowedClientURIs:
+      - spiffe://monitoring.example/prometheus/platform
   networkPolicy:
     namespaceSelector:
       matchLabels:
@@ -278,6 +306,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Run("leader election named lock RBAC", func(t *testing.T) { checkLeaderLeaseRBAC(t, ctx, admin, operator, user.Config()) })
 	t.Run("runtime bindings and exact cross-namespace RBAC", func(t *testing.T) { checkRuntimeBindings(t, ctx, admin, operator) })
 	t.Run("workload binding named read/patch RBAC", func(t *testing.T) { checkWorkloadBindingDeliveryRBAC(t, ctx, admin, operator) })
 	t.Run("server-side-apply-and-status", func(t *testing.T) {

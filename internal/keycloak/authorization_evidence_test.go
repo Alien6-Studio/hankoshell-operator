@@ -30,6 +30,30 @@ func TestAuthorizationObservationIgnoresProviderIDs(t *testing.T) {
 	}
 }
 
+func TestOwnedAuthorizationCleanupRefusesForeignIncomingPermission(t *testing.T) {
+	f := newAuthorizationTestServer(t)
+	c := f.client()
+	model := authorizationTestModel()
+	model.OwnerUID = "native-owner"
+	state, err := c.ReconcileAuthorization(context.Background(), model, AuthorizationManagedObjects{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.permissions["foreign"] = authorizationPermissionRepresentation{ID: "foreign", Name: "external-reader", Type: "scope",
+		Resources: []string{state.ManagedObjects.Resources[0].ID}, Scopes: []string{state.ManagedObjects.Scopes[0].ID}, Policies: []string{state.ManagedObjects.Policies[0].ID}}
+	before := f.mutationCount()
+	if err := c.DeleteAuthorizationOwned(context.Background(), model, state.ResourceServerID, state.ManagedObjects); !errors.Is(err, ErrAuthorizationCleanupConflict) {
+		t.Fatal("foreign incoming permission did not block native cleanup", err)
+	}
+	if f.mutationCount() != before || len(f.resources) != 1 || len(f.permissions) != 2 {
+		t.Fatal("refused cleanup changed owned or foreign authority")
+	}
+	delete(f.permissions, "foreign")
+	if err := c.DeleteAuthorizationOwned(context.Background(), model, state.ResourceServerID, state.ManagedObjects); err != nil {
+		t.Fatal("removing the foreign dependency did not permit cleanup", err)
+	}
+}
+
 func TestApplicationReconciliationPreservesAuthorizationOwnership(t *testing.T) {
 	f := newAuthorizationTestServer(t)
 	c := f.client()

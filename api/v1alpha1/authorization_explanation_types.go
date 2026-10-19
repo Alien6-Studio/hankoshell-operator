@@ -40,7 +40,7 @@ type AuthorizationExplanationPath struct {
 	SourceRef string `json:"sourceRef"`
 	// +kubebuilder:validation:MaxLength=255
 	OrganizationRef string `json:"organizationRef,omitempty"`
-	// +kubebuilder:validation:Enum=direct;descendant;generic;mapped_role;mapped_composite_role;mapped_client_role
+	// +kubebuilder:validation:Enum=direct;descendant;generic;mapped_role;mapped_composite_role;mapped_client_role;delegated
 	Relationship string `json:"relationship"`
 	// Ordered HankoOrganization refs, at most 32 edges. No provider paths or IDs.
 	// +kubebuilder:validation:MaxItems=33
@@ -49,6 +49,9 @@ type AuthorizationExplanationPath struct {
 	// Ordered proven role mappings/composite edges, at most 32 edges.
 	// +kubebuilder:validation:MaxItems=33
 	RoleChain []AuthorizationExplanationRoleStep `json:"roleChain,omitempty"`
+	// Delegation is projected only after current native grant read-back. It
+	// contains namespace-local references and bounds, never token subjects.
+	Delegation *AuthorizationDelegation `json:"delegation,omitempty"`
 }
 type AuthorizationExplanationRoleStep struct {
 	// +kubebuilder:validation:Enum=realm_role;client_role

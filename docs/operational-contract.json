@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "maturity": "initial development",
+  "api_version": "v1alpha1",
+  "metrics": {
+    "hanko_operator_reconcile_total": [
+      "kind",
+      "outcome"
+    ],
+    "hanko_operator_reconcile_duration_seconds": [
+      "kind"
+    ],
+    "hanko_operator_provider_requests_total": [
+      "provider",
+      "method",
+      "outcome"
+    ],
+    "hanko_operator_provider_request_duration_seconds": [
+      "provider",
+      "method"
+    ],
+    "hanko_operator_verification_total": [
+      "domain",
+      "outcome"
+    ],
+    "hanko_operator_events_total": [
+      "reason",
+      "type"
+    ],
+    "hanko_operator_instances": [
+      "state"
+    ],
+    "hanko_operator_rotations": [
+      "kind",
+      "state"
+    ],
+    "hanko_operator_rotation_overdue_seconds": [
+      "kind"
+    ],
+    "hanko_operator_inventory_complete": [],
+    "hanko_operator_leader": []
+  },
+  "event_reasons": [
+    "AgentUpdateFailed",
+    "AgentUpdateUnsupported",
+    "BundleFetchFailed",
+    "BundleSignatureInvalid",
+    "BundleTenantConflict",
+    "ClientCreated",
+    "DecommissionBlocked",
+    "DecommissionExpired",
+    "DecommissionFailed",
+    "DecommissionUnsupported",
+    "EnterpriseCredentialInvalid",
+    "EnterpriseTransportRequired",
+    "FleetAuthorityChanged",
+    "FleetCacheInvalid",
+    "FleetCacheTooLarge",
+    "FleetCacheWriteFailed",
+    "FleetCapabilitiesUnsupported",
+    "FleetCapabilityInventoryUnavailable",
+    "FleetCapabilityRefused",
+    "FleetCapabilityUnsupported",
+    "FleetCheckpointInvalid",
+    "FleetClockRegression",
+    "FleetCommandUnapproved",
+    "FleetContentAuthorityInvalid",
+    "FleetContentInvalid",
+    "FleetDependencyRefused",
+    "FleetEnvelopeInvalid",
+    "FleetExpiryCheckpointFailed",
+    "FleetHubEndpointUnapproved",
+    "FleetHubStatusUnavailable",
+    "FleetIssuerAuthorityMismatch",
+    "FleetKeyExpired",
+    "FleetKeyUnapproved",
+    "FleetLegacyDowngrade",
+    "FleetOperatorVersionInvalid",
+    "FleetOperatorVersionUnsupported",
+    "FleetPayloadInvalid",
+    "FleetPermissionDenied",
+    "FleetPermissionEvidenceExpired",
+    "FleetPlanApplied",
+    "FleetPlanCurrent",
+    "FleetPlanDisconnected",
+    "FleetPlanDowngrade",
+    "FleetPlanExpired",
+    "FleetPlanFailed",
+    "FleetPlanFetchFailed",
+    "FleetPlanNotYetValid",
+    "FleetPlanPartial",
+    "FleetProviderScopeUnknown",
+    "FleetProviderVersionMismatch",
+    "FleetRollbackReferenceInvalid",
+    "FleetRolloutPaused",
+    "FleetRolloutPolicyInvalid",
+    "FleetRolloutRefused",
+    "FleetSequenceConflict",
+    "FleetSignatureInvalid",
+    "FleetSourceInvalid",
+    "FleetTargetMismatch",
+    "FleetTrustChanged",
+    "FleetTrustInvalid",
+    "FleetTrustUnavailable",
+    "FleetValidityInvalid",
+    "HubCredentialRotationFailed",
+    "HubCredentialsInvalid",
+    "HubEnrollFailed",
+    "HubIdentityMismatch",
+    "HubIdentityRecoveryRequired",
+    "HubTenantIDMismatch",
+    "HubTenantIDUnknown",
+    "HubTokenMissing",
+    "MeshPolicyFetchFailed",
+    "MeshPolicyProjectionFailed",
+    "MeshPolicyStatusReportFailed",
+    "MeshRegistrationInvalid",
+    "ProjectionCleanupSkipped",
+    "ProtectedAuthorityRealm",
+    "ProtectedControlPlaneClient",
+    "ProtectedRealm",
+    "RealmDeleted",
+    "SecretRotated",
+    "ServiceAccountCredentialRotated",
+    "SessionsRevoked",
+    "TenantClientUnavailable",
+    "TenantReconcileRefused",
+    "ThemeBuildSubmitted",
+    "ThemeCleanupSkipped",
+    "ThemeInstalled",
+    "ThemeReconcileFailed",
+    "UnclassifiedEvent"
+  ],
+  "runbooks": [
+    "install",
+    "upgrade",
+    "leader",
+    "rotation",
+    "adoption",
+    "fleet",
+    "decommission",
+    "incident"
+  ],
+  "limits": {
+    "inventory_objects_per_kind": 1000,
+    "inventory_interval_seconds": 30,
+    "inventory_timeout_seconds": 10,
+    "tls_file_bytes": 65536,
+    "client_uri_count": 16
+  },
+  "unqualified": [
+    "public upgrade and rollback",
+    "storage-version migration",
+    "production HA and soak",
+    "bounded delegation",
+    "connected installation and decommission"
+  ],
+  "installedEvidence": [
+    {
+      "report": "docs/qualification/operations/2026-10-17/observability-runtime-64e4890.json",
+      "sha256": "a2e67aa36172df5af0c11121e3763dd80a1fbd2cc2629007acd748e66f2f7f88"
+    }
+  ]
+}

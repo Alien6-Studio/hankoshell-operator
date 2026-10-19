@@ -1,0 +1,7 @@
+{
+  "publishable": false,
+  "error_type": "DeadlineExceeded",
+  "wait": "installed resource applied/read-back",
+  "elapsed_seconds": 600.768,
+  "deadline_seconds": 600
+}

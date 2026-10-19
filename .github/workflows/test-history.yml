@@ -1,0 +1,61 @@
+name: Go test history
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 11 * * 1'
+permissions:
+  contents: read
+concurrency:
+  group: go-test-history
+  cancel-in-progress: false
+jobs:
+  report:
+    permissions:
+      contents: read
+      actions: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Compare outcomes on identical commits without retrying tests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/flaky-report.py --runs 20 --output "$RUNNER_TEMP/go-test-history"
+      - name: Preserve the report and its missing-evidence inventory
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: go-test-history-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/go-test-history/
+          if-no-files-found: error
+          retention-days: 30
+  issue:
+    name: Flaky-test tracking issue
+    needs: [report]
+    permissions:
+      contents: read
+      issues: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: go-test-history-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/go-test-history
+      - name: Open, update or close the flaky-test tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/flaky-issue.py --repository "$GITHUB_REPOSITORY" \
+            --run-id "$GITHUB_RUN_ID" --report "$RUNNER_TEMP/go-test-history"

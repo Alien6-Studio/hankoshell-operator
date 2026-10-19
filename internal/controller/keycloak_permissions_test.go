@@ -59,6 +59,11 @@ func TestRealKeycloakPermissionProfiles(t *testing.T) {
 	kc, secret := f.serviceClient("minimal")
 	_, noRoleSecret := f.serviceClient("no-role")
 	f.grantClientRoles("minimal", "managed", baseline)
+	fleetPermissions, permissionErr := kc.FleetPermissions(ctx, "managed")
+	f.requireNoError(permissionErr)
+	if (fleetPermissions.Version != "" && fleetPermissions.Version != f.version) || !fleetPermissions.ManageRealm || !fleetPermissions.ManageClients || !fleetPermissions.ManageEvents || fleetPermissions.ManageIdentityProviders {
+		t.Fatalf("Fleet permission inventory differs from effective minimal native grants: version=%s expected=%s realm=%t clients=%t events=%t idps=%t", fleetPermissions.Version, f.version, fleetPermissions.ManageRealm, fleetPermissions.ManageClients, fleetPermissions.ManageEvents, fleetPermissions.ManageIdentityProviders)
+	}
 	_, err := kc.ServerVersion(ctx)
 	f.requireNoError(err)
 	f.requireNoError(kc.EnsureRealmManagementAccess(ctx, "managed"))
@@ -222,6 +227,11 @@ func TestRealKeycloakPermissionProfiles(t *testing.T) {
 	f.run("read-only inventory", func(t *testing.T) {
 		observer, credential := f.serviceClient("observer")
 		f.grantClientRoles("observer", "managed", []string{"view-realm", "view-clients", "view-identity-providers"})
+		fleetPermissions, permissionErr := observer.FleetPermissions(ctx, "managed")
+		f.requireNoError(permissionErr)
+		if fleetPermissions.ManageRealm || fleetPermissions.ManageClients || fleetPermissions.ManageEvents || fleetPermissions.ManageIdentityProviders {
+			t.Fatal("Fleet inventory promoted read permissions to write authority")
+		}
 		_, err := observer.ListRealms(ctx)
 		f.requireNoError(err)
 		_, err = observer.GetRealm(ctx, "managed")

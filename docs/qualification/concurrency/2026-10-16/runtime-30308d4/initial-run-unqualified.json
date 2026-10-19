@@ -1,0 +1,6 @@
+{
+  "schema": 1,
+  "tested_revision": "42d058fa5882b042379ebc0934e4a6c4579606f8",
+  "qualified": false,
+  "reason": "Initial full unit run detected cached negative pending-credential probe after native activation; corrected in a subsequent commit. Both stability series were interrupted by the source change and must not count as twenty successes. Old full native processes compile this revision and are not evidence for any later HEAD, regardless of their ending metadata."
+}

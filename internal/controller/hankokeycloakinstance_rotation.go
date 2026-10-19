@@ -6,7 +6,9 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -174,6 +176,10 @@ func (r *HankoKeycloakInstanceReconciler) resumeServiceAccountRotation(
 		return r.rotationFailure(ctx, instance, statusPatch, "PendingCredentialInvalid", err)
 	}
 	if _, pendingErr := pendingClient.ServerVersion(ctx); pendingErr != nil {
+		var status *keycloak.StatusError
+		if !errors.As(pendingErr, &status) || status.Code != http.StatusUnauthorized {
+			return r.rotationFailure(ctx, instance, statusPatch, "PendingCredentialVerificationFailed", pendingErr)
+		}
 		if _, activeErr := activeClient.ServerVersion(ctx); activeErr != nil {
 			return r.rotationFailure(ctx, instance, statusPatch, "CredentialRecoveryFailed",
 				fmt.Errorf("active and pending credentials were rejected"))
@@ -181,6 +187,13 @@ func (r *HankoKeycloakInstanceReconciler) resumeServiceAccountRotation(
 		clientID := string(secret.Data["HANKO_KC_CLIENT_ID"])
 		if err := activeClient.SetClientSecret(ctx, "master", clientID, string(secret.Data[pendingClientSecretKey])); err != nil {
 			return r.rotationFailure(ctx, instance, statusPatch, "KeycloakRotationFailed", err)
+		}
+		// The credential's authority just changed. Discard the client's earlier
+		// negative authentication observation before verifying activation; normal
+		// queued requests must retain their shared failed-refresh cooldown.
+		pendingClient, err = buildKCClientFromAdminSecret(ctx, r.Client, instance, secret, pendingClientSecretKey, r.RequireHTTPS)
+		if err != nil {
+			return r.rotationFailure(ctx, instance, statusPatch, "PendingCredentialInvalid", err)
 		}
 		if _, err := pendingClient.ServerVersion(ctx); err != nil {
 			return r.rotationFailure(ctx, instance, statusPatch, "PendingCredentialVerificationFailed", err)

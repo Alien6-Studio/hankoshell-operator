@@ -1,0 +1,35 @@
+name: Keycloak consecutive stability qualification
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  stability:
+    name: Twenty independent attempts / ${{ matrix.root }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        root: [TestRealKeycloakAdoptionCharacterization, TestRealKeycloakApplicationProtocolsAndFlows]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Run twenty consecutive attempts, stopping at first failure
+        env:
+          KEYCLOAK_STABILITY_ROOT: ${{ matrix.root }}
+        run: make keycloak-stability-test
+      - name: Preserve every attempt, including the first failed one
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: keycloak-stability-${{ matrix.root }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .tools/test-results/keycloak-stability-*/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30

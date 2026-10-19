@@ -12,6 +12,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -62,14 +63,21 @@ func generationOrReconcileRequestChanged() predicate.Predicate {
 			if update.ObjectOld == nil || update.ObjectNew == nil {
 				return false
 			}
-			for _, key := range []string{reconcileRequestAnnotation, adoption.SourceAnnotation, adoption.ContractAnnotation, adoption.CandidateAnnotation, "hanko.sh/migrate-keycloak-client-uuid", "hanko.sh/migrate-keycloak-observation"} {
+			for _, key := range []string{lifecycleApprovalAnnotation, reconcileRequestAnnotation, adoption.SourceAnnotation, adoption.ContractAnnotation, adoption.CandidateAnnotation, "hanko.sh/migrate-keycloak-client-uuid", "hanko.sh/migrate-keycloak-observation"} {
 				oldValue, oldPresent := update.ObjectOld.GetAnnotations()[key]
 				newValue, newPresent := update.ObjectNew.GetAnnotations()[key]
 				if oldValue != newValue || oldPresent != newPresent {
 					return true
 				}
 			}
-			return update.ObjectOld.GetLabels()[importedByLabel] != update.ObjectNew.GetLabels()[importedByLabel] || update.ObjectOld.GetLabels()["hanko.sh/tenant"] != update.ObjectNew.GetLabels()["hanko.sh/tenant"] || !update.ObjectOld.GetDeletionTimestamp().Equal(update.ObjectNew.GetDeletionTimestamp())
+			for _, key := range []string{importedByLabel, "hanko.sh/tenant"} {
+				oldValue, oldPresent := update.ObjectOld.GetLabels()[key]
+				newValue, newPresent := update.ObjectNew.GetLabels()[key]
+				if oldValue != newValue || oldPresent != newPresent {
+					return true
+				}
+			}
+			return providerConnectionChanged(update.ObjectOld.GetLabels(), update.ObjectNew.GetLabels()) || !update.ObjectOld.GetDeletionTimestamp().Equal(update.ObjectNew.GetDeletionTimestamp())
 		}},
 	)
 }
@@ -167,6 +175,17 @@ func sameClientIdentity(leftRealm, leftClientID, rightRealm, rightClientID strin
 	return leftRealm == rightRealm && strings.TrimSpace(leftClientID) == strings.TrimSpace(rightClientID)
 }
 
+// Keep ownership decisions on the uncached API reader, but let the API server
+// omit unrelated realms. Raw is deliberate: this is a server-side selector;
+// cached/fake readers may return a superset, which callers still filter below.
+// Never select clientID: ownership compares its trimmed value, so an exact
+// selector would hide legacy whitespace aliases and authorize two managers.
+func ownershipCandidatesInRealm(namespace, realm string) client.ListOption {
+	return &client.ListOptions{Namespace: namespace, Raw: &metav1.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("spec.realmRef", realm).String(),
+	}}
+}
+
 func isProtectedControlPlaneClient(protectedRealm string, protectedClientIDs []string, realmRef, clientID string) bool {
 	protectedRealm = strings.TrimSpace(protectedRealm)
 	if protectedRealm == "" || realmRef != protectedRealm {
@@ -238,7 +257,10 @@ func kcForObject(pool *keycloak.Pool, namespace string, labels map[string]string
 	if pool == nil {
 		return nil
 	}
-	tenantName := labels["hanko.sh/tenant"]
+	tenantName, labelled := labels["hanko.sh/tenant"]
+	if !labelled {
+		return pool.Get("")
+	}
 	return pool.Get(namespace + "/" + tenantName)
 }
 
@@ -342,4 +364,10 @@ func importResourceName(realmID, clientID string) string {
 		name = name[:63]
 	}
 	return strings.Trim(name, "-")
+}
+
+func providerConnectionChanged(oldLabels, newLabels map[string]string) bool {
+	oldValue, oldPresent := oldLabels[providerConnectionLabel]
+	newValue, newPresent := newLabels[providerConnectionLabel]
+	return oldValue != newValue || oldPresent != newPresent
 }

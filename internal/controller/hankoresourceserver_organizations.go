@@ -39,6 +39,43 @@ func resourceServerAuthorityChanged() predicate.Predicate {
 	})
 }
 
+// Role references consume spec/identity, not observation timestamps. The
+// organization graph additionally consumes provider group identity and current
+// Synced evidence. Do not broadcast periodic status refreshes to every consumer.
+func authorizationDependencyChanged() predicate.Predicate {
+	return predicate.Or(resourceServerAuthorityChanged(), predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if e.ObjectOld == nil || e.ObjectNew == nil {
+				return false
+			}
+			if e.ObjectOld.GetUID() != e.ObjectNew.GetUID() {
+				return true
+			}
+			old, oldOK := e.ObjectOld.(*api.HankoOrganization)
+			next, nextOK := e.ObjectNew.(*api.HankoOrganization)
+			if oldOK != nextOK {
+				return true
+			}
+			if !oldOK {
+				return false
+			}
+			oldSynced, oldGeneration := organizationSyncIdentity(old)
+			newSynced, newGeneration := organizationSyncIdentity(next)
+			return old.Status.GroupID != next.Status.GroupID || old.Status.GroupPath != next.Status.GroupPath ||
+				old.Status.ObservedGeneration != next.Status.ObservedGeneration || oldSynced != newSynced || oldGeneration != newGeneration
+		},
+	})
+}
+
+func organizationSyncIdentity(object *api.HankoOrganization) (bool, int64) {
+	for _, condition := range object.Status.Conditions {
+		if condition.Type == "Synced" {
+			return condition.Status == metav1.ConditionTrue, condition.ObservedGeneration
+		}
+	}
+	return false, 0
+}
+
 type organizationGrantResolver struct {
 	reader           client.Reader
 	provider         authorization.OrganizationGroupReader

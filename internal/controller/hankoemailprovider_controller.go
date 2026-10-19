@@ -49,5 +49,5 @@ func (r *HankoEmailProviderReconciler) Reconcile(ctx context.Context, req ctrl.R
 }
 
 func (r *HankoEmailProviderReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).For(&hankoshv1alpha1.HankoEmailProvider{}).Complete(r)
+	return ctrl.NewControllerManagedBy(mgr).For(&hankoshv1alpha1.HankoEmailProvider{}).Complete(observeReconciler("HankoEmailProvider", r))
 }

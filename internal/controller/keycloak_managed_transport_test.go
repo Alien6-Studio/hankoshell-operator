@@ -97,22 +97,22 @@ func managedFixtureTemplate(t *testing.T, image string, cert, key []byte) ([]str
 	return nil, ""
 }
 
-func (f *keycloakFixture) buildManagedFixture(base string) string {
+func (f *keycloakFixture) buildOptimizedFixture(base string) string {
 	f.t.Helper()
 	directory := f.t.TempDir() // TLS material never enters this build context.
 	if err := os.WriteFile(filepath.Join(directory, "Dockerfile"), []byte("FROM "+base+"\nRUN /opt/keycloak/bin/kc.sh build --db=dev-file --health-enabled=true --http-relative-path=/ --http-management-relative-path=/\n"), 0600); err != nil {
 		f.t.Fatal(err)
 	}
-	image := "hankoshell-managed-test:" + fixtureSecret(f.t)[:12]
+	image := "hankoshell-keycloak-optimized-test:" + fixtureSecret(f.t)[:12]
 	f.t.Cleanup(func() {
 		output, err := f.docker(15*time.Second, nil, "image", "rm", image)
 		if err != nil && !strings.Contains(string(output), "No such image") {
-			f.t.Errorf("managed fixture image cleanup failed: %s", f.redact(output))
+			f.t.Errorf("optimized fixture image cleanup failed: %s", f.redact(output))
 		}
 	})
 	output, err := f.docker(3*time.Minute, nil, "build", "--tag", image, directory)
 	if err != nil {
-		f.t.Fatalf("build optimized managed fixture: %s", f.redact(output))
+		f.t.Fatalf("build optimized fixture: %s", f.redact(output))
 	}
 	return image
 }

@@ -6,7 +6,9 @@ import (
 )
 
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:subresource:status
+// +kubebuilder:selectablefield:JSONPath=".spec.realmRef"
 // +kubebuilder:resource:scope=Namespaced,shortName=happ,categories=hanko
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="Realm",type=string,JSONPath=".spec.realmRef"
@@ -34,6 +36,9 @@ type HankoApplication struct {
 type HankoApplicationSpec struct {
 	// RealmRef references the HankoRealm this application belongs to.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	RealmRef string `json:"realmRef"`
 
 	// ClientID is the Keycloak client identifier.
@@ -383,6 +388,8 @@ type HankoApplicationStatus struct {
 	ManagedClientSecretProjections []ApplicationSecretProjection `json:"managedClientSecretProjections,omitempty"`
 
 	// Conditions holds standard Kubernetes condition objects.
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// ManagedIdentityMappings records realm-scoped identity-provider mappers
@@ -400,6 +407,8 @@ type ManagedIdentityMappingReference struct {
 	IdentityProvider string `json:"identityProvider"`
 	KeycloakID       string `json:"keycloakID"`
 	// Conditions reports this mapper's individual reconciliation state.
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
@@ -409,6 +418,8 @@ type ManagedTokenClaimReference struct {
 	Name       string `json:"name"`
 	KeycloakID string `json:"keycloakID"`
 	// Conditions reports this mapper's individual reconciliation state.
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 

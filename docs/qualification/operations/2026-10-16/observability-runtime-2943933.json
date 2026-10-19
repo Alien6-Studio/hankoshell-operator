@@ -1,0 +1,21 @@
+{
+  "result": "pass",
+  "scope": "installed operational smoke; not production HA",
+  "revision": "2943933b3f6f14a3fa9bcf0487f549c1b014edf2",
+  "image_digest": "sha256:38285972ef6624963ac9146b5d886736892051fc56a22d1eb0ed3ca9758c286b",
+  "kubernetes": "1.37.0",
+  "keycloak": "26.8.0",
+  "checks": [
+    "real Helm upgrade enables mandatory mTLS on two Restricted replicas",
+    "runbook public image/status/reason/lease jsonpath commands",
+    "authorized certificate scrapes; anonymous and unapproved URI denied on every replica",
+    "actual metrics contain no credential or native client-ID sentinel",
+    "registered reconcile/provider outcomes and complete bounded leader inventory",
+    "liveness/serving remain healthy on standby; full readiness requires leadership",
+    "leader removal acquires a new lease without duplicate native client or credential rotation",
+    "credential sentinel scan of logs, Events and all Hanko CRDs",
+    "real Helm configuration rollback disables metrics and returns to one replica"
+  ],
+  "harness_sha256": "469071d0797b842323fcd96677389b934c376ed2ead08e7f07d1e93103382c39",
+  "system_harness_sha256": "f552f22b75b8db3025366c627c1eb20d8a737791e7db308aa65dcabc00eb5951"
+}

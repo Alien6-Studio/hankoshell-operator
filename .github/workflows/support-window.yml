@@ -1,0 +1,58 @@
+name: Qualification window proposals
+on:
+  schedule:
+    - cron: '43 5 * * 1'
+  workflow_dispatch:
+    inputs:
+      create_pull_request:
+        description: Explicitly create/reuse a draft review-packet PR from the default branch
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: support-window-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  proposal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r scripts/requirements.txt
+      - name: Prepare bounded official-upstream review packet
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/support-window.py propose --revision "$GITHUB_SHA" --output "$RUNNER_TEMP/support-window.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: NONPUBLISHABLE-support-window-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/support-window.json
+          if-no-files-found: error
+          retention-days: 30
+  draft:
+    if: github.event_name == 'workflow_dispatch' && inputs.create_pull_request == true
+    needs: [proposal]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r scripts/requirements.txt
+      - name: Explicit manual draft proposal
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HANKO_CREATE_SUPPORT_PR: 'true'
+        run: python3 scripts/support-window.py propose --revision "$GITHUB_SHA" --output "$RUNNER_TEMP/support-window.json" --repository "$GITHUB_REPOSITORY" --create-pull-request

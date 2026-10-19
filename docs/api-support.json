@@ -1,0 +1,617 @@
+{
+  "schemaVersion": 1,
+  "stage": "development",
+  "apiVersion": "hanko.sh/v1alpha1",
+  "storedVersion": "v1alpha1",
+  "conversion": "None",
+  "compatibility": "experimental",
+  "publicSelectionIssue": 81,
+  "resources": [
+    {
+      "kind": "HankoApplication",
+      "surface": "standalone IAM",
+      "specFields": [
+        "attributes",
+        "clientID",
+        "clientSecretProjections",
+        "identityMappings",
+        "mode",
+        "postLogoutRedirectURIs",
+        "protocol",
+        "realmRef",
+        "realmRoleScopes",
+        "redirectURIs",
+        "roles",
+        "runtimeBindings",
+        "saml",
+        "secretRotationPolicy",
+        "theme",
+        "tokenClaims",
+        "type"
+      ],
+      "statusFields": [
+        "adoptionCandidate",
+        "adoptionReceipt",
+        "appliedGeneration",
+        "appliedPlanHash",
+        "backendKind",
+        "capabilities",
+        "capabilityEvidence",
+        "clientSecret",
+        "conditions",
+        "contractVersion",
+        "driftState",
+        "evaluatedGeneration",
+        "evaluatedPlanHash",
+        "findings",
+        "intentHash",
+        "lastReconciled",
+        "lastRotated",
+        "managedClientSecretProjections",
+        "managedIdentityMappings",
+        "managedTokenClaims",
+        "nextRotation",
+        "observationComplete",
+        "observationGeneration",
+        "observationPlanHash",
+        "observedGeneration",
+        "observedStateHash",
+        "oidcEndpoints",
+        "phase",
+        "protocol",
+        "runtimeBindings",
+        "samlEndpoints"
+      ],
+      "nativeSpecFields": [
+        "attributes",
+        "identityMappings",
+        "saml",
+        "theme",
+        "tokenClaims"
+      ],
+      "evidence": "docs/architecture/application-identity.md"
+    },
+    {
+      "kind": "HankoEmailProvider",
+      "surface": "deprecated",
+      "specFields": [
+        "enabled",
+        "fromAddress",
+        "fromName",
+        "office365",
+        "testNonce",
+        "type"
+      ],
+      "statusFields": [
+        "conditions",
+        "credentialVersion",
+        "lastPreflight",
+        "observedGeneration",
+        "phase"
+      ],
+      "nativeSpecFields": [],
+      "evidence": "docs/secure-deployment.md"
+    },
+    {
+      "kind": "HankoIAMProfile",
+      "surface": "standalone IAM",
+      "specFields": [
+        "security"
+      ],
+      "statusFields": [
+        "conditions",
+        "lastValidated",
+        "observedGeneration",
+        "phase",
+        "policyHash"
+      ],
+      "nativeSpecFields": [],
+      "evidence": "docs/architecture/iam-contract-engine.md"
+    },
+    {
+      "kind": "HankoImport",
+      "surface": "instance and operations",
+      "specFields": [
+        "dryRun",
+        "includeClients",
+        "includeIdentityProviders",
+        "includeServiceAccounts",
+        "realms",
+        "sourceRef"
+      ],
+      "statusFields": [
+        "applied",
+        "completedAt",
+        "conditions",
+        "coverage",
+        "discovered",
+        "findings",
+        "inventory",
+        "lastReconciled",
+        "phase",
+        "skipped"
+      ],
+      "nativeSpecFields": [],
+      "evidence": "docs/secure-deployment.md"
+    },
+    {
+      "kind": "HankoIssuer",
+      "surface": "standalone IAM",
+      "specFields": [
+        "host",
+        "realmRef"
+      ],
+      "statusFields": [
+        "conditions",
+        "configuredHost",
+        "lastReconciled",
+        "phase"
+      ],
+      "nativeSpecFields": [],
+      "evidence": "docs/secure-deployment.md"
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "surface": "instance and operations",
+      "specFields": [
+        "adminRef",
+        "adopted",
+        "hardenMasterRealm",
+        "managed",
+        "mode",
+        "rotateAdminCredentials",
+        "tlsCARef"
+      ],
+      "statusFields": [
+        "adminAPIURL",
+        "conditions",
+        "keycloakVersion",
+        "lastCredentialRotation",
+        "lastProbed",
+        "lastReconciled",
+        "managedObservation",
+        "nextCredentialRotation",
+        "phase",
+        "realmCount"
+      ],
+      "nativeSpecFields": [
+        "managed",
+        "adopted",
+        "hardenMasterRealm",
+        "rotateAdminCredentials"
+      ],
+      "evidence": "docs/secure-deployment.md"
+    },
+    {
+      "kind": "HankoMeshService",
+      "surface": "connected",
+      "specFields": [
+        "egress",
+        "enforcementMode",
+        "identityRef",
+        "ports",
+        "resourceServerRef",
+        "serviceRef",
+        "tenantRef",
+        "workloadServiceAccountRef"
+      ],
+      "statusFields": [
+        "audience",
+        "clusterID",
+        "conditions",
+        "enforcementMode",
+        "lastResolved",
+        "observedGeneration",
+        "phase",
+        "realm",
+        "receiverNodeUIDs",
+        "resolvedEgress",
+        "resolvedPorts",
+        "selectorSHA256",
+        "serviceUID",
+        "tenantID",
+        "workloadID",
+        "workloadServiceAccountUID"
+      ],
+      "nativeSpecFields": [],
+      "evidence": "docs/secure-deployment.md"
+    },
+    {
+      "kind": "HankoOperation",
+      "surface": "instance and operations",
+      "specFields": [
+        "clone",
+        "dbSwitch",
+        "dryRun",
+        "instanceRef",
+        "snapshotBefore",
+        "type",
+        "upgrade"
+      ],
+      "statusFields": [
+        "completedAt",
+        "conditions",
+        "instanceUID",
+        "intentHash",
+        "lastReconciled",
+        "phase",
+        "snapshotRef",
+        "startedAt",
+        "startedGeneration",
+        "steps"
+      ],
+      "nativeSpecFields": [],
+      "evidence": "docs/secure-deployment.md"
+    },
+    {
+      "kind": "HankoOrganization",
+      "surface": "standalone IAM",
+      "specFields": [
+        "clientRoles",
+        "domains",
+        "identityProvider",
+        "mode",
+        "name",
+        "parentRef",
+        "realmRef",
+        "roles",
+        "slug"
+      ],
+      "statusFields": [
+        "adoptionCandidate",
+        "adoptionReceipt",
+        "conditions",
+        "groupID",
+        "groupPath",
+        "lastReconciled",
+        "observedGeneration",
+        "orgID",
+        "phase",
+        "positionID"
+      ],
+      "nativeSpecFields": [
+        "identityProvider"
+      ],
+      "evidence": "docs/architecture/organizational-authorization.md"
+    },
+    {
+      "kind": "HankoRealm",
+      "surface": "standalone IAM",
+      "specFields": [
+        "displayName",
+        "email",
+        "frontendURL",
+        "iamProfileRef",
+        "identityProviders",
+        "loginTheme",
+        "otpRequired",
+        "roles",
+        "securityProfile"
+      ],
+      "statusFields": [
+        "appliedMFAPolicy",
+        "conditions",
+        "effectiveIAMProfile",
+        "effectivePolicyHash",
+        "keycloakRealmID",
+        "lastReconciled",
+        "managedIdentityProviders",
+        "observedGeneration",
+        "phase",
+        "policyRevision"
+      ],
+      "nativeSpecFields": [
+        "identityProviders",
+        "securityProfile",
+        "loginTheme"
+      ],
+      "evidence": "docs/architecture/iam-contract-engine.md"
+    },
+    {
+      "kind": "HankoResourceServer",
+      "surface": "standalone IAM",
+      "specFields": [
+        "applicationRef",
+        "audience",
+        "displayName",
+        "mode",
+        "permissions",
+        "realmRef",
+        "resources",
+        "scopes"
+      ],
+      "statusFields": [
+        "adoptionCandidate",
+        "adoptionReceipt",
+        "appliedGeneration",
+        "appliedPlanHash",
+        "authorizationExplanation",
+        "backendKind",
+        "capabilities",
+        "capabilityEvidence",
+        "conditions",
+        "contractVersion",
+        "driftState",
+        "evaluatedGeneration",
+        "evaluatedPlanHash",
+        "findings",
+        "intentHash",
+        "lastReconciled",
+        "managedObjects",
+        "observationComplete",
+        "observationGeneration",
+        "observationPlanHash",
+        "observedGeneration",
+        "observedStateHash",
+        "phase",
+        "providerResourceServerID"
+      ],
+      "nativeSpecFields": [],
+      "evidence": "docs/architecture/organizational-authorization.md"
+    },
+    {
+      "kind": "HankoRole",
+      "surface": "standalone IAM",
+      "specFields": [
+        "attributes",
+        "composite",
+        "composites",
+        "description",
+        "mode",
+        "name",
+        "realmRef"
+      ],
+      "statusFields": [
+        "adoptionCandidate",
+        "adoptionReceipt",
+        "appliedGeneration",
+        "appliedPlanHash",
+        "backendKind",
+        "capabilities",
+        "capabilityEvidence",
+        "conditions",
+        "contractVersion",
+        "driftState",
+        "evaluatedGeneration",
+        "evaluatedPlanHash",
+        "findings",
+        "intentHash",
+        "lastReconciled",
+        "observationComplete",
+        "observationGeneration",
+        "observationPlanHash",
+        "observedGeneration",
+        "observedStateHash",
+        "phase"
+      ],
+      "nativeSpecFields": [
+        "attributes"
+      ],
+      "evidence": "docs/architecture/iam-contract-engine.md"
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "surface": "standalone IAM",
+      "specFields": [
+        "attributes",
+        "authentication",
+        "clientID",
+        "mode",
+        "realmRef",
+        "runtimeMetadata",
+        "scopes",
+        "secretRotationPolicy",
+        "tokenClaims"
+      ],
+      "statusFields": [
+        "adoptionCandidate",
+        "adoptionReceipt",
+        "authenticationTransition",
+        "conditions",
+        "lastReconciled",
+        "lastRotated",
+        "managedTokenClaims",
+        "nextRotation",
+        "observedGeneration",
+        "phase",
+        "runtimeMetadata",
+        "secretRef",
+        "workloadBinding"
+      ],
+      "nativeSpecFields": [
+        "attributes",
+        "authentication",
+        "tokenClaims"
+      ],
+      "evidence": "docs/keycloak-permissions.md"
+    },
+    {
+      "kind": "HankoSnapshot",
+      "surface": "instance and operations",
+      "specFields": [
+        "backupImage",
+        "backupPVC",
+        "backupSecretRef",
+        "includeData",
+        "instanceRef"
+      ],
+      "statusFields": [
+        "conditions",
+        "configHash",
+        "configMapRef",
+        "configMapUID",
+        "dbJobRef",
+        "dbJobUID",
+        "instanceUID",
+        "intentHash",
+        "lastReconciled",
+        "phase",
+        "startedGeneration",
+        "takenAt"
+      ],
+      "nativeSpecFields": [
+        "backupImage",
+        "backupPVC",
+        "backupSecretRef"
+      ],
+      "evidence": "docs/secure-deployment.md"
+    },
+    {
+      "kind": "HankoTenant",
+      "surface": "connected",
+      "specFields": [
+        "clusterName",
+        "hubEndpoint",
+        "hubEnrollSecretRef",
+        "hubEnrollmentEndpoint",
+        "hubTenantID",
+        "hubTokenSecretRef",
+        "hubTransport",
+        "isolationMode",
+        "keycloakSecretRef",
+        "realmRef"
+      ],
+      "statusFields": [
+        "bundleVersion",
+        "clusterID",
+        "conditions",
+        "connectedHub",
+        "fleetPlan",
+        "fleetRollout",
+        "lastReconciled",
+        "lastSync",
+        "observedGeneration",
+        "phase",
+        "tenantID"
+      ],
+      "nativeSpecFields": [],
+      "evidence": "docs/secure-deployment.md"
+    },
+    {
+      "kind": "HankoTheme",
+      "surface": "instance and operations",
+      "specFields": [
+        "backgroundColor",
+        "buildImage",
+        "fontFamily",
+        "foregroundColor",
+        "headline",
+        "imagePullSecrets",
+        "jarName",
+        "keycloakPVC",
+        "logoURL",
+        "primaryColor",
+        "rebuildNonce",
+        "subline"
+      ],
+      "statusFields": [
+        "buildJob",
+        "conditions",
+        "installedBuildImage",
+        "installedImagePullSecrets",
+        "installedPVC",
+        "jarPath",
+        "lastBuilt",
+        "lastReconciled",
+        "observedGeneration",
+        "phase"
+      ],
+      "nativeSpecFields": [
+        "buildImage",
+        "keycloakPVC"
+      ],
+      "evidence": "docs/secure-deployment.md"
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "surface": "standalone IAM",
+      "specFields": [
+        "dependentReaderRef",
+        "keycloakAlias",
+        "kubernetes",
+        "mode",
+        "provider",
+        "qualifiedKeycloakVersion",
+        "realmRef",
+        "sourceRef",
+        "writerRef"
+      ],
+      "statusFields": [
+        "adoptionCandidate",
+        "adoptionReceipt",
+        "appliedPlanHash",
+        "capabilities",
+        "capabilityEvidence",
+        "conditions",
+        "contractVersion",
+        "dependentInventoryHash",
+        "dependents",
+        "evaluatedPlanHash",
+        "intentHash",
+        "observationComplete",
+        "observedGeneration",
+        "observedStateHash",
+        "phase",
+        "providerID",
+        "realmID",
+        "sharedAgeReviewHash"
+      ],
+      "nativeSpecFields": [
+        "keycloakAlias",
+        "qualifiedKeycloakVersion"
+      ],
+      "evidence": "docs/secure-deployment.md"
+    }
+  ],
+  "features": [
+    {
+      "name": "Delegation and agent identity",
+      "compatibility": "experimental",
+      "limitation": "Typed intent is accepted; bounded provider execution is refused on both reviewed Keycloak versions.",
+      "evidence": "docs/architecture/delegation-and-agent-identity.md"
+    },
+    {
+      "name": "Second IAM provider",
+      "compatibility": "experimental",
+      "limitation": "Experimental authentik 2026.8.4 qualifies OIDC SPA/web registration only; all other domains and runtime credential delivery are refused. No production support or parity.",
+      "evidence": "docs/architecture/provider-boundaries.md"
+    },
+    {
+      "name": "Hub and Continuum",
+      "compatibility": "alpha",
+      "limitation": "Optional alpha integrations with signed plans, capability-aware delivery, disconnected recovery and installed six-cell Fleet evidence; no public connected-service compatibility promise.",
+      "evidence": "docs/secure-deployment.md"
+    },
+    {
+      "name": "Mesh traffic enforcement",
+      "compatibility": "experimental",
+      "limitation": "Registration and policy projection are audit-only; the operator does not enforce workload traffic.",
+      "evidence": "docs/secure-deployment.md"
+    },
+    {
+      "name": "Portable backup and restore",
+      "compatibility": "experimental",
+      "limitation": "Configuration capture and guarded database Job creation do not prove portable restore or database consistency.",
+      "evidence": "docs/secure-deployment.md"
+    },
+    {
+      "name": "Managed lifecycle",
+      "compatibility": "experimental",
+      "limitation": "Excluded from the stable 1.0 contract; disabled by default with independent UID/intent-bound approvals when enabled. Installed Clone qualifies only a configuration alias; managed Upgrade and DBSwitch remain unqualified.",
+      "evidence": "docs/architecture/decisions/ADR-050-experimental-lifecycle-authority.md"
+    },
+    {
+      "name": "Cloud, CNI and CSI",
+      "compatibility": "experimental",
+      "limitation": "API and kind fixtures do not qualify production cloud, networking or storage implementations.",
+      "evidence": "docs/secure-deployment.md"
+    }
+  ],
+  "candidateVersions": {
+    "v1beta1": [
+      "HankoApplication",
+      "HankoResourceServer",
+      "HankoRole"
+    ]
+  }
+}

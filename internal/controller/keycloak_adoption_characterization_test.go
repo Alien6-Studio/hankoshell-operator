@@ -635,12 +635,12 @@ func TestRealKeycloakAdoptionCharacterization(t *testing.T) {
 			return err
 		})
 		fixtureGet(f, ctx, kube, operation)
-		if operation.Status.Phase != "Done" || !applicationHasCondition(operation.Status.Conditions, "ImportReady", metav1.ConditionTrue, "PartialFailure") {
+		if operation.Status.Phase != "Failed" || !applicationHasCondition(operation.Status.Conditions, "ImportReady", metav1.ConditionFalse, "PartialFailure") {
 			for _, c := range operation.Status.Conditions {
 				t.Logf("Import condition %s / %s", c.Type, c.Reason)
 			}
 			t.Logf("Import fixture routes (no bodies/headers): %v", routes())
-			t.Fatal("read-only import did not complete")
+			t.Fatal("partial read-only import did not report its target mapping failure")
 		}
 		if operation.Status.Coverage.Complete || operation.Status.Coverage.Truncated {
 			t.Fatal("unresolved native authorization references must leave bounded coverage incomplete")

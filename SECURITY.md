@@ -10,8 +10,8 @@ minor series, and its matching Helm chart. Upgrade to that patch release to
 receive fixes. Older minor series, prereleases, development builds and forks
 receive no separate security backports. No long-term support branch is available.
 
-Kubernetes **1.35–1.37** is the current qualification window. Use the latest
-provider security patch within it; an end-of-life or provider-extended version
+The generated table below defines the current exact qualification window.
+Review upstream security patches before deployment; an end-of-life or provider-extended version
 does not receive additional project qualification. See the
 [Kubernetes compatibility and hardening matrix](docs/secure-deployment.md#kubernetes-compatibility-and-hardening).
 
@@ -19,6 +19,61 @@ The first public 0.1.0 is in initial development. No public release exists;
 current metadata `0.1.0-dev.0` is prerelease. The `v1alpha1` APIs remain
 experimental. Reports against `main` are welcome; the published-release support
 policy above applies once a public release exists.
+
+## Repository protection audit
+
+The reviewed [default-branch ruleset](.github/rulesets/default-branch.json) and
+[release-tag ruleset](.github/rulesets/release-tags.json) are exports of the live
+GitHub configuration. The default branch requires verified signatures, linear
+history, a pull request with squash merging, resolved review threads and the
+up-to-date `Source and chart checks` aggregate from GitHub Actions (app 15368).
+It requires zero mandatory approving reviews; code-owner review and last-push
+approval are disabled. Existing approvals are dismissed after a push, and the
+extra-approval rule for unattributed changes is enabled. CodeQL blocks errors
+and high-or-higher security findings. Deletion and force pushes are forbidden.
+The tag ruleset protects `refs/tags/v*` against deletion and rewriting. Both
+exports are active and have empty bypass lists. Tag signature verification is
+performed by release eligibility, not by a tag-signature ruleset.
+
+`python3 scripts/check-rulesets.py` checks the exported contract and required gate
+name locally; the same check runs through the preflight unit tests. Changing the
+CI aggregate's name without changing the export fails. The weekly source job
+also runs `--live --allow-hidden-bypass` with its existing read-only GitHub token.
+It compares all visible configuration, including inherited or additional rulesets,
+and fails on drift, missing rules, malformed responses or unavailable reads.
+It never changes GitHub rules or refreshes the exports automatically.
+
+GitHub only returns `bypass_actors` to callers with write access to the ruleset;
+see the [rules API visibility contract](https://docs.github.com/en/rest/repos/rules#get-a-repository-ruleset).
+When GitHub hides this field, the weekly check emits an explicit **UNVERIFIED**
+warning for bypass lists. It does not interpret an omitted list as empty.
+A complete audit uses `python3 scripts/check-rulesets.py --live` from an account
+that can view the bypass lists; this mode fails if they are hidden. The full
+comparison was performed when recording these exports. Automated bypass auditing
+requires separately provisioned visibility and is not established by the weekly
+read-only check. A visible nonempty bypass list always fails against these exports.
+
+To refresh an export, first inspect IDs with
+`gh api 'repos/Alien6-Studio/hankoshell-operator/rulesets?includes_parents=true'`.
+For each reviewed ID, export the API configuration with an authorized account:
+
+```sh
+gh api repos/Alien6-Studio/hankoshell-operator/rulesets/RULESET_ID \
+  --jq '{name, target, enforcement, bypass_actors, conditions, rules}' > /tmp/ruleset.json
+```
+
+Verify the bypass list is present, compare the result with the matching committed
+JSON and update it through a reviewed, signed change. Run both offline and full
+live checks before accepting the new baseline. IDs, timestamps and caller metadata
+are excluded; policy arrays are compared independent of ordering.
+
+To import into an approved target repository, use **Settings → Rules → Rulesets →
+New ruleset → Import a ruleset**, select the corresponding JSON, review the scope,
+enforcement and bypass list, then save. Import creates a ruleset; reconcile any
+existing one explicitly instead of leaving duplicate protection definitions.
+Re-run the full audit with `--repository OWNER/REPO` against the target. Import or
+protection changes remain administrator actions; CI performs GET requests only.
+See GitHub's [import/export procedure](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/managing-rulesets-for-a-repository).
 
 ## Final OCI image vulnerability gate
 
@@ -134,3 +189,12 @@ mitigation and disclosure schedule with the reporter after triage; there is
 no universal remediation deadline. We publish an advisory with affected and
 fixed versions when a fix or mitigation is available, and credit reporters
 with their consent. Please coordinate disclosure so users can apply it first.
+
+Qualification window: [support policy](docs/support-window.md), [compatibility proposal](docs/compatibility-policy.md).
+
+<!-- support-window:start -->
+| Component | Exact qualification versions | Default |
+| --- | --- | --- |
+| kubernetes | `1.35.0`, `1.36.2`, `1.37.0` | `1.37.0` |
+| keycloak | `26.7.5`, `26.8.0` | `26.8.0` |
+<!-- support-window:end -->

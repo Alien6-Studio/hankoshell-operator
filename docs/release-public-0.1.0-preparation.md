@@ -9,10 +9,12 @@ Trusted Keycloak Foundation, IAM Contract Engine, Application Identity,
 Organizational Authorization and Adopt Existing Keycloak form the implemented
 foundation. Workload Identity, Delegation & Agent Identity, Provider Portability,
 Fleet Reconciliation and Initial Public Contract Stabilization are also required
-before the first 0.1.0. See the [roadmap](../ROADMAP.md).
+before the first 0.1.0. Track this work and subsequent stable-contract qualification
+in the [Release 1.0.0 milestone](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11).
 The 17 `v1alpha1` APIs may remain alpha with explicit initial-public contract and
 migration limits. A true later 1.0 decision depends on actual public use and a
-proven backward-compatibility policy; there is no predetermined 1.0 milestone.
+proven backward-compatibility policy. The milestone tracks that work without
+promising graduation before the acceptance criteria are met.
 
 [#54](https://github.com/Alien6-Studio/hankoshell-operator/pull/54) merged as
 `7e0063704738ef9e63968b79d9e553555c2f2eb0` and its canonical Attest hardening is
@@ -49,9 +51,9 @@ candidate metadata uses normal `v0.1.0` icon and delivery-key asset links.
 Early development used milestone-like SemVer labels. Their five tag refs are
 scheduled for deletion after this reset's protected merge and exact-main
 qualification; commits, SHA identities, signatures and PR/CI history remain.
-No alternate tags are created. GitHub milestones use
-[functional work subjects](engineering-milestone-mapping.md), preserving IDs, issue links and
-states. The [reference inventory](version-reference-inventory.md) distinguishes
+No alternate tags are created. Open and closed issues are tracked in the
+[Release 1.0.0 milestone](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11).
+The [reference inventory](version-reference-inventory.md) distinguishes
 active metadata, historical naming, legacy migration contracts, generic fixtures
 and external dependency versions.
 

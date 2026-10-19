@@ -1,5 +1,8 @@
 # Portable IAM and provider-native boundaries
 
+See the [accepted architecture decisions](decisions/README.md) for the underlying
+operator, provider and trust boundaries.
+
 This classification resolves [RFC #23](https://github.com/Alien6-Studio/hankoshell-operator/issues/23).
 It describes current fields; it does not rename or remove the v1alpha1 API.
 
@@ -110,13 +113,20 @@ least-privilege and ownership controls and update permission tests for new calls
 3. #24 adds the [application identity domain](application-identity.md), preserving
    existing OIDC fields and qualifying SAML POST identity/signatures/ACS. Native
    SAML/security/ownership attributes are reserved; migration requires reviewed
-   UUID + observation approval. #25 runtime bindings remain next.
+   UUID + observation approval. Runtime bindings remain Keycloak-specific; the
+   experimental adapter refuses them.
 4. Realm policy/brokers and operational resources migrate selectively, without a
    blanket generic engine rewrite. Native controls remain first-class Keycloak
    functionality; operational APIs may remain alpha beyond the stable IAM core.
 
 Hub and Continuum remain optional external integrations; this boundary does not
-alter their implementation or protocols. No new plan payload is exported. A
-second provider belongs to the later portability preview, with explicit semantic
-findings rather than parity assumptions. See the
+alter their implementation or protocols. No new plan payload is exported. The
+[second-provider preview](second-provider.md) selects authentik 2026.8.4 for a
+bounded OIDC SPA/web registration experiment. Its shared fourteen-fixture corpus
+and mandatory six-cell installed suite check both native providers and explicit
+unsupported findings. Realm policy, roles, M2M, SAML, organizations, resource
+servers, service accounts, federation, delegation, runtime bindings and credential
+delivery remain unsupported on authentik; its qualification window is 2026.8.4.
+Keycloak-native extensions remain available and are not classified as portable.
+See the
 [engine contract and qualification](iam-contract-engine.md).

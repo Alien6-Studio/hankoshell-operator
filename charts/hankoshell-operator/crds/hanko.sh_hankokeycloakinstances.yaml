@@ -322,6 +322,9 @@ spec:
                   - type
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
               keycloakVersion:
                 description: |-
                   KeycloakVersion is discovered from the Admin API when permissions allow;
@@ -343,6 +346,27 @@ spec:
                   reconciliation.
                 format: date-time
                 type: string
+              managedObservation:
+                description: |-
+                  ManagedObservation binds a successful Admin API probe to the same ready,
+                  owned Deployment observed before and after the probe. Absent for external
+                  and adopted instances; legacy Ready status is not managed rollout evidence.
+                properties:
+                  deploymentGeneration:
+                    description: DeploymentGeneration identifies the exact ready pod
+                      template observed.
+                    format: int64
+                    minimum: 1
+                    type: integer
+                  deploymentUID:
+                    description: DeploymentUID prevents replacement Deployments inheriting
+                      a previous probe.
+                    minLength: 1
+                    type: string
+                required:
+                - deploymentGeneration
+                - deploymentUID
+                type: object
               nextCredentialRotation:
                 description: |-
                   NextCredentialRotation is set only when spec.rotateAdminCredentials is enabled,

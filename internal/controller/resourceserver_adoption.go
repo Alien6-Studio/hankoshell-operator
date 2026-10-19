@@ -23,6 +23,9 @@ type resourceServerAdoptionState struct {
 }
 
 func readResourceServerAdoption(ctx context.Context, kube client.Client, reader client.Reader, kc *keycloak.Client, obj *api.HankoResourceServer) (*resourceServerAdoptionState, error) {
+	if resourceServerHasDelegation(obj) {
+		return nil, authorization.DelegationUnsupported()
+	}
 	var app api.HankoApplication
 	if err := reader.Get(ctx, client.ObjectKey{Namespace: obj.Namespace, Name: obj.Spec.ApplicationRef}, &app); err != nil {
 		return nil, err
@@ -39,7 +42,10 @@ func readResourceServerAdoption(ctx context.Context, kube client.Client, reader 
 	if err != nil {
 		return nil, err
 	}
-	native := authorization.KeycloakAdoptionModel(model, string(obj.UID))
+	native, err := authorization.KeycloakAdoptionModel(model, string(obj.UID))
+	if err != nil {
+		return nil, err
+	}
 	snapshot, err := kc.ReadAuthorizationAdoption(ctx, native, string(app.UID))
 	if err != nil {
 		return nil, err

@@ -184,7 +184,7 @@ func TestInventoryCandidateNoOpAndFreshTargetBoundary(t *testing.T) {
 	target, desired := reconciler.currentInventoryTarget(ctx, operation, item)
 	provider := adoption.ProviderIdentity{Instance: adoption.TargetIdentity{UID: "instance"}, Origin: "https://keycloak.example.test", RealmID: "realm", Trust: "public-ca"}
 	candidate := adoption.Build(target, provider, item.observation, desired)
-	if !reconciler.patchInventoryCandidate(ctx, target, candidate) {
+	if published, err := reconciler.patchInventoryCandidate(ctx, target, candidate); !published || err != nil {
 		t.Fatal("fresh candidate not published")
 	}
 	got := &api.HankoApplication{}
@@ -192,7 +192,7 @@ func TestInventoryCandidateNoOpAndFreshTargetBoundary(t *testing.T) {
 		t.Fatal(err)
 	}
 	version := got.ResourceVersion
-	if !reconciler.patchInventoryCandidate(ctx, target, candidate) {
+	if published, err := reconciler.patchInventoryCandidate(ctx, target, candidate); !published || err != nil {
 		t.Fatal("semantic no-op failed")
 	}
 	if err := kube.Get(ctx, client.ObjectKeyFromObject(object), got); err != nil {
@@ -206,7 +206,7 @@ func TestInventoryCandidateNoOpAndFreshTargetBoundary(t *testing.T) {
 	if err := kube.Update(ctx, got); err != nil {
 		t.Fatal(err)
 	}
-	if reconciler.patchInventoryCandidate(ctx, target, candidate) {
+	if published, err := reconciler.patchInventoryCandidate(ctx, target, candidate); published || err != nil {
 		t.Fatal("changed spec accepted stale evidence")
 	}
 	next, desired := reconciler.currentInventoryTarget(ctx, operation, item)
@@ -217,7 +217,7 @@ func TestInventoryCandidateNoOpAndFreshTargetBoundary(t *testing.T) {
 	if err := kube.Update(ctx, got); err != nil {
 		t.Fatal(err)
 	}
-	if reconciler.patchInventoryCandidate(ctx, next, adoption.Build(next, provider, item.observation, desired)) {
+	if published, err := reconciler.patchInventoryCandidate(ctx, next, adoption.Build(next, provider, item.observation, desired)); published || err != nil {
 		t.Fatal("connection-selecting metadata accepted stale candidate")
 	}
 	if err := kube.Delete(ctx, got); err != nil {
@@ -229,7 +229,7 @@ func TestInventoryCandidateNoOpAndFreshTargetBoundary(t *testing.T) {
 	if err := kube.Create(ctx, replacement); err != nil {
 		t.Fatal(err)
 	}
-	if reconciler.patchInventoryCandidate(ctx, target, candidate) {
+	if published, err := reconciler.patchInventoryCandidate(ctx, target, candidate); published || err != nil {
 		t.Fatal("same-name replacement accepted stale evidence")
 	}
 }
@@ -256,7 +256,7 @@ func TestImportSummaryIdentityBudgetFailsClosed(t *testing.T) {
 	item := newInventoryItem("realm", strings.Repeat("r", adoption.MaxReferenceBytes+1), strings.Repeat("i", adoption.MaxProviderIDBytes+1), "safe")
 	inventory := &realmAdoptionInventory{complete: true, items: []*adoptionInventoryItem{item}, provider: adoption.ProviderIdentity{Instance: adoption.TargetIdentity{UID: "instance"}, Origin: "https://keycloak.example.test", RealmID: "realm", Trust: "public-ca"}}
 	reconciler := &HankoImportReconciler{Client: controllerTestClient(controllerTestScheme(t))}
-	reconciler.publishImportEvidence(context.Background(), operation, []importedRealmData{{inventory: inventory}})
+	reconciler.updateImportEvidence(context.Background(), operation, []importedRealmData{{inventory: inventory}}, false)
 	if operation.Status.Coverage.Complete || !operation.Status.Coverage.Truncated || len(operation.Status.Inventory) != 1 {
 		t.Fatal("oversized identity was not classified as truncated coverage")
 	}
