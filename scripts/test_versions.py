@@ -95,27 +95,33 @@ class VersionContractTests(unittest.TestCase):
             self.assertIn("golang.org/x/crypto@v0.99.0", output["scripts/cosign-pins.sh"])
 
     def test_new_api_needs_matching_manifest_type_and_registration_without_a_count_edit(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = self.fixture(directory)
-            initial = versions.crd_inventory(root)["crd_count"]
-            crds = root / versions.DATA["api"]["crds"]
-            types = root / versions.DATA["api"]["types"]
-            crd = yaml.safe_load(next(crds.glob("*.yaml")).read_text())
-            crd["spec"]["names"]["kind"] = "HankoFuture"
-            extra = crds / "hanko.sh_hankofutures.yaml"
-            extra.write_text(yaml.safe_dump(crd))
-            with self.assertRaisesRegex(ValueError, "kinds differ"):
-                versions.crd_inventory(root)
-            (types / "hankofuture_types.go").write_text('type HankoFuture struct {\n\tmetav1.TypeMeta\n}\n')
-            with self.assertRaisesRegex(ValueError, "kinds differ"):
-                versions.crd_inventory(root)
-            registration = types / "groupversion_info.go"
-            registration.write_text(registration.read_text().replace("scheme.AddKnownTypes(GroupVersion,", "scheme.AddKnownTypes(GroupVersion,\n &HankoFuture{},"))
-            self.assertEqual(versions.check(root)["crd_count"], initial + 1)
-            crd["spec"]["versions"][0]["served"] = False
-            extra.write_text(yaml.safe_dump(crd))
-            with self.assertRaisesRegex(ValueError, "Invalid or duplicate"):
-                versions.crd_inventory(root)
+        # Filesystem order differs across Linux and macOS. Exercise both a
+        # single-version and a candidate-version donor explicitly. Future has
+        # no reviewed beta profile, so its fixture must retain only the hub.
+        for donor in ("hanko.sh_hankorealms.yaml", "hanko.sh_hankoapplications.yaml"):
+            with self.subTest(donor=donor), tempfile.TemporaryDirectory() as directory:
+                root = self.fixture(directory)
+                initial = versions.crd_inventory(root)["crd_count"]
+                crds = root / versions.DATA["api"]["crds"]
+                types = root / versions.DATA["api"]["types"]
+                crd = yaml.safe_load((crds / donor).read_text())
+                crd["metadata"]["name"] = "hankofutures.hanko.sh"
+                crd["spec"]["names"] = {"kind": "HankoFuture", "plural": "hankofutures", "singular": "hankofuture", "listKind": "HankoFutureList"}
+                crd["spec"]["versions"] = [entry for entry in crd["spec"]["versions"] if entry["name"] == versions.DATA["api"]["version"]]
+                extra = crds / "hanko.sh_hankofutures.yaml"
+                extra.write_text(yaml.safe_dump(crd))
+                with self.assertRaisesRegex(ValueError, "kinds differ"):
+                    versions.crd_inventory(root)
+                (types / "hankofuture_types.go").write_text('type HankoFuture struct {\n\tmetav1.TypeMeta\n}\n')
+                with self.assertRaisesRegex(ValueError, "kinds differ"):
+                    versions.crd_inventory(root)
+                registration = types / "groupversion_info.go"
+                registration.write_text(registration.read_text().replace("scheme.AddKnownTypes(GroupVersion,", "scheme.AddKnownTypes(GroupVersion,\n &HankoFuture{},"))
+                self.assertEqual(versions.check(root)["crd_count"], initial + 1)
+                crd["spec"]["versions"][0]["served"] = False
+                extra.write_text(yaml.safe_dump(crd))
+                with self.assertRaisesRegex(ValueError, "Invalid or duplicate"):
+                    versions.crd_inventory(root)
 
     def test_missing_fixture_checksums_and_unqualified_matrix_entries_fail_closed(self):
         for family, entry in (("kubernetes", "1.99.0"), ("keycloak", "99.0.0")):

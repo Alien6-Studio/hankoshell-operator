@@ -49,6 +49,7 @@ external audit recovery and connected production operation remain unqualified.
 
 ## Enforcement
 
+- [Normal Role cleanup and finalizer ownership](../../../internal/controller/hankorole_controller.go)
 - [CLI state machine](../../../scripts/finalizer_recovery.py)
 - [Failure and concurrency fixtures](../../../scripts/test_finalizer_recovery.py)
 - [Admission policy](../../../config/recovery/approval-policy.yaml)
