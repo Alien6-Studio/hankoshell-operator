@@ -97,7 +97,7 @@ class Transactions(fleet.Fleet):
             limitations=["single disposable kind node and dev-file provider", "six selected accepted-write checkpoints",
                 "26.7.5 reader profile can read native credentials; provider-level credential-read separation not qualified",
                 "one caller-source API partition with observed natural lease expiry; not arbitrary partitions or a fencing proof",
-                "not delegation apply, every journal, replica clock skew or production HA"])
+                "delegation apply has a separate installed HA report; not every journal, replica clock skew or production HA"])
 
     def lease_partition(self):
         """Isolate only the live holder; let client-go expire and replace it."""

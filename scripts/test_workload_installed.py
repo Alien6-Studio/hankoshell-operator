@@ -329,6 +329,47 @@ class InstalledEvidenceTests(unittest.TestCase):
         self.assertEqual(events, ["upstream-accepted", "downstream-dropped"])
         handler.reply.assert_not_called()
 
+    def test_journal_observation_keeps_history_across_fault_release_and_resets_on_new_boundary(self):
+        attribute, path = "oauth.bounded-delegation.v1", "/fixture/client"
+        raw = json.dumps({"phase": "Committed", "revision": "previous"})
+        initial = hashlib.sha256(raw.encode()).hexdigest()
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.status, response.headers = 204, {"Content-Type": "application/json"}
+        response.read.return_value = b"{}"
+
+        def request(method, route, value):
+            body = json.dumps(value).encode()
+            handler = proxy.Proxy.__new__(proxy.Proxy)
+            handler.client_address = ("private-peer", 12345)
+            handler.headers = Message()
+            handler.headers["Content-Length"] = str(len(body))
+            handler.rfile = BytesIO(body)
+            handler.command, handler.path = method, route
+            handler.server = SimpleNamespace(upstream="https://fixture", context=None)
+            handler.reply, handler.connection = MagicMock(), MagicMock()
+            handler.handle_request()
+            return handler
+
+        track = {"path": path, "attribute": attribute, "initial_digest": initial}
+        rule = {"method": "PUT", "path": path, "document_attribute": attribute, "phase": "Prepared", "action": "lost-ack"}
+        with patch.dict(proxy.STATE, {"counts": {}, "rule": None, "blocked": False, "triggered": False}, clear=True), \
+                patch.object(proxy, "urlopen", return_value=response):
+            request("POST", "/__fixture/control", {"rule": rule, "reset_counts": True, "track_document": track})
+            request("PUT", path, {"attributes": {attribute: raw}})
+            self.assertEqual(proxy.STATE["document_transitions"], [])
+            accepted = request("PUT", path, {"attributes": {attribute: json.dumps({"phase": "Prepared", "revision": "new"})}, "secret": "private-secret"})
+            accepted.connection.shutdown.assert_called_once()
+            self.assertTrue(proxy.STATE["triggered"])
+            self.assertEqual([v["phase"] for v in proxy.STATE["document_transitions"]], ["Prepared"])
+            request("POST", "/__fixture/control", {"rule": None})
+            request("PUT", path, {"attributes": {attribute: json.dumps({"phase": "Applied", "revision": "new"})}})
+            self.assertEqual([v["phase"] for v in proxy.STATE["document_transitions"]], ["Prepared", "Applied"])
+            self.assertNotIn("private-secret", json.dumps(proxy.STATE))
+            request("POST", "/__fixture/control", {"rule": rule, "reset_counts": True, "track_document": track})
+            self.assertEqual(proxy.STATE["document_transitions"], [])
+            self.assertEqual(proxy.STATE["last_document_digest"], initial)
+
     def test_source_partition_uses_socket_peer_and_keeps_other_replicas_connected(self):
         for peer, method, blocked, denied in (("10.0.0.1", "GET", False, True),
                 ("10.0.0.2", "GET", False, False), ("10.0.0.2", "GET", True, False),

@@ -851,10 +851,13 @@ class Installed(native.Fixture):
         self.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=180s")
         self.start_log_capture()
 
-    def control(self, target, rule, reset=False):
+    def control(self, target, rule, reset=False, *, track_document=None):
         url = getattr(self, target + "_proxy") + "/__fixture/control"
         context = self.api_proxy_context if target == "api" else self.http
-        with urlopen(Request(url, data=json.dumps({"rule": rule, "reset_counts": reset}).encode()), context=context, timeout=10) as response:
+        value = {"rule": rule, "reset_counts": reset}
+        if track_document is not None:
+            value["track_document"] = track_document
+        with urlopen(Request(url, data=json.dumps(value).encode()), context=context, timeout=10) as response:
             return json.load(response)
 
     def observe_control(self, target):

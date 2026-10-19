@@ -1,6 +1,7 @@
 """Exact-image installed software delegation, independent HTTPS enforcement and recovery."""
 
 import argparse
+import copy
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import hashlib
@@ -23,6 +24,9 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("delegation_installed_base", ROOT / "scripts/workload-installed-test.py")
 installed = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(installed)
+spec = importlib.util.spec_from_file_location("delegation_scale", ROOT / "scripts/scale-installed-test.py")
+scale = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(scale)
 native, system, run, wait = installed.native, installed.system, installed.run, installed.wait
 ATTRIBUTE = "oauth.bounded-delegation.v1"
 PHASES = ("Prepared", "Applied", "Verified", "Committed")
@@ -63,6 +67,26 @@ def post_commit_status_fault(path):
     # Failed reconciles can report Error before native recovery has committed.
     # Only refuse the successful write after the driver verified its journal.
     return {"method": "PATCH", "path": path, "action": "deny", "json_path": ["status", "phase"], "equals": "Ready"}
+
+
+def validate_handoff(state, old_peer, new_peer, phase):
+    """Require each durable phase once and only the current holder's changes."""
+    transitions = state.get("document_transitions", [])
+    if (phase not in PHASES or not old_peer or not new_peer or old_peer == new_peer
+            or state.get("document_transitions_overflow") or len(transitions) != len(PHASES)
+            or [item.get("phase") for item in transitions] != list(PHASES)):
+        raise ValueError("Delegation handoff has missing, repeated or regressed journal transitions")
+    boundary = PHASES.index(phase)
+    if any(item.get("peer") != (old_peer if index <= boundary else new_peer) for index, item in enumerate(transitions)):
+        raise ValueError("Delegation journal changed through the wrong lease holder")
+    if any(count for route, count in state.get("attempted_counts", {}).items()
+           if route.startswith(("POST ", "DELETE ")) and not route.endswith("/protocol/openid-connect/token")):
+        raise ValueError("Delegation handoff attempted native object creation or deletion")
+
+
+def stable_client_attributes(client):
+    return {key: value for key, value in client.get("attributes", {}).items()
+            if key not in (ATTRIBUTE, "hanko.sh/resource-server-ownership")}
 
 
 def ownership_summary(current, kind, uid, resource_uid):
@@ -111,10 +135,19 @@ class Delegation(installed.Installed):
         self.extra_certificate_names += ",DNS:delegation-resource.auth.svc"
         self.workload_grants[0]["serviceAccounts"] = list(IDENTITIES.values())
         self.install_values = {}
+        self.ha_only = getattr(args, "ha_only", False)
+        self.scraper = None
+        self.certificate_days = 1
+        if self.ha_only:
+            self.install_values = {"replicaCount": 2, "reconciliation": {"maxConcurrent": 4},
+                "resources": {"requests": {"cpu": "100m", "memory": "256Mi"}, "limits": {"cpu": "2", "memory": "512Mi"}}}
         self.report.update({"layer": "installed-delegation", "deep_migration": False, "recovery": [],
             "fixture_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
             "limits": ["single-node disposable Kubernetes and single Keycloak replica", "fixed native JWKS; signing-key rotation is not qualified", "offline JWT withdrawal takes effect at expiry"]})
         self.resource_image = None
+        if self.ha_only:
+            self.report.update(layer="installed-delegation-ha", ha_recovery=[],
+                limits=[*self.report["limits"], "four accepted-write pod-loss boundaries; not clock skew or arbitrary partitions"])
 
     def keycloak_build(self, build, image):
         jar = extension.artifact(self.args.keycloak_version)
@@ -328,6 +361,64 @@ class Delegation(installed.Installed):
             self.report["recovery"].append({"phase": phase, "accepted_write_status": accepted["upstream_status"],
                 "lost_acknowledgement": True, "status_lost": True, "status_failure": "post_commit_after_native_recovery", "inventory_preserved": same, "methods_preserved": methods})
 
+    def ha_phase_recovery(self):
+        baseline, original = self.native_inventory(), self.document()
+        clients = {name: self.client("managed", name) for name in ("installed-api", *IDENTITIES)}
+        identities = {name: client["id"] for name, client in clients.items()}
+        path = "/admin/realms/managed/clients/" + identities["installed-api"]
+        for index, phase in enumerate(PHASES):
+            self.report["active_phase"] = "ha_recovery_" + phase
+            scale.Scale.await_leader(self)
+            holder = self.get("lease", "hanko-operator.hanko.sh")["spec"]["holderIdentity"]
+            pod = holder.rsplit("_", 1)[0]
+            peer = self.get("pod", pod)["status"].get("podIP")
+            if not peer:
+                raise ValueError("Cannot attribute the delegation leader to a socket peer")
+            raw = self.client("managed", "installed-api")["attributes"][ATTRIBUTE]
+            self.control("keycloak", {"method": "PUT", "path": path, "document_attribute": ATTRIBUTE,
+                "phase": phase, "action": "lost-ack"}, reset=True, track_document={"path": path, "attribute": ATTRIBUTE,
+                    "initial_digest": hashlib.sha256(raw.encode()).hexdigest()})
+            self.set_spec(23 - index)
+            accepted = self.await_fault("keycloak")
+            checkpoint = self.document()
+            if (accepted.get("upstream_status") not in (200, 204) or checkpoint.get("phase") != phase
+                    or self.get("lease", "hanko-operator.hanko.sh")["spec"].get("holderIdentity") != holder):
+                raise ValueError("Delegation checkpoint was not accepted under the selected holder")
+            # Keep provider writes blocked until this exact old process is gone.
+            # The standby retains its API/lease access throughout; no status,
+            # journal, approval or replica-count rewrite completes the handoff.
+            self.stop_log_capture()
+            self.kubectl("delete", "pod", pod, "-n", "auth", "--wait=true", "--timeout=90s")
+            self.control("keycloak", None)
+            self.scraper.close()
+            self.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=180s")
+            scale.Scale.await_leader(self)
+            current = self.get("lease", "hanko-operator.hanko.sh")["spec"].get("holderIdentity")
+            if not current or current == holder:
+                raise ValueError("Delegation did not replace the actual lease holder")
+            self.start_log_capture()
+            self.server_ready()
+            state = self.observe_control("keycloak")
+            new_peer = self.get("pod", current.rsplit("_", 1)[0])["status"].get("podIP")
+            validate_handoff(state, peer, new_peer, phase)
+            expected = copy.deepcopy(original)
+            expected["revision"] = checkpoint["revision"]
+            expected["grants"][0]["maxTTLSeconds"] = 23 - index
+            same = self.native_inventory() == baseline and self.document() == expected
+            for name, identity in identities.items():
+                client = self.client("managed", name)
+                same = same and client["id"] == identity and stable_client_attributes(client) == stable_client_attributes(clients[name])
+                if name in IDENTITIES:
+                    same = same and client["clientAuthenticatorType"] == "federated-jwt"
+            if not same:
+                raise ValueError("Delegation handoff changed native identity, authority or authentication")
+            self.positive()
+            self.report["ha_recovery"].append({"phase": phase, "complete": True, "leader_replaced": True,
+                "accepted_write_status": accepted["upstream_status"], "lost_acknowledgement": True,
+                "status_rewritten": False, "journal_transitions": len(PHASES), "native_object_creates": 0,
+                "native_object_deletes": 0, "inventory_and_authority_preserved": True})
+            self.record("delegation_ha_recovers_" + phase)
+
     def drift_and_outage(self):
         path = "/admin/realms/managed/clients/" + self.client("managed", "installed-api")["id"]
         self.control("keycloak", {"method": "PUT", "path": path, "document_attribute": ATTRIBUTE, "phase": "Prepared", "action": "deny"}, reset=True)
@@ -439,10 +530,14 @@ class Delegation(installed.Installed):
         self.provider_url = "https://keycloak.auth.svc:8443"
         self.fault_proxies()
         self.identities()
+        if self.ha_only:
+            self.scraper = scale.Metrics(self)
         self.install()
         self.start_log_capture()
         self.record("exact_scanned_image_installed")
         self.configure_api_proxy()
+        if self.ha_only:
+            scale.Scale.await_leader(self)
         self.trust()
         self.api("PUT", "/admin/realms/managed", {"attributes": {"oauth.bounded-delegation.profile": "software-v1"}})
         for index, (name, account) in enumerate(IDENTITIES.items()):
@@ -460,23 +555,27 @@ class Delegation(installed.Installed):
         self.kubernetes_permissions()
         self.report["active_phase"] = "native_flows"
         self.positive()
-        self.application_coexistence()
-        self.negatives()
-        self.phase_recovery()
-        self.report["active_phase"] = "drift_outage"
-        self.drift_and_outage()
-        self.report["active_phase"] = "expiry_withdrawal"
-        self.expiry_and_withdrawal()
-        self.report["active_phase"] = "deletion_recovery"
-        self.deletion_recovery()
+        if self.ha_only:
+            self.ha_phase_recovery()
+            self.record("all_ha_native_phases_recovered", [r["phase"] for r in self.report["ha_recovery"]] == list(PHASES))
+        else:
+            self.application_coexistence()
+            self.negatives()
+            self.phase_recovery()
+            self.report["active_phase"] = "drift_outage"
+            self.drift_and_outage()
+            self.report["active_phase"] = "expiry_withdrawal"
+            self.expiry_and_withdrawal()
+            self.report["active_phase"] = "deletion_recovery"
+            self.deletion_recovery()
+            self.record("all_native_phases_recovered", [r["phase"] for r in self.report["recovery"]] == list(PHASES))
         self.report["active_phase"] = "leak_scan"
         self.leak_scan()
-        self.record("all_native_phases_recovered", {r["phase"] for r in self.report["recovery"]} == set(PHASES))
         self.report.update(complete=True, completed_at=datetime.now(timezone.utc).isoformat(), active_phase="complete")
 
     def public_evidence(self):
         keys = ("schema_version", "layer", "revision", "image_digest", "extension", "resource_verifier_sha256", "fixture_sha256", "node_image", "node_build", "keycloak_image",
-                "keycloak_version", "kubernetes_version", "complete", "publishable", "started_at", "completed_at", "checks", "recovery", "initial_convergence_seconds", "revocation_seconds", "keycloak_profiles", "hub_payloads_inspected", "limits", "active_phase", "failure_ownership")
+                "keycloak_version", "kubernetes_version", "complete", "publishable", "started_at", "completed_at", "checks", "recovery", "ha_recovery", "initial_convergence_seconds", "revocation_seconds", "keycloak_profiles", "hub_payloads_inspected", "limits", "active_phase", "failure_ownership")
         return {key: self.report[key] for key in keys if key in self.report}
 
     def capture_ownership_failure(self):
@@ -555,6 +654,8 @@ class Delegation(installed.Installed):
 
     def cleanup(self):
         try:
+            if self.scraper:
+                self.scraper.close()
             super().cleanup()
         finally:
             if self.resource_image:
@@ -570,11 +671,14 @@ def main():
     parser.add_argument("--keycloak-version", choices=native.KEYCLOAK_IMAGES, required=True)
     parser.add_argument("--kubernetes-version", choices=system.PINS["kubernetes"]["versions"], required=True)
     parser.add_argument("--node-archive", type=Path)
+    parser.add_argument("--ha-only", action="store_true", help="Qualify two-replica delegation handoff separately from restart/status-loss coverage")
     args = parser.parse_args()
     args.deep_migration = False
     checkout(args.revision)
     validate_build(args.keycloak_version, args.revision)
     system.publication.publish.contract.security.verify(args.evidence, args.revision, system.VERSION, args.digest, args.archive)
+    if args.output.exists():
+        raise ValueError("Installed delegation evidence output must be fresh")
     with tempfile.TemporaryDirectory(prefix="hankoshell-installed-delegation-private-") as temporary:
         fixture = Delegation(args, Path(temporary))
         try:

@@ -27,6 +27,133 @@ probe = module("delegation_pod_probe", "delegation-pod-probe.py")
 
 
 class DelegationEvidenceTests(unittest.TestCase):
+    def test_handoff_requires_all_ordered_phases_and_the_exact_holder_at_each_boundary(self):
+        for boundary in installed.PHASES:
+            state = {"document_transitions": [{"phase": phase, "peer": "private-old" if index <= installed.PHASES.index(boundary) else "private-new"}
+                     for index, phase in enumerate(installed.PHASES)], "attempted_counts": {"POST /realms/managed/protocol/openid-connect/token": 1}}
+            installed.validate_handoff(state, "private-old", "private-new", boundary)
+            for mutation in ("missing", "duplicate", "regression", "wrong-peer", "overflow", "post", "delete", "same-holder", "missing-holder"):
+                changed = copy.deepcopy(state)
+                old, new = "private-old", "private-new"
+                if mutation == "missing":
+                    changed["document_transitions"].pop()
+                elif mutation == "duplicate":
+                    changed["document_transitions"].append(changed["document_transitions"][-1])
+                elif mutation == "regression":
+                    changed["document_transitions"][2]["phase"] = "Prepared"
+                elif mutation == "wrong-peer":
+                    changed["document_transitions"][0]["peer"] = "private-new"
+                elif mutation == "overflow":
+                    changed["document_transitions_overflow"] = True
+                elif mutation in ("post", "delete"):
+                    changed["attempted_counts"][mutation.upper() + " /private-native-route"] = 1
+                elif mutation == "same-holder":
+                    new = old
+                else:
+                    new = None
+                with self.subTest(boundary=boundary, mutation=mutation), self.assertRaises(ValueError) as error:
+                    installed.validate_handoff(changed, old, new, boundary)
+                self.assertNotIn("private", str(error.exception))
+
+    def test_proxy_tracks_only_accepted_document_changes_and_bounds_private_history(self):
+        baseline = copy.deepcopy(proxy.STATE)
+        try:
+            raw = json.dumps({"phase": "Committed", "revision": "private-old", "grants": ["private-authority"]})
+            proxy.STATE.clear()
+            proxy.STATE.update(track_document={"path": "/private-client", "attribute": installed.ATTRIBUTE},
+                last_document_digest=hashlib.sha256(raw.encode()).hexdigest())
+            def body(phase, revision="private-new"):
+                return json.dumps({"attributes": {installed.ATTRIBUTE: json.dumps({"phase": phase, "revision": revision})}, "secret": "private-secret"}).encode()
+            for method, path, status in (("GET", "/private-client", 200), ("PUT", "/foreign", 204), ("PUT", "/private-client", 403)):
+                proxy.track_document(method, path, body("Prepared"), status, "private-peer")
+            self.assertNotIn("document_transitions", proxy.STATE)
+            for phase in installed.PHASES:
+                for _ in range(3):
+                    proxy.track_document("PUT", "/private-client", body(phase), 204, "private-peer")
+            self.assertEqual([v["phase"] for v in proxy.STATE["document_transitions"]], list(installed.PHASES))
+            self.assertNotIn("private-secret", json.dumps(proxy.STATE))
+            self.assertNotIn("private-authority", json.dumps(proxy.STATE))
+            # Preserving the same phase while changing its document is a real
+            # transition; it must not be hidden as an idempotent repeat.
+            proxy.track_document("PUT", "/private-client", body("Committed", "different"), 204, "private-peer")
+            self.assertEqual(len(proxy.STATE["document_transitions"]), 5)
+            for index in range(130):
+                proxy.track_document("PUT", "/private-client", body("Prepared", str(index)), 204, "private-peer")
+            self.assertEqual(len(proxy.STATE["document_transitions"]), 128)
+            self.assertTrue(proxy.STATE["document_transitions_overflow"])
+        finally:
+            proxy.STATE.clear()
+            proxy.STATE.update(baseline)
+
+    def test_ha_recovery_keeps_standby_and_never_rewrites_status_or_journal(self):
+        for failure in (None, "delete", "same-holder", "authority", "identity", "method", "actor-marker"):
+            with self.subTest(failure=failure):
+                fixture = installed.Delegation.__new__(installed.Delegation)
+                fixture.report = {"checks": {}, "ha_recovery": []}
+                trace, state = [], SimpleNamespace(index=-1, deleted=False, holder="old", previous="old")
+                original = {"phase": "Committed", "revision": "previous", "grants": [{"maxTTLSeconds": 30}], "ownerUID": "private-owner"}
+                def document():
+                    value = copy.deepcopy(original)
+                    if state.index >= 0:
+                        value.update(phase="Committed" if state.deleted else installed.PHASES[state.index], revision="new-" + str(state.index))
+                        value["grants"][0]["maxTTLSeconds"] = 23 - state.index
+                        if failure == "authority" and state.deleted:
+                            value["grants"].append({"maxDepth": 4})
+                    return value
+                fixture.document = document
+                def client(_, name):
+                    value = {"id": name, "clientAuthenticatorType": "federated-jwt", "attributes": {installed.ATTRIBUTE: json.dumps(document())}}
+                    if state.deleted and name == "delegation-actor":
+                        if failure == "identity":
+                            value["id"] = "replacement"
+                        if failure == "method":
+                            value["clientAuthenticatorType"] = "client-secret"
+                        if failure == "actor-marker":
+                            value["attributes"]["oauth.bounded-delegation.actor.v1"] = "unexpected-extra-owner"
+                    return value
+                fixture.client, fixture.native_inventory = client, Mock(return_value={"resources": ["private-native-id"]})
+                fixture.get = lambda kind, name: {"spec": {"holderIdentity": state.holder + "_nonce"}} if kind == "lease" else {"status": {"podIP": name}}
+                def control(target, rule, **kwargs):
+                    trace.append(("control", target, rule))
+                    if rule:
+                        state.index += 1
+                        state.deleted = False
+                        state.previous = state.holder
+                fixture.control = control
+                def kubectl(*args):
+                    trace.append(("kubectl", *args))
+                    if args[0] == "delete":
+                        if failure == "delete":
+                            raise ValueError("old process still alive")
+                        state.deleted = True
+                        if failure != "same-holder":
+                            state.holder += "-next"
+                fixture.kubectl = kubectl
+                fixture.observe_control = lambda _: {"document_transitions": [{"phase": phase, "peer": state.previous if index <= state.index else state.holder}
+                    for index, phase in enumerate(installed.PHASES)]}
+                fixture.await_fault = Mock(return_value={"upstream_status": 204})
+                for name in ("set_spec", "stop_log_capture", "start_log_capture", "server_ready", "positive", "patch"):
+                    setattr(fixture, name, Mock())
+                fixture.scraper = Mock()
+                with contextlib.redirect_stdout(io.StringIO()), patch.object(installed.scale.Scale, "await_leader"):
+                    if failure:
+                        with self.assertRaises(ValueError):
+                            fixture.ha_phase_recovery()
+                        self.assertEqual(fixture.report["ha_recovery"], [])
+                    else:
+                        fixture.ha_phase_recovery()
+                        self.assertEqual([v["phase"] for v in fixture.report["ha_recovery"]], list(installed.PHASES))
+                        self.assertEqual(fixture.positive.call_count, 4)
+                        self.assertNotIn("private", json.dumps(fixture.public_evidence()))
+                fixture.patch.assert_not_called()
+                self.assertTrue(all("scale" not in entry for entry in trace))
+                if failure == "delete":
+                    self.assertFalse(any(entry[:3] == ("control", "keycloak", None) for entry in trace))
+                else:
+                    deletion = next(i for i, entry in enumerate(trace) if entry[:3] == ("kubectl", "delete", "pod"))
+                    self.assertIn("--wait=true", trace[deletion])
+                    self.assertEqual(trace[deletion + 1], ("control", "keycloak", None))
+
     def test_failure_ownership_summary_retains_only_fixed_decisions_and_counts(self):
         attributes = {"hanko.sh/application-owner": "private-app-uid", "private-key": "private-value",
             installed.ATTRIBUTE: json.dumps({"ownerUID": "private-server-uid", "phase": "Prepared",

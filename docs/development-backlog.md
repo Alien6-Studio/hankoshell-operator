@@ -33,8 +33,12 @@ of runtime target authority plus native delegation recovery envelopes. HA is
 separate from the load job, so it can run without repeating the 1,000-object
 profile. Started or implemented scenarios are not completed installed evidence.
 
-Remaining #96 scope includes delegation apply across two-replica handoff,
-arbitrary partitions and clock skew, plus the full retained candidate matrix.
+The next HA fixture covers delegation apply at all four native phases across
+two-replica handoff, separately from restart/status-loss tests. The six-cell HA
+job requires both fixtures and retains their independent reports. Installed
+completion must still be measured; implementation alone is not a passing cell.
+Remaining #96 scope includes arbitrary partitions and clock skew, plus the full
+retained candidate matrix, outage coverage and endurance prerequisites.
 Remaining #99 scope includes stable conversion/storage fuzzing, complete stable
 admission/RBAC review, installed adversarial evidence and independent review.
 

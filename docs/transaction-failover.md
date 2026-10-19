@@ -3,7 +3,8 @@
 This development fixture extends #96 with two actual operator replicas, the
 scanned exact-source OCI archive, real HTTPS Keycloak and external fault proxies.
 It includes six accepted-write checkpoints and one live-holder API partition.
-It does not qualify every journal, delegation apply, arbitrary partitions,
+A separate installed delegation fixture adds its four native journal phases.
+It does not qualify every journal, arbitrary partitions,
 replica clock skew or production HA. The partition is newly implemented; only
 completed installed reports qualify its behavior.
 
@@ -100,6 +101,45 @@ still includes it for an explicitly requested scale profile.
 Both dispatch paths install the pinned ORAS version into the exact tool directory
 used by image mirroring. The first scale CI attempt failed before provider setup
 because this executable was absent; that result is not a measured load failure.
+
+## Delegation journal handoff
+
+`scripts/delegation-installed-test.py --ha-only` installs two operator replicas
+with four IAM workers, the same scanned exact-source image and the immutable
+version-matched Keycloak extension used by the ordinary delegation fixture.
+The existing single-replica restart/status-loss qualification remains separate.
+The required six-cell HA job runs both fixtures within its existing 45-minute
+budget and retains both complete and incomplete reports. The delegation step
+also runs after a transaction failure, so one failure cannot hide the other
+scenario's outcome; either failed step still fails the job.
+
+For each `Prepared`, `Applied`, `Verified` and `Committed` boundary, the proxy
+accepts the native write and loses its acknowledgement. The administrator deletes
+only the actual lease-holder Pod, waits for that process to disappear, then
+releases the provider proxy. The standby retains API/lease access throughout.
+No scale-to-zero, status reset, journal edit or approval replacement completes
+the scenario. Two serving replicas and one metrics leader matching a different
+lease holder must return.
+
+Private proxy observations require exactly the four ordered **document changes**,
+each from the correct holder before/after the selected boundary. PUTs preserving
+the identical journal bytes are not another document change. The bounded history
+rejects overflow, repeated/regressed phases, wrong callers and native object
+creation/deletion attempts. Final native inventories and physical client IDs,
+grant authority and federated authenticators must remain identical apart from
+the requested TTL/revision. An actual token exchange and independent HTTPS
+resource verifier check access and denied resources/scopes after each handoff.
+
+The public `installed-delegation-ha` report contains fixed decisions and counts,
+not caller addresses, native routes, journal digests or representations. It must
+contain four complete `ha_recovery` entries and `complete=true`. This mode does
+not replace ordinary adversarial, withdrawal, cleanup or lost-status evidence,
+and does not qualify replica clock skew or arbitrary network partitions.
+
+Use the same arguments as the ordinary installed delegation command, adding
+`--ha-only` and a fresh `--output` path. Both modes refuse an existing report.
+Build the pinned extension with `KEYCLOAK_VERSION=26.8.0 make keycloak-extension-build`
+from that exact clean checkout before running locally; repeat for 26.7.5.
 
 ## Security mutation compilation
 

@@ -6,6 +6,7 @@ fixture's disposable namespace is not a production trust boundary.
 """
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import hashlib
 import json
 from pathlib import Path
 import socket
@@ -29,6 +30,30 @@ def count_peer(key, peer, route):
     if peer:
         counts = STATE.setdefault(key, {}).setdefault(peer, {})
         counts[route] = counts.get(route, 0) + 1
+
+
+def track_document(method, path, body, status, peer):
+    """Private, bounded observation of accepted journal changes, under LOCK."""
+    track = STATE.get("track_document")
+    if not track or method != "PUT" or path.split("?")[0] != track["path"] or not 200 <= status < 300:
+        return
+    try:
+        raw = json.loads(body)["attributes"][track["attribute"]]
+        document = json.loads(raw)
+        phase = document.get("phase")
+        if phase not in ("Prepared", "Applied", "Verified", "Committed"):
+            phase = "unknown"
+        digest = hashlib.sha256(raw.encode()).hexdigest()
+    except (ValueError, TypeError, KeyError, AttributeError):
+        phase, digest = "unknown", "invalid"
+    if digest == STATE.get("last_document_digest"):
+        return
+    transitions = STATE.setdefault("document_transitions", [])
+    if len(transitions) >= 128:
+        STATE["document_transitions_overflow"] = True
+        return
+    transitions.append({"phase": phase, "digest": digest, "peer": peer})
+    STATE["last_document_digest"] = digest
 
 
 def persisted_application_create(method, path, status):
@@ -120,6 +145,10 @@ class Proxy(BaseHTTPRequestHandler):
                         STATE["traffic"] = {}
                         for key in ("peer_counts", "peer_attempted_counts", "peer_requests"):
                             STATE[key] = {}
+                        STATE.update(document_transitions=[], last_document_digest=None, document_transitions_overflow=False)
+                    if "track_document" in value:
+                        STATE["track_document"] = value["track_document"]
+                        STATE["last_document_digest"] = (value["track_document"] or {}).get("initial_digest")
                 result = json.dumps(STATE).encode()
             self.reply(200, result)
             return
@@ -195,6 +224,7 @@ class Proxy(BaseHTTPRequestHandler):
                 key = self.command + " " + self.path.split("?")[0]
                 STATE["counts"][key] = STATE["counts"].get(key, 0) + 1
                 count_peer("peer_counts", peer, key)
+                track_document(self.command, self.path, body, status, peer)
                 if persisted_application_create(self.command, self.path, status):
                     traffic = STATE.setdefault("traffic", {})
                     traffic["kubernetes_application_creates"] = traffic.get("kubernetes_application_creates", 0) + 1
