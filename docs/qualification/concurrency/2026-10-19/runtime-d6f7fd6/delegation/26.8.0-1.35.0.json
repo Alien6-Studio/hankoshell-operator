@@ -1,0 +1,216 @@
+{
+  "schema_version": 1,
+  "layer": "installed-delegation",
+  "revision": "d6f7fd66e2f6bee220ad17632d0bf4fbe7b60cae",
+  "image_digest": "sha256:5067d8cf09b78829242183e66cf39862751df9a002894364b789fc0edd74f3dd",
+  "extension": {
+    "repository": "Alien6-Studio/keycloak-bounded-delegation",
+    "revision": "d9423db16e2bbe31bfb1dcc83c9a9441a18a6075",
+    "contract": "bounded-delegation/software-v1",
+    "jar_sha256": "b881718ba36de2786e6e0b18f1d3bbe17a71c6c9be7eaf4c0b12fcd4a988679c"
+  },
+  "resource_verifier_sha256": "0b97fc2b82d5471195551f6b252d62b7be75200c624205e897cba4cfcf26955a",
+  "fixture_sha256": "6b1c8a4e9aadcf52256f3ff6d38d898ad70d5d8634c0dc3931c51d50552375ef",
+  "node_image": "kindest/node:v1.35.0@sha256:4613778f3cfcd10e615029370f5786704559103cf27bef934597ba562b269661",
+  "keycloak_image": "quay.io/keycloak/keycloak:26.8.0@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc",
+  "keycloak_version": "26.8.0",
+  "kubernetes_version": "1.35.0",
+  "complete": false,
+  "publishable": false,
+  "started_at": "2026-10-19T09:55:18.646457+00:00",
+  "checks": {
+    "exact_kubernetes_version": true,
+    "exact_keycloak_version": true,
+    "scoped_chart_identity_serverinfo_read": true,
+    "constrained_keycloak_denials": true,
+    "exact_scanned_image_installed": true,
+    "controller_trust_ready": true,
+    "resource_service_account_capability": true,
+    "resource_ready_readback": true,
+    "bounded_provider_capability": true,
+    "native_committed_single_grant": true,
+    "initial_graph_converged_within_600_seconds": true,
+    "rbac_denies_create_serviceaccounts_token": true,
+    "rbac_denies_create_tokenreviews": true,
+    "rbac_denies_list_serviceaccounts": true,
+    "rbac_denies_watch_serviceaccounts": true,
+    "rbac_denies_create_configmaps": true,
+    "rbac_denies_delete_configmaps": true,
+    "rbac_denies_create_pods": true,
+    "rbac_denies_create_deployments": true,
+    "rbac_denies_update_pods": true,
+    "rbac_denies_update_deployments": true,
+    "rbac_denies_patch_pods": true,
+    "rbac_denies_patch_deployments": true,
+    "rbac_named_get_serviceaccounts": true,
+    "rbac_named_get_configmaps": true,
+    "rbac_named_patch_configmaps": true,
+    "independent_broad_input_allows_more_authority": true,
+    "native_token_boundaries": true,
+    "independent_resource_read_allowed": true,
+    "independent_resource_outside_grant_denied": true,
+    "independent_scope_outside_grant_denied": true,
+    "application_update_preserves_native_delegation": true,
+    "independent_undeclared_audience_refused": true,
+    "subject_for_other_audience_refused": true,
+    "independent_foreign_issuer_refused": true,
+    "invalid_actor": true,
+    "omitted_actor": true,
+    "foreign_issuer_actor": true,
+    "foreign_realm_subject": true,
+    "undeclared_audience": true,
+    "unknown_audience": true,
+    "undeclared_resource": true,
+    "ambient_scope": true,
+    "human_impersonation": true,
+    "refresh_requested": true,
+    "valid_foreign_client_without_delegation": true,
+    "wrong_subject_identity": true,
+    "second_native_hop": true,
+    "native_third_hop_refused": true,
+    "second_hop_resource_access": true,
+    "atomic_native_replay_one_success": true,
+    "consumed_actor_cannot_issue_again": true,
+    "subject_narrowing_preserved": true,
+    "accepted_native_write_Prepared": true
+  },
+  "recovery": [],
+  "initial_convergence_seconds": 388.484,
+  "keycloak_profiles": {
+    "system-operator": [
+      "manage-clients",
+      "view-realm",
+      "manage-authorization",
+      "view-users"
+    ],
+    "workload-observer": [
+      "view-identity-providers",
+      "view-realm"
+    ],
+    "workload-writer": [
+      "manage-identity-providers",
+      "view-realm"
+    ],
+    "workload-dependent-reader": [
+      "view-clients"
+    ],
+    "workload-client-writer": [
+      "manage-clients",
+      "view-realm"
+    ]
+  },
+  "limits": [
+    "single-node disposable Kubernetes and single Keycloak replica",
+    "fixed native JWKS; signing-key rotation is not qualified",
+    "offline JWT withdrawal takes effect at expiry"
+  ],
+  "active_phase": "recovery_Prepared",
+  "failure_ownership": {
+    "complete": true,
+    "clients": [
+      {
+        "kind": "HankoApplication",
+        "uid_matches": true,
+        "kind_matches": true,
+        "protocol_matches": true,
+        "client_enabled": true,
+        "service_accounts_enabled": true,
+        "authorization_enabled": true,
+        "exchange_enabled": false,
+        "delegation_present": true,
+        "delegation_json_object": true,
+        "delegation_version_supported": true,
+        "delegation_owner_matches": true,
+        "delegation_audience_matches": true,
+        "delegation_phase": "Committed",
+        "actor_present": false,
+        "authorization_present": true,
+        "authorization_json_object": true,
+        "authorization_version_supported": true,
+        "authorization_owner_matches": true,
+        "journal_client_matches": true,
+        "journal_counts": {
+          "scopes": 2,
+          "resources": 2,
+          "policies": 1,
+          "permissions": 1
+        },
+        "native_id_matches": true
+      },
+      {
+        "kind": "HankoServiceAccount",
+        "uid_matches": true,
+        "kind_matches": true,
+        "protocol_matches": true,
+        "client_enabled": true,
+        "service_accounts_enabled": true,
+        "authorization_enabled": false,
+        "exchange_enabled": true,
+        "delegation_present": false,
+        "actor_present": true,
+        "actor_json_object": true,
+        "actor_version_supported": true,
+        "actor_self_matches": true,
+        "actor_owner_count": 1,
+        "authorization_present": false,
+        "native_id_matches": true
+      },
+      {
+        "kind": "HankoServiceAccount",
+        "uid_matches": true,
+        "kind_matches": true,
+        "protocol_matches": true,
+        "client_enabled": true,
+        "service_accounts_enabled": true,
+        "authorization_enabled": false,
+        "exchange_enabled": false,
+        "delegation_present": false,
+        "actor_present": false,
+        "authorization_present": false,
+        "native_id_matches": true
+      },
+      {
+        "kind": "HankoServiceAccount",
+        "uid_matches": true,
+        "kind_matches": true,
+        "protocol_matches": true,
+        "client_enabled": true,
+        "service_accounts_enabled": true,
+        "authorization_enabled": false,
+        "exchange_enabled": false,
+        "delegation_present": false,
+        "actor_present": false,
+        "authorization_present": false,
+        "native_id_matches": true
+      }
+    ],
+    "native_counts": {
+      "scope": 2,
+      "resource": 2,
+      "policy": 2,
+      "permission": 1
+    },
+    "journal_coverage": {
+      "scope": {
+        "recorded": 2,
+        "recorded_missing_live": 0,
+        "live_unrecorded": 0
+      },
+      "resource": {
+        "recorded": 2,
+        "recorded_missing_live": 0,
+        "live_unrecorded": 0
+      },
+      "policy": {
+        "recorded": 1,
+        "recorded_missing_live": 0,
+        "live_unrecorded": 1
+      },
+      "permission": {
+        "recorded": 1,
+        "recorded_missing_live": 0,
+        "live_unrecorded": 0
+      }
+    }
+  }
+}

@@ -128,19 +128,22 @@ func (c *Client) do(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	release, err := c.requests.acquire(req.Context())
+	guarded, err := c.mutationGuardRequired(req)
+	if err != nil {
+		return nil, err
+	}
+	if guarded {
+		releaseGuard, err := c.requests.acquireGuard(req.Context())
+		if err != nil {
+			return nil, err
+		}
+		defer releaseGuard()
+	}
+	release, err := c.admitRequest(req)
 	if err != nil {
 		return nil, err
 	}
 	defer release()
-	// Queueing may outlive a lease or approval. Recheck the guard immediately
-	// before I/O rather than granting authority before waiting for a slot.
-	if err := c.authorizeMutation(req); err != nil {
-		return nil, err
-	}
-	if err := c.rebindRequestToken(req); err != nil {
-		return nil, err
-	}
 	started := time.Now()
 	response, err := c.httpClient.Do(req)
 	if err != nil {

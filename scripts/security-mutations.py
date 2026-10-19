@@ -118,7 +118,7 @@ MUTATIONS = [
              '\treturn Refusal("FleetHubEndpointUnapproved")\n}\n\n// DecommissionIdentity',
              '\treturn nil\n}\n\n// DecommissionIdentity',
              "internal/fleetplan", "TestFleetIndependentHubAndCommandApproval"),
-    mutation("fleet-provider-mutation-guard", "internal/keycloak/permissions.go",
+    mutation("fleet-provider-mutation-guard", "internal/keycloak/token_refresh.go",
              "if err := c.authorizeMutation(req); err != nil {",
              "if err := c.authorizeMutation(req); false && err != nil {",
              "internal/keycloak", "TestMutationGuardRunsBeforeEveryProviderWrite"),

@@ -34,8 +34,8 @@ var errRequestTokenStale = errors.New("keycloak request token became stale befor
 
 // Helpers prepare the request before queueing and mutation guards. A guard can
 // renew the shared token through its own authority reads; bind the current
-// cached credential only after that work. Never authenticate while holding an
-// outer request slot or automatically retry a potentially accepted write.
+// cached credential only after that work. This check performs no authentication
+// while holding the request slot and never retries a potentially accepted write.
 func (c *Client) rebindRequestToken(req *http.Request) error {
 	if !strings.HasPrefix(req.Header.Get(authorizationHeader), bearerPrefix) {
 		return nil
@@ -47,6 +47,39 @@ func (c *Client) rebindRequestToken(req *http.Request) error {
 	}
 	req.Header.Set(authorizationHeader, bearerPrefix+c.token)
 	return nil
+}
+
+// Only admission is retried, at most once, before sending this request. A refresh runs
+// outside the HTTP slot, then queueing and the full authority guard run again.
+func (c *Client) admitRequest(req *http.Request) (func(), error) {
+	for range 2 {
+		if strings.HasPrefix(req.Header.Get(authorizationHeader), bearerPrefix) {
+			token, err := c.bearerToken(req.Context())
+			if err != nil {
+				return nil, err
+			}
+			req.Header.Set(authorizationHeader, bearerPrefix+token)
+		}
+		release, err := c.requests.acquire(req.Context())
+		if err != nil {
+			return nil, err
+		}
+		// Queueing can outlive approval or lease authority. Repeat this check
+		// after every admission, including one following token renewal.
+		if err := c.authorizeMutation(req); err != nil {
+			release()
+			return nil, err
+		}
+		err = c.rebindRequestToken(req)
+		if err == nil {
+			return release, nil
+		}
+		release()
+		if !errors.Is(err, errRequestTokenStale) {
+			return nil, err
+		}
+	}
+	return nil, errRequestTokenStale
 }
 
 // bearerToken coalesces cache misses, including failed refreshes. A canceled

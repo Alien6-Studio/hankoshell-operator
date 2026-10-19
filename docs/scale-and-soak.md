@@ -1,5 +1,10 @@
 # Installed scale, soak and leader recovery
 
+The [d6f7fd6 regression audit](qualification/concurrency/2026-10-19/runtime-d6f7fd6/README.md)
+retains the failed scale matrix and setup-only soak. The following admission
+correction requires fresh installed qualification; earlier passing bounds do not
+override those failures.
+
 The [2026-10-19 CI packet](qualification/scale/2026-10-19/runtime-a65f157/README.md)
 retains six passing 1,000-application cells, their recovery/transaction reports,
 the failed larger authorization profile and the failed older endurance interval.
@@ -22,11 +27,19 @@ records the newer runtime and its separate recovery qualification.
 
 Administrative request headers are rebound to the current valid cached token
 after queueing and mutation guards. A guard's authority read can renew the token;
-the following write must use that renewal. If the token expires or is invalidated
-without a replacement, the request fails locally before I/O and the next reconcile
-can refresh it. No accepted write is automatically retried. This requires no
-CRD, Secret or native journal migration; rollback to the previous signed image
-restores the earlier token timing and its known stale-header window.
+the following write must use that renewal. If no valid replacement is available,
+the unsent request releases its HTTP slot, uses the shared single-flight refresh,
+then queues and checks the full authority guard again. Admission is attempted at
+most twice; repeated invalidation, refresh failure or revoked authority fails
+before sending the target request. A sent write is never automatically retried.
+
+At most seven concurrent guarded writers can reserve HTTP slots, leaving one of
+the existing eight slots for their authority reads and token acquisition. All
+requests retain the shared 50/s limit and cooldowns. This prevents eight guards
+from reserving every slot while each waits for its own provider read.
+No CRD, Secret or native journal migration is required. Rollback to the previous
+signed image restores its early-expiry refusal; do not reset status or journals
+as a workaround.
 
 `reconciliation.maxConcurrent` defaults to **1**. Explicit integers **1–8** set
 `HANKO_IAM_MAX_CONCURRENT_RECONCILES` for these controllers only:
@@ -142,6 +155,9 @@ intervals retain numeric elapsed time, sample and lost-process counts in
 `steady_observation`, with `complete: false` and `soak.qualified: false`.
 Sampling failures also retain numeric monotonic and wall-clock gaps in
 `failure_sampling`; the existing 45-second limit is unchanged.
+Convergence progress retains fixed phase and Synced-reason counts, including
+ownership conflicts and rejected/stale plans. Unknown values use `Other`;
+provider messages and object identities are never copied into these counts.
 The retained [824c8f1](qualification/scale/2026-10-17/runtime-824c8f1/soak-final.json)
 and [64e4890](qualification/recovery/2026-10-17/runtime-64e4890/soak-final.json)
 endurance reports are failures, superseding their running snapshots. Neither

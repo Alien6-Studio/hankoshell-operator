@@ -40,6 +40,23 @@ DEFAULTS = {"smoke": (2, 40, 8, 8, 2), "scale": (10, 1000, 100, 100, 20), "soak"
 SELECTOR = "hanko-fixture=scale"
 PHASES = {"initial_dependencies", "applications_after_leader_loss", "authorization_graph",
           "keycloak_429_recovery", "keycloak_503_recovery", "api_429_recovery", "api_outage_recovery"}
+STATUS_PHASES = {"Ready", "Pending", "Error", "Degraded", "Blocked"}
+STATUS_REASONS = {"Reconciled", "Observed", "ReconcileFailed", "OwnershipConflict", "PlanRejected", "StalePlan",
+                  "ParentPending", "ParentNotReady", "ReadBackFailed", "CapabilityUnsupported", "ConfigurationInvalid"}
+
+
+def status_counts(objects):
+    """Fixed buckets only: never retain remote reasons, messages or identities."""
+    phases, reasons = {}, {}
+    for obj in objects:
+        status = obj.get("status", {})
+        phase = status.get("phase")
+        phase = phase if phase in STATUS_PHASES else "Other" if phase else "Missing"
+        phases[phase] = phases.get(phase, 0) + 1
+        reason = next((c.get("reason") for c in status.get("conditions", []) if c.get("type") == "Synced"), None)
+        reason = reason if reason in STATUS_REASONS else "Other" if reason else "Missing"
+        reasons[reason] = reasons.get(reason, 0) + 1
+    return {"phases": phases, "synced_reasons": reasons}
 
 
 def parameters(args):
@@ -279,7 +296,7 @@ class Scale(installed.Installed):
                 current += bool(ready)
             # Never copy arbitrary status values, names, IDs or conditions.
             self.report.setdefault("convergence_progress", {})[kind] = {"count": len(values), "expected": count, "current": current,
-                "observed_elapsed_seconds": round(time.monotonic() - self.started, 3)}
+                "observed_elapsed_seconds": round(time.monotonic() - self.started, 3), **status_counts(values)}
             if len(values) != count:
                 return False
             if current != count:

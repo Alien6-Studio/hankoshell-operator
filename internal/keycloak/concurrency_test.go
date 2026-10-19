@@ -357,7 +357,7 @@ func TestGuardedMutationUsesTokenRefreshedByItsAuthorityRead(t *testing.T) {
 	}
 }
 
-func TestGuardedMutationRefusesTokenExpiredOrInvalidatedDuringGuard(t *testing.T) {
+func TestGuardedMutationRenewsTokenBeforeRetryingUnsentAdmission(t *testing.T) {
 	for _, invalidate := range []bool{false, true} {
 		t.Run(fmt.Sprint(invalidate), func(t *testing.T) {
 			var tokens, writes atomic.Int32
@@ -370,10 +370,10 @@ func TestGuardedMutationRefusesTokenExpiredOrInvalidatedDuringGuard(t *testing.T
 				return concurrencyResponse(201, ""), nil
 			})
 			c.token, c.tokenExpiry = "previous-token", time.Now().Add(time.Hour)
-			first := true
+			checks := 0
 			guarded := c.WithMutationGuard(func(context.Context) error {
-				if first {
-					first = false
+				checks++
+				if checks == 1 {
 					if invalidate {
 						c.invalidateToken()
 					} else {
@@ -384,12 +384,106 @@ func TestGuardedMutationRefusesTokenExpiredOrInvalidatedDuringGuard(t *testing.T
 				}
 				return nil
 			})
-			if err := guarded.CreateRealm(t.Context(), RealmSpec{ID: "managed"}); !errors.Is(err, errRequestTokenStale) || writes.Load() != 0 || tokens.Load() != 0 {
-				t.Fatal("expired/invalidation gap reached native write or triggered in-slot authentication")
-			}
-			if err := guarded.CreateRealm(t.Context(), RealmSpec{ID: "managed"}); err != nil || writes.Load() != 1 || tokens.Load() != 1 {
-				t.Fatal("fresh reconcile did not recover with one token and one native write", err)
+			if err := guarded.CreateRealm(t.Context(), RealmSpec{ID: "managed"}); err != nil || writes.Load() != 1 || tokens.Load() != 1 || checks != 2 {
+				t.Fatal("unsent request did not renew once and recheck authority before its single write", err)
 			}
 		})
+	}
+}
+
+func TestGuardedAdmissionLeavesCapacityForItsOwnAuthorityReads(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		var writes atomic.Int32
+		c := concurrencyClient(func(req *http.Request) (*http.Response, error) {
+			if req.Method == http.MethodPut {
+				writes.Add(1)
+				return concurrencyResponse(204, ""), nil
+			}
+			return concurrencyResponse(200, `[]`), nil
+		})
+		c.token, c.tokenExpiry = "fixture", time.Now().Add(time.Hour)
+		releaseReads := make(chan struct{})
+		guarded := c.WithMutationGuard(func(ctx context.Context) error {
+			<-releaseReads
+			_, err := c.ListRealms(ctx)
+			return err
+		})
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+		defer cancel()
+		var wg sync.WaitGroup
+		for range maxKeycloakInFlight {
+			wg.Go(func() {
+				if err := guarded.putJSON(ctx, "/admin/realms/managed", map[string]bool{"enabled": true}); err != nil {
+					t.Error("guard reads deadlocked behind admitted writes", err)
+				}
+			})
+		}
+		synctest.Wait()
+		close(releaseReads)
+		wg.Wait()
+		if writes.Load() != maxKeycloakInFlight {
+			t.Fatal("guarded requests did not all complete exactly once")
+		}
+	})
+}
+
+func TestAdmissionRenewalCannotReuseRevokedAuthority(t *testing.T) {
+	var writes atomic.Int32
+	c := concurrencyClient(func(req *http.Request) (*http.Response, error) {
+		if strings.HasSuffix(req.URL.Path, "/token") {
+			return concurrencyResponse(200, `{"access_token":"fresh","expires_in":300}`), nil
+		}
+		writes.Add(1)
+		return concurrencyResponse(201, ""), nil
+	})
+	c.token, c.tokenExpiry = "fixture", time.Now().Add(time.Hour)
+	revoked := errors.New("authority revoked")
+	checks := 0
+	guarded := c.WithMutationGuard(func(context.Context) error {
+		checks++
+		if checks == 1 {
+			c.invalidateToken()
+			return nil
+		}
+		return revoked
+	})
+	if err := guarded.CreateRealm(t.Context(), RealmSpec{ID: "managed"}); !errors.Is(err, revoked) || checks != 2 || writes.Load() != 0 {
+		t.Fatal("renewal reused authority from the first admission", err)
+	}
+}
+
+func TestAdmissionNeverRetriesAnAcceptedWriteWithLostResponse(t *testing.T) {
+	var writes atomic.Int32
+	c := concurrencyClient(func(*http.Request) (*http.Response, error) {
+		writes.Add(1)
+		return concurrencyResponse(503, ""), nil
+	})
+	c.token, c.tokenExpiry = "fixture", time.Now().Add(time.Hour)
+	err := c.putJSON(t.Context(), "/admin/realms/managed", map[string]bool{"enabled": true})
+	var status *StatusError
+	if !errors.As(err, &status) || status.Code != 503 || writes.Load() != 1 {
+		t.Fatal("a provider response triggered a second native write", err)
+	}
+}
+
+func TestRepeatedGuardInvalidationIsBoundedAndNeverSendsTheWrite(t *testing.T) {
+	var tokens, writes atomic.Int32
+	c := concurrencyClient(func(req *http.Request) (*http.Response, error) {
+		if strings.HasSuffix(req.URL.Path, "/token") {
+			tokens.Add(1)
+			return concurrencyResponse(200, `{"access_token":"fresh","expires_in":300}`), nil
+		}
+		writes.Add(1)
+		return concurrencyResponse(201, ""), nil
+	})
+	c.token, c.tokenExpiry = "fixture", time.Now().Add(time.Hour)
+	checks := 0
+	guarded := c.WithMutationGuard(func(context.Context) error {
+		checks++
+		c.invalidateToken()
+		return nil
+	})
+	if err := guarded.CreateRealm(t.Context(), RealmSpec{ID: "managed"}); !errors.Is(err, errRequestTokenStale) || checks != 2 || tokens.Load() != 1 || writes.Load() != 0 {
+		t.Fatal("repeated invalidation was not bounded before native I/O", err)
 	}
 }

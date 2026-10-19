@@ -24,6 +24,25 @@ type requestBudget struct {
 	mu     sync.Mutex
 	until  time.Time
 	status int
+	guards chan struct{}
+}
+
+// An admitted mutation may perform authority reads, including token renewal.
+// Keep one of the eight HTTP slots available to that work even when every
+// concurrent caller is a guarded writer. Readers still share the 50/s budget.
+func (b *requestBudget) acquireGuard(ctx context.Context) (func(), error) {
+	b.mu.Lock()
+	if b.guards == nil {
+		b.guards = make(chan struct{}, maxKeycloakInFlight-1)
+	}
+	queue := b.guards
+	b.mu.Unlock()
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case queue <- struct{}{}:
+		return func() { <-queue }, nil
+	}
 }
 
 func (b *requestBudget) acquire(ctx context.Context) (func(), error) {

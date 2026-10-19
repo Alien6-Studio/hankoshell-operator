@@ -34,16 +34,21 @@ func (c *Client) WithMutationGuard(guard func(context.Context) error) *Client {
 }
 
 func (c *Client) authorizeMutation(req *http.Request) error {
+	guarded, err := c.mutationGuardRequired(req)
+	if err != nil || !guarded {
+		return err
+	}
+	return c.mutationGuard(req.Context())
+}
+
+func (c *Client) mutationGuardRequired(req *http.Request) (bool, error) {
 	if c.mutationGuard == nil || req.Method == http.MethodGet || req.Method == http.MethodHead {
-		return nil
+		return false, nil
 	}
 	base, err := url.Parse(c.baseURL)
 	if err != nil {
-		return fmt.Errorf("invalid guarded provider endpoint: %w", err)
+		return false, fmt.Errorf("invalid guarded provider endpoint: %w", err)
 	}
 	path := strings.TrimPrefix(req.URL.EscapedPath(), strings.TrimRight(base.EscapedPath(), "/"))
-	if isBootstrapTokenRequest(req.Method, path) {
-		return nil
-	}
-	return c.mutationGuard(req.Context())
+	return !isBootstrapTokenRequest(req.Method, path), nil
 }

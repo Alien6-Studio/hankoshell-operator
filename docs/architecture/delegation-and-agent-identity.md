@@ -64,6 +64,11 @@ recorded in [the development contract notice](../go-api-contract.md).
 
 ## Installed qualification gate (#71)
 
+The [d6f7fd6 result packet](../qualification/concurrency/2026-10-19/runtime-d6f7fd6/README.md)
+records five complete CI cells and a failed Prepared recovery/status-fault wait
+on Keycloak 26.8.0 / Kubernetes 1.35.0. The follow-up corrects renewed request
+admission and guarded-read starvation; the complete installed gate remains open.
+
 The [a65f157 CI audit](../qualification/delegation/2026-10-19/runtime-a65f157/README.md)
 retains four passing cells and two application-update deadlines on Kubernetes
 1.35.0. Both failed cells completed initial delegation successfully. The separate

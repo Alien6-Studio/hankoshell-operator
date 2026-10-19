@@ -161,6 +161,15 @@ class ScaleScenarioTests(unittest.TestCase):
                           "discovery": {"issuer": "private"}, "cluster_namespace_uid": "private", "native": {"secret": "private"}}
         self.assertEqual(fixture.public_evidence(), {"complete": False, "layer": "installed-scale", "counts": {"applications": 1000}})
 
+    def test_progress_retains_only_fixed_phase_and_failure_reason_counts(self):
+        objects = [{"metadata": {"name": "private-identity"}, "status": {"phase": "Error", "conditions": [
+            {"type": "Synced", "reason": "OwnershipConflict", "message": "private-provider-response"}]}},
+            {"status": {"phase": "private-phase", "conditions": [{"type": "Synced", "reason": "private-reason"}]}},
+            {"status": {"phase": "Ready", "conditions": [{"type": "Synced", "reason": "Reconciled"}]}}, {}]
+        self.assertEqual(scale.status_counts(objects), {"phases": {"Error": 1, "Other": 1, "Ready": 1, "Missing": 1},
+            "synced_reasons": {"OwnershipConflict": 1, "Other": 1, "Reconciled": 1, "Missing": 1}})
+        self.assertNotIn("private", json.dumps(scale.status_counts(objects)))
+
     def test_progress_is_atomic_numeric_and_requires_complete_current_generation(self):
         with tempfile.TemporaryDirectory() as directory:
             fixture = scale.Scale.__new__(scale.Scale)
