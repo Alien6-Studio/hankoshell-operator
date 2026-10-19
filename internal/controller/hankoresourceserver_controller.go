@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -418,7 +419,7 @@ func (r *HankoResourceServerReconciler) resolveAuthorizationPrincipal(ctx contex
 			return authorization.Principal{}, fmt.Errorf("service account %q belongs to realm %q", principal.Ref, account.Spec.RealmRef)
 		}
 		if account.Spec.Authentication != nil && account.Spec.Authentication.Mode == "Kubernetes" {
-			binding, err := r.WorkloadTrust.requireActiveWorkloadBinding(ctx, &account)
+			binding, err := r.authorizationWorkloadBinding(ctx, &account)
 			if err != nil {
 				return authorization.Principal{}, err
 			}
@@ -435,6 +436,24 @@ func (r *HankoResourceServerReconciler) resolveAuthorizationPrincipal(ctx contex
 		}
 	}
 	return authorization.Principal{Kind: principal.Kind, Ref: resolvedRef, PortableRef: principal.Ref, SoftwareUID: softwareUID}, nil
+}
+
+func (r *HankoResourceServerReconciler) authorizationWorkloadBinding(ctx context.Context, account *hankoshv1alpha1.HankoServiceAccount) (*serviceAccountWorkloadSnapshot, error) {
+	reader, scoped := r.Client.(*contractReferenceReader)
+	key := client.ObjectKeyFromObject(account)
+	if scoped {
+		if previous := reader.workloadBindings[key]; previous != nil && reflect.DeepEqual(previous.account, *account) {
+			return previous, nil
+		}
+	}
+	binding, err := r.WorkloadTrust.requireActiveWorkloadBinding(ctx, account)
+	if err == nil && scoped {
+		if reader.workloadBindings == nil {
+			reader.workloadBindings = make(map[client.ObjectKey]*serviceAccountWorkloadSnapshot)
+		}
+		reader.workloadBindings[key] = binding
+	}
+	return binding, err
 }
 
 func (r *HankoResourceServerReconciler) applicationInRealm(ctx context.Context, namespace, name, realm string) (*hankoshv1alpha1.HankoApplication, error) {

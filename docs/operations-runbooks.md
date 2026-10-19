@@ -183,6 +183,10 @@ These unit-tested decisions are not an installed outage qualification.
 | `ProviderThrottled`, `ProviderUnavailable` | Restore service/capacity and allow bounded retries; retain journals and approvals. |
 | `ProviderObjectNotFound`, `ProviderConflict` | Check native identity and ownership with the separately authorized administrator; never recreate or relabel foreign data to satisfy status. |
 | `ProviderRequestRejected` | Review the desired configuration and supported provider capability before changing it. |
+| `ProviderTLSVerificationFailed`, `ProviderTransportFailed` | Restore the configured CA, hostname and reachability; keep verified HTTPS enabled. An interrupted write requires native read-back. |
+| `ProviderResponseTooLarge`, `ProviderResponseIncomplete` | Restore a complete response within the reviewed byte budget; partial data never proves synchronization. |
+| `OwnershipConflict` | Compare the current native and Kubernetes UID bindings through the separately authorized administrator; preserve sibling journals and foreign objects. |
+| `WorkloadBindingUnavailable`, `WorkloadTrustNotReady` | Restore live workload UID, trust and native authentication evidence; a historical Ready status cannot authorize a grant. |
 | `ReconcileDeadlineExceeded`, `ReconcileCancelled` | Check API/provider reachability and controller shutdown; an unknown write outcome still requires read-back. |
 | `StalePlan` | Let fresh reference and authority reads compile a new plan; never reuse stale approval. |
 | `ObservationIncomplete`, `DriftDetected` | Restore complete read-back or resolve reviewed drift before accepting synchronization. |

@@ -164,17 +164,24 @@
   "iam_failure_reasons": [
     "DriftDetected",
     "ObservationIncomplete",
+    "OwnershipConflict",
     "ProviderAuthenticationFailed",
     "ProviderConflict",
     "ProviderObjectNotFound",
     "ProviderPermissionDenied",
     "ProviderRequestRejected",
+    "ProviderResponseIncomplete",
+    "ProviderResponseTooLarge",
+    "ProviderTLSVerificationFailed",
     "ProviderThrottled",
+    "ProviderTransportFailed",
     "ProviderUnavailable",
     "ReconcileCancelled",
     "ReconcileDeadlineExceeded",
     "StalePlan",
-    "Unsupported"
+    "Unsupported",
+    "WorkloadBindingUnavailable",
+    "WorkloadTrustNotReady"
   ],
   "incident_evidence": {
     "collector": "scripts/incident-evidence.py",

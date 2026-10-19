@@ -13,6 +13,7 @@ import (
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamconformance"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/workloadbinding"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,6 +35,14 @@ func TestIAMFailureReasonsUseTypedCausesAndPreserveFailureEvidence(t *testing.T)
 		{"server", &keycloak.StatusError{Code: http.StatusInternalServerError}, "ProviderUnavailable"},
 		{"deadline", context.DeadlineExceeded, "ReconcileDeadlineExceeded"},
 		{"cancelled", context.Canceled, "ReconcileCancelled"},
+		{"ownership", authorization.ErrOwnershipConflict, "OwnershipConflict"},
+		{"client-precondition", keycloak.ErrApplicationPrecondition, "OwnershipConflict"},
+		{"tls", errors.Join(keycloak.ErrTransport, keycloak.ErrTLSVerification), "ProviderTLSVerificationFailed"},
+		{"transport", keycloak.ErrTransport, "ProviderTransportFailed"},
+		{"response-size", keycloak.ErrResponseTooLarge, "ProviderResponseTooLarge"},
+		{"response-read", keycloak.ErrResponseRead, "ProviderResponseIncomplete"},
+		{"binding", workloadbinding.Failure("fixture-secret-sentinel"), "WorkloadBindingUnavailable"},
+		{"trust", trustFailure("fixture-secret-sentinel"), "WorkloadTrustNotReady"},
 		{"string-is-not-status", errors.New("403 Forbidden fixture-secret-sentinel"), "ReconcileFailed"},
 		{"other-status", &keycloak.StatusError{Code: http.StatusTeapot}, "ReconcileFailed"},
 		{"stale-wins", errors.Join(iamcontract.ErrStale, &keycloak.StatusError{Code: http.StatusForbidden}), "StalePlan"},

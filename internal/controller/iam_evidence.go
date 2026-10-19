@@ -11,6 +11,7 @@ import (
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/roles"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/workloadbinding"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -92,6 +93,26 @@ func iamFailureReason(err error, fallback string) string {
 		return "ReconcileDeadlineExceeded"
 	case errors.Is(err, context.Canceled):
 		return "ReconcileCancelled"
+	case errors.Is(err, authorization.ErrOwnershipConflict), errors.Is(err, keycloak.ErrApplicationPrecondition):
+		return "OwnershipConflict"
+	case errors.Is(err, keycloak.ErrTLSVerification):
+		return "ProviderTLSVerificationFailed"
+	case errors.Is(err, keycloak.ErrTransport):
+		return "ProviderTransportFailed"
+	case errors.Is(err, keycloak.ErrResponseTooLarge):
+		return "ProviderResponseTooLarge"
+	case errors.Is(err, keycloak.ErrResponseRead):
+		return "ProviderResponseIncomplete"
+	}
+	// A typed prerequisite failure must remain distinguishable from a rejected
+	// authorization plan. Never copy its string into the public condition.
+	var bindingFailure workloadbinding.Failure
+	if errors.As(err, &bindingFailure) {
+		return "WorkloadBindingUnavailable"
+	}
+	var trustError workloadTrustError
+	if errors.As(err, &trustError) {
+		return "WorkloadTrustNotReady"
 	}
 	// Keep the remote body and error string private. These fixed reasons use
 	// only the typed provider status, including through SafeError wrappers.

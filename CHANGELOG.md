@@ -3,6 +3,15 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Delegation recovery authority reads (#71, #96)
+
+- Resolve each unchanged workload identity once per authorization compilation,
+  including identities repeated as principals, actor and subject. Every mutation
+  guard still compiles with fresh native, trust and Kubernetes UID evidence.
+- Distinguish typed ownership, transport, TLS, response-budget and workload
+  prerequisite failures without exposing provider bodies or arbitrary messages.
+  Keep installed recovery qualification separate from these regression tests.
+
 ### IAM admission, Kubernetes authority and incident evidence (#99, #103)
 
 - Bound IAM client/role/organization identifiers and related strings and
