@@ -64,8 +64,8 @@ def check(version=VERSION):
     compatibility.check(ROOT)
     go_api.check(ROOT)
     production_evidence.check(ROOT)
-    for job in ("kubernetes", "keycloak"):
-        if ci[job]["strategy"]["matrix"]["version"] != pins.DATA[job]["versions"]:
+    for job, family in (("kubernetes", "kubernetes"), ("storage-migration", "kubernetes"), ("keycloak", "keycloak")):
+        if ci[job]["strategy"]["matrix"]["version"] != pins.DATA[family]["versions"]:
             raise ValueError("Qualification matrix differs from versions.json")
     for path in ("README.md", "CONTRIBUTING.md", "SECURITY.md", "charts/hankoshell-operator/README.md"):
         text = (ROOT / path).read_text()

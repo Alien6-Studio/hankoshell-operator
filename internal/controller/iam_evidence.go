@@ -1,12 +1,15 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/observability"
+	"net/http"
 
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/authorization"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/roles"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -85,9 +88,35 @@ func iamFailureReason(err error, fallback string) string {
 		return "DriftDetected"
 	case errors.Is(err, iamcontract.ErrRejected):
 		return "Unsupported"
-	default:
-		return fallback
+	case errors.Is(err, context.DeadlineExceeded):
+		return "ReconcileDeadlineExceeded"
+	case errors.Is(err, context.Canceled):
+		return "ReconcileCancelled"
 	}
+	// Keep the remote body and error string private. These fixed reasons use
+	// only the typed provider status, including through SafeError wrappers.
+	var status *keycloak.StatusError
+	if errors.As(err, &status) {
+		switch status.Code {
+		case http.StatusBadRequest:
+			return "ProviderRequestRejected"
+		case http.StatusUnauthorized:
+			return "ProviderAuthenticationFailed"
+		case http.StatusForbidden:
+			return "ProviderPermissionDenied"
+		case http.StatusNotFound:
+			return "ProviderObjectNotFound"
+		case http.StatusConflict:
+			return "ProviderConflict"
+		case http.StatusTooManyRequests:
+			return "ProviderThrottled"
+		default:
+			if status.Code >= 500 && status.Code <= 599 {
+				return "ProviderUnavailable"
+			}
+		}
+	}
+	return fallback
 }
 func iamCondition(conditions *[]metav1.Condition, generation int64, kind string, status metav1.ConditionStatus, reason, message string) {
 	setCondition(conditions, kind, status, reason, iamcontract.Bound(iamcontract.Finding{Message: message}).Message)

@@ -89,7 +89,25 @@ rewrites but requires the exact approved UID set and generation, and checks ever
 state again. Replaced/deleted/new objects or changed ownership require review,
 not journal deletion. Do not manually clear storedVersions to bypass a refusal.
 The journal UID and optimistic resourceVersion guard concurrent administrators;
-coordinate a single migration runner.
+coordinate a single migration runner. An interrupted native rewrite and an
+interrupted storedVersions commit use the same resume command; do not infer
+which CRD completed from the process exit alone:
+
+```sh
+python3 scripts/storage_migration.py status --plan /private/path/to-beta.json \
+  --approve "$approved_plan_sha256"
+python3 scripts/storage_migration.py run --plan /private/path/to-beta.json \
+  --approve "$approved_plan_sha256" --timeout 1800
+```
+
+The installed fixture stops actual CLI processes after `Rewriting` and after
+the first `Committed` resource checkpoint, in both migration directions. It
+requires either the original storage version or verified native success and
+target-encoded bytes, then restarts with the same reviewed plan and compares the
+complete object meaning. Kubernetes can already finish and update storedVersions
+while the administrator process is stopped; see the
+[native migration contract](https://kubernetes.io/blog/2026/08/31/kubernetes-v1-37-storage-version-migration-ga/).
+Its test-only pause wrapper is not a production migration option.
 
 Rollback is a new plan with `--target v1alpha1`, a new review/hash, and the same
 native proof. It does not remove served beta or downgrade a chart/controller.
@@ -132,13 +150,19 @@ python3 scripts/storage-migration-installed-test.py \
 
 The installed fixture creates and removes its own cluster using the pinned kind
 image. It enables the native feature/API on 1.35/1.36, uses synthetic objects and
-a zero-replica operator, then runs alpha → beta → alpha and repeated approved runs.
+a zero-replica operator, then runs alpha → beta → alpha, four process
+interruptions and repeated approved runs.
 It checks actual etcd bytes, native success, UID/spec/status/managedFields and
-upgrade rendering. Its report counts twelve fresh native migrations. This is
+upgrade rendering. Its report counts sixteen fresh native migrations. This is
 development storage evidence, not a provider or public predecessor upgrade test.
 The real-API Go fixture separately checks all 20 served schemas and strict unknown
 field rejection. Go conversion tests exercise every exported field, lists, deep
 copy independence and bounded hostile JSON fuzz input.
+
+CI runs this native fixture on all three reviewed Kubernetes versions. The
+protected aggregate requires every cell to succeed, independently of provider
+tests. Only its bounded report is uploaded; kubeconfig and reviewed plan files
+are excluded. The weekly qualification uses the same matrix.
 
 For Kubernetes 1.36.2, additionally pass `--node-archive` with the official Linux
 server archive for the Docker architecture. The fixture verifies the reviewed

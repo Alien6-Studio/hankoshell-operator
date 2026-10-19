@@ -10,9 +10,11 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
 
 import yaml
@@ -32,7 +34,56 @@ def execute(command, value=None, *, timeout=120):
     return result.stdout
 
 
-def qualify(kubectl, kubeconfig, control_plane, output, helm):
+def interrupt_after_checkpoint(command, boundary):
+    """Stop a real CLI process after a durable native/journal boundary.
+
+    The wrapper exists only in this disposable test. It pauses after the real
+    checkpoint method returns; production migration has no fault switches.
+    SIGINT unwinds the CLI's proxy context before a fresh process resumes it.
+    """
+    if boundary not in ("Rewriting", "Committed"):
+        raise ValueError("UnknownInterruptionBoundary")
+    with tempfile.TemporaryDirectory(prefix="hanko-migration-interrupt-") as directory:
+        marker = Path(directory) / "checkpoint"
+        program = """
+import os
+from pathlib import Path
+import signal
+import sys
+sys.path.insert(0, sys.argv.pop(1))
+import storage_migration as migration
+marker, boundary = Path(sys.argv.pop(1)), sys.argv.pop(1)
+checkpoint = migration.Migration.checkpoint
+def pause(self):
+    checkpoint(self)
+    if self.progress['phase'] == 'Migrating' and any(value['phase'] == boundary for value in self.progress['resources'].values()):
+        fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        os.close(fd)
+        signal.pause()
+migration.Migration.checkpoint = pause
+try:
+    migration.main()
+except KeyboardInterrupt:
+    raise SystemExit(130) from None
+"""
+        process = subprocess.Popen([str(command[0]), "-c", program, str(ROOT / "scripts"), str(marker), boundary,
+                                    *[str(value) for value in command[2:]]], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            deadline = time.monotonic() + 180
+            while not marker.exists():
+                if process.poll() is not None or time.monotonic() >= deadline:
+                    raise RuntimeError("MigrationCheckpointNotReached")
+                time.sleep(0.1)
+            process.send_signal(signal.SIGINT)
+            if process.wait(timeout=15) != 130:
+                raise RuntimeError("MigrationInterruptionNotConfirmed")
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait(timeout=15)
+
+
+def qualify(kubectl, kubeconfig, control_plane, output, helm, report):
     command = [kubectl, "--kubeconfig", kubeconfig]
 
     def kube(*args, value=None):
@@ -78,12 +129,51 @@ def qualify(kubectl, kubeconfig, control_plane, output, helm):
         if encoded_version(entry["plural"]) != "hanko.sh/v1alpha1":
             raise RuntimeError("UnexpectedInitialEncoding")
     cli = [sys.executable, ROOT / "scripts/storage_migration.py", "--kubectl", kubectl, "--kubeconfig", kubeconfig]
+    report["interruption_evidence"] = []
     for target in ("v1beta1", "v1alpha1"):
+        report.update(active_target=target, active_phase="review")
         path = output / (target + "-plan.json")
         review = json.loads(execute([*cli, "plan", "--target", target, "--namespace", "migration-fixture", "--plan", path]))
         if path.stat().st_mode & 0o077:
             raise RuntimeError("PlanFileIsNotPrivate")
         run = [*cli, "run", "--plan", path, "--approve", review["plan"], "--timeout", "180"]
+        report["active_phase"] = "interrupted_rewrite"
+        interrupt_after_checkpoint(run, "Rewriting")
+        progress = json.loads(execute([*cli, "status", "--plan", path, "--approve", review["plan"]]))
+        if progress.get("phase") != "Migrating" or progress.get("authorizes_completion") is not False or snapshot() != before:
+            raise RuntimeError("InterruptedMigrationChangedObjectMeaning")
+        first = contract["resources"][sorted(contract["resources"])[0]]["plural"]
+        # The native controller can finish and prune storedVersions while the
+        # CLI is paused. A missing predecessor requires that exact native job
+        # to have succeeded and the actual bytes to use the target encoding.
+        source = "v1alpha1" if target == "v1beta1" else "v1beta1"
+        if source not in kube("get", "crd", first + ".hanko.sh")["status"]["storedVersions"]:
+            journal = kube("get", "configmap", "hanko-storage-" + review["plan"][:32], "-n", "migration-fixture")
+            resource = json.loads(journal["data"][migration.JOURNAL_KEY])["resources"][sorted(contract["resources"])[0]]
+            proof = {"target": target, "predecessor_pruned_by_native_controller": True, "native_succeeded": False}
+            report["interruption_evidence"].append(proof)
+            # Native CRD cleanup and the migration's success condition are two
+            # asynchronous writes. Keep the CLI stopped and wait for the exact
+            # native job; never mistake their short visibility gap for failure.
+            deadline = time.monotonic() + 180
+            while True:
+                job = kube("get", "storageversionmigrations.storagemigration.k8s.io", resource["migration"])
+                conditions = job.get("status", {}).get("conditions", [])
+                proof.update(uid_matches=job["metadata"]["uid"] == resource["uid"],
+                    resource_matches=job["spec"]["resource"] == {"group": "hanko.sh", "resource": first},
+                    native_failed=any(c["type"] == "Failed" and c["status"] == "True" for c in conditions),
+                    native_succeeded=any(c["type"] == "Succeeded" and c["status"] == "True" for c in conditions))
+                if not proof["uid_matches"] or not proof["resource_matches"] or proof["native_failed"]:
+                    raise RuntimeError("InterruptedRewriteNativeProofInvalid")
+                if proof["native_succeeded"]:
+                    break
+                if time.monotonic() >= deadline:
+                    raise RuntimeError("InterruptedRewriteNativeProofDeadline")
+                time.sleep(0.5)
+            proof["physical_encoding_matches"] = encoded_version(first) == "hanko.sh/" + target
+            if not proof["physical_encoding_matches"]:
+                raise RuntimeError("InterruptedRewritePhysicalEncodingMismatch")
+        report["active_phase"] = "resume_rewrite"
         result = json.loads(execute(run, timeout=600))
         if result.get("complete") is not True or snapshot() != before:
             raise RuntimeError("MigrationChangedObjectMeaning")
@@ -105,21 +195,28 @@ def qualify(kubectl, kubeconfig, control_plane, output, helm):
                 older = Path(directory) / "chart"
                 shutil.copytree(chart, older)
                 for entry in contract["resources"].values():
-                    path = older / "crds" / ("hanko.sh_" + entry["plural"] + ".yaml")
-                    crd = yaml.safe_load(path.read_text())
+                    older_crd_path = older / "crds" / ("hanko.sh_" + entry["plural"] + ".yaml")
+                    crd = yaml.safe_load(older_crd_path.read_text())
                     crd["spec"]["versions"] = crd["spec"]["versions"][:1]
-                    path.write_text(yaml.safe_dump(crd))
+                    older_crd_path.write_text(yaml.safe_dump(crd))
                 refused = subprocess.run([str(v) for v in [helm, "template", "fixture", older, *options]], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60, check=False)
                 if refused.returncode == 0 or b"still stores v1beta1" not in refused.stderr:
                     raise RuntimeError("ChartDidNotRefuseUnreadableStorage")
-        # Same approved plan remains safe on resume. Completion still requires
-        # three fresh native successes; forged progress cannot bypass proof.
+        # Interrupt a second real process after the first storedVersion commit.
+        # Completion still requires three fresh native successes; neither an
+        # incomplete nor a completed journal can substitute for physical proof.
+        interrupt_after_checkpoint(run, "Committed")
+        report["active_phase"] = "resume_commit"
+        progress = json.loads(execute([*cli, "status", "--plan", path, "--approve", review["plan"]]))
+        if progress.get("phase") != "Migrating" or snapshot() != before:
+            raise RuntimeError("InterruptedCommitChangedObjectMeaning")
         resumed = json.loads(execute(run, timeout=600))
         if not resumed.get("complete") or snapshot() != before:
             raise RuntimeError("ResumeChangedObjectMeaning")
-        stages.append({"target": target, "objects": 3, "physical_encoding_verified": True, "resume_verified": True})
+        stages.append({"target": target, "objects": 3, "physical_encoding_verified": True, "resume_verified": True,
+            "process_interruptions": ["Rewriting", "Committed"], "interrupted_storage_readability_proven": True})
     jobs = kube("get", "storageversionmigrations.storagemigration.k8s.io")["items"]
-    if len(jobs) != 12 or any(not any(c["type"] == "Succeeded" and c["status"] == "True" for c in j["status"]["conditions"]) for j in jobs):
+    if len(jobs) != 16 or any(not any(c["type"] == "Succeeded" and c["status"] == "True" for c in j["status"]["conditions"]) for j in jobs):
         raise RuntimeError("NativeMigrationProofMissing")
     return {"complete": True, "scope": "experimental-local-storage", "stages": stages, "native_migrations": len(jobs),
             "preserved": ["uid", "spec", "status", "generation", "annotations", "finalizers", "managedFields"], "chart_live_guard_verified": True, "public_release_compatibility": False}
@@ -143,7 +240,9 @@ def main():
     if args.kubernetes_version != "1.37.0":
         config["featureGates"] = {"StorageVersionMigrator": True}
         config["runtimeConfig"] = {"storagemigration.k8s.io/v1beta1": "true"}
-    report = {"complete": False, "kubernetes": args.kubernetes_version, "cleanup": False}
+    report = {"complete": False, "kubernetes": args.kubernetes_version, "cleanup": False,
+        "harness_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "api_contract_sha256": conversion.digest(conversion.load())}
     built_image = None
     try:
         image = versions.DATA["kubernetes"]["node_images"].get(args.kubernetes_version)
@@ -168,7 +267,7 @@ def main():
         server = json.loads(execute([args.kubectl, "--kubeconfig", kubeconfig, "version", "-o", "json"]))
         if server["serverVersion"]["gitVersion"] != "v" + args.kubernetes_version:
             raise RuntimeError("UnexpectedKubernetesVersion")
-        report.update(qualify(args.kubectl.resolve(), kubeconfig, cluster + "-control-plane", args.output, args.helm.resolve()))
+        report.update(qualify(args.kubectl.resolve(), kubeconfig, cluster + "-control-plane", args.output, args.helm.resolve(), report), active_phase="complete")
     finally:
         execute([args.kind, "delete", "cluster", "--name", cluster], timeout=120)
         if built_image:

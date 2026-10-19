@@ -322,6 +322,50 @@ jobs:
       - name: Lint integration test code
         if: matrix.version == '1.37.0' # versions:kubernetes-lint
         run: make lint LINT_BUILD_TAGS=integration
+  storage-migration:
+    name: Native storage migration K8s ${{ matrix.version }}
+    needs: [preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ["1.35.0", "1.36.2", "1.37.0"] # versions:kubernetes
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install checksum-pinned native fixture tools
+        run: |
+          python3 -m pip install -r scripts/requirements.txt
+          python3 scripts/install-system-tools.py "$RUNNER_TEMP/storage-tools"
+          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+      - name: Qualify physical rewrites, interrupted processes and rollback
+        env:
+          KUBERNETES_VERSION: ${{ matrix.version }}
+        run: |
+          archive_args=()
+          if test "$KUBERNETES_VERSION" = "$(python3 scripts/versions.py get kubernetes built_node version)"; then
+            curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+              --max-time 180 --output "$RUNNER_TEMP/storage-node.tar.gz" \
+              "https://dl.k8s.io/release/v$KUBERNETES_VERSION/kubernetes-server-linux-amd64.tar.gz"
+            archive_args=(--node-archive "$RUNNER_TEMP/storage-node.tar.gz")
+          fi
+          python3 scripts/storage-migration-installed-test.py \
+            --kind "$RUNNER_TEMP/storage-tools/kind" --kubectl "$RUNNER_TEMP/storage-tools/kubectl" \
+            --helm /tmp/linux-amd64/helm --kubernetes-version "$KUBERNETES_VERSION" \
+            --output "$RUNNER_TEMP/storage-report" "${archive_args[@]}"
+      - name: Preserve bounded native migration evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: NONPUBLISHABLE-storage-${{ matrix.version }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/storage-report/report.json
+          if-no-files-found: error
+          retention-days: 30
   keycloak:
     name: Keycloak ${{ matrix.version }} / ${{ matrix.shard }} Admin API and security
     needs: [preflight]
@@ -899,7 +943,7 @@ jobs:
     name: Source and chart checks
     # Pull requests run the full qualification matrix (ADR-048); this required
     # gate must keep representing every qualification job before merge.
-    needs: [preflight, source, kubernetes, keycloak, keycloak-ordinary, keycloak-extension, keycloak-static, workload, security-fuzz, security-mutations, oci, rehearsal, system, installed-workload, installed-delegation, installed-portable, installed-fleet, installed-transactions, installed-scale-qualification]
+    needs: [preflight, source, kubernetes, storage-migration, keycloak, keycloak-ordinary, keycloak-extension, keycloak-static, workload, security-fuzz, security-mutations, oci, rehearsal, system, installed-workload, installed-delegation, installed-portable, installed-fleet, installed-transactions, installed-scale-qualification]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -908,6 +952,7 @@ jobs:
           PREFLIGHT_RESULT: ${{ needs.preflight.result }}
           SOURCE_RESULT: ${{ needs.source.result }}
           KUBERNETES_RESULT: ${{ needs.kubernetes.result }}
+          STORAGE_MIGRATION_RESULT: ${{ needs.storage-migration.result }}
           KEYCLOAK_RESULT: ${{ needs.keycloak.result }}
           KEYCLOAK_ORDINARY_RESULT: ${{ needs.keycloak-ordinary.result }}
           KEYCLOAK_EXTENSION_RESULT: ${{ needs.keycloak-extension.result }}
@@ -926,7 +971,7 @@ jobs:
           INSTALLED_SCALE_RESULT: ${{ needs.installed-scale-qualification.result }}
           QUALIFY_SCALE: ${{ github.event_name == 'workflow_dispatch' && inputs.qualify_scale == true }}
         run: |
-          test "$PREFLIGHT_RESULT" = success && test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$KEYCLOAK_ORDINARY_RESULT" = success && test "$KEYCLOAK_EXTENSION_RESULT" = success && test "$KEYCLOAK_STATIC_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$FUZZ_RESULT" = success && test "$MUTATIONS_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success && test "$INSTALLED_DELEGATION_RESULT" = success && test "$INSTALLED_PORTABLE_RESULT" = success && test "$INSTALLED_FLEET_RESULT" = success && test "$INSTALLED_TRANSACTIONS_RESULT" = success || exit 1
+          test "$PREFLIGHT_RESULT" = success && test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$STORAGE_MIGRATION_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$KEYCLOAK_ORDINARY_RESULT" = success && test "$KEYCLOAK_EXTENSION_RESULT" = success && test "$KEYCLOAK_STATIC_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$FUZZ_RESULT" = success && test "$MUTATIONS_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success && test "$INSTALLED_DELEGATION_RESULT" = success && test "$INSTALLED_PORTABLE_RESULT" = success && test "$INSTALLED_FLEET_RESULT" = success && test "$INSTALLED_TRANSACTIONS_RESULT" = success || exit 1
           if test "$QUALIFY_SCALE" = true; then
             test "$INSTALLED_SCALE_RESULT" = success
           else
@@ -934,7 +979,7 @@ jobs:
           fi
   schedule-report:
     name: Scheduled qualification tracking issue
-    needs: [preflight, source, kubernetes, keycloak, keycloak-ordinary, keycloak-extension, keycloak-static, workload, security-fuzz, security-mutations, oci, rehearsal, system, installed-workload, installed-delegation, installed-portable, installed-fleet, installed-transactions, installed-scale-qualification, checks]
+    needs: [preflight, source, kubernetes, storage-migration, keycloak, keycloak-ordinary, keycloak-extension, keycloak-static, workload, security-fuzz, security-mutations, oci, rehearsal, system, installed-workload, installed-delegation, installed-portable, installed-fleet, installed-transactions, installed-scale-qualification, checks]
     if: always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.schedule_report_test == true))
     permissions:
       contents: read

@@ -82,10 +82,10 @@ class ReleaseContractTests(unittest.TestCase):
 
     def test_ci_preflight_blocks_every_expensive_job_and_remains_required(self):
         ci = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
-        self.assertEqual(set(ci), {"preflight", "source", "kubernetes", "keycloak", "keycloak-ordinary", "keycloak-extension", "keycloak-static", "workload", "oci",
+        self.assertEqual(set(ci), {"preflight", "source", "kubernetes", "storage-migration", "keycloak", "keycloak-ordinary", "keycloak-extension", "keycloak-static", "workload", "oci",
                                    "rehearsal", "system", "installed-workload", "installed-delegation", "installed-portable", "installed-fleet", "security-fuzz", "security-mutations", "checks",
                                    "schedule-report", "installed-scale-qualification", "installed-transactions"})
-        for job in ("source", "kubernetes", "keycloak", "keycloak-ordinary", "keycloak-extension", "keycloak-static", "workload", "security-fuzz", "security-mutations", "oci"):
+        for job in ("source", "kubernetes", "storage-migration", "keycloak", "keycloak-ordinary", "keycloak-extension", "keycloak-static", "workload", "security-fuzz", "security-mutations", "oci"):
             with self.subTest(job=job):
                 self.assertEqual(ci[job].get("needs"), ["preflight"])
                 self.assertNotIn("if", ci[job])  # Keep implicit success(), including for reusable OCI.
@@ -106,6 +106,23 @@ class ReleaseContractTests(unittest.TestCase):
         makefile = (contract.ROOT / "Makefile").read_text()
         self.assertRegex(makefile, r"(?m)^preflight: fmt-check vet generated-check\n\tpython3 scripts/public-contract\.py check\n\tpython3 scripts/stable-contract\.py\n\tpython3 scripts/security-surface\.py check\n\tpython3 scripts/compatibility-gate\.py check\n\tpython3 scripts/go-api-contract\.py check\n\tpython3 scripts/compatibility-evidence\.py check\n\tpython3 -m unittest discover -s scripts -p 'test_\*\.py'$")
         self.assertIn("make test chart-test arch lint vuln", [step.get("run") for step in ci["source"]["steps"]])
+
+    def test_native_storage_matrix_is_required_and_uploads_only_public_evidence(self):
+        jobs = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
+        job = jobs["storage-migration"]
+        self.assertEqual(job["strategy"]["matrix"]["version"], contract.pins.DATA["kubernetes"]["versions"])
+        self.assertIs(job["strategy"]["fail-fast"], False)
+        self.assertNotIn("continue-on-error", job)
+        commands = "\n".join(step.get("run", "") for step in job["steps"])
+        self.assertIn("scripts/storage-migration-installed-test.py", commands)
+        self.assertIn('--node-archive "$RUNNER_TEMP/storage-node.tar.gz"', commands)
+        uploads = [step for step in job["steps"] if "actions/upload-artifact@" in step.get("uses", "")]
+        self.assertEqual(len(uploads), 1)
+        self.assertEqual(uploads[0]["with"]["path"], "${{ runner.temp }}/storage-report/report.json")
+        gate = jobs["checks"]["steps"][0]
+        self.assertEqual(gate["env"]["STORAGE_MIGRATION_RESULT"], "${{ needs.storage-migration.result }}")
+        self.assertIn('test "$STORAGE_MIGRATION_RESULT" = success', gate["run"])
+        self.assertIn("storage-migration", jobs["schedule-report"]["needs"])
 
     def test_scheduled_failures_maintain_one_tracking_issue_with_scoped_write(self):
         ci = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())

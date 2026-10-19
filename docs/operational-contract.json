@@ -150,9 +150,9 @@
   },
   "unqualified": [
     "public upgrade and rollback",
-    "storage-version migration",
+    "public cross-release storage migration",
     "production HA and soak",
-    "bounded delegation",
+    "complete installed delegation matrix",
     "connected installation and decommission"
   ],
   "installedEvidence": [
@@ -160,5 +160,20 @@
       "report": "docs/qualification/operations/2026-10-19/observability-runtime-643f607.json",
       "sha256": "78568ad765d7041aaac4683945fea232a7fae35305d18c55b2b248c44dda4925"
     }
+  ],
+  "iam_failure_reasons": [
+    "DriftDetected",
+    "ObservationIncomplete",
+    "ProviderAuthenticationFailed",
+    "ProviderConflict",
+    "ProviderObjectNotFound",
+    "ProviderPermissionDenied",
+    "ProviderRequestRejected",
+    "ProviderThrottled",
+    "ProviderUnavailable",
+    "ReconcileCancelled",
+    "ReconcileDeadlineExceeded",
+    "StalePlan",
+    "Unsupported"
   ]
 }

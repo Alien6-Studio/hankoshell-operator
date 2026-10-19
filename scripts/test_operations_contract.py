@@ -34,6 +34,8 @@ class OperationalContractTests(unittest.TestCase):
             ("internal/controller/hankoapplication_controller.go", 'observeReconciler("HankoApplication", scheduleIAMReconciler(r))', "scheduleIAMReconciler(r)"),
             ("README.md", "operations-runbooks.md", "missing-runbooks.md"),
             ("docs/operations-runbooks.md", "AuditRecorderUnavailable", "UnreviewedState"),
+            ("docs/operations-runbooks.md", "`ProviderPermissionDenied`", "`UnreviewedPermission`"),
+            ("internal/controller/iam_evidence.go", 'return "ProviderUnavailable"', 'return "UnreviewedFailure"'),
             ("scripts/evidence_privacy.py", 'value.find("eyJ")', 'value.find("other-marker")'),
         ]
         for name, before, after in mutations:

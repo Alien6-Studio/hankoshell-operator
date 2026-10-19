@@ -47,6 +47,21 @@ remain distinct acceptance requirements. The migration utility refuses active
 rotation/delegation policies until their native state has an independent idle
 inspection path; it does not clear their journals to force a migration.
 
+The recovery follow-up interrupts real migration processes after native rewrite
+submission and after a first storedVersion commit, in both directions. Resume
+still needs fresh native proof and unchanged object meaning. Kubernetes may
+already complete and prune storedVersions during the interruption; the fixture
+requires that exact succeeded job and physical target encoding in this case.
+All three reviewed Kubernetes versions now run this fixture in required CI.
+This does not replace real-provider or public cross-release qualification in #92.
+
+Application, Role and ResourceServer status now distinguishes typed provider
+authentication, permission, overload, outage, conflict and cancellation failures.
+The operational contract binds every fixed reason to its recovery procedure,
+while regression tests reject string-spoofed status codes and private messages.
+The generic independently approved/audited finalizer-release workflow remains
+unfinished in #103; existing Observe transitions do not implement it.
+
 ## Current HA and security batch
 
 Delegation implementation #69/#70 is delivered through the pinned standalone

@@ -3,6 +3,20 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Recovery diagnostics and interrupted storage migration (#92, #103)
+
+- Report fixed IAM condition reasons for typed provider authentication,
+  permission, throttling, outage and conflict failures. Preserve prior application
+  evidence and withhold native error bodies; error strings cannot spoof a status.
+- Interrupt actual administrator migration processes at rewrite and commit
+  checkpoints, resume the same reviewed plans in both directions and verify
+  physical etcd encoding. Accept native storedVersions cleanup only with the
+  exact completed job and target-encoded bytes.
+- Require this native storage fixture on every reviewed Kubernetes version in
+  the protected CI aggregate, and upload only bounded reports. Update recovery
+  procedures to distinguish stock-provider refusal, experimental extension
+  recovery and retained installed evidence.
+
 ### Qualification credential handling and evidence scanning (#99)
 
 - Pass disposable Authentik database/bootstrap credentials and API tokens through

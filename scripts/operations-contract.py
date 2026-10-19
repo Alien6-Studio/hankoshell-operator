@@ -63,6 +63,12 @@ def check(root=ROOT):
         if not all(name in text for name in ("operations-runbooks.md", "operational-observability.md", "operational-contract.json")):
             raise ValueError("Missing operational contract link: " + path)
     runbook = (root / "docs/operations-runbooks.md").read_text()
+    iam = (root / "internal/controller/iam_evidence.go").read_text().split("func iamFailureReason(", 1)[1].split("func iamCondition(", 1)[0]
+    iam_reasons = sorted(set(re.findall(r'return "([A-Za-z]+)"', iam)))
+    if iam_reasons != contract.get("iam_failure_reasons"):
+        raise ValueError("IAM refusal reason inventory differs from runtime")
+    if any("`" + reason + "`" not in runbook for reason in iam_reasons):
+        raise ValueError("Missing typed IAM refusal recovery procedure")
     for state in ("CleanupConflict", "RotationFailed", "AuditRecorderUnavailable", "FleetSignatureInvalid", "UNQUALIFIED"):
         if state not in runbook:
             raise ValueError("Missing fail-closed runbook coverage: " + state)

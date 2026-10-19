@@ -2,7 +2,7 @@
 
 This is an **initial development** runbook for the v1alpha1 API, before the first
 public release. No predecessor-to-public upgrade, production HA, production storage migration,
-bounded delegation recovery or connected installation is qualified. Do not infer
+complete installed delegation matrix or connected installation is qualified. Do not infer
 those capabilities from a documented command. [Stable graduation](stable-graduation.md)
 and [lifecycle authority](architecture/decisions/ADR-050-experimental-lifecycle-authority.md)
 retain their exclusions. Nothing here authorizes publication or bypasses approval.
@@ -111,8 +111,13 @@ specified in [observability](operational-observability.md#health-readiness-and-l
 The installed observability fixture starts two replicas, proves exactly one lease
 holder, verifies standby probe semantics, removes that leader and observes a new
 holder with the same native managed client and credential. This is a bounded
-single-node smoke test. **UNQUALIFIED: network partition, split brain, clock skew,
-5-minute API outage, operation-interruption matrix and 24-hour soak** (#96/#95).
+single-node smoke test. The separate
+[transaction packet](qualification/transactions/2026-10-19/runtime-dcee6b6/README.md)
+retains six real Kubernetes/Keycloak cells, including the caller-scoped live-leader
+API partition. The [realm recovery fixture](recovery-and-realm-deletion.md)
+tests a five-minute operator API outage and interrupted owned-realm deletion.
+These exact-runtime reports do not qualify arbitrary partitions, split brain,
+clock skew, every transaction or a 24-hour soak (#96/#95).
 
 Fixture commands (the labels identify this Helm release):
 
@@ -133,6 +138,31 @@ Repair the authoritative CA/endpoint/credential through the existing administrat
 process, restart the Deployment only when startup-loaded Keycloak trust changed,
 and wait for current observedGeneration and native read-back. Never set TLS
 verification off or copy provider error bodies into a ticket.
+
+### IAM provider refusal reasons
+
+Application, Role and ResourceServer reconciliation classify typed provider failures without
+copying native paths, error bodies or credentials. Read current condition reasons
+with the incident jsonpath command below. The regression
+`TestIAMFailureReasonsUseTypedCausesAndPreserveFailureEvidence` checks wrapped
+HTTP errors, spoofed strings, prior applied evidence and private-message omission.
+These unit-tested decisions are not an installed outage qualification.
+
+| Reason | Administrator action |
+| --- | --- |
+| `ProviderAuthenticationFailed` | Repair the configured credential through its existing ownership process; preserve pending rotation state. |
+| `ProviderPermissionDenied` | Restore the reviewed permission profile; do not switch to a broad administrator credential to force success. |
+| `ProviderThrottled`, `ProviderUnavailable` | Restore service/capacity and allow bounded retries; retain journals and approvals. |
+| `ProviderObjectNotFound`, `ProviderConflict` | Check native identity and ownership with the separately authorized administrator; never recreate or relabel foreign data to satisfy status. |
+| `ProviderRequestRejected` | Review the desired configuration and supported provider capability before changing it. |
+| `ReconcileDeadlineExceeded`, `ReconcileCancelled` | Check API/provider reachability and controller shutdown; an unknown write outcome still requires read-back. |
+| `StalePlan` | Let fresh reference and authority reads compile a new plan; never reuse stale approval. |
+| `ObservationIncomplete`, `DriftDetected` | Restore complete read-back or resolve reviewed drift before accepting synchronization. |
+| `Unsupported` | Keep the refusal; use a supported configuration or explicitly qualified adapter. |
+
+Unknown causes retain their original operation reason (for example PlanRejected).
+A number or word such as "403" in an arbitrary error string never grants a
+typed permission diagnosis. No failure advances the last proven applied generation.
 
 ## Rotation and audit refusal
 
@@ -207,9 +237,18 @@ The helper reads the current Authorized=False/ApprovalRequired condition and
 validates its bound source UID, generation and digest. Inspect private output
 before applying under your independent administrator identity.
 It is **UNQUALIFIED** for managed Upgrade, DBSwitch or source-database Clone.
-Bounded delegation is currently refused on both qualified Keycloak versions;
-**UNQUALIFIED: delegation grant/recovery/revocation** (#69–#71). Do not widen a
-service-account credential or remove the refusal to simulate delegation support.
+Stock Keycloak refuses bounded delegation. The explicitly installed, pinned
+[experimental extension](architecture/delegation-and-agent-identity.md#installed-qualification-gate-71)
+implements the software profile on the reviewed versions. Check its capability
+and the matching runtime/JAR evidence before enabling it; an unavailable extension
+must retain `DelegationUnsupported`. Never edit the native
+Prepared/Applied/Verified/Committed journal, synthesize Ready or change a federated
+authenticator to recover a grant. Restore provider/authority access and let the
+same owned transaction resume. The installed delegation fixture exercises each
+accepted-write/restart boundary, then post-commit status loss; the complete current
+matrix remains **UNQUALIFIED** in #71 after the retained failed recovery cell.
+Withdrawal stops new exchanges; an offline delegated JWT remains valid until its
+bounded expiry. Do not promise immediate revocation at an offline resource server.
 
 ## Decommission
 
