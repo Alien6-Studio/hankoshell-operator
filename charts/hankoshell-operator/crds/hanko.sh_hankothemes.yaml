@@ -63,6 +63,9 @@ spec:
               buildImage:
                 description: BuildImage is the container image used to build the Keycloakify
                   JAR.
+                maxLength: 2048
+                minLength: 1
+                pattern: ^[^\x00-\x20\x7F]+$
                 type: string
               fontFamily:
                 description: FontFamily is the CSS font-family applied by the generated
@@ -79,6 +82,7 @@ spec:
                 maxLength: 256
                 type: string
               imagePullSecrets:
+                maxItems: 32
                 description: ImagePullSecrets are attached to theme build and cleanup
                   Jobs.
                 items:
@@ -87,6 +91,8 @@ spec:
                     referenced object inside the same namespace.
                   properties:
                     name:
+                      maxLength: 253
+                      pattern: "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
                       default: ""
                       description: |-
                         Name of the referent.
@@ -102,11 +108,15 @@ spec:
                 description: |-
                   JarName is the filename installed in Keycloak's providers directory. When
                   omitted, the operator derives <metadata.name>-theme.jar.
+                maxLength: 255
                 pattern: ^[a-zA-Z0-9._-]+\.jar$
                 type: string
               keycloakPVC:
                 description: KeycloakPVC is the name of the PersistentVolumeClaim
                   where the JAR is placed.
+                maxLength: 253
+                minLength: 1
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
               logoURL:
                 description: LogoURL is the URL of the logo image shown on the login

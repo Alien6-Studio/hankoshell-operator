@@ -61,7 +61,9 @@ spec:
             properties:
               attributes:
                 additionalProperties:
+                  maxItems: 64
                   items:
+                    maxLength: 4096
                     type: string
                   type: array
                 description: |-
@@ -69,6 +71,9 @@ spec:
                   Keycloak. Values are lists of strings per Keycloak's representation.
                 maxProperties: 64
                 type: object
+                x-kubernetes-validations:
+                - message: native map keys require 1..255 characters
+                  rule: self.all(k, size(k) > 0 && size(k) <= 255)
               composite:
                 description: |-
                   Composite marks this role as a composite role, aggregating the
@@ -676,7 +681,9 @@ spec:
             properties:
               attributes:
                 additionalProperties:
+                  maxItems: 64
                   items:
+                    maxLength: 4096
                     type: string
                   type: array
                 description: |-
@@ -684,6 +691,9 @@ spec:
                   Keycloak. Values are lists of strings per Keycloak's representation.
                 maxProperties: 64
                 type: object
+                x-kubernetes-validations:
+                - message: native map keys require 1..255 characters
+                  rule: self.all(k, size(k) > 0 && size(k) <= 255)
               composite:
                 description: |-
                   Composite marks this role as a composite role, aggregating the

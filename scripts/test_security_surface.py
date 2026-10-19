@@ -17,6 +17,15 @@ def roles(rule):
 
 
 class SecuritySurfaceTests(unittest.TestCase):
+    def test_unbounded_new_inputs_cannot_be_added_to_the_inventory(self):
+        schema = {"Thing/v1": {"nodes": gate.schema_nodes({"type": "object", "properties": {
+            "values": {"type": "array", "maxItems": 2, "items": {"type": "string"}}}}, "spec")}}
+        with self.assertRaisesRegex(ValueError, r"spec.values\[\]"):
+            gate.check_input_bounds(schema)
+        schema["Thing/v1"]["nodes"]["spec.values[]"] = gate.schema_nodes({"type": "string", "maxLength": 10}, "spec.values[]")["spec.values[]"]
+        schema["Thing/v1"]["nodes"].update(gate.schema_nodes({"type": "string"}, "status.legacy"))
+        gate.check_input_bounds(schema)
+
     def test_nested_maps_lists_and_enum_bounds_are_inventoried(self):
         schema = {"type": "object", "properties": {
             "list": {"type": "array", "maxItems": 2, "items": {"type": "string", "maxLength": 10}},

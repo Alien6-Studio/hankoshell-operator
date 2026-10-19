@@ -199,7 +199,16 @@ def inventory(root=ROOT):
                      "--namespace", "auth", "--api-versions", "cilium.io/v2/CiliumNetworkPolicy", "--kube-version", version, "--set-string", "image.tag=qualification", "--values", file.name],
                      text=True, timeout=45)
         profiles[name] = rbac([d for d in yaml.safe_load_all(output) if d])
-    return {"schemaVersion": 1, "stage": "development-inventory-not-security-acceptance", "schemas": schemas(root), "rbac": profiles}
+    current = schemas(root)
+    check_input_bounds(current)
+    return {"schemaVersion": 1, "stage": "development-inventory-not-security-acceptance", "schemas": current, "rbac": profiles}
+
+
+def check_input_bounds(current):
+    missing = [kind + ":" + path for kind, schema in current.items() for path, node in schema["nodes"].items()
+               if path.startswith("spec.") and node["missing_explicit_bound"]]
+    if missing:
+        raise ValueError("Public inputs require explicit size bounds: " + ", ".join(sorted(missing)))
 
 
 def summary(data):

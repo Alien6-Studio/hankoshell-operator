@@ -3934,8 +3934,10 @@
           "type": "object"
         },
         "spec.attributes{}": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 4096
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.clientID": {
@@ -3980,30 +3982,46 @@
           "type": "array"
         },
         "spec.identityMappings[].claim": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityMappings[].identityProvider": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityMappings[].keycloakName": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityMappings[].matchValue": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 4096
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityMappings[].name": {
           "limits": {
+            "maxLength": 63,
+            "minLength": 1,
             "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityMappings[].syncMode": {
@@ -4019,8 +4037,12 @@
           "type": "string"
         },
         "spec.identityMappings[].target.clientRole": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityMappings[].target.realmRole": {
@@ -4031,8 +4053,12 @@
           "type": "string"
         },
         "spec.identityMappings[].target.userAttribute": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.mode": {
@@ -4217,9 +4243,10 @@
         },
         "spec.secretRotationPolicy.forceRotateAt": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.theme": {
@@ -4258,30 +4285,45 @@
           "type": "string"
         },
         "spec.tokenClaims[].keycloakName": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.tokenClaims[].name": {
           "limits": {
+            "maxLength": 63,
+            "minLength": 1,
             "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.tokenClaims[].realmRolePrefix": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.tokenClaims[].userAttribute": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.tokenClaims[].value": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 16384
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.type": {
@@ -5187,7 +5229,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "0fefebeff048b89aedba4162c2118cbaebcd9420ff1ce7a12c048146b525af04"
+      "schema_sha256": "65cc5dab8fb8d6347ba9f6b5c4d8475c7c430da1e3d2474300d88d3090ede446"
     },
     "HankoApplication/v1beta1": {
       "nodes": {
@@ -5199,8 +5241,10 @@
           "type": "object"
         },
         "spec.attributes{}": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 4096
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.clientID": {
@@ -5245,30 +5289,46 @@
           "type": "array"
         },
         "spec.identityMappings[].claim": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityMappings[].identityProvider": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityMappings[].keycloakName": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityMappings[].matchValue": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 4096
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityMappings[].name": {
           "limits": {
+            "maxLength": 63,
+            "minLength": 1,
             "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityMappings[].syncMode": {
@@ -5284,8 +5344,12 @@
           "type": "string"
         },
         "spec.identityMappings[].target.clientRole": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityMappings[].target.realmRole": {
@@ -5296,8 +5360,12 @@
           "type": "string"
         },
         "spec.identityMappings[].target.userAttribute": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.mode": {
@@ -5482,9 +5550,10 @@
         },
         "spec.secretRotationPolicy.forceRotateAt": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.theme": {
@@ -5523,30 +5592,45 @@
           "type": "string"
         },
         "spec.tokenClaims[].keycloakName": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.tokenClaims[].name": {
           "limits": {
+            "maxLength": 63,
+            "minLength": 1,
             "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.tokenClaims[].realmRolePrefix": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.tokenClaims[].userAttribute": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.tokenClaims[].value": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 16384
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.type": {
@@ -6452,7 +6536,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "0fefebeff048b89aedba4162c2118cbaebcd9420ff1ce7a12c048146b525af04"
+      "schema_sha256": "65cc5dab8fb8d6347ba9f6b5c4d8475c7c430da1e3d2474300d88d3090ede446"
     },
     "HankoEmailProvider/v1alpha1": {
       "nodes": {
@@ -6474,16 +6558,20 @@
         },
         "spec.office365.clientID": {
           "limits": {
+            "maxLength": 36,
+            "minLength": 36,
             "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.office365.keyVaultSecretName": {
           "limits": {
+            "maxLength": 127,
+            "minLength": 1,
             "pattern": "^[0-9A-Za-z-]{1,127}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.office365.mailbox": {
@@ -6504,9 +6592,11 @@
         },
         "spec.office365.tenantID": {
           "limits": {
+            "maxLength": 36,
+            "minLength": 36,
             "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.testNonce": {
@@ -6599,7 +6689,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "350f471efce372cdc07cb882c707be11f9ac3de671988818f0fccf08aaefdaaf"
+      "schema_sha256": "34ebb34560279d655e2928a09d979a65244714c59965b0e35d30c6bc938c3328"
     },
     "HankoIAMProfile/v1alpha1": {
       "nodes": {
@@ -6615,8 +6705,12 @@
           "type": "string"
         },
         "spec.security.bruteForce.waitIncrements": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.security.mfaPolicy": {
@@ -6642,13 +6736,21 @@
           "type": "string"
         },
         "spec.security.sessionIdleTimeout": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.security.sessionLifetime": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.security.sslRequired": {
@@ -6733,7 +6835,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "ac8c2e8e11a1b80784210cb09c1e9d0cabbe9a709f584e372c1ff17d8caeeb1f"
+      "schema_sha256": "c105b239ff66857743be0634a0702efd995225bc2f64e3949922bf97f3533fe9"
     },
     "HankoImport/v1alpha1": {
       "nodes": {
@@ -6752,8 +6854,12 @@
           "type": "string"
         },
         "spec.sourceRef": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.completedAt": {
@@ -6989,7 +7095,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "9b1102a42dc9678f1fa97b58ef7b01dec97093f7655e4e7aa9aaab651ac5061d"
+      "schema_sha256": "993c172faf658af78e0061a21400ecf60754ae5167e75af438b9c67ff70b5036"
     },
     "HankoIssuer/v1alpha1": {
       "nodes": {
@@ -7086,65 +7192,103 @@
     "HankoKeycloakInstance/v1alpha1": {
       "nodes": {
         "spec.adminRef.name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.adopted.deploymentRef": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.adopted.serviceRef": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.managed.database.name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.managed.image": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x20\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.managed.resources.claims": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "spec.managed.resources.claims[].name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.managed.resources.claims[].request": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.managed.resources.limits": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxProperties": 32
+          },
+          "missing_explicit_bound": false,
           "type": "object"
         },
         "spec.managed.resources.requests": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxProperties": 32
+          },
+          "missing_explicit_bound": false,
           "type": "object"
         },
         "spec.managed.themePVC": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.managed.tlsSecretRef": {
           "limits": {
-            "minLength": 1
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.mode": {
@@ -7159,8 +7303,12 @@
           "type": "string"
         },
         "spec.tlsCARef": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adminAPIURL": {
@@ -7269,7 +7417,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "a4a8b8103e84146aeee41b03f2f84fee1ae8a62c8e66e9cded7ac8e1a623faaf"
+      "schema_sha256": "ad1846aaf20217f99cf81256f6469a22a40b55ce8f34626eef27409c80ca35cd"
     },
     "HankoMeshService/v1alpha1": {
       "nodes": {
@@ -7282,9 +7430,11 @@
         },
         "spec.egress[].namespace": {
           "limits": {
+            "maxLength": 63,
+            "minLength": 1,
             "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.egress[].ports": {
@@ -7307,9 +7457,11 @@
         },
         "spec.egress[].serviceRef": {
           "limits": {
+            "maxLength": 63,
+            "minLength": 1,
             "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.enforcementMode": {
@@ -7326,9 +7478,11 @@
         },
         "spec.identityRef": {
           "limits": {
+            "maxLength": 253,
+            "minLength": 1,
             "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.ports": {
@@ -7351,30 +7505,38 @@
         },
         "spec.resourceServerRef": {
           "limits": {
+            "maxLength": 253,
+            "minLength": 1,
             "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.serviceRef": {
           "limits": {
+            "maxLength": 63,
+            "minLength": 1,
             "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.tenantRef": {
           "limits": {
+            "maxLength": 253,
+            "minLength": 1,
             "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.workloadServiceAccountRef": {
           "limits": {
+            "maxLength": 253,
+            "minLength": 1,
             "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.audience": {
@@ -7552,28 +7714,44 @@
           "type": "string"
         }
       },
-      "schema_sha256": "0f8acefe4ff388789338681a5c76a651c6117dd35ad9098a8d313ca28c46a77f"
+      "schema_sha256": "00e4c4dad27442fd4dda6d88889d5df17b66d352acf6b05e86e594fe680e1289"
     },
     "HankoOperation/v1alpha1": {
       "nodes": {
         "spec.clone.targetName": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.clone.targetNamespace": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 63,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.dbSwitch.newDatabaseSecretRef": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.instanceRef": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.type": {
@@ -7588,8 +7766,12 @@
           "type": "string"
         },
         "spec.upgrade.toImage": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x20\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.completedAt": {
@@ -7732,7 +7914,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "03cbd70476d59fc6a23a32c46b5f76675263d93ab3748a3358c5e0fc695daab1"
+      "schema_sha256": "c3380a33c47b48343a70c91ef825957554d4042222f976496c628204d4b47406"
     },
     "HankoOrganization/v1alpha1": {
       "nodes": {
@@ -8335,9 +8517,11 @@
         },
         "spec.iamProfileRef": {
           "limits": {
+            "maxLength": 253,
+            "minLength": 1,
             "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityProviders": {
@@ -8356,13 +8540,20 @@
           "type": "string"
         },
         "spec.identityProviders[].clientSecretRef.key": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[-._a-zA-Z0-9]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityProviders[].clientSecretRef.name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityProviders[].config": {
@@ -8373,18 +8564,26 @@
           "type": "object"
         },
         "spec.identityProviders[].config{}": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 16384
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityProviders[].displayName": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityProviders[].firstBrokerLoginFlowAlias": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityProviders[].mappers": {
@@ -8402,8 +8601,10 @@
           "type": "object"
         },
         "spec.identityProviders[].mappers[].config{}": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 16384
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityProviders[].mappers[].identityProviderMapper": {
@@ -8422,8 +8623,12 @@
           "type": "string"
         },
         "spec.identityProviders[].postBrokerLoginFlowAlias": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityProviders[].providerID": {
@@ -8490,8 +8695,12 @@
           "type": "string"
         },
         "spec.securityProfile.bruteForce.waitIncrements": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.securityProfile.mfaPolicy": {
@@ -8517,13 +8726,21 @@
           "type": "string"
         },
         "spec.securityProfile.sessionIdleTimeout": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.securityProfile.sessionLifetime": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.securityProfile.sslRequired": {
@@ -8649,7 +8866,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "f9a8c44b31340cfb0c2a9b33258bda7e8ccfb2c695773cdbe8c4a50c6fff1902"
+      "schema_sha256": "30473559e48290238989022ad8178c151bc794220d83c67da83f15b287e942c5"
     },
     "HankoResourceServer/v1alpha1": {
       "nodes": {
@@ -8760,9 +8977,11 @@
         },
         "spec.permissions[].principals[].ref": {
           "limits": {
+            "maxLength": 253,
+            "minLength": 1,
             "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.permissions[].resources": {
@@ -9689,7 +9908,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "5f7f83ef11130172c9cd0b85f111d607028601e4fb198f2c2a3ad9d3a6ae3eda"
+      "schema_sha256": "f8e84c2f91e6ac8b65d1a7b1d1ecde68b91b595dd0321d335ec9fc3608288b84"
     },
     "HankoResourceServer/v1beta1": {
       "nodes": {
@@ -9800,9 +10019,11 @@
         },
         "spec.permissions[].principals[].ref": {
           "limits": {
+            "maxLength": 253,
+            "minLength": 1,
             "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.permissions[].resources": {
@@ -10729,7 +10950,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "5f7f83ef11130172c9cd0b85f111d607028601e4fb198f2c2a3ad9d3a6ae3eda"
+      "schema_sha256": "f8e84c2f91e6ac8b65d1a7b1d1ecde68b91b595dd0321d335ec9fc3608288b84"
     },
     "HankoRole/v1alpha1": {
       "nodes": {
@@ -10741,13 +10962,17 @@
           "type": "object"
         },
         "spec.attributes{}": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "spec.attributes{}[]": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 4096
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.composites": {
@@ -11333,7 +11558,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "efe70081e6570f522056c700932df7e0eec248142b5dd8b24328690fd4bf87d2"
+      "schema_sha256": "8d7a16ff7acbb4d8070c493612ad221511485e7601222eb7ca327061f4b12309"
     },
     "HankoRole/v1beta1": {
       "nodes": {
@@ -11345,13 +11570,17 @@
           "type": "object"
         },
         "spec.attributes{}": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "spec.attributes{}[]": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 4096
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.composites": {
@@ -11937,7 +12166,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "efe70081e6570f522056c700932df7e0eec248142b5dd8b24328690fd4bf87d2"
+      "schema_sha256": "8d7a16ff7acbb4d8070c493612ad221511485e7601222eb7ca327061f4b12309"
     },
     "HankoServiceAccount/v1alpha1": {
       "nodes": {
@@ -11949,8 +12178,10 @@
           "type": "object"
         },
         "spec.attributes{}": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 4096
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.authentication.fallbackBinding.sourceRef": {
@@ -12055,16 +12286,20 @@
         },
         "spec.authentication.transition.preparedWorkloadRevision": {
           "limits": {
+            "maxLength": 128,
+            "minLength": 1,
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.authentication.transition.requestID": {
           "limits": {
+            "maxLength": 128,
+            "minLength": 1,
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.authentication.transition.strategy": {
@@ -12140,9 +12375,10 @@
         },
         "spec.secretRotationPolicy.forceRotateAt": {
           "limits": {
-            "format": "date-time"
+            "format": "date-time",
+            "maxLength": 64
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.tokenClaims": {
@@ -12174,30 +12410,45 @@
           "type": "string"
         },
         "spec.tokenClaims[].keycloakName": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.tokenClaims[].name": {
           "limits": {
+            "maxLength": 63,
+            "minLength": 1,
             "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.tokenClaims[].realmRolePrefix": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.tokenClaims[].userAttribute": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.tokenClaims[].value": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 16384
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.candidateHash": {
@@ -12847,34 +13098,43 @@
           "type": "string"
         }
       },
-      "schema_sha256": "839eac28d8a962abfc5bf47d28e9c03faca7bbb35f7e95ef761e9526348a4a5f"
+      "schema_sha256": "284e68029c1e33156bcd80d02c403f9b97786580cc389e70d9070311bf3cb606"
     },
     "HankoSnapshot/v1alpha1": {
       "nodes": {
         "spec.backupImage": {
           "limits": {
+            "maxLength": 2048,
             "pattern": "^[^@\\s]+@sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.backupPVC": {
           "limits": {
-            "minLength": 1
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.backupSecretRef": {
           "limits": {
-            "minLength": 1
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.instanceRef": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.conditions": {
@@ -12986,7 +13246,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "36285371a0f5257bb5648b37df9162b77bb2e080add590f0d28772bba63aef30"
+      "schema_sha256": "ae379566630dd668fb6b456be6c2a5e0985a150bb7d3c850ffa10f7e23b1f226"
     },
     "HankoTenant/v1alpha1": {
       "nodes": {
@@ -13000,31 +13260,42 @@
         },
         "spec.hubEndpoint": {
           "limits": {
+            "maxLength": 2048,
             "pattern": "^https://[a-zA-Z0-9]([a-zA-Z0-9\\-\\.]*[a-zA-Z0-9])?(:[0-9]+)?(/[^\\s]*)?$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.hubEnrollSecretRef.name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.hubEnrollmentEndpoint": {
           "limits": {
+            "maxLength": 2048,
             "pattern": "^https://[a-zA-Z0-9]([a-zA-Z0-9\\-\\.]*[a-zA-Z0-9])?(:[0-9]+)?(/[^\\s]*)?$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.hubTenantID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 128,
+            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.hubTokenSecretRef.name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.hubTransport": {
@@ -13049,13 +13320,20 @@
           "type": "string"
         },
         "spec.keycloakSecretRef.name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.realmRef": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.bundleVersion": {
@@ -13373,7 +13651,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "d5bb8b2dc62fc2a96cc3790291dfc4d7747b4c8c70c85956f7a0f41097bcd932"
+      "schema_sha256": "a0fbe55e1cf8690c2708dabc3b7ca6add3092cae1128feca17c09dac74644a7f"
     },
     "HankoTheme/v1alpha1": {
       "nodes": {
@@ -13385,8 +13663,12 @@
           "type": "string"
         },
         "spec.buildImage": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x20\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.fontFamily": {
@@ -13411,25 +13693,35 @@
           "type": "string"
         },
         "spec.imagePullSecrets": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "spec.imagePullSecrets[].name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.jarName": {
           "limits": {
+            "maxLength": 255,
             "pattern": "^[a-zA-Z0-9._-]+\\.jar$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.keycloakPVC": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.logoURL": {
@@ -13565,7 +13857,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "302b32a86c7fea2e251feb1cab434d7ba92e1a166e01f90dfb622dca1e116dc1"
+      "schema_sha256": "c9cae1e863d821e9883725b36517f3945db2dbe8575836033f037e58e6df41a7"
     },
     "HankoWorkloadTrust/v1alpha1": {
       "nodes": {
@@ -13589,9 +13881,11 @@
         },
         "spec.kubernetes.clusterAnchor.apiServerCAHash": {
           "limits": {
+            "maxLength": 71,
+            "minLength": 71,
             "pattern": "^sha256:[a-f0-9]{64}$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.kubernetes.clusterAnchor.kubeSystemNamespaceUID": {
@@ -14157,7 +14451,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "d9e2d5c44dd038c7a5248edb54cc38466631945dd9fdcd86549f185dd0110e3b"
+      "schema_sha256": "fc6306ced44c4ff7dc28082ccca172547a76c43fddecaff7a441eca0c2005ed7"
     }
   },
   "stage": "development-inventory-not-security-acceptance"

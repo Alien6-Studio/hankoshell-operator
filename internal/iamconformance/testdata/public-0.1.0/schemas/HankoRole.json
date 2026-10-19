@@ -18,13 +18,21 @@
         "attributes": {
           "additionalProperties": {
             "items": {
+              "maxLength": 4096,
               "type": "string"
             },
+            "maxItems": 64,
             "type": "array"
           },
           "description": "Attributes holds arbitrary key/value metadata attached to the role in\nKeycloak. Values are lists of strings per Keycloak's representation.",
           "maxProperties": 64,
-          "type": "object"
+          "type": "object",
+          "x-kubernetes-validations": [
+            {
+              "message": "native map keys require 1..255 characters",
+              "rule": "self.all(k, size(k) > 0 && size(k) <= 255)"
+            }
+          ]
         },
         "composite": {
           "description": "Composite marks this role as a composite role, aggregating the\npermissions of the roles listed in Composites.",

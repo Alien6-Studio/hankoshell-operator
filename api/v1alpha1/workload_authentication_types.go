@@ -7,9 +7,13 @@ type ServiceAccountAuthenticationTransition struct {
 	// +kubebuilder:validation:Enum=CoordinatedCutover
 	Strategy string `json:"strategy"`
 	// +kubebuilder:validation:Pattern=`^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$`
+	// +kubebuilder:validation:MaxLength=128
+	// +kubebuilder:validation:MinLength=1
 	RequestID string `json:"requestID"`
 	// Public workload-owner revision, never a token or credential.
 	// +kubebuilder:validation:Pattern=`^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$`
+	// +kubebuilder:validation:MaxLength=128
+	// +kubebuilder:validation:MinLength=1
 	PreparedWorkloadRevision string `json:"preparedWorkloadRevision"`
 }
 

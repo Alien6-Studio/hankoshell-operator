@@ -26,6 +26,9 @@ type HankoImport struct {
 type HankoImportSpec struct {
 	// SourceRef is the name of the HankoKeycloakInstance to import from.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	SourceRef string `json:"sourceRef"`
 
 	// Realms is the list of realm names to import. Empty means all realms.

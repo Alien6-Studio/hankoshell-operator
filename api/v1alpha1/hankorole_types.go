@@ -68,6 +68,7 @@ type HankoRoleSpec struct {
 	// Attributes holds arbitrary key/value metadata attached to the role in
 	// Keycloak. Values are lists of strings per Keycloak's representation.
 	// +kubebuilder:validation:MaxProperties=64
+	// +kubebuilder:validation:XValidation:rule="self.all(k, size(k) > 0 && size(k) <= 255)",message="native map keys require 1..255 characters"
 	Attributes map[string][]string `json:"attributes,omitempty"`
 }
 

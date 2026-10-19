@@ -100,6 +100,9 @@ spec:
                       waitIncrements:
                         description: WaitIncrements is the lockout duration (Go duration
                           string, e.g. "30s").
+                        maxLength: 64
+                        minLength: 1
+                        pattern: ^[^\x00-\x1F\x7F]+$
                         type: string
                     required:
                     - enabled
@@ -210,10 +213,16 @@ spec:
                   sessionIdleTimeout:
                     description: SessionIdleTimeout is the maximum inactive SSO session
                       duration.
+                    maxLength: 64
+                    minLength: 1
+                    pattern: ^[^\x00-\x1F\x7F]+$
                     type: string
                   sessionLifetime:
                     description: SessionLifetime is the maximum SSO session duration
                       (Go duration string, e.g. "8h").
+                    maxLength: 64
+                    minLength: 1
+                    pattern: ^[^\x00-\x1F\x7F]+$
                     type: string
                   sslRequired:
                     default: external

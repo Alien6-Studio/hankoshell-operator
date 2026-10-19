@@ -114,6 +114,7 @@ type HankoApplicationSpec struct {
 	// directly in Keycloak on every reconcile. Keys reserved by the operator for
 	// other spec fields (login_theme, post.logout.redirect.uris) are rejected.
 	// +kubebuilder:validation:MaxProperties=64
+	// +kubebuilder:validation:XValidation:rule="self.all(k, size(k) > 0 && size(k) <= 255)",message="native map keys require 1..255 characters"
 	Attributes map[string]string `json:"attributes,omitempty"`
 
 	// Mode controls the operator's write authority over the underlying Keycloak client.
@@ -188,24 +189,36 @@ type ApplicationIdentityMapping struct {
 	// operator-owned Keycloak mapper name.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
 	// KeycloakName explicitly adopts an existing mapper by name. When omitted,
 	// the operator derives an application-namespaced mapper name. Use this only
 	// for deliberate migration of a pre-existing mapper.
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
 	KeycloakName string `json:"keycloakName,omitempty"`
 
 	// IdentityProvider is the Keycloak identity-provider alias, for example "entra".
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
 	IdentityProvider string `json:"identityProvider"`
 
 	// Claim is the upstream OIDC claim to inspect or import, for example "groups".
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
 	Claim string `json:"claim"`
 
 	// MatchValue is required for role targets and is the exact claim value that
 	// grants the role. For array claims, Keycloak matches when the array contains it.
 	// It is omitted for userAttribute targets, which import the complete claim value.
+	// +kubebuilder:validation:MaxLength=4096
 	MatchValue string `json:"matchValue,omitempty"`
 
 	// SyncMode controls updates when an already-linked user logs in again.
@@ -229,11 +242,17 @@ type ApplicationIdentityMappingTarget struct {
 
 	// ClientRole grants a role owned by this HankoApplication. The role should
 	// also be declared in spec.roles.
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
 	ClientRole string `json:"clientRole,omitempty"`
 
 	// UserAttribute imports the upstream claim into this Keycloak user attribute.
 	// Because Keycloak users are realm-scoped, the persisted attribute is global;
 	// spec.tokenClaims controls which applications receive it in tokens.
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
 	UserAttribute string `json:"userAttribute,omitempty"`
 }
 
@@ -246,10 +265,15 @@ type ApplicationTokenClaim struct {
 	// Name is unique within this application.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
 	// KeycloakName explicitly adopts an existing client protocol mapper by name.
 	// When omitted, the operator derives a stable application-scoped name.
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
 	KeycloakName string `json:"keycloakName,omitempty"`
 
 	// Claim is the claim name emitted in tokens. Dot notation creates nested claims.
@@ -262,10 +286,14 @@ type ApplicationTokenClaim struct {
 
 	// UserAttribute reads the value from a Keycloak user attribute.
 	// Exactly one of userAttribute and value must be set.
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
 	UserAttribute string `json:"userAttribute,omitempty"`
 
 	// Value emits a fixed application-specific claim value. A pointer allows an
 	// explicitly configured empty string to remain distinguishable from omission.
+	// +kubebuilder:validation:MaxLength=16384
 	Value *string `json:"value,omitempty"`
 
 	// RealmRoles projects the caller's realm roles into this claim as a
@@ -278,6 +306,8 @@ type ApplicationTokenClaim struct {
 
 	// RealmRolePrefix, when set, restricts and strips a prefix from the projected
 	// realm-role names. Only meaningful together with realmRoles.
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]*$`
 	RealmRolePrefix string `json:"realmRolePrefix,omitempty"`
 
 	// JSONType controls conversion of the emitted value.

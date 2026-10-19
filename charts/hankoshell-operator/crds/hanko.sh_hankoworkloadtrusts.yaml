@@ -83,6 +83,8 @@ spec:
                       apiServerCAHash:
                         description: APIServerCAHash identifies the single configured
                           public API CA certificate DER.
+                        maxLength: 71
+                        minLength: 71
                         pattern: ^sha256:[a-f0-9]{64}$
                         type: string
                       kubeSystemNamespaceUID:

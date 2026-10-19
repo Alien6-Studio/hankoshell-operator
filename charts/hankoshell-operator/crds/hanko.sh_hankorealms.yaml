@@ -103,6 +103,8 @@ spec:
                   IAMProfileRef references a reusable HankoIAMProfile in the same namespace.
                   Every application in this realm inherits the resolved authentication policy.
                   It is mutually exclusive with the legacy inline SecurityProfile.
+                maxLength: 253
+                minLength: 1
                 pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
                 type: string
               identityProviders:
@@ -130,10 +132,15 @@ spec:
                         config.clientSecret at reconcile time. Imports never populate this field.
                       properties:
                         key:
+                          maxLength: 253
+                          minLength: 1
+                          pattern: "^[-._a-zA-Z0-9]+$"
                           description: The key of the secret to select from.  Must
                             be a valid secret key.
                           type: string
                         name:
+                          maxLength: 253
+                          pattern: "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
                           default: ""
                           description: |-
                             Name of the referent.
@@ -152,13 +159,18 @@ spec:
                       x-kubernetes-map-type: atomic
                     config:
                       additionalProperties:
+                        maxLength: 16384
                         type: string
                       description: |-
                         Config contains non-sensitive provider-specific Keycloak options. Only
                         declared keys are reconciled; provider defaults and opaque keys survive.
                       maxProperties: 64
                       type: object
+                      x-kubernetes-validations:
+                      - message: native map keys require 1..255 characters
+                        rule: self.all(k, size(k) > 0 && size(k) <= 255)
                     displayName:
+                      maxLength: 255
                       type: string
                     enabled:
                       description: |-
@@ -166,6 +178,9 @@ spec:
                         false values. Enabled defaults to true; the other flags default to false.
                       type: boolean
                     firstBrokerLoginFlowAlias:
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     linkOnly:
                       type: boolean
@@ -184,9 +199,13 @@ spec:
                         properties:
                           config:
                             additionalProperties:
+                              maxLength: 16384
                               type: string
                             maxProperties: 32
                             type: object
+                            x-kubernetes-validations:
+                            - message: native map keys require 1..255 characters
+                              rule: self.all(k, size(k) > 0 && size(k) <= 255)
                           identityProviderMapper:
                             description: IdentityProviderMapper is the Keycloak mapper
                               implementation identifier.
@@ -206,6 +225,9 @@ spec:
                       - name
                       x-kubernetes-list-type: map
                     postBrokerLoginFlowAlias:
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     providerID:
                       description: ProviderID is the Keycloak provider implementation,
@@ -324,6 +346,9 @@ spec:
                       waitIncrements:
                         description: WaitIncrements is the lockout duration (Go duration
                           string, e.g. "30s").
+                        maxLength: 64
+                        minLength: 1
+                        pattern: ^[^\x00-\x1F\x7F]+$
                         type: string
                     required:
                     - enabled
@@ -434,10 +459,16 @@ spec:
                   sessionIdleTimeout:
                     description: SessionIdleTimeout is the maximum inactive SSO session
                       duration.
+                    maxLength: 64
+                    minLength: 1
+                    pattern: ^[^\x00-\x1F\x7F]+$
                     type: string
                   sessionLifetime:
                     description: SessionLifetime is the maximum SSO session duration
                       (Go duration string, e.g. "8h").
+                    maxLength: 64
+                    minLength: 1
+                    pattern: ^[^\x00-\x1F\x7F]+$
                     type: string
                   sslRequired:
                     default: external

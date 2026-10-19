@@ -7,11 +7,16 @@ rule and binding on five reviewed chart profiles. It is not stable-contract
 acceptance or an independent security audit.
 
 The inventory contains **1,343 declared fields/collections across 20 served schemas**.
-**397 lack an explicit maximum length/cardinality** (finite string enums count as
+**294 lack an explicit maximum length/cardinality**, all under status (finite string enums count as
 bounded). A regex, runtime validator, HTTP byte budget or Kubernetes metadata
 limit may impose an independent bound; these gaps are not automatically
 vulnerabilities. Opaque provider extensions and inherited Kubernetes schemas
 still need contextual review. Status is inventoried along with spec.
+
+Every inventoried `spec` string, list and typed map now has an explicit maximum.
+The inventory rejects future spec gaps rather than recording them as an accepted
+baseline. Integer-or-string resource quantities also have a 64-character bound,
+and native attribute/configuration map keys require 1..255 characters.
 
 ## Admission changes and migration notice
 
@@ -197,3 +202,37 @@ object/provider migration. Do not rename a provider object, drop its CRD or
 remove its finalizer just to satisfy these admission bounds. Metadata writes
 on an invalid stored object may also be refused; assess these objects before
 applying the candidate CRDs.
+
+## Public input budget completion
+
+This follow-up closes 103 additional served-schema input gaps, including shared
+beta fields. Mapper names use 63 characters, provider aliases/claims use 255,
+match values and client/role attribute values use 4,096, and fixed token-claim
+or broker-configuration values use 16,384. Existing Unicode/punctuation remains
+available where supported. Lifecycle image references and Hub URLs use 2,048;
+Kubernetes references use their explicit name/namespace budgets. Theme pull
+Secrets and imported resource claims have at most 32 entries. Resource maps
+have at most 32 keys and quantity strings at most 64 characters.
+
+Ordinary fields use Go validation markers. The reviewed
+[imported-field policy](../api/schema-input-bounds.json) adds constraints that
+controller-gen cannot attach to external Kubernetes fields or map values.
+`make manifests` applies it explicitly, preserves existing empty reference
+defaults, and refuses missing paths, changed types or conflicting limits.
+It never changes storage or conversion strategy. The frozen unpublished IAM
+schemas and conversion hashes are refreshed together; Go field types and the
+compiler corpus intent identities are unchanged.
+
+`checkPublicInputBudgets` uses 88 independent fixtures with accepted maxima and
+rejected oversized values, including Unicode map values, nested role values,
+quantity unions, date-time fields and alpha/beta parity. Native map-key tests
+cover empty, 255- and 256-character keys. These are API admission checks, not
+proof that a provider will accept or converge every admitted value.
+
+Before upgrading these development CRDs, inspect saved manifests for oversized
+values and maps and use `kubectl apply --dry-run=server -f MANIFEST` against the
+candidate API. Correct configuration through the ordinary reviewed procedure;
+do not truncate identities, remove finalizers or recreate provider objects to
+make a manifest pass. The remaining 294 inventory gaps are status fields;
+Secret/Deployment write isolation, adversarial installed evidence and an
+independent security review remain required for #99.

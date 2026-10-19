@@ -78,12 +78,16 @@ spec:
                     description: |-
                       ClientID is the Entra application UUID granted the Exchange Online
                       Application Mail.Send role scoped to Mailbox.
+                    maxLength: 36
+                    minLength: 36
                     pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
                     type: string
                   keyVaultSecretName:
                     description: |-
                       KeyVaultSecretName is the Azure Key Vault secret containing the Entra
                       client secret. Retained only for migration; the operator no longer reads it.
+                    maxLength: 127
+                    minLength: 1
                     pattern: ^[0-9A-Za-z-]{1,127}$
                     type: string
                   mailbox:
@@ -100,6 +104,8 @@ spec:
                     type: string
                   tenantID:
                     description: TenantID is the Microsoft Entra tenant UUID.
+                    maxLength: 36
+                    minLength: 36
                     pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
                     type: string
                 required:

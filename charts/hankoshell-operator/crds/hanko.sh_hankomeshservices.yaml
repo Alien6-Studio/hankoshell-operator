@@ -74,6 +74,8 @@ spec:
                     Kubernetes Service.
                   properties:
                     namespace:
+                      maxLength: 63
+                      minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
                     ports:
@@ -103,6 +105,8 @@ spec:
                       - port
                       x-kubernetes-list-type: map
                     serviceRef:
+                      maxLength: 63
+                      minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
                   required:
@@ -127,6 +131,8 @@ spec:
                 description: |-
                   IdentityRef references the HankoServiceAccount whose clientID identifies
                   this workload when it calls another registered service.
+                maxLength: 253
+                minLength: 1
                 pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
                 type: string
               ports:
@@ -160,23 +166,31 @@ spec:
                 description: |-
                   ResourceServerRef references the HankoResourceServer whose audience
                   identifies this workload as a destination.
+                maxLength: 253
+                minLength: 1
                 pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
                 type: string
               serviceRef:
                 description: ServiceRef names the Kubernetes Service selected for
                   interception.
+                maxLength: 63
+                minLength: 1
                 pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
                 type: string
               tenantRef:
                 description: |-
                   TenantRef references the HankoTenant whose Hub identity and cluster
                   enrollment scope this registration.
+                maxLength: 253
+                minLength: 1
                 pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
                 type: string
               workloadServiceAccountRef:
                 description: |-
                   WorkloadServiceAccountRef names the Kubernetes ServiceAccount that every
                   selected pod must use. It is distinct from the HankoServiceAccount above.
+                maxLength: 253
+                minLength: 1
                 pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
                 type: string
             required:

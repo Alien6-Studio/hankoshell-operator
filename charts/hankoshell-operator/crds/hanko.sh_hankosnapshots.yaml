@@ -65,13 +65,16 @@ spec:
                   source revision are verified before Job submission. It must run as UID/GID 70
                   with a read-only root filesystem. This separate image is not scanned as part
                   of the operator release; administrators must review its own security evidence.
+                maxLength: 2048
                 pattern: ^[^@\s]+@sha256:[a-f0-9]{64}$
                 type: string
               backupPVC:
                 description: |-
                   BackupPVC is the name of the PersistentVolumeClaim where the pg_dump output
                   is written. Required when includeData is true.
+                maxLength: 253
                 minLength: 1
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
               backupSecretRef:
                 description: |-
@@ -79,7 +82,9 @@ spec:
                   PGDATABASE, PGUSER and PGPASSWORD; PGPORT and PGSSLMODE are optional.
                   Only these keys enter the Job. It must differ from the instance's
                   administrative, managed database and serving TLS Secrets.
+                maxLength: 253
                 minLength: 1
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
               includeData:
                 description: |-
@@ -90,6 +95,9 @@ spec:
               instanceRef:
                 description: InstanceRef is the name of the HankoKeycloakInstance
                   to snapshot.
+                maxLength: 253
+                minLength: 1
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
             required:
             - instanceRef

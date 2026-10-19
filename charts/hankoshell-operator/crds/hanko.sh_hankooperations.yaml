@@ -67,11 +67,17 @@ spec:
                     type: boolean
                   targetName:
                     description: TargetName is the name for the new HankoKeycloakInstance.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
                   targetNamespace:
                     description: |-
                       TargetNamespace defaults to the source namespace. Cross-namespace cloning
                       is refused because administrative and TLS Secret references are local.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string
                 required:
                 - targetName
@@ -83,6 +89,9 @@ spec:
                     description: |-
                       NewDatabaseSecretRef is the name of a Secret containing the new DB credentials
                       (KC_DB, KC_DB_URL, KC_DB_USERNAME, KC_DB_PASSWORD).
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
                 required:
                 - newDatabaseSecretRef
@@ -95,6 +104,9 @@ spec:
               instanceRef:
                 description: InstanceRef is the name of the HankoKeycloakInstance
                   to operate on.
+                maxLength: 253
+                minLength: 1
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
               snapshotBefore:
                 default: true
@@ -114,6 +126,9 @@ spec:
                 properties:
                   toImage:
                     description: ToImage is the target Keycloak container image.
+                    maxLength: 2048
+                    minLength: 1
+                    pattern: ^[^\x00-\x20\x7F]+$
                     type: string
                 required:
                 - toImage

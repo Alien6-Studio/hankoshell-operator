@@ -29,29 +29,39 @@ type HankoMeshServiceSpec struct {
 	// enrollment scope this registration.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
 	TenantRef string `json:"tenantRef"`
 
 	// IdentityRef references the HankoServiceAccount whose clientID identifies
 	// this workload when it calls another registered service.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
 	IdentityRef string `json:"identityRef"`
 
 	// ResourceServerRef references the HankoResourceServer whose audience
 	// identifies this workload as a destination.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
 	ResourceServerRef string `json:"resourceServerRef"`
 
 	// ServiceRef names the Kubernetes Service selected for interception.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:MinLength=1
 	ServiceRef string `json:"serviceRef"`
 
 	// WorkloadServiceAccountRef names the Kubernetes ServiceAccount that every
 	// selected pod must use. It is distinct from the HankoServiceAccount above.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
 	WorkloadServiceAccountRef string `json:"workloadServiceAccountRef"`
 
 	// EnforcementMode declares directional registration intent for downstream policy.
@@ -81,10 +91,14 @@ type HankoMeshServiceSpec struct {
 type MeshServiceEgress struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:MinLength=1
 	Namespace string `json:"namespace"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:MinLength=1
 	ServiceRef string `json:"serviceRef"`
 
 	// +listType=map

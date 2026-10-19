@@ -59,6 +59,7 @@ spec:
             properties:
               attributes:
                 additionalProperties:
+                  maxLength: 4096
                   type: string
                 description: |-
                   Attributes sets arbitrary Keycloak client attributes (single string value per
@@ -67,6 +68,9 @@ spec:
                   other spec fields (login_theme, post.logout.redirect.uris) are rejected.
                 maxProperties: 64
                 type: object
+                x-kubernetes-validations:
+                - message: native map keys require 1..255 characters
+                  rule: self.all(k, size(k) > 0 && size(k) <= 255)
               clientID:
                 description: ClientID is the Keycloak client identifier.
                 maxLength: 255
@@ -122,27 +126,39 @@ spec:
                     claim:
                       description: Claim is the upstream OIDC claim to inspect or
                         import, for example "groups".
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     identityProvider:
                       description: IdentityProvider is the Keycloak identity-provider
                         alias, for example "entra".
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     keycloakName:
                       description: |-
                         KeycloakName explicitly adopts an existing mapper by name. When omitted,
                         the operator derives an application-namespaced mapper name. Use this only
                         for deliberate migration of a pre-existing mapper.
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     matchValue:
                       description: |-
                         MatchValue is required for role targets and is the exact claim value that
                         grants the role. For array claims, Keycloak matches when the array contains it.
                         It is omitted for userAttribute targets, which import the complete claim value.
+                      maxLength: 4096
                       type: string
                     name:
                       description: |-
                         Name is unique within this application and is used to derive a stable
                         operator-owned Keycloak mapper name.
+                      maxLength: 63
+                      minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
                     syncMode:
@@ -162,6 +178,9 @@ spec:
                           description: |-
                             ClientRole grants a role owned by this HankoApplication. The role should
                             also be declared in spec.roles.
+                          maxLength: 255
+                          minLength: 1
+                          pattern: ^[^\x00-\x1F\x7F]+$
                           type: string
                         realmRole:
                           description: RealmRole grants an existing realm role when
@@ -173,6 +192,9 @@ spec:
                             UserAttribute imports the upstream claim into this Keycloak user attribute.
                             Because Keycloak users are realm-scoped, the persisted attribute is global;
                             spec.tokenClaims controls which applications receive it in tokens.
+                          maxLength: 255
+                          minLength: 1
+                          pattern: ^[^\x00-\x1F\x7F]+$
                           type: string
                       type: object
                       x-kubernetes-validations:
@@ -395,6 +417,7 @@ spec:
                     description: Enabled activates automatic rotation.
                     type: boolean
                   forceRotateAt:
+                    maxLength: 64
                     description: ForceRotateAt, when set, triggers an immediate rotation
                       on the next reconcile.
                     format: date-time
@@ -454,6 +477,9 @@ spec:
                       description: |-
                         KeycloakName explicitly adopts an existing client protocol mapper by name.
                         When omitted, the operator derives a stable application-scoped name.
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     multivalued:
                       description: Multivalued emits all values of a user attribute
@@ -461,12 +487,16 @@ spec:
                       type: boolean
                     name:
                       description: Name is unique within this application.
+                      maxLength: 63
+                      minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
                     realmRolePrefix:
                       description: |-
                         RealmRolePrefix, when set, restricts and strips a prefix from the projected
                         realm-role names. Only meaningful together with realmRoles.
+                      maxLength: 255
+                      pattern: ^[^\x00-\x1F\x7F]*$
                       type: string
                     realmRoles:
                       description: |-
@@ -481,11 +511,15 @@ spec:
                       description: |-
                         UserAttribute reads the value from a Keycloak user attribute.
                         Exactly one of userAttribute and value must be set.
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     value:
                       description: |-
                         Value emits a fixed application-specific claim value. A pointer allows an
                         explicitly configured empty string to remain distinguishable from omission.
+                      maxLength: 16384
                       type: string
                   required:
                   - claim
@@ -1532,6 +1566,7 @@ spec:
             properties:
               attributes:
                 additionalProperties:
+                  maxLength: 4096
                   type: string
                 description: |-
                   Attributes sets arbitrary Keycloak client attributes (single string value per
@@ -1540,6 +1575,9 @@ spec:
                   other spec fields (login_theme, post.logout.redirect.uris) are rejected.
                 maxProperties: 64
                 type: object
+                x-kubernetes-validations:
+                - message: native map keys require 1..255 characters
+                  rule: self.all(k, size(k) > 0 && size(k) <= 255)
               clientID:
                 description: ClientID is the Keycloak client identifier.
                 maxLength: 255
@@ -1595,27 +1633,39 @@ spec:
                     claim:
                       description: Claim is the upstream OIDC claim to inspect or
                         import, for example "groups".
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     identityProvider:
                       description: IdentityProvider is the Keycloak identity-provider
                         alias, for example "entra".
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     keycloakName:
                       description: |-
                         KeycloakName explicitly adopts an existing mapper by name. When omitted,
                         the operator derives an application-namespaced mapper name. Use this only
                         for deliberate migration of a pre-existing mapper.
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     matchValue:
                       description: |-
                         MatchValue is required for role targets and is the exact claim value that
                         grants the role. For array claims, Keycloak matches when the array contains it.
                         It is omitted for userAttribute targets, which import the complete claim value.
+                      maxLength: 4096
                       type: string
                     name:
                       description: |-
                         Name is unique within this application and is used to derive a stable
                         operator-owned Keycloak mapper name.
+                      maxLength: 63
+                      minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
                     syncMode:
@@ -1635,6 +1685,9 @@ spec:
                           description: |-
                             ClientRole grants a role owned by this HankoApplication. The role should
                             also be declared in spec.roles.
+                          maxLength: 255
+                          minLength: 1
+                          pattern: ^[^\x00-\x1F\x7F]+$
                           type: string
                         realmRole:
                           description: RealmRole grants an existing realm role when
@@ -1646,6 +1699,9 @@ spec:
                             UserAttribute imports the upstream claim into this Keycloak user attribute.
                             Because Keycloak users are realm-scoped, the persisted attribute is global;
                             spec.tokenClaims controls which applications receive it in tokens.
+                          maxLength: 255
+                          minLength: 1
+                          pattern: ^[^\x00-\x1F\x7F]+$
                           type: string
                       type: object
                       x-kubernetes-validations:
@@ -1868,6 +1924,7 @@ spec:
                     description: Enabled activates automatic rotation.
                     type: boolean
                   forceRotateAt:
+                    maxLength: 64
                     description: ForceRotateAt, when set, triggers an immediate rotation
                       on the next reconcile.
                     format: date-time
@@ -1927,6 +1984,9 @@ spec:
                       description: |-
                         KeycloakName explicitly adopts an existing client protocol mapper by name.
                         When omitted, the operator derives a stable application-scoped name.
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     multivalued:
                       description: Multivalued emits all values of a user attribute
@@ -1934,12 +1994,16 @@ spec:
                       type: boolean
                     name:
                       description: Name is unique within this application.
+                      maxLength: 63
+                      minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
                     realmRolePrefix:
                       description: |-
                         RealmRolePrefix, when set, restricts and strips a prefix from the projected
                         realm-role names. Only meaningful together with realmRoles.
+                      maxLength: 255
+                      pattern: ^[^\x00-\x1F\x7F]*$
                       type: string
                     realmRoles:
                       description: |-
@@ -1954,11 +2018,15 @@ spec:
                       description: |-
                         UserAttribute reads the value from a Keycloak user attribute.
                         Exactly one of userAttribute and value must be set.
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     value:
                       description: |-
                         Value emits a fixed application-specific claim value. A pointer allows an
                         explicitly configured empty string to remain distinguishable from omission.
+                      maxLength: 16384
                       type: string
                   required:
                   - claim

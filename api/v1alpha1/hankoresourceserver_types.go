@@ -188,6 +188,8 @@ type AuthorizationPrincipal struct {
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
 	Ref string `json:"ref"`
 
 	// IncludeDescendants explicitly includes current declared and independently

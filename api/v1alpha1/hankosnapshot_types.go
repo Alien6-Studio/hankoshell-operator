@@ -28,6 +28,9 @@ type HankoSnapshot struct {
 type HankoSnapshotSpec struct {
 	// InstanceRef is the name of the HankoKeycloakInstance to snapshot.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	InstanceRef string `json:"instanceRef"`
 
 	// IncludeData triggers a pg_dump Job in addition to the config snapshot.
@@ -38,6 +41,8 @@ type HankoSnapshotSpec struct {
 	// BackupPVC is the name of the PersistentVolumeClaim where the pg_dump output
 	// is written. Required when includeData is true.
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	BackupPVC string `json:"backupPVC,omitempty"`
 
 	// BackupImage is an immutable pg_dump image approved for database-backup
@@ -46,6 +51,7 @@ type HankoSnapshotSpec struct {
 	// with a read-only root filesystem. This separate image is not scanned as part
 	// of the operator release; administrators must review its own security evidence.
 	// +kubebuilder:validation:Pattern=`^[^@\s]+@sha256:[a-f0-9]{64}$`
+	// +kubebuilder:validation:MaxLength=2048
 	BackupImage string `json:"backupImage,omitempty"`
 
 	// BackupSecretRef is a dedicated same-namespace Secret with PGHOST,
@@ -53,6 +59,8 @@ type HankoSnapshotSpec struct {
 	// Only these keys enter the Job. It must differ from the instance's
 	// administrative, managed database and serving TLS Secrets.
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	BackupSecretRef string `json:"backupSecretRef,omitempty"`
 }
 

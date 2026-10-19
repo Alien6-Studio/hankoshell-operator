@@ -70,6 +70,7 @@ type HankoServiceAccountSpec struct {
 	// key) on the underlying M2M client. The full map is the desired state and
 	// replaces unmanaged keys set directly in Keycloak on every reconcile.
 	// +kubebuilder:validation:MaxProperties=64
+	// +kubebuilder:validation:XValidation:rule="self.all(k, size(k) > 0 && size(k) <= 255)",message="native map keys require 1..255 characters"
 	Attributes map[string]string `json:"attributes,omitempty"`
 
 	// TokenClaims exposes a Keycloak user attribute or fixed value as a claim in

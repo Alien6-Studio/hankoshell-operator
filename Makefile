@@ -54,6 +54,7 @@ generate:
 manifests:
 	@test "$$($(CONTROLLER_GEN) --version)" = "Version: $(CONTROLLER_GEN_VERSION)"
 	$(CONTROLLER_GEN) crd paths="./api/..." output:crd:artifacts:config=$(CHART)/crds
+	python3 scripts/crd-input-bounds.py
 generated-check: generate manifests
 	git diff --exit-code -- api $(CHART)/crds
 build:

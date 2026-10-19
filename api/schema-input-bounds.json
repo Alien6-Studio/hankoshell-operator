@@ -1,0 +1,187 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Reviewed bounds for inherited Kubernetes schemas and native map values; ordinary fields use Go markers.",
+  "bounds": [
+    {
+      "kind": "HankoApplication",
+      "path": "spec.attributes{}",
+      "limits": {
+        "maxLength": 4096
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "spec.secretRotationPolicy.forceRotateAt",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.adminRef.name",
+      "limits": {
+        "maxLength": 253,
+        "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.managed.database.name",
+      "limits": {
+        "maxLength": 253,
+        "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.managed.resources.claims",
+      "limits": {
+        "maxItems": 32
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.managed.resources.claims[].name",
+      "limits": {
+        "minLength": 1,
+        "maxLength": 253,
+        "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.managed.resources.claims[].request",
+      "limits": {
+        "minLength": 1,
+        "maxLength": 253,
+        "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.managed.resources.limits",
+      "limits": {
+        "maxProperties": 32
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.managed.resources.limits{}",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.managed.resources.requests",
+      "limits": {
+        "maxProperties": 32
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.managed.resources.requests{}",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "spec.identityProviders[].clientSecretRef.key",
+      "limits": {
+        "minLength": 1,
+        "maxLength": 253,
+        "pattern": "^[-._a-zA-Z0-9]+$"
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "spec.identityProviders[].clientSecretRef.name",
+      "limits": {
+        "maxLength": 253,
+        "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "spec.identityProviders[].config{}",
+      "limits": {
+        "maxLength": 16384
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "spec.identityProviders[].mappers[].config{}",
+      "limits": {
+        "maxLength": 16384
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "spec.attributes{}",
+      "limits": {
+        "maxItems": 64
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "spec.attributes{}[]",
+      "limits": {
+        "maxLength": 4096
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "spec.attributes{}",
+      "limits": {
+        "maxLength": 4096
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "spec.secretRotationPolicy.forceRotateAt",
+      "limits": {
+        "maxLength": 64
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "spec.hubEnrollSecretRef.name",
+      "limits": {
+        "maxLength": 253,
+        "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "spec.hubTokenSecretRef.name",
+      "limits": {
+        "maxLength": 253,
+        "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "spec.keycloakSecretRef.name",
+      "limits": {
+        "maxLength": 253,
+        "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "spec.imagePullSecrets",
+      "limits": {
+        "maxItems": 32
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "spec.imagePullSecrets[].name",
+      "limits": {
+        "maxLength": 253,
+        "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+      }
+    }
+  ]
+}

@@ -112,6 +112,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 	t.Run("served-version conversion and typed reader contract", func(t *testing.T) { checkConversionContract(t, ctx, admin, environment.CRDs) })
 	t.Run("bounded realm and application references", func(t *testing.T) { checkBoundedReferences(t, ctx, admin) })
 	t.Run("IAM identifier and collection budgets", func(t *testing.T) { checkIAMInputBudgets(t, ctx, admin) })
+	t.Run("public input budgets", func(t *testing.T) { checkPublicInputBudgets(t, ctx, admin) })
 	t.Run("fresh realm ownership selectors", func(t *testing.T) { checkRealmOwnershipSelectors(t, ctx, admin) })
 	t.Run("fresh paginated realm deletion inventory", func(t *testing.T) { checkRealmDeletionInventory(t, ctx, admin) })
 

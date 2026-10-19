@@ -1,0 +1,1471 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "kind": "HankoApplication",
+      "path": "spec.attributes{}",
+      "type": "string",
+      "maximum": 4096,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "app"
+      },
+      "format": "unicode"
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "spec.identityMappings[].claim",
+      "type": "string",
+      "maximum": 255,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "app",
+        "identityMappings": [
+          {
+            "name": "mapping",
+            "identityProvider": "broker",
+            "claim": "groups",
+            "matchValue": "reader",
+            "target": {
+              "realmRole": "reader"
+            }
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "spec.identityMappings[].identityProvider",
+      "type": "string",
+      "maximum": 255,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "app",
+        "identityMappings": [
+          {
+            "name": "mapping",
+            "identityProvider": "broker",
+            "claim": "groups",
+            "matchValue": "reader",
+            "target": {
+              "realmRole": "reader"
+            }
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "spec.identityMappings[].keycloakName",
+      "type": "string",
+      "maximum": 255,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "app",
+        "identityMappings": [
+          {
+            "name": "mapping",
+            "identityProvider": "broker",
+            "claim": "groups",
+            "matchValue": "reader",
+            "target": {
+              "realmRole": "reader"
+            }
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "spec.identityMappings[].matchValue",
+      "type": "string",
+      "maximum": 4096,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "app",
+        "identityMappings": [
+          {
+            "name": "mapping",
+            "identityProvider": "broker",
+            "claim": "groups",
+            "matchValue": "reader",
+            "target": {
+              "realmRole": "reader"
+            }
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "spec.identityMappings[].name",
+      "type": "string",
+      "maximum": 63,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "app",
+        "identityMappings": [
+          {
+            "name": "mapping",
+            "identityProvider": "broker",
+            "claim": "groups",
+            "matchValue": "reader",
+            "target": {
+              "realmRole": "reader"
+            }
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "spec.identityMappings[].target.clientRole",
+      "type": "string",
+      "maximum": 255,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "app",
+        "identityMappings": [
+          {
+            "name": "mapping",
+            "identityProvider": "broker",
+            "claim": "groups",
+            "matchValue": "reader",
+            "target": {}
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "spec.identityMappings[].target.userAttribute",
+      "type": "string",
+      "maximum": 255,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "app",
+        "identityMappings": [
+          {
+            "name": "mapping",
+            "identityProvider": "broker",
+            "claim": "groups",
+            "matchValue": "reader",
+            "target": {}
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "spec.secretRotationPolicy.forceRotateAt",
+      "type": "string",
+      "maximum": 64,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "app",
+        "secretRotationPolicy": {
+          "enabled": true
+        }
+      },
+      "format": "datetime"
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "spec.tokenClaims[].keycloakName",
+      "type": "string",
+      "maximum": 255,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "app",
+        "tokenClaims": [
+          {
+            "name": "claim",
+            "claim": "fixture",
+            "value": "literal"
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "spec.tokenClaims[].name",
+      "type": "string",
+      "maximum": 63,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "app",
+        "tokenClaims": [
+          {
+            "name": "claim",
+            "claim": "fixture",
+            "value": "literal"
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "spec.tokenClaims[].realmRolePrefix",
+      "type": "string",
+      "maximum": 255,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "app",
+        "tokenClaims": [
+          {
+            "name": "claim",
+            "claim": "fixture",
+            "realmRoles": true
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "spec.tokenClaims[].userAttribute",
+      "type": "string",
+      "maximum": 255,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "app",
+        "tokenClaims": [
+          {
+            "name": "claim",
+            "claim": "fixture"
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "spec.tokenClaims[].value",
+      "type": "string",
+      "maximum": 16384,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "app",
+        "tokenClaims": [
+          {
+            "name": "claim",
+            "claim": "fixture",
+            "value": "literal"
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoEmailProvider",
+      "path": "spec.office365.clientID",
+      "type": "string",
+      "maximum": 36,
+      "spec": {
+        "type": "office365",
+        "enabled": false,
+        "fromAddress": "fixture@example.test",
+        "office365": {
+          "tenantID": "00000000-0000-0000-0000-000000000000",
+          "clientID": "00000000-0000-0000-0000-000000000000",
+          "mailbox": "fixture@example.test",
+          "keyVaultSecretName": "migration-only",
+          "preflightRecipient": "fixture@example.test"
+        }
+      },
+      "format": "uuid"
+    },
+    {
+      "kind": "HankoEmailProvider",
+      "path": "spec.office365.keyVaultSecretName",
+      "type": "string",
+      "maximum": 127,
+      "spec": {
+        "type": "office365",
+        "enabled": false,
+        "fromAddress": "fixture@example.test",
+        "office365": {
+          "tenantID": "00000000-0000-0000-0000-000000000000",
+          "clientID": "00000000-0000-0000-0000-000000000000",
+          "mailbox": "fixture@example.test",
+          "keyVaultSecretName": "migration-only",
+          "preflightRecipient": "fixture@example.test"
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoEmailProvider",
+      "path": "spec.office365.tenantID",
+      "type": "string",
+      "maximum": 36,
+      "spec": {
+        "type": "office365",
+        "enabled": false,
+        "fromAddress": "fixture@example.test",
+        "office365": {
+          "tenantID": "00000000-0000-0000-0000-000000000000",
+          "clientID": "00000000-0000-0000-0000-000000000000",
+          "mailbox": "fixture@example.test",
+          "keyVaultSecretName": "migration-only",
+          "preflightRecipient": "fixture@example.test"
+        }
+      },
+      "format": "uuid"
+    },
+    {
+      "kind": "HankoIAMProfile",
+      "path": "spec.security.bruteForce.waitIncrements",
+      "type": "string",
+      "maximum": 64,
+      "spec": {
+        "security": {
+          "bruteForce": {
+            "enabled": false
+          }
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoIAMProfile",
+      "path": "spec.security.sessionIdleTimeout",
+      "type": "string",
+      "maximum": 64,
+      "spec": {
+        "security": {}
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoIAMProfile",
+      "path": "spec.security.sessionLifetime",
+      "type": "string",
+      "maximum": 64,
+      "spec": {
+        "security": {}
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoImport",
+      "path": "spec.sourceRef",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "sourceRef": "source"
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.adminRef.name",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "mode": "external",
+        "adminRef": {
+          "name": "admin"
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.adopted.deploymentRef",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "mode": "adopted",
+        "adminRef": {
+          "name": "admin"
+        },
+        "adopted": {
+          "deploymentRef": "keycloak"
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.adopted.serviceRef",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "mode": "adopted",
+        "adminRef": {
+          "name": "admin"
+        },
+        "adopted": {
+          "deploymentRef": "keycloak"
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.managed.database.name",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "mode": "managed",
+        "adminRef": {
+          "name": "admin"
+        },
+        "managed": {
+          "image": "registry.example/keycloak@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tlsSecretRef": "serving-tls",
+          "database": {
+            "name": "database"
+          }
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.managed.image",
+      "type": "string",
+      "maximum": 2048,
+      "spec": {
+        "mode": "managed",
+        "adminRef": {
+          "name": "admin"
+        },
+        "managed": {
+          "image": "registry.example/keycloak@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tlsSecretRef": "serving-tls",
+          "database": {
+            "name": "database"
+          }
+        }
+      },
+      "format": "image"
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.managed.resources.claims",
+      "type": "array",
+      "maximum": 32,
+      "spec": {
+        "mode": "managed",
+        "adminRef": {
+          "name": "admin"
+        },
+        "managed": {
+          "image": "registry.example/keycloak@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tlsSecretRef": "serving-tls",
+          "database": {
+            "name": "database"
+          }
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.managed.resources.claims[].name",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "mode": "managed",
+        "adminRef": {
+          "name": "admin"
+        },
+        "managed": {
+          "image": "registry.example/keycloak@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tlsSecretRef": "serving-tls",
+          "database": {
+            "name": "database"
+          },
+          "resources": {
+            "claims": [
+              {
+                "name": "claim",
+                "request": "request"
+              }
+            ]
+          }
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.managed.resources.claims[].request",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "mode": "managed",
+        "adminRef": {
+          "name": "admin"
+        },
+        "managed": {
+          "image": "registry.example/keycloak@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tlsSecretRef": "serving-tls",
+          "database": {
+            "name": "database"
+          },
+          "resources": {
+            "claims": [
+              {
+                "name": "claim",
+                "request": "request"
+              }
+            ]
+          }
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.managed.resources.limits",
+      "type": "object",
+      "maximum": 32,
+      "spec": {
+        "mode": "managed",
+        "adminRef": {
+          "name": "admin"
+        },
+        "managed": {
+          "image": "registry.example/keycloak@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tlsSecretRef": "serving-tls",
+          "database": {
+            "name": "database"
+          }
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.managed.resources.requests",
+      "type": "object",
+      "maximum": 32,
+      "spec": {
+        "mode": "managed",
+        "adminRef": {
+          "name": "admin"
+        },
+        "managed": {
+          "image": "registry.example/keycloak@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tlsSecretRef": "serving-tls",
+          "database": {
+            "name": "database"
+          }
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.managed.themePVC",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "mode": "managed",
+        "adminRef": {
+          "name": "admin"
+        },
+        "managed": {
+          "image": "registry.example/keycloak@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tlsSecretRef": "serving-tls",
+          "database": {
+            "name": "database"
+          }
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.managed.tlsSecretRef",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "mode": "managed",
+        "adminRef": {
+          "name": "admin"
+        },
+        "managed": {
+          "image": "registry.example/keycloak@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tlsSecretRef": "serving-tls",
+          "database": {
+            "name": "database"
+          }
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.tlsCARef",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "mode": "external",
+        "adminRef": {
+          "name": "admin"
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "spec.egress[].namespace",
+      "type": "string",
+      "maximum": 63,
+      "spec": {
+        "identityRef": "identity",
+        "resourceServerRef": "server",
+        "serviceRef": "service",
+        "tenantRef": "tenant",
+        "workloadServiceAccountRef": "workload",
+        "ports": [
+          {
+            "port": 443,
+            "protocol": "TCP"
+          }
+        ],
+        "egress": [
+          {
+            "namespace": "target",
+            "serviceRef": "service",
+            "ports": [
+              {
+                "port": 443,
+                "protocol": "TCP"
+              }
+            ]
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "spec.egress[].serviceRef",
+      "type": "string",
+      "maximum": 63,
+      "spec": {
+        "identityRef": "identity",
+        "resourceServerRef": "server",
+        "serviceRef": "service",
+        "tenantRef": "tenant",
+        "workloadServiceAccountRef": "workload",
+        "ports": [
+          {
+            "port": 443,
+            "protocol": "TCP"
+          }
+        ],
+        "egress": [
+          {
+            "namespace": "target",
+            "serviceRef": "service",
+            "ports": [
+              {
+                "port": 443,
+                "protocol": "TCP"
+              }
+            ]
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "spec.identityRef",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "identityRef": "identity",
+        "resourceServerRef": "server",
+        "serviceRef": "service",
+        "tenantRef": "tenant",
+        "workloadServiceAccountRef": "workload",
+        "ports": [
+          {
+            "port": 443,
+            "protocol": "TCP"
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "spec.resourceServerRef",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "identityRef": "identity",
+        "resourceServerRef": "server",
+        "serviceRef": "service",
+        "tenantRef": "tenant",
+        "workloadServiceAccountRef": "workload",
+        "ports": [
+          {
+            "port": 443,
+            "protocol": "TCP"
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "spec.serviceRef",
+      "type": "string",
+      "maximum": 63,
+      "spec": {
+        "identityRef": "identity",
+        "resourceServerRef": "server",
+        "serviceRef": "service",
+        "tenantRef": "tenant",
+        "workloadServiceAccountRef": "workload",
+        "ports": [
+          {
+            "port": 443,
+            "protocol": "TCP"
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "spec.tenantRef",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "identityRef": "identity",
+        "resourceServerRef": "server",
+        "serviceRef": "service",
+        "tenantRef": "tenant",
+        "workloadServiceAccountRef": "workload",
+        "ports": [
+          {
+            "port": 443,
+            "protocol": "TCP"
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "spec.workloadServiceAccountRef",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "identityRef": "identity",
+        "resourceServerRef": "server",
+        "serviceRef": "service",
+        "tenantRef": "tenant",
+        "workloadServiceAccountRef": "workload",
+        "ports": [
+          {
+            "port": 443,
+            "protocol": "TCP"
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "spec.clone.targetName",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "instanceRef": "source",
+        "type": "Clone",
+        "clone": {
+          "targetName": "target"
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "spec.clone.targetNamespace",
+      "type": "string",
+      "maximum": 63,
+      "spec": {
+        "instanceRef": "source",
+        "type": "Clone",
+        "clone": {
+          "targetName": "target"
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "spec.dbSwitch.newDatabaseSecretRef",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "instanceRef": "source",
+        "type": "DBSwitch",
+        "dbSwitch": {
+          "newDatabaseSecretRef": "database"
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "spec.instanceRef",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "instanceRef": "source",
+        "type": "Clone",
+        "clone": {
+          "targetName": "target"
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "spec.upgrade.toImage",
+      "type": "string",
+      "maximum": 2048,
+      "spec": {
+        "instanceRef": "source",
+        "type": "Upgrade",
+        "upgrade": {
+          "toImage": "registry.example/keycloak@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      },
+      "format": "image"
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "spec.iamProfileRef",
+      "type": "string",
+      "maximum": 253,
+      "spec": {},
+      "format": "text"
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "spec.identityProviders[].clientSecretRef.key",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "identityProviders": [
+          {
+            "alias": "broker",
+            "providerID": "oidc",
+            "clientSecretRef": {
+              "name": "credential",
+              "key": "client-secret"
+            }
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "spec.identityProviders[].clientSecretRef.name",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "identityProviders": [
+          {
+            "alias": "broker",
+            "providerID": "oidc",
+            "clientSecretRef": {
+              "name": "credential",
+              "key": "client-secret"
+            }
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "spec.identityProviders[].config{}",
+      "type": "string",
+      "maximum": 16384,
+      "spec": {
+        "identityProviders": [
+          {
+            "alias": "broker",
+            "providerID": "oidc"
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "spec.identityProviders[].displayName",
+      "type": "string",
+      "maximum": 255,
+      "spec": {
+        "identityProviders": [
+          {
+            "alias": "broker",
+            "providerID": "oidc"
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "spec.identityProviders[].firstBrokerLoginFlowAlias",
+      "type": "string",
+      "maximum": 255,
+      "spec": {
+        "identityProviders": [
+          {
+            "alias": "broker",
+            "providerID": "oidc"
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "spec.identityProviders[].mappers[].config{}",
+      "type": "string",
+      "maximum": 16384,
+      "spec": {
+        "identityProviders": [
+          {
+            "alias": "broker",
+            "providerID": "oidc",
+            "mappers": [
+              {
+                "name": "mapper",
+                "identityProviderMapper": "oidc-user-attribute-idp-mapper"
+              }
+            ]
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "spec.identityProviders[].postBrokerLoginFlowAlias",
+      "type": "string",
+      "maximum": 255,
+      "spec": {
+        "identityProviders": [
+          {
+            "alias": "broker",
+            "providerID": "oidc"
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "spec.securityProfile.bruteForce.waitIncrements",
+      "type": "string",
+      "maximum": 64,
+      "spec": {
+        "securityProfile": {
+          "bruteForce": {
+            "enabled": false
+          }
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "spec.securityProfile.sessionIdleTimeout",
+      "type": "string",
+      "maximum": 64,
+      "spec": {},
+      "format": "text"
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "spec.securityProfile.sessionLifetime",
+      "type": "string",
+      "maximum": 64,
+      "spec": {},
+      "format": "text"
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "spec.permissions[].principals[].ref",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "realmRef": "realm",
+        "applicationRef": "app",
+        "audience": "urn:fixture",
+        "scopes": [
+          {
+            "name": "read"
+          }
+        ],
+        "resources": [
+          {
+            "name": "resource",
+            "scopes": [
+              "read"
+            ]
+          }
+        ],
+        "permissions": [
+          {
+            "name": "read",
+            "resources": [
+              "resource"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "principals": [
+              {
+                "kind": "service_account",
+                "ref": "worker"
+              }
+            ]
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoRole",
+      "path": "spec.attributes{}",
+      "type": "array",
+      "maximum": 64,
+      "spec": {
+        "realmRef": "realm",
+        "name": "reader"
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoRole",
+      "path": "spec.attributes{}[]",
+      "type": "string",
+      "maximum": 4096,
+      "spec": {
+        "realmRef": "realm",
+        "name": "reader"
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "spec.attributes{}",
+      "type": "string",
+      "maximum": 4096,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "worker"
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "spec.authentication.transition.preparedWorkloadRevision",
+      "type": "string",
+      "maximum": 128,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "worker",
+        "authentication": {
+          "mode": "Secret",
+          "transition": {
+            "strategy": "CoordinatedCutover",
+            "requestID": "request",
+            "preparedWorkloadRevision": "revision"
+          }
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "spec.authentication.transition.requestID",
+      "type": "string",
+      "maximum": 128,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "worker",
+        "authentication": {
+          "mode": "Secret",
+          "transition": {
+            "strategy": "CoordinatedCutover",
+            "requestID": "request",
+            "preparedWorkloadRevision": "revision"
+          }
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "spec.secretRotationPolicy.forceRotateAt",
+      "type": "string",
+      "maximum": 64,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "worker",
+        "secretRotationPolicy": {
+          "enabled": true
+        }
+      },
+      "format": "datetime"
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "spec.tokenClaims[].keycloakName",
+      "type": "string",
+      "maximum": 255,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "worker",
+        "tokenClaims": [
+          {
+            "name": "claim",
+            "claim": "fixture",
+            "value": "literal"
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "spec.tokenClaims[].name",
+      "type": "string",
+      "maximum": 63,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "worker",
+        "tokenClaims": [
+          {
+            "name": "claim",
+            "claim": "fixture",
+            "value": "literal"
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "spec.tokenClaims[].realmRolePrefix",
+      "type": "string",
+      "maximum": 255,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "worker",
+        "tokenClaims": [
+          {
+            "name": "claim",
+            "claim": "fixture",
+            "realmRoles": true
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "spec.tokenClaims[].userAttribute",
+      "type": "string",
+      "maximum": 255,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "worker",
+        "tokenClaims": [
+          {
+            "name": "claim",
+            "claim": "fixture"
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "spec.tokenClaims[].value",
+      "type": "string",
+      "maximum": 16384,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "worker",
+        "tokenClaims": [
+          {
+            "name": "claim",
+            "claim": "fixture",
+            "value": "literal"
+          }
+        ]
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "spec.backupImage",
+      "type": "string",
+      "maximum": 2048,
+      "spec": {
+        "instanceRef": "source"
+      },
+      "format": "image"
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "spec.backupPVC",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "instanceRef": "source"
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "spec.backupSecretRef",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "instanceRef": "source"
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "spec.instanceRef",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "instanceRef": "source"
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "spec.hubEndpoint",
+      "type": "string",
+      "maximum": 2048,
+      "spec": {
+        "hubTokenSecretRef": {
+          "name": "hub-token"
+        }
+      },
+      "format": "url"
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "spec.hubEnrollSecretRef.name",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "hubTokenSecretRef": {
+          "name": "hub-token"
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "spec.hubEnrollmentEndpoint",
+      "type": "string",
+      "maximum": 2048,
+      "spec": {
+        "hubTokenSecretRef": {
+          "name": "hub-token"
+        }
+      },
+      "format": "url"
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "spec.hubTenantID",
+      "type": "string",
+      "maximum": 128,
+      "spec": {
+        "hubTokenSecretRef": {
+          "name": "hub-token"
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "spec.hubTokenSecretRef.name",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "hubTokenSecretRef": {
+          "name": "hub-token"
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "spec.keycloakSecretRef.name",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "hubTokenSecretRef": {
+          "name": "hub-token"
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "spec.realmRef",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "hubTokenSecretRef": {
+          "name": "hub-token"
+        }
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "spec.buildImage",
+      "type": "string",
+      "maximum": 2048,
+      "spec": {
+        "buildImage": "registry.example/theme@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "keycloakPVC": "theme"
+      },
+      "format": "image"
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "spec.imagePullSecrets",
+      "type": "array",
+      "maximum": 32,
+      "spec": {
+        "buildImage": "registry.example/theme@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "keycloakPVC": "theme"
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "spec.imagePullSecrets[].name",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "buildImage": "registry.example/theme@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "keycloakPVC": "theme"
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "spec.jarName",
+      "type": "string",
+      "maximum": 255,
+      "spec": {
+        "buildImage": "registry.example/theme@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "keycloakPVC": "theme"
+      },
+      "format": "jar"
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "spec.keycloakPVC",
+      "type": "string",
+      "maximum": 253,
+      "spec": {
+        "buildImage": "registry.example/theme@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "keycloakPVC": "theme"
+      },
+      "format": "text"
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "spec.kubernetes.clusterAnchor.apiServerCAHash",
+      "type": "string",
+      "maximum": 71,
+      "spec": {
+        "realmRef": "realm",
+        "sourceRef": "source",
+        "dependentReaderRef": "reader",
+        "keycloakAlias": "cluster",
+        "provider": "Kubernetes",
+        "kubernetes": {
+          "issuer": "https://cluster.example.test",
+          "clusterAnchor": {
+            "apiServerCAHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "kubeSystemNamespaceUID": "fixture-cluster"
+          }
+        }
+      },
+      "format": "digest"
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.managed.resources.requests{}",
+      "type": "string",
+      "maximum": 64,
+      "spec": {
+        "mode": "managed",
+        "adminRef": {
+          "name": "admin"
+        },
+        "managed": {
+          "image": "registry.example/keycloak@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tlsSecretRef": "serving-tls",
+          "database": {
+            "name": "database"
+          }
+        }
+      },
+      "format": "quantity"
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "spec.managed.resources.limits{}",
+      "type": "string",
+      "maximum": 64,
+      "spec": {
+        "mode": "managed",
+        "adminRef": {
+          "name": "admin"
+        },
+        "managed": {
+          "image": "registry.example/keycloak@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tlsSecretRef": "serving-tls",
+          "database": {
+            "name": "database"
+          }
+        }
+      },
+      "format": "quantity"
+    }
+  ]
+}

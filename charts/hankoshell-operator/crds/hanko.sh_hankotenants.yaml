@@ -69,6 +69,7 @@ spec:
                 default: https://hub.hanko.sh
                 description: HubEndpoint is the hankoShell Hub base URL. Must be an
                   HTTPS URL.
+                maxLength: 2048
                 pattern: ^https://[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?(:[0-9]+)?(/[^\s]*)?$
                 type: string
               hubEnrollSecretRef:
@@ -79,6 +80,8 @@ spec:
                   for a bounded credential that never leaves the cluster.
                 properties:
                   name:
+                    maxLength: 253
+                    pattern: "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
                     default: ""
                     description: |-
                       Name of the referent.
@@ -95,6 +98,7 @@ spec:
                   exchange a single-use enrollment token. When omitted, HubEndpoint is used
                   for backward compatibility. Bundle and status traffic always use
                   HubEndpoint, which may therefore be a private Continuum address.
+                maxLength: 2048
                 pattern: ^https://[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?(:[0-9]+)?(/[^\s]*)?$
                 type: string
               hubTenantID:
@@ -102,6 +106,8 @@ spec:
                   HubTenantID is the tenant identifier assigned by hankoShell Hub. May be
                   left empty when HubEnrollSecretRef is set: it is then learned during
                   enrollment and stored alongside the bounded operator credential.
+                maxLength: 128
+                pattern: ^[^\x00-\x1F\x7F]*$
                 type: string
               hubTokenSecretRef:
                 description: |-
@@ -112,6 +118,8 @@ spec:
                   also absent. A known identity requires credential recovery, not enrollment.
                 properties:
                   name:
+                    maxLength: 253
+                    pattern: "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
                     default: ""
                     description: |-
                       Name of the referent.
@@ -149,6 +157,8 @@ spec:
                   Required for keycloak and cluster isolation modes.
                 properties:
                   name:
+                    maxLength: 253
+                    pattern: "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
                     default: ""
                     description: |-
                       Name of the referent.
@@ -161,6 +171,9 @@ spec:
                 x-kubernetes-map-type: atomic
               realmRef:
                 description: RealmRef is the HankoRealm name for realm-mode isolation.
+                maxLength: 253
+                minLength: 1
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
             required:
             - hubTokenSecretRef
