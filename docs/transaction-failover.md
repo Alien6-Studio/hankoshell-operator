@@ -2,8 +2,10 @@
 
 This development fixture extends #96 with two actual operator replicas, the
 scanned exact-source OCI archive, real HTTPS Keycloak and external fault proxies.
-It does not qualify every journal, delegation apply, stale-lease split brain,
-replica clock skew or production HA.
+It includes six accepted-write checkpoints and one live-holder API partition.
+It does not qualify every journal, delegation apply, arbitrary partitions,
+replica clock skew or production HA. The partition is newly implemented; only
+completed installed reports qualify its behavior.
 
 The [2026-10-17 qualification packet](qualification/transactions/2026-10-17/runtime-5d5e3f7/README.md)
 retains both completed Keycloak cells, initial incomplete reports, source checks
@@ -37,6 +39,31 @@ It never scales the Deployment to zero, removes status or replaces approvals to
 complete recovery. Metrics are sampled at the replacement boundaries; this is
 not continuous proof against split brain during a network partition.
 
+## Live holder loses API access
+
+The additional scenario selects the actual lease-holder Pod and observes its
+running container identity, restart count and start time. The external API proxy
+refuses only that caller's socket IP, including renewal and fresh authority
+reads. Caller headers cannot select or evade the partition. The other replica
+keeps its API and provider access. The administrator neither deletes a Pod nor
+edits a lease or a journal, and does not change any clock.
+
+A changed role must stay unchanged while the old holder retains its lease.
+The fixture waits for natural expiry and a different holder, then requires one
+attempted and one accepted provider write by the new holder, the same native
+role identity, and no configuration-write attempts from the isolated caller
+after the in-flight drain. It requires an actual observation of the original
+process alive during the fault. Missing caller attribution, continued renewal,
+early native changes, duplicate writes or failed recovery fail the scenario.
+The old caller is unblocked only after these checks; both serving replicas and
+one lease-matched metrics leader must recover.
+
+Per-caller addresses and native routes are private proxy control data. Public
+evidence contains only fixed decisions, numeric counts, sample gaps and elapsed
+time. This bounded caller partition is not a general fencing guarantee or a
+replica clock-skew test. Client-go leader election alone is not treated as such
+a guarantee.
+
 Rotation assertions compare the journal's nanosecond timestamp at the whole-second
 precision of `metav1.Time` status. They also require the same request ID and current
 Ready, and reject a later rotation that happens to produce another valid Secret.
@@ -63,11 +90,13 @@ make transactions-installed-test \
 ```
 
 Run from an isolated clean worktree at the supplied revision. The final report
-must contain all six checkpoints, `complete=true` and successful disposable
+must contain all six checkpoints, a complete `lease_partition`, `complete=true` and successful disposable
 cleanup. Partial reports and unit tests do not qualify an installed scenario.
-The opt-in six-cell scale CI also executes this fixture on the same scanned OCI;
-the additive scale/recovery/transaction group has a 75-minute job budget. Smoke
-dispatch keeps its shorter workload. Normal CI retains its existing required gates.
+Normal full CI requires its own six-cell HA matrix on the same scanned OCI,
+with a 45-minute job budget and preserved incomplete diagnostics. HA no longer
+waits for an opt-in 1,000-application scale run. The full scale job runs load and
+five-minute recovery without repeating the HA suite. The separate scale workflow
+still includes it for an explicitly requested scale profile.
 Both dispatch paths install the pinned ORAS version into the exact tool directory
 used by image mirroring. The first scale CI attempt failed before provider setup
 because this executable was absent; that result is not a measured load failure.

@@ -35,6 +35,15 @@ def mutation(name, file, before, after, package, test):
 
 
 MUTATIONS = [
+    mutation("bounded-actor-explicit-recovery-identity", "internal/keycloak/bounded_delegation_journal.go",
+             'var stored boundedDelegationActorMarker', 'stored := marker',
+             "internal/keycloak", "TestBoundedActorRecoveryRequiresExplicitStoredIdentity"),
+    mutation("runtime-cleanup-canonical-journal", "internal/applicationbinding/cleanup.go",
+             'string(canonical) != value', 'false && string(canonical) != value',
+             "internal/applicationbinding", "TestRuntimeCleanupRejectsAmbiguousJournalBeforeAnyOutputWrite"),
+    mutation("runtime-cleanup-record-bound", "internal/applicationbinding/cleanup.go",
+             'len(result) > MaxBindings', 'false && len(result) > MaxBindings',
+             "internal/applicationbinding", "TestRuntimeCleanupJournalRetainsExactRecordAndByteBounds"),
     mutation("hub-control-json-ambiguity", "internal/hub/legacy_bundle.go",
              'len(data) <= maxHubControlResponseBytes && httpsecurity.ValidateJSON(data) == nil &&',
              'len(data) <= maxHubControlResponseBytes &&',

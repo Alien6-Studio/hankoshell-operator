@@ -84,7 +84,7 @@ class ReleaseContractTests(unittest.TestCase):
         ci = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
         self.assertEqual(set(ci), {"preflight", "source", "kubernetes", "keycloak", "keycloak-ordinary", "keycloak-extension", "keycloak-static", "workload", "oci",
                                    "rehearsal", "system", "installed-workload", "installed-delegation", "installed-portable", "installed-fleet", "security-fuzz", "security-mutations", "checks",
-                                   "schedule-report", "installed-scale-qualification"})
+                                   "schedule-report", "installed-scale-qualification", "installed-transactions"})
         for job in ("source", "kubernetes", "keycloak", "keycloak-ordinary", "keycloak-extension", "keycloak-static", "workload", "security-fuzz", "security-mutations", "oci"):
             with self.subTest(job=job):
                 self.assertEqual(ci[job].get("needs"), ["preflight"])

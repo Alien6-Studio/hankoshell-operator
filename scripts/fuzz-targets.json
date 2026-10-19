@@ -3,6 +3,10 @@
     "FuzzAdoptionReceipt",
     "FuzzAdoptionApproval"
   ],
+  "internal/applicationbinding": [
+    "FuzzRuntimeCleanupJournal",
+    "FuzzRuntimeTargetAuthorization"
+  ],
   "internal/applications": [
     "FuzzOIDCDiscovery",
     "FuzzSAMLMetadata"
@@ -25,7 +29,9 @@
   ],
   "internal/keycloak": [
     "FuzzProviderStatusDecision",
-    "FuzzAuthorizationJournal"
+    "FuzzAuthorizationJournal",
+    "FuzzBoundedDelegationDocument",
+    "FuzzBoundedDelegationActorMarker"
   ],
   "internal/workloadauth": [
     "FuzzAuthenticationJournal",

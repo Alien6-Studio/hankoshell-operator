@@ -59,7 +59,7 @@ def check(root=ROOT):
     ci = yaml.safe_load((root / ".github/workflows/ci.yml").read_text())
     if not ci[True].get("schedule") or "schedule-report.py" not in yaml.safe_dump(ci["jobs"]["schedule-report"]):
         raise ValueError("Weekly qualification must retain its tracking issue")
-    for job in ("kubernetes", "keycloak", "workload", "installed-workload", "installed-portable", "installed-fleet"):
+    for job in ("kubernetes", "keycloak", "workload", "installed-workload", "installed-portable", "installed-fleet", "installed-transactions"):
         matrix = ci["jobs"][job]["strategy"]["matrix"]
         families = ("kubernetes", "keycloak") if "kubernetes" in matrix else (job,)
         for family in families:

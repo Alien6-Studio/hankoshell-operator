@@ -19,6 +19,18 @@ LOCK = threading.Lock()
 STATE = {"rule": None, "blocked": False, "triggered": False, "counts": {}, "attempted_counts": {}, "metadata_activations": {}, "upstream_status": None, "traffic": {}}
 
 
+def source_matches(rule, peer):
+    # The socket peer is observed by the external proxy, never a caller header.
+    # Source identities remain private control data, excluded from reports.
+    return not rule or "client_ip" not in rule or bool(peer) and peer == rule["client_ip"]
+
+
+def count_peer(key, peer, route):
+    if peer:
+        counts = STATE.setdefault(key, {}).setdefault(peer, {})
+        counts[route] = counts.get(route, 0) + 1
+
+
 def persisted_application_create(method, path, status):
     route = urlsplit(path)
     parts = route.path.strip("/").split("/")
@@ -106,10 +118,16 @@ class Proxy(BaseHTTPRequestHandler):
                         STATE["attempted_counts"] = {}
                         STATE["metadata_activations"] = {}
                         STATE["traffic"] = {}
+                        for key in ("peer_counts", "peer_attempted_counts", "peer_requests"):
+                            STATE[key] = {}
                 result = json.dumps(STATE).encode()
             self.reply(200, result)
             return
+        peer = getattr(self, "client_address", ("",))[0]
         with LOCK:
+            peers = STATE.setdefault("peer_requests", {})
+            if peer:
+                peers[peer] = peers.get(peer, 0) + 1
             traffic = STATE.setdefault("traffic", {})
             traffic["requests"] = traffic.get("requests", 0) + 1
             if self.path.split("?")[0].endswith("/protocol/openid-connect/token"):
@@ -117,8 +135,8 @@ class Proxy(BaseHTTPRequestHandler):
             if self.command == "GET" and self.path.split("?")[0].endswith("/client-secret"):
                 traffic["credential_read_requests"] = traffic.get("credential_read_requests", 0) + 1
             rule = STATE["rule"]
-            selected = matches(rule, self.command, self.path, body) and not STATE["triggered"]
-            blocked = STATE["blocked"]
+            selected = source_matches(rule, peer) and matches(rule, self.command, self.path, body) and not STATE["triggered"]
+            blocked = STATE["blocked"] and source_matches(rule, peer)
             if selected and rule["action"] in ("deny", "conflict", "http-status"):
                 STATE["triggered"] = True
                 STATE["blocked"] = True
@@ -153,6 +171,7 @@ class Proxy(BaseHTTPRequestHandler):
                 key = self.command + " " + self.path.split("?")[0]
                 attempts = STATE.setdefault("attempted_counts", {})
                 attempts[key] = attempts.get(key, 0) + 1
+                count_peer("peer_attempted_counts", peer, key)
         try:
             with urlopen(request, context=self.server.context, timeout=35) as response:
                 content_type = response.headers.get("Content-Type", "application/json")
@@ -175,6 +194,7 @@ class Proxy(BaseHTTPRequestHandler):
             if self.command in ("POST", "PUT", "PATCH", "DELETE") and 200 <= status < 300:
                 key = self.command + " " + self.path.split("?")[0]
                 STATE["counts"][key] = STATE["counts"].get(key, 0) + 1
+                count_peer("peer_counts", peer, key)
                 if persisted_application_create(self.command, self.path, status):
                     traffic = STATE.setdefault("traffic", {})
                     traffic["kubernetes_application_creates"] = traffic.get("kubernetes_application_creates", 0) + 1

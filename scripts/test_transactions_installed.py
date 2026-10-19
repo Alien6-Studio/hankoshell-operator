@@ -6,12 +6,47 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, patch
 
+import yaml
+
 spec = importlib.util.spec_from_file_location("transactions", Path(__file__).with_name("transactions-installed-test.py"))
 transactions = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(transactions)
 
 
 class TransactionEvidenceTests(unittest.TestCase):
+    def test_ha_matrix_is_required_on_full_ci_and_does_not_repeat_the_scale_job(self):
+        jobs = yaml.safe_load((transactions.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
+        ha = jobs["installed-transactions"]
+        self.assertNotIn("if", ha)
+        self.assertFalse(ha["strategy"]["fail-fast"])
+        self.assertEqual(ha["strategy"]["matrix"], {"keycloak": ["26.7.5", "26.8.0"], "kubernetes": ["1.35.0", "1.36.2", "1.37.0"]})
+        self.assertEqual(ha["needs"], ["source", "oci"])
+        self.assertFalse(ha.get("continue-on-error", False))
+        run = next(s for s in ha["steps"] if "scripts/transactions-installed-test.py" in s.get("run", ""))
+        self.assertIn('--revision "$GITHUB_SHA"', run["run"])
+        self.assertEqual(run["env"]["OCI_DIGEST"], "${{ needs.oci.outputs.digest }}")
+        self.assertNotIn("if", run)
+        self.assertNotIn("continue-on-error", run)
+        self.assertEqual(ha["steps"][-1]["if"], "always()")
+        for job in ("checks", "schedule-report"):
+            self.assertIn("installed-transactions", jobs[job]["needs"])
+        gate = jobs["checks"]["steps"][0]
+        self.assertEqual(gate["env"]["INSTALLED_TRANSACTIONS_RESULT"], "${{ needs.installed-transactions.result }}")
+        self.assertIn('test "$INSTALLED_TRANSACTIONS_RESULT" = success', gate["run"])
+        self.assertFalse(any("transactions-installed-test.py" in s.get("run", "") for s in jobs["installed-scale-qualification"]["steps"]))
+
+    def test_process_liveness_requires_the_exact_running_container_epoch(self):
+        pod = {"metadata": {"uid": "pod-uid"}, "status": {"containerStatuses": [{"name": "manager", "containerID": "container-id",
+               "restartCount": 0, "state": {"running": {"startedAt": "fixed-start"}}}]}}
+        self.assertEqual(transactions.process_epoch(pod), ("pod-uid", "container-id", 0, "fixed-start"))
+        for field in ("containerID", "restartCount", "state"):
+            changed = copy.deepcopy(pod)
+            del changed["status"]["containerStatuses"][0][field]
+            self.assertIsNone(transactions.process_epoch(changed))
+        changed = copy.deepcopy(pod)
+        changed["metadata"]["deletionTimestamp"] = "fixed-delete"
+        self.assertIsNone(transactions.process_epoch(changed))
+
     def test_reader_permissions_are_version_specific_and_never_a_generic_200_success(self):
         fixture = transactions.Transactions.__new__(transactions.Transactions)
         fixture.reader_token, fixture.report = "independent-reader", {"checks": {}}
@@ -97,6 +132,59 @@ class TransactionEvidenceTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "wrong OCI"):
                 transactions.main()
         fixture.assert_not_called()
+
+    def test_live_partition_requires_natural_handoff_without_old_holder_writes(self):
+        for scenario in ("pass", "old-write", "lease-renewal", "no-live-process", "wrong-peer", "duplicate-new-write"):
+            with self.subTest(scenario=scenario):
+                fixture = transactions.Transactions.__new__(transactions.Transactions)
+                fixture.report = {"checks": {}}
+                clock = SimpleNamespace(now=0, fault=False)
+                old, new, route = "10.0.0.1", "10.0.0.2", "PUT /admin/realms/managed/roles/ha-partition-role"
+                def get(kind, name):
+                    if kind == "lease":
+                        return {"spec": {"holderIdentity": "new_nonce" if clock.now >= 6 else "old_nonce",
+                                         "renewTime": 2 if scenario == "lease-renewal" and clock.now >= 4 else 1}}
+                    if kind == "pod":
+                        status = {} if scenario == "no-live-process" and clock.fault else {"running": {"startedAt": "fixed-start"}}
+                        return {"metadata": {"uid": name + "-uid"}, "status": {"podIP": old if name == "old" else new,
+                            "containerStatuses": [{"name": "manager", "containerID": name, "restartCount": 0, "state": status}]}}
+                    return {"metadata": {"generation": 2}, "status": {"phase": "Ready", "observedGeneration": 2, "conditions": [{"type": "Synced", "status": "True"}]}}
+                def observed(target):
+                    if target == "api":
+                        return {"traffic": {"refused_requests": 4}}
+                    count = 2 if scenario == "duplicate-new-write" else 1
+                    writes = {old: {route: 1}} if scenario == "old-write" and clock.now >= 4 else {}
+                    if clock.now >= 6:
+                        writes[new] = {route: count}
+                    return {"peer_requests": {} if scenario == "wrong-peer" else {old: 5},
+                            "peer_counts": copy.deepcopy(writes), "peer_attempted_counts": copy.deepcopy(writes)}
+                fixture.get, fixture.observe_control = get, observed
+                fixture.api = lambda *_: {"id": "native-role", "description": "after-partition" if clock.now >= 6 else "before-partition"}
+                for name in ("apply", "patch", "await_fault", "kubectl"):
+                    setattr(fixture, name, MagicMock())
+                fixture.scraper = MagicMock()
+                def control(target, rule, **_):
+                    if target == "api":
+                        clock.fault = rule is not None
+                fixture.control = MagicMock(side_effect=control)
+                fixture.record = lambda name, value=True: fixture.report["checks"].update({name: value})
+                def wait(_, check, _seconds):
+                    self.assertTrue(check())
+                with patch.object(transactions, "wait", side_effect=wait), patch.object(transactions.time, "monotonic", side_effect=lambda: clock.now), \
+                        patch.object(transactions.time, "sleep", side_effect=lambda seconds: setattr(clock, "now", clock.now + seconds)), \
+                        patch.object(transactions.scale.Scale, "await_leader"):
+                    if scenario == "pass":
+                        fixture.lease_partition()
+                        self.assertTrue(fixture.report["lease_partition"]["complete"])
+                        self.assertTrue(fixture.report["lease_partition"]["old_process_observed_alive"])
+                        self.assertEqual(fixture.report["lease_partition"]["old_provider_write_attempts"], 0)
+                        self.assertNotIn(old, json.dumps(fixture.public_evidence()))
+                        self.assertNotIn("native-role", json.dumps(fixture.public_evidence()))
+                        self.assertTrue(all(call.args[0] != "delete" for call in fixture.kubectl.call_args_list))
+                    else:
+                        with self.assertRaises(ValueError):
+                            fixture.lease_partition()
+                        self.assertFalse(fixture.report.get("lease_partition", {}).get("complete", False))
 
 
 if __name__ == "__main__":

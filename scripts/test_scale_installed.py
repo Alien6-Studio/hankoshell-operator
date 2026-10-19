@@ -383,10 +383,11 @@ class ScaleScenarioTests(unittest.TestCase):
             self.assertEqual(recovery_step.get("if"), "inputs.profile == 'scale'" if standalone else None)
             self.assertIn("recovery-report/", job["steps"][-1]["with"]["path"])
             transactions = [step for step in job["steps"] if "scripts/transactions-installed-test.py" in step.get("run", "")]
-            self.assertEqual(len(transactions), 1)
-            self.assertIn('--revision "$GITHUB_SHA"', transactions[0]["run"])
-            self.assertNotIn("continue-on-error", transactions[0])
-            self.assertIn("transactions-report.json", job["steps"][-1]["with"]["path"])
+            self.assertEqual(len(transactions), 1 if standalone else 0)
+            if standalone:
+                self.assertIn('--revision "$GITHUB_SHA"', transactions[0]["run"])
+                self.assertNotIn("continue-on-error", transactions[0])
+                self.assertIn("transactions-report.json", job["steps"][-1]["with"]["path"])
 
 
 

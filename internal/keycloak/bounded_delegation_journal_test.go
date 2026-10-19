@@ -22,6 +22,38 @@ type boundedJournalFixture struct {
 	triggered  bool
 }
 
+func TestBoundedActorRecoveryRequiresExplicitStoredIdentity(t *testing.T) {
+	actor := BoundedDelegationBinding{ID: "actor-id", Attribute: adoption.ClientOwnerUIDKey, Value: "actor-uid"}
+	marker := boundedDelegationActorMarker{Version: 1, Actor: actor, Owners: map[string]string{"audience-id": "owner-uid"}}
+	valid, _ := json.Marshal(marker)
+	for _, field := range []string{"version", "actor", "partial actor", "null actor", "null version"} {
+		t.Run(field, func(t *testing.T) {
+			var document map[string]any
+			_ = json.Unmarshal(valid, &document)
+			switch field {
+			case "partial actor":
+				document["actor"] = map[string]any{"id": actor.ID}
+			case "null actor":
+				document["actor"] = nil
+			case "null version":
+				document["version"] = nil
+			default:
+				delete(document, field)
+			}
+			encoded, _ := json.Marshal(document)
+			current := map[string]any{"attributes": map[string]any{BoundedDelegationActorAttribute: string(encoded), "standard.token.exchange.enabled": "true"}}
+			if _, err := parseBoundedActorMarker(current, actor, "audience-id", "owner-uid"); !errors.Is(err, ErrAuthorizationOwnershipConflict) {
+				t.Fatal("recovery filled missing native identity from the requested actor")
+			}
+		})
+	}
+	current := map[string]any{"attributes": map[string]any{BoundedDelegationActorAttribute: string(valid), "standard.token.exchange.enabled": "true"}}
+	parsed, err := parseBoundedActorMarker(current, actor, "audience-id", "owner-uid")
+	if err != nil || parsed.ExchangePresent || parsed.PreviousExchange != "" || parsed.Owners["audience-id"] != "owner-uid" {
+		t.Fatal("stored exchange history was replaced by current native configuration")
+	}
+}
+
 func newBoundedJournalFixture(t *testing.T, fault string) *boundedJournalFixture {
 	t.Helper()
 	f := &boundedJournalFixture{base: newAuthorizationTestServer(t), faultPhase: fault,

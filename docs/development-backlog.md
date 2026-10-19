@@ -1,40 +1,47 @@
 # Development backlog for the 1.0 workstream
 
-Snapshot: 2026-10-17, `feat/1.0.0-dev`. The 22 open issues are grouped below;
-this is an execution map, not a claim that their acceptance criteria are met.
-The branch name does not announce a stable API or a public release.
+Snapshot: 2026-10-19, `feat/1.0.0-dev`. There are **20 open issues**.
+Recent batches repaired and requalified #71/#95; they did not complete the rest
+of this backlog. The branch name does not announce a stable API or public release.
 
-| Workstream | Open issues | Work to complete together |
-| --- | --- | --- |
-| Delegation | #69, #70, #71 | Native exchange, authority intersection/depth/lifetime, then actual installed token flows |
-| Stable APIs and compatibility | #89, #91, #92, #93, #94, #101, #105 | Surface decision, conversion/storage migration, real predecessor and adoption upgrade/rollback fixtures, compatibility enforcement |
-| Security and reliability | #95, #96, #99, #110 | Scale/soak, HA transaction recovery, parser/admission/RBAC review, real-Keycloak stability evidence |
-| Contract, operations and delivery evidence | #21, #86, #87, #88, #103, #104, #106, #107 | Initial qualification, policy/production evidence, runbooks, ratification and independently authorized delivery |
+| Tracking category | Count | Issues and remaining work |
+| --- | ---: | --- |
+| `track:qualification` | 4 | #71 installed delegation; #86 complete initial candidate; #95 capacity/endurance/sizing; #96 complete HA transaction and fault matrix |
+| `track:stable-roadmap` | 14 | #87, #88, #89, #91, #92, #93, #94, #99, #101, #103, #104, #105, #106, #107: remaining stable implementation, public history, decisions and delivery |
+| `track:external-evidence` | 2 | #21 independently verified publication trust; #110 usable twenty-consecutive-main-run history |
 
-Develop related changes before running the shared source/API/provider gates;
-keep expensive installed/soak runs active. Push signed batches to development
-and close only issues whose entire acceptance criteria have actual evidence.
-A partial implementation remains open with its exact remaining acceptance work.
-No merge or publication is performed by this execution map.
+These groups preserve all acceptance criteria. The stable-roadmap group contains
+real implementation work; independent work can proceed before the public-history
+and ratification prerequisites. A source push cannot create those external proofs.
 
-## Current batch and next dependencies
+Develop related changes before running shared source/API/provider gates. Keep
+long installed/soak runs in isolated immutable worktrees. Push signed batches and
+close completed implementation issues according to CONTRIBUTING.md, with the
+exact commit and available validation. Incomplete implementation or required
+qualification remains open with its actual missing criteria.
 
-The current security/contract batch advances #99 and the guard/runbook portions
-of #94/#103: parser fuzzing, explicit CRD bound inventory, named-reference
-admission, rendered RBAC review and a reduced leader-lock grant. These do not
-satisfy stable conversion or historical public-release qualification.
+## Current HA and security batch
 
-The next coherent batch implements delegation and attenuation/revocation together
-(#69/#70), using the explicitly authorized standalone Keycloak extension. Stock
-26.7.5/26.8.0 remain unsupported; only the selected software profile is eligible.
-Build/native matrix evidence and a local upstream discussion draft accompany the
-implementation. #71 still requires installed flows on the actual provider; a fake
-Kubernetes client with real Keycloak does not satisfy it.
+Delegation implementation #69/#70 is delivered through the pinned standalone
+Keycloak extension. #71 still needs complete installed qualification; earlier
+failed cells and incomplete endurance intervals remain retained as failures.
+
+The current batch advances #96/#99 together: caller-scoped loss of the live
+leader's API access, natural lease handoff and per-caller provider-write checks;
+a required six-cell HA CI matrix; canonical runtime cleanup journals; and fuzzing
+of runtime target authority plus native delegation recovery envelopes. HA is
+separate from the load job, so it can run without repeating the 1,000-object
+profile. Started or implemented scenarios are not completed installed evidence.
+
+Remaining #96 scope includes delegation apply across two-replica handoff,
+arbitrary partitions and clock skew, plus the full retained candidate matrix.
+Remaining #99 scope includes stable conversion/storage fuzzing, complete stable
+admission/RBAC review, installed adversarial evidence and independent review.
 
 Stable versions (#91) follow the resource decision in #89; storage movement and
 rollback (#92) follow the implemented conversion contract. #93/#101/#105 require
-authentic public predecessor artifacts and real paths, not reconstructed or
-same-source fixtures. Existing development guard tooling does not fill that gap.
+authentic public predecessor artifacts and real paths. Development guard tooling
+is already delivered in part; it does not provide those historical proofs.
 
 ## Evidence that code alone cannot create
 

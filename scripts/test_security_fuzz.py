@@ -49,9 +49,9 @@ class FuzzGateTests(unittest.TestCase):
     def test_reviewed_inventory_has_each_parser_family(self):
         inventory = json.loads(gate.MANIFEST.read_text())
         self.assertEqual(set(inventory), {"internal/" + p for p in (
-            "adoption", "applications", "fleetplan", "httpsecurity", "hub", "imagevalidator",
+            "adoption", "applicationbinding", "applications", "fleetplan", "httpsecurity", "hub", "imagevalidator",
             "keycloak", "workloadauth", "workloadbinding", "workloadtrust")})
-        self.assertEqual(sum(map(len, inventory.values())), 20)
+        self.assertEqual(sum(map(len, inventory.values())), 24)
         for package, names in inventory.items():
             source = "\n".join(p.read_text() for p in (gate.ROOT / package).glob("*_test.go"))
             for name in names:

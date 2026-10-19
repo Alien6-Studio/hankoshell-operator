@@ -329,6 +329,59 @@ class InstalledEvidenceTests(unittest.TestCase):
         self.assertEqual(events, ["upstream-accepted", "downstream-dropped"])
         handler.reply.assert_not_called()
 
+    def test_source_partition_uses_socket_peer_and_keeps_other_replicas_connected(self):
+        for peer, method, blocked, denied in (("10.0.0.1", "GET", False, True),
+                ("10.0.0.2", "GET", False, False), ("10.0.0.2", "GET", True, False),
+                ("10.0.0.1", "PUT", True, True)):
+            with self.subTest(peer=peer, method=method, blocked=blocked):
+                handler = proxy.Proxy.__new__(proxy.Proxy)
+                handler.client_address = (peer, 12345)
+                handler.headers = Message()
+                handler.headers["Content-Length"] = "2"
+                handler.headers["X-Forwarded-For"] = "10.0.0.1" if peer.endswith("2") else "10.0.0.2"
+                handler.rfile = BytesIO(b"{}")
+                handler.command, handler.path = method, "/apis/coordination.k8s.io/v1/namespaces/auth/leases/leader"
+                handler.server = SimpleNamespace(upstream="https://fixture", context=None)
+                handler.reply = MagicMock()
+                response = MagicMock()
+                response.__enter__.return_value = response
+                response.status, response.headers = 200, {"Content-Type": "application/json"}
+                response.read.return_value = b"{}"
+                rule = {"method": "GET", "path": "/", "path_prefix": True, "client_ip": "10.0.0.1",
+                        "action": "http-status", "status": 503, "retry_after": 1}
+                state = {"rule": rule, "blocked": blocked, "triggered": blocked, "counts": {}, "traffic": {}}
+                with patch.dict(proxy.STATE, state, clear=True), patch.object(proxy, "urlopen", return_value=response) as upstream:
+                    handler.handle_request()
+                    if denied:
+                        upstream.assert_not_called()
+                        handler.reply.assert_called_once_with(503, b"{}", retry_after=1)
+                    else:
+                        upstream.assert_called_once()
+                        handler.reply.assert_called_once_with(200, b"{}", "application/json")
+                    self.assertEqual(proxy.STATE["traffic"].get("refused_requests", 0), int(denied))
+
+    def test_private_peer_counters_distinguish_attempted_and_accepted_writes(self):
+        handler = proxy.Proxy.__new__(proxy.Proxy)
+        handler.client_address = ("10.0.0.1", 12345)
+        handler.headers = Message()
+        handler.headers["Content-Length"] = "2"
+        handler.command, handler.path = "PUT", "/fixture/role"
+        handler.server = SimpleNamespace(upstream="https://fixture", context=None)
+        handler.reply = MagicMock()
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.status, response.headers = 204, {"Content-Type": "application/json"}
+        response.read.return_value = b"{}"
+        refused = HTTPError("https://fixture/role", 403, "Forbidden", response.headers, BytesIO(b"{}"))
+        with patch.dict(proxy.STATE, {"rule": None, "blocked": False, "triggered": False, "counts": {}}, clear=True), \
+                patch.object(proxy, "urlopen", side_effect=[refused, response]):
+            for _ in range(2):
+                handler.rfile = BytesIO(b"{}")
+                handler.handle_request()
+            self.assertEqual(proxy.STATE["peer_attempted_counts"], {"10.0.0.1": {"PUT /fixture/role": 2}})
+            self.assertEqual(proxy.STATE["peer_counts"], {"10.0.0.1": {"PUT /fixture/role": 1}})
+            self.assertEqual(proxy.STATE["peer_requests"], {"10.0.0.1": 2})
+
     def test_rejected_write_does_not_consume_ack_loss_or_checkpoint_gate(self):
         for action in ("lost-ack", "gate"):
             with self.subTest(action=action):

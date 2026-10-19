@@ -121,7 +121,7 @@ as an explicit reviewed source change, with CRD/admission and relevant installed
 tests. The command never updates the baseline implicitly or changes cluster RBAC.
 The full public CRD/least-privilege acceptance and stable conversion matrix
 remain open; see the [security workstream](qualification/security/README.md) and
-[22-issue execution map](development-backlog.md).
+[development execution map](development-backlog.md).
 
 ## Observed delegation status (2026-10-17)
 

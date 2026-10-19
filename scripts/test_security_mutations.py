@@ -55,7 +55,7 @@ class MutationRunnerTests(unittest.TestCase):
                     "legacy-bundle-json-ambiguity", "legacy-bundle-before-api", "application-canonical-owner",
                     "application-canonical-write-version", "application-projection-write-version",
                     "application-projection-cleanup-version", "application-canonical-readback-uid",
-                    "application-projection-live-plan"}
+                    "application-projection-live-plan", "runtime-cleanup-canonical-journal", "runtime-cleanup-record-bound", "bounded-actor-explicit-recovery-identity"}
         self.assertEqual({entry["name"] for entry in gate.MUTATIONS}, required)
         self.assertEqual(len(gate.MUTATIONS), len(required))
         for entry in gate.MUTATIONS:

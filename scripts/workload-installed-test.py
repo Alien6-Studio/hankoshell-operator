@@ -857,6 +857,13 @@ class Installed(native.Fixture):
         with urlopen(Request(url, data=json.dumps({"rule": rule, "reset_counts": reset}).encode()), context=context, timeout=10) as response:
             return json.load(response)
 
+    def observe_control(self, target):
+        """Observe a fault without releasing it or changing its counters."""
+        url = getattr(self, target + "_proxy") + "/__fixture/control"
+        context = self.api_proxy_context if target == "api" else self.http
+        with urlopen(url, context=context, timeout=10) as response:
+            return json.load(response)
+
     def await_fault(self, target):
         url = getattr(self, target + "_proxy") + "/__fixture/control"
         context = self.api_proxy_context if target == "api" else self.http

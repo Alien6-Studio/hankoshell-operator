@@ -1,6 +1,6 @@
 # Security qualification workstream (#99)
 
-Status on 2026-10-17: **in progress**, on `feat/1.0.0-dev`. This is the
+Status on 2026-10-19: **in progress**, on `feat/1.0.0-dev`. This is the
 maintainer's qualification record and test map, not an independent audit or a
 stable-contract acceptance. The APIs remain experimental. #77 is closed; stable
 versions/conversions (#91) and stored-object migration/rollback (#92) are open.
@@ -9,8 +9,8 @@ record.
 
 ## Parser and decision campaign
 
-The reviewed [inventory](../../../scripts/fuzz-targets.json) contains twenty
-compiled Go fuzz targets in ten packages. Positive seeds and hostile cases are
+The reviewed [inventory](../../../scripts/fuzz-targets.json) contains 24
+compiled Go fuzz targets in eleven packages. Positive seeds and hostile cases are
 checked in with `f.Add`: duplicate/escaped JSON members, trailing documents,
 size/depth boundaries, DTD/entities, duplicate XML IDs, private JWK fields,
 foreign ownership, stale approvals and mutable/foreign image references. Fleet
@@ -26,6 +26,8 @@ mutations to reach validation behind the signature check.
 | Signed fleet state | `FuzzFleetEnvelope`, `FuzzFleetSignedPayload`, `FuzzFleetTrust`: signature tampering, target binding, exact recovery identity and lower-sequence replay refusal after successful verification |
 | Acquisition | `FuzzAdoptionReceipt`, `FuzzAdoptionApproval`, `FuzzAuthorizationJournal`: canonical receipt, exact owner/client, conflicting approval channels, bounded native ownership inventory |
 | Recovery and transitions | `FuzzTrustRecoveryMetadata`, `FuzzAuthenticationJournal`, `FuzzAuthenticationApproval`, `FuzzDeliveryRecord`: canonical journals/checkpoints/approvals, immutable identity and absent-vs-invalid distinctions |
+| Runtime outputs | `FuzzRuntimeCleanupJournal`, `FuzzRuntimeTargetAuthorization`: canonical bounded cleanup records, exact application/workload/target consent and deletion refusal |
+| Delegation recovery | `FuzzBoundedDelegationDocument`, `FuzzBoundedDelegationActorMarker`: native phase/authority bounds, physical client and owner binding, replacement actor UID and sibling-owner refusal |
 | Hub wire | `FuzzLegacyBundle`, `FuzzHubControlResponse`: independent byte/object budgets, unambiguous commands/credentials and no trailing values |
 | Image authority | `FuzzImageReference`, `FuzzImageApprovalPolicy`: registry/repository boundaries, immutable SHA256 identity and qualified publisher approval |
 | Provider status | `FuzzProviderStatusDecision`: arbitrary error text cannot impersonate 403/404; wrapping native text around a typed error cannot change its numeric status |
@@ -58,7 +60,7 @@ execution; allocation profiling and longer campaigns remain review work.
 | --- | --- | --- |
 | Remote Hub or publisher | Locally approved issuer/key/source, exact tenant/cluster/namespace and monotonic durable checkpoint | #77 verification/replay tests, signed-payload fuzzing; rerun installed adversarial matrix on final stable version |
 | Provider-controlled documents | Trusted TLS origin, bounded complete response, closed identity/journal evidence; numeric typed status only | Protocol/JSON/ownership fuzzing and existing transport tests; collection allocation analysis remains |
-| Namespace object writers | Current CR UID/generation, administrator approvals where required, exact live target identity and optimistic writes | Ownership/authority tests, admission tests and 68 security mutations; stable CRD field inventory and full RBAC verb table remain |
+| Namespace object writers | Current CR UID/generation, administrator approvals where required, exact live target identity and optimistic writes | Ownership/authority tests, admission tests and 71 reviewed security mutations; stable CRD field inventory and full RBAC verb table remain |
 | Application credential delivery | Matching controller owner plus fresh provider value, consent/current target UID, resource-version writes and read-back | Canonical/projection race tests; legacy migration now exercises explicit administrator Secret binding |
 | Image policy administrators | Approved digest, purpose, source revision and publisher; ambiguity cannot select another approval | Publisher-policy fuzzing plus existing revocation/signature/installed tests; no fuzz test substitutes for a signature verifier |
 | API conversion/storage migration | Lossless round trip, preserved journals/approvals and reversible journaled storage movement | Not implemented yet: depends on #91/#92; add conversion and migration fuzzing against that actual implementation |
@@ -71,6 +73,33 @@ resource-specific contracts remain authoritative. This checkpoint does not grant
 new authority or accept unresolved candidate findings.
 
 ## Admission and RBAC inventory
+
+Runtime application cleanup now requires the exact JSON representation produced
+by its own journal writer. A reproduced regression showed duplicate/escaped or
+case-aliased fields and ignored unknown fields reaching output PATCHes. The
+reader rejects these, null, trailing documents and noncanonical encodings before
+any output write, with the fixed `CleanupConflict` reason. Existing 49,152-byte
+and 32-record limits remain. Two mutation checks enforce representation and
+record bounds. This is defense against ambiguous recovery state; the journal
+continues to be a lookup hint, with fresh independent target consent required.
+
+Migration: writer-generated journals remain byte-for-byte compatible. Before
+upgrading, review any manually edited journal against the original writer output;
+otherwise cleanup/delivery can stop with `CleanupConflict`. Preserve outputs and
+the journal for review; do not strip the annotation or finalizers to force
+cleanup. Rolling back the image restores the earlier permissive reader, so
+review the retained journal before resuming destructive cleanup on that image.
+No CRD, stored version, provider state or existing journal is rewritten.
+
+The native shared-actor reader now decodes existing markers into an empty value.
+It previously overlaid the caller's initialization marker, allowing missing,
+partial or null version/actor fields to inherit the requested identity. The
+regression reproduces all five cases. Existing markers must now explicitly
+provide their own valid version, complete actor binding and nonempty owner map;
+the stored exchange history remains authoritative. Absent markers retain the
+fresh-initialization path. A mutation check restores the old overlay and must be
+detected. Valid writer-generated markers are unchanged; malformed markers stop
+with ownership conflict and must be reviewed before retrying or rolling back.
 
 The [schema/grant review](../../security-surface.md) now records 962 declared
 fields/collections and every rendered RBAC rule/binding on four chart profiles.
@@ -95,6 +124,6 @@ acceptance. See the migration notice before applying changed alpha CRDs.
   optional Security CLI audit was interrupted by the service and produced no
   completed verdict; its empty confirmed-findings output is not a clean audit.
 - Review longer fuzz campaigns and allocation evidence, plus parsers beyond the
-  initial inventory (including runtime application cleanup journals and stable
-  conversion parsers as they are added). Keep #99 open until its full acceptance
+  initial inventory (including stable conversion parsers as they are added).
+  Keep #99 open until its full acceptance
   criteria are met.

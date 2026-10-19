@@ -510,9 +510,13 @@ func parseBoundedActorMarker(current map[string]any, actor BoundedDelegationBind
 		}
 		decoder := json.NewDecoder(strings.NewReader(text))
 		decoder.DisallowUnknownFields()
-		if decoder.Decode(&marker) != nil || !validBoundedActorMarker(marker) || marker.Actor != actor {
+		// Existing state must supply its own identity. Decoding over the fresh
+		// initialization marker would fill absent/null fields from the caller.
+		var stored boundedDelegationActorMarker
+		if decoder.Decode(&stored) != nil || !validBoundedActorMarker(stored) || stored.Actor != actor {
 			return marker, ErrAuthorizationOwnershipConflict
 		}
+		marker = stored
 	}
 	if previous, exists := marker.Owners[audienceID]; exists && previous != owner {
 		return marker, ErrAuthorizationOwnershipConflict

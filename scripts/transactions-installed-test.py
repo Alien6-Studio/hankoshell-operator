@@ -3,7 +3,7 @@
 The disposable external proxies lose acknowledgements only after successful
 upstream writes. Reports contain fixed assertions and counts, never credentials,
 native representations, receipts or plan payloads. This is selected development
-HA evidence, not split-brain, every-journal or production qualification.
+HA evidence, not every-journal, clock-skew or production qualification.
 """
 import argparse
 import copy
@@ -14,6 +14,7 @@ import json
 from pathlib import Path
 import signal
 import tempfile
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -31,6 +32,25 @@ installed, native, system, wait = fleet.installed, fleet.native, fleet.system, f
 ROTATION = "hanko.sh/sa-secret-rotation"
 TENANT = {"hanko.sh/tenant": "tenant-a"}
 CHECKPOINTS = ("native_rotation", "secret_output", "rotation_commit", "client_acquisition", "role_acquisition", "verified_plan")
+
+
+def configuration_writes(state, peer, key):
+    return {route: count for route, count in state.get(key, {}).get(peer, {}).items()
+            if not route.endswith("/protocol/openid-connect/token")}
+
+
+def process_epoch(pod):
+    statuses = pod.get("status", {}).get("containerStatuses", [])
+    operator = next((s for s in statuses if s.get("name") == "manager"), None)
+    # The chart currently has a single operator container; still bind to its
+    # actual runtime identity instead of treating Pod phase as process liveness.
+    if operator is None and len(statuses) == 1:
+        operator = statuses[0]
+    running = (operator or {}).get("state", {}).get("running", {})
+    if (pod.get("metadata", {}).get("deletionTimestamp") or not pod.get("metadata", {}).get("uid")
+            or not running.get("startedAt") or not operator.get("containerID") or type(operator.get("restartCount")) is not int):
+        return None
+    return (pod["metadata"]["uid"], operator.get("containerID"), operator.get("restartCount"), running["startedAt"])
 
 
 def ready_current(value):
@@ -76,7 +96,84 @@ class Transactions(fleet.Fleet):
             fixture_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), checkpoints={},
             limitations=["single disposable kind node and dev-file provider", "six selected accepted-write checkpoints",
                 "26.7.5 reader profile can read native credentials; provider-level credential-read separation not qualified",
-                "not delegation apply, every journal, stale-lease split brain, replica clock skew or production HA"])
+                "one caller-source API partition with observed natural lease expiry; not arbitrary partitions or a fencing proof",
+                "not delegation apply, every journal, replica clock skew or production HA"])
+
+    def lease_partition(self):
+        """Isolate only the live holder; let client-go expire and replace it."""
+        name, path = "ha-partition-role", "/admin/realms/managed/roles/ha-partition-role"
+        self.apply(installed.object_value("HankoRole", name, {"realmRef": "managed", "name": name, "description": "before-partition"}, labels=TENANT))
+        wait("partition role baseline", lambda: ready_current(self.get("hankorole", name)), 180)
+        before = self.api("GET", path)
+        holder = self.get("lease", "hanko-operator.hanko.sh")["spec"]["holderIdentity"]
+        pod_name = holder.rsplit("_", 1)[0]
+        pod = self.get("pod", pod_name)
+        epoch, peer = process_epoch(pod), pod.get("status", {}).get("podIP")
+        provider = self.observe_control("keycloak")
+        if epoch is None or not peer or provider.get("peer_requests", {}).get(peer, 0) == 0:
+            raise ValueError("Cannot bind the live lease holder to the observed provider caller")
+        evidence = {"complete": False, "samples": 0, "old_process_observed_alive": False,
+                    "administrator_pod_deletions": 0, "max_sample_gap_seconds": 0}
+        self.report["lease_partition"] = evidence
+        self.report["active_phase"] = "lease_partition"
+        self.control("api", {"method": "GET", "path": "/", "path_prefix": True, "client_ip": peer,
+                             "action": "http-status", "status": 503, "retry_after": 1}, reset=True)
+        self.await_fault("api")
+        evidence["old_process_observed_alive"] = process_epoch(self.get("pod", pod_name)) == epoch
+        self.scraper.close()
+        time.sleep(2)  # Separate already-admitted work from the changed intent.
+        baseline = self.observe_control("keycloak")
+        lease = self.get("lease", "hanko-operator.hanko.sh")["spec"]
+        self.patch("hankorole", name, {"spec": {"description": "after-partition"}})
+        started = previous = time.monotonic()
+        previous_wall = time.time()
+        current = holder
+        while time.monotonic() - started < 120:
+            now = time.monotonic()
+            gap = scale.measure.sampling_gap(previous, now)
+            wall = time.time()
+            wall_gap = scale.measure.sampling_gap(previous_wall, wall)
+            previous_wall = wall
+            previous = now
+            evidence["max_sample_gap_seconds"] = round(max(evidence["max_sample_gap_seconds"], gap, wall_gap), 3)
+            spec = self.get("lease", "hanko-operator.hanko.sh")["spec"]
+            current = spec.get("holderIdentity", "")
+            evidence["samples"] += 1
+            if current and current != holder:
+                break
+            if spec.get("renewTime") != lease.get("renewTime"):
+                raise ValueError("Partitioned holder continued lease renewal")
+            evidence["old_process_observed_alive"] |= process_epoch(self.get("pod", pod_name)) == epoch
+            native_role = self.api("GET", path)
+            # Re-read around the provider read: a legitimate new leader may
+            # have acquired its lease while the administrator was observing.
+            if native_role != before and self.get("lease", "hanko-operator.hanko.sh")["spec"].get("holderIdentity") == holder:
+                raise ValueError("Provider changed before lease handoff")
+            time.sleep(1)
+        if not current or current == holder or not evidence["old_process_observed_alive"]:
+            raise ValueError("No observed live-holder partition and natural lease replacement")
+        wait("new holder reconciles the changed role", lambda: ready_current(self.get("hankorole", name)), 180)
+        provider = self.observe_control("keycloak")
+        for key in ("peer_counts", "peer_attempted_counts"):
+            if configuration_writes(provider, peer, key) != configuration_writes(baseline, peer, key):
+                raise ValueError("Isolated holder attempted provider mutation after authority loss")
+        new_peer = self.get("pod", current.rsplit("_", 1)[0])["status"]["podIP"]
+        route = "PUT " + path
+        counts = [provider.get(key, {}).get(new_peer, {}).get(route, 0) - baseline.get(key, {}).get(new_peer, {}).get(route, 0)
+                  for key in ("peer_counts", "peer_attempted_counts")]
+        after = self.api("GET", path)
+        if new_peer == peer or counts != [1, 1] or after.get("id") != before.get("id") or after.get("description") != "after-partition":
+            raise ValueError("New lease holder did not reconcile once with preserved native identity")
+        refused = self.observe_control("api").get("traffic", {}).get("refused_requests", 0)
+        if refused <= 0:
+            raise ValueError("Caller partition did not refuse any API request")
+        self.control("api", None)
+        self.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=180s")
+        scale.Scale.await_leader(self)
+        evidence.update(complete=True, seconds=round(time.monotonic() - started, 3), refused_api_requests=refused,
+                        old_provider_write_attempts=0, new_provider_write_attempts=1, accepted_provider_writes=1, leader_replaced=True)
+        self.record("live_holder_api_partition_expires_without_administrator_restart")
+        self.record("isolated_holder_cannot_write_and_new_holder_recovers_once")
 
     def replace_leader(self):
         holder = self.get("lease", "hanko-operator.hanko.sh")["spec"]["holderIdentity"]
@@ -280,14 +377,15 @@ class Transactions(fleet.Fleet):
         for kind in ("HankoServiceAccount", "HankoRole"):
             self.acquisition(kind)
         self.verified_plan()
+        self.lease_partition()
         self.record("other_tenant_physical_identity_preserved", self.client("managed-b", "tenant-b-app")["id"] == other)
         self.leak_scan()
-        if set(self.report["checkpoints"]) != set(CHECKPOINTS):
+        if set(self.report["checkpoints"]) != set(CHECKPOINTS) or self.report.get("lease_partition", {}).get("complete") is not True:
             raise ValueError("Transaction checkpoint inventory is incomplete")
         self.report.update(complete=True, completed_at=datetime.now(timezone.utc).isoformat())
 
     def public_evidence(self):
-        return {**super().public_evidence(), **{key: self.report[key] for key in ("checkpoints", "limitations", "cleanup_complete", "reader_profile", "plan_counts") if key in self.report}}
+        return {**super().public_evidence(), **{key: self.report[key] for key in ("checkpoints", "limitations", "cleanup_complete", "reader_profile", "plan_counts", "lease_partition") if key in self.report}}
 
     def cleanup(self):
         if self.scraper:
