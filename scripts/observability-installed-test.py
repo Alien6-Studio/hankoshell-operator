@@ -20,6 +20,8 @@ from urllib.parse import urlsplit
 
 import yaml
 
+from evidence_privacy import contains_jwt
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -173,7 +175,7 @@ def qualify(system):
     for crd in json.loads(system.kubectl("get", "crds", "-o", "json"))["items"]:
         if crd["spec"]["group"] == "hanko.sh":
             evidence += system.kubectl("get", crd["metadata"]["name"], "-n", "auth", "-o", "json")
-    if any(value in evidence for value in system.sensitive) or re.search(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", evidence):
+    if any(value in evidence for value in system.sensitive) or contains_jwt(evidence):
         raise ValueError("Credential in logs/Events/CRDs (withheld)")
     checks.append("credential sentinel scan of logs, Events and all Hanko CRDs")
     system.kubectl("delete", "hankoapplication", "ops-fixture", "-n", "auth", "--wait=true", "--timeout=120s")
@@ -246,7 +248,8 @@ def main():
                 "revision": args.revision, "image_digest": args.digest, "kubernetes": fixture.KUBERNETES_VERSION,
                 "keycloak": fixture.KEYCLOAK_VERSION, "checks": checks,
                 "harness_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-                "system_harness_sha256": hashlib.sha256((ROOT / "scripts/system-test.py").read_bytes()).hexdigest()}, indent=2) + "\n")
+                "system_harness_sha256": hashlib.sha256((ROOT / "scripts/system-test.py").read_bytes()).hexdigest(),
+                "privacy_harness_sha256": hashlib.sha256((ROOT / "scripts/evidence_privacy.py").read_bytes()).hexdigest()}, indent=2) + "\n")
         finally:
             system.cleanup()
 

@@ -64,10 +64,6 @@ def changes(before, after, path=""):
         result.extend(changes(old_map, new_map, path + "{}"))
     elif old_map != new_map:
         changed("additionalProperties", old_map, new_map)
-    # New optional fields with a default also change previously absent stored values.
-    for field in sorted(set(new_properties) - set(old_properties)):
-        if "default" in new_properties[field]:
-            changed("added-field-default", None, new_properties[field]["default"], path + "." + field if path else field)
     return result
 
 

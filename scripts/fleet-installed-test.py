@@ -127,7 +127,8 @@ class Fleet(installed.Installed):
         self.apply(self.secret("hub-fixture-private", {"settings.json": json.dumps(settings)}),
             self.secret("hub-ca", {"tls.crt": (self.private / "tls.crt").read_text()}),
             {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "hub-code", "namespace": "auth"},
-             "data": {"hub.py": (ROOT / "scripts/fleet-hub-fixture.py").read_text()}},
+             "data": {"hub.py": (ROOT / "scripts/fleet-hub-fixture.py").read_text(),
+                      "evidence_privacy.py": (ROOT / "scripts/evidence_privacy.py").read_text()}},
             {"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "hub", "namespace": "auth"}, "spec": {
                 "replicas": 1, "selector": {"matchLabels": {"app": "hanko-hub"}}, "template": {
                     "metadata": {"labels": {"app": "hanko-hub"}}, "spec": {

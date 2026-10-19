@@ -1,0 +1,30 @@
+{
+  "scope": "local test-harness security regression; not immutable candidate qualification",
+  "authentik": {
+    "version": "2026.8.4",
+    "passed": 15,
+    "failed": 0,
+    "race_enabled": true,
+    "worktree_dirty": true,
+    "source_changed": false
+  },
+  "operations_report": "docs/qualification/operations/2026-10-19/observability-runtime-643f607.json",
+  "source_files": [
+    {
+      "path": "scripts/evidence_privacy.py",
+      "sha256": "ee97e808453939efc2a48a62807330b879ec5b777c1b4636aa8fadc56e44ef8b"
+    },
+    {
+      "path": "scripts/authentik-fixture.py",
+      "sha256": "583e5bef42c0dcfbe93f2fa20c4a459e4c1b7b705526fc573146bd5083cdb31e"
+    },
+    {
+      "path": "internal/controller/authentik_integration_test.go",
+      "sha256": "1b895438a5ff1d6ff99b30b4584455d1bd219720bf624416524260070016dd74"
+    },
+    {
+      "path": "scripts/fleet-hub-fixture.py",
+      "sha256": "e25942ccc981182a206d8fad83a5c912952084fd93887f6312aced06b723b94b"
+    }
+  ]
+}

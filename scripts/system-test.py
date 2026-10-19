@@ -23,6 +23,8 @@ from urllib.request import Request, urlopen
 
 import yaml
 
+from evidence_privacy import contains_jwt, redact_jwts
+
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("release_system", ROOT / "scripts/release-system-test.py")
 publication = importlib.util.module_from_spec(spec)
@@ -172,7 +174,7 @@ class System:
             diagnostic = copy.stderr.decode(errors="replace")[-2048:]
             for value in self.sensitive:
                 diagnostic = diagnostic.replace(value, "[REDACTED]")
-            diagnostic = re.sub(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", "[REDACTED JWT]", diagnostic)
+            diagnostic = redact_jwts(diagnostic)
             raise RuntimeError("Local OCI mirror copy failed: " + diagnostic)
         if publication.publish.Registry(self.args.oras, self.args.helm, plain_http=True).resolve(self.registry + "/hankoshell-operator:scanned") != self.args.digest:
             raise ValueError("System-test mirror changed the scanned OCI graph")
@@ -1428,7 +1430,7 @@ class System:
             for crd in json.loads(self.kubectl("get", "crds", "-o", "json"))["items"]:
                 if crd["spec"]["group"] == "hanko.sh":
                     data += self.kubectl("get", crd["metadata"]["name"], "-n", namespace, "-o", "json")
-        if any(value in data for value in self.sensitive) or re.search(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", data):
+        if any(value in data for value in self.sensitive) or contains_jwt(data):
             raise ValueError("Credential detected in system logs/events/CRDs (withheld)")
 
     def cleanup(self):

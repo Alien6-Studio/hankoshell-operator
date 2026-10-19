@@ -15,6 +15,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 SERVER = "ghcr.io/goauthentik/server@sha256:e7226ae116dac5aa0a5643803e735b010038f492c401e08e16b3bf1ac54c090c"
@@ -22,9 +23,23 @@ SERVER = "ghcr.io/goauthentik/server@sha256:e7226ae116dac5aa0a5643803e735b010038
 POSTGRES = "postgres@sha256:6f30057d31f5861b66f3545d4821f987aacf1dd920765f0acadea0c58ff975b1"
 
 
-def private_file(path, text):
-    path.write_text(text)
-    path.chmod(0o600)
+def connection_file(path, connection):
+    # Public connection metadata only. Never persist bootstrap passwords/tokens.
+    fixed = {"schemaVersion": 1, "provider": "authentik", "version": "2026.8.4", "endpoint": "", "realm": "portable", "tokenSecret": "provider-token"}
+    identifiers = ("authorizationFlow", "invalidationFlow", "signingKey")
+    if (not isinstance(connection, dict) or set(connection) != set(fixed) | set(identifiers) | {"scopeMappings"}
+            or any(connection[k] != v for k, v in fixed.items()) or type(connection["schemaVersion"]) is not int
+            or not isinstance(connection["scopeMappings"], list) or not 1 <= len(connection["scopeMappings"]) <= 64):
+        raise ValueError("fixture connection metadata is malformed")
+    try:
+        values = [connection[k] for k in identifiers] + connection["scopeMappings"]
+        if any(not isinstance(value, str) or str(uuid.UUID(value)) != value for value in values):
+            raise ValueError
+    except (ValueError, TypeError, AttributeError):
+        raise ValueError("fixture connection identifiers are malformed") from None
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "w") as stream:
+        json.dump(connection, stream)
     return path
 
 
@@ -34,8 +49,8 @@ def qualify(output, gotestsum):
     containers = [prefix + "-db", prefix + "-server"]
     env = dict(os.environ)
 
-    def docker(*arguments, timeout=180, stdin=None):
-        result = subprocess.run(["docker", *arguments], input=stdin, env=env,
+    def docker(*arguments, timeout=180, stdin=None, variables=None):
+        result = subprocess.run(["docker", *arguments], input=stdin, env={**env, **(variables or {})},
                                 text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 timeout=timeout, check=False)
         if result.returncode:
@@ -54,13 +69,16 @@ def qualify(output, gotestsum):
                          "AUTHENTIK_POSTGRESQL__NAME": "authentik",
                          "AUTHENTIK_ERROR_REPORTING__ENABLED": "false",
                          "AUTHENTIK_LOG_LEVEL": "warning"}
-            server_env = private_file(private / "server.env", "".join(k + "=" + v + "\n" for k, v in variables.items()))
-            db_env = private_file(private / "db.env", "POSTGRES_USER=authentik\nPOSTGRES_DB=authentik\nPOSTGRES_PASSWORD=" + password + "\n")
+            db_variables = {"POSTGRES_USER": "authentik", "POSTGRES_DB": "authentik", "POSTGRES_PASSWORD": password}
+            # Docker forwards named child environment variables. Values never
+            # appear in argv, an env file, test artifacts or command diagnostics.
+            server_options = [item for key in variables for item in ("-e", key)]
+            db_options = [item for key in db_variables for item in ("-e", key)]
             docker("network", "create", prefix)
             docker("run", "-d", "--name", containers[0], "--network", prefix,
-                   "--env-file", str(db_env), POSTGRES)
+                   *db_options, POSTGRES, variables=db_variables)
             docker("run", "-d", "--name", containers[1], "--network", prefix,
-                   "--env-file", str(server_env), "-p", "127.0.0.1::9000", SERVER, "server")
+                   *server_options, "-p", "127.0.0.1::9000", SERVER, "server", variables=variables)
             address = docker("port", containers[1], "9000/tcp")
             if not address.startswith("127.0.0.1:") or not address.rsplit(":", 1)[1].isdigit():
                 raise ValueError("provider fixture is not loopback-bound")
@@ -84,11 +102,9 @@ def qualify(output, gotestsum):
             if len(configs) != 1:
                 raise ValueError("fixture lacks its exact typed connection")
             config = json.loads(configs[0])
-            connection = private_file(private / "connection.json", json.dumps(config))
-            token = private_file(private / "token", env["HANKO_FIXTURE_TOKEN"])
-            denied = private_file(private / "denied", env["HANKO_FIXTURE_DENIED_TOKEN"])
-            env.update(AUTHENTIK_FIXTURE_DIRECTORY=str(private),AUTHENTIK_FIXTURE_UPSTREAM=upstream, AUTHENTIK_FIXTURE_CONNECTION=str(connection),
-                       AUTHENTIK_FIXTURE_TOKEN_FILE=str(token), AUTHENTIK_FIXTURE_DENIED_TOKEN_FILE=str(denied))
+            connection = connection_file(private / "connection.json", config)
+            env.update(AUTHENTIK_FIXTURE_DIRECTORY=str(private), AUTHENTIK_FIXTURE_UPSTREAM=upstream,
+                       AUTHENTIK_FIXTURE_CONNECTION=str(connection))
             command = [gotestsum, "--format=standard-verbose", "--junitfile", str(output / "junit.xml"),
                        "--", "-race", "-count=1", "-tags=authentik_integration", "-timeout=5m",
                        "-run", "^TestRealAuthentikPortableCorpus$", "./internal/controller"]

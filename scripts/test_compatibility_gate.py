@@ -51,6 +51,13 @@ class CompatibilityGateTests(unittest.TestCase):
         new["properties"]["spec"]["properties"]["optional"]["default"] = "changes-reader-behaviour"
         self.assertEqual(gate.changes(SCHEMA, new)[0]["rule"], "field-added-with-default")
 
+    def test_added_default_has_one_precise_hash_bound_review_requirement(self):
+        new = copy.deepcopy(SCHEMA)
+        new["properties"]["spec"]["properties"]["newDefault"] = {"type": "string", "default": "new-behaviour"}
+        changes = gate.changes(SCHEMA, new)
+        self.assertEqual(changes, [{"path": "spec.newDefault", "rule": "field-added-with-default",
+                                   "old_hash": gate.digest(None), "new_hash": gate.digest({"type": "string", "default": "new-behaviour"})}])
+
     def test_conversion_storage_and_deprecation_metadata_cannot_silently_drift(self):
         policy = {"notices": [], "public_releases": []}
         original = {"spec": {"names": {"kind": "HankoExample"}, "versions": [{"name": "v1alpha1", "served": True, "storage": True}], "conversion": {"strategy": "None"}}}

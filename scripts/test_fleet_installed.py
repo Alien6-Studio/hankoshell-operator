@@ -5,10 +5,12 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+import sys
 import threading
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import MagicMock
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -25,6 +27,23 @@ hub = module("fleet_hub", "fleet-hub-fixture.py")
 
 
 class FleetInstalledTests(unittest.TestCase):
+    def test_deployed_hub_contains_its_privacy_dependency_and_refuses_jwt_reports(self):
+        fixture = fleet.Fleet.__new__(fleet.Fleet)
+        fixture.hub_control, fixture.hub_token, fixture.canary = "control", {"tenant": "token"}, "private-canary"
+        fixture.secret = lambda name, values: {"kind": "Secret", "metadata": {"name": name}, "data": values}
+        fixture.apply, fixture.kubectl, fixture.forward_hub = MagicMock(), MagicMock(), MagicMock()
+        with tempfile.TemporaryDirectory() as directory:
+            fixture.private = Path(directory)
+            (fixture.private / "tls.crt").write_text("public-fixture-certificate")
+            fixture.start_hub()
+            config = next(obj for obj in fixture.apply.call_args.args if obj.get("kind") == "ConfigMap")
+            self.assertEqual(set(config["data"]), {"hub.py", "evidence_privacy.py"})
+            for name, text in config["data"].items():
+                (fixture.private / name).write_text(text)
+            result = subprocess.run([sys.executable, "-c", "import runpy; hub = runpy.run_path('hub.py'); assert hub['contains_jwt']('eyJheader.payload.signature')"],
+                                    cwd=fixture.private, capture_output=True, text=True, timeout=10, check=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_command_approval_matches_the_operator_canonical_identity(self):
         target = {"tenantID": "tenant-id", "clusterID": "cluster-id", "namespace": "auth",
                   "tenantName": "tenant", "tenantUID": "tenant-uid"}

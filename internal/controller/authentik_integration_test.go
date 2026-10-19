@@ -80,13 +80,10 @@ func TestRealAuthentikPortableCorpus(t *testing.T) {
 	}
 	config.Endpoint = edge.URL
 	config.CASecret = "provider-ca"
-	tokenData, err := readAuthentikFixture("token")
-	if err != nil {
-		t.Fatal("fixture token is unavailable")
-	}
-	deniedToken, err := readAuthentikFixture("denied")
-	if err != nil {
-		t.Fatal("denied fixture credential unavailable")
+	tokenData := []byte(os.Getenv("HANKO_FIXTURE_TOKEN"))
+	deniedToken := []byte(os.Getenv("HANKO_FIXTURE_DENIED_TOKEN"))
+	if len(tokenData) == 0 || len(tokenData) > 16384 || len(deniedToken) == 0 || len(deniedToken) > 16384 {
+		t.Fatal("private in-memory fixture credentials unavailable")
 	}
 	configMap, token, ca := experimentalObjects(t, edge.URL, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: edge.TLS.Certificates[0].Certificate[0]}))
 	configJSON, _ := json.Marshal(config)
@@ -247,7 +244,7 @@ func readAuthentikFixture(name string) ([]byte, error) {
 	if !filepath.IsAbs(directory) || !strings.HasPrefix(filepath.Base(directory), "hanko-authentik-") {
 		return nil, authentik.ErrUnsupported
 	}
-	if name != "connection.json" && name != "token" && name != "denied" {
+	if name != "connection.json" {
 		return nil, authentik.ErrUnsupported
 	}
 	root, err := os.OpenRoot(directory)

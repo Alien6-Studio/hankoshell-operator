@@ -23,6 +23,8 @@ from urllib.request import Request, urlopen
 
 import yaml
 
+from evidence_privacy import contains_jwt
+
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("native_workload", ROOT / "scripts/workload-identity-probe.py")
 native = importlib.util.module_from_spec(spec)
@@ -133,7 +135,7 @@ class Installed(native.Fixture):
             for line in process.stdout:
                 text = line.decode(errors="replace")
                 self.operator_log_bytes += len(line)
-                if any(value and (value in text or base64.b64encode(value.encode()).decode() in text) for value in self.sensitive) or re.search(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", text):
+                if any(value and (value in text or base64.b64encode(value.encode()).decode() in text) for value in self.sensitive) or contains_jwt(text):
                     self.operator_log_failed = True
         self.operator_log_thread = threading.Thread(target=scan, daemon=True)
         self.operator_log_thread.start()
@@ -943,7 +945,7 @@ class Installed(native.Fixture):
             values = [base64.b64decode(value).decode(errors="replace") for value in item.get("data", {}).values()] if item["kind"] == "Secret" else list(item.get("data", {}).values())
             values += [base64.b64decode(value).decode(errors="replace") for value in item.get("binaryData", {}).values()]
             values += [json.dumps(item.get("metadata", {})), json.dumps(item.get("stringData", {}))]
-            if any(re.search(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", value) for value in values):
+            if any(contains_jwt(value) for value in values):
                 raise ValueError("JWT stored in Kubernetes fixture object (withheld)")
             if any(credential in value or base64.b64encode(credential.encode()).decode() in value
                    for credential in self.federated_secrets.values() for value in values):

@@ -3,9 +3,10 @@
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-import re
 import ssl
 import threading
+
+from evidence_privacy import contains_jwt
 
 LIMIT = 2 * 1024**2
 LOCK = threading.Lock()
@@ -79,7 +80,7 @@ class Hub(BaseHTTPRequestHandler):
                 encoded = json.dumps(data)
                 blocked = [settings["control"], *settings["tokens"].values(), settings["canary"]]
                 tenant["reports_safe"] &= (not any(v in encoded for v in blocked)
-                                            and not re.search(r"eyJ[\w-]+\.[\w-]+\.[\w-]+|PRIVATE KEY", encoded))
+                                            and not contains_jwt(encoded) and "PRIVATE KEY" not in encoded)
                 self.reply(200, tenant["ack"])
             elif self.path == "/api/v1/operators/decommission/confirm":
                 tenant["confirmations"] += 1

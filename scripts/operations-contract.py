@@ -82,8 +82,9 @@ def check(root=ROOT):
             raise ValueError("Operational installed evidence is altered or failed")
         if not re.fullmatch(r"[0-9a-f]{40}", report["revision"]) or not re.fullmatch(r"sha256:[0-9a-f]{64}", report["image_digest"]):
             raise ValueError("Operational evidence lacks immutable runtime identity")
-        for key, filename in (("harness_sha256", "observability-installed-test.py"), ("system_harness_sha256", "system-test.py")):
-            if report[key] != hashlib.sha256((root / "scripts" / filename).read_bytes()).hexdigest():
+        for key, filename in (("harness_sha256", "observability-installed-test.py"), ("system_harness_sha256", "system-test.py"),
+                              ("privacy_harness_sha256", "evidence_privacy.py")):
+            if report.get(key) != hashlib.sha256((root / "scripts" / filename).read_bytes()).hexdigest():
                 raise ValueError("Operational harness changed; retain new installed qualification")
         if "not production HA" not in report["scope"] or len(report["checks"]) < 9:
             raise ValueError("Operational smoke evidence cannot claim production HA")

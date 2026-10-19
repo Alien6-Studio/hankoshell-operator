@@ -1,13 +1,14 @@
 # Development backlog for the 1.0 workstream
 
-Snapshot: 2026-10-19, `feat/1.0.0-dev`. There are **20 open issues**.
+Snapshot: 2026-10-19, `feat/1.0.0-dev`, after implementation delivery of #94.
+There are **19 open issues**.
 Recent batches advanced repairs and qualification for #71/#95; they did not complete the rest
 of this backlog. The branch name does not announce a stable API or public release.
 
 | Tracking category | Count | Issues and remaining work |
 | --- | ---: | --- |
 | `track:qualification` | 4 | #71 installed delegation; #86 complete initial candidate; #95 capacity/endurance/sizing; #96 complete HA transaction and fault matrix |
-| `track:stable-roadmap` | 14 | #87, #88, #89, #91, #92, #93, #94, #99, #101, #103, #104, #105, #106, #107: remaining stable implementation, public history, decisions and delivery |
+| `track:stable-roadmap` | 13 | #87, #88, #89, #91, #92, #93, #99, #101, #103, #104, #105, #106, #107: remaining stable implementation, public history, decisions and delivery |
 | `track:external-evidence` | 2 | #21 independently verified publication trust; #110 usable twenty-consecutive-main-run history |
 
 These groups preserve all acceptance criteria. The stable-roadmap group contains
@@ -19,6 +20,17 @@ Keep long installed/soak runs in isolated immutable worktrees. Signed pushes rec
 implementation delivery; integration retains the protected PR and qualification
 requirements. Local implementation does not manufacture external evidence or
 close partially delivered roadmap issues.
+
+## Delivered compatibility guard tooling (#94)
+
+Schema/default/enum/topology diffs, exact hash-bound deprecation exceptions,
+notice timing, typed-reader conversion, concurrent SSA, frozen plan identities
+and compiler-resolved Go exports are enforced by the shared make/CI/release gates.
+Adversarial tests cover field removal/rename, tighter validation, conversion loss
+and legitimate notice requirements. An added default now produces one review
+requirement rather than duplicate diagnostics. This records implementation
+delivery under CONTRIBUTING.md; authentic public baselines, actual cross-release
+paths and final integration qualification remain in their own open workstreams.
 
 ## API/storage implementation batch (#91/#92/#94)
 

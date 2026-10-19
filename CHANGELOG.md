@@ -3,6 +3,19 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Qualification credential handling and evidence scanning (#99)
+
+- Pass disposable Authentik database/bootstrap credentials and API tokens through
+  named child environment variables. Persist only validated public connection
+  identifiers in an exclusively created mode-0600 file; never write credential
+  env/token files or put credential values in command arguments.
+- Replace repeated JWT-pattern searches with one shared component scanner across
+  the Hub, workload, system and observability evidence collectors. Preserve
+  conservative detection/redaction while bounding hostile repeated-header input.
+- Bind operational evidence to the shared privacy helper as well as its calling
+  harnesses. Report an added field default once, with one exact hash-bound
+  compatibility-review requirement.
+
 ### Experimental API versions and storage migration (#91, #92, #94)
 
 - Serve structurally equivalent v1beta1 candidates for Application, Role and

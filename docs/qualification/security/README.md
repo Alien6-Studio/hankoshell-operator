@@ -9,6 +9,21 @@ record.
 
 ## Parser and decision campaign
 
+Qualification evidence uses `scripts/evidence_privacy.py` for JWT-shaped text.
+The scanner consumes complete components once rather than retrying a multi-part
+regex at every attacker-controlled header prefix. Small generated-input tests
+check compatibility with the old detector; a bounded child process exercises
+long dot-free headers and incomplete tokens. Detection and diagnostic redaction
+share this implementation, including the copy mounted into the disposable Hub.
+
+The Authentik qualification runner passes database/bootstrap credentials and API
+tokens through named child environment variables, with no values in argv or
+credential files. The Go fixture reads tokens from its process environment.
+Only fixed public connection metadata and validated UUIDs may reach its mode-0600
+connection file, created without an initially permissive window. These are test
+infrastructure changes; no production operator API or RBAC authority changes.
+
+
 The reviewed [inventory](../../../scripts/fuzz-targets.json) contains 25
 compiled Go fuzz targets in twelve packages. Positive seeds and hostile cases are
 checked in with `f.Add`: duplicate/escaped JSON members, trailing documents,

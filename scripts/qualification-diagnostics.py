@@ -19,6 +19,8 @@ from urllib.parse import quote
 
 import yaml
 
+from evidence_privacy import redact_jwts
+
 READ_LIMIT = 256 * 1024
 FILE_LIMIT = 64 * 1024
 TOTAL_LIMIT = 2 * 1024 * 1024
@@ -83,8 +85,8 @@ class Collector:
             text = text.replace(value, "[REDACTED]")
         text = re.sub(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)",
                       "[REDACTED PRIVATE KEY]", text, flags=re.S)
-        # Token boundaries avoid quadratic scanning of long dot-free log lines.
-        text = re.sub(r"(?<![\w-])[\w-]{12,}\.[\w-]+\.[\w-]+(?![\w-])", "[REDACTED JWT]", text)
+        # Consume complete components once, including hostile dot-free runs.
+        text = redact_jwts(text, json_header=False)
         text = re.sub(r"(?i)\b(?:Bearer|Basic)\s+[^\s\"',}]+", "[REDACTED AUTHORIZATION]", text)
         text = re.sub(r'''(?ix)(["']?(?:password|passwd|secret|client[_-]?secret|private[_-]?key|(?:access|refresh|id|hub|actor)[_-]?token|token|credential|client[_-]?assertion)["']?\s*[:=]\s*)(?:"(?:\\.|[^"\\])*"|'[^']*'|[^\s,;}]+)''',
                       r'\1"[REDACTED]"', text)

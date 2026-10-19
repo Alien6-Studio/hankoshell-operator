@@ -157,8 +157,8 @@
   ],
   "installedEvidence": [
     {
-      "report": "docs/qualification/operations/2026-10-17/observability-runtime-64e4890.json",
-      "sha256": "a2e67aa36172df5af0c11121e3763dd80a1fbd2cc2629007acd748e66f2f7f88"
+      "report": "docs/qualification/operations/2026-10-19/observability-runtime-643f607.json",
+      "sha256": "78568ad765d7041aaac4683945fea232a7fae35305d18c55b2b248c44dda4925"
     }
   ]
 }

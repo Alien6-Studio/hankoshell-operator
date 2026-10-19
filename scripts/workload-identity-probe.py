@@ -25,6 +25,8 @@ from urllib.request import Request, urlopen
 
 import yaml
 
+from evidence_privacy import contains_jwt
+
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("system_fixture", ROOT / "scripts/system-test.py")
 system = importlib.util.module_from_spec(spec)
@@ -70,7 +72,7 @@ def binding_subject(namespace, name):
 
 def safe_report(report, sensitive):
     encoded = json.dumps(report, indent=2) + "\n"
-    if any(secret and secret in encoded for secret in sensitive) or re.search(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", encoded):
+    if any(secret and secret in encoded for secret in sensitive) or contains_jwt(encoded):
         raise ValueError("Credential found in report (withheld)")
     return encoded
 
@@ -700,7 +702,7 @@ except urllib.error.HTTPError as e:
             else:
                 values = list(item.get("data", {}).values())
                 values.extend(base64.b64decode(value).decode(errors="replace") for value in item.get("binaryData", {}).values())
-            if any(re.search(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", value) for value in values):
+            if any(contains_jwt(value) for value in values):
                 raise ValueError("JWT found in fixture Kubernetes object (withheld)")
         self.report["no_jwt_in_logs_events_secrets_configmaps"] = True
 

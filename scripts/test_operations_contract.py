@@ -34,6 +34,7 @@ class OperationalContractTests(unittest.TestCase):
             ("internal/controller/hankoapplication_controller.go", 'observeReconciler("HankoApplication", scheduleIAMReconciler(r))', "scheduleIAMReconciler(r)"),
             ("README.md", "operations-runbooks.md", "missing-runbooks.md"),
             ("docs/operations-runbooks.md", "AuditRecorderUnavailable", "UnreviewedState"),
+            ("scripts/evidence_privacy.py", 'value.find("eyJ")', 'value.find("other-marker")'),
         ]
         for name, before, after in mutations:
             with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
