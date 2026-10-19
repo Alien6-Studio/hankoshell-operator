@@ -3,6 +3,8 @@ package keycloak
 import (
 	"context"
 	"errors"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -28,6 +30,24 @@ type tokenRefresh struct {
 }
 
 var errTokenInvalidated = errors.New("keycloak token changed during refresh")
+var errRequestTokenStale = errors.New("keycloak request token became stale before I/O")
+
+// Helpers prepare the request before queueing and mutation guards. A guard can
+// renew the shared token through its own authority reads; bind the current
+// cached credential only after that work. Never authenticate while holding an
+// outer request slot or automatically retry a potentially accepted write.
+func (c *Client) rebindRequestToken(req *http.Request) error {
+	if !strings.HasPrefix(req.Header.Get(authorizationHeader), bearerPrefix) {
+		return nil
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.token == "" || !time.Now().Before(c.tokenExpiry) {
+		return errRequestTokenStale
+	}
+	req.Header.Set(authorizationHeader, bearerPrefix+c.token)
+	return nil
+}
 
 // bearerToken coalesces cache misses, including failed refreshes. A canceled
 // waiter can leave without acquiring the mutex or canceling another request.

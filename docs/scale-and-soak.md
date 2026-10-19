@@ -20,6 +20,14 @@ records the newer runtime and its separate recovery qualification.
 
 ## Bounded IAM workers
 
+Administrative request headers are rebound to the current valid cached token
+after queueing and mutation guards. A guard's authority read can renew the token;
+the following write must use that renewal. If the token expires or is invalidated
+without a replacement, the request fails locally before I/O and the next reconcile
+can refresh it. No accepted write is automatically retried. This requires no
+CRD, Secret or native journal migration; rollback to the previous signed image
+restores the earlier token timing and its known stale-header window.
+
 `reconciliation.maxConcurrent` defaults to **1**. Explicit integers **1–8** set
 `HANKO_IAM_MAX_CONCURRENT_RECONCILES` for these controllers only:
 

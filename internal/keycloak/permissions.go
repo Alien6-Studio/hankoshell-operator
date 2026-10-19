@@ -138,6 +138,9 @@ func (c *Client) do(req *http.Request) (*http.Response, error) {
 	if err := c.authorizeMutation(req); err != nil {
 		return nil, err
 	}
+	if err := c.rebindRequestToken(req); err != nil {
+		return nil, err
+	}
 	started := time.Now()
 	response, err := c.httpClient.Do(req)
 	if err != nil {

@@ -3,6 +3,7 @@ package keycloak
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -325,4 +326,70 @@ func TestQueuedMutationRechecksAuthorityAfterWaiting(t *testing.T) {
 		}
 		wg.Wait()
 	})
+}
+
+func TestGuardedMutationUsesTokenRefreshedByItsAuthorityRead(t *testing.T) {
+	var tokens, writes atomic.Int32
+	var staleHeader atomic.Bool
+	c := concurrencyClient(func(request *http.Request) (*http.Response, error) {
+		if strings.HasSuffix(request.URL.Path, "/token") {
+			tokens.Add(1)
+			return concurrencyResponse(200, `{"access_token":"current-token","expires_in":300}`), nil
+		}
+		if request.Method == http.MethodPost {
+			writes.Add(1)
+			staleHeader.Store(request.Header.Get(authorizationHeader) != "Bearer current-token")
+			return concurrencyResponse(201, ""), nil
+		}
+		return concurrencyResponse(200, `[]`), nil
+	})
+	c.token, c.tokenExpiry = "previous-token", time.Now().Add(time.Hour)
+	guarded := c.WithMutationGuard(func(ctx context.Context) error {
+		c.invalidateToken()
+		_, err := c.ListRealms(ctx)
+		return err
+	})
+	if err := guarded.CreateRealm(t.Context(), RealmSpec{ID: "managed"}); err != nil {
+		t.Fatal("guarded write failed after a successful authority read", err)
+	}
+	if staleHeader.Load() || tokens.Load() != 1 || writes.Load() != 1 {
+		t.Fatal("write retained its pre-guard token or repeated token/native requests")
+	}
+}
+
+func TestGuardedMutationRefusesTokenExpiredOrInvalidatedDuringGuard(t *testing.T) {
+	for _, invalidate := range []bool{false, true} {
+		t.Run(fmt.Sprint(invalidate), func(t *testing.T) {
+			var tokens, writes atomic.Int32
+			c := concurrencyClient(func(request *http.Request) (*http.Response, error) {
+				if strings.HasSuffix(request.URL.Path, "/token") {
+					tokens.Add(1)
+					return concurrencyResponse(200, `{"access_token":"fresh-token","expires_in":300}`), nil
+				}
+				writes.Add(1)
+				return concurrencyResponse(201, ""), nil
+			})
+			c.token, c.tokenExpiry = "previous-token", time.Now().Add(time.Hour)
+			first := true
+			guarded := c.WithMutationGuard(func(context.Context) error {
+				if first {
+					first = false
+					if invalidate {
+						c.invalidateToken()
+					} else {
+						c.mu.Lock()
+						c.tokenExpiry = time.Now().Add(-time.Second)
+						c.mu.Unlock()
+					}
+				}
+				return nil
+			})
+			if err := guarded.CreateRealm(t.Context(), RealmSpec{ID: "managed"}); !errors.Is(err, errRequestTokenStale) || writes.Load() != 0 || tokens.Load() != 0 {
+				t.Fatal("expired/invalidation gap reached native write or triggered in-slot authentication")
+			}
+			if err := guarded.CreateRealm(t.Context(), RealmSpec{ID: "managed"}); err != nil || writes.Load() != 1 || tokens.Load() != 1 {
+				t.Fatal("fresh reconcile did not recover with one token and one native write", err)
+			}
+		})
+	}
 }
