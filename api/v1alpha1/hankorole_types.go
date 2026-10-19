@@ -50,7 +50,7 @@ type HankoRoleSpec struct {
 	Name string `json:"name"`
 
 	// Description is a human-readable description of the role.
-	// +kubebuilder:validation:MaxLength=1024
+	// +kubebuilder:validation:MaxLength=255
 	Description string `json:"description,omitempty"`
 
 	// Composite marks this role as a composite role, aggregating the

@@ -18,7 +18,7 @@
         "attributes": {
           "additionalProperties": {
             "items": {
-              "maxLength": 4096,
+              "maxLength": 255,
               "type": "string"
             },
             "maxItems": 64,
@@ -51,7 +51,7 @@
         },
         "description": {
           "description": "Description is a human-readable description of the role.",
-          "maxLength": 1024,
+          "maxLength": 255,
           "type": "string"
         },
         "mode": {

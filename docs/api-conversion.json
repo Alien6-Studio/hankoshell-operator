@@ -13,7 +13,7 @@
         "v1alpha1",
         "v1beta1"
       ],
-      "schema_sha256": "d66b7517f91c37862bde55305ed17db7ccab7dc0135a71e95e9e829f44813a98"
+      "schema_sha256": "56d1106c7983c057f2d444f552be2523f831867893b6e593ff81e67ddcb509da"
     },
     "HankoResourceServer": {
       "plural": "hankoresourceservers",
@@ -21,7 +21,7 @@
         "v1alpha1",
         "v1beta1"
       ],
-      "schema_sha256": "47d4f3cfb4cb1c16da559c3a29b900b1f1de9df77fbf2028dddf97439f1c5144"
+      "schema_sha256": "3ad2a9efa4b414b081da32415241db65cde11fd8336a4880cdab4b6749fd839f"
     },
     "HankoRole": {
       "plural": "hankoroles",
@@ -29,7 +29,7 @@
         "v1alpha1",
         "v1beta1"
       ],
-      "schema_sha256": "938dc1dd0a3d85b3412ee8fa1e1225160e5dc80cd56276cd2bf767d76c3c37a8"
+      "schema_sha256": "4ecfc442edd85454a71037c06a73b301672dfba173f281df22306793bff096d1"
     }
   }
 }

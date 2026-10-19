@@ -21,7 +21,7 @@ for enabled in (False, True):
     assert policy["spec"]["failurePolicy"] == "Fail"
     assert len(policy["spec"]["validations"]) == 2
     assert "variables.operator" not in policy["spec"]["validations"][0]["expression"]
-    assert next(d for d in docs if d["kind"] == "ValidatingAdmissionPolicyBinding")["spec"]["validationActions"] == ["Deny", "Audit"]
+    assert next(d for d in docs if d["kind"] == "ValidatingAdmissionPolicyBinding" and "-lifecycle-" in d["metadata"]["name"])["spec"]["validationActions"] == ["Deny", "Audit"]
 for change in ({"enabled": "true"}, {"adminGroups": "admins"}, {"adminGroups": [""]},
                {"adminGroups": ["system:authenticated"]}, {"adminGroups": ["system:serviceaccounts:auth"]}):
     fixture.render({"lifecycle": change}, valid=False)

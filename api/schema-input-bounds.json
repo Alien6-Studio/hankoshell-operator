@@ -127,7 +127,7 @@
       "kind": "HankoRole",
       "path": "spec.attributes{}[]",
       "limits": {
-        "maxLength": 4096
+        "maxLength": 255
       }
     },
     {

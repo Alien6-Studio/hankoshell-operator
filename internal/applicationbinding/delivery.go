@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/credentialname"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -164,7 +165,7 @@ func credentialKey(b api.ApplicationRuntimeBinding) client.ObjectKey {
 	return client.ObjectKey{Namespace: b.Workload.Namespace, Name: b.Credentials.SecretRef}
 }
 func sourceKey(app *api.HankoApplication) client.ObjectKey {
-	return client.ObjectKey{Namespace: app.Namespace, Name: "hanko-app-" + app.Spec.ClientID}
+	return client.ObjectKey{Namespace: app.Namespace, Name: credentialname.Application(app.Spec.ClientID)}
 }
 
 func bindingStatus(b api.ApplicationRuntimeBinding) api.ApplicationRuntimeBindingStatus {

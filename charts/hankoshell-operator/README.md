@@ -13,6 +13,14 @@ Public chart/image artifacts remain pending. Runtime target namespaces need
 explicit resource-name-limited Roles; the chart grants no broad target write
 permission. Provision the targets and their current application/ServiceAccount UID
 consent before requesting delivery.
+An administrator must configure `sensitiveWrites.secrets` and
+`sensitiveWrites.deployments` with exact output/managed-provider names before
+submitting their CRs. Empty defaults permit no creation. Mandatory fail-closed
+admission enforces these names and protects Kubernetes identity/RBAC; Deployment
+writes require current Restricted namespace admission. Optional named Secret
+outputs in other namespaces use `sensitiveWrites.projections` (`create: false`
+by default). See the [configuration, naming and upgrade instructions](../../docs/secure-deployment.md#exact-secret-and-deployment-write-authority).
+
 The chart installs 17 experimental `hanko.sh/v1alpha1` CRDs. These APIs may change
 between minor versions. All controllers are registered; integration flags
 configure their connections to optional services.

@@ -113,7 +113,7 @@ type RealmRole struct {
 	Name string `json:"name"`
 
 	// Description is an optional human-readable explanation of the role.
-	// +kubebuilder:validation:MaxLength=1024
+	// +kubebuilder:validation:MaxLength=255
 	Description string `json:"description,omitempty"`
 
 	// Composites lists realm roles included by this role.

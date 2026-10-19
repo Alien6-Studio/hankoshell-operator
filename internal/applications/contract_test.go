@@ -3,6 +3,7 @@ package applications
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -123,9 +124,40 @@ func TestExactHTTPSACSValidation(t *testing.T) {
 			t.Fatalf("valid exact ACS rejected: %s", uri)
 		}
 	}
-	for _, uri := range []string{"", "http://localhost/acs", "https://user:password@portal.test/acs", "https://portal.test/*", "https://portal.test/acs#fragment", "https://portal.test/acs?query=1", "https://portal.test:65536/acs", "https://portal.test:0/acs", "https://portal.test/%0a", "https://portal.test/a\\b", strings.Repeat("a", 2049)} {
+	for _, uri := range []string{"", "http://localhost/acs", "https://user:password@portal.test/acs", "https://portal.test/*", "https://portal.test/acs#fragment", "https://portal.test/acs?query=1", "https://portal.test:65536/acs", "https://portal.test:0/acs", "https://portal.test/%0a", "https://portal.test/%00", "https://portal.test/%09", "https://portal.test/%7f", "https://portal.test/%ff", "https://portal.test/%2a", "https://portal.test/a\\b", strings.Repeat("a", 2049)} {
 		if ValidACS(uri) {
 			t.Fatalf("unsafe ACS accepted: %s", uri)
+		}
+	}
+}
+
+func TestKeycloakStorageBudgetsRejectBeforePlanAndPreserveUnicode(t *testing.T) {
+	for _, size := range []int{255, 256} {
+		for _, field := range []string{"client-id", "redirect", "client-role-name", "client-role-description", "saml-acs"} {
+			t.Run(fmt.Sprintf("%s/%d", field, size), func(t *testing.T) {
+				i := Intent{RealmRef: "realm", ClientID: "portal", Protocol: "oidc", Pattern: "web"}
+				value := strings.Repeat("é", size)
+				switch field {
+				case "client-id":
+					i.ClientID = value
+				case "redirect":
+					i.RedirectURIs = []string{value}
+				case "client-role-name":
+					i.Roles = []Role{{Name: value}}
+				case "client-role-description":
+					i.Roles = []Role{{Name: "role", Description: value}}
+				case "saml-acs":
+					prefix := "https://portal.test/"
+					i.Protocol = "saml"
+					i.Pattern = ""
+					i.ClientID = "urn:budget:sp"
+					i.SAML = &SAML{ACS: []string{prefix + strings.Repeat("é", size-len(prefix))}, SignedAssertions: true, NameIDFormat: "persistent"}
+				}
+				_, err := Compile(i, ResolvedReferences{Realm: "managed", Owner: "uid"}, KeycloakEvidence(), iamcontract.Preconditions{})
+				if size == 255 && err != nil || size == 256 && !errors.Is(err, iamcontract.ErrRejected) {
+					t.Fatal("native column budget not enforced", err)
+				}
+			})
 		}
 	}
 }

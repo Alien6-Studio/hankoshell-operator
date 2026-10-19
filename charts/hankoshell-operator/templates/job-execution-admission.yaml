@@ -1,0 +1,47 @@
+{{- $name := printf "%s-execution-jobs-%s" (include "hanko-operator.fullname" .) .Release.Namespace }}
+# Jobs have dynamic checkpoint names. They must not provide an alternative path
+# to another Kubernetes identity outside the exact Secret/Deployment boundary.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ $name }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [batch]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [jobs]
+        scope: Namespaced
+  matchConditions:
+    - name: exact-operator-identity
+      expression: request.userInfo.username == {{ printf "system:serviceaccount:%s:%s" .Release.Namespace (include "hanko-operator.fullname" .) | toJson }}
+  validations:
+    - expression: request.namespace == {{ .Release.Namespace | toJson }}
+      message: Operator Jobs must remain in the release namespace
+      reason: Forbidden
+    - expression: >-
+        namespaceObject != null && has(namespaceObject.metadata.labels) &&
+        'pod-security.kubernetes.io/enforce' in namespaceObject.metadata.labels &&
+        namespaceObject.metadata.labels['pod-security.kubernetes.io/enforce'] == 'restricted' &&
+        (!('pod-security.kubernetes.io/enforce-version' in namespaceObject.metadata.labels) ||
+         namespaceObject.metadata.labels['pod-security.kubernetes.io/enforce-version'] in
+           ['latest', {{ printf "v%s.%s" .Capabilities.KubeVersion.Major .Capabilities.KubeVersion.Minor | toJson }}])
+      message: Job execution requires current Restricted Pod Security admission
+      reason: Forbidden
+    - expression: >-
+        has(object.spec.template.spec.automountServiceAccountToken) && !object.spec.template.spec.automountServiceAccountToken &&
+        (!has(object.spec.template.spec.serviceAccountName) || object.spec.template.spec.serviceAccountName in ['', 'default']) &&
+        (!has(object.spec.template.spec.volumes) || object.spec.template.spec.volumes.all(v,
+          !has(v.projected) || !has(v.projected.sources) || v.projected.sources.all(s, !has(s.serviceAccountToken))))
+      message: Operator Jobs cannot select privileged ServiceAccounts or receive API tokens
+      reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ $name }}
+spec:
+  policyName: {{ $name }}
+  validationActions: [Deny, Audit]

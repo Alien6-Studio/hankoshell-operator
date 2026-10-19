@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
 )
@@ -122,6 +123,9 @@ func Compile(intent Intent, resolved ResolvedReferences, evidence CapabilityEvid
 	if err := iamcontract.Accept(evidence.Findings); err != nil {
 		return Plan{}, err
 	}
+	if !keycloakStorageBudgets(intent.model) || !keycloakStorageBudgets(resolved.model) {
+		return Plan{}, iamcontract.ErrRejected
+	}
 	if err := validateModel(intent.model); err != nil {
 		return Plan{}, err
 	}
@@ -150,6 +154,25 @@ func Compile(intent Intent, resolved ResolvedReferences, evidence CapabilityEvid
 	}{identity.Intent, identity.Backend, required, resolved.model, pre.References, pre.Authority})
 	identity.Plan = iamcontract.Hash(iamcontract.Version, "authorization", "plan", pb)
 	return Plan{identity: identity, intent: intent, resolved: resolved, evidence: evidence, preconditions: pre, required: required}, nil
+}
+func keycloakStorageBudgets(m Model) bool {
+	valid := func(value string) bool { return utf8.ValidString(value) && utf8.RuneCountInString(value) <= 255 }
+	for _, scope := range m.Scopes {
+		if !valid(scope.Name) || !valid(scope.Description) {
+			return false
+		}
+	}
+	for _, resource := range m.Resources {
+		if !valid(resource.Name) || !valid(resource.DisplayName) || !valid(resource.Type) {
+			return false
+		}
+		for _, uri := range resource.URIs {
+			if uri == "" || !valid(uri) || strings.IndexFunc(uri, func(r rune) bool { return r < 32 || r == 127 }) >= 0 {
+				return false
+			}
+		}
+	}
+	return true
 }
 func requiredCapabilities(m Model) Capabilities {
 	c := Capabilities{ScopeGrants: len(m.Scopes) > 0, ResourceObjects: len(m.Resources) > 0}

@@ -277,7 +277,7 @@ spec:
                 description: RedirectURIs is the list of allowed redirect URIs after
                   authentication.
                 items:
-                  maxLength: 2048
+                  maxLength: 255
                   minLength: 1
                   pattern: ^[^\x00-\x1F\x7F]+$
                   type: string
@@ -293,7 +293,7 @@ spec:
                   properties:
                     description:
                       description: Description is an optional human-readable description.
-                      maxLength: 1024
+                      maxLength: 255
                       type: string
                     name:
                       description: Name is the Keycloak client role name.
@@ -380,7 +380,7 @@ spec:
                       AssertionConsumerServices is the exact set of HTTP-POST ACS destinations.
                       HTTPS is required. Wildcards, userinfo, query and fragments are forbidden.
                     items:
-                      maxLength: 2048
+                      maxLength: 255
                       pattern: ^https://([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(:[0-9]{1,5})?(/[^\s?#@\\*]*)?$
                       type: string
                     maxItems: 8
@@ -1821,7 +1821,7 @@ spec:
                 description: RedirectURIs is the list of allowed redirect URIs after
                   authentication.
                 items:
-                  maxLength: 2048
+                  maxLength: 255
                   minLength: 1
                   pattern: ^[^\x00-\x1F\x7F]+$
                   type: string
@@ -1837,7 +1837,7 @@ spec:
                   properties:
                     description:
                       description: Description is an optional human-readable description.
-                      maxLength: 1024
+                      maxLength: 255
                       type: string
                     name:
                       description: Name is the Keycloak client role name.
@@ -1924,7 +1924,7 @@ spec:
                       AssertionConsumerServices is the exact set of HTTP-POST ACS destinations.
                       HTTPS is required. Wildcards, userinfo, query and fragments are forbidden.
                     items:
-                      maxLength: 2048
+                      maxLength: 255
                       pattern: ^https://([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(:[0-9]{1,5})?(/[^\s?#@\\*]*)?$
                       type: string
                     maxItems: 8

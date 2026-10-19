@@ -24,6 +24,7 @@ import (
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/applicationbinding"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/applications"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/credentialname"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 )
 
@@ -1419,7 +1420,7 @@ func (r *HankoApplicationReconciler) secretProjectionClient() client.Client {
 	return r.Client
 }
 
-func secretName(clientID string) string { return "hanko-app-" + clientID }
+func secretName(clientID string) string { return credentialname.Application(clientID) }
 
 func applicationRealmClientIndex(obj client.Object) []string {
 	app, ok := obj.(*hankoshv1alpha1.HankoApplication)

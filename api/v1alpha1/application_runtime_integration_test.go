@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/applicationbinding"
@@ -17,10 +18,11 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func checkRuntimeBindings(t *testing.T, ctx context.Context, admin client.Client, operator client.WithWatch) {
+func checkRuntimeBindings(t *testing.T, ctx context.Context, admin client.Client, operator client.WithWatch, chart, version string) {
 	t.Helper()
 	b := api.ApplicationRuntimeBinding{Name: "worker", Workload: api.ApplicationRuntimeWorkload{Namespace: "other", ServiceAccountRef: "runtime-worker"}, PublicMetadata: api.ApplicationRuntimeMetadataTarget{ConfigMapRef: "runtime-identity"}, Credentials: &api.ApplicationRuntimeCredentialTarget{SecretRef: "runtime-identity"}}
 	app := &api.HankoApplication{ObjectMeta: metav1.ObjectMeta{Namespace: "auth", Name: "runtime-worker"}, Spec: api.HankoApplicationSpec{RealmRef: "example", ClientID: "runtime-worker", Type: "m2m", RuntimeBindings: []api.ApplicationRuntimeBinding{b}}}
@@ -58,7 +60,6 @@ func checkRuntimeBindings(t *testing.T, ctx context.Context, admin client.Client
 	role := &rbacv1.Role{ObjectMeta: metav1.ObjectMeta{Namespace: "other", Name: "runtime-delivery"}, Rules: []rbacv1.PolicyRule{
 		{APIGroups: []string{""}, Resources: []string{"serviceaccounts"}, ResourceNames: []string{"runtime-worker"}, Verbs: []string{"get"}},
 		{APIGroups: []string{""}, Resources: []string{"configmaps"}, ResourceNames: []string{"runtime-identity"}, Verbs: []string{"get", "patch"}},
-		{APIGroups: []string{""}, Resources: []string{"secrets"}, ResourceNames: []string{"runtime-identity"}, Verbs: []string{"get", "patch"}},
 	}}
 	if err := admin.Create(ctx, role); err != nil {
 		t.Fatal(err)
@@ -66,6 +67,23 @@ func checkRuntimeBindings(t *testing.T, ctx context.Context, admin client.Client
 	binding := &rbacv1.RoleBinding{ObjectMeta: metav1.ObjectMeta{Namespace: "other", Name: "runtime-delivery"}, RoleRef: rbacv1.RoleRef{APIGroup: "rbac.authorization.k8s.io", Kind: "Role", Name: role.Name}, Subjects: []rbacv1.Subject{{Kind: "ServiceAccount", Namespace: "auth", Name: "compatibility-hanko-operator"}}}
 	if err := admin.Create(ctx, binding); err != nil {
 		t.Fatal(err)
+	}
+	// The independent installation administrator approves this exact existing
+	// output. Ordinary runtime consent alone cannot enlarge operator authority.
+	installCompatibilityChart(t, ctx, admin, chart, version, []string{
+		"--set-string", "sensitiveWrites.projections[0].namespace=other",
+		"--set-string", "sensitiveWrites.projections[0].secrets[0]=runtime-identity",
+	})
+	if err := wait.PollUntilContextTimeout(ctx, 50*time.Millisecond, 10*time.Second, true, func(ctx context.Context) (bool, error) {
+		changed := secret.DeepCopy()
+		changed.Data["admission-probe"] = []byte("public-fixture")
+		err := operator.Patch(ctx, changed, client.MergeFrom(secret), client.DryRunAll)
+		if apierrors.IsForbidden(err) {
+			return false, nil
+		}
+		return err == nil, err
+	}); err != nil {
+		t.Fatal("administrator projection grant did not propagate", err)
 	}
 	status, err := delivery.Deliver(ctx, app, proof)
 	if err != nil || len(status) != 1 {

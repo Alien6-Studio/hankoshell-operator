@@ -78,6 +78,12 @@ class SecuritySurfaceTests(unittest.TestCase):
             with self.subTest(change=change), self.assertRaises(ValueError):
                 gate.rbac(roles(rule))
 
+    def test_sensitive_updates_cannot_regain_namespace_wide_authority(self):
+        for resource, group in (("secrets", ""), ("deployments", "apps")):
+            for verb in ("patch", "update"):
+                with self.subTest(resource=resource, verb=verb), self.assertRaisesRegex(ValueError, "exact resourceNames"):
+                    gate.rbac(roles({"apiGroups": [group], "resources": [resource], "verbs": [verb]}))
+
     def test_custom_resource_grants_cannot_restore_the_bulk_writer(self):
         for resource, verb in (("hankoissuers", "patch"), ("hankomeshservices", "create"),
                                ("hankoroles", "delete"), ("hankooperations", "create"),

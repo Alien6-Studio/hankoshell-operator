@@ -16,6 +16,7 @@ import secrets
 import ssl
 import subprocess
 import tempfile
+import threading
 import time
 from urllib.error import HTTPError
 from urllib.parse import urlencode
@@ -24,6 +25,8 @@ from urllib.request import Request, urlopen
 import yaml
 
 from evidence_privacy import contains_jwt, redact_jwts
+from sensitive_writes import declared_targets
+from sensitive_write_probe import probe as sensitive_write_probe
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("release_system", ROOT / "scripts/release-system-test.py")
@@ -64,12 +67,62 @@ class System:
         self.http, self.token, self.endpoint = None, "", ""
         self.token_at = 0
         self.scanned_operators = [("auth", "system-operator"), ("org-auth", "organization-operator")]
+        self.sensitive_write_names = {"secrets": set(), "deployments": set()}
+        self.sensitive_write_lock = threading.Lock()
+        self.sensitive_write_values = None
 
     def kubectl(self, *args, **kwargs):
         return run([self.args.kubectl, "--kubeconfig", self.config, *args], **kwargs)
 
     def apply(self, *objects):
         self.kubectl("apply", "-f", "-", input=yaml.safe_dump_all(objects).encode())
+
+    def apply_approved(self, *objects):
+        self.approve_sensitive_writes(objects)
+        self.apply(*objects)
+
+    def approve_sensitive_writes(self, objects):
+        """The fixture administrator prepares exact grants before declaring CRs.
+
+        This uses the isolated cluster administrator kubeconfig, not the
+        operator token. Adversarial calls use that token directly and never
+        receive this independent approval.
+        """
+        targets = declared_targets(objects)
+        if not any(targets.values()):
+            return
+        with self.sensitive_write_lock:
+            changed = any(targets[kind] - self.sensitive_write_names[kind] for kind in targets)
+            for kind in targets:
+                self.sensitive_write_names[kind].update(targets[kind])
+            if not changed or self.sensitive_write_values is None:
+                return
+            values = yaml.safe_load(self.sensitive_write_values.read_text())
+            values["sensitiveWrites"] = {kind: sorted(set(values.get("sensitiveWrites", {}).get(kind, [])) | names)
+                                        for kind, names in self.sensitive_write_names.items()} | {"projections": values.get("sensitiveWrites", {}).get("projections", [])}
+            self.refresh_sensitive_grants(values)
+
+    def refresh_sensitive_grants(self, values):
+        self.sensitive_write_values.write_text(yaml.safe_dump(values))
+        manifest = run([self.args.helm, "template", "system", ROOT / "charts/hankoshell-operator", "--namespace", "auth",
+            "--kube-version", getattr(self.args, "kubernetes_version", KUBERNETES_VERSION), "--values", self.sensitive_write_values])
+        grants = [doc for doc in yaml.safe_load_all(manifest) if doc and
+            (doc["kind"] in ("Role", "RoleBinding") and doc["metadata"]["name"] in ("system-operator", "system-operator-sensitive-projections") or
+             doc["kind"] == "ValidatingAdmissionPolicy" and "-sensitive-" in doc["metadata"]["name"])]
+        if not any(doc["kind"] == "Role" and doc["metadata"]["name"] == "system-operator" for doc in grants) or sum(doc["kind"] == "ValidatingAdmissionPolicy" for doc in grants) != 2:
+            raise ValueError("Administrator sensitive-write grant rendering is incomplete")
+        self.kubectl("apply", "-f", "-", input=yaml.safe_dump_all(grants).encode())
+
+    def approve_projection_write(self, namespace, name):
+        with self.sensitive_write_lock:
+            values = yaml.safe_load(self.sensitive_write_values.read_text())
+            projections = values.setdefault("sensitiveWrites", {}).setdefault("projections", [])
+            grant = next((entry for entry in projections if entry["namespace"] == namespace), None)
+            if grant is None:
+                grant = {"namespace": namespace, "secrets": [], "create": False}
+                projections.append(grant)
+            grant["secrets"] = sorted(set(grant["secrets"]) | {name})
+            self.refresh_sensitive_grants(values)
 
     def get(self, kind, name, namespace="auth"):
         return json.loads(self.kubectl("get", kind, name, "-n", namespace, "-o", "json"))
@@ -265,14 +318,21 @@ class System:
         if getattr(self, "workload_grants", None):
             values["workloadBinding"] = {"grants": self.workload_grants}
         values.update(getattr(self, "install_values", {}))
+        values["sensitiveWrites"] = {kind: sorted(set(values.get("sensitiveWrites", {}).get(kind, [])) | names)
+                                    for kind, names in self.sensitive_write_names.items()} | {"projections": values.get("sensitiveWrites", {}).get("projections", [])}
         file = self.private / "values.yaml"
         file.write_text(yaml.safe_dump(values))
         run([self.args.helm, "install", "system", ROOT / "charts/hankoshell-operator", "--namespace", "auth",
              "--kubeconfig", self.config, "--values", file, "--wait", "--timeout", "180s"])
+        self.sensitive_write_values = file
         pod = json.loads(self.kubectl("get", "pods", "-n", "auth", "-l", "app.kubernetes.io/instance=system", "-o", "json"))["items"][0]
         container = pod["spec"]["containers"][0]
         if container["image"] != self.registry + "/hankoshell-operator@" + self.args.digest:
             raise ValueError("Installed image is not the scanned graph")
+        self.sensitive_write_checks = sensitive_write_probe(self)
+        if hasattr(self, "record"):
+            for label, passed in self.sensitive_write_checks.items():
+                self.record("sensitive_writes_" + label, passed)
         if (pod["spec"]["securityContext"]["runAsNonRoot"] is not True or container["securityContext"]["readOnlyRootFilesystem"] is not True
                 or (("--metrics-bind-address=0" in container["args"]) != (not values.get("metrics", {}).get("enabled", False)))):
             raise ValueError("Installed chart hardening/metrics contract differs")
@@ -309,12 +369,13 @@ class System:
                      f"/admin/realms/{realm}/identity-provider/instances"):
             self.api("GET", path, token=constrained, expected=(403,))
         self.api("POST", "/admin/realms", {"realm": "organization-denied"}, token=constrained, expected=(403,))
-        self.apply({"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": namespace, "labels": {
+        self.apply_approved({"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": namespace, "labels": {
             "pod-security.kubernetes.io/enforce": "restricted", "pod-security.kubernetes.io/enforce-version": "v1.37"}}},
             self.secret("operator-credentials", {"client-id": "organization-operator", "client-secret": credential}, namespace),
             self.secret("operator-ca", {"ca.crt": (self.private / "tls.crt").read_text()}, namespace))
         values = yaml.safe_load((self.private / "values.yaml").read_text())
         values["fullnameOverride"] = "organization-operator"
+        values["sensitiveWrites"] = {"secrets": ["hanko-app-system-organization-api"], "deployments": [], "projections": []}
         values["networkPolicy"]["keycloakNamespace"] = "auth"
         # Do not override organizationProjection: qualify the chart default.
         config = self.private / "organization-values.yaml"
@@ -347,7 +408,7 @@ class System:
                 desired["parentRef"] = parent
             else:
                 desired.update({"slug": "system-organization", "domains": ["company.invalid"]})
-            self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoOrganization",
+            self.apply_approved({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoOrganization",
                         "metadata": {"name": name, "namespace": namespace}, "spec": desired})
         for name in ("root", "child"):
             wait("installed standalone organization " + name, lambda name=name: organization_ready(name))
@@ -370,13 +431,13 @@ class System:
         # This process also provisions organizations, so it retains the separate
         # existing organization-writer profile. The two-version suite qualifies
         # authorization separately with manage-clients + view-users only.
-        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoRealm",
+        self.apply_approved({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoRealm",
                     "metadata": {"name": realm, "namespace": namespace}, "spec": {"roles": [{"name": "reader"}]}},
                    {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoApplication",
                     "metadata": {"name": "organization-api", "namespace": namespace},
                     "spec": {"realmRef": realm, "clientID": "system-organization-api", "type": "m2m"}})
         wait("organization grant backing application", lambda: self.ready("hankoapplication", "organization-api", namespace))
-        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoResourceServer",
+        self.apply_approved({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoResourceServer",
                     "metadata": {"name": "organization-server", "namespace": namespace},
                     "spec": {"realmRef": realm, "applicationRef": "organization-api", "audience": "urn:organization-system",
                              "scopes": [{"name": "read"}], "resources": [{"name": "invoice", "scopes": ["read"]}],
@@ -477,7 +538,7 @@ class System:
             target = self.secret(name, {"owner": "preserved"}, namespace)
             target["metadata"] = meta("credentials")
             self.apply(target)
-            rules.append({"apiGroups": [""], "resources": ["secrets"], "resourceNames": [name], "verbs": ["get", "patch"]})
+            self.approve_projection_write(namespace, name)
             binding["credentials"] = {"secretRef": name}
         self.apply({"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "Role", "metadata": {"namespace": namespace, "name": name}, "rules": rules},
                    {"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "RoleBinding", "metadata": {"namespace": namespace, "name": name},
@@ -561,7 +622,7 @@ class System:
         if oidc.get("protocol") != "oidc" or not oidc.get("oidcEndpoints") or oidc.get("samlEndpoints"):
             raise ValueError("Installed legacy OIDC status differs")
         entity, acs = "https://system-sp.example/entity", "https://system-sp.example/acs"
-        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoApplication",
+        self.apply_approved({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoApplication",
                     "metadata": {"name": "saml", "namespace": "auth"},
                     "spec": {"realmRef": "managed", "clientID": entity, "protocol": "saml",
                              "saml": {"assertionConsumerServices": [acs]}, "roles": [{"name": "use"}]}},
@@ -597,6 +658,7 @@ class System:
 
     def ownership_adoption(self):
         """Qualify import, acquisition, explicit Manage, repair and cleanup."""
+        self.approve_sensitive_writes([{"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoServiceAccount", "metadata": {"namespace": "auth"}, "spec": {"clientID": "system-adopt-m2m"}}])
         reader_secret = secrets.token_hex(32)
         credential = secrets.token_hex(32)
         self.sensitive.extend((reader_secret, credential))
@@ -784,7 +846,7 @@ class System:
         self.api("POST", "/admin/realms", {"realm": "denied-adoption"}, token=constrained, expected=(403,))
         return credential
 
-    def adoption_operator(self, namespace, realm, reader_roles, writer_roles, lifecycle_enabled=False):
+    def adoption_operator(self, namespace, realm, reader_roles, writer_roles, lifecycle_enabled=False, sensitive_secrets=()):
         writer, reader = namespace + "-writer", namespace + "-reader"
         writer_secret = self.adoption_identity(writer, realm, writer_roles)
         reader_secret = self.adoption_identity(reader, realm, reader_roles)
@@ -797,6 +859,7 @@ class System:
         values = yaml.safe_load((self.private / "values.yaml").read_text())
         values["fullnameOverride"] = namespace + "-operator"
         values["lifecycle"] = {"enabled": lifecycle_enabled, "adminGroups": []}
+        values["sensitiveWrites"] = {"secrets": list(sensitive_secrets), "deployments": [], "projections": []}
         values["networkPolicy"]["keycloakNamespace"] = "auth"
         config = self.private / (namespace + "-values.yaml")
         config.write_text(yaml.safe_dump(values))
@@ -1183,7 +1246,7 @@ class System:
         base = "/admin/realms/" + realm
         self.api("POST", "/admin/realms", {"realm": realm, "enabled": True})
         self.adoption_operator(namespace, realm, ["view-realm", "view-clients", "view-authorization"],
-            ["view-realm", "manage-clients", "manage-authorization"])
+            ["view-realm", "manage-clients", "manage-authorization"], sensitive_secrets=("hanko-app-reviewed-api",))
         credential = secrets.token_hex(32)
         self.sensitive.append(credential)
         self.api("POST", base + "/clients", {"clientId": "reviewed-api", "name": "reviewed-api", "secret": credential,
@@ -1274,7 +1337,7 @@ class System:
         corpus = json.loads(path.read_text())
         aliases = {"portal": "public-application-oidc", "api": "public-application-m2m", "reader": "public-role-composite"}
         for name in ("writer", "viewer"):
-            self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoRole", "metadata": {"name": "public-" + name, "namespace": "auth"},
+            self.apply_approved({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoRole", "metadata": {"name": "public-" + name, "namespace": "auth"},
                         "spec": {"realmRef": "managed", "name": "public-" + name}})
             wait("public auxiliary owned role", lambda: self.role_reconciled("public-" + name))
         # Parent roles precede scoped clients; the resource server follows its
@@ -1303,7 +1366,7 @@ class System:
                     for principal in permission["principals"]:
                         principal["ref"] = aliases[principal["ref"]]
             name = "public-" + fixture["name"]
-            self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": fixture["kind"],
+            self.apply_approved({"apiVersion": "hanko.sh/v1alpha1", "kind": fixture["kind"],
                         "metadata": {"name": name, "namespace": "auth"}, "spec": spec})
             wait("installed public corpus evaluated/applied/observed", lambda: self.iam_reconciled(fixture["kind"].lower(), name))
             objects.append((fixture["kind"].lower(), name))
@@ -1341,7 +1404,7 @@ class System:
     def reconcile(self):
         self.reject_wrong_ca()
         self.api("POST", "/admin/realms/managed/clients", {"clientId": "unmanaged", "enabled": True, "publicClient": True})
-        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoRealm", "metadata": {"name": "managed", "namespace": "auth"},
+        self.apply_approved({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoRealm", "metadata": {"name": "managed", "namespace": "auth"},
                     "spec": {"displayName": "System qualification", "roles": [{"name": "reader"}]}},
                    {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoApplication", "metadata": {"name": "app", "namespace": "auth"},
                     "spec": {"realmRef": "managed", "clientID": "system-app", "type": "web", "redirectURIs": ["https://app.example/callback"],
@@ -1358,7 +1421,7 @@ class System:
             event.get("reason") == "ClientCreated" and event.get("regarding", {}).get("uid") == app_uid
             for event in json.loads(self.kubectl("get", "events.events.k8s.io", "-n", "auth", "-o", "json"))["items"]))
         # Exercise the domain compiler/adapter through the installed manager.
-        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoRole",
+        self.apply_approved({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoRole",
                     "metadata": {"name": "contract-role", "namespace": "auth"},
                     "spec": {"realmRef": "managed", "name": "system-contract-role", "description": "contract desired"}})
         wait("IAM contract role reconciliation", lambda: self.role_reconciled("contract-role"))
@@ -1366,13 +1429,13 @@ class System:
         owner = self.get("hankorole", "contract-role")["metadata"]["uid"]
         if role.get("description") != "contract desired" or role.get("attributes", {}).get("hanko.sh/role-owner") != [owner]:
             raise ValueError("Installed IAM role contract or ownership differs")
-        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoApplication",
+        self.apply_approved({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoApplication",
                     "metadata": {"name": "contract-api", "namespace": "auth"},
                     "spec": {"realmRef": "managed", "clientID": "system-contract-api", "type": "m2m",
                              "tokenClaims": [{"name": "audience", "claim": "aud", "value": "system-contract-api"}]}})
         wait("IAM backing application", lambda: self.ready("hankoapplication", "contract-api"))
         self.runtime_binding("contract-api", credentials=True)
-        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoResourceServer",
+        self.apply_approved({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoResourceServer",
                     "metadata": {"name": "contract-server", "namespace": "auth"},
                     "spec": {"realmRef": "managed", "applicationRef": "contract-api", "audience": "urn:system-contract",
                              "scopes": [{"name": "read", "description": "Read documents"}],
@@ -1469,7 +1532,7 @@ def main():
             print("System: scanned operator installed through Helm", flush=True)
             system.reconcile()
             args.output.write_text(json.dumps({"version": VERSION, "revision": args.revision, "image_digest": args.digest,
-                "kubernetes": KUBERNETES_VERSION, "keycloak": KEYCLOAK_VERSION, "result": "pass", "public_contract": system.public_corpus_evidence, "operational_checks": system.observability_checks,
+                "kubernetes": KUBERNETES_VERSION, "keycloak": KEYCLOAK_VERSION, "result": "pass", "public_contract": system.public_corpus_evidence, "operational_checks": system.observability_checks, "sensitive_write_checks": system.sensitive_write_checks,
                 "checks": ["Helm installation and real pod startup under Restricted admission", "namespace RBAC and current-API event recording",
                            "verified private-CA HTTPS, wrong-CA readiness/write denial and trust repair", "scoped Keycloak identity and denied authority", "realm/client/roles/Secret reconciliation",
                            "IAM role and authorization evaluated/applied/read-back evidence, UID ownership and finalizer cleanup",

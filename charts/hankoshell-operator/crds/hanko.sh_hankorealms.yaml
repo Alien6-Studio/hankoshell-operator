@@ -282,7 +282,7 @@ spec:
                     description:
                       description: Description is an optional human-readable explanation
                         of the role.
-                      maxLength: 1024
+                      maxLength: 255
                       type: string
                     name:
                       description: Name is the Keycloak realm role name.

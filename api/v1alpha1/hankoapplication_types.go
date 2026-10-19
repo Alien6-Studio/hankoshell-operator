@@ -64,7 +64,7 @@ type HankoApplicationSpec struct {
 	// RedirectURIs is the list of allowed redirect URIs after authentication.
 	// +kubebuilder:validation:MaxItems=64
 	// +kubebuilder:validation:items:MinLength=1
-	// +kubebuilder:validation:items:MaxLength=2048
+	// +kubebuilder:validation:items:MaxLength=255
 	// +kubebuilder:validation:items:Pattern=`^[^\x00-\x1F\x7F]+$`
 	RedirectURIs []string `json:"redirectURIs,omitempty"`
 
@@ -178,7 +178,7 @@ type ApplicationRole struct {
 	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
 	Name string `json:"name"`
 	// Description is an optional human-readable description.
-	// +kubebuilder:validation:MaxLength=1024
+	// +kubebuilder:validation:MaxLength=255
 	Description string `json:"description,omitempty"`
 }
 

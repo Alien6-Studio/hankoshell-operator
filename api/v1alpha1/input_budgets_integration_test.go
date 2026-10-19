@@ -105,7 +105,7 @@ func checkPublicInputBudgets(t *testing.T, ctx context.Context, admin client.Cli
 		SchemaVersion int
 		Cases         []inputBudgetCase
 	}
-	if err := json.Unmarshal(data, &corpus); err != nil || corpus.SchemaVersion != 1 || len(corpus.Cases) != 88 {
+	if err := json.Unmarshal(data, &corpus); err != nil || corpus.SchemaVersion != 1 || len(corpus.Cases) != 95 {
 		t.Fatal("incomplete independent input-budget corpus", err)
 	}
 	seen := map[string]bool{}

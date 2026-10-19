@@ -114,6 +114,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 	t.Run("IAM identifier and collection budgets", func(t *testing.T) { checkIAMInputBudgets(t, ctx, admin) })
 	t.Run("public input budgets", func(t *testing.T) { checkPublicInputBudgets(t, ctx, admin) })
 	t.Run("public status budgets", func(t *testing.T) { checkPublicStatusBudgets(t, ctx, admin) })
+	t.Run("every public field admission", func(t *testing.T) { checkEveryPublicField(t, ctx, admin, environment.CRDs) })
 	t.Run("fresh realm ownership selectors", func(t *testing.T) { checkRealmOwnershipSelectors(t, ctx, admin) })
 	t.Run("fresh paginated realm deletion inventory", func(t *testing.T) { checkRealmDeletionInventory(t, ctx, admin) })
 
@@ -312,7 +313,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 	}
 	t.Run("leader election named lock RBAC", func(t *testing.T) { checkLeaderLeaseRBAC(t, ctx, admin, operator, user.Config()) })
 	t.Run("custom resource least privilege RBAC", func(t *testing.T) { checkCustomResourceRBAC(t, ctx, admin, operator, chart, version) })
-	t.Run("runtime bindings and exact cross-namespace RBAC", func(t *testing.T) { checkRuntimeBindings(t, ctx, admin, operator) })
+	t.Run("runtime bindings and exact cross-namespace RBAC", func(t *testing.T) { checkRuntimeBindings(t, ctx, admin, operator, chart, version) })
 	t.Run("workload binding named read/patch RBAC", func(t *testing.T) { checkWorkloadBindingDeliveryRBAC(t, ctx, admin, operator) })
 	t.Run("server-side-apply-and-status", func(t *testing.T) {
 		checkRealmApplyAndStatus(t, ctx, operator)
@@ -365,6 +366,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 			}
 		}
 	})
+	t.Run("sensitive write authority", func(t *testing.T) { checkSensitiveWrites(t, ctx, admin, environment, config, chart, version) })
 }
 
 func installCompatibilityChart(t *testing.T, ctx context.Context, admin client.Client, chart, version string, extra []string) *appsv1.Deployment {

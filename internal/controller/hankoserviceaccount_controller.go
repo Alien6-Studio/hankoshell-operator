@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/credentialname"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/workloadbinding"
 )
@@ -523,7 +524,7 @@ func (r *HankoServiceAccountReconciler) upsertSASecret(ctx context.Context, sa *
 	return r.Patch(ctx, s, p)
 }
 
-func saSecretName(clientID string) string { return "hanko-sa-" + clientID }
+func saSecretName(clientID string) string { return credentialname.ServiceAccount(clientID) }
 
 func (r *HankoServiceAccountReconciler) requestsForApplicationOwnership(ctx context.Context, obj client.Object) []reconcile.Request {
 	application, ok := obj.(*hankoshv1alpha1.HankoApplication)

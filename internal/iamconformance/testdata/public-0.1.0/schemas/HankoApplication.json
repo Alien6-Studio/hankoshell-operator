@@ -222,7 +222,7 @@
         "redirectURIs": {
           "description": "RedirectURIs is the list of allowed redirect URIs after authentication.",
           "items": {
-            "maxLength": 2048,
+            "maxLength": 255,
             "minLength": 1,
             "pattern": "^[^\\x00-\\x1F\\x7F]+$",
             "type": "string"
@@ -237,7 +237,7 @@
             "properties": {
               "description": {
                 "description": "Description is an optional human-readable description.",
-                "maxLength": 1024,
+                "maxLength": 255,
                 "type": "string"
               },
               "name": {
@@ -340,7 +340,7 @@
             "assertionConsumerServices": {
               "description": "AssertionConsumerServices is the exact set of HTTP-POST ACS destinations.\nHTTPS is required. Wildcards, userinfo, query and fragments are forbidden.",
               "items": {
-                "maxLength": 2048,
+                "maxLength": 255,
                 "pattern": "^https://([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\\.)*[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(:[0-9]{1,5})?(/[^\\s?#@\\\\*]*)?$",
                 "type": "string"
               },

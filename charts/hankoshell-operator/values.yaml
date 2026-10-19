@@ -57,6 +57,19 @@ lifecycle:
   # system:masters is always allowed; the operator cannot approve itself.
   adminGroups: []
 
+# Administrator-approved write targets in the operator namespace. Creation is
+# admission-guarded; update/patch RBAC is also restricted to these exact names.
+# Add canonical application/M2M output Secrets, explicit rotation/projection
+# targets and managed Keycloak Deployment names before declaring their CRs.
+# The configured Hub token and the existing operator Deployment are handled
+# separately. Wildcards and generated-name prefixes are never accepted.
+sensitiveWrites:
+  secrets: []
+  deployments: []
+  # Optional named credential outputs outside the operator namespace. Existing
+  # targets get get/patch only; create must be explicitly approved separately.
+  projections: []
+
 replicaCount: 1
 
 # Opt-in development qualification. Four IAM controllers only: Application,

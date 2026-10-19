@@ -202,7 +202,7 @@ class Transactions(fleet.Fleet):
 
     def rotation(self, boundary):
         name = "rotate-" + boundary.replace("_", "-")
-        self.apply(installed.object_value("HankoServiceAccount", name, {"realmRef": "managed", "clientID": name,
+        self.apply_approved(installed.object_value("HankoServiceAccount", name, {"realmRef": "managed", "clientID": name,
             "secretRotationPolicy": {"enabled": False}}, labels=TENANT))
         wait("initial rotation client", lambda: ready_current(self.get("hankoserviceaccount", name)), 180)
         before = self.get("hankoserviceaccount", name)

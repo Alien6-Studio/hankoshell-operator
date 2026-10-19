@@ -275,7 +275,7 @@ class Portable(installed.Installed):
     def exercise(self, fixture, provider):
         expected = fixture["expected"][provider]
         before = self.writes(provider)
-        self.apply(self.selected_manifest(fixture, provider))
+        self.apply_approved(self.selected_manifest(fixture, provider))
         value = self.await_observation(fixture, provider)
         if expected["classification"] == "unsupported":
             self.record(provider + "_" + fixture["name"] + "_no_mutation", before == self.writes(provider) and not value["metadata"].get("finalizers"))

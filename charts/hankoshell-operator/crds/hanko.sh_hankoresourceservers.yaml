@@ -267,7 +267,9 @@ spec:
                       type: string
                     uris:
                       items:
-                        maxLength: 2048
+                        maxLength: 255
+                        minLength: 1
+                        pattern: ^[^\x00-\x1F\x7F]+$
                         type: string
                       maxItems: 32
                       type: array
@@ -288,7 +290,7 @@ spec:
                     server.
                   properties:
                     description:
-                      maxLength: 1024
+                      maxLength: 255
                       type: string
                     name:
                       maxLength: 255
@@ -1382,7 +1384,9 @@ spec:
                       type: string
                     uris:
                       items:
-                        maxLength: 2048
+                        maxLength: 255
+                        minLength: 1
+                        pattern: ^[^\x00-\x1F\x7F]+$
                         type: string
                       maxItems: 32
                       type: array
@@ -1403,7 +1407,7 @@ spec:
                     server.
                   properties:
                     description:
-                      maxLength: 1024
+                      maxLength: 255
                       type: string
                     name:
                       maxLength: 255

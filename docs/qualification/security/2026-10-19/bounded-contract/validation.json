@@ -1,0 +1,2956 @@
+{
+  "schemaVersion": 1,
+  "phase": "local source qualification; exact-candidate protected CI required",
+  "qualification_revision": "a7b71fdb387706a0b400abd2c08baec69120ca64",
+  "worktree_dirty": true,
+  "public_field_fixtures": 966,
+  "served_field_paths": 1343,
+  "served_schemas": 20,
+  "admission_profiles": 6,
+  "mandatory_write_policies": 7,
+  "local_suites": [
+    {
+      "suite": "unit",
+      "counts": {
+        "passed": 2840,
+        "failed": 0,
+        "skipped": 0
+      },
+      "results_sha256": "61478db840cc4435243114e04c6013c5f27aab5d99f94c820f09497d2dab3b8c",
+      "junit_sha256": "9d1b38c49471da053531b125a33a160eab5a200fb8c1818146db15501ce72f99"
+    },
+    {
+      "suite": "kubernetes/1.35.0",
+      "counts": {
+        "passed": 4861,
+        "failed": 0,
+        "skipped": 0
+      },
+      "results_sha256": "33b65278099b36f2f4f74ace18f195ce1db407f06612ffa39304a82d2e6da362",
+      "junit_sha256": "0a1496ba379b9962853478418eee6b6be06e77efb40a2ef1645a5ef7e29f18ee"
+    },
+    {
+      "suite": "kubernetes/1.36.2",
+      "counts": {
+        "passed": 4861,
+        "failed": 0,
+        "skipped": 0
+      },
+      "results_sha256": "3a8e35c0e1b76d3bf9e22b4b62492a5997930aee44c739305852a9be479da73a",
+      "junit_sha256": "f3596860b7e9ab608851f9a7e6e0996fa66771e1798c83d3990a83e826faf285"
+    },
+    {
+      "suite": "kubernetes/1.37.0",
+      "counts": {
+        "passed": 4861,
+        "failed": 0,
+        "skipped": 0
+      },
+      "results_sha256": "6e6586803fcf1abf54f468ab8ebbde136f462235e31f796dfc2b966ed7401128",
+      "junit_sha256": "cf58b3968662306372a21d071c23f93d53efddb18f5b19bbfdb64a6f03086982"
+    }
+  ],
+  "python_tests": 454,
+  "coverage_floors": "pass",
+  "lint_issues": 0,
+  "architecture": "pass",
+  "generated_and_preflight": "pass",
+  "operational_smoke": {
+    "revision": "d1afbd4232f70744878322372c5ffa11bb56e391",
+    "image_digest": "sha256:73b7bb028096610d305ca2d81a901b46281a83f7200cc93919eb6324962139f7",
+    "general_checks": 9,
+    "operator_token_checks": 24,
+    "new_compiled_candidate_qualification": false,
+    "report_sha256": "247c472637694e81e64ce907b5a46a0629e4fd6c23453435e1889b984773959c"
+  },
+  "fuzz_campaign": {
+    "targets": 26,
+    "passed": 26,
+    "executions": 5990404,
+    "seconds_per_target": 15,
+    "report_sha256": "71dbc7ab0763a3b0345852eb2131ca46b36975fbb2497fc71351143cf08cca5b",
+    "scope": "Complete local dirty-checkout campaign; recorded source identity retained verbatim. Exact integrated candidate CI remains required."
+  },
+  "security_mutations": {
+    "mutations": 71,
+    "detected": 71,
+    "report_sha256": "a05477aeaa45a532357f338f60a39ab9c53cb12b5d35cf554570a1a013fd1b8b"
+  },
+  "components": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "4588eb68f4c62a073443c1b443d4c97966c14833173d2353c1c195356a1a09e8"
+    },
+    {
+      "path": ".github/workflows/development.yml",
+      "sha256": "157737d671edfedbc544ebb57a0d6b81079cdcd2bdc4554076bc314b02e3cfea"
+    },
+    {
+      "path": ".github/workflows/keycloak-stability.yml",
+      "sha256": "076ae6b7e7f198006b6e363fff044950e09434d06c2b9091fe58ded59afb1fa9"
+    },
+    {
+      "path": ".github/workflows/oci-security.yml",
+      "sha256": "54395eaaecc7cd710370d3eff32d533546fbe1fb6dae96b33287a3e6e4cd47d9"
+    },
+    {
+      "path": ".github/workflows/release.yml",
+      "sha256": "00480e1a89687986885747c7b27e0df607ab73d9241e7ced9d5d7a64e591804a"
+    },
+    {
+      "path": ".github/workflows/scale-qualification.yml",
+      "sha256": "b95bddf575da50de8d2ba5e627bf5a09e776878e2c35c13b269d0a7c1336270e"
+    },
+    {
+      "path": ".github/workflows/support-window.yml",
+      "sha256": "b5f9c1f7ec604f4c9ff80791c060fe893b1b228649f378d01de4f1409701e4c1"
+    },
+    {
+      "path": ".github/workflows/test-history.yml",
+      "sha256": "cf366bc7216b082c5121076a60b805d29cac941cfaa3a53992dc6eaf46d98888"
+    },
+    {
+      "path": ".go-arch-lint.yml",
+      "sha256": "255ad8a254ab5fc494f69952a9efee0e2c2ae0d6106f61a1ae203ebd84e9ab6c"
+    },
+    {
+      "path": "Makefile",
+      "sha256": "905a83f01b0efab7cc12e0129f052d8666395bab55c2bd0e1fb3110a047df76d"
+    },
+    {
+      "path": "api/schema-input-bounds.json",
+      "sha256": "3c132d3e23081b6b835a5f4fc8362692628234ff52f1f4e6b48d51570c251405"
+    },
+    {
+      "path": "api/schema-status-bounds.json",
+      "sha256": "6435a6a27bd1f7e67974d03eb35f82c3e662313810637036337fe9d2c453494c"
+    },
+    {
+      "path": "api/testdata/input-budgets.json",
+      "sha256": "3a81f173599cfda6d3da2b656eed69ad1bd35b3f5f1b3c4d668616c495907b3a"
+    },
+    {
+      "path": "api/testdata/public-field-budgets.json",
+      "sha256": "4bbbff53c13f2d70b5ec6c8516d534914da008df18c56c88dc1f835ba2441b41"
+    },
+    {
+      "path": "api/testdata/status-budgets.json",
+      "sha256": "cb4d8b54442e4f77c3b20902fe232926051435beb2fd25e1d0ea0dfd63a64a2b"
+    },
+    {
+      "path": "api/v1alpha1/adoption_integration_test.go",
+      "sha256": "0be26f775ce9e90f6393387cf5e73c74a86a185db2e12c0ac9e3a705a63e5f27"
+    },
+    {
+      "path": "api/v1alpha1/adoption_types.go",
+      "sha256": "24609db9ebf95273a187ca4a1efb2dc0cddcd093a3267ae27e56a56f55fcb461"
+    },
+    {
+      "path": "api/v1alpha1/application_protocol_integration_test.go",
+      "sha256": "f881e664f94deba6cdab45e3df8827a85772592aeea0c159a5e4d0ddae7b92f8"
+    },
+    {
+      "path": "api/v1alpha1/application_protocol_types.go",
+      "sha256": "7b463e1ae6b673e00c5af7fbdd6d165df5ca31ab7501df38e83e1851d35abecd"
+    },
+    {
+      "path": "api/v1alpha1/application_runtime_integration_test.go",
+      "sha256": "de25f2da226cd1b5a3f02bb8e7f7d1bd07e559be78a2d84e012a52125dcbdc3a"
+    },
+    {
+      "path": "api/v1alpha1/application_runtime_types.go",
+      "sha256": "94e2ef8be5a319f5fb6ee8958ed0c10ed18fd571ebfc61a016edb8f615675b73"
+    },
+    {
+      "path": "api/v1alpha1/authorization_explanation_integration_test.go",
+      "sha256": "509b64689c27b5cce0a18e3f9b14544484e00110509d4c78d7c373aa3d7bde04"
+    },
+    {
+      "path": "api/v1alpha1/authorization_explanation_types.go",
+      "sha256": "382e7bd606addc0a65b313f216824f0b024891dbac33995934d5e1c76e1ed423"
+    },
+    {
+      "path": "api/v1alpha1/conditions_integration_test.go",
+      "sha256": "4519297a45ceb31b0562bef2266dd5acd85e9c385e69ba391e568ed0ae9c4a62"
+    },
+    {
+      "path": "api/v1alpha1/conversion_contract_integration_test.go",
+      "sha256": "d6d9d56ffe9a237da1cf9595d2def5af0a99b0d661913f1d409f24e2c2b9110a"
+    },
+    {
+      "path": "api/v1alpha1/custom_rbac_integration_test.go",
+      "sha256": "0a9e7f86be45c6a320b30cb840ebcaca54f9884e20f2ad8b56c0ff1f7b704c27"
+    },
+    {
+      "path": "api/v1alpha1/delegation_integration_test.go",
+      "sha256": "cc97f6884f1248b4ecb092b1c85829840d6ea848d9c34bb6eea9a3d7226a6b3c"
+    },
+    {
+      "path": "api/v1alpha1/experimental_provider_integration_test.go",
+      "sha256": "1116a1df801e726d989ef50f5adc42b24c320937c6f4d53fec151ae1f5f85b66"
+    },
+    {
+      "path": "api/v1alpha1/finalizer_recovery_integration_test.go",
+      "sha256": "430de02497bf8a3b605bb43d8bc8575c3fcd72c1ee277120413709497f3abb53"
+    },
+    {
+      "path": "api/v1alpha1/fleet_plan_integration_test.go",
+      "sha256": "919aa25e0ca79e4074454072926cbf6885180437f19dc07790615c66fa4db545"
+    },
+    {
+      "path": "api/v1alpha1/fleet_recovery_integration_test.go",
+      "sha256": "e0b586081c1622b76bd3b533a01b31ee97db4b13190ab7c90ff244ae549cb688"
+    },
+    {
+      "path": "api/v1alpha1/fleet_rollout_integration_test.go",
+      "sha256": "7d0507ba5fefb79d329b5258076ee0f69b7a04522a86e19c992d09723f6d0326"
+    },
+    {
+      "path": "api/v1alpha1/groupversion_info.go",
+      "sha256": "cb486d97d406f0133c3c640422c6dfb15137fc2831fc9e8211c6c4a5ef8f3b53"
+    },
+    {
+      "path": "api/v1alpha1/hankoapplication_types.go",
+      "sha256": "49c7ed7d68ed44475ec5d95086b36ae3c791cf78c4c9857f9715a662efdeeda4"
+    },
+    {
+      "path": "api/v1alpha1/hankoemailprovider_types.go",
+      "sha256": "df7221f6b4219a73f22460bca4fbe50ea3594e702c30d6de0119dc0137909eb3"
+    },
+    {
+      "path": "api/v1alpha1/hankoiamprofile_types.go",
+      "sha256": "791f6a4b2590fd9a1b1fa45f551408fd37487583e208536d7a6759f00ca52269"
+    },
+    {
+      "path": "api/v1alpha1/hankoimport_types.go",
+      "sha256": "f97a686e38a09680ff99300b09668486c6e0e4e9e4e76ee1a16e4039ef079dd6"
+    },
+    {
+      "path": "api/v1alpha1/hankoissuer_types.go",
+      "sha256": "79a955e0d97b8a530eeab2486413824381357b706b4125eb1076bd016d1ce4df"
+    },
+    {
+      "path": "api/v1alpha1/hankokeycloakinstance_types.go",
+      "sha256": "c4e5588152f81a142e907f2e493c34f8b92f244ae336568df8aafed97512f0db"
+    },
+    {
+      "path": "api/v1alpha1/hankomeshservice_types.go",
+      "sha256": "4ad2005af891534cfb631123fcbe0dcba2f6167b00e35fbbfd0ce3b565fda130"
+    },
+    {
+      "path": "api/v1alpha1/hankooperation_types.go",
+      "sha256": "328a50195052375544ba5867878710eb89918175bdc1ffe2cbe8fcb053943f46"
+    },
+    {
+      "path": "api/v1alpha1/hankoorganization_types.go",
+      "sha256": "2e7b4be5caab81c5ea1a5b40ffdef5e9832cdf821f8cab5cef5c40c8e9b07d57"
+    },
+    {
+      "path": "api/v1alpha1/hankorealm_types.go",
+      "sha256": "3bfd1b1829573ff269ffe08c5ac0c160bab57340c60f6567a56761d78ce23bd1"
+    },
+    {
+      "path": "api/v1alpha1/hankoresourceserver_types.go",
+      "sha256": "c3431aa17151cb51700097bf2cd4fc2edf6b6bb2c2723cd7375f836340ad209c"
+    },
+    {
+      "path": "api/v1alpha1/hankorole_types.go",
+      "sha256": "628585b4455e942cf0cfb9ea280ce926c341bfb85e1702c201ad4d134be50988"
+    },
+    {
+      "path": "api/v1alpha1/hankoserviceaccount_types.go",
+      "sha256": "33fda5d31380cf731cb80efc3701cfec32a2a31716b8c048d48716c23648ef22"
+    },
+    {
+      "path": "api/v1alpha1/hankosnapshot_types.go",
+      "sha256": "ff0fde64f104a4992ce7a4788e536b276af5c20ea5220019c3fb87f8102b757a"
+    },
+    {
+      "path": "api/v1alpha1/hankotenant_types.go",
+      "sha256": "082608465e9521078ca6f373af9142ec246b0eb08a53ae9e1b9ebc1ebebbcb8f"
+    },
+    {
+      "path": "api/v1alpha1/hankotheme_types.go",
+      "sha256": "51d6c15b2f120dba259d024ace234877d9da0b0bed0a71bef5f043bc8fe1d224"
+    },
+    {
+      "path": "api/v1alpha1/hankoworkloadtrust_types.go",
+      "sha256": "2ef1deb896b6fb0a98a070b387c00cd7ed9d7c3881d18b9bfcd9f42260972219"
+    },
+    {
+      "path": "api/v1alpha1/iam_bounds_integration_test.go",
+      "sha256": "a407ecfe7c77a35546214f5888f0b5b1db6607e825f55082d7c3d29259db32f9"
+    },
+    {
+      "path": "api/v1alpha1/iam_evidence_types.go",
+      "sha256": "c6d697f8aba0dcd454165ae0c8ae7805266ff5887268d135c0b9ffeb4a34c7cf"
+    },
+    {
+      "path": "api/v1alpha1/iam_status_integration_test.go",
+      "sha256": "ddff083c0e3620dff64323d3ac6d14ee24e6eb0176abeb0a03d6f94053f7399a"
+    },
+    {
+      "path": "api/v1alpha1/import_recovery_integration_test.go",
+      "sha256": "5cf58a80fa8b78f30bcd92808501f585076329b6394e8843755460904cbfe83b"
+    },
+    {
+      "path": "api/v1alpha1/import_status_integration_test.go",
+      "sha256": "ee6213dd1297506be54fe4fdc34f27ec17e0332228ea8b6227774a5908c88fcf"
+    },
+    {
+      "path": "api/v1alpha1/input_budgets_integration_test.go",
+      "sha256": "f6cc53193485f8b51eb447cf6c7422817ec504d73b57f335e68bbabda4646d36"
+    },
+    {
+      "path": "api/v1alpha1/kubernetes_compatibility_test.go",
+      "sha256": "cbb31da3a858fc8f4b9c28f2c1442fff2a32bb7a5453780b8b713c5932226b67"
+    },
+    {
+      "path": "api/v1alpha1/lifecycle_authority_integration_test.go",
+      "sha256": "ffc8c0eb8f6cd2b63c11737999bed4bb90e2f54417595a09f90312804dd782ee"
+    },
+    {
+      "path": "api/v1alpha1/managed_infrastructure_integration_test.go",
+      "sha256": "c085fcf2fbc78aeb41b82165c36295a10d300b47f610c5c47e7ea9c32037d933"
+    },
+    {
+      "path": "api/v1alpha1/managed_observation_integration_test.go",
+      "sha256": "bbd6339fbb29fce29ce140cb26080d45028abdf4d5f4bab23bdab500fdf03d16"
+    },
+    {
+      "path": "api/v1alpha1/operation_recovery_integration_test.go",
+      "sha256": "0e4f05537a62cbfff37a4b243143314d10ea4630b75529436ecb9f5303428db2"
+    },
+    {
+      "path": "api/v1alpha1/organization_principal_integration_test.go",
+      "sha256": "aa7f7f8f835d98aa497b07d7e63fc389b396b36918886772ae7428f860f7e552"
+    },
+    {
+      "path": "api/v1alpha1/organization_status_integration_test.go",
+      "sha256": "650bca39a713e16ca71716f0dd53c2ae96601aac554eccebeb2f37438d73c74c"
+    },
+    {
+      "path": "api/v1alpha1/ownership_selectors_integration_test.go",
+      "sha256": "cf977f668b260aad7f645d639805e67230e9d7b1301e980c702813c5a43f659c"
+    },
+    {
+      "path": "api/v1alpha1/portable_contract_integration_test.go",
+      "sha256": "1eaf6b9d72ce8afb506ce5cf7799a5cbadfef6fbe277c21d36e2cbf3b211324f"
+    },
+    {
+      "path": "api/v1alpha1/public_contract_integration_test.go",
+      "sha256": "8917186b25dffbcb64a76459fb70503f28a3a59619fa33400e8e9de72f0ecf67"
+    },
+    {
+      "path": "api/v1alpha1/public_field_budgets_integration_test.go",
+      "sha256": "8f97cf82be541fb9e48373a5df028f8b3906a2412805fb5c9efd830a47f3bd8d"
+    },
+    {
+      "path": "api/v1alpha1/security_bounds_integration_test.go",
+      "sha256": "09d07ca64fe218a544a84535c74ae49bffa4f6951ed912f8677562287cc4c863"
+    },
+    {
+      "path": "api/v1alpha1/sensitive_writes_integration_test.go",
+      "sha256": "fa3fe88ba0c66afad9ed750cb8b05d2ab941369c5586f8cd1828033f3484b901"
+    },
+    {
+      "path": "api/v1alpha1/snapshot_recovery_integration_test.go",
+      "sha256": "25d395e694bcd8e8cc9d7a4a463cb9ec256a4ed53e52e5af6ac701ec289c81f9"
+    },
+    {
+      "path": "api/v1alpha1/snapshot_security_test.go",
+      "sha256": "ffc73a7027689c81654d86b23284bf99909e5e42c465afc8ee551f0284db3cc4"
+    },
+    {
+      "path": "api/v1alpha1/snapshot_tenant_integration_test.go",
+      "sha256": "34087b84eb6bb8b2f42cd62412f63c86692b4bd1b5f482254d6a93caca254020"
+    },
+    {
+      "path": "api/v1alpha1/status_budgets_integration_test.go",
+      "sha256": "353fcc44f257ffa8fc7181fb55cefd7c5eb608b2fc1566827f3f834cf8495e30"
+    },
+    {
+      "path": "api/v1alpha1/tenant_bundle_integration_test.go",
+      "sha256": "495032cb1eef5a3ab1208d45b538801b3a1355d6099636560914a85356cb53f4"
+    },
+    {
+      "path": "api/v1alpha1/tenant_client_integration_test.go",
+      "sha256": "2484108a0771557799fd3403611f49719c8ad6069cd117e780e3c9cf778a0c1c"
+    },
+    {
+      "path": "api/v1alpha1/workload_authentication_types.go",
+      "sha256": "faeca9db26095ace7e26fbdc154bafe809a675f8682b72429c8315d42bdbc7e5"
+    },
+    {
+      "path": "api/v1alpha1/workload_binding_integration_test.go",
+      "sha256": "c02f12a249b5269e01385ae98254d2790fed2e2a6b4bb6dd288945f272518ceb"
+    },
+    {
+      "path": "api/v1alpha1/workload_binding_types.go",
+      "sha256": "f00c12fcdd0c362b85f9cae8dc83dbe075b284e2d3af52dfec1430b4e586085e"
+    },
+    {
+      "path": "api/v1alpha1/workload_trust_integration_test.go",
+      "sha256": "4a5eff8135a9fe03d1c55b0e9e4cda49c440b998471be87e054b7064feb690e9"
+    },
+    {
+      "path": "api/v1alpha1/zz_generated.deepcopy.go",
+      "sha256": "59d28bf224a07a48b099258cf3da8b73fa4b1e9aaa79b08a0330ac47303d77fc"
+    },
+    {
+      "path": "api/v1beta1/conversion.go",
+      "sha256": "c7beaa5a83757dbf0756b6db0f32542545552ff1f014b214888c21addabaccc1"
+    },
+    {
+      "path": "api/v1beta1/conversion_test.go",
+      "sha256": "2f724d008be69d7547d10d61818fadc58752874fa2a545d2c957df773c6f4924"
+    },
+    {
+      "path": "api/v1beta1/groupversion_info.go",
+      "sha256": "ae1d64a1278ab93353b18f6f287edca8a2c411ea5daf4d2b7ef6712aad73271d"
+    },
+    {
+      "path": "api/v1beta1/iam_types.go",
+      "sha256": "fc8e6303de2fd897cb7b428a0b24074e385666706c35961e4f4368faeea65aaf"
+    },
+    {
+      "path": "api/v1beta1/list_conversion.go",
+      "sha256": "62fd4b68d1b418a2f83e5c51a592cba33c616cb046df23f2318334b98956a286"
+    },
+    {
+      "path": "api/v1beta1/zz_generated.deepcopy.go",
+      "sha256": "05ea5f46f282c16869b907fe188e504be1eef1ec63dabdc5772165a1e77ed30c"
+    },
+    {
+      "path": "charts/hankoshell-operator/Chart.yaml",
+      "sha256": "1e190e89cd077863adac5056b34ff4daeaee6b271b7e645b8c1f385b0130dfb0"
+    },
+    {
+      "path": "charts/hankoshell-operator/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "charts/hankoshell-operator/NOTICE",
+      "sha256": "8eae90fd0bbc85b1acf82ad9e5760a5589f34513dbd41078ca8c857fda96aa3b"
+    },
+    {
+      "path": "charts/hankoshell-operator/README.md",
+      "sha256": "abd857bc1e1dce92cadcb831ea28629e803105d247215c938c70ab3f13f090aa"
+    },
+    {
+      "path": "charts/hankoshell-operator/SECURITY.md",
+      "sha256": "e1431b20d8dd1c933d2762b9573c85edd1f94081c91ac50552c3035935c670d2"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankoapplications.yaml",
+      "sha256": "1d3e1b1ba00d13cb314241835fa4d5e7673d2ea468833616dc0e79ea868fdf06"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankoemailproviders.yaml",
+      "sha256": "2bb55f3e0a84e1dd0953eb829e7ab6b93ce3e79c2b384d73fe136afa923c8097"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankoiamprofiles.yaml",
+      "sha256": "e888f5a3adfdad99467fdd929976c350d6f1bb01757314fefe09f9581317800a"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankoimports.yaml",
+      "sha256": "fe9a0a0e57d5ac705c31cff7600a8ba4308c2a5c497ed99a69f00bbe7cc20a77"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankoissuers.yaml",
+      "sha256": "d3e3dc17ea2634d28dd92952dedb5ab9493ab23d4ad84dc1d0849fa3978c09b8"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankokeycloakinstances.yaml",
+      "sha256": "f67159ea20b1d2cfaa932d40d8d6a8fc3638d81f4482b09269c74e464f6e14f4"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankomeshservices.yaml",
+      "sha256": "81e1cb9494fdb6f3cebd1b8b45e78084a37e0d4eab0f3c1484bae7de94d6c9ec"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankooperations.yaml",
+      "sha256": "15aabe69d8384faecf3d4e4e83f6920fc6b24ab93c588af63d322fc4086cfa44"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankoorganizations.yaml",
+      "sha256": "b8524a018fb39c35077f469028b49cad2a9a2197a67b5a8ad37548513479e558"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankorealms.yaml",
+      "sha256": "95abdd9f2b5b8bbc9b2afc0c802c9c49b981c04591dc6b591f5849c024a6b7a2"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankoresourceservers.yaml",
+      "sha256": "bdd028157037707ff6d777bc242fd7829dfe650b20d3b1d4f38bb1b40db8e59b"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankoroles.yaml",
+      "sha256": "3767a21e92de39a778bdf13c547f6775e8ad8eecd5d0c362ed1eb652900ed52d"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankoserviceaccounts.yaml",
+      "sha256": "00f89c62bb46dcf01b9669fe44fe941866017aead8df81dd664b47bb13f85f6f"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankosnapshots.yaml",
+      "sha256": "4a9cce4a38e7445a5556685edb4db9707be22a639f31db98401df9b192e8bc35"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankotenants.yaml",
+      "sha256": "d3601ba71be298c210b678d3d2abf6d4d45d7eebdd35c8eaef3b94a70033e2e7"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankothemes.yaml",
+      "sha256": "9c6939dcb01afd0d4fa7a05ff161f0af36eb81282b30b8aad6adf341057344a3"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankoworkloadtrusts.yaml",
+      "sha256": "0f8e9c845d2cde861f0b6ac9e2c1bee9155c985990f1876de4fc460e82f8c84a"
+    },
+    {
+      "path": "charts/hankoshell-operator/icon.svg",
+      "sha256": "43a10ddd9baf36bc324820bdb1ee65f2a0afb65fa5099379b77a68e5e255003e"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/_helpers.tpl",
+      "sha256": "556bdf8d948dc5bcddbdc8b0fa7b42445160dead06e42833e7e13260ec1e46dc"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/_metrics.tpl",
+      "sha256": "8d2ef4e8beada1b33984a3b987769889856792972850d051942a83d776f86e63"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/_networkpolicy.tpl",
+      "sha256": "4c5e38dda51e97b26858db15ef59d2b168a76576850540ae9656a6607e35736d"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/ciliumnetworkpolicy.yaml",
+      "sha256": "6cb6ecacdf7a7243deec054c9198caf8414e9a7f41e645bc2bb8365195e3e502"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/cluster-identity-reader.yaml",
+      "sha256": "e32f71264ac62c1a2b8f2fd7d882a1216e82abb9d5671ab600e99c9c1c931f99"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/crd-storage-guard.yaml",
+      "sha256": "720469c4a5eaef40dd6cb2a4c77c854af49257cee338847650805229136bcb5f"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/deployment.yaml",
+      "sha256": "2989594e84eac6c06c9516080f7a5fb61b1f1ecce4753722bd87961ffba57592"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/experimental-provider-admission.yaml",
+      "sha256": "dbe55cc548ab9e2f5eb91797253c94621f757d53a434fe387af5411989bd2c1b"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/job-execution-admission.yaml",
+      "sha256": "881b09fe29c8bde816c78cf02eeb4d41629b3b377a6f3c8fa40c1c9255f3a32b"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/lifecycle-admission.yaml",
+      "sha256": "9a4033fce87c80ad8eef95ae41f9b5ad523fd65c68cc34dc8cfcc5e89e341c01"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/mesh-egress-reader.yaml",
+      "sha256": "85d00ee63ec2fd552cce9a54a065f84cea527e763b56894ceb4bafc4e08e477d"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/mesh-policy-projection.yaml",
+      "sha256": "66233e8550028313f1ef49e2648231ee9df58fb01e8bc1848112e889f787a037"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/networkpolicy.yaml",
+      "sha256": "6f0cc7ff69f6e705abf9354ad7bec15056ce05f3d8f287f20a5f2c8fa3eb3857"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/node-reader.yaml",
+      "sha256": "c1c16ddd59f8d8fca8fc5fc62be49d517a233304725b0069a4573611e46f5b80"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/rbac-delegation-admission.yaml",
+      "sha256": "547e3bb70e1ed873a4d0587f6cddcc7d72479a650137c48dc73f78f7f820ea9f"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/role.yaml",
+      "sha256": "39ea94a7806165c180178febf5c4f3e89dfe4b5609d73d8d0186bc9f0852eb3f"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/rolebinding.yaml",
+      "sha256": "679f56064c3878ee211781bdd43c6944554e57287a73dcfec4ff72cc88cbfaae"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/sensitive-projection-grants.yaml",
+      "sha256": "30ed0f665487fdc97ea4cf9cab32b97ab302dd462cd06083f929f7d6973ceb9e"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/sensitive-write-admission.yaml",
+      "sha256": "9c888495d539a719c77d6f5a5f9925d0d289df24babec53f0e7b3852038ebed7"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/service.yaml",
+      "sha256": "28b5f606258e38355bb63f477b7906add2921c1d1157f63345062c713d8c04a1"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/serviceaccount.yaml",
+      "sha256": "9824cf5b0005f96c0bc3bb1b87416c9aca39a89d6fe29b96e0bc24e2485ff197"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/servicemonitor.yaml",
+      "sha256": "6e3948fc41fb26fac01558e7dbf628141e26ba9f23afd3cea71b7f2e1ad08708"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/tenant.yaml",
+      "sha256": "01ea6a429da88deeb8538a5c1120974f57b42d7d628401e2276ce557b937705f"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/theme-networkpolicy.yaml",
+      "sha256": "87bbca4e22a2de5315d7c6f6f937bc60f50cebcb04182d1edab55c23074660b8"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/transport-decommission.yaml",
+      "sha256": "9279019d7f58951cee7550865ae5c4fa9807a7787bda793f815a7400c5b8229e"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/workload-binding-reader.yaml",
+      "sha256": "4bd90a74321f41f42c89c14f2c7b68a3ec4984f07cf9c57ebbc30f034579fd69"
+    },
+    {
+      "path": "charts/hankoshell-operator/tests/cluster-identity.sh",
+      "sha256": "864355fdd2c9d66dc1dafd39717c29b6d30f94f334673351bbb64070bcbb090b"
+    },
+    {
+      "path": "charts/hankoshell-operator/tests/concurrency.py",
+      "sha256": "af38a2b2276e9103e4c956329e730fe199fb69c0ff42c2ce1f9d6acabbc5bdb9"
+    },
+    {
+      "path": "charts/hankoshell-operator/tests/experimental-provider.py",
+      "sha256": "32cf9920e348745fca70a581a0c249fb82f4f71b83c43114c519eb5095a733ec"
+    },
+    {
+      "path": "charts/hankoshell-operator/tests/fleet-plan.py",
+      "sha256": "e278cb7c594c87b867593ece3f382934cef5f8103e8b9211b55f6c2cb0b16fa2"
+    },
+    {
+      "path": "charts/hankoshell-operator/tests/image-verification.sh",
+      "sha256": "a6fb2561f9deb12080ed213caad84552223f75c8293689567f34a8739e4fcfe5"
+    },
+    {
+      "path": "charts/hankoshell-operator/tests/keycloak-transport.py",
+      "sha256": "fc853a10f39f5af1134ac955ebdc76d5cebe8a101e3540bd901a7caa0f2f8e46"
+    },
+    {
+      "path": "charts/hankoshell-operator/tests/kubernetes-compatibility.py",
+      "sha256": "48c832548d8cdc34f7c08bb496b0987b49d6fe72ec3f809c3276e9f67ad73d06"
+    },
+    {
+      "path": "charts/hankoshell-operator/tests/lifecycle.py",
+      "sha256": "cfd42e14befec479a1c24ea3c72aeaf0bf806ca8db3bd0741894222aee6ea86c"
+    },
+    {
+      "path": "charts/hankoshell-operator/tests/network-policy.sh",
+      "sha256": "cd79933c2a8769513b44bc8987ce82a562cb90778e3def1784c88b9d4ad617b8"
+    },
+    {
+      "path": "charts/hankoshell-operator/tests/observability.py",
+      "sha256": "7f1a50b018a7c136c4189c7f6f8bff2723864c39c39d7346cfcd45ca98547b1a"
+    },
+    {
+      "path": "charts/hankoshell-operator/tests/organization-projection.py",
+      "sha256": "4f257a045333d32827c568bd40979590f0036f11a66a33dc0e8960beaa1e51ca"
+    },
+    {
+      "path": "charts/hankoshell-operator/tests/sensitive-writes.py",
+      "sha256": "77080ae7780c1501c4541c8a792dd7fd9cbfc62b1d6f0130d97679a3dd9d85d0"
+    },
+    {
+      "path": "charts/hankoshell-operator/tests/workload-binding.py",
+      "sha256": "84b480233e8b32b2349404bae6262c346585ba0512bcaf3c86c71af48280af03"
+    },
+    {
+      "path": "charts/hankoshell-operator/values.yaml",
+      "sha256": "0e780961125beb620a3e790a2884dd762b4e9761e12c2c680dc7e02c30496048"
+    },
+    {
+      "path": "cmd/operator/enterprise.go",
+      "sha256": "c1ae66d150088f93b6a9ea001293f5e427b2ce8905b09c385d655a2cfada0b7a"
+    },
+    {
+      "path": "cmd/operator/health.go",
+      "sha256": "6f5049f6c019542545edf22ab833bb5b3ba9ce8c0fc0f55b6ff797e9231c11a9"
+    },
+    {
+      "path": "cmd/operator/health_test.go",
+      "sha256": "78405dbb31bd0e1d8f75841dcf96ba28679b3faad41ffc8fb4b806c4718e6d3e"
+    },
+    {
+      "path": "cmd/operator/main.go",
+      "sha256": "f0074326fac7d80b5de66c50cd4c4cd3ca633558949e89a734e630b190a7b75f"
+    },
+    {
+      "path": "cmd/operator/main_test.go",
+      "sha256": "3b257b9f7d7154c47e1bad208e2b684a9e0f25e7a645faa9f203ef55e1d08b27"
+    },
+    {
+      "path": "cmd/operator/organization_projection_test.go",
+      "sha256": "7052c7c8b7abff2f803a8bb027abe287e960f983660b972d909447560a92e758"
+    },
+    {
+      "path": "docs/api-conversion.json",
+      "sha256": "2ca4a8f8d8bdbf558b69baf2ed7097a75636a5bf31b873205f864662855d5969"
+    },
+    {
+      "path": "docs/secure-deployment.md",
+      "sha256": "8ce1a494696bd7d1711f5c51d55bbe060457f044da92078d412510694740cd09"
+    },
+    {
+      "path": "docs/security-surface.json",
+      "sha256": "a4dfbe43f48e3c18cc8377638c0436c2cce5da9463c4b314875d9274fa82e48c"
+    },
+    {
+      "path": "docs/security-surface.md",
+      "sha256": "2bcaf6b6ce67ef43c0f7a96a272963e8dc500770871ec9bae23147ed30bbad95"
+    },
+    {
+      "path": "go.mod",
+      "sha256": "e8452a5a138b3e6027f7f5e8ac0b72c1fb829af2b055314b2421bf226eb404a4"
+    },
+    {
+      "path": "go.sum",
+      "sha256": "7a660d190b70914d0467bf71bb4190953169bf1f0a131ad541630fc3858703b6"
+    },
+    {
+      "path": "internal/adoption/approval.go",
+      "sha256": "ab28f52b2fb6698d852ffbd542041c565fd6931f5c5eff23d2a936dea5a91469"
+    },
+    {
+      "path": "internal/adoption/approval_test.go",
+      "sha256": "557a32067d790cfb88ca398e477ffea8a57b9fd6aa23ba7c9e116174a088c998"
+    },
+    {
+      "path": "internal/adoption/contract.go",
+      "sha256": "5f2c4a9a966857995491b9c4e4478207dfad7897d1687f3e00d50879feef2064"
+    },
+    {
+      "path": "internal/adoption/contract_test.go",
+      "sha256": "fd108cc4ada3f067e018f49039bfffe501e571c31e76c82d6a30557750fd6d73"
+    },
+    {
+      "path": "internal/adoption/fuzz_test.go",
+      "sha256": "78509b8510f14fef410b1f87b21ed340beefbe6e368367247ee0f2b2301fd112"
+    },
+    {
+      "path": "internal/adoption/keycloak_defaults.go",
+      "sha256": "f045592abbe64018fccea3ab23f673fa595fa4d53ff45372334086bee59c6492"
+    },
+    {
+      "path": "internal/adoption/workload_trust.go",
+      "sha256": "59146690fe44ee8a6ca9b8b19031e206736df1836a947e4430cabdb7fbbabdfb"
+    },
+    {
+      "path": "internal/adoption/workload_trust_test.go",
+      "sha256": "cac56dcf02572f817cb6955fca28ff7e836296d13626f3468d165ca2ce82de47"
+    },
+    {
+      "path": "internal/applicationbinding/authorization.go",
+      "sha256": "ad60193ee877304a341251dd51568a98bb42b14a000de8ee57e49c562e077082"
+    },
+    {
+      "path": "internal/applicationbinding/cleanup.go",
+      "sha256": "81e0d60e8c0bc34421c05c557e68b4cb6843069a438a88073e391373d2e71291"
+    },
+    {
+      "path": "internal/applicationbinding/cleanup_journal_test.go",
+      "sha256": "252ea225e11b7d5b1b0f8691786be95c576e465849180e2277890d8ccdcb0998"
+    },
+    {
+      "path": "internal/applicationbinding/contract.go",
+      "sha256": "8282ded247cef4d412461d2d68a7fe805ef65653f5132c75de05ecea637c4dee"
+    },
+    {
+      "path": "internal/applicationbinding/delivery.go",
+      "sha256": "7401ab8a2542607a1f0b8c715d04f3abfc90c26f85d018ed7c202ef0c97f291f"
+    },
+    {
+      "path": "internal/applicationbinding/delivery_test.go",
+      "sha256": "ed667931e23f10d960518f973f561652db88ffb995caeae15db992b479dc380e"
+    },
+    {
+      "path": "internal/applicationbinding/outputs.go",
+      "sha256": "6e0b0a21f5e11288a0ddf821358bbd6c2540eee648d39943b0ae70b43ec172eb"
+    },
+    {
+      "path": "internal/applications/contract.go",
+      "sha256": "7a616017665645ca1fb5ba9694a5a44e7480716293118daf4c1105665c4612dc"
+    },
+    {
+      "path": "internal/applications/contract_test.go",
+      "sha256": "22db6c8ff8ce2e828b7a751288406ec957d1d3c2a367fbdad1f748f43192888b"
+    },
+    {
+      "path": "internal/applications/delegation_sibling_test.go",
+      "sha256": "9013922cd9ec4b91dace479489282af12c819f4e1abb82d9e4f25767856cce2e"
+    },
+    {
+      "path": "internal/applications/fuzz_test.go",
+      "sha256": "0e0d1d55982a4d6ea61e1e77249a191f3932d0916bf229785d9c0b333064c3db"
+    },
+    {
+      "path": "internal/applications/keycloak.go",
+      "sha256": "b2b7556617d094330374cdb287884a41bbb612a72f4aae49e32e94eb1587d7c3"
+    },
+    {
+      "path": "internal/applications/metadata.go",
+      "sha256": "2c0da3ead82ed2e8e3c9b50e2031410bed760db33e5a2db3863da425deb816cd"
+    },
+    {
+      "path": "internal/applications/metadata_security_test.go",
+      "sha256": "39011d4dc826707af91813cbd6293b7d0afc8030cbc4c4341e67f1979ed3e740"
+    },
+    {
+      "path": "internal/applications/observation_test.go",
+      "sha256": "450651f6c6a172f7f3e0f26c061938ebc564fd954e6da566f6e69e9ff7b618a4"
+    },
+    {
+      "path": "internal/authentik/applications.go",
+      "sha256": "89479403cc4cef1d6b99f0a4d71792b6196dd4d718aba486658c67ac5164d9d6"
+    },
+    {
+      "path": "internal/authentik/applications_test.go",
+      "sha256": "ff21b8423e34ec840151861cd9751e957dd280c32349ff7ba58bfabb93be0052"
+    },
+    {
+      "path": "internal/authentik/client.go",
+      "sha256": "9925a8c76931813e51a0b874f018813a9b6bf2fc56afee217253caa4340f0b16"
+    },
+    {
+      "path": "internal/authorization/delegation.go",
+      "sha256": "d7bf56d4da9434d83b5aa1c8e6f68c493dbb62192805073b45c89cc9d991875a"
+    },
+    {
+      "path": "internal/authorization/delegation_test.go",
+      "sha256": "c1d7ab459d34e639d41cee60a1d30ab5666cf0f173c074a89f556e5c4a8d43f5"
+    },
+    {
+      "path": "internal/authorization/driver.go",
+      "sha256": "800266e0a9716a963c7b630590f7b43d464049a27b04ee51f3bc666566800658"
+    },
+    {
+      "path": "internal/authorization/driver_test.go",
+      "sha256": "61bc57c3fbed737b3eca91095989658ff37cd336079b767e45807ef51d85d3b5"
+    },
+    {
+      "path": "internal/authorization/explain.go",
+      "sha256": "2d26b157f4e2e96421eb264cc885b2c3b58724a9fee8dd0995eac19446312ae1"
+    },
+    {
+      "path": "internal/authorization/explain_test.go",
+      "sha256": "9db8eb966e1e31e0227d5bf57a2505021d5e2c94043de442891a231107e26ad0"
+    },
+    {
+      "path": "internal/authorization/keycloak.go",
+      "sha256": "6024077902f54bfd58f975c1754148d1cccd1d1aa07ea3dc3bea58f692195803"
+    },
+    {
+      "path": "internal/authorization/keycloak_delegation.go",
+      "sha256": "a653769459691a67da65f24fdbe2f03fb896c6beaf00015dffb9742f797258bf"
+    },
+    {
+      "path": "internal/authorization/keycloak_delegation_test.go",
+      "sha256": "2b397c5e12fb33492703716661942be3ced5d67c9d18aeae9d55b6499b0a384b"
+    },
+    {
+      "path": "internal/authorization/keycloak_explain.go",
+      "sha256": "af68ee998a4fd3fd08090c25c4fec700044880ea9a52a4dab93465653181192f"
+    },
+    {
+      "path": "internal/authorization/keycloak_explain_test.go",
+      "sha256": "9c2016eeb65d55be60d98316df361682c0dc731fef1cfd011a1952ad74926040"
+    },
+    {
+      "path": "internal/authorization/keycloak_organization.go",
+      "sha256": "a60f68719bdbfbf6be79b069e0cd081077e1ac2b5b673d09451c5b1a7d26aa2b"
+    },
+    {
+      "path": "internal/authorization/keycloak_test.go",
+      "sha256": "c3ce03a581d04b3e7fafb2bc80ef87ad5fd305b9ce7c9a58bda1e9b2a954be85"
+    },
+    {
+      "path": "internal/authorization/organization.go",
+      "sha256": "ecd445f2d5da2a2957e4cd80e6fa6404f091a725947521b9d0d6120e3335f867"
+    },
+    {
+      "path": "internal/authorization/organization_test.go",
+      "sha256": "9e0745c08dc8c18bb4d78678c2971ba0853cd7110ec52f0cad4bef26429aa574"
+    },
+    {
+      "path": "internal/authorization/plan.go",
+      "sha256": "4f983b118662f00af45d4bd57ecb8ac4d2a7421d1134cd16160a82619033fddd"
+    },
+    {
+      "path": "internal/authorization/plan_test.go",
+      "sha256": "5aff6371b548b52edae7780bacb91e9778a310171b4fdaa0b83722a3669d4e5a"
+    },
+    {
+      "path": "internal/controller/adoption_acquisition.go",
+      "sha256": "018513ca9bdebc0a9c22539c6ea263b4dfe8e645672a387efabdeddb99b3d892"
+    },
+    {
+      "path": "internal/controller/adoption_acquisition_test.go",
+      "sha256": "762875073ab3d6f734c880b0c8b4005c54350806dc8ad369c976dccf6de28369"
+    },
+    {
+      "path": "internal/controller/adoption_apply.go",
+      "sha256": "b3364a19c028fa312a01069218d8bc34e980cca560d050d7c564d336d5c3578b"
+    },
+    {
+      "path": "internal/controller/adoption_contract_test.go",
+      "sha256": "2cf509c8b4b922399849329a559440c0b39034fc1b93bd84d9ce14e872bfda23"
+    },
+    {
+      "path": "internal/controller/adoption_guards.go",
+      "sha256": "fb82b5504c6006d3f72307b054001aef0b5d08b680d3d2af4ae1058b76b2698c"
+    },
+    {
+      "path": "internal/controller/adoption_inventory.go",
+      "sha256": "94d5f899b9759c0d3868fc9d3093dc62002e6de775c7c190a531d1aa02ee7519"
+    },
+    {
+      "path": "internal/controller/adoption_publication_test.go",
+      "sha256": "1081e3fffc839ddb84c15e08496a2156f0dddf300cc3282f54a1081382debb01"
+    },
+    {
+      "path": "internal/controller/adoption_refresh.go",
+      "sha256": "b0905015087f2bab90d5fa45b633acae6757dfec2e37d6478a65cafcaea1176c"
+    },
+    {
+      "path": "internal/controller/adoption_source.go",
+      "sha256": "dbfadb0385afe1154d156cbb891d0a159dad6567c7ea811719d323235ad143b1"
+    },
+    {
+      "path": "internal/controller/adoption_targets.go",
+      "sha256": "192e11cf6fcc2846c32cd3fcd32551a83f81b755cf40af4adaa34c525ee90750"
+    },
+    {
+      "path": "internal/controller/application_role_preservation_test.go",
+      "sha256": "a058e4b99a652ac0777eaa93c85bcf1066c44f07f06ad9223da47a3eec84ed43"
+    },
+    {
+      "path": "internal/controller/authentik_integration_test.go",
+      "sha256": "1b895438a5ff1d6ff99b30b4584455d1bd219720bf624416524260070016dd74"
+    },
+    {
+      "path": "internal/controller/authority_role_reconcile_test.go",
+      "sha256": "9d1909f95934429c92fb25f278e8be2117ff60d43ec92f3f91133c50be72f4eb"
+    },
+    {
+      "path": "internal/controller/authority_role_validation.go",
+      "sha256": "0081b1d6c7f880c981bc08d26c64701b5dc1bad00829ed91bad19d33eabdf420"
+    },
+    {
+      "path": "internal/controller/authority_role_validation_test.go",
+      "sha256": "8456868305c0156108da3e27fc7c0476c4dcb42892f7824b81ad7d38b7eea7c0"
+    },
+    {
+      "path": "internal/controller/concurrency.go",
+      "sha256": "bbbdcc6fc7b96f1b5b0a34a175afc9993f5aa2550e22e6925df5964be70a11fc"
+    },
+    {
+      "path": "internal/controller/concurrency_test.go",
+      "sha256": "d0c83e99e13cca067c616ac91dc71de16f7f25f6d2a8dbb21896d6eddac92c46"
+    },
+    {
+      "path": "internal/controller/experimental_provider.go",
+      "sha256": "f64fed13a4a49a50e3a22fea509f2ac411b6644a08b3498337f0ec61daf31715"
+    },
+    {
+      "path": "internal/controller/experimental_provider_test.go",
+      "sha256": "4eee7eef498ff8c9407840ff0552829a485aa39d11429d6e8be5b2f5f569003a"
+    },
+    {
+      "path": "internal/controller/export_test.go",
+      "sha256": "7f29434d8ab85b12706f34fea1f4d19706b63fdc1fe05b521f3456c75c09f986"
+    },
+    {
+      "path": "internal/controller/hankoapplication_contract.go",
+      "sha256": "b26330cec944c31babe9f54869598f724aa784f62188767fb85741fa5a626499"
+    },
+    {
+      "path": "internal/controller/hankoapplication_contract_test.go",
+      "sha256": "701e77c1c0ac21c1334b7a426c18facb77ebf861e84dfd9d93e7bac006b623d5"
+    },
+    {
+      "path": "internal/controller/hankoapplication_controller.go",
+      "sha256": "4d681b064786a683af4dca4a2543fbee21f10abb7132efdebb7d347698725050"
+    },
+    {
+      "path": "internal/controller/hankoapplication_controller_test.go",
+      "sha256": "99dc3db4de49e01e6acc84b47b9c41c4d57084cbd8b638aa824e80b2ee01d9d2"
+    },
+    {
+      "path": "internal/controller/hankoapplication_credentials.go",
+      "sha256": "dae7881ee0f26b7b9daa5797e639c93b6e83ab7fd0025f2c839268a732164409"
+    },
+    {
+      "path": "internal/controller/hankoapplication_credentials_test.go",
+      "sha256": "eb0aa1dd558bd1f644858cbce7235d2e828ea110864537e9326619c160bb55dd"
+    },
+    {
+      "path": "internal/controller/hankoapplication_mapper_ownership.go",
+      "sha256": "68786c3bd779b7763e1f15abbfc8c1a108e9aac54d82bcfe0eeac461b1c08244"
+    },
+    {
+      "path": "internal/controller/hankoapplication_realmrole_test.go",
+      "sha256": "f0d1ce379ace6f41b4e66b78869577cb7df1d1baa540488120079cb1f03a2748"
+    },
+    {
+      "path": "internal/controller/hankoapplication_references.go",
+      "sha256": "432f0ae653d072658b89883a6e7815d9a51f7aebead3acb177c51266fde0e5ba"
+    },
+    {
+      "path": "internal/controller/hankoapplication_runtime.go",
+      "sha256": "592cfc2c68b62e8f496f3a71c0a9066e82fe9d68b83c56ef3d4d05a9d740a8ce"
+    },
+    {
+      "path": "internal/controller/hankoapplication_runtime_test.go",
+      "sha256": "05076e535f0f94a9de013c207d4c28cb864557de579784b46f0203744d296467"
+    },
+    {
+      "path": "internal/controller/hankoemailprovider_controller.go",
+      "sha256": "cb70a44996c8ee22261a43c566394e4dd6d2c774d467b63547fef7601cb61ed1"
+    },
+    {
+      "path": "internal/controller/hankoemailprovider_controller_test.go",
+      "sha256": "5544994a65653af1cd78e7f9cbedbe89157b4d5cb4bc3c56718d2865f2ddb6a2"
+    },
+    {
+      "path": "internal/controller/hankoiamprofile_controller.go",
+      "sha256": "ada0a965b3b5358797530ae63e57c581fe0bf9385c23ea5a55d30f30635b90ec"
+    },
+    {
+      "path": "internal/controller/hankoiamprofile_controller_test.go",
+      "sha256": "b6014d4bdcc249f5602213729ff969dea56053f17d9f684d00e4065d312d69c1"
+    },
+    {
+      "path": "internal/controller/hankoimport_controller.go",
+      "sha256": "652d8c8f8133077d9fd636ebabde31fcb690c4a486f0bbad802efde99b397ea4"
+    },
+    {
+      "path": "internal/controller/hankoimport_controller_test.go",
+      "sha256": "a58a18340072121c847509755ddfeb321f502d5cddfdd4a8ec025a03237f2f5d"
+    },
+    {
+      "path": "internal/controller/hankoimport_recovery_test.go",
+      "sha256": "a8ef643b2d1821410c101ee9eeff24693c33f4fc3c73b88a3d008cf0c32c6f7b"
+    },
+    {
+      "path": "internal/controller/hankoissuer_controller.go",
+      "sha256": "580ecb3086062eca36c1e3278cf40b4a489c75f6aba7a313a41fc5e22c83e176"
+    },
+    {
+      "path": "internal/controller/hankoissuer_controller_test.go",
+      "sha256": "4c1803466aba61c26ef78214f8825ff6171a385bec06f3cd29ae9fcd03c43f1b"
+    },
+    {
+      "path": "internal/controller/hankokeycloakinstance_capabilities_test.go",
+      "sha256": "0ce0c85b9787f73ded86d6c2ed31a125722845999931aa9c2f6d86b16cc15dad"
+    },
+    {
+      "path": "internal/controller/hankokeycloakinstance_controller.go",
+      "sha256": "a5a4b3c6de3a0c2056812260e957d8bd4d8c3e612e5b598161a6750508c3d96e"
+    },
+    {
+      "path": "internal/controller/hankokeycloakinstance_policy_test.go",
+      "sha256": "d8698de9cc5c55be41d5ce556b19aa71667fe677ea1918fb8fbc1ffff18ea166"
+    },
+    {
+      "path": "internal/controller/hankokeycloakinstance_rotation.go",
+      "sha256": "634b0f01d08e4083916f7b03b71517b18d4a34435e5321be5eb4db20ae7b5d05"
+    },
+    {
+      "path": "internal/controller/hankokeycloakinstance_rotation_test.go",
+      "sha256": "fbc73d6abb9c644738152c0c5cf68185d0f731b3d88de36d5c41f569aa73c2af"
+    },
+    {
+      "path": "internal/controller/hankokeycloakinstance_transport.go",
+      "sha256": "9039d261e88be1f9324ba9a0d25b91876fb10543bc6e4e80db7800b8138b1769"
+    },
+    {
+      "path": "internal/controller/hankokeycloakinstance_transport_test.go",
+      "sha256": "26ef9b495d31b3ac28540842f080a1802e20cea9cceb4d8c9be40c5a99294167"
+    },
+    {
+      "path": "internal/controller/hankomeshservice_controller.go",
+      "sha256": "3ba374273a1366442442d8e22c545e79f2f0c8f82d2850352467d30bffa0598d"
+    },
+    {
+      "path": "internal/controller/hankomeshservice_controller_test.go",
+      "sha256": "04decf1c41b8f0c613a4fd40ea604b7fbc58a99bf5dcf0a1abe98658e19fd7c6"
+    },
+    {
+      "path": "internal/controller/hankooperation_checkpoint.go",
+      "sha256": "5ba4c16d13e66b0e0a6cbbdc7bbfb8d78cb4f5e419fa3cbde0bf911c91b054a8"
+    },
+    {
+      "path": "internal/controller/hankooperation_controller.go",
+      "sha256": "01f351d99daf39bf7f58364b38cefd591eb3543602e22e0cd05041bdf10dc08e"
+    },
+    {
+      "path": "internal/controller/hankooperation_recovery_test.go",
+      "sha256": "9b881f7d5fd47879ee1150ce2f11b1550d2913496993ac901b7e794d701f9e9d"
+    },
+    {
+      "path": "internal/controller/hankoorganization_controller.go",
+      "sha256": "d3d886b706324a9f2b6d3903c95299b85080c59206f9ea6b0d546703db830825"
+    },
+    {
+      "path": "internal/controller/hankoorganization_controller_test.go",
+      "sha256": "7260a42618cf79d583eec48e827b4f007e8b0d306558dee6c9ea623f42ca4a0c"
+    },
+    {
+      "path": "internal/controller/hankorealm_controller.go",
+      "sha256": "282d148de099c342aab6d0f5da952011cb42904d0898013d5b09227995bcb742"
+    },
+    {
+      "path": "internal/controller/hankorealm_controller_test.go",
+      "sha256": "43bee8bc43d814a18325dab67ef847afac62a933b6f6b7bf9946eb4610e4deb2"
+    },
+    {
+      "path": "internal/controller/hankorealm_deletion.go",
+      "sha256": "f2a1285954acad1f3212743d4d8756e64160a734d8ec8d77ece16f4097341827"
+    },
+    {
+      "path": "internal/controller/hankorealm_deletion_test.go",
+      "sha256": "91045b3090c58afd9f8526dfdc0153414b079814ec035edc37e97aebebed3446"
+    },
+    {
+      "path": "internal/controller/hankorealm_identityproviders_controller_test.go",
+      "sha256": "369b59f80c7cb72daa6623f88784cde224154b897fde4cbd9da41c7b007c2d0d"
+    },
+    {
+      "path": "internal/controller/hankorealm_observe_controller_test.go",
+      "sha256": "39c91a7fa53875253eae50473134dd018848f82a44a5d3cacb8c9de337be108a"
+    },
+    {
+      "path": "internal/controller/hankoresourceserver_controller.go",
+      "sha256": "1cca560ebda9ed3c91c5a5372010e08864a2e5eace0b4652084a30b08a413cd0"
+    },
+    {
+      "path": "internal/controller/hankoresourceserver_controller_test.go",
+      "sha256": "07f66df50059355dc03192ffe64aaea912f610576114b4532800f71e19ae3fe8"
+    },
+    {
+      "path": "internal/controller/hankoresourceserver_delegation.go",
+      "sha256": "797e2f7469683bc96fce7ff2af6cbfa4904cc84a89b9d2ae5e84ed9f99f4adad"
+    },
+    {
+      "path": "internal/controller/hankoresourceserver_delegation_test.go",
+      "sha256": "383c8b7a4de0cc79d11763141bd667abe0fbd702af2a36d0e7d8e318936872c0"
+    },
+    {
+      "path": "internal/controller/hankoresourceserver_explanation.go",
+      "sha256": "9b949ddec59f90beafbaea1d5f427f46dd204f51ee512c5914ee56af820a016d"
+    },
+    {
+      "path": "internal/controller/hankoresourceserver_explanation_test.go",
+      "sha256": "70d2aaef2fa770d2d7c76f5b21dea8eacf1e9641fde784d14d0f5cbd222e4aca"
+    },
+    {
+      "path": "internal/controller/hankoresourceserver_organizations.go",
+      "sha256": "006c9cb2bf7c9b89278bc5427d676e16ef87d6cfd733c535c5bc79a8ebe4508e"
+    },
+    {
+      "path": "internal/controller/hankoresourceserver_organizations_test.go",
+      "sha256": "761a7935242fbc8c019b82cd46929c6d423225375ce5411720dc2157299e86db"
+    },
+    {
+      "path": "internal/controller/hankorole_controller.go",
+      "sha256": "45989b3dc33d84f16a96d6874bc0a26985e12a33d0ee618b5b16bd142b251f8c"
+    },
+    {
+      "path": "internal/controller/hankorole_controller_test.go",
+      "sha256": "f8a66bc20e6d97fcc373cdcebc225d98ba90c96820271f50006bf5f6abf349e1"
+    },
+    {
+      "path": "internal/controller/hankoserviceaccount_authentication.go",
+      "sha256": "998eda6091517a2571352a5a5a5762adf8bb7b1e7467a20c2ab8eb8e3f6244b8"
+    },
+    {
+      "path": "internal/controller/hankoserviceaccount_authentication_failure_test.go",
+      "sha256": "274a2190cdd290baba47c2f4024708065ca2df41e00de5bfa2200f67df27421c"
+    },
+    {
+      "path": "internal/controller/hankoserviceaccount_authentication_test.go",
+      "sha256": "f544ceb09b5fc7cb34c6417f8fbe9315b86c4579a6457247224122bc3345c9d3"
+    },
+    {
+      "path": "internal/controller/hankoserviceaccount_controller.go",
+      "sha256": "d1bd4f629d138bd323e433fb60f686a5a00666a8ea961a5c2784b286a4c629dc"
+    },
+    {
+      "path": "internal/controller/hankoserviceaccount_controller_test.go",
+      "sha256": "7bfaadfdc1b321118d182243e4a806e963a6f158fa351958371bf3adce770b76"
+    },
+    {
+      "path": "internal/controller/hankoserviceaccount_delegation_test.go",
+      "sha256": "9f4b8b10ce889f9f14b83505fec8cb254c22f0e3e7a1dbd349225c612e02c89e"
+    },
+    {
+      "path": "internal/controller/hankoserviceaccount_rotation.go",
+      "sha256": "01d19cb782baf7b49e926251e32147686431f913df45dc2a8209de4b0d087e46"
+    },
+    {
+      "path": "internal/controller/hankoserviceaccount_rotation_test.go",
+      "sha256": "bb298867714a2117f25e5d7c38e247e6ae94787b4f523d8bff2b1b92f40e008b"
+    },
+    {
+      "path": "internal/controller/hankoserviceaccount_workload.go",
+      "sha256": "7df760383d2a41233157ca111644506719d0af74bab264ba544d618714704244"
+    },
+    {
+      "path": "internal/controller/hankoserviceaccount_workload_test.go",
+      "sha256": "42bab0988f9526a09723beb29e1c3eb854043d5bd588180df41af94037cb3918"
+    },
+    {
+      "path": "internal/controller/hankosnapshot_checkpoint.go",
+      "sha256": "11bf697784d029e8a997ae1c9e3c8300a1b21712978852c7e90c8315efaed73f"
+    },
+    {
+      "path": "internal/controller/hankosnapshot_controller.go",
+      "sha256": "9e3d57dc5f843332f0309a6410cc5e954e45d3a0fa63679312e2dd40798dd19f"
+    },
+    {
+      "path": "internal/controller/hankosnapshot_recovery_test.go",
+      "sha256": "00c3b00a7b83c4cbd6d2723f1e0216bb5a0aa35930aaca37ce65737a9cfdeb85"
+    },
+    {
+      "path": "internal/controller/hankosnapshot_security_test.go",
+      "sha256": "cdc7fb2fc24fa99668c0dcd39d02357193d1a13f705932bcfd7fe745adcab971"
+    },
+    {
+      "path": "internal/controller/hankosnapshot_tenant_test.go",
+      "sha256": "1a6d284b05a23fa2b8d8638311516add563383a0923725bc4ddf4242484cd338"
+    },
+    {
+      "path": "internal/controller/hankotenant_agent_update.go",
+      "sha256": "18c323ffba801495e06faef695a6fb8bf641d149ecd6b52ff84e7bdf8ba9962b"
+    },
+    {
+      "path": "internal/controller/hankotenant_agent_update_test.go",
+      "sha256": "f05512abecca8d3531d32b73182a4136b07797e338bc96778954cec55d35ba51"
+    },
+    {
+      "path": "internal/controller/hankotenant_authority.go",
+      "sha256": "a038670d8d546863d042379079b30b7cf9b623286c4e1629b68e6ee0cf8d6fd3"
+    },
+    {
+      "path": "internal/controller/hankotenant_authority_test.go",
+      "sha256": "8dadb31d819bfd2eaea470890da88163e4e87cb9e92e9458db25a9ec058a37e3"
+    },
+    {
+      "path": "internal/controller/hankotenant_bundle.go",
+      "sha256": "9e10047adf932e77ba29c84fbd5628b6b3c67f4cc7eee091a72f2b02510365e7"
+    },
+    {
+      "path": "internal/controller/hankotenant_bundle_test.go",
+      "sha256": "265d5b64ea98a8296f981f0fdd40e298c56675a8490dff24faacf5b58723a35d"
+    },
+    {
+      "path": "internal/controller/hankotenant_command_privacy_test.go",
+      "sha256": "b614445e7073404b23aa5bbd186a1353c68ff8fb4ef95a1b4044cd60c32e8a23"
+    },
+    {
+      "path": "internal/controller/hankotenant_controller.go",
+      "sha256": "bc8faa88f6715f91affbcbe869e96926bda5c16d9a72d32f44d3710c56d108c4"
+    },
+    {
+      "path": "internal/controller/hankotenant_decommission_test.go",
+      "sha256": "f3e2f83f9e505ba01686244adc44ff1e93a2112fafa5e2ed46ce546877a84010"
+    },
+    {
+      "path": "internal/controller/hankotenant_enroll_test.go",
+      "sha256": "5b85ccaa63ed66889f7b37238f6228af48369bb154f82155bbca221162a16d98"
+    },
+    {
+      "path": "internal/controller/hankotenant_fleet.go",
+      "sha256": "7caab943354233728a7c0bb549cad67fb16e6d08e4c92110bd580f6132a18aaf"
+    },
+    {
+      "path": "internal/controller/hankotenant_fleet_test.go",
+      "sha256": "4d3555b7e691eaf3d5854d81722930ac306cca6ef6ac0435c3504ff545e42203"
+    },
+    {
+      "path": "internal/controller/hankotenant_identity.go",
+      "sha256": "116f5d93ef3091f267fb0afd7e5b3a745672e4960f23f6743fbc3662bae090a1"
+    },
+    {
+      "path": "internal/controller/hankotenant_identity_test.go",
+      "sha256": "d9714bd71ffde9183a8f042ff11ec681637f6caaba654335293d00603b739873"
+    },
+    {
+      "path": "internal/controller/hankotenant_mesh_test.go",
+      "sha256": "2b500fc402f5b144942933534e9490ffeff95b06f1bdef51aa7664669fc7a19b"
+    },
+    {
+      "path": "internal/controller/hankotenant_recovery.go",
+      "sha256": "fa7e3aecbb7ace44aea9f7bc7dda4b014fa58b66af8ef2a98cc3cf7197a8c6ac"
+    },
+    {
+      "path": "internal/controller/hankotenant_recovery_test.go",
+      "sha256": "e946a1b8b97ec328454609ace4abb61bf3e5cc3a527771d499f5d305e03aa4fa"
+    },
+    {
+      "path": "internal/controller/hankotenant_rollout.go",
+      "sha256": "c64859a70737598010fa6d2efdbe2c278e9ff478ee2b01655abffb082f2bc55d"
+    },
+    {
+      "path": "internal/controller/hankotenant_rollout_test.go",
+      "sha256": "269497a87cb0fabfdfc65a0fe767629f4d7f7761c5071c5b2c2b282bb896c9a8"
+    },
+    {
+      "path": "internal/controller/hankotenant_transport_test.go",
+      "sha256": "65dbf8e82d838c45e2716f807b8ebf228a2a6d7a858962c9d201cf4baaa18fed"
+    },
+    {
+      "path": "internal/controller/hankotheme_controller.go",
+      "sha256": "124589ed476b0dd7de943d5459d52b2033b195b48e0e93586e386f7f5851204c"
+    },
+    {
+      "path": "internal/controller/hankotheme_controller_test.go",
+      "sha256": "2d676a90f90dc3876bde784cbbb75d4ecc3805e924fc91a93661cda8aaefaf13"
+    },
+    {
+      "path": "internal/controller/hankoworkloadtrust_adoption.go",
+      "sha256": "0e3e6d9a47428ec57485bcfb257866a685ca311f50985c614514d5c97c78d9d7"
+    },
+    {
+      "path": "internal/controller/hankoworkloadtrust_conflicts.go",
+      "sha256": "724d901927691130137ee826f768f7cc6cf99e1df40627b0a1697762cc6125b3"
+    },
+    {
+      "path": "internal/controller/hankoworkloadtrust_controller.go",
+      "sha256": "d594c3fcbb3d44f9078938a53d2d06057c2794cc38b2684186cc27eca13e345d"
+    },
+    {
+      "path": "internal/controller/hankoworkloadtrust_controller_test.go",
+      "sha256": "47e02d3eee1fd21fe1e858caec88fe8c88b95977a0a991765e9d90f7e41c43d3"
+    },
+    {
+      "path": "internal/controller/hankoworkloadtrust_dependents.go",
+      "sha256": "15a5550f04d161741eacde8b1b1cbbd3043bad367bdbfcb2ed716c59b45233de"
+    },
+    {
+      "path": "internal/controller/hankoworkloadtrust_source.go",
+      "sha256": "8c14e6b4f930ae7f06700e03af6075dc8e276af4450697f82a3cd53f40a49791"
+    },
+    {
+      "path": "internal/controller/helpers.go",
+      "sha256": "2636269e972ca43c77b120f9d1653728ca972d006f489e6ace9ed561a72de256"
+    },
+    {
+      "path": "internal/controller/helpers_test.go",
+      "sha256": "178b06266472571339dab5e91fe2ffb9d8e73fa620f80da0cd55b51b37d22088"
+    },
+    {
+      "path": "internal/controller/iam_contract.go",
+      "sha256": "0aeba2dadf54ca667229d46bc24bbf9ccac2d6d038df33d1403e74146565d2bc"
+    },
+    {
+      "path": "internal/controller/iam_evidence.go",
+      "sha256": "4086f900b63625961355849ad4905c8805768c8e4e5cd08efd51537eaff6d40d"
+    },
+    {
+      "path": "internal/controller/iam_evidence_test.go",
+      "sha256": "5ca230fcfb306011b7cea923a7ae2ccff4ccf15cbca21ccd6958968883d2e0fe"
+    },
+    {
+      "path": "internal/controller/iam_profile.go",
+      "sha256": "f0a2a3d407083262a12d6007b5b73c947bbd05cb6177635882ee95c112090415"
+    },
+    {
+      "path": "internal/controller/iam_queue_test.go",
+      "sha256": "17831ef1aad71bdb5b50adb124292ac4b6b9877d18fcfb3d3f9dbf1a580bf9a8"
+    },
+    {
+      "path": "internal/controller/iam_role_contract_test.go",
+      "sha256": "c17e214383faee5db6e8e8e56f7086929769bb0fdf93f64fd1b6abae867edd3b"
+    },
+    {
+      "path": "internal/controller/iam_role_evidence_test.go",
+      "sha256": "8b6a9e3609f7b0597650b06cee3ebe8c447c8ead52d5496169ee4840efffe31c"
+    },
+    {
+      "path": "internal/controller/image_approval_fixture_test.go",
+      "sha256": "b2410716ef25c54ee651c70352b76636a5b4dfddf932b75f74d3f5c1d9aa1bfc"
+    },
+    {
+      "path": "internal/controller/image_trust_boundary_test.go",
+      "sha256": "2faa249658f9c91c83a3bc591e7b2beee5d5b3a0fff8ffb7c51e9d06d2a7ab5c"
+    },
+    {
+      "path": "internal/controller/keycloak_adoption_characterization_test.go",
+      "sha256": "cc1dfc472b787f38cee39750ddf7a76550322429e75466d349e40fa2e38e9f95"
+    },
+    {
+      "path": "internal/controller/keycloak_aggregate_adoption_test.go",
+      "sha256": "b95f78261b7aa8f7a05f2571e8e5e4077b8bba71ca0a0e0bb76b3352abe75377"
+    },
+    {
+      "path": "internal/controller/keycloak_application_flow_test.go",
+      "sha256": "6a7edaa80aafef3e4928df02410bf3a8cf63a8b74a874b53b651eafdd75df41c"
+    },
+    {
+      "path": "internal/controller/keycloak_application_migration_test.go",
+      "sha256": "44f7a018d6f0934db3e451e80e99b2f52fc1855778c4341aad4ac5337b90f9d2"
+    },
+    {
+      "path": "internal/controller/keycloak_application_protocol_test.go",
+      "sha256": "c3e147a1892053e49845bf9f05ca931e7089c7a440836c017cb5206e57bae7a7"
+    },
+    {
+      "path": "internal/controller/keycloak_application_runtime_test.go",
+      "sha256": "ff5cd90a9e36116739510a6ace45848f40f7c3d73b234dacdedc33f499b2e19c"
+    },
+    {
+      "path": "internal/controller/keycloak_authorization_explanation_test.go",
+      "sha256": "e1f1d4940c6e4e88bcbcfc11f4fd28f3c38e3aae48aa2a4848a876a2f3c3ddc6"
+    },
+    {
+      "path": "internal/controller/keycloak_bounded_extension_test.go",
+      "sha256": "0a2cbe290bdda152cbe4c11ecef062dd426e4caa5c42ac29cb25e4194f283fe8"
+    },
+    {
+      "path": "internal/controller/keycloak_concurrency_test.go",
+      "sha256": "c35f83f32c1a7e6f9aff06a98959bfd09141c3379c5467c0538621798a8189bb"
+    },
+    {
+      "path": "internal/controller/keycloak_contract_test.go",
+      "sha256": "bdafe1a8b29c9a150a403721637b7d5e940ea6580a49fa949e4478280a729648"
+    },
+    {
+      "path": "internal/controller/keycloak_delegation_preview_test.go",
+      "sha256": "6979fdbff7488aa4e68acb5f29165f5afcdb35ebf311e5f4b0bad7c74e53412d"
+    },
+    {
+      "path": "internal/controller/keycloak_delegation_refusal_test.go",
+      "sha256": "621972ab1b698c8e0f73c49191510225970061466135c202767f9e515524e332"
+    },
+    {
+      "path": "internal/controller/keycloak_evidence_test.go",
+      "sha256": "76566bedecad82ade511acc38bcf6da80aa1a2938f643834b4e9217dda732f3d"
+    },
+    {
+      "path": "internal/controller/keycloak_federated_adoption_test.go",
+      "sha256": "4e607eae2902cf61d7a9bea20f913980bcb437b522c3f4546a96816e9c4f399f"
+    },
+    {
+      "path": "internal/controller/keycloak_fixture_http_test.go",
+      "sha256": "79d87b63824c768d740a61b814431a79f3cc3c36285bdb9e8b696c9324400b02"
+    },
+    {
+      "path": "internal/controller/keycloak_fixture_test.go",
+      "sha256": "13c2af948579e0acc81c6a2f8bf2f5c2e4e745dff2799568be3ed61e0198956e"
+    },
+    {
+      "path": "internal/controller/keycloak_fleet_recovery_test.go",
+      "sha256": "465273fcd5f97d77eafc429ada994fd61f004d483fd6bddd30ed5ec6d6fcf683"
+    },
+    {
+      "path": "internal/controller/keycloak_instance_capabilities_test.go",
+      "sha256": "be2ed5ed839c212c1dd9a8e08883eacedd8accb77fa0d5a3674e3d74f8e94e8b"
+    },
+    {
+      "path": "internal/controller/keycloak_inventory_pagination_test.go",
+      "sha256": "edbfb61e3c30fe4a72461d85bc631f848fba022192b5522e219789333b2ac535"
+    },
+    {
+      "path": "internal/controller/keycloak_managed_transport_test.go",
+      "sha256": "fc38adb760e67923899410f5498c1507505b74704f3ea96007f4f5c3b18afab2"
+    },
+    {
+      "path": "internal/controller/keycloak_mock_test.go",
+      "sha256": "14bcd7d1903d04252d0fdeb0b18445bad09fcb531b4f6e3f9c2c0e1b638cabbb"
+    },
+    {
+      "path": "internal/controller/keycloak_native_budgets_test.go",
+      "sha256": "e568a35013c18617a4fd29eee4a55ab10f57f0624d52694d1689a9da67453797"
+    },
+    {
+      "path": "internal/controller/keycloak_organization_principals_test.go",
+      "sha256": "041af2cf7d9d2dc8d81b99d815bd8af97e5c092fb9a67290b9c63e9d7c7908ef"
+    },
+    {
+      "path": "internal/controller/keycloak_organization_test.go",
+      "sha256": "fd459a0579a9a2bd0c98f100dae3d9c6bf67801e4d680be2423c6c830e9442b0"
+    },
+    {
+      "path": "internal/controller/keycloak_organizational_authorization_test.go",
+      "sha256": "9d980f0b5aeab593a143ac1d389feafdfc5f08feee024e16fbfb602e6a715cc9"
+    },
+    {
+      "path": "internal/controller/keycloak_ownership_acquisition_test.go",
+      "sha256": "ee1ad5a5b91573e6e7add8a22f7a10247305b962b01eb40980a35c338aff6e3b"
+    },
+    {
+      "path": "internal/controller/keycloak_permissions_test.go",
+      "sha256": "c860d3529d1530b5cc8d079a5a60e45efc4385e4d4ec54cba2049dfb1b608b62"
+    },
+    {
+      "path": "internal/controller/keycloak_portable_test.go",
+      "sha256": "1a957cedc4a30fb455e49bd6270ea4914f2207780ba8761440376f86e1084503"
+    },
+    {
+      "path": "internal/controller/keycloak_qualification_test.go",
+      "sha256": "7793f6c0621bd19b278ae16573700b4cf69ae25cc92988b65b3ec5a7c002ab27"
+    },
+    {
+      "path": "internal/controller/keycloak_resourceserver_adoption_test.go",
+      "sha256": "f4c3b8d63aa8f2b4b290abbf3cd92dcd03811793eddb60caa23909e978663273"
+    },
+    {
+      "path": "internal/controller/keycloak_role_boundary_test.go",
+      "sha256": "b89d05d6858214d42a10dfcd7cd9983f96a68df0a7f07ec74241b057333732ec"
+    },
+    {
+      "path": "internal/controller/keycloak_service_account_authentication_test.go",
+      "sha256": "1d2abe4b72fca215a756f4c099d41615bbdc592a72141bd31e6b993bbe543aa5"
+    },
+    {
+      "path": "internal/controller/keycloak_tenant_routing_test.go",
+      "sha256": "5d759badf6a3d29978d5184a637132c694784329a6df7e8de0ea70a1bcf7866a"
+    },
+    {
+      "path": "internal/controller/keycloak_token_exchange_test.go",
+      "sha256": "ef1abf6917ad275dee5b50394c9eb4ea9382072ca389f7051685d6f244aa8637"
+    },
+    {
+      "path": "internal/controller/keycloak_workload_binding_qualification_test.go",
+      "sha256": "4fbef027de314eaa58fce8977e3814f5f521973ee2680f658d72ea367a232224"
+    },
+    {
+      "path": "internal/controller/keycloak_workload_trust_permissions_test.go",
+      "sha256": "5a841c47eb1f11e0b3dae3b5631eec4455b4a0c6efd35d92b4e2a29ad0e24dc5"
+    },
+    {
+      "path": "internal/controller/keycloak_workload_trust_qualification_test.go",
+      "sha256": "2a489d853714f05e97511bb2229df14adce48f42405886452551894f1ba02a8e"
+    },
+    {
+      "path": "internal/controller/leaf_preservation.go",
+      "sha256": "c71aacc7509cf003ac1689f058295b8c6cae5f5759c3b751b6c7727349f21391"
+    },
+    {
+      "path": "internal/controller/lifecycle_authority.go",
+      "sha256": "438f7a28491e548d3f07eab3911d4695b7e3ce9f1360d50a477155c74bdb1f09"
+    },
+    {
+      "path": "internal/controller/lifecycle_authority_test.go",
+      "sha256": "3d0e826047a0dc2d53a8df998237ae01a4a082e27c48b7d80d509512781cccd0"
+    },
+    {
+      "path": "internal/controller/managed_infrastructure.go",
+      "sha256": "31694642b57d834f44736cc429875ab2d4e8386e201cc71246da50461929fa1e"
+    },
+    {
+      "path": "internal/controller/managed_infrastructure_test.go",
+      "sha256": "1bc5dab279eed60f2a60e8cb441c4f0a65d1f7a013bbb829dd29ac819aab65e9"
+    },
+    {
+      "path": "internal/controller/managed_observation.go",
+      "sha256": "55787fe4f6285eeac22c8d8e636abc732f119773e9823d1f11b7986dd32d5985"
+    },
+    {
+      "path": "internal/controller/managed_observation_test.go",
+      "sha256": "b19e1c88ffbe10202e280c6ba11056ab3ac8fd4fefbd74975f2e819258ec529e"
+    },
+    {
+      "path": "internal/controller/native_workload_authentication_test.go",
+      "sha256": "634c3890e004a7aa3be5eac26708de2b07ed996348d5113cf17d97d2d02b93f9"
+    },
+    {
+      "path": "internal/controller/observability.go",
+      "sha256": "51847771db5656deb7c37e03a047b06a13b94cde0a80af74a142e16952467c24"
+    },
+    {
+      "path": "internal/controller/observability_test.go",
+      "sha256": "076cc590db01fcaf0d09bbf548c937ff8ffd2ff22c7a5cd1f85fad7c9d6531c8"
+    },
+    {
+      "path": "internal/controller/operational_inventory.go",
+      "sha256": "83ed205657e0b1348ec0e8ae192a37dc2290a256cf1b39464e2cf98e63c6687e"
+    },
+    {
+      "path": "internal/controller/operational_inventory_test.go",
+      "sha256": "b5475f26ba086f5e136076cf9901fe42911e8e55ef26a54eb010ab727f0f47a6"
+    },
+    {
+      "path": "internal/controller/organization_acquisition.go",
+      "sha256": "760538bc648b78b53d757f915a261318bda8065676443c728c0fdc24e43373cd"
+    },
+    {
+      "path": "internal/controller/organization_acquisition_test.go",
+      "sha256": "7f24e9388195fa578c972d9b217aebb8294b8e97ba33a75621ab90141349a52f"
+    },
+    {
+      "path": "internal/controller/organization_adoption.go",
+      "sha256": "d6ea058495df0b122e645764433796f7ca89406a4f42edf1f56249974097f66c"
+    },
+    {
+      "path": "internal/controller/organization_cleanup.go",
+      "sha256": "d79765bb5bb063c285539eb611167a48a64c8e964abc60b6f6578575abf34e2e"
+    },
+    {
+      "path": "internal/controller/organization_projection.go",
+      "sha256": "1adef0c5ffd5bf0b00facb995dfe3b3be7344cdf852d41b63b752a575127e1d7"
+    },
+    {
+      "path": "internal/controller/organization_projection_test.go",
+      "sha256": "b1418f9d39a3a00d51938dc01ee45a3343e75c171f48eb335679cd063b250b0d"
+    },
+    {
+      "path": "internal/controller/portable_identity_test.go",
+      "sha256": "b73df7ada9b5dec10926f3d9771e28b384de0e234961cde4cdb67e48947c8f8f"
+    },
+    {
+      "path": "internal/controller/protocol_browser_fixture_test.go",
+      "sha256": "b9ba12ac15dd269093aa78ec414359fa550b188cab9162e2abe2181e933e592f"
+    },
+    {
+      "path": "internal/controller/public_contract_golden_test.go",
+      "sha256": "8ccd50eb9f865a0d84fe381f5dc575c77844f3d4a7c0865bd95cc8113c294e23"
+    },
+    {
+      "path": "internal/controller/realm_security_defaults.go",
+      "sha256": "3e60c4a6db17f7401a41599373ec1a2a757671e262c62cfdd718f441d459d68b"
+    },
+    {
+      "path": "internal/controller/reconcile_request_predicate_test.go",
+      "sha256": "e38693ab720e205b4e4dd8857ff053bf0e1121d44fab25b7493e35ee8bb5fd10"
+    },
+    {
+      "path": "internal/controller/resourceserver_adoption.go",
+      "sha256": "a38d9e42b329fd3cc1ad06771fc322227baf81a9dac11f81e82e21222017aa80"
+    },
+    {
+      "path": "internal/controller/saml_validation_test.go",
+      "sha256": "e414d828f66c2d7ec72b2e0737baf89afc0fe5023fd830ee1d180c55f6e6926a"
+    },
+    {
+      "path": "internal/controller/service_account_execution.go",
+      "sha256": "80b3ac27814a7bb02c7724c20cc19a9862ca17d9653cc91380822447cba8bdca"
+    },
+    {
+      "path": "internal/controller/sonar_application_branches_test.go",
+      "sha256": "ef6d835054e2f9aeeb5568ee6ea83483b88c0bc464e32866b7cea32d41e57e61"
+    },
+    {
+      "path": "internal/controller/sonar_import_branches_test.go",
+      "sha256": "09bf6554c79d5527f053ab7d9d4ff2fdfc202a3a289b775387963a46f68855f5"
+    },
+    {
+      "path": "internal/controller/sonar_operation_branches_test.go",
+      "sha256": "2cd1170ed117495bb7c3e06861a7f0459ddf4e14658b3c837bdaf333b02f32e8"
+    },
+    {
+      "path": "internal/controller/sonar_realm_managed_test.go",
+      "sha256": "5cc7fab03369da359b2317bc454c0309b4413d0328ecd904f1a5751facf1bf55"
+    },
+    {
+      "path": "internal/controller/sonar_regression_test.go",
+      "sha256": "f94af6a3d99eb933c8f3e574f5a58513fbcfa2143c747fb0585f40b1af79e10d"
+    },
+    {
+      "path": "internal/controller/sonar_security_paths_test.go",
+      "sha256": "4bb635802b1d00e1ff54dd5f29003d3d48f523e942681ef4b5939dad5f573cd3"
+    },
+    {
+      "path": "internal/controller/sonar_serviceaccount_lifecycle_test.go",
+      "sha256": "fc6a48d3b90f55b22d72673584c568c8614c1696849ecd284bc5ad5578a8a4e9"
+    },
+    {
+      "path": "internal/controller/sonar_snapshot_failures_test.go",
+      "sha256": "4dd7bcc295bdf137d528636943a7d05a2caadb86bd308789674e35e7e38fdd2f"
+    },
+    {
+      "path": "internal/controller/sonar_tenant_test.go",
+      "sha256": "54ab4244fe91bb6bb696cb520a894fdf9548b8d44701011cb2dc32398dedb6f2"
+    },
+    {
+      "path": "internal/controller/status_inventory_budget.go",
+      "sha256": "9c3cafa94981fbe085f21bd24ee067914aaba6d86ad7e9a7c9f18fbe3868f5f2"
+    },
+    {
+      "path": "internal/controller/status_inventory_budget_test.go",
+      "sha256": "833d1c02404e20ff5497da18c58de26588b2f8e9569accf7ba5e126794e0ceae"
+    },
+    {
+      "path": "internal/controller/tenant_client.go",
+      "sha256": "5d58b4a9f49e7f38bfaa2832b5cea9c6325b4030e2b1ab949a82c6bc826fe971"
+    },
+    {
+      "path": "internal/controller/tenant_client_test.go",
+      "sha256": "554e861456f03d9a84194a250c1f18eb0057f9a8e2adf8467cfbd64b765c265d"
+    },
+    {
+      "path": "internal/controller/testdata/v0.2-customer-portal.yaml",
+      "sha256": "30ef3727cfe24de510529ac420e258a9842ee35fa482b459643eb9ea81ef034d"
+    },
+    {
+      "path": "internal/credentialname/name.go",
+      "sha256": "3b2975d200bae962a7ca52027f417e62fb582c9b5793f2b2585003c47477c4b2"
+    },
+    {
+      "path": "internal/credentialname/name_test.go",
+      "sha256": "8e6ed164ac00835d45efc5b3811ad0dc18df0bca62c1f92fed52ce276448772c"
+    },
+    {
+      "path": "internal/credentialname/testdata/names.json",
+      "sha256": "fdb01a43e08611828d9dbdbcc41788f9903fc9dd7d005e4f6dd865b8b7911a0d"
+    },
+    {
+      "path": "internal/decommission/decommission.go",
+      "sha256": "f37bfc4c8f7fe70b9892189a5ea91341c9dd298b2f30ad8723441c318d5a12f7"
+    },
+    {
+      "path": "internal/decommission/decommission_test.go",
+      "sha256": "6d1eae30800e8572c9c9821fa8186e8d8496a709215e6c60263ad3981025cf35"
+    },
+    {
+      "path": "internal/fleetplan/authority.go",
+      "sha256": "165a0b55cbf8568a3411dbfb0d6bff36b5a6e9f04a190cd2bf8305b6a4ec8f46"
+    },
+    {
+      "path": "internal/fleetplan/authority_test.go",
+      "sha256": "fbbae4e48e50cad6a737451fb72b945fe7fd7584fe2af0a87dba25c0dff1d6ae"
+    },
+    {
+      "path": "internal/fleetplan/fuzz_test.go",
+      "sha256": "4398c3775db7ffce2abcb002f501c5d2875f94c6503944ccada9c59de4c85423"
+    },
+    {
+      "path": "internal/fleetplan/recovery.go",
+      "sha256": "1108a13e13ae52d6408aa93d58b878ca66a8b8b95efacda7ea466e1383ac4ae5"
+    },
+    {
+      "path": "internal/fleetplan/recovery_test.go",
+      "sha256": "6a48f28a9c67784d4988cf711a811baa0413fad6fa5394114e27bb4ec4a228e5"
+    },
+    {
+      "path": "internal/fleetplan/rollout.go",
+      "sha256": "987a8ef92f24236ade6941a576281ff4bd0ce5b87a477b85aa96105aeed1494e"
+    },
+    {
+      "path": "internal/fleetplan/rollout_test.go",
+      "sha256": "cc274690ad6e7e21a8880319c6adb8002c2d630d0d933fc6f4440565dc87125a"
+    },
+    {
+      "path": "internal/fleetplan/verify.go",
+      "sha256": "036cf0c53d85b8ce6de59c3d0aa25d1ea76090c898688a29879583c2fb40a931"
+    },
+    {
+      "path": "internal/fleetplan/verify_test.go",
+      "sha256": "e1d5535666bf896d2cbd7b16ad7ed3735bac5868a07325bdb9a2046be6dc7a3c"
+    },
+    {
+      "path": "internal/hankoapi/audit.go",
+      "sha256": "d036fc88d02c71dd5fc549dae00d140643f301fbb592fc79c457d251a5521637"
+    },
+    {
+      "path": "internal/hankoapi/audit_test.go",
+      "sha256": "e31b92e47bf580b5b9435bde758050d9b29421b495abb11cc2fdc9318b3d8917"
+    },
+    {
+      "path": "internal/hankoapi/positions.go",
+      "sha256": "9eefd9f7783574bb7a313d8f5d215441cf4893c345b1c43f9928be9818f8cc60"
+    },
+    {
+      "path": "internal/hankoapi/positions_test.go",
+      "sha256": "e7098b43e2dbbccda1b0619e1d2da318db23ec311cf50513028d9b93cdfc6208"
+    },
+    {
+      "path": "internal/hankoapi/projection.go",
+      "sha256": "1d677751d9d25bf5550ec6fd3c542f804c4f8de69155936d8fa9625a21e16d43"
+    },
+    {
+      "path": "internal/hankoapi/projection_test.go",
+      "sha256": "e90df6639a2381c86363ae48b3f3297dd19fbf7aa5ccdd7f6fcc6fe568bca2a1"
+    },
+    {
+      "path": "internal/httpsecurity/client.go",
+      "sha256": "765095e80558339856c9f22a992870dbad19a8611f476e6ffde2b556c5795955"
+    },
+    {
+      "path": "internal/httpsecurity/client_test.go",
+      "sha256": "50816128a3b69a4676bfc138fde5515d3756304d2ce514cd31e17b7e73de365d"
+    },
+    {
+      "path": "internal/httpsecurity/fuzz_test.go",
+      "sha256": "8903238938a44d909fee645fc88d80d6e1f67416192e41c2df56496cc01a5d55"
+    },
+    {
+      "path": "internal/httpsecurity/json.go",
+      "sha256": "b6483b11322752de47b1c1ee849a847beadd9fa7ea5be832b09c80070eac32af"
+    },
+    {
+      "path": "internal/httpsecurity/json_test.go",
+      "sha256": "ccd0a3ae34df02ae090c643ea3bdaebf48c43f08524ead5bcd77c777801e9f52"
+    },
+    {
+      "path": "internal/hub/bundle_signature_test.go",
+      "sha256": "5f7234f09d8a1f2871c2f2207360e540109856b95791054a77af87e9f9bc90a5"
+    },
+    {
+      "path": "internal/hub/client.go",
+      "sha256": "6f050fad43ee9f786cb6c6b576cc79baaa1bd89d66e02ee0b324defa54a6a452"
+    },
+    {
+      "path": "internal/hub/client_agent_version_test.go",
+      "sha256": "2436b91bb37ad2c0b7b064a2e30ae620b6339da14678cfc8aa3d2000d4391360"
+    },
+    {
+      "path": "internal/hub/client_decommission_test.go",
+      "sha256": "826247d7d4d5239506142434466664e9ddc3c4c43868e88e0fc1ad129b37734e"
+    },
+    {
+      "path": "internal/hub/client_limits_test.go",
+      "sha256": "5e976648d99d68d8873c35ec708dab7fddd97f879a036a676ecccf7b3513d1de"
+    },
+    {
+      "path": "internal/hub/client_security_test.go",
+      "sha256": "29c523dc852869c12581189c858a36e4e95098afaa30b69f45e7b881956f6311"
+    },
+    {
+      "path": "internal/hub/continuum.go",
+      "sha256": "266ad243a9fd304c1af61030c9341b6f170f81dff3bd3a55731849ffa5d5ad44"
+    },
+    {
+      "path": "internal/hub/continuum_test.go",
+      "sha256": "386ccc521531c850f8844d29c115578bdd3b2f9728eb08ec41a75c74665a9bfe"
+    },
+    {
+      "path": "internal/hub/control_response_security_test.go",
+      "sha256": "664bc597286fdecbe00da0b4cfdc35af6b76389cac4a32ccfbb43ddb6a145ba4"
+    },
+    {
+      "path": "internal/hub/enrollment_identity_test.go",
+      "sha256": "0a2ba206d12fdb79e4d8091a905c3082c3c0e24b380a0dc0796315160c4dc11c"
+    },
+    {
+      "path": "internal/hub/fleet.go",
+      "sha256": "4e75975ec642987c3935f64fbdd28cde01a3dc5b30563917e1513f451a30e0c5"
+    },
+    {
+      "path": "internal/hub/fleet_redirect_test.go",
+      "sha256": "37e96846c4006f2047687cc0b7bdb2ad8f77616daf226bd7de923ad54f080a00"
+    },
+    {
+      "path": "internal/hub/fleet_test.go",
+      "sha256": "1b77d95d583c7c8cf2031025c1062fdf5aa98b10b3a26ca8a047bcc1b112ec58"
+    },
+    {
+      "path": "internal/hub/fuzz_test.go",
+      "sha256": "5c9048a41d9097e3be81fe3a82d7c1bd41282e549ec5b23ee18f06669659b7df"
+    },
+    {
+      "path": "internal/hub/legacy_bundle.go",
+      "sha256": "a684f10fc34828c1e51e3428af359614e54f452195a51f4c178c8812478c795b"
+    },
+    {
+      "path": "internal/hub/legacy_security_test.go",
+      "sha256": "d2d5c18c8d15bf89ab39a76b5600caba35dadcee3edb35fd5feaef13a4c037ce"
+    },
+    {
+      "path": "internal/hub/testdata/fuzz/FuzzHubControlResponse/caf81e9797b19c76",
+      "sha256": "caf81e9797b19c76c1fc4dbf537d4d81f389524539f402d13aa01f93a65ac7e9"
+    },
+    {
+      "path": "internal/iamconformance/conformance.go",
+      "sha256": "d464eba23b788058885cf9a45c9e26b971a66c79acdcf1e9640dc9a375c24fc0"
+    },
+    {
+      "path": "internal/iamconformance/portable.go",
+      "sha256": "acb84f5e21bbc27ba9d32413cbf077ab6136b3a9bb6ceb59cd2cad04290c86f4"
+    },
+    {
+      "path": "internal/iamconformance/portable_observation.go",
+      "sha256": "4360a8c9f35b0628dbade53578243d0c4aa5500b38bfa263d3f9532bbea74ee7"
+    },
+    {
+      "path": "internal/iamconformance/portable_observation_test.go",
+      "sha256": "06df219af15b695740f2beec9d49a4d7c3ad22b827343a61898d01efb580eb55"
+    },
+    {
+      "path": "internal/iamconformance/portable_test.go",
+      "sha256": "cccd26173c245be4686ee8743cc50c1551b546fae2ab56b017761d90708288c3"
+    },
+    {
+      "path": "internal/iamconformance/public.go",
+      "sha256": "0e45531a237b55df4526efa25b43e4d8a503ab738d7fb80a5e413967f95d9de2"
+    },
+    {
+      "path": "internal/iamconformance/public_test.go",
+      "sha256": "e12d1b181eece238082c0beca2ce65f1fb8592ba1998d2bbbcd025b1a43de766"
+    },
+    {
+      "path": "internal/iamconformance/security_test.go",
+      "sha256": "d11f6a0d46a0d3ddbfa2b78303ea28834dcdd18d7101019700cada1895e68a6c"
+    },
+    {
+      "path": "internal/iamconformance/testdata/portable-v1/corpus.json",
+      "sha256": "8e86c1d138d45e9166b6d9c9e5437a7dc99cff0aacef5efbd92d00edee2c4a26"
+    },
+    {
+      "path": "internal/iamconformance/testdata/public-0.1.0/corpus.json",
+      "sha256": "34f93530cb9e0ac18b9345c54155409323ef35fb34e0133ca4f63b4013af679b"
+    },
+    {
+      "path": "internal/iamconformance/testdata/public-0.1.0/ownership.json",
+      "sha256": "b3dc08a0321d029ad48263574ae2221c3201e0975dc8dc79127a57c92afa791f"
+    },
+    {
+      "path": "internal/iamconformance/testdata/public-0.1.0/schemas/HankoApplication.json",
+      "sha256": "7019b47a45c0e86e191bfaa3514ca364d5f306a460900480073fd13263f0b0f1"
+    },
+    {
+      "path": "internal/iamconformance/testdata/public-0.1.0/schemas/HankoResourceServer.json",
+      "sha256": "637b48c891ddc7fb8bec65a3c4bcb738846e24da7f52ca6c664b0e91fcb6296f"
+    },
+    {
+      "path": "internal/iamconformance/testdata/public-0.1.0/schemas/HankoRole.json",
+      "sha256": "cf83c8f8bae41f5b06bf2e6a69e94d9350431d99ad72b0cf11a45c9448668d14"
+    },
+    {
+      "path": "internal/iamcontract/contract.go",
+      "sha256": "d5d4dc46f24cae8919e8f77ba5b08eaf452f5ad9b3472aed47a54c6fe8c2e703"
+    },
+    {
+      "path": "internal/iamcontract/contract_test.go",
+      "sha256": "fb5046dd5f21bc41b4789b732c59560c286cea4640a12cfd846317c3e5c5fe8f"
+    },
+    {
+      "path": "internal/imagevalidator/approval.go",
+      "sha256": "d5bc9be03f6d01a983eae7df6b43539493dcb5301bfdbaffb03bf979c1f5c11e"
+    },
+    {
+      "path": "internal/imagevalidator/approval_test.go",
+      "sha256": "bdc7d0f412f13828732f746d343e2236ac79dc1d926e4eb7992c489d05f3b8b9"
+    },
+    {
+      "path": "internal/imagevalidator/cosign.go",
+      "sha256": "0f35fc34caefcd480d6d0e463754c16357781a5f2900576a72dfa44057e1757b"
+    },
+    {
+      "path": "internal/imagevalidator/cosign_test.go",
+      "sha256": "b9f6dea18dc4ef876d72e5896fae80ad17eeafb67e95668c19a8bf2eca73c8b6"
+    },
+    {
+      "path": "internal/imagevalidator/fuzz_test.go",
+      "sha256": "eb581efd0b46f2776377c4d64f8c0fc183cfee3af21c0a711e49ef3c06a3f644"
+    },
+    {
+      "path": "internal/imagevalidator/operator_approval_test.go",
+      "sha256": "a5f6976d20e8e846515901a021afe054d59d702c521f4d338978bf9162f75e31"
+    },
+    {
+      "path": "internal/imagevalidator/policy_security_test.go",
+      "sha256": "5dbb9a50754035ec0d8f1ba72ef9b90e564bd4f1f1636061cbb72392e01a0556"
+    },
+    {
+      "path": "internal/imagevalidator/validator.go",
+      "sha256": "71974b8a7427f3a979b32003bf99a10a2de1ddc68cf77ea216ba0c0b28f9adaf"
+    },
+    {
+      "path": "internal/imagevalidator/validator_test.go",
+      "sha256": "dd4c8bf8d11cfb459e48003afa2bfe1b8b82619d2e1c9010b8ecef6eb702a2d2"
+    },
+    {
+      "path": "internal/keycloak/adoption.go",
+      "sha256": "96d308df4347fe66153661745c44a83d725e44ebf9f7359289d65f3148d439f6"
+    },
+    {
+      "path": "internal/keycloak/adoption_cleanup.go",
+      "sha256": "8cd0ec7496f1036ed932def983e9b217fafba400462fe94803470696b17456d8"
+    },
+    {
+      "path": "internal/keycloak/adoption_preservation.go",
+      "sha256": "cbe327f503dad93fca1656c988919c983c20adaa27b8c5babce7e74e57c31daf"
+    },
+    {
+      "path": "internal/keycloak/adoption_test.go",
+      "sha256": "fc1fe4ad2e4215d975f662f879a0570561ecf7c30541eecc013320ef8be454bf"
+    },
+    {
+      "path": "internal/keycloak/application_children_test.go",
+      "sha256": "8d36d651efba278265b159523f005dbb097922da27fb4205eeeeffcc1c7a6b40"
+    },
+    {
+      "path": "internal/keycloak/application_contract_test.go",
+      "sha256": "e92a39e6cf22cb1993af2a249c9a7d6350858653f97d0b65e0a41a16325bab41"
+    },
+    {
+      "path": "internal/keycloak/applications.go",
+      "sha256": "6492dd5e116eb3a68d98a5e743801c9edcbc9a95b5742c9a269da2c9bf21bdba"
+    },
+    {
+      "path": "internal/keycloak/authorization.go",
+      "sha256": "446ef8bf25f45b3c2f61af0d007c2ad97b5f96eb99201c6552f4fdf35bb3600f"
+    },
+    {
+      "path": "internal/keycloak/authorization_adoption.go",
+      "sha256": "ffa9d75de89c16ac3ba62abd865373626fbaffa80e15bb2a20992722f991c091"
+    },
+    {
+      "path": "internal/keycloak/authorization_adoption_guard.go",
+      "sha256": "4842b97937918d0428d0a617855f34cc1cfb3f6720e8162b2fb0cb7f3619ff37"
+    },
+    {
+      "path": "internal/keycloak/authorization_adoption_test.go",
+      "sha256": "30a6f78d410f61dbcbbaeb606413dd26704704283596aafe62b3a949b38b1df3"
+    },
+    {
+      "path": "internal/keycloak/authorization_collection.go",
+      "sha256": "07b566bf8df7d8df64eb38f53fcae1652d986b5e93b9868661bd249d12e8f599"
+    },
+    {
+      "path": "internal/keycloak/authorization_collection_test.go",
+      "sha256": "4d9550d1d3c92a02933e8b234e2948c0f13a35e76f0e224c4986774d70d7b1bc"
+    },
+    {
+      "path": "internal/keycloak/authorization_evidence_test.go",
+      "sha256": "11f1e338769601e264425ec1206c6c9129f5acc817b503f16837caac4a49a5d5"
+    },
+    {
+      "path": "internal/keycloak/authorization_groups.go",
+      "sha256": "498cc051fe6fe492f221452d6ccba8dc0dc7ee237c61fed10b8e475ac008534c"
+    },
+    {
+      "path": "internal/keycloak/authorization_groups_test.go",
+      "sha256": "041649c503202cf6329accab310df0de246e1c4d4929c9e11ca1973bd60f41b5"
+    },
+    {
+      "path": "internal/keycloak/authorization_observation.go",
+      "sha256": "7462032e715309c689801578cc7adc36c7c20394ab643659963aea1f9a2d22d7"
+    },
+    {
+      "path": "internal/keycloak/authorization_ownership.go",
+      "sha256": "b472c49fa3adc0b977d5908b760b37e0917d0dadc14a9f7b6a6411ac799ffe63"
+    },
+    {
+      "path": "internal/keycloak/authorization_response_test.go",
+      "sha256": "668ac89768562c49044c4ac978322333ebc1f5d8e2af20cc3933bd35996e3e49"
+    },
+    {
+      "path": "internal/keycloak/authorization_test.go",
+      "sha256": "4ee691ab4c9813a3f4a66cdbcc86df54b7dc9dcc4195c0281ac45125c983c3cc"
+    },
+    {
+      "path": "internal/keycloak/bounded_delegation.go",
+      "sha256": "57b2e5af328a7c940277be2fca47fb60b39b3e4ba85ce2a8e001b56cc93f24e8"
+    },
+    {
+      "path": "internal/keycloak/bounded_delegation_journal.go",
+      "sha256": "ea0a90bde6421dda1bc6d3b988f502835bd964269856c3ecade51bf5a1d605f8"
+    },
+    {
+      "path": "internal/keycloak/bounded_delegation_journal_test.go",
+      "sha256": "2f15353e148dff3de4f337a9cd35721f0bf7564b36810773c5b54f302ae33edc"
+    },
+    {
+      "path": "internal/keycloak/bounded_delegation_preservation_test.go",
+      "sha256": "50734dfd13e1765c3f55eab9f80680a066fea0c7a8fa4e77dd005d5906fbf9dd"
+    },
+    {
+      "path": "internal/keycloak/bounded_delegation_test.go",
+      "sha256": "c3aa30024a3b33bc7c35626db81da25075966e04e7313a8bfbd471c904678508"
+    },
+    {
+      "path": "internal/keycloak/client.go",
+      "sha256": "275522646ac99f27628e1682b2b6804b46bff54f537005f7dabf92dc363a6b4c"
+    },
+    {
+      "path": "internal/keycloak/client_lifecycle_test.go",
+      "sha256": "78dd734ef1fc665cb6a034f50894f7085c2cce2e62fee67ceff405557fd2b996"
+    },
+    {
+      "path": "internal/keycloak/client_test.go",
+      "sha256": "f617b24bb1b026c77e7f0c8f40cfcaf23d21c737afb51c70c93aed1bbb789851"
+    },
+    {
+      "path": "internal/keycloak/concurrency_test.go",
+      "sha256": "c8d3bd3b32c602b87bf50f995695e6ceb5d9c886651752e3b9e51473f449bc06"
+    },
+    {
+      "path": "internal/keycloak/delegation_application_test.go",
+      "sha256": "3298c49f57f19637e5be4899e192d2d2dfecab3502a8874e9bdf117fd4ff51f6"
+    },
+    {
+      "path": "internal/keycloak/diagnostics_test.go",
+      "sha256": "9b17c43476a3e7f5fc02734d1fef1aa73618bafc404935d837615edf716d256e"
+    },
+    {
+      "path": "internal/keycloak/export_test.go",
+      "sha256": "22b380dcbf80fb09f292cd8187bbbde74c149a7935d392990240ad217a61b104"
+    },
+    {
+      "path": "internal/keycloak/fleet_permissions.go",
+      "sha256": "51e569c01e7b0767e8bd0a6de34b69dbb76d51b9efcd5cf817fbbad021bc1f5c"
+    },
+    {
+      "path": "internal/keycloak/fleet_permissions_test.go",
+      "sha256": "c5b9411a2e54aab88be97ab5a18923b07de7b0062c26f9b578d8123159eb8f78"
+    },
+    {
+      "path": "internal/keycloak/fuzz_test.go",
+      "sha256": "da30474e4aaca6f5ead4eaa41291d0310c963c3de75fa23d31fc39a7b7c3e36b"
+    },
+    {
+      "path": "internal/keycloak/groups.go",
+      "sha256": "60267655027d38f210dd556a5106a8d0c5996d2a6785d31a9fa7c9e7c53b5735"
+    },
+    {
+      "path": "internal/keycloak/groups_test.go",
+      "sha256": "28ac8c9c821a3b8b3ac66ffaac301f178c6edcddbe4e752358eb8924fca80372"
+    },
+    {
+      "path": "internal/keycloak/identity_providers.go",
+      "sha256": "167f09cfba76fedbe50e1b59db20ebc570a4ca4c3efada7807676e06022608b4"
+    },
+    {
+      "path": "internal/keycloak/identity_providers_test.go",
+      "sha256": "96132b63d42f0257cf8fde0fa307fbdab192d6f92e15593ffca65865744f3787"
+    },
+    {
+      "path": "internal/keycloak/inventory.go",
+      "sha256": "bbab7d1884e126e8ef13ca3ea196d0989009fb02b0d43d61a136d98c7bf71414"
+    },
+    {
+      "path": "internal/keycloak/inventory_test.go",
+      "sha256": "24b43d19cc5dbb41576b6ca33174b94a6c5eb6dc1fa405e66b8fb6901e9e320e"
+    },
+    {
+      "path": "internal/keycloak/mappers.go",
+      "sha256": "455836787945b33a2340bc38b3bb62ceb991db8e3f6a6aa97d9a6cca1b925546"
+    },
+    {
+      "path": "internal/keycloak/mappers_test.go",
+      "sha256": "bfeb35e68530f7c093087ae37aa325cc37996af645b125af0893d0af39ed74cb"
+    },
+    {
+      "path": "internal/keycloak/mutation_guard.go",
+      "sha256": "14b1674c1d88e59f17538001cfd83e67168a99f079bb0bcfce0e2720035f7da0"
+    },
+    {
+      "path": "internal/keycloak/mutation_guard_test.go",
+      "sha256": "1b3343c794f35f3c5f35710d889398273fd37ee4bfa29f379946a7cc46bf3a57"
+    },
+    {
+      "path": "internal/keycloak/organization_adoption.go",
+      "sha256": "e2afffe715840d6ac4ec03c71eafb72f99f6559a4319c3f7065f2ee0824bccf2"
+    },
+    {
+      "path": "internal/keycloak/organization_adoption_test.go",
+      "sha256": "8e7e7df6f88bdcd8880d3f1d6ccfba1926865ef28cb8e71edb40832bc0f7a02b"
+    },
+    {
+      "path": "internal/keycloak/organization_preservation.go",
+      "sha256": "5f2b51d4599a7d18d48faaf7a6b2dd4c55ec930b63fd8bcc2bc1f947a68d6995"
+    },
+    {
+      "path": "internal/keycloak/organizations.go",
+      "sha256": "33c62afe0178f597a466ab51f6b8d66633ab7fb429a73c5015e2a666f6ea2b53"
+    },
+    {
+      "path": "internal/keycloak/organizations_test.go",
+      "sha256": "bae30ca16b526bfaa8c6db47786a1182e84e77f8d7bef6eefa19654b44d88ede"
+    },
+    {
+      "path": "internal/keycloak/permissions.go",
+      "sha256": "c44c65c3d671954f34f5be7260ea4436a941e63cb77e0ca6627112fabb71bfaf"
+    },
+    {
+      "path": "internal/keycloak/permissions_test.go",
+      "sha256": "c396ac02bc257f89bd4718efa641da3c8a04fa4494af50e76e830539810af5bf"
+    },
+    {
+      "path": "internal/keycloak/pool.go",
+      "sha256": "61ccdc9e4b654054f8d375e91c61267efa85311fb442b54d0bb006ee14a92131"
+    },
+    {
+      "path": "internal/keycloak/pool_test.go",
+      "sha256": "c27018a50f97f585ddf4b6ff41e006b3e8597eb13cb600b77b116fd5624339ef"
+    },
+    {
+      "path": "internal/keycloak/public_ownership_compatibility_test.go",
+      "sha256": "924f6ff17eca5b4187f067d524f87dff34d5b201991e6fb09e81aff778c75dc2"
+    },
+    {
+      "path": "internal/keycloak/realm_sessions_test.go",
+      "sha256": "ff36dac637aefaeb5dba70d99e5a04efb2b2c3b7239e1ebf223b91064956e488"
+    },
+    {
+      "path": "internal/keycloak/request_budget.go",
+      "sha256": "a7faa969155dc75ffe14464401d5a15b34821e3fa621ce4acc9e3bf1d353bf4d"
+    },
+    {
+      "path": "internal/keycloak/responses.go",
+      "sha256": "b87a959a9db3724a22107a12975481d0a1d5661c1ec4d8b02c3be8a402505ccf"
+    },
+    {
+      "path": "internal/keycloak/responses_test.go",
+      "sha256": "8a09da4179388adfc8810e1aee299e89bd4000c4cf0e2401b7a7c77b634c1c08"
+    },
+    {
+      "path": "internal/keycloak/role_provenance.go",
+      "sha256": "f369bc4e2b1bf5b35af71e964165887c2ebd368d59513a17d0037961d02324ab"
+    },
+    {
+      "path": "internal/keycloak/role_provenance_test.go",
+      "sha256": "541986d6c36ff588372f126edd7b2688b94ce943bbb55338b74dad4ee7f9c730"
+    },
+    {
+      "path": "internal/keycloak/service_account_ownership.go",
+      "sha256": "e33816f5bde750bed7d90ffdc85e7162bb33d19751ff29b58290468f0889ab08"
+    },
+    {
+      "path": "internal/keycloak/testdata/endpoints.json",
+      "sha256": "ea8cb2c1435b836e39420d1ae5197531b65c3c7530bac1e986af7e969cd3fd93"
+    },
+    {
+      "path": "internal/keycloak/token_refresh.go",
+      "sha256": "57abd17d97cb10f9571ccbd3fe4a170f4670ed039ffd3b9967fd278c6e3f0997"
+    },
+    {
+      "path": "internal/keycloak/transport.go",
+      "sha256": "075f152ac5afee4ef415aae265c2a483932d06f55f7f1faf8eebcb767a9a5f1f"
+    },
+    {
+      "path": "internal/keycloak/transport_test.go",
+      "sha256": "cf2835daf2e046d79a142eb63c8ab067e929ed0e746b146f88defc326835bae5"
+    },
+    {
+      "path": "internal/keycloak/workload_authentication.go",
+      "sha256": "29400bf0309a7511ae6e45a6ed52c5d42df7e5fea0c25946555b50a8002fe1f8"
+    },
+    {
+      "path": "internal/keycloak/workload_containment.go",
+      "sha256": "a1658e7ed3cb493003c98b22837f6394fb9e314d35a83b34d1cd7295ca163fb4"
+    },
+    {
+      "path": "internal/keycloak/workload_trust.go",
+      "sha256": "c306a562854db17b44cbbe3456963f44188b48c2d6d32b66b41f03b392666748"
+    },
+    {
+      "path": "internal/keycloak/workload_trust_flow.go",
+      "sha256": "7d64b38cfada6067a4d68d2c8d829e9f0c96687abc101a62b4d7f50d9aee727a"
+    },
+    {
+      "path": "internal/keycloak/workload_trust_reader_test.go",
+      "sha256": "75444d843f599b3b7a39f918adced0af316cfd2b0b0b4b0b115182fd437ad30d"
+    },
+    {
+      "path": "internal/keycloak/workload_trust_test.go",
+      "sha256": "dabfe49b41afe7b8ef8a6668d6088dd312e310b46d29a6053baa70f56f0ef66a"
+    },
+    {
+      "path": "internal/observability/events.go",
+      "sha256": "c7c21e5953b131622e25c5a304e4b5f5b77cff02396a56a6cbb8139894d9cab8"
+    },
+    {
+      "path": "internal/observability/metrics.go",
+      "sha256": "8b56dd0102244a818f6afb0664d67dde6883fde04e427819ac2683e024648978"
+    },
+    {
+      "path": "internal/observability/metrics_test.go",
+      "sha256": "ed745220d2828e7895d844e37be195a139720c62dc6070827b1e80beab0545bf"
+    },
+    {
+      "path": "internal/observability/tls.go",
+      "sha256": "1c7015776a85c34bafc678bf548266078a3866256556ac3bbacc890e7ccc92f4"
+    },
+    {
+      "path": "internal/observability/tls_test.go",
+      "sha256": "29c464767dcd855f9a4f9c73a304ce8804e34b704ded65c95810288035861ab4"
+    },
+    {
+      "path": "internal/organization/ownership.go",
+      "sha256": "92fe29d0fb949d80fccbf58c7aad4ba6cb5b942b9ef935d657348009bcf1accd"
+    },
+    {
+      "path": "internal/organization/ownership_test.go",
+      "sha256": "aa5d86e8ff224185fc0764f709c183b92dbbbbe7dbc9d4a1bf50e0ba0852dc6a"
+    },
+    {
+      "path": "internal/roles/contract.go",
+      "sha256": "dd9cd950775ce0a2a5e1ab78944cdb3d0d5b62314b5ef6600845f769269de607"
+    },
+    {
+      "path": "internal/roles/contract_test.go",
+      "sha256": "bfd5dadeab11a28bbc7e8cbb23ffdc19a57b96afa8f0c863900e2902b41522f4"
+    },
+    {
+      "path": "internal/roles/keycloak.go",
+      "sha256": "76c24670fdd6f93c9ab08322528def8774635302e3359bb5aa623d1aa8dd296f"
+    },
+    {
+      "path": "internal/roles/keycloak_test.go",
+      "sha256": "aa06d65f79e5b075271fc4e463e7cee28a614423f6538a9d1a92b1276546a421"
+    },
+    {
+      "path": "internal/roles/observation.go",
+      "sha256": "e54e1f263b66366285f73e5a332b024f85bba8ea2b079542f50d49698ab21146"
+    },
+    {
+      "path": "internal/roles/observation_test.go",
+      "sha256": "061c60ca8b5b74449eda3cef8e2b09cfdb20ff4a8a2e1e3ed4b048adfb803b4a"
+    },
+    {
+      "path": "internal/selfupdate/selfupdate.go",
+      "sha256": "5430a7f38cee6efc08ff68ba95bd615f7ff2997b6a12d77af667b46b5ea676e9"
+    },
+    {
+      "path": "internal/selfupdate/selfupdate_test.go",
+      "sha256": "dffe0f17df9a91de23790b47c27424cd4cafe8f7e75c2857d60a250fa99f825d"
+    },
+    {
+      "path": "internal/supervision/iam_evidence.go",
+      "sha256": "d246ab4fc2bf61c99b21dfcc151d36a884c96e60c5849c4d745f7200eab86c4d"
+    },
+    {
+      "path": "internal/supervision/iam_evidence_test.go",
+      "sha256": "f02cc7eb70b292fd8edc4026272e9f8f5813f0d64ddad2ffc04ef81dcac41170"
+    },
+    {
+      "path": "internal/supervision/supervision.go",
+      "sha256": "a31ff3d3d3e337449ddd846fba8003bbfba4c9d7732136d82ccaec73cbd107db"
+    },
+    {
+      "path": "internal/supervision/supervision_test.go",
+      "sha256": "1192fd52af45561f8ac3dc9de68ce1c5e44142e6cc0d3774a026058e2cb5f027"
+    },
+    {
+      "path": "internal/supervision/supervision_wire_test.go",
+      "sha256": "01e2b334e37d47aa2ac7c1c1d4169e1b6f8d890d575dc80cff38ef4b3e0c330d"
+    },
+    {
+      "path": "internal/version/version.go",
+      "sha256": "96103bccb3524f599ff641d15cbb8372edc6436a5772890c676185fe23dbbb9c"
+    },
+    {
+      "path": "internal/workloadauth/contract.go",
+      "sha256": "a1b3778ce990bfe5a58b60c101bbbda03e2a73a0d1939abc3a4929255a168d90"
+    },
+    {
+      "path": "internal/workloadauth/contract_test.go",
+      "sha256": "4541dcd25ea53b764a474de0c84803d0062051e23d1f10803d10c3d6ea6770ea"
+    },
+    {
+      "path": "internal/workloadauth/fuzz_test.go",
+      "sha256": "a238422703142cea6109d8e6bde6e1b7a538da9c3601cf7d8ca6a045997a34e7"
+    },
+    {
+      "path": "internal/workloadbinding/contract.go",
+      "sha256": "2affde690149b427098f1767bb554708640634a5a47da61a1402a600e753d2b9"
+    },
+    {
+      "path": "internal/workloadbinding/contract_test.go",
+      "sha256": "ddfa84ca7a4fd11616c326f26aed1649520150351cf471c39fe49e9b375bfb19"
+    },
+    {
+      "path": "internal/workloadbinding/delivery.go",
+      "sha256": "907e873ac88366d35d21ddd6642ee5948d7fc9ec1c621c60346fc663b35fd7b9"
+    },
+    {
+      "path": "internal/workloadbinding/fuzz_test.go",
+      "sha256": "6f53d0762141d690cb16401a1b0d6feb82dd90f316c84a5f69919956ec606304"
+    },
+    {
+      "path": "internal/workloadtrust/checkpoint.go",
+      "sha256": "cb71b992e9c9c83e9a830f885396724cdc4260b2ade92e99dee5df4c9cce005c"
+    },
+    {
+      "path": "internal/workloadtrust/contract.go",
+      "sha256": "ea2de75263cb757e1d32ab72b10faa64d36e99db8b23adfa96564d7c6acfea68"
+    },
+    {
+      "path": "internal/workloadtrust/contract_test.go",
+      "sha256": "9f2a92d71db3a0a5c8143df046320ab01f736f771f3b2904c91c63c73dab165f"
+    },
+    {
+      "path": "internal/workloadtrust/discovery.go",
+      "sha256": "e8e099f022d61d3dd55cd443757e84294fbf47543df8af04d09511621e02a867"
+    },
+    {
+      "path": "internal/workloadtrust/discovery_test.go",
+      "sha256": "e879a222438e2c2ebc474bfa12b110807245ed63c79b28a08e9a36df7e822f26"
+    },
+    {
+      "path": "internal/workloadtrust/fuzz_test.go",
+      "sha256": "9f32707f0b7b2ec956fa7822d37082396ba94da94710cb56aeb2768d3b568d81"
+    },
+    {
+      "path": "scripts/api-support.py",
+      "sha256": "f05dc14e41b4f8666b6cb0b78e781b6a70f746ed6e0a8db56c188d7acc88cded"
+    },
+    {
+      "path": "scripts/api-surface/main.go",
+      "sha256": "9daf6291d62625c0e594dbc8384cee04b33f3a85c3f10d1f5eaf1b63e77230aa"
+    },
+    {
+      "path": "scripts/api-surface/main_test.go",
+      "sha256": "122ccb36c1773ff9a439339cd1d99f5e7ab6f92316e31a5424623d470944f684"
+    },
+    {
+      "path": "scripts/api-surface/testdata/contract/contract.go",
+      "sha256": "ccf1ed380f2ad02ec42f364305bbce2addb2c0c527629fd63e72c91f962241eb"
+    },
+    {
+      "path": "scripts/api_conversion_contract.py",
+      "sha256": "ec1d589179003ef14914ff7fd012dbeacead28b3a7b249bd98bd1b5158ca9eb6"
+    },
+    {
+      "path": "scripts/attest-release.py",
+      "sha256": "3b9152bc576ddd7a929d042faaccef5da5a911db34955c26d85bc29683e4989b"
+    },
+    {
+      "path": "scripts/authentik-fixture.py",
+      "sha256": "583e5bef42c0dcfbe93f2fa20c4a459e4c1b7b705526fc573146bd5083cdb31e"
+    },
+    {
+      "path": "scripts/check-adr-references.py",
+      "sha256": "2ee44287d67c3991fa8162a302b2c0a210209c54b19404c5ca4456edde9f6ed4"
+    },
+    {
+      "path": "scripts/check-coverage.py",
+      "sha256": "457d208b04a9c2a48fcb8af1abb8d3978168704581af438086b8a11ff6c11734"
+    },
+    {
+      "path": "scripts/check-dco.py",
+      "sha256": "ed2b2c539ebe83bb4249c7d0da2af721673c2e8c1814b9dc81df6ad76d2f4cfb"
+    },
+    {
+      "path": "scripts/check-licenses.py",
+      "sha256": "506cab8b783011801a850f289c3527ab9424153e90146cd3d6c6202baf39fef4"
+    },
+    {
+      "path": "scripts/check-rulesets.py",
+      "sha256": "663f4b7fbeba71245621e548e05ceddf0901dc10bad82be32a51bb68dd07c644"
+    },
+    {
+      "path": "scripts/compatibility-evidence.py",
+      "sha256": "a4466bb87c677ec255464fceaa9c5fd21032a05de26732b4a6044a4f99f6068e"
+    },
+    {
+      "path": "scripts/compatibility-gate.py",
+      "sha256": "fc13f4c868f44fba86f5aa8ad276f1fff9f7875e25fa4b40f071985e22e711ef"
+    },
+    {
+      "path": "scripts/cosign-pins.sh",
+      "sha256": "23ed4886f1dda802e1ee16bc1ced5d255baf822f61f4d4c10bab10ec9b2d357d"
+    },
+    {
+      "path": "scripts/coverage-baseline.json",
+      "sha256": "f51935acbd67f2e8daa1a7c797d24cbb616ce41f141238da305e5fa7510fc08d"
+    },
+    {
+      "path": "scripts/coverage-floors.json",
+      "sha256": "c8ec985d805dc48dec369fcd5619a68fbee48db631c91da039256433d0c07e60"
+    },
+    {
+      "path": "scripts/crd-input-bounds.py",
+      "sha256": "16d1e21e1648ff1156ca56f2596b3e0e323e98ce9eec767ae87ea2fd83137897"
+    },
+    {
+      "path": "scripts/delegation-installed-test.py",
+      "sha256": "29e8c211bcbef605c48917f480c10168329589c675d2c59c24f20cd7b3c7753b"
+    },
+    {
+      "path": "scripts/delegation-pod-probe.py",
+      "sha256": "924e13fbece3c78e1acc40146e508049c0c4fb12aa560a3daa7ba41286c7399a"
+    },
+    {
+      "path": "scripts/delegation-resource-server/main.go",
+      "sha256": "4d051df1ec985ef963b0650797a27d08612261790ba3fec8704e0d612d72aa70"
+    },
+    {
+      "path": "scripts/delegation-resource-server/main_test.go",
+      "sha256": "ee88e78700e3a1451ff3329e2f6bf6b0760662d19b49ef399be86e282d825647"
+    },
+    {
+      "path": "scripts/evidence_privacy.py",
+      "sha256": "ee97e808453939efc2a48a62807330b879ec5b777c1b4636aa8fadc56e44ef8b"
+    },
+    {
+      "path": "scripts/finalizer-recovery-fixture.py",
+      "sha256": "c2f2d8c48bf883603f764fc1e10f9570ca09c48498693bf278a33fdd15e64ad7"
+    },
+    {
+      "path": "scripts/finalizer-recovery.py",
+      "sha256": "25c00750b5b7fcaaed6062629916f50bb44071e41221452632e92973b7da615d"
+    },
+    {
+      "path": "scripts/finalizer_recovery.py",
+      "sha256": "4ba988153e2d21f3632d2beb9171f766be2eb97215d3dd9f4ef77c3e830998ea"
+    },
+    {
+      "path": "scripts/fixtures/authentik-seed.py",
+      "sha256": "62f2f6933b593c4b2f9928594949067110f33901ea8fefc1d089cf2c6f9b697e"
+    },
+    {
+      "path": "scripts/flaky-issue.py",
+      "sha256": "740a6dd3dbff6499440efb4b3e62a14567db2e0965f9225d0b1bd955559e4ddb"
+    },
+    {
+      "path": "scripts/flaky-report.py",
+      "sha256": "b3540291373db6bf869dc3f4b82dfb230138553fc8091c0801533500765c0014"
+    },
+    {
+      "path": "scripts/fleet-hub-fixture.py",
+      "sha256": "e25942ccc981182a206d8fad83a5c912952084fd93887f6312aced06b723b94b"
+    },
+    {
+      "path": "scripts/fleet-installed-test.py",
+      "sha256": "924707330b2edd004c0b2595c5d9993808ab66724ea9d2bebdcf4834e29d1306"
+    },
+    {
+      "path": "scripts/fuzz-targets.json",
+      "sha256": "3c3a28200dc6ed5ea2c895c70e0c94bbd960ed45beef9859bcf61f6d5735b4c6"
+    },
+    {
+      "path": "scripts/go-api-contract.py",
+      "sha256": "0159f0adab2f8d03668bea8ecbf71c8224986d593d6de062f69e69620f64bc05"
+    },
+    {
+      "path": "scripts/go-tests.py",
+      "sha256": "8be3c592e03c1ca2f3e109b3dbfbc27b1a23ac911ab32181d5403eaf14530418"
+    },
+    {
+      "path": "scripts/incident-evidence.py",
+      "sha256": "b83e8e30cacf08b0585b9d78e2c1819625fa9d547b2defd5a93ab04a7e4a1595"
+    },
+    {
+      "path": "scripts/install-attest.sh",
+      "sha256": "29cafc0f3aecdef9a7144e2c5f360659014e449ea37feac680224d7fa75d3198"
+    },
+    {
+      "path": "scripts/install-cosign.sh",
+      "sha256": "e03b10e592344ff703addc0c8841e38bb0c6c231a1e2517a9f104eb0769a6d6c"
+    },
+    {
+      "path": "scripts/install-envtest.sh",
+      "sha256": "948827d1dc97fce8783673f3e2a80cc46ed56e2cfe8436f68c2806bacf99de3a"
+    },
+    {
+      "path": "scripts/install-helm.py",
+      "sha256": "33cf47ee7137df66a87e6d149861a38c530b098869ba1cb4c20f3815da25d510"
+    },
+    {
+      "path": "scripts/install-hook-tools.py",
+      "sha256": "73e95618286932ff325c4cc14027f110e6abc8d526d457652e740e8418d43db6"
+    },
+    {
+      "path": "scripts/install-system-tools.py",
+      "sha256": "ef10c1d681f42074311526575810e4c997a0c7f353c5c2ed57992f6e4ee95613"
+    },
+    {
+      "path": "scripts/install-trivy.py",
+      "sha256": "8d0d15a1a699875381bf58b25743f8b62ffcf2bc0e33a930d4d20f80c25f0561"
+    },
+    {
+      "path": "scripts/keycloak-extension.py",
+      "sha256": "7f58be3971206b11c422bbd4e9a48add906d0f67c32e0288b49ca2570cafa212"
+    },
+    {
+      "path": "scripts/keycloak-shards.json",
+      "sha256": "34e3b75215dbeabc6cbf01e6de8ab00d8dcf378c91fb78e3509f05e777620d91"
+    },
+    {
+      "path": "scripts/keycloak-stability.py",
+      "sha256": "7e2fd1efe537d8776c57f282889c854069445b1862e4114a74db3222b61646ae"
+    },
+    {
+      "path": "scripts/keycloak_extension_source.py",
+      "sha256": "f40373aaae3f4cb5a2845130db14407f30cbcffddc3c9ffdc20569758c0c2890"
+    },
+    {
+      "path": "scripts/lifecycle-approval.py",
+      "sha256": "02ec0ca79a8d463f36f3e9a351e19c3ec130f45bdfc17a64ce51975b8f4fb03f"
+    },
+    {
+      "path": "scripts/observability-installed-test.py",
+      "sha256": "255af772d16461001502947864259518f23a5c215f5c858b91a468614dd2bc68"
+    },
+    {
+      "path": "scripts/oci-security.py",
+      "sha256": "3f8ad4876ecd35d100b4c69b57adb1449f215c91c28527bb539f02218e627052"
+    },
+    {
+      "path": "scripts/operations-contract.py",
+      "sha256": "09b3abb745fb9b0b4b59cf64f3e8c6f7db40032d82e7e0b0d979ce093a91a6b5"
+    },
+    {
+      "path": "scripts/portable-installed-test.py",
+      "sha256": "13d9a6fc009d5478831ca55b0847301b6d3a6f23216b07e0a80ed7c8ad8c03ee"
+    },
+    {
+      "path": "scripts/pre-commit-checks.py",
+      "sha256": "abf942588db75544626681a656c68a31e7c2d8b4d7d22ab32b624df76489fe95"
+    },
+    {
+      "path": "scripts/public-contract.py",
+      "sha256": "390827d737aa7caa333fcf6a0af529905df9980ecfdc8114a4538df7d68f960c"
+    },
+    {
+      "path": "scripts/qualification-diagnostics.py",
+      "sha256": "1b02d5a4b7697a9d2fb36f91553f597237ccf157c58b4ff91fc2dabc060b4852"
+    },
+    {
+      "path": "scripts/recovery-installed-test.py",
+      "sha256": "44352de7c8290d9d9d3153f4e57e90c902ef387b9bc6121fe4455cdc57a303c0"
+    },
+    {
+      "path": "scripts/release-contract.py",
+      "sha256": "7512a94bc6d7220e3aa55b4a594a2fa456277f4f9a2045469dfad55bf599ed53"
+    },
+    {
+      "path": "scripts/release-dry-run.py",
+      "sha256": "77cbc73872ce84ae7b08485c0815d2059f807ac355db4d0a6ec21a0389b1a1ec"
+    },
+    {
+      "path": "scripts/release-eligibility.py",
+      "sha256": "738f8039b72802db2ab259b704dfb02ed54424a37d2c15876ebbd03f72e9e662"
+    },
+    {
+      "path": "scripts/release-metadata.py",
+      "sha256": "94e40395019b5f3b6e4cd7db9bb6e64a1eaa4563cf5f15d156fde640f74f7dc5"
+    },
+    {
+      "path": "scripts/release-publish.py",
+      "sha256": "97834eaebf2489389443d629dc007a0d54f0368abac379201d67370adbca05b4"
+    },
+    {
+      "path": "scripts/release-system-test.py",
+      "sha256": "e61b74e1187c986fbda33e220ce3b1d8eb19b7831521f6036cbaa154b7fb8087"
+    },
+    {
+      "path": "scripts/release-version.py",
+      "sha256": "2c7171d0db917e0a849f0c203008973c6dcb579dc08d4968f21644c162665efb"
+    },
+    {
+      "path": "scripts/requirements.txt",
+      "sha256": "3201fd124eaec47def941da0a83315081d90c1ae99f9dd5f62401adf9f2d8683"
+    },
+    {
+      "path": "scripts/scale-evidence.py",
+      "sha256": "ffaddf868705737826d4e97a109c61848708e1454d64af4aea73102390c4b1f1"
+    },
+    {
+      "path": "scripts/scale-installed-test.py",
+      "sha256": "152785f91f6686b2c0aabd3ff985f19ed8e26ac0d37c25b2473d21122f6deb55"
+    },
+    {
+      "path": "scripts/schedule-report.py",
+      "sha256": "48d19d71c979819b59f57381bbf4c5f0a8b4eaf94e653a89becab60a88a6a80b"
+    },
+    {
+      "path": "scripts/security-fuzz.py",
+      "sha256": "004e5db3c21905dcde337d28818578ce9e1f2511ca390c880fbe752e4033bb66"
+    },
+    {
+      "path": "scripts/security-mutations.py",
+      "sha256": "83fdc6afa39c629044c77a33b0a444133bf4c66f136e91202bab5bde5064bb5c"
+    },
+    {
+      "path": "scripts/security-surface.py",
+      "sha256": "28be49f97bc1f2bfee2cb68da0aa2a17f095b52f517978df212f804b9ef58de9"
+    },
+    {
+      "path": "scripts/sensitive_write_probe.py",
+      "sha256": "55286585e961b798ccd274ceb47f9df66a4135ebae3c84f31c0dcbc440dff87c"
+    },
+    {
+      "path": "scripts/sensitive_writes.py",
+      "sha256": "0500af56c1b0c88af4519797834d05912974f12bc671f6e3840912760d02f832"
+    },
+    {
+      "path": "scripts/stable-contract.py",
+      "sha256": "af941cefff6d9b79fca404c11a08e5664f232d34a5241afe770767dc47c35ee6"
+    },
+    {
+      "path": "scripts/storage-migration-installed-test.py",
+      "sha256": "63a19b7de13c0eb32aebc7fe806d3074c75125d50a1581c13241e153b41097fa"
+    },
+    {
+      "path": "scripts/storage_migration.py",
+      "sha256": "ad1e0b244eb64c3688ac7224bf4a5635c2b59ca5e1388c447d80356628845410"
+    },
+    {
+      "path": "scripts/support-window.py",
+      "sha256": "91e3f760d3b158b90a9c1196fbf7d4071d183fce74486b760ac62f04f596a3c2"
+    },
+    {
+      "path": "scripts/system-test.py",
+      "sha256": "f8d8a4f922a2a18cb82526ca3ac49111fde25b4f4f928d4bed6e4c7d89feed0c"
+    },
+    {
+      "path": "scripts/test_adr_references.py",
+      "sha256": "7dbf28e9d57230e700ffad646b287f932c4da33de16456c7dda950bc8265b0e4"
+    },
+    {
+      "path": "scripts/test_api_conversion_contract.py",
+      "sha256": "0704d991b2aa87f9c9d970aeb1d463dfede0a4c42173af919f184333995ff3c2"
+    },
+    {
+      "path": "scripts/test_api_support.py",
+      "sha256": "69f81e593891953a8cfe3fd426447686ef86770da75ee9530d6f89533eda580e"
+    },
+    {
+      "path": "scripts/test_attest_release.py",
+      "sha256": "d51e3a0dd97a77267cf72fabc5d3f420f05bac22c287125c1689659c9b54a826"
+    },
+    {
+      "path": "scripts/test_authentik_fixture.py",
+      "sha256": "1e0b5e645d1aabfbe701842dde2d7d38d80574466112d0be73064483919e9f9c"
+    },
+    {
+      "path": "scripts/test_compatibility_evidence.py",
+      "sha256": "60dac4a9fe3567e88deb5cf51032c8bc8b2fc3cd22a8b8b433c21794444cf946"
+    },
+    {
+      "path": "scripts/test_compatibility_gate.py",
+      "sha256": "152a4aa1b0fe9d4c0a0d8a8c7ef686dc80d60708d60fd4ad9e0bf996134048c9"
+    },
+    {
+      "path": "scripts/test_coverage.py",
+      "sha256": "dd4b6973201babd1fc51d5fee9a3b747428c9beffbc1e086fc2f049cbbb6a46d"
+    },
+    {
+      "path": "scripts/test_crd_input_bounds.py",
+      "sha256": "eb0aad9d41ef5eb75c8fe7ea4f5d7951b376ed9292a6e46afd88061f90ca7fe4"
+    },
+    {
+      "path": "scripts/test_dco.py",
+      "sha256": "97f72bb0aeab76ded4759f3ec3e88ea056e24413d6cfa4a2b152751540193908"
+    },
+    {
+      "path": "scripts/test_delegation_installed.py",
+      "sha256": "496567291326de5b184f4c7726edb36eb870aec6eab227503ea51ab40632aaea"
+    },
+    {
+      "path": "scripts/test_evidence_privacy.py",
+      "sha256": "2ac5a7b639e7c66fe12f7023bd278eaabb1864df28e3ea992407b861e1117558"
+    },
+    {
+      "path": "scripts/test_finalizer_recovery.py",
+      "sha256": "c837c2e3d5b47eec6e91c7c873ac13949ad8cb60fac90664be68ad855939d76c"
+    },
+    {
+      "path": "scripts/test_flaky_issue.py",
+      "sha256": "8f8cae5aae9cf6c9cb2a7ac9e5549390031734cb0ab30f3e3cf63c6c92090131"
+    },
+    {
+      "path": "scripts/test_flaky_report.py",
+      "sha256": "d0b49e15493fd48f6c80b5f6cfc5b9978469ca73d222b8968ec1f495a0bf7b02"
+    },
+    {
+      "path": "scripts/test_fleet_installed.py",
+      "sha256": "08b5d14c00727b04d8ab6bcff8585dcfce88e8368a0a1f512d75849ba050c132"
+    },
+    {
+      "path": "scripts/test_go_api_contract.py",
+      "sha256": "6d16afe76a95706e80c939c1e58cc474accbc55e90b3db7ebeef63a34e7734e4"
+    },
+    {
+      "path": "scripts/test_go_tests.py",
+      "sha256": "ab76e493d1f4c07f625855e9110aae442907b08c1a379b2209d77e12fd376335"
+    },
+    {
+      "path": "scripts/test_incident_evidence.py",
+      "sha256": "67412993cca3e991159a67817100dcf1c081d9f7f64acdcb88e24805e19a840d"
+    },
+    {
+      "path": "scripts/test_keycloak_extension_source.py",
+      "sha256": "87e2283a62a5330221b3c56daaf5f8413a5d74fe4775db27088ff0a4960c6d65"
+    },
+    {
+      "path": "scripts/test_keycloak_stability.py",
+      "sha256": "bde57473eabc3780896783b3ae831f3866851f2c1af2c891c785a45ac80d5137"
+    },
+    {
+      "path": "scripts/test_licenses.py",
+      "sha256": "81ef195130b67f5551bdbc3b1e5022fa914eb57facc73cc913af23b91eb469ef"
+    },
+    {
+      "path": "scripts/test_lifecycle_approval.py",
+      "sha256": "4be76a91fc494a99fad4900d3692f227f4174f741ceefd03eb535dba35b8a18c"
+    },
+    {
+      "path": "scripts/test_observability_installed_test.py",
+      "sha256": "479a81e7cfaa22848931684c83696ab5a4c18bfdf533fbdf1c7cdbbf1e310908"
+    },
+    {
+      "path": "scripts/test_oci_security.py",
+      "sha256": "d5225561e8684f1c3f7055f4865d8680928a03f6201119636f9d9e2ceaf12102"
+    },
+    {
+      "path": "scripts/test_operations_contract.py",
+      "sha256": "390ed56023ecc5879c3815d1115c7f62537868eaf4585912cd76b591870d0111"
+    },
+    {
+      "path": "scripts/test_portable_installed.py",
+      "sha256": "42bb517449cb50dbeab726e8b7a9fb6c02411d3395659a1fbca49174ea5933bd"
+    },
+    {
+      "path": "scripts/test_pre_commit.py",
+      "sha256": "6ddb59998c261e30b75502c14bb86ceb4e980de57098e9363d76964b0f1c1ae4"
+    },
+    {
+      "path": "scripts/test_public_contract.py",
+      "sha256": "5c751aad029b24672449b4ead282a3344634fa3ca1772ae247612e0387f6df98"
+    },
+    {
+      "path": "scripts/test_qualification_diagnostics.py",
+      "sha256": "1280ff64c220f8661aee406940e58a1fd6b969020a49878ca96de453bea72777"
+    },
+    {
+      "path": "scripts/test_recovery_installed.py",
+      "sha256": "9cbb5564ea926547a81536638e024930299de6ab97c8f692d23abcdbfa4257a6"
+    },
+    {
+      "path": "scripts/test_release_contract.py",
+      "sha256": "39d252551c161a0e2a5427b7667128cfc7dc9a4ef4bfcd08952b56983da7c441"
+    },
+    {
+      "path": "scripts/test_release_eligibility.py",
+      "sha256": "eb71b59d00ac21fc54fd2dd46bab905a8cee83e51cadc7b1bf49023269d4992a"
+    },
+    {
+      "path": "scripts/test_release_metadata.py",
+      "sha256": "3e73cd653b3886e4703c000ba5dc16be4b178a4833224a9afb68544df76881f6"
+    },
+    {
+      "path": "scripts/test_release_publish.py",
+      "sha256": "37b68b956828e73244b33030bee790e452033681a1ad445e60d45471646cee6c"
+    },
+    {
+      "path": "scripts/test_release_version.py",
+      "sha256": "f93b3e1331fe24288fe7a7405e84d5293f3186fbbb64d5e3dbeb130c52686313"
+    },
+    {
+      "path": "scripts/test_rulesets.py",
+      "sha256": "69ffa278d5bbb40574c9dd777169c710af46ae976dbbfb449d1a3f7ca91a4aed"
+    },
+    {
+      "path": "scripts/test_scale_installed.py",
+      "sha256": "666e6ff916d2a029aa0d6290c705b12a0a8a66795ff85b55022975d0507f7cdf"
+    },
+    {
+      "path": "scripts/test_schedule_report.py",
+      "sha256": "181ead4f42238bb2b47aaab66e139920288d80edf8f3de4bebea6f68d4b2ce5f"
+    },
+    {
+      "path": "scripts/test_security_fuzz.py",
+      "sha256": "6fe142470d9c3576e60ff4b6e46a63636229f6ae0cbba6c105e96515c339c5f0"
+    },
+    {
+      "path": "scripts/test_security_mutations.py",
+      "sha256": "4c6b1366c9ba1c4bbe2dab9274bc9399743d98bb70e4c61275bcfac2aae32f1e"
+    },
+    {
+      "path": "scripts/test_security_surface.py",
+      "sha256": "ae7e4e5bb6382ede5a0facfe3439511204812b070e59ac666cd5260d0dcab1ff"
+    },
+    {
+      "path": "scripts/test_sensitive_write_probe.py",
+      "sha256": "00a76ed31f90998b8f7afde3dc71999f92e0120398dad092da917532cca89e46"
+    },
+    {
+      "path": "scripts/test_sensitive_writes.py",
+      "sha256": "2ec005231720c0b01b68f36d7b2dd54bf6afe4c7ea4905e0c886fbc84a89128f"
+    },
+    {
+      "path": "scripts/test_stable_contract.py",
+      "sha256": "f40052d6c9983e7ca7744b8138149bf3e9f2f6bf3e19f5992c83191bd6dfffd6"
+    },
+    {
+      "path": "scripts/test_storage_migration.py",
+      "sha256": "e807372a5e288250a5bb135052219ec15be4a1ca155ca059f540c2d4829e3542"
+    },
+    {
+      "path": "scripts/test_support_window.py",
+      "sha256": "268d0c35f62446aea0bc7d00e1fb9a6b42e13c355f1e2db4b7a8396ad5a9921b"
+    },
+    {
+      "path": "scripts/test_transactions_installed.py",
+      "sha256": "8d9c6c6c04ea591097a4a2caf8244077510da087d98bfe5f1e4f6cbce0db72f2"
+    },
+    {
+      "path": "scripts/test_versions.py",
+      "sha256": "61dcd3ee33bcffd8f371b879df7bc6e14336dc3c3b62e4a4eca6caff15beb823"
+    },
+    {
+      "path": "scripts/test_workload_identity.py",
+      "sha256": "ce2c710255e9302418a9bb116e87b2670635ecfa60c4502dfdc8289f04456f0a"
+    },
+    {
+      "path": "scripts/test_workload_installed.py",
+      "sha256": "0e15feefecb8c76797a5cba1ec043dd49813e26fa0433e2fef37221ac7430e3e"
+    },
+    {
+      "path": "scripts/transactions-installed-test.py",
+      "sha256": "590575bf0c1e31fb600f1078332d42063bcc8b8e1a349f48398aa84329395e9b"
+    },
+    {
+      "path": "scripts/versions.py",
+      "sha256": "5bf8e81bd5cd6a13b5b94520097ac65564b9f43509d2627f3168687ce0a6d147"
+    },
+    {
+      "path": "scripts/workload-auth-review/main.go",
+      "sha256": "bd4eea3652e7e224b666870266f7dc3ecf5566fd307d5d4650a239d1052dcddc"
+    },
+    {
+      "path": "scripts/workload-fault-proxy.py",
+      "sha256": "ce3455c2e759838692f9911bf223c528caa2988ed97d99db3d2ab1f229db7a15"
+    },
+    {
+      "path": "scripts/workload-identity-probe.py",
+      "sha256": "2f327d4d7c48598012df5254749223dc61b769457d0446a61033cd51d30c3927"
+    },
+    {
+      "path": "scripts/workload-installed-test.py",
+      "sha256": "3b2b8f4ab66fb3d1dcd8c9489c0caf995577e0e4ab40e05879cf7f4783b71ee6"
+    },
+    {
+      "path": "scripts/workload-pod-probe.py",
+      "sha256": "ac045a93703b0023bc04b19f0b649523066eea7e39f0ed4b2de4320b8b838f2a"
+    }
+  ],
+  "installed_baseline_upgrade": {
+    "result": "pass",
+    "report_sha256": "023d3771cdb9ddf2368a29a6b9d9bedb5bd2dd944d8aeb5e8200775262e41365",
+    "new_compiled_candidate_qualification": false,
+    "scope": "Real Helm upgrade and 24 operator-token refusals using the previously scanned d1afbd4 image and the new chart/harness."
+  },
+  "native_storage_boundaries": [
+    {
+      "version": "26.7.5",
+      "result": "pass",
+      "test_outcomes": 8,
+      "scope": "One native test root and seven storage-boundary scenarios over real provider HTTPS",
+      "log": "native-storage-26.7.5.log",
+      "log_sha256": "6cef222da3f4d729b4e6f4cb11f96614220cf8010fc1edbaba4055fd5e5c9d88"
+    },
+    {
+      "version": "26.8.0",
+      "result": "pass",
+      "test_outcomes": 8,
+      "scope": "One native test root and seven storage-boundary scenarios over real provider HTTPS",
+      "log": "native-storage-26.8.0.log",
+      "log_sha256": "baffa76920bb31537067fcd6b2dd76390dc584692a3f154fea84e673cd133d8f"
+    }
+  ],
+  "go_public_exports": 1787,
+  "input_maximum_fixtures": 95,
+  "status_maximum_fixtures": 232
+}

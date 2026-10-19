@@ -6,6 +6,7 @@ import (
 	"regexp"
 
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/credentialname"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -81,7 +82,7 @@ func validateCredentialTarget(app *api.HankoApplication, b api.ApplicationRuntim
 		return failure("InvalidCredentials")
 	}
 	key := targetIdentity("credentials", b.Workload.Namespace, b.Credentials.SecretRef)
-	if targets[key] || b.Workload.Namespace == app.Namespace && b.Credentials.SecretRef == "hanko-app-"+app.Spec.ClientID {
+	if targets[key] || b.Workload.Namespace == app.Namespace && b.Credentials.SecretRef == credentialname.Application(app.Spec.ClientID) {
 		return failure("DuplicateWriter")
 	}
 	for _, old := range app.Spec.ClientSecretProjections {

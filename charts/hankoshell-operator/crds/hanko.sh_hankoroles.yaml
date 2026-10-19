@@ -63,7 +63,7 @@ spec:
                 additionalProperties:
                   maxItems: 64
                   items:
-                    maxLength: 4096
+                    maxLength: 255
                     type: string
                   type: array
                 description: |-
@@ -92,7 +92,7 @@ spec:
                 type: array
               description:
                 description: Description is a human-readable description of the role.
-                maxLength: 1024
+                maxLength: 255
                 type: string
               mode:
                 default: Manage
@@ -694,7 +694,7 @@ spec:
                 additionalProperties:
                   maxItems: 64
                   items:
-                    maxLength: 4096
+                    maxLength: 255
                     type: string
                   type: array
                 description: |-
@@ -723,7 +723,7 @@ spec:
                 type: array
               description:
                 description: Description is a human-readable description of the role.
-                maxLength: 1024
+                maxLength: 255
                 type: string
               mode:
                 default: Manage

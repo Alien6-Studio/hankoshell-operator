@@ -85,7 +85,7 @@ type AuthorizationScope struct {
 	// +kubebuilder:validation:MaxLength=255
 	Name string `json:"name"`
 
-	// +kubebuilder:validation:MaxLength=1024
+	// +kubebuilder:validation:MaxLength=255
 	Description string `json:"description,omitempty"`
 }
 
@@ -101,7 +101,9 @@ type AuthorizationResource struct {
 
 	// +listType=set
 	// +kubebuilder:validation:MaxItems=32
-	// +kubebuilder:validation:items:MaxLength=2048
+	// +kubebuilder:validation:items:MaxLength=255
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:Pattern=`^[^\x00-\x1F\x7F]+$`
 	URIs []string `json:"uris,omitempty"`
 
 	// +kubebuilder:validation:MaxLength=255

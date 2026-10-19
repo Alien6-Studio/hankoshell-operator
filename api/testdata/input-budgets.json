@@ -1068,7 +1068,7 @@
       "kind": "HankoRole",
       "path": "spec.attributes{}[]",
       "type": "string",
-      "maximum": 4096,
+      "maximum": 255,
       "spec": {
         "realmRef": "realm",
         "name": "reader"
@@ -1466,6 +1466,119 @@
         }
       },
       "format": "quantity"
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "spec.redirectURIs[]",
+      "type": "string",
+      "format": "url",
+      "maximum": 255,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "native-boundary",
+        "redirectURIs": [
+          "https://app.example/callback"
+        ]
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "spec.roles[].description",
+      "type": "string",
+      "format": "unicode",
+      "maximum": 255,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "native-boundary",
+        "roles": [
+          {
+            "name": "reader",
+            "description": "public"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "spec.saml.assertionConsumerServices[]",
+      "type": "string",
+      "format": "url",
+      "maximum": 255,
+      "spec": {
+        "realmRef": "realm",
+        "clientID": "native-boundary",
+        "protocol": "saml",
+        "saml": {
+          "assertionConsumerServices": [
+            "https://sp.example/acs"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "spec.roles[].description",
+      "type": "string",
+      "format": "unicode",
+      "maximum": 255,
+      "spec": {
+        "roles": [
+          {
+            "name": "reader",
+            "description": "public"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "spec.description",
+      "type": "string",
+      "format": "unicode",
+      "maximum": 255,
+      "spec": {
+        "realmRef": "realm",
+        "name": "native-boundary",
+        "description": "public"
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "spec.scopes[].description",
+      "type": "string",
+      "format": "unicode",
+      "maximum": 255,
+      "spec": {
+        "realmRef": "realm",
+        "applicationRef": "app",
+        "audience": "urn:native-boundary",
+        "scopes": [
+          {
+            "name": "read",
+            "description": "public"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "spec.resources[].uris[]",
+      "type": "string",
+      "format": "url",
+      "maximum": 255,
+      "spec": {
+        "realmRef": "realm",
+        "applicationRef": "app",
+        "audience": "urn:native-boundary",
+        "resources": [
+          {
+            "name": "invoice",
+            "uris": [
+              "https://resource.example/invoice"
+            ]
+          }
+        ]
+      }
     }
   ]
 }

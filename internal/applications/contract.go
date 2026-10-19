@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
@@ -194,6 +195,9 @@ func CompileForBackend(backend iamcontract.BackendKind, i Intent, r ResolvedRefe
 	if backend != iamcontract.Keycloak && backend != iamcontract.Authentik {
 		return Plan{}, iamcontract.ErrRejected
 	}
+	if backend == iamcontract.Keycloak && !keycloakStorageBudgets(i) {
+		return Plan{}, iamcontract.ErrRejected
+	}
 	i = Normalize(i)
 	e.Findings = append([]iamcontract.Finding(nil), e.Findings...)
 	data, _ := json.Marshal(r)
@@ -214,6 +218,24 @@ func CompileForBackend(backend iamcontract.BackendKind, i Intent, r ResolvedRefe
 	}{id.Intent, id.Backend, resolved, pre.References, pre.Authority})
 	id.Plan = iamcontract.Hash(iamcontract.Version, "applications", "plan", canonical)
 	return Plan{identity: id, intent: i, resolved: resolved, evidence: e, preconditions: pre}, nil
+}
+
+// These fields occupy native VARCHAR/NVARCHAR(255), unlike NCLOB attributes.
+func keycloakStorageBudgets(i Intent) bool {
+	if !utf8.ValidString(i.ClientID) || utf8.RuneCountInString(i.ClientID) > 255 {
+		return false
+	}
+	for _, uri := range i.RedirectURIs {
+		if uri == "" || !utf8.ValidString(uri) || utf8.RuneCountInString(uri) > 255 || strings.IndexFunc(uri, func(r rune) bool { return r < 32 || r == 127 }) >= 0 {
+			return false
+		}
+	}
+	for _, role := range i.Roles {
+		if !utf8.ValidString(role.Name) || !utf8.ValidString(role.Description) || utf8.RuneCountInString(role.Name) > 255 || utf8.RuneCountInString(role.Description) > 255 {
+			return false
+		}
+	}
+	return true
 }
 func validate(i Intent, r ResolvedReferences, e CapabilityEvidence) error {
 	if iamcontract.Accept(e.Findings) != nil || i.RealmRef == "" || i.ClientID == "" || r.Realm == "" || r.Owner == "" {
@@ -286,17 +308,27 @@ func validEntity(value string) bool {
 var exactACS = regexp.MustCompile(`^https://([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(:[0-9]{1,5})?(/[^\s?#@\\*]*)?$`)
 
 func ValidACS(value string) bool {
-	u, err := url.Parse(value)
-	if err != nil || len(value) > 2048 || !exactACS.MatchString(value) || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || strings.ContainsAny(value, " \t\r\n\\*@") {
+	if !utf8.ValidString(value) || utf8.RuneCountInString(value) > 255 {
 		return false
 	}
-	if u.Port() != "" {
-		port, err := strconv.Atoi(u.Port())
-		if err != nil || port < 1 || port > 65535 {
-			return false
-		}
+	u, err := url.Parse(value)
+	return err == nil && exactACS.MatchString(value) && validACSAuthority(u) &&
+		!strings.ContainsAny(value, " \t\r\n\\*@") && validACSPath(u.Path)
+}
+
+func validACSAuthority(u *url.URL) bool {
+	if u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
+		return false
 	}
-	return !strings.ContainsAny(u.Path, "\r\n\\*")
+	if u.Port() == "" {
+		return true
+	}
+	port, err := strconv.Atoi(u.Port())
+	return err == nil && port >= 1 && port <= 65535
+}
+
+func validACSPath(path string) bool {
+	return utf8.ValidString(path) && strings.IndexFunc(path, func(r rune) bool { return r < 32 || r == 127 }) < 0 && !strings.ContainsAny(path, "\\*")
 }
 
 // ReservedAttribute is shared by validation and observation filtering. Secret

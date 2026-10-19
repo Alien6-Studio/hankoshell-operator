@@ -87,6 +87,7 @@ chart-test:
 	python3 $(CHART)/tests/organization-projection.py
 	python3 $(CHART)/tests/experimental-provider.py
 	python3 $(CHART)/tests/lifecycle.py
+	python3 $(CHART)/tests/sensitive-writes.py
 	python3 $(CHART)/tests/kubernetes-compatibility.py
 	python3 $(CHART)/tests/workload-binding.py
 integration-test: $(GOTESTSUM)

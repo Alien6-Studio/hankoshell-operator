@@ -129,9 +129,17 @@ rules:
     # Secret reads bypass the controller-runtime cache. list/watch would copy
     # every credential in the namespace into the operator process.
     verbs: ["get"]
+  {{- $secretWrites := include "hanko-operator.sensitiveWriteNames" (dict "root" . "kind" "secrets") | fromJsonArray }}
+  {{- if $secretWrites }}
   - apiGroups: [""]
     resources: ["secrets"]
-    verbs: ["create", "update", "patch"]
+    # RBAC cannot name-scope CREATE; the mandatory admission policy does.
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: {{ $secretWrites | toJson }}
+    verbs: ["update", "patch"]
+  {{- end }}
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["get", "list", "watch", "create", "update", "patch"]
@@ -149,7 +157,17 @@ rules:
     verbs: ["get", "list", "watch", "create", "delete"]
   - apiGroups: ["apps"]
     resources: ["deployments"]
-    verbs: ["get", "list", "watch", "create", "update", "patch"]
+    verbs: ["get", "list", "watch"]
+  {{- $deploymentWrites := include "hanko-operator.sensitiveWriteNames" (dict "root" . "kind" "deployments") | fromJsonArray }}
+  {{- if $deploymentWrites }}
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["create"]
+  {{- end }}
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: {{ concat (list (include "hanko-operator.fullname" .)) $deploymentWrites | uniq | sortAlpha | toJson }}
+    verbs: ["update", "patch"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["networkpolicies"]
     verbs: ["get", "list", "watch", "create", "update", "patch"]
