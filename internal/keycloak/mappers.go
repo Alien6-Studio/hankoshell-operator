@@ -288,12 +288,12 @@ func findProtocolMapper(mappers []ProtocolMapper, name string) (ProtocolMapper, 
 }
 
 func (c *Client) createMapper(ctx context.Context, mapperPath string, payload any) (string, error) {
-	resp, body, err := c.mapperRequest(ctx, http.MethodPost, mapperPath, payload)
+	resp, _, err := c.mapperRequest(ctx, http.MethodPost, mapperPath, payload)
 	if err != nil {
 		return "", err
 	}
 	if resp.StatusCode != http.StatusCreated {
-		return "", fmt.Errorf(keycloakErrorFormat, resp.StatusCode, strings.TrimSpace(string(body)))
+		return "", &StatusError{Code: resp.StatusCode}
 	}
 	location := strings.TrimRight(resp.Header.Get("Location"), "/")
 	if location == "" {
@@ -303,23 +303,23 @@ func (c *Client) createMapper(ctx context.Context, mapperPath string, payload an
 }
 
 func (c *Client) updateMapper(ctx context.Context, mapperPath string, payload any) error {
-	resp, body, err := c.mapperRequest(ctx, http.MethodPut, mapperPath, payload)
+	resp, _, err := c.mapperRequest(ctx, http.MethodPut, mapperPath, payload)
 	if err != nil {
 		return err
 	}
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
-		return fmt.Errorf(keycloakErrorFormat, resp.StatusCode, strings.TrimSpace(string(body)))
+		return &StatusError{Code: resp.StatusCode}
 	}
 	return nil
 }
 
 func (c *Client) deleteMapper(ctx context.Context, mapperPath string) error {
-	resp, body, err := c.mapperRequest(ctx, http.MethodDelete, mapperPath, nil)
+	resp, _, err := c.mapperRequest(ctx, http.MethodDelete, mapperPath, nil)
 	if err != nil {
 		return err
 	}
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusNotFound {
-		return fmt.Errorf(keycloakErrorFormat, resp.StatusCode, strings.TrimSpace(string(body)))
+		return &StatusError{Code: resp.StatusCode}
 	}
 	return nil
 }

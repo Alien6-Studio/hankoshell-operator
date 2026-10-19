@@ -1,0 +1,10 @@
+{
+  "previous_revision": "e29b3d5de672b8a2634da10bcac6633c937e74e6",
+  "revision": "379ea9db5673e2d871aca7bdde20b4fa9480b18a",
+  "operator_binary_sha256": {
+    "linux/amd64": "a9c175e81dbacc43d3c8fdd56681ac60eedcbc55f5a82ac4692891d0aabc9249",
+    "linux/arm64": "047f70e26606960dbd5c4d09ac043f7a7d3129eddb9683184446c3eed38eb498"
+  },
+  "operator_binaries_identical": true,
+  "scope": "Only Operator binary bytes are compared; OCI metadata and test harnesses have separate identities."
+}

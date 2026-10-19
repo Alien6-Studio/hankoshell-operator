@@ -5,6 +5,7 @@ import (
 )
 
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=hrole,categories=hanko
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=".status.phase"
@@ -36,14 +37,20 @@ type HankoRoleSpec struct {
 
 	// RealmRef references the HankoRealm this role belongs to.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	RealmRef string `json:"realmRef"`
 
 	// Name is the Keycloak realm role name.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
 	Name string `json:"name"`
 
 	// Description is a human-readable description of the role.
+	// +kubebuilder:validation:MaxLength=1024
 	Description string `json:"description,omitempty"`
 
 	// Composite marks this role as a composite role, aggregating the
@@ -54,6 +61,8 @@ type HankoRoleSpec struct {
 	// Composite is true.
 	// +kubebuilder:validation:MaxItems=64
 	// +kubebuilder:validation:items:MaxLength=255
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:Pattern=`^[^\x00-\x1F\x7F]+$`
 	Composites []string `json:"composites,omitempty"`
 
 	// Attributes holds arbitrary key/value metadata attached to the role in
@@ -145,6 +154,8 @@ type HankoRoleStatus struct {
 
 	// Conditions holds standard Kubernetes condition objects.
 	// +kubebuilder:validation:MaxItems=8
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 

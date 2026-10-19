@@ -7,7 +7,13 @@ requirements into continuously reconciled Keycloak configuration: login clients,
 redirect URLs, roles, token claims and machine credentials. Declare the desired
 configuration in Kubernetes, review it in Git, and let the operator keep the
 fields it manages in sync with Keycloak.
-Keycloak is the first and currently only supported IAM backend.
+Keycloak is the supported IAM backend. An opt-in
+[authentik 2026.8.4 registration experiment](docs/architecture/second-provider.md)
+executes a bounded OIDC SPA/web subset. Roles, organizations, authorization graphs,
+M2M, SAML, federation, delegation and credential delivery remain unsupported on
+that adapter. The shared fourteen-fixture corpus checks this registration window
+through the installed chart on Kubernetes 1.35.0/1.36.2/1.37.0 with both supported
+Keycloak versions. Keycloak-native features remain available.
 
 Platform teams can reuse authentication policies across realms, connect upstream
 identity providers and rotate client secrets. Application teams can keep their
@@ -30,7 +36,7 @@ enterprise fleet. Project website: **[hanko.sh](https://hanko.sh)**.
 [Secure deployment and trust model](docs/secure-deployment.md) ·
 [Keycloak permissions](docs/keycloak-permissions.md) ·
 [OIDC/SAML application model and migration](docs/architecture/application-identity.md) ·
-[Changes](CHANGELOG.md) · **[Roadmap](ROADMAP.md)** · [IAM contract architecture](docs/architecture/iam-contract-engine.md) ·
+[Changes](CHANGELOG.md) · **[Release 1.0.0](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11)** · [IAM contract architecture](docs/architecture/iam-contract-engine.md) ·
 [Organizational grants and provenance](docs/architecture/organizational-authorization.md)
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml)
@@ -119,12 +125,54 @@ token issuance and its authentication emails.
 The API provides 17 `hanko.sh/v1alpha1` custom resources, including the deprecated
 `HankoEmailProvider`. See the [API definitions](api/v1alpha1) for supported fields.
 Integration flags configure clients and do not disable controller registration.
+
+<!-- api-support:start -->
+All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibility commitment has been selected. Candidate `v1beta1` additionally serves Application, Role and ResourceServer with identical schemas; storage remains `v1alpha1`.
+
+| Resource | Surface | Compatibility |
+| --- | --- | --- |
+| `HankoApplication` | standalone IAM | experimental |
+| `HankoEmailProvider` | deprecated | experimental |
+| `HankoIAMProfile` | standalone IAM | experimental |
+| `HankoImport` | instance and operations | experimental |
+| `HankoIssuer` | standalone IAM | experimental |
+| `HankoKeycloakInstance` | instance and operations | experimental |
+| `HankoMeshService` | connected | experimental |
+| `HankoOperation` | instance and operations | experimental |
+| `HankoOrganization` | standalone IAM | experimental |
+| `HankoRealm` | standalone IAM | experimental |
+| `HankoResourceServer` | standalone IAM | experimental |
+| `HankoRole` | standalone IAM | experimental |
+| `HankoServiceAccount` | standalone IAM | experimental |
+| `HankoSnapshot` | instance and operations | experimental |
+| `HankoTenant` | connected | experimental |
+| `HankoTheme` | instance and operations | experimental |
+| `HankoWorkloadTrust` | standalone IAM | experimental |
+
+| Additional surface | Compatibility |
+| --- | --- |
+| Delegation and agent identity | experimental |
+| Second IAM provider | experimental |
+| Hub and Continuum | alpha |
+| Mesh traffic enforcement | experimental |
+| Portable backup and restore | experimental |
+| Managed lifecycle | experimental |
+| Cloud, CNI and CSI | experimental |
+<!-- api-support:end -->
+
+See the [support and field-group inventory](docs/api-support.md) and
+[API migration policy](docs/api-migration-policy.md).
+Use the [storage migration runbook](docs/storage-migration.md) before changing
+storage or applying CRDs to an existing installation with the beta candidate.
 Snapshot database Jobs require a locally approved, publisher-verified image digest
 and a dedicated backup credential Secret. PostgreSQL/PVC configuration and
 portable backup/restore remain installation-specific and unqualified; see the
 [backup execution contract](docs/secure-deployment.md#database-snapshot-jobs).
 `HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are experimental in
-0.1.0: completion, interruption/retry and recovery are not qualified. See the
+0.1.0. Installed qualification covers the same-namespace, configuration-only Clone
+alias subset on Kubernetes 1.37.0 / Keycloak 26.8.0, including checkpoint restart
+and child failure/refusal. Managed upgrades, database-reference switches and
+database recovery remain unqualified. See the
 [lifecycle qualification limits](docs/secure-deployment.md#lifecycle-operation-qualification).
 
 </details>
@@ -150,7 +198,7 @@ See the **[Keycloak permission model](docs/keycloak-permissions.md)** before
 provisioning credentials: it specifies optional feature roles, read-only import,
 forbidden authority and the broader native grants attached to realm creation.
 
-The current development operator **is qualified against Keycloak 26.8.0 and 26.7.5**
+The exact current Keycloak qualification versions are listed in the generated support window below
 through its real HTTPS Admin API v1. Required CI exercises realm/client lifecycles,
 IAM/MFA settings, roles, identity-provider configuration, secret rotation,
 drift recovery, ownership, finalizers and read-only import. Other 26.x patches
@@ -162,13 +210,13 @@ External identity-provider handshakes and production database/cluster operations
 remain unqualified.
 See the [Keycloak compatibility contract](docs/secure-deployment.md#keycloak-compatibility).
 
-The chart targets Kubernetes **1.35–1.37** on Linux nodes. Required CI checks
+The chart targets the Kubernetes minors in the generated support window below, on Linux nodes. Required CI checks
 qualify all 17 CRDs, server-side apply, namespace/credential RBAC boundaries and
 Restricted Pod Security admission against each minor version. Optional AppArmor
 and stable user namespaces extend the baseline when supported by the nodes.
 An installed-system test retains its 19 general checks on Kubernetes 1.37.0
 with HTTPS Keycloak 26.8.0. A separate installed workload matrix qualifies the
-exact scanned image across **1.35.0 / 1.36.2 / 1.37.0 × 26.7.5 / 26.8.0**:
+exact scanned image across every declared Kubernetes/Keycloak pair:
 real projected 600-second Pod assertions, client credentials grants, independent
 native resource ALLOW/DENY, kubelet rotation/expiry and UID containment.
 Deep reviewed migration/recovery runs on both Keycloak versions with 1.37.0.
@@ -257,14 +305,10 @@ assign the `viewer` role to users.
 Review resource ownership and finalizers before deleting managed resources:
 deletion can remove their corresponding Keycloak objects.
 
-Metrics are disabled by default: the chart renders no metrics listener, port,
-Service, scrape annotations or ServiceMonitor. `metrics.enabled: true` enables
-port 8080 and its ClusterIP Service; `metrics.serviceMonitor.enabled` separately
-opts into Prometheus Operator discovery. With default-deny NetworkPolicy enabled,
-both modes require an explicit Prometheus namespace and pod identity, admitting
-only those selected pods on TCP/8080. Metrics are unauthenticated HTTP; networking
-does not provide encryption. See the [configuration, migration and verification
-guide](docs/secure-deployment.md#metrics-and-prometheus).
+Metrics are disabled by default. Enabling the endpoint requires TLS 1.3, a trusted
+client certificate and an exact client URI SAN allowlist. ServiceMonitor uses
+mutual TLS; annotation discovery is removed. Operational procedures: [runbooks](docs/operations-runbooks.md), [secure observability](docs/operational-observability.md) and the [machine contract](docs/operational-contract.json).
+
 
 ## Choose provider ownership
 
@@ -308,10 +352,15 @@ Optional Cilium policies require the corresponding cluster capabilities;
 the operator runs without BPF privileges. Workload mesh policy projection is
 currently an audit path, not an enforcement claim.
 
-Hub bundles use a token-derived HMAC. Every holder of that token can produce
-the same authenticator; there is no independent bundle publisher signature.
-The [trust model](docs/secure-deployment.md#hub-bundle-authentication) explains
-the distinction from Ed25519 mesh policies and signed release evidence.
+Hub synchronization defaults to a token-derived HMAC. Signed fleet mode uses
+independently approved Ed25519 publisher keys, exact target/source bindings and
+a persisted sequence checkpoint. Enable it explicitly with
+`fleetPlanVerification.trustConfigMap` after provisioning local trust and a
+compatible Hub. See the [Fleet contract](docs/architecture/fleet-reconciliation.md)
+and [activation guide](docs/secure-deployment.md#signed-fleet-plan-transition).
+Capability-aware all-or-refuse/partial delivery and independent local pause are
+available experimentally. Disconnected provider authorization, rollback and
+installed fleet qualification remain #79/#80.
 
 Hub self-updates require an independently approved release and verified image
 signature. Remote decommission commands expire at their deadline. See
@@ -384,7 +433,7 @@ The implemented foundation, IAM contracts, application identity, organizational
 authorization, adoption and canonical Attest hardening remain intact. Workload
 Identity, Delegation & Agent Identity, Provider Portability, Fleet Reconciliation
 and Initial Public Contract Stabilization are required before first publication.
-See the [roadmap](ROADMAP.md) and
+Track the remaining work in the [Release 1.0.0 milestone](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11) and
 [first-publication checklist](docs/release-public-0.1.0-preparation.md).
 The `hanko.sh/v1alpha1` APIs are experimental and may change across minor releases
 before 1.0. See the [curated release
@@ -425,6 +474,15 @@ dedicated scoped writer where possible and review the
 
 ## Development
 
+The experimental bounded-delegation Java extension is maintained in
+[Alien6-Studio/keycloak-bounded-delegation](https://github.com/Alien6-Studio/keycloak-bounded-delegation),
+a sibling checkout of this repository and `hanko-platform`. The operator keeps
+its adapter and [immutable consumer pin](extensions/keycloak-bounded-delegation.json).
+`make keycloak-extension-test KEYCLOAK_VERSION=VERSION` builds that exact source
+and checks the JAR's source, SDK and SHA256 before real HTTPS interoperability.
+Installed and multi-node delegation qualification remains in
+[#71](https://github.com/Alien6-Studio/hankoshell-operator/issues/71).
+
 Adopt Existing Keycloak completes reviewed acquisition, native
 preservation and explicit Manage. Organizational Authorization retains explicit
 grants and bounded structural provenance. **Workload Identity is implemented and
@@ -462,7 +520,7 @@ make keycloak-integration-test KEYCLOAK_VERSION=26.7.5
 CRDs are generated with the pinned controller-gen version. Unit tests use simulated
 Kubernetes clients and HTTP/TLS servers. `make integration-test` downloads official
 API-server/etcd fixtures with pinned SHA-512 checksums and starts a local control
-plane. CI runs it on **1.35.0, 1.36.2 and 1.37.0**; all matrix jobs must pass before
+plane. CI runs it on every Kubernetes version declared in `versions.json`; all matrix jobs must pass before
 merge or delivery. These API tests do not run kubelets, CNI, CSI or Keycloak;
 target-cluster qualification remains part of an installation's acceptance checks.
 
@@ -489,3 +547,51 @@ providers, production databases, enterprise fleet integration or disaster recove
 [Report a vulnerability](SECURITY.md) ·
 [Report an issue](https://github.com/Alien6-Studio/hankoshell-operator/issues) ·
 [Apache-2.0](LICENSE)
+
+## Initial public contract selection
+
+See the [complete candidate review](docs/public-contract-selection.md).
+
+<!-- public-selection:start -->
+Initial 0.1.0 selection: 3 public resource candidates; qualification and first publication remain pending. Current development APIs remain experimental.
+
+| Resource | Selected scope | Public spec groups |
+| --- | --- | --- |
+| `HankoApplication` | public | `clientID`, `mode`, `postLogoutRedirectURIs`, `protocol`, `realmRef`, `realmRoleScopes`, `redirectURIs`, `roles`, `saml`, `type` |
+| `HankoEmailProvider` | experimental | — |
+| `HankoIAMProfile` | alpha | — |
+| `HankoImport` | experimental | — |
+| `HankoIssuer` | alpha | — |
+| `HankoKeycloakInstance` | experimental | — |
+| `HankoMeshService` | experimental | — |
+| `HankoOperation` | experimental | — |
+| `HankoOrganization` | alpha | — |
+| `HankoRealm` | alpha | — |
+| `HankoResourceServer` | public | `applicationRef`, `audience`, `displayName`, `mode`, `permissions`, `realmRef`, `resources`, `scopes` |
+| `HankoRole` | public | `composite`, `composites`, `description`, `mode`, `name`, `realmRef` |
+| `HankoServiceAccount` | alpha | — |
+| `HankoSnapshot` | experimental | — |
+| `HankoTenant` | experimental | — |
+| `HankoTheme` | experimental | — |
+| `HankoWorkloadTrust` | alpha | — |
+
+Native SAML remains an explicit Keycloak extension. Delegation, organization principals,
+connected integrations and every other deferred field retain their named limitations in
+the complete selection; no planned capability is removed.
+<!-- public-selection:end -->
+
+The [1.0 graduation criteria and per-resource records](docs/stable-graduation.md)
+and [second-provider contract review](docs/stable-provider-review.md) remain
+unratified development inputs. Lifecycle APIs are excluded from the stable 1.0
+contract and disabled by default; see [ADR-050](docs/architecture/decisions/ADR-050-experimental-lifecycle-authority.md).
+
+Qualification window: [support policy](docs/support-window.md), [compatibility proposal](docs/compatibility-policy.md), [production evidence reporting](docs/production-evidence.md).
+
+Load and recovery qualification: [bounded IAM workers, installed scale and soak](docs/scale-and-soak.md).
+
+<!-- support-window:start -->
+| Component | Exact qualification versions | Default |
+| --- | --- | --- |
+| kubernetes | `1.35.0`, `1.36.2`, `1.37.0` | `1.37.0` |
+| keycloak | `26.7.5`, `26.8.0` | `26.8.0` |
+<!-- support-window:end -->

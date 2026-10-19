@@ -15,6 +15,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 )
@@ -38,11 +40,18 @@ func controllerTestClient(scheme *runtime.Scheme, objects ...client.Object) clie
 	for _, object := range objects {
 		_, app := object.(*hankoshv1alpha1.HankoApplication)
 		_, account := object.(*hankoshv1alpha1.HankoServiceAccount)
-		if (app || account) && object.GetUID() == "" {
+		_, secret := object.(*corev1.Secret)
+		if (app || account || secret) && object.GetUID() == "" {
 			object.SetUID(types.UID("fixture-" + object.GetNamespace() + "-" + object.GetName()))
 		}
 	}
 	return fake.NewClientBuilder().WithScheme(scheme).
+		WithInterceptorFuncs(interceptor.Funcs{Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+			if _, ok := obj.(*corev1.Secret); ok && obj.GetUID() == "" {
+				obj.SetUID(types.UID("fixture-" + obj.GetNamespace() + "-" + obj.GetName()))
+			}
+			return c.Create(ctx, obj, opts...)
+		}}).
 		WithStatusSubresource(
 			&hankoshv1alpha1.HankoApplication{},
 			&hankoshv1alpha1.HankoRole{},
@@ -62,7 +71,7 @@ func controllerTestClient(scheme *runtime.Scheme, objects ...client.Object) clie
 func managedTestInstance(namespace, name string) *hankoshv1alpha1.HankoKeycloakInstance {
 	replicas := int32(2)
 	return &hankoshv1alpha1.HankoKeycloakInstance{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, UID: types.UID("managed-" + name)},
 		Spec: hankoshv1alpha1.HankoKeycloakInstanceSpec{
 			Mode:     "managed",
 			AdminRef: corev1.LocalObjectReference{Name: "admin"},
@@ -83,7 +92,7 @@ func TestSnapshotReconcileConfigOnly(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "config", Namespace: "test"},
 		Spec:       hankoshv1alpha1.HankoSnapshotSpec{InstanceRef: instance.Name},
 	}
-	k8sClient := controllerTestClient(scheme, instance, snapshot)
+	k8sClient := snapshotTestClient(t, instance, snapshot)
 	reconciler := &HankoSnapshotReconciler{Client: k8sClient, Scheme: scheme}
 
 	if _, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: snapshot.Name, Namespace: snapshot.Namespace}}); err != nil {
@@ -116,7 +125,7 @@ func TestSnapshotReconcileCreatesHardenedDataJob(t *testing.T) {
 			BackupImage: approvedBackupImage, BackupSecretRef: "backup-credentials",
 		},
 	}
-	k8sClient := controllerTestClient(scheme, instance, snapshot, snapshotBackupSecret(snapshot))
+	k8sClient := snapshotTestClient(t, instance, snapshot, snapshotBackupSecret(snapshot))
 	reconciler := &HankoSnapshotReconciler{Client: k8sClient, Scheme: scheme, ImageValidator: approvedFixtureValidator(t)}
 
 	result, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(snapshot)})
@@ -146,7 +155,7 @@ func TestSnapshotReconcileFailsClosedWithoutInstance(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "missing", Namespace: "test"},
 		Spec:       hankoshv1alpha1.HankoSnapshotSpec{InstanceRef: "absent"},
 	}
-	k8sClient := controllerTestClient(scheme, snapshot)
+	k8sClient := snapshotTestClient(t, snapshot)
 	reconciler := &HankoSnapshotReconciler{Client: k8sClient, Scheme: scheme}
 	if _, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(snapshot)}); err != nil {
 		t.Fatalf("missing instance should be reported in status: %v", err)
@@ -173,7 +182,7 @@ func TestSnapshotDataJobTerminalStatePrecedence(t *testing.T) {
 		{name: "pending", handled: true},
 		{name: "failed", conditions: []batchv1.JobCondition{{Type: batchv1.JobFailed, Status: corev1.ConditionTrue}}, handled: true, expectedPhase: "Failed"},
 		{name: "complete", conditions: []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}}},
-		{name: "complete wins over stale failure", conditions: []batchv1.JobCondition{
+		{name: "contradictory completion fails closed", handled: true, expectedPhase: "Failed", conditions: []batchv1.JobCondition{
 			{Type: batchv1.JobFailed, Status: corev1.ConditionTrue}, {Type: batchv1.JobComplete, Status: corev1.ConditionTrue},
 		}},
 	} {
@@ -188,9 +197,12 @@ func TestSnapshotDataJobTerminalStatePrecedence(t *testing.T) {
 			reconciler := &HankoSnapshotReconciler{Scheme: scheme, ImageValidator: approvedFixtureValidator(t)}
 			job := snapshotOwnedJob(t, reconciler, snapshot)
 			job.Status.Conditions = testCase.conditions
-			k8sClient := controllerTestClient(scheme, snapshot, job, snapshotBackupSecret(snapshot))
+			k8sClient := snapshotTestClient(t, snapshot, job, snapshotBackupSecret(snapshot))
 			reconciler.Client = k8sClient
-			result, handled := reconciler.reconcileSnapshotData(ctx, snapshot, instance, client.MergeFrom(snapshot.DeepCopy()))
+			result, handled, err := reconciler.reconcileSnapshotData(ctx, snapshot, instance, client.MergeFrom(snapshot.DeepCopy()))
+			if err != nil {
+				t.Fatal(err)
+			}
 			if handled != testCase.handled {
 				t.Fatalf("handled=%t, want %t", handled, testCase.handled)
 			}
@@ -212,7 +224,9 @@ func TestOperationReconcileLifecycleBookends(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "dry", Namespace: "test"},
 			Spec:       hankoshv1alpha1.HankoOperationSpec{Type: hankoshv1alpha1.OperationUpgrade, DryRun: true},
 		}
-		k8sClient := controllerTestClient(scheme, operation)
+		source := managedTestInstance("test", "source")
+		source.UID = "source-uid"
+		k8sClient := controllerTestClient(scheme, operation, source)
 		reconciler := &HankoOperationReconciler{Client: k8sClient, Scheme: scheme}
 		if _, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(operation)}); err != nil {
 			t.Fatal(err)
@@ -225,13 +239,15 @@ func TestOperationReconcileLifecycleBookends(t *testing.T) {
 	})
 	t.Run("initializes steps", func(t *testing.T) {
 		operation := &hankoshv1alpha1.HankoOperation{
-			ObjectMeta: metav1.ObjectMeta{Name: "init", Namespace: "test"},
-			Spec:       hankoshv1alpha1.HankoOperationSpec{Type: hankoshv1alpha1.OperationClone},
+			ObjectMeta: metav1.ObjectMeta{Name: "init", Namespace: "test", UID: "operation-uid"},
+			Spec:       hankoshv1alpha1.HankoOperationSpec{Type: hankoshv1alpha1.OperationClone, InstanceRef: "source", Clone: &hankoshv1alpha1.CloneSpec{TargetName: "target"}},
 		}
-		k8sClient := controllerTestClient(scheme, operation)
+		source := managedTestInstance("test", "source")
+		source.UID = "source-uid"
+		k8sClient := controllerTestClient(scheme, operation, source)
 		reconciler := &HankoOperationReconciler{Client: k8sClient, Scheme: scheme}
 		result, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(operation)})
-		if err != nil || result.RequeueAfter != requeueOnError {
+		if err != nil || result.RequeueAfter != requeueImmediately {
 			t.Fatalf("initialize operation: result=%v err=%v", result, err)
 		}
 	})
@@ -254,11 +270,11 @@ func TestOperationStepHandlers(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: instance.Name, Namespace: instance.Namespace},
 		Status:     appsv1.DeploymentStatus{ReadyReplicas: 2},
 	}
-	k8sClient := controllerTestClient(scheme, instance, snapshot, importOperation, deployment)
+	k8sClient := operationChildTestClient(t, instance, snapshot, importOperation, deployment)
 	reconciler := &HankoOperationReconciler{Client: k8sClient, Scheme: scheme}
 	now := metav1.Now()
 	operation := &hankoshv1alpha1.HankoOperation{
-		ObjectMeta: metav1.ObjectMeta{Name: "work", Namespace: "test"},
+		ObjectMeta: metav1.ObjectMeta{Name: "work", Namespace: "test", UID: "operation-uid"},
 		Spec: hankoshv1alpha1.HankoOperationSpec{
 			InstanceRef: instance.Name,
 			Upgrade:     &hankoshv1alpha1.UpgradeSpec{ToImage: instance.Spec.Managed.Image},
@@ -267,6 +283,7 @@ func TestOperationStepHandlers(t *testing.T) {
 		},
 	}
 
+	operation.Status.IntentHash = operationIntentHash(operation)
 	steps := []string{"Snapshot", "UpdateImage", "UpdateDatabase", "CreateTarget", "ImportConfig", "WaitRollout", "Validate"}
 	for _, name := range steps {
 		t.Run(name, func(t *testing.T) {
@@ -333,6 +350,9 @@ func TestManagedServiceAutodiscoverMetadataIsReconciled(t *testing.T) {
 			Selector: map[string]string{"app": "stale"},
 			Ports:    []corev1.ServicePort{{Name: "legacy", Port: 80}},
 		},
+	}
+	if err := controllerutil.SetControllerReference(instance, service, scheme); err != nil {
+		t.Fatal(err)
 	}
 	k8sClient := controllerTestClient(scheme, append([]client.Object{instance, service}, managedTestSecrets(t, instance)...)...)
 	reconciler := &HankoKeycloakInstanceReconciler{Client: k8sClient, Scheme: scheme}

@@ -3,11 +3,11 @@ package controller
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -81,75 +81,58 @@ func TestSnapshotPayloadFailsClosedForEveryInventoryKind(t *testing.T) {
 	} {
 		t.Run(test.kind, func(t *testing.T) {
 			reconciler := &HankoSnapshotReconciler{Client: snapshotFaultClient{Client: base, failList: test.kind}}
-			raw, failure := reconciler.snapshotPayload(context.Background(), "test")
-			if raw != nil || failure == nil || failure.reason != test.reason {
+			raw, failure := reconciler.snapshotPayload(context.Background(), snapshotDataFixture())
+			if raw != nil || failure == nil || !strings.Contains(failure.Error(), test.reason) {
 				t.Fatalf("snapshot list failure raw=%q failure=%#v", raw, failure)
 			}
 		})
 	}
 }
 
-func TestSnapshotInfrastructureFailuresAreCheckpointed(t *testing.T) {
+func TestSnapshotInfrastructureFailuresAreRetried(t *testing.T) {
 	ctx := context.Background()
 	scheme := controllerTestScheme(t)
 	instance := managedTestInstance("test", "keycloak")
-
 	t.Run("instance lookup", func(t *testing.T) {
-		snapshot := &hankoshv1alpha1.HankoSnapshot{ObjectMeta: metav1.ObjectMeta{Name: "instance-failure", Namespace: "test"}}
-		reconciler := &HankoSnapshotReconciler{Client: snapshotFaultClient{Client: controllerTestClient(scheme, snapshot), failGet: "instance"}}
-		if _, handled := reconciler.snapshotInstance(ctx, snapshot, client.MergeFrom(snapshot.DeepCopy())); !handled || snapshot.Status.Phase != "Failed" || conditionReason(snapshot.Status.Conditions, "SnapshotReady") != "InstanceError" {
-			t.Fatalf("instance failure status = %#v", snapshot.Status)
+		snapshot := snapshotDataFixture()
+		r := &HankoSnapshotReconciler{Client: snapshotFaultClient{Client: snapshotTestClient(t, snapshot), failGet: "instance"}}
+		if _, handled, err := r.snapshotInstance(ctx, snapshot, snapshotPatch(snapshot)); !handled || err == nil || snapshot.Status.Phase == "Failed" {
+			t.Fatalf("instance read must retry without terminal failure: handled=%v err=%v", handled, err)
 		}
 	})
-
-	t.Run("existing config map", func(t *testing.T) {
-		configMap := &corev1.ConfigMap{}
-		configMap.Name, configMap.Namespace = "snapshot", "test"
-		reconciler := &HankoSnapshotReconciler{Client: controllerTestClient(scheme, configMap)}
-		if failure := reconciler.createSnapshotConfigMap(ctx, configMap.DeepCopy(), []byte(`{"safe":true}`)); failure != nil {
-			t.Fatalf("existing config map must be idempotent: %#v", failure)
-		}
-	})
-
-	for _, test := range []struct {
-		name, failGet, failCreate, reason string
-	}{
-		{name: "config map get", failGet: "config-map", reason: "ConfigMapGetError"},
-		{name: "config map create", failCreate: "config-map", reason: "ConfigMapCreateError"},
+	for _, test := range []struct{ name, failGet, failCreate string }{
+		{name: "config map get", failGet: "config-map"},
+		{name: "config map create", failCreate: "config-map"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			base := controllerTestClient(scheme)
-			reconciler := &HankoSnapshotReconciler{Client: snapshotFaultClient{Client: base, failGet: test.failGet, failCreate: test.failCreate}}
-			failure := reconciler.createSnapshotConfigMap(ctx, &corev1.ConfigMap{}, []byte(`{"safe":true}`))
-			if failure == nil || failure.reason != test.reason {
-				t.Fatalf("config map failure = %#v", failure)
+			snapshot := snapshotDataFixture()
+			r := &HankoSnapshotReconciler{Client: snapshotFaultClient{Client: snapshotTestClient(t, snapshot), failGet: test.failGet, failCreate: test.failCreate}, Scheme: scheme}
+			handled, err := r.ensureSnapshotConfig(ctx, snapshot, snapshotPatch(snapshot))
+			if !handled || err == nil || snapshot.Status.Phase == "Failed" {
+				t.Fatalf("configuration must retry: handled=%v err=%v", handled, err)
 			}
 		})
 	}
-
 	t.Run("owner reference", func(t *testing.T) {
-		snapshot := &hankoshv1alpha1.HankoSnapshot{ObjectMeta: metav1.ObjectMeta{Name: "owner-failure", Namespace: "test"}}
-		reconciler := &HankoSnapshotReconciler{Client: controllerTestClient(scheme, snapshot), Scheme: runtime.NewScheme()}
-		if !reconciler.ensureSnapshotConfig(ctx, snapshot, client.MergeFrom(snapshot.DeepCopy())) || snapshot.Status.Phase != "Failed" || conditionReason(snapshot.Status.Conditions, "SnapshotReady") != "OwnerRefError" {
-			t.Fatalf("owner reference failure = %#v", snapshot.Status)
+		snapshot := snapshotDataFixture()
+		r := &HankoSnapshotReconciler{Client: snapshotTestClient(t, snapshot), Scheme: runtime.NewScheme()}
+		handled, err := r.ensureSnapshotConfig(ctx, snapshot, snapshotPatch(snapshot))
+		if !handled || err != nil || conditionReason(snapshot.Status.Conditions, "SnapshotReady") != "OwnerRefError" {
+			t.Fatalf("owner reference failure: handled=%v err=%v", handled, err)
 		}
 	})
-
 	t.Run("job lookup", func(t *testing.T) {
 		snapshot := snapshotDataFixture()
-		reconciler := &HankoSnapshotReconciler{Client: snapshotFaultClient{Client: controllerTestClient(scheme, snapshot, snapshotBackupSecret(snapshot)), failGet: "job"}, ImageValidator: approvedFixtureValidator(t)}
-		if _, handled := reconciler.reconcileSnapshotData(ctx, snapshot, instance, client.MergeFrom(snapshot.DeepCopy())); !handled || conditionReason(snapshot.Status.Conditions, "SnapshotReady") != "JobGetError" {
-			t.Fatalf("job lookup failure = %#v", snapshot.Status)
+		r := &HankoSnapshotReconciler{Client: snapshotFaultClient{Client: snapshotTestClient(t, snapshot, snapshotBackupSecret(snapshot)), failGet: "job"}, ImageValidator: approvedFixtureValidator(t)}
+		if _, handled, err := r.reconcileSnapshotData(ctx, snapshot, instance, snapshotPatch(snapshot)); !handled || err == nil || snapshot.Status.Phase == "Failed" {
+			t.Fatalf("job read must retry: handled=%v err=%v", handled, err)
 		}
 	})
-
 	t.Run("job create", func(t *testing.T) {
 		snapshot := snapshotDataFixture()
-		base := controllerTestClient(scheme, snapshot, snapshotBackupSecret(snapshot))
-		reconciler := &HankoSnapshotReconciler{Client: snapshotFaultClient{Client: base, failCreate: "job"}, Scheme: scheme, ImageValidator: approvedFixtureValidator(t)}
-		result := reconciler.createSnapshotJob(ctx, snapshot, instance, client.MergeFrom(snapshot.DeepCopy()), "snapshot-job")
-		if !result.IsZero() || conditionReason(snapshot.Status.Conditions, "SnapshotReady") != "JobCreateError" {
-			t.Fatalf("job create failure result=%v status=%#v", result, snapshot.Status)
+		r := &HankoSnapshotReconciler{Client: snapshotFaultClient{Client: snapshotTestClient(t, snapshot, snapshotBackupSecret(snapshot)), failCreate: "job"}, Scheme: scheme, ImageValidator: approvedFixtureValidator(t)}
+		if _, err := r.createSnapshotJob(ctx, snapshot, instance, snapshotPatch(snapshot), "snapshot-job"); err == nil || snapshot.Status.Phase == "Failed" {
+			t.Fatalf("job create must retry: %v", err)
 		}
 	})
 }

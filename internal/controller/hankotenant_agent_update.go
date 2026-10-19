@@ -27,8 +27,7 @@ func (r *HankoTenantReconciler) executeAgentUpdate(
 	command *hub.AgentUpdateCommand,
 ) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
-	logger.Info("hub requested agent self-update",
-		"tenant", tenant.Name, "version", command.Version, "digest", command.Digest)
+	logger.Info("hub requested agent self-update", "tenant", tenant.Name)
 
 	if r.AgentUpdate == nil {
 		return r.setError(ctx, hubClient, tenant, patch, "AgentUpdateUnsupported",

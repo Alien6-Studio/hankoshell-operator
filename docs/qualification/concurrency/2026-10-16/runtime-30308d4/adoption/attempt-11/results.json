@@ -1,0 +1,100 @@
+{
+  "schema": 1,
+  "suite": "keycloak/26.7.5/stability/TestRealKeycloakAdoptionCharacterization",
+  "revision": "30308d42a8dbe4fb05ec1ac3448a44cf606b737d",
+  "returncode": 0,
+  "worktree_dirty": false,
+  "source_changed": false,
+  "suite_errors": 0,
+  "counts": {
+    "passed": 14,
+    "failed": 0,
+    "skipped": 0
+  },
+  "tests": [
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakAdoptionCharacterization/client_owner-only_preservation_and_SAML_inventory",
+      "outcome": "passed",
+      "seconds": 2.88
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakAdoptionCharacterization/owner_write_remains_provable_after_lost_acknowledgement",
+      "outcome": "passed",
+      "seconds": 0.33
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakAdoptionCharacterization/realm_role_owner-only_preserves_direct_and_effective_composites",
+      "outcome": "passed",
+      "seconds": 1.19
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakAdoptionCharacterization/legacy_approval_also_protects_unmarked_SAML_migration",
+      "outcome": "passed",
+      "seconds": 2.09
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakAdoptionCharacterization/group_and_native_organization_independent_checkpoints",
+      "outcome": "passed",
+      "seconds": 1.44
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakAdoptionCharacterization/realm_identity_and_owner_metadata_do_not_make_realm_deletion_safe",
+      "outcome": "passed",
+      "seconds": 2.88
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakAdoptionCharacterization/broker_opaque_credential_and_mapper_marker_boundaries",
+      "outcome": "passed",
+      "seconds": 0.44
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakAdoptionCharacterization/selective_authorization_journal_preserves_foreign_graph",
+      "outcome": "passed",
+      "seconds": 0.75
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakAdoptionCharacterization/HankoImport_read-only_route_inventory/same-name_provider_replacement_invalidates_candidate",
+      "outcome": "passed",
+      "seconds": 0.68
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakAdoptionCharacterization/HankoImport_read-only_route_inventory/mapper-read-denied",
+      "outcome": "passed",
+      "seconds": 1.65
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakAdoptionCharacterization/HankoImport_read-only_route_inventory/role-closure-denied",
+      "outcome": "passed",
+      "seconds": 2.2
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakAdoptionCharacterization/HankoImport_read-only_route_inventory/authorization-child-denied",
+      "outcome": "passed",
+      "seconds": 1.55
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakAdoptionCharacterization/HankoImport_read-only_route_inventory",
+      "outcome": "passed",
+      "seconds": 9.14
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakAdoptionCharacterization",
+      "outcome": "passed",
+      "seconds": 33.99
+    }
+  ]
+}

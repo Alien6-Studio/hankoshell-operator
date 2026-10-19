@@ -82,6 +82,18 @@ spec:
           protocol: TCP
         {{- end }}
     {{- end }}
+    {{- if .Values.experimental.authentik.enabled }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.experimental.authentik.egress.namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.experimental.authentik.egress.selector | nindent 14 }}
+      ports:
+        - port: {{ .Values.experimental.authentik.egress.port }}
+          protocol: TCP
+    {{- end }}
     {{- if .Values.organizationProjection.enabled }}
     # Organization projection posts HankoOrganization positions to the local
     # hankoShell API. Same-namespace only, admitted by immutable workload labels.

@@ -15,10 +15,20 @@ components:
     in: "/cmd/operator"
   fixture_review:
     in: "/scripts/workload-auth-review"
+  fixture_resource:
+    in: "/scripts/delegation-resource-server"
+  api_surface:
+    in: "/scripts/api-surface"
+  api_surface_fixture:
+    in: "/scripts/api-surface/testdata/contract"
   controller:
     in: "/internal/controller"
   keycloak:
     in: "/internal/keycloak"
+  authentik:
+    in: "/internal/authentik"
+  observability:
+    in: "/internal/observability"
   httpsecurity:
     in: "/internal/httpsecurity"
   iamconformance:
@@ -45,8 +55,12 @@ components:
     in: "/internal/authorization"
   hub:
     in: "/internal/hub"
+  fleetplan:
+    in: "/internal/fleetplan"
   api_types:
     in: "/api/v1alpha1"
+  api_beta:
+    in: "/api/v1beta1"
   imagevalidator:
     in: "/internal/imagevalidator"
   supervision:
@@ -61,6 +75,11 @@ components:
     in: "/internal/version"
 
 deps:
+  api_beta:
+    mayDependOn:
+      - api_types
+  observability:
+    anyVendorDeps: true
   # cmd/ wires everything — no restriction.
   cmd:
     anyProjectDeps: true
@@ -72,11 +91,13 @@ deps:
   # and the image validator (ADR-017).
   controller:
     mayDependOn:
+      - observability
       - httpsecurity
       - workloadtrust
       - workloadbinding
       - workloadauth
       - keycloak
+      - authentik
       - authorization
       - organization
       - roles
@@ -85,6 +106,7 @@ deps:
       - iamcontract
       - adoption
       - hub
+      - fleetplan
       - api_types
       - imagevalidator
       - supervision
@@ -99,9 +121,17 @@ deps:
     mayDependOn:
       - workloadtrust
       - workloadauth
+      - observability
       - httpsecurity
       - adoption
       - organization
+
+  authentik:
+    mayDependOn:
+      - observability
+      - httpsecurity
+      - iamcontract
+      - applications
 
   httpsecurity:
     anyVendorDeps: true
@@ -138,6 +168,7 @@ deps:
 
   applications:
     mayDependOn:
+      - httpsecurity
       - keycloak
       - iamcontract
       - adoption
@@ -160,14 +191,23 @@ deps:
   hub:
     mayDependOn:
       - supervision
+      - httpsecurity
 
-  # ADR-009/010: CRD type definitions have no runtime project dependencies.
+  fleetplan:
+    mayDependOn:
+      - httpsecurity
+      - iamcontract
+
+  # ADR-009 and ADR-010: CRD type definitions have no runtime project dependencies.
   api_types:
     anyVendorDeps: true
 
-  # ADR-017: imagevalidator is a standalone policy package — no project deps.
+  # Image validation only adds the bounded operational telemetry leaf.
   imagevalidator:
     anyVendorDeps: true
+    mayDependOn:
+      - httpsecurity
+      - observability
 
   # Supervision reads operator CRDs and exposes a bounded transport DTO.
   supervision:

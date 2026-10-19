@@ -1,0 +1,15 @@
+{
+  "README.md": "sha256:7458191bfb31fac72ec40ecacb2d69778d8230408a5c51749f847cc8b9ca9dd3",
+  "ci-tool-installation.json": "sha256:b04de2b7fdae9cebe9eeaed6a6e326432a6d146fcdcc47a6620c2a90309ceff7",
+  "cold-compilation.json": "sha256:0835959ddf0e9fea6eea1f91b67a12f7e2547a87a80a637eb454d5f211d4fde0",
+  "initial-incomplete-keycloak-26.7.5.json": "sha256:fd4b0729ae27cef70d15a70bbeeaa9614dd8af9b9cb8a6a5212fa44174b8198c",
+  "initial-incomplete-keycloak-26.8.0.json": "sha256:314b5c6306d47cc3eadd0532344c825740886962a50aa4d520904558685e5c54",
+  "installed-keycloak-26.7.5.json": "sha256:8c715a9be634efa3f445f43def07372d7b49c7441ca9b89a244a9212e8b4fb2d",
+  "installed-keycloak-26.8.0.json": "sha256:2a6451072859ec13beba5b233dce8b42fa5b9e394a5939e1511827fd493af474",
+  "oci-summary.json": "sha256:29331d7da3123e2ca1111509884c22b7444beb60c2dc6b1202a094b590737524",
+  "previous-ci-mutation-timeout.json": "sha256:06f25dfea36c0053690ff7d4d0f72a812a207af8c512e25fd344892dc9f44e60",
+  "previous-ci-scale-tool-failure.json": "sha256:148f479b90464f219a1f62b92b48378f1fff00eaebf0f3a2679cc9ec426c6db6",
+  "runtime-comparison.json": "sha256:0ab9c75cf8e9cfd24a5927457d7d9aa8f9f3599189a2740f789ec1c12f26d8b9",
+  "security-mutations.json": "sha256:ea1f82936b95b22ae12197f3ed9fec363f1630dcc036605839818f85e8aeb4e7",
+  "source-results.json": "sha256:3181d05f0ac53f47ac7237f52d868f6c821f90122b3b47453d67d312d42c3541"
+}

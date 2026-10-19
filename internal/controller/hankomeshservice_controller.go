@@ -508,5 +508,5 @@ func (r *HankoMeshServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.Service{}, requeueNamespace).
 		Watches(&corev1.ServiceAccount{}, requeueNamespace).
 		Watches(&corev1.Pod{}, requeueNamespace).
-		Complete(r)
+		Complete(observeReconciler("HankoMeshService", r))
 }

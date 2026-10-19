@@ -1,12 +1,17 @@
 package controller
 
 import (
+	"context"
 	"errors"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/observability"
+	"net/http"
 
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/authorization"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/roles"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/workloadbinding"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -35,6 +40,7 @@ func (e iamEvidence) process(generation int64, observe bool) {
 	}
 }
 func (e iamEvidence) evaluate(generation int64, identity iamcontract.PlanIdentity) {
+	observability.Default.Verification("iam", nil)
 	*e.evaluated = generation
 	*e.contract = string(identity.Contract)
 	*e.backend = string(identity.Backend)
@@ -71,6 +77,9 @@ func observationError(o iamcontract.Observation) error {
 	return nil
 }
 func iamFailureReason(err error, fallback string) string {
+	if err != nil {
+		observability.Default.Verification("iam", err)
+	}
 	switch {
 	case errors.Is(err, iamcontract.ErrStale):
 		return "StalePlan"
@@ -80,9 +89,55 @@ func iamFailureReason(err error, fallback string) string {
 		return "DriftDetected"
 	case errors.Is(err, iamcontract.ErrRejected):
 		return "Unsupported"
-	default:
-		return fallback
+	case errors.Is(err, context.DeadlineExceeded):
+		return "ReconcileDeadlineExceeded"
+	case errors.Is(err, context.Canceled):
+		return "ReconcileCancelled"
+	case errors.Is(err, authorization.ErrOwnershipConflict), errors.Is(err, keycloak.ErrApplicationPrecondition):
+		return "OwnershipConflict"
+	case errors.Is(err, keycloak.ErrTLSVerification):
+		return "ProviderTLSVerificationFailed"
+	case errors.Is(err, keycloak.ErrTransport):
+		return "ProviderTransportFailed"
+	case errors.Is(err, keycloak.ErrResponseTooLarge):
+		return "ProviderResponseTooLarge"
+	case errors.Is(err, keycloak.ErrResponseRead):
+		return "ProviderResponseIncomplete"
 	}
+	// A typed prerequisite failure must remain distinguishable from a rejected
+	// authorization plan. Never copy its string into the public condition.
+	var bindingFailure workloadbinding.Failure
+	if errors.As(err, &bindingFailure) {
+		return "WorkloadBindingUnavailable"
+	}
+	var trustError workloadTrustError
+	if errors.As(err, &trustError) {
+		return "WorkloadTrustNotReady"
+	}
+	// Keep the remote body and error string private. These fixed reasons use
+	// only the typed provider status, including through SafeError wrappers.
+	var status *keycloak.StatusError
+	if errors.As(err, &status) {
+		switch status.Code {
+		case http.StatusBadRequest:
+			return "ProviderRequestRejected"
+		case http.StatusUnauthorized:
+			return "ProviderAuthenticationFailed"
+		case http.StatusForbidden:
+			return "ProviderPermissionDenied"
+		case http.StatusNotFound:
+			return "ProviderObjectNotFound"
+		case http.StatusConflict:
+			return "ProviderConflict"
+		case http.StatusTooManyRequests:
+			return "ProviderThrottled"
+		default:
+			if status.Code >= 500 && status.Code <= 599 {
+				return "ProviderUnavailable"
+			}
+		}
+	}
+	return fallback
 }
 func iamCondition(conditions *[]metav1.Condition, generation int64, kind string, status metav1.ConditionStatus, reason, message string) {
 	setCondition(conditions, kind, status, reason, iamcontract.Bound(iamcontract.Finding{Message: message}).Message)

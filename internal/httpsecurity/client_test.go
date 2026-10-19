@@ -4,9 +4,49 @@ import (
 	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"sync/atomic"
 	"testing"
 )
+
+type forbiddenTransport struct{}
+
+func (forbiddenTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	panic("unverifiable transport must never be used")
+}
+
+func TestHTTPSBindingRejectsUnsafeConfigurationAndPreservesCaller(t *testing.T) {
+	for _, endpoint := range []string{"http://example.test", "https://user:pass@example.test", "https://example.test?token=value", "https://example.test#fragment", "https://", "%"} {
+		if _, err := RequireHTTPS(&http.Client{}, endpoint); err == nil {
+			t.Fatalf("unsafe endpoint accepted: %q", endpoint)
+		}
+	}
+	if _, err := RequireHTTPS(&http.Client{Transport: forbiddenTransport{}}, "https://example.test"); err == nil {
+		t.Fatal("unverifiable transport accepted")
+	}
+	transport := &http.Transport{Proxy: http.ProxyFromEnvironment, TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, ServerName: "original.test"}}
+	secured, err := RequireHTTPS(&http.Client{Transport: transport}, "https://example.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if transport.TLSClientConfig.MinVersion != tls.VersionTLS12 || transport.TLSClientConfig.ServerName != "original.test" || transport.Proxy == nil {
+		t.Fatal("binding mutated the caller transport")
+	}
+	bound := secured.Transport.(originTransport)
+	if bound.next.(*http.Transport).TLSClientConfig.MinVersion != tls.VersionTLS13 || bound.next.(*http.Transport).Proxy != nil {
+		t.Fatal("binding retained an ambient proxy or obsolete TLS")
+	}
+	_, err = bound.RoundTrip(&http.Request{URL: &url.URL{Scheme: "https", Host: "example.test"}, Host: "other.test"})
+	if err == nil {
+		t.Fatal("conflicting HTTP Host escaped origin binding")
+	}
+	// A custom protocol map disables net/http's automatic TLS configuration.
+	custom := &http.Transport{TLSNextProto: map[string]func(string, *tls.Conn) http.RoundTripper{}}
+	secured, err = RequireHTTPS(&http.Client{Transport: custom}, "https://example.test")
+	if err != nil || secured.Transport.(originTransport).next.(*http.Transport).TLSClientConfig.MinVersion != tls.VersionTLS13 {
+		t.Fatal("custom transport was not bound to TLS 1.3")
+	}
+}
 
 func TestEnterpriseTLSClientRejectsRedirectsAndOtherOrigins(t *testing.T) {
 	var leaked atomic.Int32

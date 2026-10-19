@@ -18,7 +18,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/Alien6-Studio/hankoshell-operator/internal/httpsecurity"
@@ -41,8 +40,6 @@ const (
 	jsonMediaType                  = "application/json"
 	httpsScheme                    = "https"
 	openIDConnectProtocol          = "openid-connect"
-	keycloakPathErrorFormat        = "keycloak %s %d: %s"
-	keycloakErrorFormat            = "keycloak %d: %s"
 	clientNotFoundFormat           = "client %q not found in realm %q"
 	postLogoutRedirectURIAttribute = "post.logout.redirect.uris"
 	hankoAppAttribute              = "hanko.app"
@@ -64,9 +61,8 @@ type Client struct {
 	// client metadata GETs in this one realm, independently of native token roles.
 	dependentRealm string
 	httpClient     *http.Client
-	mu             sync.Mutex
-	token          string
-	tokenExpiry    time.Time
+	*clientSession
+	mutationGuard func(context.Context) error
 }
 
 // New creates a Client with explicit credentials. Equivalent to NewFromEnv but
@@ -74,9 +70,10 @@ type Client struct {
 // unless WithInsecureHTTP is explicitly supplied; unsafe endpoints fail before I/O.
 func New(baseURL, clientID, clientSecret string, options ...ClientOption) *Client {
 	c := &Client{
-		baseURL:      strings.TrimRight(baseURL, "/"),
-		clientID:     clientID,
-		clientSecret: clientSecret,
+		clientSession: &clientSession{},
+		baseURL:       strings.TrimRight(baseURL, "/"),
+		clientID:      clientID,
+		clientSecret:  clientSecret,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second, CheckRedirect: rejectKeycloakRedirect,
 			Transport: &http.Transport{
@@ -122,10 +119,11 @@ func NewWithTLS(baseURL, clientID, clientSecret string, caPEM []byte) (*Client, 
 		TLSClientConfig: &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12},
 	}
 	return &Client{
-		baseURL:      strings.TrimRight(baseURL, "/"),
-		clientID:     clientID,
-		clientSecret: clientSecret,
-		httpClient:   &http.Client{Timeout: 10 * time.Second, Transport: transport, CheckRedirect: rejectKeycloakRedirect},
+		clientSession: &clientSession{},
+		baseURL:       strings.TrimRight(baseURL, "/"),
+		clientID:      clientID,
+		clientSecret:  clientSecret,
+		httpClient:    &http.Client{Timeout: 10 * time.Second, Transport: transport, CheckRedirect: rejectKeycloakRedirect},
 	}, nil
 }
 
@@ -210,7 +208,12 @@ type App struct {
 }
 
 // BaseURL returns the configured Keycloak base URL (used to derive OIDC endpoints).
-func (c *Client) BaseURL() string { return c.baseURL }
+func (c *Client) BaseURL() string {
+	if c == nil {
+		return ""
+	}
+	return c.baseURL
+}
 
 // CloseIdleConnections releases connections owned by a short-lived snapshot.
 func (c *Client) CloseIdleConnections() { c.httpClient.CloseIdleConnections() }
@@ -239,7 +242,8 @@ func IsNotFound(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(err.Error(), " 404: ")
+	var status *StatusError
+	return errors.As(err, &status) && status.Code == http.StatusNotFound
 }
 
 // IsForbidden reports whether err came from a Keycloak 403 response.
@@ -247,7 +251,8 @@ func IsForbidden(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(err.Error(), " 403: ")
+	var status *StatusError
+	return errors.As(err, &status) && status.Code == http.StatusForbidden
 }
 
 // ListRealms returns all realms available in this Keycloak instance.
@@ -336,8 +341,8 @@ func (c *Client) CreateRealm(ctx context.Context, spec RealmSpec) error {
 		c.invalidateToken()
 		return nil
 	}
-	body, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf("create realm %q: keycloak %d: %s", spec.ID, resp.StatusCode, body)
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return &StatusError{Code: resp.StatusCode}
 }
 
 func createRealmPayload(spec RealmSpec) map[string]any {
@@ -389,8 +394,8 @@ func (c *Client) UpdateRealm(ctx context.Context, realmID string, spec RealmSpec
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("update realm %q: keycloak %d: %s", realmID, resp.StatusCode, body)
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return &StatusError{Code: resp.StatusCode}
 	}
 	if spec.MFAPolicy != "" {
 		return c.setRequiredActionDefault(ctx, realmID, "CONFIGURE_TOTP", spec.MFAPolicy == "required")
@@ -421,8 +426,8 @@ func (c *Client) LogoutAllRealmSessions(ctx context.Context, realm string) error
 	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices {
 		return nil
 	}
-	body, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf("logout all sessions in realm %q: keycloak %d: %s", realm, resp.StatusCode, body)
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return &StatusError{Code: resp.StatusCode}
 }
 
 func (c *Client) updateRealmPayload(ctx context.Context, realmID string, spec RealmSpec) (map[string]any, error) {
@@ -572,8 +577,8 @@ func (c *Client) setRequiredActionDefault(ctx context.Context, realmID, alias st
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
-		responseBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("update required action %q for realm %q: keycloak %d: %s", alias, realmID, resp.StatusCode, responseBody)
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return &StatusError{Code: resp.StatusCode}
 	}
 	return nil
 }
@@ -613,8 +618,8 @@ func (c *Client) DeleteRealm(ctx context.Context, realmID string) error {
 	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusNotFound {
 		return nil
 	}
-	body, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf("delete realm %q: keycloak %d: %s", realmID, resp.StatusCode, body)
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return &StatusError{Code: resp.StatusCode}
 }
 
 // EnsureRealmManagementAccess checks administrator-provisioned access without
@@ -823,8 +828,8 @@ func (c *Client) EnsureRealmRoleComposites(ctx context.Context, realm, parentNam
 	if resp.StatusCode == http.StatusNoContent {
 		return nil
 	}
-	responseBody, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf("add composites to realm role %q: keycloak %d: %s", parentName, resp.StatusCode, responseBody)
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return &StatusError{Code: resp.StatusCode}
 }
 
 func (c *Client) missingRealmRoleComposites(ctx context.Context, realm, parentName string, childNames []string, current []RealmRole) ([]RealmRole, error) {
@@ -875,8 +880,8 @@ func (c *Client) writeRealmRole(ctx context.Context, method, path string, role R
 			return nil
 		}
 	}
-	responseBody, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf("write realm role %q: keycloak %d: %s", role.Name, resp.StatusCode, responseBody)
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return &StatusError{Code: resp.StatusCode}
 }
 
 // SyncRealmRole creates the role when absent, or fully updates its
@@ -924,8 +929,8 @@ func (c *Client) DeleteRealmRole(ctx context.Context, realm, roleName string) er
 	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusNotFound {
 		return nil
 	}
-	body, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf("delete realm role %q in %q: keycloak %d: %s", roleName, realm, resp.StatusCode, body)
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return &StatusError{Code: resp.StatusCode}
 }
 
 // ReconcileClientRealmRoleScopes sets the exact realm-role scope mappings for
@@ -1025,8 +1030,8 @@ func (c *Client) writeRealmRoleMappings(ctx context.Context, method, path string
 	if resp.StatusCode == http.StatusNoContent {
 		return nil
 	}
-	responseBody, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf(keycloakPathErrorFormat, path, resp.StatusCode, responseBody)
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return &StatusError{Code: resp.StatusCode}
 }
 
 // ClientExists reports whether a client with the given clientId exists in the realm.
@@ -1132,8 +1137,8 @@ func (c *Client) CreateClientRole(ctx context.Context, realm, clientID, roleName
 	if resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusConflict {
 		return nil
 	}
-	body, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf("create role %q for client %q: keycloak %d: %s", roleName, clientID, resp.StatusCode, body)
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return &StatusError{Code: resp.StatusCode}
 }
 
 // DeleteClientRole removes a client-scoped role from Keycloak.
@@ -1165,8 +1170,8 @@ func (c *Client) DeleteClientRole(ctx context.Context, realm, clientID, roleName
 	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusNotFound {
 		return nil
 	}
-	body, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf("delete role %q for client %q: keycloak %d: %s", roleName, clientID, resp.StatusCode, body)
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return &StatusError{Code: resp.StatusCode}
 }
 
 // DeleteApp deletes an OIDC client from Keycloak. Returns nil if the client was not found.
@@ -1200,8 +1205,8 @@ func (c *Client) DeleteApp(ctx context.Context, realm, clientID string) error {
 	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusNotFound {
 		return nil
 	}
-	body, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf("delete client %q: keycloak %d: %s", clientID, resp.StatusCode, body)
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return &StatusError{Code: resp.StatusCode}
 }
 
 // reservedAppAttributeKeys are Keycloak client attribute keys the operator sets
@@ -1287,8 +1292,8 @@ func (c *Client) CreateApp(ctx context.Context, realm string, spec CreateAppSpec
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("create client %q: keycloak %d: %s", spec.ClientID, resp.StatusCode, body)
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return "", &StatusError{Code: resp.StatusCode}
 	}
 
 	// Confidential clients: resolve internal UUID then fetch the generated secret.
@@ -1401,8 +1406,8 @@ func (c *Client) UpdateApp(ctx context.Context, realm string, spec CreateAppSpec
 	if resp.StatusCode == http.StatusNoContent {
 		return nil
 	}
-	body, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf("update client %q: keycloak %d: %s", spec.ClientID, resp.StatusCode, body)
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return &StatusError{Code: resp.StatusCode}
 }
 
 // SyncClientAttributes replaces the caller-managed attributes on an existing
@@ -1470,8 +1475,8 @@ func (c *Client) syncClientAttributes(ctx context.Context, realm, clientID, owne
 	if resp.StatusCode == http.StatusNoContent {
 		return nil
 	}
-	body, _ := io.ReadAll(resp.Body)
-	return fmt.Errorf("update client %q attributes: keycloak %d: %s", clientID, resp.StatusCode, body)
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return &StatusError{Code: resp.StatusCode}
 }
 
 // UpdateAppAttributes is retained as a compatibility alias for callers built
@@ -1541,7 +1546,7 @@ func (c *Client) SetClientSecret(ctx context.Context, realm, clientID, desiredSe
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
-		return fmt.Errorf("replace secret for client %q: keycloak returned status %d", clientID, resp.StatusCode)
+		return &StatusError{Code: resp.StatusCode}
 	}
 	return nil
 }
@@ -1575,8 +1580,8 @@ func (c *Client) rotateClientSecretByUUID(ctx context.Context, realm, clientID, 
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("rotate secret for client %q: keycloak %d: %s", clientID, resp.StatusCode, body)
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return "", &StatusError{Code: resp.StatusCode}
 	}
 	var secret struct {
 		Value string `json:"value"`
@@ -1631,8 +1636,8 @@ func (c *Client) HardenMasterRealm(ctx context.Context) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("harden master realm: keycloak %d: %s", resp.StatusCode, body)
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return &StatusError{Code: resp.StatusCode}
 	}
 	return nil
 }
@@ -1709,8 +1714,8 @@ func (c *Client) ConfigureRealmEvents(ctx context.Context, realm string, spec Re
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("configure realm events %q: keycloak %d: %s", realm, resp.StatusCode, body)
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return &StatusError{Code: resp.StatusCode}
 	}
 	return nil
 }
@@ -1838,8 +1843,8 @@ func (c *Client) putJSON(ctx context.Context, path string, payload any) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
-		responseBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf(keycloakPathErrorFormat, path, resp.StatusCode, responseBody)
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return &StatusError{Code: resp.StatusCode}
 	}
 	return nil
 }
@@ -1880,36 +1885,12 @@ func (c *Client) get(ctx context.Context, path string, out any) error {
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 400 {
-		return fmt.Errorf(keycloakPathErrorFormat, path, resp.StatusCode, body)
+		return &StatusError{Code: resp.StatusCode}
 	}
 	return json.Unmarshal(body, out)
 }
 
-// bearerToken returns a valid bearer token, refreshing when expired.
-// The mutex is held only for cache reads and writes, not during the HTTP call,
-// to avoid blocking all reconcile goroutines on a single token refresh.
-func (c *Client) bearerToken(ctx context.Context) (string, error) {
-	if c.endpointError != nil {
-		return "", c.endpointError
-	}
-	c.mu.Lock()
-	if c.token != "" && time.Now().Before(c.tokenExpiry) {
-		tok := c.token
-		c.mu.Unlock()
-		return tok, nil
-	}
-	c.mu.Unlock()
-	return c.fetchToken(ctx)
-}
-
-func (c *Client) invalidateToken() {
-	c.mu.Lock()
-	c.token = ""
-	c.tokenExpiry = time.Time{}
-	c.mu.Unlock()
-}
-
-func (c *Client) fetchToken(ctx context.Context) (string, error) {
+func (c *Client) requestToken(ctx context.Context) (string, time.Time, error) {
 	form := url.Values{
 		"grant_type":    {"client_credentials"},
 		"client_id":     {c.clientID},
@@ -1920,20 +1901,20 @@ func (c *Client) fetchToken(ctx context.Context) (string, error) {
 		c.baseURL+"/realms/master/protocol/openid-connect/token",
 		strings.NewReader(form.Encode()))
 	if err != nil {
-		return "", err
+		return "", time.Time{}, err
 	}
 	req.Header.Set(contentTypeHeader, "application/x-www-form-urlencoded")
 	req.Header.Set(forwardedProtoHeader, httpsScheme)
 
 	resp, err := c.do(req)
 	if err != nil {
-		return "", err
+		return "", time.Time{}, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("keycloak token endpoint %d: %s", resp.StatusCode, body)
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return "", time.Time{}, &StatusError{Code: resp.StatusCode}
 	}
 
 	var tok struct {
@@ -1942,24 +1923,23 @@ func (c *Client) fetchToken(ctx context.Context) (string, error) {
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", ErrResponseRead
+		return "", time.Time{}, ErrResponseRead
 	}
 	if err := json.Unmarshal(body, &tok); err != nil {
-		return "", fmt.Errorf("decode token response: %w", err)
+		return "", time.Time{}, errors.New("keycloak returned an invalid token response")
 	}
 	if tok.AccessToken == "" {
-		return "", fmt.Errorf("keycloak returned empty access token")
+		return "", time.Time{}, errors.New("keycloak returned empty access token")
 	}
 	ttl := tok.ExpiresIn
 	if ttl <= 0 {
 		ttl = 60
 	}
-	c.mu.Lock()
-	c.token = tok.AccessToken
-	c.tokenExpiry = time.Now().Add(time.Duration(ttl-10) * time.Second)
-	result := c.token
-	c.mu.Unlock()
-	return result, nil
+	// Refresh early without making short-lived tokens immediately stale or
+	// overflowing time.Duration when a provider returns an excessive lifetime.
+	ttl = min(ttl, 24*60*60)
+	margin := min(10, ttl/2)
+	return tok.AccessToken, time.Now().Add(time.Duration(ttl-margin) * time.Second), nil
 }
 
 var ErrRoleOwnershipConflict = errors.New("keycloak realm role ownership conflict")

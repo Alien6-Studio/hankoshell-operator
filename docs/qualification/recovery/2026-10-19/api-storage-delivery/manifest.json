@@ -1,0 +1,129 @@
+{
+  "schema": 1,
+  "scope": "Delivered API conversion and administrator storage migration implementation; no stable graduation or public provider upgrade claim",
+  "ci_run": "https://github.com/Alien6-Studio/hankoshell-operator/actions/runs/39296140478",
+  "integration_head": "3e2c55e72956b25717398e7ebba336ec94db32b7",
+  "components": [
+    {
+      "path": "scripts/storage_migration.py",
+      "sha256": "ad1e0b244eb64c3688ac7224bf4a5635c2b59ca5e1388c447d80356628845410"
+    },
+    {
+      "path": "scripts/storage-migration-installed-test.py",
+      "sha256": "63a19b7de13c0eb32aebc7fe806d3074c75125d50a1581c13241e153b41097fa"
+    },
+    {
+      "path": "scripts/api_conversion_contract.py",
+      "sha256": "ec1d589179003ef14914ff7fd012dbeacead28b3a7b249bd98bd1b5158ca9eb6"
+    },
+    {
+      "path": "docs/api-conversion.json",
+      "sha256": "d41d1fc87b06f58a0a30ae09f37f9fd5355bdba614b99d1474107df419dd097e"
+    },
+    {
+      "path": "api/v1beta1/conversion.go",
+      "sha256": "c7beaa5a83757dbf0756b6db0f32542545552ff1f014b214888c21addabaccc1"
+    },
+    {
+      "path": "api/v1beta1/list_conversion.go",
+      "sha256": "62fd4b68d1b418a2f83e5c51a592cba33c616cb046df23f2318334b98956a286"
+    },
+    {
+      "path": "api/v1beta1/iam_types.go",
+      "sha256": "fc8e6303de2fd897cb7b428a0b24074e385666706c35961e4f4368faeea65aaf"
+    },
+    {
+      "path": "api/v1beta1/groupversion_info.go",
+      "sha256": "ae1d64a1278ab93353b18f6f287edca8a2c411ea5daf4d2b7ef6712aad73271d"
+    },
+    {
+      "path": "api/v1alpha1/conversion_contract_integration_test.go",
+      "sha256": "d6d9d56ffe9a237da1cf9595d2def5af0a99b0d661913f1d409f24e2c2b9110a"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/crd-storage-guard.yaml",
+      "sha256": "720469c4a5eaef40dd6cb2a4c77c854af49257cee338847650805229136bcb5f"
+    }
+  ],
+  "api_jobs": [
+    {
+      "name": "Kubernetes 1.37.0 API and security",
+      "url": "https://github.com/Alien6-Studio/hankoshell-operator/actions/runs/39296140478/job/118210600414",
+      "conclusion": "success"
+    },
+    {
+      "name": "Kubernetes 1.36.2 API and security",
+      "url": "https://github.com/Alien6-Studio/hankoshell-operator/actions/runs/39296140478/job/118210600526",
+      "conclusion": "success"
+    },
+    {
+      "name": "Kubernetes 1.35.0 API and security",
+      "url": "https://github.com/Alien6-Studio/hankoshell-operator/actions/runs/39296140478/job/118210600604",
+      "conclusion": "success"
+    }
+  ],
+  "native_reports": [
+    {
+      "kubernetes": "1.35.0",
+      "job_url": "https://github.com/Alien6-Studio/hankoshell-operator/actions/runs/39296140478/job/118210600490",
+      "artifact": {
+        "digest": "sha256:0db487b2f2a37251d5a4425ee53b2b8aadc7f254798ede0054b83db879caa167",
+        "expired": false,
+        "id": 12207958920,
+        "name": "NONPUBLISHABLE-storage-1.35.0-39296140478-1",
+        "size_in_bytes": 708
+      },
+      "original_report_sha256": "b160992d34e1e4be2a9059afb05f4b5b5e3eb1dd1e9fff0bdf6349d87fa3540b",
+      "retained": "docs/qualification/recovery/2026-10-19/api-storage-delivery/storage-1.35.0.json",
+      "retained_sha256": "22edd781e27c4ebe432f0f99b9ed6624aef5b332b021897181d6f7265b4d4033",
+      "normalization": {
+        "rename": "api_contract_sha256 -> contract_sha256",
+        "reason": "Public contract digest; avoid generic API-key false positive without weakening secret detection."
+      }
+    },
+    {
+      "kubernetes": "1.36.2",
+      "job_url": "https://github.com/Alien6-Studio/hankoshell-operator/actions/runs/39296140478/job/118210600302",
+      "artifact": {
+        "digest": "sha256:c34461b31d2867e0395b5eca1ddeac173c23bc75f9b5a9b02b4bb40e32fdca69",
+        "expired": false,
+        "id": 12208622508,
+        "name": "NONPUBLISHABLE-storage-1.36.2-39296140478-1",
+        "size_in_bytes": 780
+      },
+      "original_report_sha256": "cb0072bec37f2214a24b4ec45b7bc4fe445899964a248286da1bbc742ad22e65",
+      "retained": "docs/qualification/recovery/2026-10-19/api-storage-delivery/storage-1.36.2.json",
+      "retained_sha256": "5483dd8403a80dc249ae99eff6423345b05cce4d0011e77725f3d756125ae41c",
+      "normalization": {
+        "rename": "api_contract_sha256 -> contract_sha256",
+        "reason": "Public contract digest; avoid generic API-key false positive without weakening secret detection."
+      }
+    },
+    {
+      "kubernetes": "1.37.0",
+      "job_url": "https://github.com/Alien6-Studio/hankoshell-operator/actions/runs/39296140478/job/118210600178",
+      "artifact": {
+        "digest": "sha256:a615e0dd8e5141dfdc404336e02137f9924d392cc3cc5e4b6dc628ff1dbda33a",
+        "expired": false,
+        "id": 12209890757,
+        "name": "NONPUBLISHABLE-storage-1.37.0-39296140478-1",
+        "size_in_bytes": 768
+      },
+      "original_report_sha256": "2777138d217f9829f983287ad85007b014c15e9512dffcd64e56f83ede1d6e35",
+      "retained": "docs/qualification/recovery/2026-10-19/api-storage-delivery/storage-1.37.0.json",
+      "retained_sha256": "32cf3cd9675bd955d4dc8585fd8c363a30e24209aaeee6d565c29ab4cb728bd6",
+      "normalization": {
+        "rename": "api_contract_sha256 -> contract_sha256",
+        "reason": "Public contract digest; avoid generic API-key false positive without weakening secret detection."
+      }
+    }
+  ],
+  "fresh_native_migrations": 48,
+  "real_cli_interruptions": 12,
+  "remaining_acceptance": [
+    "Stable resource selection and compatibility ratification: #89/#104",
+    "Authentic public predecessor and real-provider upgrade paths: #93/#101/#105",
+    "Final complete candidate qualification, including connected scenarios and release evidence: #86/#106"
+  ],
+  "full_ci_success_claimed": false
+}

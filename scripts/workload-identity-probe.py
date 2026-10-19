@@ -25,6 +25,8 @@ from urllib.request import Request, urlopen
 
 import yaml
 
+from evidence_privacy import contains_jwt
+
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("system_fixture", ROOT / "scripts/system-test.py")
 system = importlib.util.module_from_spec(spec)
@@ -70,7 +72,7 @@ def binding_subject(namespace, name):
 
 def safe_report(report, sensitive):
     encoded = json.dumps(report, indent=2) + "\n"
-    if any(secret and secret in encoded for secret in sensitive) or re.search(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", encoded):
+    if any(secret and secret in encoded for secret in sensitive) or contains_jwt(encoded):
         raise ValueError("Credential found in report (withheld)")
     return encoded
 
@@ -161,18 +163,22 @@ class Fixture(system.System):
         self.node_image = self.built_node_image
         self.report["node_build"] = {"server_archive_sha256": digest, "base_image": NODE_BASE, "architecture": architecture}
 
+    def keycloak_build(self, build, image):
+        dockerfile = build / "Dockerfile"
+        dockerfile.write_text(f"FROM {image}\nRUN /opt/keycloak/bin/kc.sh build --db=dev-file --health-enabled=true\n")
+        return dockerfile
+
     def keycloak(self):
         build = self.private / "keycloak-build"
         build.mkdir()
         image = KEYCLOAK_IMAGES[self.args.keycloak_version]
-        dockerfile = build / "Dockerfile"
-        dockerfile.write_text(f"FROM {image}\nRUN /opt/keycloak/bin/kc.sh build --db=dev-file --health-enabled=true\n")
+        dockerfile = self.keycloak_build(build, image)
         self.keycloak_image = self.name + "-keycloak:fixture"
         run(["docker", "build", "--network=none", "--tag", self.keycloak_image, "--file", dockerfile, build])
         run([self.args.kind, "load", "docker-image", self.keycloak_image, "--name", self.name])
         cert, key = self.private / "tls.crt", self.private / "tls.key"
         run([self.args.openssl, "req", "-new", "-x509", "-newkey", "rsa:2048", "-nodes", "-sha256",
-             "-keyout", key, "-out", cert, "-days", "1", "-subj", "/CN=keycloak.auth.svc",
+             "-keyout", key, "-out", cert, "-days", str(getattr(self, "certificate_days", 1)), "-subj", "/CN=keycloak.auth.svc",
              "-addext", "subjectAltName=DNS:keycloak.auth.svc,DNS:localhost" + getattr(self, "extra_certificate_names", ""),
              "-addext", "basicConstraints=critical,CA:true"])
         self.http = ssl.create_default_context(cafile=str(cert))
@@ -696,7 +702,7 @@ except urllib.error.HTTPError as e:
             else:
                 values = list(item.get("data", {}).values())
                 values.extend(base64.b64decode(value).decode(errors="replace") for value in item.get("binaryData", {}).values())
-            if any(re.search(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", value) for value in values):
+            if any(contains_jwt(value) for value in values):
                 raise ValueError("JWT found in fixture Kubernetes object (withheld)")
         self.report["no_jwt_in_logs_events_secrets_configmaps"] = True
 

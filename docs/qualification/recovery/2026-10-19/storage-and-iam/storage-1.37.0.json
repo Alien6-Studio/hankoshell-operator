@@ -1,0 +1,58 @@
+{
+  "complete": true,
+  "kubernetes": "1.37.0",
+  "cleanup": true,
+  "harness_sha256": "c52ee38405ecb1223b4cc43855de53f3b41a3cb80833062d38b0ca53dc505ac0",
+  "node_image": "kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5",
+  "interruption_evidence": [
+    {
+      "target": "v1alpha1",
+      "predecessor_pruned_by_native_controller": true,
+      "native_succeeded": true,
+      "uid_matches": true,
+      "resource_matches": true,
+      "native_failed": false,
+      "physical_encoding_matches": true
+    }
+  ],
+  "active_target": "v1alpha1",
+  "active_phase": "complete",
+  "scope": "experimental-local-storage",
+  "stages": [
+    {
+      "target": "v1beta1",
+      "objects": 3,
+      "physical_encoding_verified": true,
+      "resume_verified": true,
+      "process_interruptions": [
+        "Rewriting",
+        "Committed"
+      ],
+      "interrupted_storage_readability_proven": true
+    },
+    {
+      "target": "v1alpha1",
+      "objects": 3,
+      "physical_encoding_verified": true,
+      "resume_verified": true,
+      "process_interruptions": [
+        "Rewriting",
+        "Committed"
+      ],
+      "interrupted_storage_readability_proven": true
+    }
+  ],
+  "native_migrations": 16,
+  "preserved": [
+    "uid",
+    "spec",
+    "status",
+    "generation",
+    "annotations",
+    "finalizers",
+    "managedFields"
+  ],
+  "chart_live_guard_verified": true,
+  "public_release_compatibility": false,
+  "contract_sha256": "8b5da6df42daa65e99f6db4fbacc6fffeead5fe6b7e69b193256399a81449197"
+}

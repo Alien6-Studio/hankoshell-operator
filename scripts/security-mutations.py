@@ -20,7 +20,11 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_LIMIT = 2 * 1024**2
 COMMAND_SECONDS = 120
-TOTAL_SECONDS = 480
+COMPILATION_SECONDS = 300
+# Cold compilation plus isolated controller rebuilds exceeded eight minutes in
+# the mandatory CI gate. Keep per-command and per-test limits unchanged; allow
+# the entire reviewed inventory to finish, including its unmutated baselines.
+TOTAL_SECONDS = 900
 
 
 def mutation(name, file, before, after, package, test):
@@ -31,6 +35,144 @@ def mutation(name, file, before, after, package, test):
 
 
 MUTATIONS = [
+    mutation("bounded-actor-explicit-recovery-identity", "internal/keycloak/bounded_delegation_journal.go",
+             'var stored boundedDelegationActorMarker', 'stored := marker',
+             "internal/keycloak", "TestBoundedActorRecoveryRequiresExplicitStoredIdentity"),
+    mutation("runtime-cleanup-canonical-journal", "internal/applicationbinding/cleanup.go",
+             'string(canonical) != value', 'false && string(canonical) != value',
+             "internal/applicationbinding", "TestRuntimeCleanupRejectsAmbiguousJournalBeforeAnyOutputWrite"),
+    mutation("runtime-cleanup-record-bound", "internal/applicationbinding/cleanup.go",
+             'len(result) > MaxBindings', 'false && len(result) > MaxBindings',
+             "internal/applicationbinding", "TestRuntimeCleanupJournalRetainsExactRecordAndByteBounds"),
+    mutation("hub-control-json-ambiguity", "internal/hub/legacy_bundle.go",
+             'len(data) <= maxHubControlResponseBytes && httpsecurity.ValidateJSON(data) == nil &&',
+             'len(data) <= maxHubControlResponseBytes &&',
+             "internal/hub", "TestControlResponsesRefuseAmbiguousJSONBeforeCommands"),
+    mutation("image-policy-json-ambiguity", "internal/imagevalidator/approval.go",
+             'len(data) > maxPolicyBytes || httpsecurity.ValidateJSON(data) != nil',
+             'len(data) > maxPolicyBytes || false && httpsecurity.ValidateJSON(data) != nil',
+             "internal/imagevalidator", "TestImagePolicyRefusesAmbiguousPublisherApproval"),
+    mutation("oidc-discovery-json-ambiguity", "internal/applications/metadata.go",
+             'len(data) > maxProtocolDocument || httpsecurity.ValidateJSON(data) != nil',
+             'len(data) > maxProtocolDocument || false && httpsecurity.ValidateJSON(data) != nil',
+             "internal/applications", "TestOIDCDiscoveryRefusesAmbiguousIdentity"),
+    mutation("authorization-journal-json-ambiguity", "internal/keycloak/authorization_ownership.go",
+             'httpsecurity.ValidateJSON([]byte(value)) != nil ||', 'false && httpsecurity.ValidateJSON([]byte(value)) != nil ||',
+             "internal/keycloak", "TestAuthorizationJournalRejectsAmbiguousIdentity"),
+    mutation("lifecycle-independent-approval", "internal/controller/lifecycle_authority.go",
+             'if object.GetAnnotations()[lifecycleApprovalAnnotation] == expected {',
+             'if true || object.GetAnnotations()[lifecycleApprovalAnnotation] == expected {',
+             "internal/controller", "TestLifecycleGuardRequiresExactApprovalBeforeAnyEffect"),
+    mutation("lifecycle-mutation-recheck", "internal/controller/lifecycle_authority.go",
+             'if !allowed || current.GetUID() != object.GetUID() || current.GetGeneration() != object.GetGeneration() || currentExpected != expected || !current.GetDeletionTimestamp().IsZero() {',
+             'if false && (!allowed || current.GetUID() != object.GetUID() || current.GetGeneration() != object.GetGeneration() || currentExpected != expected || !current.GetDeletionTimestamp().IsZero()) {',
+             "internal/controller", "TestLifecycleRevocationIsRecheckedAtTheInstanceMutation"),
+    mutation("lifecycle-parent-revocation", "internal/controller/lifecycle_authority.go",
+             'parent.Annotations[lifecycleApprovalAnnotation] != lifecycleApprovalValue(&parent, operationIntentHash(&parent), string(instance.UID))',
+             'false && parent.Annotations[lifecycleApprovalAnnotation] != lifecycleApprovalValue(&parent, operationIntentHash(&parent), string(instance.UID))',
+             "internal/controller", "TestLifecycleSnapshotDelegationRequiresTheExactCurrentParentStep"),
+    mutation("lifecycle-database-tenant", "internal/controller/lifecycle_authority.go",
+             '!sameTenantScope(operation, &secret)', 'false && !sameTenantScope(operation, &secret)',
+             "internal/controller", "TestLifecycleDatabaseReferenceValidationIsBounded"),
+    mutation("fleet-command-log-sanitization", "internal/controller/hankotenant_agent_update.go",
+             'logger.Info("hub requested agent self-update", "tenant", tenant.Name)',
+             'logger.Info("hub requested agent self-update", "tenant", tenant.Name, "version", command.Version)',
+             "internal/controller", "TestFleetUnapprovedCommandFieldsNeverReachLogs"),
+    mutation("fleet-all-route-redirect", "internal/hub/client.go",
+             'bounded.CheckRedirect = refuseHubRedirect\n\treturn &Client{',
+             'bounded.CheckRedirect = nil\n\treturn &Client{',
+             "internal/hub", "TestFleetAuthenticatedRoutesNeverFollowRedirects"),
+    mutation("hub-enrollment-redirect", "internal/hub/client.go",
+             'bounded.CheckRedirect = refuseHubRedirect\n\tbody, err := json.Marshal(struct {',
+             'bounded.CheckRedirect = nil\n\tbody, err := json.Marshal(struct {',
+             "internal/hub", "TestLegacyHubRoutesRefuseRedirectsWithoutChangingCaller"),
+    mutation("hub-error-body-redaction", "internal/hub/client.go",
+             'fmt.Errorf("hub enrollment returned HTTP %d", resp.StatusCode)',
+             'fmt.Errorf("hub enrollment returned HTTP %d: %s", resp.StatusCode, respBody)',
+             "internal/hub", "TestHubErrorsNeverPublishRemoteBodies"),
+    mutation("legacy-bundle-stream-count", "internal/hub/legacy_bundle.go",
+             'if *count >= maxLegacyBundleObjects {', 'if false && *count >= maxLegacyBundleObjects {',
+             "internal/hub", "TestLegacyBundleAggregateLimitAndUnambiguousJSON"),
+    mutation("legacy-bundle-json-ambiguity", "internal/hub/legacy_bundle.go",
+             'if httpsecurity.ValidateJSON(body) != nil {', 'if false && httpsecurity.ValidateJSON(body) != nil {',
+             "internal/hub", "TestLegacyBundleAggregateLimitAndUnambiguousJSON"),
+    mutation("legacy-bundle-before-api", "internal/controller/hankotenant_bundle.go",
+             '> fleetplan.MaxObjects {', '> fleetplan.MaxObjects+1 {',
+             "internal/controller", "TestLegacyBundleObjectBudgetPrecedesKubernetesIO"),
+    mutation("application-canonical-owner", "internal/controller/hankoapplication_credentials.go",
+             'owner.UID == app.UID', '(true || owner.UID == app.UID)',
+             "internal/controller", "TestCanonicalCredentialRefusesForeignOwnershipBeforeProviderRead"),
+    mutation("application-canonical-write-version", "internal/controller/hankoapplication_controller.go",
+             'p := client.MergeFromWithOptions(s.DeepCopy(), client.MergeFromWithOptimisticLock{})',
+             'p := client.MergeFrom(s.DeepCopy())',
+             "internal/controller", "TestApplicationCredentialWritesRefuseConcurrentReplacementAndRevocation"),
+    mutation("application-projection-write-version", "internal/controller/hankoapplication_controller.go",
+             'patch := client.MergeFromWithOptions(projected.DeepCopy(), client.MergeFromWithOptimisticLock{})\n\tif projected.Annotations == nil {',
+             'patch := client.MergeFrom(projected.DeepCopy())\n\tif projected.Annotations == nil {',
+             "internal/controller", "TestApplicationCredentialWritesRefuseConcurrentReplacementAndRevocation"),
+    mutation("application-projection-cleanup-version", "internal/controller/hankoapplication_controller.go",
+             'patch := client.MergeFromWithOptions(projected.DeepCopy(), client.MergeFromWithOptimisticLock{})\n\tprojected.Data = map[string][]byte{}',
+             'patch := client.MergeFrom(projected.DeepCopy())\n\tprojected.Data = map[string][]byte{}',
+             "internal/controller", "TestApplicationCredentialWritesRefuseConcurrentReplacementAndRevocation"),
+    mutation("application-canonical-readback-uid", "internal/controller/hankoapplication_credentials.go",
+             'current.UID != written.UID || value == ""', 'false && current.UID != written.UID || value == ""',
+             "internal/controller", "TestApplicationCredentialReadBackAndAuthorityFailuresStayPending"),
+    mutation("application-projection-live-plan", "internal/controller/hankoapplication_credentials.go",
+             'if guard != nil {', 'if false && guard != nil {',
+             "internal/controller", "TestApplicationProjectionRechecksCompiledUIDBeforeWrite"),
+    mutation("fleet-independent-decommission", "internal/fleetplan/authority.go",
+             'return Refusal("FleetCommandUnapproved")', 'return nil',
+             "internal/fleetplan", "TestFleetIndependentHubAndCommandApproval"),
+    mutation("fleet-hub-destination", "internal/fleetplan/authority.go",
+             '\treturn Refusal("FleetHubEndpointUnapproved")\n}\n\n// DecommissionIdentity',
+             '\treturn nil\n}\n\n// DecommissionIdentity',
+             "internal/fleetplan", "TestFleetIndependentHubAndCommandApproval"),
+    mutation("fleet-provider-mutation-guard", "internal/keycloak/token_refresh.go",
+             "if err := c.authorizeMutation(req); err != nil {",
+             "if err := c.authorizeMutation(req); false && err != nil {",
+             "internal/keycloak", "TestMutationGuardRunsBeforeEveryProviderWrite"),
+    mutation("fleet-cache-uid", "internal/controller/hankotenant_recovery.go",
+             "string(cm.UID) != ref.UID", "false && string(cm.UID) != ref.UID",
+             "internal/controller", "TestFleetProviderAuthorityFailsClosed"),
+    mutation("fleet-rollback-content", "internal/fleetplan/recovery.go",
+             "!reflect.DeepEqual(p.Content, old.Content)", "false && !reflect.DeepEqual(p.Content, old.Content)",
+             "internal/fleetplan", "TestFleetReferencedRollback"),
+    mutation("fleet-sticky-expiry", "internal/fleetplan/recovery.go",
+             "if expired {", "if false && expired {",
+             "internal/fleetplan", "TestFleetRecoveryClockAndStickyExpiry"),
+    mutation("fleet-expiry", "internal/fleetplan/verify.go",
+             "if !now.Before(p.ExpiresAt) {", "if false && !now.Before(p.ExpiresAt) {",
+             "internal/fleetplan", "TestFleetPlanRejectsUnqualifiedAuthorityAndFreshness"),
+    mutation("fleet-native-permission", "internal/fleetplan/rollout.go",
+             "if !s.Permissions[r] {", "if false && !s.Permissions[r] {",
+             "internal/fleetplan", "TestFleetRolloutCapabilityPermissionAndMode"),
+    mutation("fleet-atomic-refusal", "internal/fleetplan/rollout.go",
+             'mode == "all-or-refuse" || r.Refused == len(r.Objects)',
+             'false || r.Refused == len(r.Objects)',
+             "internal/fleetplan", "TestFleetRolloutCapabilityPermissionAndMode"),
+    mutation("fleet-local-pause", "internal/fleetplan/rollout.go",
+             'return Refusal("FleetRolloutPaused")', 'return nil',
+             "internal/fleetplan", "TestFleetRolloutSchemaVersionAndOverrides"),
+    mutation("fleet-provider-version-scope", "internal/fleetplan/rollout.go",
+             'p.Target == target && p.Endpoint == endpoint', 'p.Target == target',
+             "internal/fleetplan", "TestFleetRolloutSchemaVersionAndOverrides"),
+    mutation("fleet-provider-client-binding", "internal/keycloak/fleet_permissions.go",
+             'claims.Client != c.clientID', 'false && claims.Client != c.clientID',
+             "internal/keycloak", "TestFleetPermissionEvidenceComesFromProviderTLS"),
+    mutation("fleet-signature", "internal/fleetplan/verify.go",
+             "!ed25519.Verify(key, SigningInput(payload), signature)",
+             "false && !ed25519.Verify(key, SigningInput(payload), signature)",
+             "internal/fleetplan", "TestFleetPlanClosedDecodingAndSignature"),
+    mutation("fleet-target", "internal/fleetplan/verify.go",
+             "p.Target != target", "false && p.Target != target",
+             "internal/fleetplan", "TestFleetPlanClosedDecodingAndSignature"),
+    mutation("fleet-sequence", "internal/fleetplan/verify.go",
+             "sequence < checkpoint.Sequence", "false && sequence < checkpoint.Sequence",
+             "internal/fleetplan", "TestFleetDecodingAndCheckpointReasons"),
+    mutation("fleet-sticky-signature-mode", "internal/controller/hankotenant_controller.go",
+             'r.FleetTrustConfigMapName != "" || tenant.Status.FleetPlan != nil',
+             'r.FleetTrustConfigMapName != ""',
+             "internal/controller", "TestSignedFleetPlanControllerRecovery"),
     mutation("hub-hmac", "internal/hub/client.go",
              "return hmac.Equal([]byte(expected), []byte(sb.Signature))",
              "return hmac.Equal([]byte(expected), []byte(expected))",
@@ -55,6 +197,20 @@ MUTATIONS = [
              "func rejectKeycloakRedirect(*http.Request, []*http.Request) error {\n\treturn http.ErrUseLastResponse\n}",
              "func rejectKeycloakRedirect(*http.Request, []*http.Request) error {\n\treturn nil\n}",
              "internal/keycloak", "TestPermissionGatewayDoesNotFollowRedirects"),
+    mutation("realm-live-inventory", "internal/controller/hankorealm_deletion.go",
+             "if r.APIReader != nil {\n\t\treturn r.APIReader\n\t}",
+             "if false && r.APIReader != nil {\n\t\treturn r.APIReader\n\t}",
+             "internal/controller", "TestRealmDeletionUsesLiveInventoryForEveryKind"),
+    mutation("realm-complete-dependencies", "internal/controller/hankorealm_deletion.go",
+             '"HankoIssuer", "HankoRole",', '"HankoIssuer",',
+             "internal/controller", "TestRealmDeletionInventoryCoversEveryRealmReference"),
+    mutation("realm-complete-pages", "internal/controller/hankorealm_deletion.go",
+             "continuation = page.GetContinue()", 'continuation = ""',
+             "internal/controller", "TestRealmDeletionInventoryRequiresEveryCompletePage"),
+    mutation("realm-deletion-authority-recheck", "internal/controller/hankorealm_controller.go",
+             "if err := r.verifyRealmDeletionAuthority(ctx, realm); err != nil {",
+             "if err := error(nil); err != nil {",
+             "internal/controller", "TestRealmDeletionRechecksAuthorityAfterProviderPreflight"),
     mutation("unowned-realm-deletion", "internal/controller/hankorealm_controller.go",
              '\tif observe {\n\t\tlog.FromContext(ctx).Info("Observe mode: dropping legacy finalizer without deleting Keycloak realm", "realm", realm.Name)',
              '\tif false && observe {\n\t\tlog.FromContext(ctx).Info("Observe mode: dropping legacy finalizer without deleting Keycloak realm", "realm", realm.Name)',
@@ -63,14 +219,75 @@ MUTATIONS = [
              "\t// Only reconcile deletions when the operator explicitly owns roles for this app.\n\tif len(app.Spec.Roles) == 0 {",
              "\t// Only reconcile deletions when the operator explicitly owns roles for this app.\n\tif false && len(app.Spec.Roles) == 0 {",
              "internal/controller", "TestApplicationWithoutDeclaredRolesPreservesProviderRoles"),
-    mutation("bundle-tenant-namespace", "internal/controller/hankotenant_controller.go",
-             "desired.SetNamespace(options.namespace)",
+    mutation("bundle-tenant-namespace", "internal/controller/hankotenant_bundle.go",
+             "desired.SetNamespace(tenant.Namespace)",
              "desired.SetNamespace(desired.GetNamespace())",
+             "internal/controller", "TestTenantBundleApplyPreservesExplicitValuesAndTenantBoundary"),
+    mutation("bundle-live-tenant-ownership", "internal/controller/hankotenant_bundle.go",
+             'if current.GetLabels()["hanko.sh/tenant"] != tenant {',
+             'if false && current.GetLabels()["hanko.sh/tenant"] != tenant {',
+             "internal/controller", "TestTenantBundleUsesCurrentOwnershipForEveryKind"),
+    mutation("bundle-forced-ownership", "internal/controller/hankotenant_bundle.go",
+             'client.ApplyConfigurationFromUnstructured(object.desired), client.FieldOwner(bundleFieldManager))',
+             'client.ApplyConfigurationFromUnstructured(object.desired), client.FieldOwner(bundleFieldManager), client.ForceOwnership)',
+             "internal/controller", "TestTenantBundleApplyPreservesExplicitValuesAndTenantBoundary"),
+    mutation("bundle-write-version-precondition", "internal/controller/hankotenant_bundle.go",
+             'object.desired.SetResourceVersion(current.GetResourceVersion())',
+             'object.desired.SetResourceVersion("")',
              "internal/controller", "TestTenantBundleApplyPreservesExplicitValuesAndTenantBoundary"),
     mutation("secret-cache-exclusion", "cmd/operator/main.go",
              "DisableFor: []client.Object{&corev1.Secret{}},",
              "DisableFor: []client.Object{},",
              "cmd/operator", "TestManagerOptionsConfineCacheAndLeaderElection"),
+    mutation("snapshot-tenant-inventory", "internal/controller/hankosnapshot_controller.go",
+             "r.snapshotReader().List(ctx, &realms, options...)",
+             "r.snapshotReader().List(ctx, &realms, client.InNamespace(snapshot.Namespace))",
+             "internal/controller", "TestSnapshotCaptureIsTenantScoped"),
+    mutation("snapshot-stored-tenant-scope", "internal/controller/hankosnapshot_checkpoint.go",
+             "!snapshotPayloadInScope(snapshot, raw)", "false",
+             "internal/controller", "TestSnapshotRecoveryRejectsCrossScopeStoredCapture"),
+    mutation("operation-child-tenant-presence", "internal/controller/hankooperation_checkpoint.go",
+             "child.SetLabels(tenantScopeLabels(op))",
+             'child.SetLabels(map[string]string{"hanko.sh/tenant": op.Labels["hanko.sh/tenant"]})',
+             "internal/controller", "TestOperationSnapshotRetainsExactTenantScope"),
+    mutation("operation-managed-provider-binding", "internal/controller/hankooperation_controller.go",
+             'if instance.Spec.Mode == "managed" {', 'if false && instance.Spec.Mode == "managed" {',
+             "internal/controller", "TestOperationProviderObservationBindsManagedRollout"),
+    mutation("managed-probe-rollout-fence", "internal/controller/hankokeycloakinstance_controller.go",
+             'observation == nil || current == nil || *observation != *current',
+             'observation == nil || current == nil',
+             "internal/controller", "TestManagedProbeRequiresStableDeployment"),
+    mutation("managed-infrastructure-owner", "internal/controller/managed_infrastructure.go",
+             "if !managedInfrastructureOwned(instance, object) {", "if false && !managedInfrastructureOwned(instance, object) {",
+             "internal/controller", "TestManagedInfrastructurePreservesForeignObjects"),
+    mutation("managed-infrastructure-live-owner", "internal/controller/managed_infrastructure.go",
+             "r.instanceReader().Get(ctx, client.ObjectKey{Namespace: instance.Namespace, Name: name}, object)",
+             "r.Get(ctx, client.ObjectKey{Namespace: instance.Namespace, Name: name}, object)",
+             "internal/controller", "TestManagedInfrastructurePreservesForeignObjects"),
+    mutation("managed-infrastructure-write-version", "internal/controller/managed_infrastructure.go",
+             "client.MergeFromWithOptions(before, client.MergeFromWithOptimisticLock{})",
+             "client.MergeFrom(before)",
+             "internal/controller", "TestManagedInfrastructureRejectsConcurrentOwnerChanges"),
+    mutation("managed-pdb-delete-identity", "internal/controller/hankokeycloakinstance_controller.go",
+             "r.Delete(ctx, &existingPDB, client.Preconditions{UID: &existingPDB.UID, ResourceVersion: &existingPDB.ResourceVersion})",
+             "r.Delete(ctx, &existingPDB)",
+             "internal/controller", "TestManagedInfrastructureRejectsConcurrentOwnerChanges"),
+    mutation("managed-instance-live-intent", "internal/controller/hankokeycloakinstance_controller.go",
+             "r.instanceReader().Get(ctx, req.NamespacedName, &instance)", "r.Get(ctx, req.NamespacedName, &instance)",
+             "internal/controller", "TestDeletingKeycloakInstanceStopsReconciliation"),
+    mutation("managed-instance-deletion", "internal/controller/hankokeycloakinstance_controller.go",
+             "if !instance.DeletionTimestamp.IsZero() {", "if false && !instance.DeletionTimestamp.IsZero() {",
+             "internal/controller", "TestDeletingKeycloakInstanceStopsReconciliation"),
+    mutation("metrics-uri-authorization", "internal/observability/tls.go",
+             "if allowed[identity.String()] {", "if allowed[identity.String()] || true {",
+             "internal/observability", "TestMetricsMutualTLSAuthenticatesAuthorizesAndReloadsTrust"),
+    mutation("metrics-client-authentication", "internal/observability/tls.go",
+             "tls.RequireAndVerifyClientCert", "tls.NoClientCert",
+             "internal/observability", "TestMetricsMutualTLSAuthenticatesAuthorizesAndReloadsTrust"),
+    mutation("provider-error-redaction", "internal/keycloak/responses.go",
+             "body = []byte(http.StatusText(response.StatusCode))", "body = body",
+             "internal/keycloak", "TestKeycloakGatewaySuppressesNativeErrorBodyBeforeAnyCaller"),
+
 ]
 
 
@@ -177,6 +394,29 @@ def outcome(returncode, output, item):
     return test_results[0]
 
 
+def prepare_compilation(source, items, runner=run_command):
+    """Bound cold race compilation separately; it never detects a mutation."""
+    packages = sorted({item["package"] for item in items})
+    started = time.monotonic()
+    code, output = runner(["go", "test", "-json", "-race", "-run", "^$", *packages], source, COMPILATION_SECONDS)
+    completed = []
+    for line in output.splitlines():
+        try:
+            event = json.loads(line)
+        except (ValueError, TypeError) as error:
+            raise GateError("compilation did not produce a complete Go JSON stream") from error
+        if not isinstance(event, dict) or event.get("Test") is not None:
+            raise GateError("compilation unexpectedly executed a test")
+        if event.get("Action") in ("pass", "fail", "skip"):
+            if event["Action"] != "pass":
+                raise GateError("race compilation failed")
+            completed.append(event.get("Package"))
+    if code != 0 or sorted(completed) != packages:
+        raise GateError("race compilation did not complete every selected package")
+    return {"result": "pass", "seconds": round(time.monotonic() - started, 3),
+            "packages": len(packages), "tests_executed": 0, "budget_seconds": COMPILATION_SECONDS}
+
+
 def qualify(source, items, runner=run_command):
     if not items:
         raise GateError("at least one reviewed mutation is required")
@@ -187,7 +427,7 @@ def qualify(source, items, runner=run_command):
         root = Path(directory)
         snapshot(source, root)
         for item in items:
-            entry = {"name": item["name"], "file": item["file"], "test": item["test"]}
+            entry = {"name": item["name"], "file": item["file"], "test": item["test"], "phase": "baseline"}
             original = None
             step_started = time.monotonic()
             try:
@@ -198,6 +438,7 @@ def qualify(source, items, runner=run_command):
                         raise GateError("unmodified baseline test failed")
                     baselines.add(key)
                 original = apply_mutation(root, item)
+                entry["phase"] = "mutation"
                 code, output = runner(item["command"], root, min(COMMAND_SECONDS, deadline - time.monotonic()))
                 entry["result"] = "detected" if outcome(code, output, item) == "fail" else "survived"
             except (GateError, OSError, subprocess.SubprocessError) as error:
@@ -224,7 +465,13 @@ def main():
     parser.add_argument("--output", type=Path, default=ROOT / ".tools/security-mutations.json")
     args = parser.parse_args()
     items = [item for item in MUTATIONS if not args.only or item["name"] == args.only]
-    report = qualify(ROOT, items)
+    try:
+        compilation = prepare_compilation(ROOT, items)
+    except (GateError, OSError, subprocess.SubprocessError) as error:
+        report = {"complete": False, "result": "fail", "mutations": [], "compilation": {
+            "result": "fail", "reason": str(error) if isinstance(error, GateError) else type(error).__name__}}
+    else:
+        report = {**qualify(ROOT, items), "compilation": compilation}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n")
     if summary := os.environ.get("GITHUB_STEP_SUMMARY"):

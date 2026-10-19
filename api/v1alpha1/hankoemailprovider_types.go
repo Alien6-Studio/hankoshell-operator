@@ -92,6 +92,8 @@ type HankoEmailProviderStatus struct {
 	CredentialVersion string `json:"credentialVersion,omitempty"`
 
 	// Conditions holds standard Kubernetes condition objects.
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 

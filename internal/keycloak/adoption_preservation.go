@@ -83,10 +83,26 @@ func QualifiedClientAttributes(attrs map[string]string) bool {
 // PreservationQualified refuses masked, opaque or unknown native settings.
 // A successful result grants no ownership: the caller must verify the receipt.
 func (s *ClientOwnershipSnapshot) PreservationQualified() bool {
-	if s == nil || !s.QualifiedLeaf() || !QualifiedClientAttributes(s.Application.Attributes) {
+	if s == nil || !s.QualifiedLeaf() || !qualifiedPreservedClientAttributes(&s.Application) {
 		return false
 	}
 	return qualifiedMapperDocuments(s.mappers, s.mappers, &s.Application)
+}
+
+func qualifiedPreservedClientAttributes(app *Application) bool {
+	for key, value := range app.Attributes {
+		// The reviewed delegation writer owns this activation together with its
+		// UID-bound actor marker. Preserve it without allowing arbitrary native
+		// exchange activation through the general CR/adoption attribute schema.
+		if key == "standard.token.exchange.enabled" && value == "true" && app.Attributes[BoundedDelegationActorAttribute] != "" &&
+			(ServiceAccountOwned(app, app.Attributes[adoption.ClientOwnerUIDKey]) || ApplicationOwned(app, app.Attributes[adoption.ApplicationOwnerKey])) {
+			continue
+		}
+		if !QualifiedClientAttribute(key, value) {
+			return false
+		}
+	}
+	return true
 }
 
 // Mappers created by explicit Manage keep the existing closed token-claim

@@ -28,6 +28,10 @@ func checkAuthorizationExplanationSchema(t *testing.T, ctx context.Context, c cl
 			valid.Paths[i].RoleChain[j] = api.AuthorizationExplanationRoleStep{Kind: "realm_role", Ref: "reader"}
 		}
 	}
+	depth, ttl := int32(4), int32(600)
+	valid.Paths[0].Relationship = "delegated"
+	valid.Paths[0].Delegation = &api.AuthorizationDelegation{Actor: api.AuthorizationDelegationIdentity{Kind: "application", Ref: "actor"},
+		Subject: api.AuthorizationDelegationIdentity{Kind: "service_account", Ref: "subject"}, MaxDepth: &depth, MaxTTLSeconds: &ttl}
 	rs.Status.AuthorizationExplanation = &valid
 	if err := c.Status().Update(ctx, rs); err != nil {
 		t.Fatal("bounded maximum status rejected", err)
@@ -37,6 +41,9 @@ func checkAuthorizationExplanationSchema(t *testing.T, ctx context.Context, c cl
 	}
 	if x := rs.Status.AuthorizationExplanation; x == nil || len(x.Paths) != 256 || len(x.Paths[0].Ancestry) != 33 || len(x.Paths[0].RoleChain) != 33 {
 		t.Fatal("structural status pruned")
+	}
+	if origin := rs.Status.AuthorizationExplanation.Paths[0].Delegation; origin == nil || origin.Actor.Ref != "actor" || *origin.MaxDepth != 4 || *origin.MaxTTLSeconds != 600 {
+		t.Fatal("observed delegation origin pruned")
 	}
 	for _, test := range []struct {
 		name   string
@@ -50,6 +57,10 @@ func checkAuthorizationExplanationSchema(t *testing.T, ctx context.Context, c cl
 		{"source", func(x *api.AuthorizationExplanation) { x.Source = "Desired" }},
 		{"hash", func(x *api.AuthorizationExplanation) { x.ExplanationHash = "caller-supplied-authority" }},
 		{"principal", func(x *api.AuthorizationExplanation) { x.Paths[0].SourceKind = "user" }},
+		{"delegation-depth", func(x *api.AuthorizationExplanation) { *x.Paths[0].Delegation.MaxDepth = 5 }},
+		{"delegation-lifetime", func(x *api.AuthorizationExplanation) { *x.Paths[0].Delegation.MaxTTLSeconds = 601 }},
+		{"delegation-actor", func(x *api.AuthorizationExplanation) { x.Paths[0].Delegation.Actor.Kind = "user" }},
+		{"delegation-reference", func(x *api.AuthorizationExplanation) { x.Paths[0].Delegation.Subject.Ref = "foreign/path" }},
 	} {
 		candidate := rs.DeepCopy()
 		test.mutate(candidate.Status.AuthorizationExplanation)

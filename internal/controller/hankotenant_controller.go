@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"net/http"
 	"sort"
 	"strings"
@@ -19,21 +18,23 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	kubejson "k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/decommission"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/fleetplan"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/hub"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/imagevalidator"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/observability"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/selfupdate"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/supervision"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/version"
@@ -55,8 +56,11 @@ const (
 // +kubebuilder:rbac:groups="",resources=namespaces,resourceNames=kube-system,verbs=get
 type HankoTenantReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Pool   *keycloak.Pool
+	Scheme   *runtime.Scheme
+	Recorder events.EventRecorder
+	Pool     *keycloak.Pool
+	// APIReader bypasses cached tenant, dedicated credential and bundle target state.
+	APIReader client.Reader
 	// ClusterIdentityReader bypasses the namespace-scoped cache for the one
 	// permitted GET of the kube-system Namespace during initial enrollment.
 	ClusterIdentityReader client.Reader
@@ -69,6 +73,10 @@ type HankoTenantReconciler struct {
 	// HubTransportPolicy pins enterprise reconciliation to its private relay.
 	// Nil retains the independently configurable standard installation.
 	HubTransportPolicy *hub.ContinuumPolicy
+	// FleetTrustConfigMapName is selected by the local operator deployment,
+	// never by a Hub plan or tenant spec. Empty retains legacy behavior only
+	// for tenants that have never accepted a signed plan.
+	FleetTrustConfigMapName string
 	// MeshPolicyConfigMapName enables the audit-only signed policy projection
 	// for the HankoTenant. Empty keeps the legacy heartbeat behavior.
 	MeshPolicyConfigMapName string
@@ -138,8 +146,16 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	log := log.FromContext(ctx)
 
 	var tenant hankoshv1alpha1.HankoTenant
-	if err := r.Get(ctx, req.NamespacedName, &tenant); err != nil {
+	if err := r.tenantReader().Get(ctx, req.NamespacedName, &tenant); err != nil {
+		if apierrors.IsNotFound(err) {
+			r.Pool.Remove(req.Namespace + "/" + req.Name)
+		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+	if !tenant.DeletionTimestamp.IsZero() {
+		r.Pool.Remove(tenant.Namespace + "/" + tenant.Name)
+		r.clearDegraded(&tenant)
+		return ctrl.Result{}, nil
 	}
 
 	patch := client.MergeFrom(tenant.DeepCopy())
@@ -148,13 +164,31 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if r.HubTransportPolicy != nil {
 		if err := r.HubTransportPolicy.Validate(tenant.Spec.HubEndpoint, tenant.Spec.HubTransport,
 			tenant.Spec.HubEnrollmentEndpoint, tenant.Spec.HubEnrollSecretRef != nil); err != nil {
+			r.Pool.Remove(tenant.Namespace + "/" + tenant.Name)
 			return r.setError(ctx, nil, &tenant, patch, "EnterpriseTransportRequired", err)
+		}
+	}
+
+	// Register provider routing before enrollment, credential rotation or any Hub
+	// request. Hub availability must never decide which Keycloak owns a tenant.
+	if reason, err := r.registerTenantKeycloak(ctx, &tenant); err != nil {
+		return r.setError(ctx, nil, &tenant, patch, reason, err)
+	}
+
+	signed := r.fleetEnabled(&tenant)
+	if signed {
+		if err := r.fleetHubAuthority(ctx, &tenant); err != nil {
+			r.Pool.Remove(tenant.Namespace + "/" + tenant.Name)
+			return r.setError(ctx, nil, &tenant, patch, fleetplan.Reason(err), err)
 		}
 	}
 
 	// ── Read Hub credential (self-enroll only when the Secret is absent) ───────
 	credentials, err := r.readHubCredentials(ctx, tenant.Namespace, tenant.Spec.HubTokenSecretRef.Name)
 	if apierrors.IsNotFound(err) {
+		if signed && tenant.Status.FleetPlan != nil {
+			return r.reconcileFleetDisconnected(ctx, &tenant)
+		}
 		if tenant.Status.ClusterID != "" {
 			return r.setError(ctx, nil, &tenant, patch, "HubIdentityRecoveryRequired",
 				fmt.Errorf("hub credential Secret %q is missing for registered cluster %q; recover credentials for this identity instead of enrolling again", tenant.Spec.HubTokenSecretRef.Name, tenant.Status.ClusterID))
@@ -179,7 +213,7 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// The tenant ID is either declared in the spec or learned at enrollment
 	// and persisted next to the short-lived token.
 	if r.HubTransportPolicy != nil && (credentials.ClusterID == "" || credentials.TenantID == "" ||
-		credentials.ExpiresAt.IsZero() || !credentials.ExpiresAt.After(now.Time)) {
+		credentials.ExpiresAt.IsZero() || (!credentials.ExpiresAt.After(now.Time) && (!signed || tenant.Status.FleetPlan == nil))) {
 		return r.setError(ctx, nil, &tenant, patch, "EnterpriseCredentialInvalid",
 			fmt.Errorf("enterprise Hub credentials require an identified tenant and cluster and a future expiration"))
 	}
@@ -212,8 +246,19 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		patch = client.MergeFrom(tenant.DeepCopy())
 	}
 
+	if signed {
+		if err := r.fleetHubAuthority(ctx, &tenant); err != nil {
+			return r.setError(ctx, nil, &tenant, patch, fleetplan.Reason(err), err)
+		}
+	}
+	if signed && tenant.Status.FleetPlan != nil && !credentials.ExpiresAt.IsZero() && !credentials.ExpiresAt.After(now.Time) {
+		return r.reconcileFleetDisconnected(ctx, &tenant)
+	}
 	credentials, err = r.ensureHubCredential(ctx, &tenant, credentials, tenantID)
 	if err != nil {
+		if signed && tenant.Status.FleetPlan != nil {
+			return r.reconcileFleetDisconnected(ctx, &tenant)
+		}
 		return r.setError(ctx, nil, &tenant, patch, "HubCredentialRotationFailed", err)
 	}
 	// Legacy credentials may only acquire their bounded ID during rotation.
@@ -222,27 +267,46 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	tenant.Status.ClusterID = credentials.ClusterID
 
 	// ── Fetch bundle from Hub ─────────────────────────────────────────────────
-	hubClient := hub.NewWithHTTPClient(tenant.Spec.HubEndpoint, tenantID, credentials.Token, r.HubHTTPClient)
+	hubClient := r.tenantHubClient(&tenant, tenantID, credentials.Token)
 
-	sb, err := hubClient.FetchBundle(ctx)
-	if err != nil {
-		return r.setError(ctx, hubClient, &tenant, patch, "BundleFetchFailed", err)
-	}
-
-	if !hubClient.VerifyBundle(sb) {
-		return r.setError(ctx, hubClient, &tenant, patch, "BundleSignatureInvalid",
-			fmt.Errorf("HMAC-SHA256 signature mismatch for bundle version %q", sb.Bundle.Version))
-	}
-
-	// ── Dedicated Keycloak client (keycloak / cluster isolation) ──────────────
-	if reason, err := r.registerTenantKeycloak(ctx, &tenant); err != nil {
-		return r.setError(ctx, hubClient, &tenant, patch, reason, err)
-	}
-
-	// ── Apply bundle resources ────────────────────────────────────────────────
-	counts, err := r.applyBundle(ctx, &tenant, &sb.Bundle)
-	if err != nil {
-		return r.setError(ctx, hubClient, &tenant, patch, "BundleApplyFailed", err)
+	var counts map[string]int
+	var bundleVersion string
+	appliedReason := "BundleApplied"
+	if signed {
+		bundleVersion, counts, appliedReason, err = r.applyFleetPlan(ctx, &tenant, hubClient, tenantID, credentials.ClusterID)
+		if errors.Is(err, errFleetCheckpointWrite) {
+			return ctrl.Result{}, err
+		}
+		patch = fleetStatusPatch(&tenant)
+		if err != nil {
+			// A changed local tenant belongs to a fresh reconcile. Do not publish
+			// an obsolete error condition over its new intent or checkpoint.
+			if fleetplan.Reason(err) == "FleetAuthorityChanged" {
+				return ctrl.Result{}, err
+			}
+			if fleetplan.Reason(err) == "FleetPlanExpired" && fleetAcceptedExpired(&tenant) {
+				tenant.Status.FleetPlan.Expired = true
+			}
+			fleetRolloutRefusal(&tenant, fleetplan.Reason(err))
+			return r.setError(ctx, hubClient, &tenant, patch, fleetplan.Reason(err), err)
+		}
+		if appliedReason == "FleetPlanDisconnected" {
+			return r.fleetDisconnectedStatus(ctx, &tenant, nil)
+		}
+	} else {
+		sb, fetchErr := hubClient.FetchBundle(ctx)
+		if fetchErr != nil {
+			return r.setError(ctx, hubClient, &tenant, patch, "BundleFetchFailed", fetchErr)
+		}
+		if !hubClient.VerifyBundle(sb) {
+			return r.setError(ctx, hubClient, &tenant, patch, "BundleSignatureInvalid",
+				fmt.Errorf("HMAC-SHA256 signature mismatch for bundle version %q", sb.Bundle.Version))
+		}
+		counts, err = r.applyBundle(ctx, &tenant, &sb.Bundle)
+		if err != nil {
+			return r.setError(ctx, hubClient, &tenant, patch, bundleApplyReason(err), err)
+		}
+		bundleVersion = sb.Bundle.Version
 	}
 	meshRegistrations, err := r.collectMeshRegistrations(ctx, &tenant, tenantID, credentials.ClusterID)
 	if err != nil {
@@ -259,9 +323,16 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		// it is cleared only when a reconcile fully completes.
 		phase, health, detail = "Error", "degraded", reason
 	}
+	if appliedReason == "FleetPlanPartial" {
+		phase, health, detail = "Error", "degraded", "FleetPlanPartial"
+	}
+	reportedBundleVersion := bundleVersion
+	if appliedReason == "FleetPlanPartial" {
+		reportedBundleVersion = tenant.Status.BundleVersion
+	}
 	status := hub.OperatorStatus{
 		TenantID:          tenantID,
-		BundleVersion:     sb.Bundle.Version,
+		BundleVersion:     reportedBundleVersion,
 		Phase:             phase,
 		ResourceCount:     counts,
 		AgentVersion:      version.Agent,
@@ -269,6 +340,8 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		Health:            health,
 		Detail:            detail,
 		MeshRegistrations: &meshRegistrations,
+		FleetPlan:         fleetEvidence(&tenant),
+		FleetRollout:      fleetRolloutEvidence(&tenant),
 	}
 	if r.Supervision != nil {
 		// Collected only on the success path: the error path stays cheap and
@@ -276,6 +349,9 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		status.Supervision = r.Supervision.Collect(ctx)
 	}
 	ack, reportErr := hubClient.ReportStatus(ctx, status)
+	if reportErr != nil && signed {
+		reportErr = fleetplan.Refusal("FleetHubStatusUnavailable")
+	}
 	if reportErr != nil {
 		if r.MeshPolicyConfigMapName != "" {
 			return r.setError(ctx, hubClient, &tenant, patch, "MeshPolicyStatusReportFailed", reportErr)
@@ -302,21 +378,33 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// ── Update status ─────────────────────────────────────────────────────────
 	syncTime := metav1.Now()
 	tenant.Status.Phase = "Synced"
+	if appliedReason == "FleetPlanPartial" {
+		tenant.Status.Phase = "Error"
+	}
 	tenant.Status.ObservedGeneration = tenant.Generation
 	tenant.Status.TenantID = tenantID
 	tenant.Status.ClusterID = credentials.ClusterID
-	tenant.Status.BundleVersion = sb.Bundle.Version
+	if appliedReason != "FleetPlanPartial" {
+		tenant.Status.BundleVersion = bundleVersion
+		tenant.Status.LastSync = &syncTime
+	}
+	tenant.Status.LastReconciled = &now
 	tenant.Status.ConnectedHub = tenant.Spec.HubEndpoint
-	tenant.Status.LastSync = &syncTime
-	setCondition(&tenant.Status.Conditions, "Synced", metav1.ConditionTrue, "BundleApplied",
-		fmt.Sprintf("bundle %s applied successfully", sb.Bundle.Version))
+	conditionStatus := metav1.ConditionTrue
+	message := fmt.Sprintf("bundle %s applied successfully", bundleVersion)
+	if appliedReason == "FleetPlanPartial" {
+		conditionStatus = metav1.ConditionFalse
+		message = "signed plan delivered partially; inspect bounded rollout findings"
+	}
+	setTenantSyncedCondition(&tenant, conditionStatus, appliedReason,
+		message)
 
 	if err := r.Status().Patch(ctx, &tenant, patch); err != nil {
 		return ctrl.Result{}, fmt.Errorf("patch tenant status: %w", err)
 	}
 	r.clearDegraded(&tenant)
 
-	log.Info("HankoTenant reconciled", "tenant", tenant.Name, "bundle", sb.Bundle.Version)
+	log.Info("HankoTenant reconciled", "tenant", tenant.Name, "bundle", bundleVersion)
 	return ctrl.Result{RequeueAfter: requeueInterval}, nil
 }
 
@@ -338,6 +426,11 @@ func (r *HankoTenantReconciler) executeDecommission(
 			reason = "DecommissionExpired"
 		}
 		return r.setError(ctx, hubClient, tenant, patch, reason, err)
+	}
+	if r.fleetEnabled(tenant) {
+		if err := r.fleetDecommissionAuthority(ctx, tenant, command); err != nil {
+			return r.setError(ctx, hubClient, tenant, patch, fleetplan.Reason(err), err)
+		}
 	}
 	logger.Info("hub requested cluster decommission",
 		"tenant", tenant.Name, "requestedAt", command.RequestedAt, "deadline", command.Deadline)
@@ -708,7 +801,7 @@ func (r *HankoTenantReconciler) ensureHubCredential( // NOSONAR -- rotation is a
 	}
 
 	if credentials.RotationPending {
-		client := hub.NewWithHTTPClient(tenant.Spec.HubEndpoint, tenantID, credentials.Token, r.HubHTTPClient)
+		client := r.tenantHubClient(tenant, tenantID, credentials.Token)
 		if err := client.ConfirmRotation(ctx); err != nil {
 			return storedHubCredentials{}, err
 		}
@@ -738,7 +831,7 @@ func (r *HankoTenantReconciler) ensureHubCredential( // NOSONAR -- rotation is a
 		}
 	}
 
-	currentClient := hub.NewWithHTTPClient(tenant.Spec.HubEndpoint, tenantID, credentials.Token, r.HubHTTPClient)
+	currentClient := r.tenantHubClient(tenant, tenantID, credentials.Token)
 	rotated, err := currentClient.PrepareRotation(ctx, credentials.RotationID)
 	if err != nil {
 		return storedHubCredentials{}, err
@@ -771,7 +864,7 @@ func (r *HankoTenantReconciler) ensureHubCredential( // NOSONAR -- rotation is a
 	credentials.ClusterID = rotated.ClusterID
 	credentials.ExpiresAt = rotated.ExpiresAt
 	credentials.RotationPending = true
-	newClient := hub.NewWithHTTPClient(tenant.Spec.HubEndpoint, tenantID, credentials.Token, r.HubHTTPClient)
+	newClient := r.tenantHubClient(tenant, tenantID, credentials.Token)
 	if err := newClient.ConfirmRotation(ctx); err != nil {
 		return storedHubCredentials{}, err
 	}
@@ -797,24 +890,55 @@ func newRotationID() (string, error) {
 	return "rot_" + hex.EncodeToString(raw), nil
 }
 
-func (r *HankoTenantReconciler) registerTenantKeycloak(ctx context.Context, tenant *hankoshv1alpha1.HankoTenant) (string, error) {
-	if tenant.Spec.IsolationMode != "keycloak" && tenant.Spec.IsolationMode != "cluster" {
-		return "", nil
+func (r *HankoTenantReconciler) tenantReader() client.Reader {
+	if r.APIReader != nil {
+		return r.APIReader
 	}
-	if tenant.Spec.KeycloakSecretRef == nil {
+	return r.Client
+}
+
+func (r *HankoTenantReconciler) registerTenantKeycloak(ctx context.Context, tenant *hankoshv1alpha1.HankoTenant) (reason string, err error) {
+	tenantKey := tenant.Namespace + "/" + tenant.Name
+	// Invalid current credentials must not retain a previously valid connection.
+	defer func() {
+		if err != nil {
+			r.Pool.Remove(tenantKey)
+		}
+	}()
+	switch tenant.Spec.IsolationMode {
+	case "", "realm":
+		if r.fleetEnabled(tenant) {
+			r.Pool.Register(tenantKey, r.guardedFleetClient(tenant, r.Pool.Get("")))
+		} else {
+			r.Pool.RegisterShared(tenantKey)
+		}
+		return "", nil
+	case "keycloak", "cluster":
+	default:
+		return "KeycloakIsolationInvalid", fmt.Errorf("unsupported Keycloak isolation mode")
+	}
+	if r.Pool == nil {
+		return "TenantClientUnavailable", fmt.Errorf("keycloak client registry is unavailable")
+	}
+	if tenant.Spec.KeycloakSecretRef == nil || tenant.Spec.KeycloakSecretRef.Name == "" {
 		return "KeycloakSecretRefMissing", fmt.Errorf("isolationMode %q requires keycloakSecretRef", tenant.Spec.IsolationMode)
 	}
-	secretName := tenant.Spec.KeycloakSecretRef.Name
+	var secret corev1.Secret
+	if err := r.tenantReader().Get(ctx, types.NamespacedName{Namespace: tenant.Namespace, Name: tenant.Spec.KeycloakSecretRef.Name}, &secret); err != nil {
+		return "KeycloakSecretReadFailed", fmt.Errorf("cannot read dedicated Keycloak credential Secret")
+	}
 	values := make([]string, 3)
 	for index, key := range []string{"HANKO_KEYCLOAK_URL", "HANKO_KC_CLIENT_ID", "HANKO_KC_CLIENT_SECRET"} {
-		value, err := r.readSecret(ctx, tenant.Namespace, secretName, key)
-		if err != nil {
-			return "KeycloakSecretReadFailed", err
+		if len(secret.Data[key]) == 0 {
+			return "KeycloakSecretReadFailed", fmt.Errorf("dedicated Keycloak credential Secret requires nonempty %s", key)
 		}
-		values[index] = value
+		values[index] = string(secret.Data[key])
 	}
-	tenantKey := tenant.Namespace + "/" + tenant.Name
-	kc, err := keycloak.NewForOperator(values[0], values[1], values[2], nil)
+	caPEM, customCA := secret.Data["ca.crt"]
+	if customCA && len(caPEM) == 0 {
+		return "KeycloakTransportInvalid", errors.New("dedicated Keycloak CA must be nonempty")
+	}
+	kc, err := keycloak.NewForOperator(values[0], values[1], values[2], caPEM)
 	if err != nil {
 		return "KeycloakTransportInvalid", err
 	}
@@ -823,102 +947,12 @@ func (r *HankoTenantReconciler) registerTenantKeycloak(ctx context.Context, tena
 			return "EnterpriseKeycloakHTTPSRequired", err
 		}
 	}
+	if r.fleetEnabled(tenant) {
+		kc = r.guardedFleetClient(tenant, kc)
+	}
 	r.Pool.Register(tenantKey, kc)
 	log.FromContext(ctx).Info("registered dedicated Keycloak client", "tenantKey", tenantKey)
 	return "", nil
-}
-
-// applyBundle patches each resource from the bundle into Kubernetes using
-// server-side apply. It returns the count of applied resources per type.
-func (r *HankoTenantReconciler) applyBundle(
-	ctx context.Context,
-	tenant *hankoshv1alpha1.HankoTenant,
-	bundle *hub.Bundle,
-) (map[string]int, error) {
-	counts := map[string]int{
-		"iamProfiles":     0,
-		"realms":          0,
-		"apps":            0,
-		"themes":          0,
-		"serviceAccounts": 0,
-	}
-	ssaOpts := []client.ApplyOption{
-		client.FieldOwner(hankoOperatorFieldManager),
-		client.ForceOwnership,
-	}
-	tenantLabel := map[string]string{"hanko.sh/tenant": tenant.Name}
-
-	var err error
-	base := bundleApplyOptions{client: r.Client, namespace: tenant.Namespace, labels: tenantLabel, applyOptions: ssaOpts}
-	counts["iamProfiles"], err = applyBundleObjects(ctx, bundle.IAMProfiles, base.withType("IAM profile", func() client.Object { return &hankoshv1alpha1.HankoIAMProfile{} }))
-	if err != nil {
-		return counts, err
-	}
-	counts["realms"], err = applyBundleObjects(ctx, bundle.Realms, base.withType("realm", func() client.Object { return &hankoshv1alpha1.HankoRealm{} }))
-	if err != nil {
-		return counts, err
-	}
-	counts["apps"], err = applyBundleObjects(ctx, bundle.Apps, base.withType("application", func() client.Object { return &hankoshv1alpha1.HankoApplication{} }))
-	if err != nil {
-		return counts, err
-	}
-	counts["themes"], err = applyBundleObjects(ctx, bundle.Themes, base.withType("theme", func() client.Object { return &hankoshv1alpha1.HankoTheme{} }))
-	if err != nil {
-		return counts, err
-	}
-	counts["serviceAccounts"], err = applyBundleObjects(ctx, bundle.ServiceAccounts, base.withType("service account", func() client.Object { return &hankoshv1alpha1.HankoServiceAccount{} }))
-	if err != nil {
-		return counts, err
-	}
-
-	return counts, nil
-}
-
-type bundleApplyOptions struct {
-	client       client.Client
-	namespace    string
-	labels       map[string]string
-	applyOptions []client.ApplyOption
-	newObject    func() client.Object
-	kind         string
-}
-
-func (options bundleApplyOptions) withType(kind string, newObject func() client.Object) bundleApplyOptions {
-	options.kind = kind
-	options.newObject = newObject
-	return options
-}
-
-func applyBundleObjects(ctx context.Context, objects []json.RawMessage, options bundleApplyOptions) (int, error) {
-	for index, raw := range objects {
-		object := options.newObject()
-		expectedGVK, err := options.client.GroupVersionKindFor(object)
-		if err != nil {
-			return index, fmt.Errorf("resolve %s kind: %w", options.kind, err)
-		}
-		if err := json.Unmarshal(raw, object); err != nil {
-			return index, fmt.Errorf("unmarshal %s: %w", options.kind, err)
-		}
-		// Decode the original payload, not the typed object: apply must preserve
-		// explicitly supplied zero values that typed JSON omitempty would lose.
-		var desired unstructured.Unstructured
-		if err := kubejson.Unmarshal(raw, &desired.Object); err != nil {
-			return index, fmt.Errorf("decode %s apply configuration: %w", options.kind, err)
-		}
-		if (desired.GetAPIVersion() != "" && desired.GetAPIVersion() != expectedGVK.GroupVersion().String()) ||
-			(desired.GetKind() != "" && desired.GetKind() != expectedGVK.Kind) {
-			return index, fmt.Errorf("unexpected API version or kind for %s %q", options.kind, desired.GetName())
-		}
-		desired.SetGroupVersionKind(expectedGVK)
-		desired.SetNamespace(options.namespace)
-		mergedLabels := desired.GetLabels()
-		mergeLabels(&mergedLabels, options.labels)
-		desired.SetLabels(mergedLabels)
-		if err := options.client.Apply(ctx, client.ApplyConfigurationFromUnstructured(&desired), options.applyOptions...); err != nil {
-			return index, fmt.Errorf("apply %s %q: %w", options.kind, desired.GetName(), err)
-		}
-	}
-	return len(objects), nil
 }
 
 func (r *HankoTenantReconciler) setError(
@@ -929,6 +963,9 @@ func (r *HankoTenantReconciler) setError(
 	reason string,
 	err error,
 ) (ctrl.Result, error) {
+	if r.fleetEnabled(tenant) {
+		err = fleetplan.Refusal(reason)
+	}
 	log.FromContext(ctx).Error(err, "tenant reconcile error", "reason", reason)
 	if !meshPolicyAuditReason(reason) {
 		r.rememberDegraded(tenant, reason)
@@ -936,9 +973,17 @@ func (r *HankoTenantReconciler) setError(
 	r.quarantineMeshPolicyProjection(ctx, tenant)
 	tenant.Status.Phase = "Error"
 	tenant.Status.ObservedGeneration = tenant.Generation
-	setCondition(&tenant.Status.Conditions, "Synced", metav1.ConditionFalse, reason, err.Error())
+	changed := true
+	for _, c := range tenant.Status.Conditions {
+		if c.Type == "Synced" && c.Status == metav1.ConditionFalse && c.Reason == reason && c.ObservedGeneration == tenant.Generation {
+			changed = false
+		}
+	}
+	setTenantSyncedCondition(tenant, metav1.ConditionFalse, reason, err.Error())
 	if patchErr := r.Status().Patch(ctx, tenant, patch); patchErr != nil {
 		log.FromContext(ctx).Error(patchErr, "patch tenant status after error")
+	} else if changed && r.Recorder != nil {
+		r.Recorder.Eventf(tenant, nil, corev1.EventTypeWarning, observability.TenantRefusalReason(reason), "Reconcile", "%s", "Tenant reconciliation refused; inspect condition reason")
 	}
 	// Best-effort degraded report so the fleet view reflects the failure
 	// instead of showing the last successful phase until staleness kicks in.
@@ -957,7 +1002,12 @@ func (r *HankoTenantReconciler) setError(
 			Health:            "degraded",
 			Detail:            reason,
 			MeshRegistrations: &emptyMeshRegistrations,
+			FleetPlan:         fleetEvidence(tenant),
+			FleetRollout:      fleetRolloutEvidence(tenant),
 		}); reportErr != nil {
+			if r.fleetEnabled(tenant) {
+				reportErr = fleetplan.Refusal("FleetHubStatusUnavailable")
+			}
 			log.FromContext(ctx).Error(reportErr, "report degraded status to hub (non-fatal)")
 		}
 	}
@@ -987,16 +1037,26 @@ func (r *HankoTenantReconciler) readSecret(ctx context.Context, namespace, name,
 	return string(val), nil
 }
 
-func mergeLabels(dst *map[string]string, src map[string]string) {
-	if *dst == nil {
-		*dst = make(map[string]string, len(src))
-	}
-	maps.Copy(*dst, src)
-}
-
 // SetupWithManager registers the reconciler with the controller manager.
 func (r *HankoTenantReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.APIReader == nil {
+		r.APIReader = mgr.GetAPIReader()
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoTenant{}).
-		Complete(r)
+		WithEventFilter(tenantIntentPredicate()).
+		Complete(observeReconciler("HankoTenant", r))
+}
+
+func (r *HankoTenantReconciler) fleetEnabled(tenant *hankoshv1alpha1.HankoTenant) bool {
+	return r.FleetTrustConfigMapName != "" || tenant.Status.FleetPlan != nil
+}
+
+func (r *HankoTenantReconciler) guardedFleetClient(tenant *hankoshv1alpha1.HankoTenant, kc *keycloak.Client) *keycloak.Client {
+	registered := tenant.DeepCopy()
+	return kc.WithMutationGuard(func(ctx context.Context) error { return r.fleetProviderAuthority(ctx, registered) })
+}
+
+func tenantIntentPredicate() predicate.Predicate {
+	return predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}, predicate.LabelChangedPredicate{})
 }

@@ -1,0 +1,16 @@
+{{- /* Helm does not upgrade crds/. Refuse a release that cannot read persisted versions. */ -}}
+{{- range $path, $_ := .Files.Glob "crds/*.yaml" -}}
+{{- $bundled := $.Files.Get $path | fromYaml -}}
+{{- $live := lookup "apiextensions.k8s.io/v1" "CustomResourceDefinition" "" $bundled.metadata.name -}}
+{{- if $live -}}
+{{- $versions := dict -}}
+{{- range $version := $bundled.spec.versions -}}
+{{- $_ := set $versions $version.name true -}}
+{{- end -}}
+{{- range $stored := $live.status.storedVersions -}}
+{{- if not (hasKey $versions $stored) -}}
+{{- fail (printf "CRD %s still stores %s, which this release cannot read; complete and verify storage migration before upgrading or rolling back" $bundled.metadata.name $stored) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}

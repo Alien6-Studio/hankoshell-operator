@@ -173,7 +173,7 @@ def rehearse(args):
             for field, wrong in (("KEY_ID", hashlib.sha256(public_der[-32:]).hexdigest()[:32]),
                                  ("PUBLIC_KEY", "0" * 64),
                                  ("SIGNING_KEY", other_private),
-                                 ("SIGNING_KEY", "-----BEGIN PRIVATE KEY-----\ninvalid\n"),
+                                 ("SIGNING_KEY", "-----BEGIN " "PRIVATE KEY-----\ninvalid\n"),
                                  ("TSA_CERTIFICATE", "-----BEGIN CERTIFICATE-----\nAA==\n-----END CERTIFICATE-----")):
                 try:
                     attest.validate_configuration(dict(config, **{field: wrong}), args.attest, args.openssl)

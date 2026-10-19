@@ -157,11 +157,15 @@ type desiredAuthorizationPolicy struct {
 // ObserveAuthorization reads the authorization service without performing any
 // mutation. Provider-native objects are returned for read-only gap reporting.
 func (c *Client) ObserveAuthorization(ctx context.Context, model AuthorizationModel) (AuthorizationState, error) {
-	clientID, enabled, _, err := c.authorizationClientState(ctx, model.Realm, model.ApplicationRef)
+	clientID, enabled, _, representation, err := c.authorizationClientState(ctx, model.Realm, model.ApplicationRef)
 	if err != nil {
 		return AuthorizationState{}, err
 	}
 	state := AuthorizationState{ResourceServerID: clientID, Drifted: true, Observation: AuthorizationObservation{Complete: true}}
+	attributes, _ := representation["attributes"].(map[string]any)
+	if _, present := attributes[BoundedDelegationAttribute]; present && !boundedDelegationInProgress(ctx, model.OwnerUID) {
+		state.NativeObjects = append(state.NativeObjects, AuthorizationNativeObject{Kind: "bounded_delegation"})
+	}
 	if !enabled {
 		return state, nil
 	}
@@ -185,7 +189,7 @@ func (c *Client) ObserveAuthorization(ctx context.Context, model AuthorizationMo
 //
 //nolint:gocognit,cyclop // Dependency-ordered reconciliation is intentionally explicit.
 func (c *Client) ReconcileAuthorization(ctx context.Context, model AuthorizationModel, owned AuthorizationManagedObjects) (AuthorizationState, error) { // NOSONAR -- every ownership boundary remains visible.
-	clientID, enabled, serviceAccountEnabled, err := c.authorizationClientState(ctx, model.Realm, model.ApplicationRef)
+	clientID, enabled, serviceAccountEnabled, representation, err := c.authorizationClientState(ctx, model.Realm, model.ApplicationRef)
 	if err != nil {
 		return AuthorizationState{}, err
 	}
@@ -194,6 +198,11 @@ func (c *Client) ReconcileAuthorization(ctx context.Context, model Authorization
 	}
 	if owned.ResourceServerID != "" && owned.ResourceServerID != clientID {
 		return AuthorizationState{}, fmt.Errorf("%w: backing application changed", ErrAuthorizationOwnershipConflict)
+	}
+	if !boundedDelegationInProgress(ctx, model.OwnerUID) {
+		if _, err := ownedBoundedDocument(representation, model.OwnerUID); err != nil {
+			return AuthorizationState{}, err
+		}
 	}
 	if model.OwnerUID != "" {
 		journal, found, err := c.readAuthorizationOwnership(ctx, model, clientID)
@@ -221,6 +230,11 @@ func (c *Client) ReconcileAuthorization(ctx context.Context, model Authorization
 	ctx, err = c.authorizationAdoptionContext(ctx, model, clientID)
 	if err != nil {
 		return AuthorizationState{}, err
+	}
+	if !boundedDelegationInProgress(ctx, model.OwnerUID) {
+		if err := c.CleanupBoundedDelegation(ctx, model.Realm, model.OwnerUID, representation); err != nil {
+			return AuthorizationState{}, err
+		}
 	}
 	if !enabled {
 		if err := c.setAuthorizationEnabled(ctx, model.Realm, clientID, true); err != nil {
@@ -297,9 +311,21 @@ func (c *Client) DeleteAuthorizationOwned(ctx context.Context, model Authorizati
 	if representation == nil {
 		return nil
 	}
+	if err := c.CleanupBoundedDelegation(ctx, model.Realm, model.OwnerUID, representation); err != nil {
+		return err
+	}
 	if enabled, ok := representation["authorizationServicesEnabled"].(bool); ok && !enabled {
 		return c.clearAuthorizationOwnership(ctx, model, resourceServerID)
 	}
+	if model.OwnerUID != "" {
+		if err := c.checkAuthorizationCleanupDependencies(ctx, model.Realm, resourceServerID, owned); err != nil {
+			return err
+		}
+	}
+	return c.deleteAuthorizationOwnedGraph(ctx, model, resourceServerID, owned, representation)
+}
+
+func (c *Client) deleteAuthorizationOwnedGraph(ctx context.Context, model AuthorizationModel, resourceServerID string, owned AuthorizationManagedObjects, representation map[string]any) error {
 	base := authorizationBase(model.Realm, resourceServerID)
 	foreignRemain := false
 	for _, collection := range []struct {
@@ -322,7 +348,7 @@ func (c *Client) DeleteAuthorizationOwned(ctx context.Context, model Authorizati
 	if foreignRemain {
 		return c.clearAuthorizationOwnership(ctx, model, resourceServerID)
 	}
-	return c.disableLegacyAuthorization(ctx, model, clientPath, representation)
+	return c.disableLegacyAuthorization(ctx, model, authorizationClientPath(model.Realm, resourceServerID), representation)
 }
 
 func (c *Client) disableLegacyAuthorization(ctx context.Context, model AuthorizationModel, path string, representation map[string]any) error {
@@ -350,21 +376,21 @@ func authorizationBase(realm, clientID string) string {
 	return adminRealmsPath + url.PathEscape(realm) + clientsPath + url.PathEscape(clientID) + "/authz/resource-server"
 }
 
-func (c *Client) authorizationClientState(ctx context.Context, realm, applicationRef string) (string, bool, bool, error) {
+func (c *Client) authorizationClientState(ctx context.Context, realm, applicationRef string) (string, bool, bool, map[string]any, error) {
 	uuid, err := c.resolveClientUUID(ctx, realm, applicationRef)
 	if err != nil {
-		return "", false, false, err
+		return "", false, false, nil, err
 	}
 	if uuid == "" {
-		return "", false, false, fmt.Errorf("backing application %q not found in realm %q", applicationRef, realm)
+		return "", false, false, nil, fmt.Errorf("backing application %q not found in realm %q", applicationRef, realm)
 	}
 	var representation map[string]any
 	if err := c.get(ctx, adminRealmsPath+url.PathEscape(realm)+clientsPath+url.PathEscape(uuid), &representation); err != nil {
-		return "", false, false, err
+		return "", false, false, nil, err
 	}
 	enabled, _ := representation["authorizationServicesEnabled"].(bool)
 	serviceAccountEnabled, _ := representation["serviceAccountsEnabled"].(bool)
-	return uuid, enabled, serviceAccountEnabled, nil
+	return uuid, enabled, serviceAccountEnabled, representation, nil
 }
 
 func (c *Client) setAuthorizationEnabled(ctx context.Context, realm, clientID string, enabled bool) error {
@@ -825,8 +851,8 @@ func (c *Client) authorizationRequest(ctx context.Context, method, path string, 
 		return response, nil
 	}
 	defer response.Body.Close()
-	responseBody, _ := io.ReadAll(response.Body)
-	return nil, fmt.Errorf(keycloakPathErrorFormat, path, response.StatusCode, responseBody)
+	_, _ = io.Copy(io.Discard, response.Body)
+	return nil, &StatusError{Code: response.StatusCode}
 }
 
 func (c *Client) deleteStaleAuthorizationRefs(ctx context.Context, collection string, owned []AuthorizationManagedReference, keep map[string]bool) error {

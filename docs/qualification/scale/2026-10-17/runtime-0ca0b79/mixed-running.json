@@ -1,0 +1,104 @@
+{
+  "revision": "0ca0b79f64f5a4e3edbc6ab1f5f547d91e4e0fae",
+  "image_digest": "sha256:b4d58eff64a09c48dcd01e4ca352a53f3154c32531cb96360e9084559001621b",
+  "profile": "scale",
+  "counts": {
+    "realms": 10,
+    "applications": 1000,
+    "roles": 100,
+    "organizations": 100,
+    "grants": 20
+  },
+  "workers": 4,
+  "keycloak_version": "26.7.5",
+  "kubernetes_version": "1.35.0",
+  "convergence_budget_seconds": 900,
+  "steady_seconds_requested": 300,
+  "complete": false,
+  "qualified": false,
+  "phase": "provider 429 recovery in progress; accepted-create audit, later 503/API429, steady interval and cleanup not yet complete",
+  "checks": {
+    "initial_burst_and_active_leader_replacement_converged": true,
+    "keycloak_429_refuses_current_ready": true,
+    "exactly_one_current_native_client_per_application": true
+  },
+  "progress_snapshots": [
+    {
+      "applications": 1000,
+      "phases": {
+        "Pending": 837,
+        "Ready": 163
+      },
+      "unobserved": 837,
+      "elapsed_seconds": 312.99
+    },
+    {
+      "applications": 1000,
+      "phases": {
+        "Pending": 576,
+        "Ready": 424
+      },
+      "unobserved": 576,
+      "elapsed_seconds": 485.361
+    },
+    {
+      "applications": 1000,
+      "phases": {
+        "Ready": 950,
+        "Pending": 50
+      },
+      "unobserved": 50,
+      "elapsed_seconds": 834.066
+    },
+    {
+      "hankoapplications": {
+        "count": 1000,
+        "phases": {
+          "Ready": 1000
+        },
+        "unobserved": 0,
+        "reasons": {}
+      },
+      "hankoresourceservers": {
+        "count": 20,
+        "phases": {
+          "Ready": 8,
+          "Pending": 12
+        },
+        "unobserved": 12,
+        "reasons": {}
+      },
+      "elapsed_seconds": 924.501
+    }
+  ],
+  "last_sample": {
+    "sample": 417,
+    "rss_bytes": 145010688.0,
+    "rss_peak_bytes": 158003200.0,
+    "heap_bytes": 41170688.0,
+    "goroutines": 537.0,
+    "api_requests": 80622.0,
+    "provider_requests": 52523.0,
+    "cpu_seconds": 214.62999999999965,
+    "reconciles": {
+      "HankoRealm": 322.0,
+      "HankoRole": 3320.0,
+      "HankoOrganization": 3511.0,
+      "HankoApplication": 1292.0,
+      "HankoResourceServer": 222.0
+    },
+    "peak_workers": {
+      "HankoResourceServer": 4.0,
+      "HankoRole": 4.0,
+      "HankoApplication": 4.0,
+      "HankoOrganization": 4.0
+    },
+    "lost_processes": 1,
+    "elapsed_seconds": 1207.902
+  },
+  "limitations": [
+    "intermediate snapshot; not a passing complete scale fixture",
+    "single disposable kind node, dev-file provider and concurrent local qualification",
+    "not production sizing, six-cell matrix, all HA journals or completed 24-hour soak"
+  ]
+}

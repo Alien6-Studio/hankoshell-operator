@@ -60,6 +60,34 @@ targets. Protocol/runtime tests use only target-realm `manage-clients`; realm
 reconciliation and declared realm roles retain their existing additional grants.
 See [runtime target RBAC and consent](architecture/application-identity.md#runtime-bindings).
 
+## Delegation characterization
+
+[RFC #68](architecture/delegation-and-agent-identity.md) characterizes provider
+behavior. The first #69 implementation adds typed intent and a refusal before
+provider execution, with no additional operator grant. Manage, Observe and import
+refusals leave native client state and Admin Event counts unchanged on both pinned
+versions, including the isolated 26.8.0 preview profile. The standard exchange
+fixture qualifies these operations for characterization only:
+
+| Operation | Endpoint in `/admin/realms/{realm}` | Qualified authority |
+| --- | --- | --- |
+| Exchange switch / client token lifetime | `PUT /clients/{id}` | `manage-clients`; `view-clients` and no-role writes denied |
+| Audience mapper create/delete | `POST /clients/{id}/protocol-mappers/models`, `DELETE .../{mapper}` | `manage-clients`; reader deletion denied |
+| Client scope create/delete | `POST /client-scopes`, `DELETE /client-scopes/{id}` | `manage-clients` |
+| Optional scope attach/detach | `PUT,DELETE /clients/{id}/optional-client-scopes/{scope}` | `manage-clients` |
+| User/role/composite setup for negative experiments | Existing users, roles, composites and scope-mapping endpoints | Disposable administrator fixture setup; no new production role-mapping profile qualified |
+| Native preview FGAP enablement | `PUT /` with `adminPermissionsEnabled` | External administrator prerequisite; no added `manage-realm` grant |
+| Preview actor policy and delegate permission | `POST /clients/{admin-permissions}/authz/resource-server/policy/client`, `POST,GET,DELETE .../permission/scope[/...]` | External administrator fixture; scoped FGAP administration remains unqualified |
+| Preview hardcoded `may_act` mapper | `POST /clients/{id}/protocol-mappers/models` | `manage-clients`; this can bypass native consent/FGAP claim issuance without an additional client policy |
+| `may-act` client-policy enforcement | Not exercised | Unqualified; no production operation or grant |
+
+Runtime `client_credentials`, authorization-code + PKCE and token-exchange requests
+use the realm's `/protocol/openid-connect/token` endpoint with their own client
+authentication; they need no Admin REST roles. The preview server features and
+FGAP policy are isolated test prerequisites. The writer's inability to modify
+realm security, create users and impersonate is verified independently. Its
+realm-wide client/mapper powers remain a material trust boundary.
+
 ## Workload identity qualification
 
 The [workload identity contract](architecture/workload-identity.md#13-permission-model)
@@ -147,6 +175,14 @@ roles already authorize the corresponding reads; redundant `view-*` and
 | Create new realms | Master realm role `create-realm`; native scoped creator grants, described below | Server-wide realm creation; authority over newly created realms | Yes; excluded from common profile |
 | Harden master security policy | `manage-realm` of **`master-realm`** | Master security policy | Only with `spec.hardenMasterRealm: true` |
 | Automatic rotation of the operator's own master client credential | `manage-clients` of **`master-realm`** | All master clients | Only with `spec.rotateAdminCredentials: true`; prefer administrator-controlled rotation |
+
+`HankoOperation` Clone completion requires complete import coverage, including the
+group inventory even when the source realm contains no groups. Its source
+inventory identity therefore also needs `view-users` in the qualified
+configuration-only fixture; the chart's separate read-only identity does not.
+This role permits target-realm user reads as well. Additional organization or
+authorization inventory needs the corresponding view roles when those surfaces
+are present; arbitrary source configurations remain outside this Clone subset.
 
 The operator does not provision user passwords, user membership or invitations,
 perform user impersonation, manage SMTP delivery, or manage administrative role
@@ -554,6 +590,9 @@ using the dedicated client's credentials.
 | authorization | GET,PUT | `/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/scope/{object}` | view-authorization / manage-authorization or manage-clients |
 | authorization-native-dependencies | GET | `/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/resource` | view-authorization or manage-authorization or manage-clients |
 | authorization | DELETE | `/admin/realms/{realm}/clients/{client}/authz/resource-server/permission/{object}` | manage-authorization or manage-clients |
+| bounded-delegation | GET | `/admin/realms/{realm}/clients/{client}/service-account-user` | view-clients and view-users; UID-verified software client only |
+| bounded-delegation | GET | `/admin/realms/{realm}/users/{user}/role-mappings/realm/composite` | view-users; verified software service-account ID only |
+| bounded-delegation | GET | `/admin/realms/{realm}/users/{user}/groups` | view-users; verified software service-account ID only, max=129 |
 <!-- admin-operation-contract:end -->
 
 

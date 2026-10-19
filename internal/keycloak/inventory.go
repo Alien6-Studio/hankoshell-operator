@@ -156,25 +156,29 @@ type InventoryAuthorizationPolicy = authorizationPolicyRepresentation
 type InventoryAuthorizationPermission = authorizationPermissionRepresentation
 
 func (c *Client) InventoryAuthorization(ctx context.Context, realm, id string) (InventoryAuthorizationGraph, error) {
+	return c.inventoryAuthorization(ctx, realm, id, 64, 256, 128)
+}
+
+func (c *Client) inventoryAuthorization(ctx context.Context, realm, id string, leafLimit, policyLimit, permissionLimit int) (InventoryAuthorizationGraph, error) {
 	base := authorizationBase(realm, id)
 	g := InventoryAuthorizationGraph{}
 	if err := readAuthorizationCollection(ctx, c, base+authorizationScopePath, &g.Scopes); err != nil {
 		return g, err
 	}
-	if len(g.Scopes) > 64 {
+	if len(g.Scopes) > leafLimit {
 		return g, ErrAuthorizationReadLimit
 	}
 	if err := readAuthorizationCollection(ctx, c, base+authorizationResourcePath, &g.Resources); err != nil {
 		return g, err
 	}
-	if len(g.Resources) > 64 {
+	if len(g.Resources) > leafLimit {
 		return g, ErrAuthorizationReadLimit
 	}
 	policies, err := c.loadAuthorizationPolicies(ctx, base)
 	if err != nil {
 		return g, err
 	}
-	if len(policies.byID) > 256 {
+	if len(policies.byID) > policyLimit {
 		return g, ErrAuthorizationReadLimit
 	}
 	for _, p := range policies.byID {
@@ -199,7 +203,7 @@ func (c *Client) InventoryAuthorization(ctx context.Context, realm, id string) (
 	if err != nil {
 		return g, err
 	}
-	if len(permissions) > 128 {
+	if len(permissions) > permissionLimit {
 		return g, ErrAuthorizationReadLimit
 	}
 	for _, p := range permissions {

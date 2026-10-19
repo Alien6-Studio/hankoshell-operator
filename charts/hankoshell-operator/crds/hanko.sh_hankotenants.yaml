@@ -231,10 +231,261 @@ spec:
                   - type
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
               connectedHub:
                 description: ConnectedHub is the Hub endpoint this tenant is currently
                   syncing from.
                 type: string
+              fleetPlan:
+                description: |-
+                  FleetPlan is the durable signed-plan high-water mark. Its presence forbids
+                  legacy HMAC fallback, including after restart or trust configuration loss.
+                properties:
+                  appliedIdentity:
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  cache:
+                    description: FleetPlanReference binds an immutable envelope to
+                      its acknowledged acceptance.
+                    properties:
+                      acceptedAt:
+                        format: date-time
+                        type: string
+                      identity:
+                        pattern: ^sha256:[a-f0-9]{64}$
+                        type: string
+                      name:
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                      sequence:
+                        format: int64
+                        minimum: 1
+                        type: integer
+                      uid:
+                        maxLength: 128
+                        minLength: 1
+                        type: string
+                    required:
+                    - acceptedAt
+                    - identity
+                    - name
+                    - sequence
+                    - uid
+                    type: object
+                  expired:
+                    type: boolean
+                  expiresAt:
+                    format: date-time
+                    type: string
+                  hubEndpointHash:
+                    description: HubEndpointHash pins the last locally accepted credential
+                      destination.
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  identity:
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  journal:
+                    description: |-
+                      Journal retains the last sixteen accepted transitions, not provider
+                      completion attestations. Superseded objects are never pruned by rollback.
+                    items:
+                      properties:
+                        acceptedAt:
+                          format: date-time
+                          type: string
+                        identity:
+                          pattern: ^sha256:[a-f0-9]{64}$
+                          type: string
+                        rollbackOf:
+                          pattern: ^sha256:[a-f0-9]{64}$
+                          type: string
+                        sequence:
+                          format: int64
+                          minimum: 1
+                          type: integer
+                      required:
+                      - acceptedAt
+                      - identity
+                      - sequence
+                      type: object
+                    maxItems: 16
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  keyID:
+                    maxLength: 128
+                    minLength: 1
+                    type: string
+                  previousCache:
+                    description: FleetPlanReference binds an immutable envelope to
+                      its acknowledged acceptance.
+                    properties:
+                      acceptedAt:
+                        format: date-time
+                        type: string
+                      identity:
+                        pattern: ^sha256:[a-f0-9]{64}$
+                        type: string
+                      name:
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                      sequence:
+                        format: int64
+                        minimum: 1
+                        type: integer
+                      uid:
+                        maxLength: 128
+                        minLength: 1
+                        type: string
+                    required:
+                    - acceptedAt
+                    - identity
+                    - name
+                    - sequence
+                    - uid
+                    type: object
+                  previousIdentity:
+                    description: |-
+                      PreviousIdentity is evidence only; rollback also requires a retained,
+                      independently reverified envelope and a new monotonic signed plan.
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  rollbackReference:
+                    description: FleetPlanReference binds an immutable envelope to
+                      its acknowledged acceptance.
+                    properties:
+                      acceptedAt:
+                        format: date-time
+                        type: string
+                      identity:
+                        pattern: ^sha256:[a-f0-9]{64}$
+                        type: string
+                      name:
+                        maxLength: 63
+                        minLength: 1
+                        type: string
+                      sequence:
+                        format: int64
+                        minimum: 1
+                        type: integer
+                      uid:
+                        maxLength: 128
+                        minLength: 1
+                        type: string
+                    required:
+                    - acceptedAt
+                    - identity
+                    - name
+                    - sequence
+                    - uid
+                    type: object
+                  sequence:
+                    format: int64
+                    minimum: 1
+                    type: integer
+                  tenantUID:
+                    maxLength: 128
+                    minLength: 1
+                    type: string
+                  verifiedAt:
+                    description: |-
+                      VerifiedAt detects wall-clock regression across restarts. Expired is
+                      sticky for this identity; moving the clock back cannot revive it.
+                    format: date-time
+                    type: string
+                required:
+                - expiresAt
+                - identity
+                - keyID
+                - sequence
+                - tenantUID
+                type: object
+              fleetRollout:
+                description: FleetRollout is bounded delivery evidence, not provider
+                  convergence.
+                properties:
+                  applied:
+                    format: int32
+                    maximum: 200
+                    minimum: 0
+                    type: integer
+                  findings:
+                    items:
+                      properties:
+                        index:
+                          description: Index is the zero-based position in the fixed
+                            kind-array order.
+                          format: int32
+                          maximum: 199
+                          minimum: 0
+                          type: integer
+                        reason:
+                          enum:
+                          - FleetCapabilityUnsupported
+                          - FleetPermissionDenied
+                          - FleetDependencyRefused
+                          - FleetCapabilityInventoryUnavailable
+                          type: string
+                      required:
+                      - index
+                      - reason
+                      type: object
+                    maxItems: 32
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - index
+                    x-kubernetes-list-type: map
+                  identity:
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  observedGeneration:
+                    format: int64
+                    type: integer
+                  omitted:
+                    format: int32
+                    maximum: 200
+                    minimum: 0
+                    type: integer
+                  pending:
+                    format: int32
+                    maximum: 200
+                    minimum: 0
+                    type: integer
+                  refused:
+                    format: int32
+                    maximum: 200
+                    minimum: 0
+                    type: integer
+                  selectionHash:
+                    pattern: ^sha256:[a-f0-9]{64}$
+                    type: string
+                  sequence:
+                    format: int64
+                    minimum: 1
+                    type: integer
+                  state:
+                    enum:
+                    - Pending
+                    - Applied
+                    - Partial
+                    - Refused
+                    - Paused
+                    type: string
+                required:
+                - applied
+                - observedGeneration
+                - omitted
+                - pending
+                - refused
+                - state
+                type: object
+                x-kubernetes-validations:
+                - message: rollout evidence exceeds the plan object budget
+                  rule: self.applied + self.refused + self.pending <= 200
               lastReconciled:
                 description: LastReconciled is the timestamp of the last reconciliation
                   attempt.

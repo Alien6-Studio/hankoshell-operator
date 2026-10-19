@@ -58,6 +58,7 @@ type mockKeycloak struct {
 	appsByRealm     map[string][]keycloak.App
 	clientUUID      map[string]string         // "realm|clientID" -> uuid
 	clientState     map[string]map[string]any // complete non-secret client representation
+	clientSecrets   map[string]string
 	idpsByRealm     map[string][]keycloak.IdentityProvider
 	idpMappers      map[string][]keycloak.IdentityProviderMapper
 	protocolMappers map[string][]keycloak.ProtocolMapper
@@ -88,6 +89,7 @@ func newMockKeycloak(t *testing.T) *mockKeycloak {
 		appsByRealm:      map[string][]keycloak.App{},
 		clientUUID:       map[string]string{},
 		clientState:      map[string]map[string]any{},
+		clientSecrets:    map[string]string{},
 		idpsByRealm:      map[string][]keycloak.IdentityProvider{},
 		idpMappers:       map[string][]keycloak.IdentityProviderMapper{},
 		protocolMappers:  map[string][]keycloak.ProtocolMapper{},
@@ -558,10 +560,15 @@ func (m *mockKeycloak) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	case r.Method == http.MethodGet && reClientSecret.MatchString(path):
 		m.counts["getSecret"]++
-		writeJSON(w, map[string]string{"value": "mock-secret"})
+		value := m.clientSecrets[path]
+		if value == "" {
+			value = "mock-secret"
+		}
+		writeJSON(w, map[string]string{"value": value})
 
 	case r.Method == http.MethodPost && reClientSecret.MatchString(path):
 		m.counts["rotateSecret"]++
+		m.clientSecrets[path] = "rotated-secret"
 		writeJSON(w, map[string]string{"value": "rotated-secret"})
 
 	case r.Method == http.MethodGet && reIDPProviders.MatchString(path):

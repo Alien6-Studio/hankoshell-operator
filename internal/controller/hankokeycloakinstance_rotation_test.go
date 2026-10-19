@@ -30,9 +30,10 @@ func (r *rotationAuditRecorder) RecordServiceAccountRotation(_ context.Context, 
 }
 
 type credentialRotationKeycloak struct {
-	server       *httptest.Server
-	activeSecret string
-	updates      int
+	server             *httptest.Server
+	activeSecret       string
+	updates            int
+	pendingTokenStatus int
 }
 
 func newCredentialRotationKeycloak(t *testing.T, activeSecret string) *credentialRotationKeycloak {
@@ -53,6 +54,10 @@ func (f *credentialRotationKeycloak) serveHTTP(t *testing.T, w http.ResponseWrit
 			t.Fatal(err)
 		}
 		if request.Form.Get("client_id") != "operator" || request.Form.Get("client_secret") != f.activeSecret {
+			if f.pendingTokenStatus != 0 {
+				http.Error(w, "fixture unavailable", f.pendingTokenStatus)
+				return
+			}
 			http.Error(w, "invalid client", http.StatusUnauthorized)
 			return
 		}
@@ -168,6 +173,41 @@ func TestServiceAccountRotationPersistsAppliesVerifiesPromotesAndAudits(t *testi
 	}
 	if promoted.Annotations[rotationAuditAnnotation] != "" || current.Status.LastCredentialRotation == nil || current.Status.NextCredentialRotation == nil {
 		t.Fatalf("rotation receipt or schedule incomplete: annotations=%v status=%#v", promoted.Annotations, current.Status)
+	}
+}
+
+func TestServiceAccountRotationDoesNotTreatUnavailablePendingProbeAsInactive(t *testing.T) {
+	for _, status := range []int{http.StatusTooManyRequests, http.StatusServiceUnavailable, http.StatusInternalServerError, http.StatusForbidden} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			t.Setenv("HANKO_KEYCLOAK_ALLOW_INSECURE_HTTP", "true")
+			ctx := t.Context()
+			now := time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
+			active := strings.Repeat("o", 48)
+			provider := newCredentialRotationKeycloak(t, active)
+			provider.pendingTokenStatus = status
+			instance, secret := rotationObjects(provider.server.URL, active, now.Add(-48*time.Hour).Format(time.RFC3339Nano))
+			scheme := controllerTestScheme(t)
+			kube := controllerTestClient(scheme, instance, secret)
+			audit := &rotationAuditRecorder{}
+			r := &HankoKeycloakInstanceReconciler{Client: kube, Scheme: scheme, CredentialRotationAudit: audit,
+				ServiceAccountMaxAge: 24 * time.Hour, Now: func() time.Time { return now }}
+			current, _ := getRotationObjects(t, kube)
+			connection, err := r.buildKCClient(ctx, current)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, _, err = r.reconcileServiceAccountCredential(ctx, current, connection, client.MergeFrom(current.DeepCopy()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			current, _ = getRotationObjects(t, kube)
+			result, handled, err := r.reconcileServiceAccountCredential(ctx, current, connection, client.MergeFrom(current.DeepCopy()))
+			_, retained := getRotationObjects(t, kube)
+			if err != nil || !handled || result.RequeueAfter != requeueOnError || provider.updates != 0 || audit.calls != 0 ||
+				string(retained.Data[adminClientSecretKey]) != active || len(retained.Data[pendingClientSecretKey]) == 0 {
+				t.Fatal("an unavailable/unauthorized probe triggered rotation or lost the pending journal")
+			}
+		})
 	}
 }
 

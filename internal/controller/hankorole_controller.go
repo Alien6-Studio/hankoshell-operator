@@ -42,6 +42,9 @@ func (r *HankoRoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err := r.Get(ctx, req.NamespacedName, &role); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	if handled, result, err := reconcileTenantClient(ctx, r.Client, &role, kcForObject(r.Pool, role.Namespace, role.Labels)); handled {
+		return result, err
+	}
 	if err := validateStandaloneAuthorityRole(&role, r.ProtectedRealm); err != nil {
 		if !role.DeletionTimestamp.IsZero() {
 			return r.releaseInvalidRole(ctx, &role, err.Error())
@@ -355,12 +358,17 @@ func (r *HankoRoleReconciler) ensureRoleFinalizer(ctx context.Context, role *han
 }
 
 func (r *HankoRoleReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	options, err := iamControllerOptions()
+	if err != nil {
+		return err
+	}
 	if r.APIReader == nil {
 		r.APIReader = mgr.GetAPIReader()
 	}
 	return ctrl.NewControllerManagedBy(mgr).
+		WithOptions(options).
 		For(&hankoshv1alpha1.HankoRole{}, builder.WithPredicates(generationOrReconcileRequestChanged())).
-		Complete(r)
+		Complete(observeReconciler("HankoRole", scheduleIAMReconciler(r)))
 }
 
 func roleCapabilityStatus(c roles.Capabilities) hankoshv1alpha1.RoleCapabilitySnapshot {

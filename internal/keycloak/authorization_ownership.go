@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Alien6-Studio/hankoshell-operator/internal/adoption"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/httpsecurity"
 )
 
 const authorizationOwnerAttribute = "hanko.sh/resource-server-ownership"
@@ -92,7 +93,7 @@ func parseAuthorizationJournal(representation map[string]any, owner, clientID st
 		return AuthorizationManagedObjects{}, false, nil
 	}
 	var j authorizationJournal
-	if len(value) > maxAuthorizationJournalBytes || json.Unmarshal([]byte(value), &j) != nil || !validAuthorizationJournal(j, owner, clientID) {
+	if len(value) > maxAuthorizationJournalBytes || httpsecurity.ValidateJSON([]byte(value)) != nil || json.Unmarshal([]byte(value), &j) != nil || !validAuthorizationJournal(j, owner, clientID) {
 		return AuthorizationManagedObjects{}, false, ErrAuthorizationOwnershipConflict
 	}
 	if !closedAuthorizationAdoptionJournal(value, j) {

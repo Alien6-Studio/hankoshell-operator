@@ -1,5 +1,8 @@
 # Application identity: OIDC and SAML
 
+See the [accepted architecture decisions](decisions/README.md) for the underlying
+operator, provider and trust boundaries.
+
 The **Application Identity** source contract resolves
 [RFC #24](https://github.com/Alien6-Studio/hankoshell-operator/issues/24) for protocols
 and [RFC #25](https://github.com/Alien6-Studio/hankoshell-operator/issues/25) for runtime
@@ -142,7 +145,15 @@ still means OIDC; it does not itself prove ownership.
 3. Reconcile. The adapter freshly checks UUID, complete observation, protocol and
    absence of a foreign UID, then stamps ownership and reconciles declared state.
    Stale or mismatched approval is refused; status is never execution authority.
-4. Verify Ready, applied/read-back evidence, original UUID/roles/mapper UUIDs and
+4. For a confidential client with an existing canonical Secret, independently
+   verify the Secret name, namespace, UID, current value and intended application
+   UID. Provider migration approval does not approve Kubernetes credential
+   ownership. An ownerless or foreign Secret remains a conflict. Resolve it
+   through its owner; an administrator may explicitly attach a reviewed ownerless
+   Secret to the current HankoApplication with a controller owner reference
+   (`apiVersion`, `kind`, `name`, `uid`). Never rebind a foreign-owned Secret.
+   Reconcile again; the provider value is checked without rotation.
+5. Verify Ready, applied/read-back evidence, original UUID/roles/mapper UUIDs and
    existing credentials. Remove the migration annotations after adoption.
 
 Migration preserves UUIDs, roles, mapper identities and current confidential

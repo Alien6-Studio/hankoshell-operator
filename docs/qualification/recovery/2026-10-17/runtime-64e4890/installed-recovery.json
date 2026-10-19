@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "layer": "installed-recovery",
+  "profile": "recovery",
+  "revision": "64e48902e918be843c2bed32567cc1b6898820bb",
+  "image_digest": "sha256:75e109d28d9ea625110f478f71a128252b55825b3b467fedca85cb080aa119ed",
+  "fixture_sha256": "44352de7c8290d9d9d3153f4e57e90c902ef387b9bc6121fe4455cdc57a303c0",
+  "measurement_sha256": "15295641d92eb33bc44ea8c56e4fd7fc4818595c492745c4745f073f246d1cf3",
+  "keycloak_version": "26.8.0",
+  "kubernetes_version": "1.37.0",
+  "publishable": false,
+  "complete": true,
+  "started_at": "2026-10-17T10:56:01.224193+00:00",
+  "completed_at": "2026-10-17T11:13:42.538326+00:00",
+  "counts": {
+    "realms": 2,
+    "applications": 400,
+    "roles": 20,
+    "organizations": 20,
+    "grants": 4
+  },
+  "workers": 4,
+  "steady_seconds_requested": 90,
+  "samples": 113,
+  "checks": {
+    "exact_keycloak_version": true,
+    "scoped_writer_has_no_global_or_master_administration": true,
+    "burst_and_leader_replacement_converge_without_duplicate_native_clients": true,
+    "five_minute_api_transport_outage_refuses_fresh_authority_and_lease_renewal": true,
+    "api_outage_recovers_without_manual_restart_or_status_reset": true,
+    "owned_realm_fixture_has_at_least_200_application_dependents": true,
+    "realm_survives_application_cleanup_while_roles_and_organizations_remain": true,
+    "realm_survives_until_last_role_dependency_is_removed": true,
+    "accepted_realm_delete_retains_finalizer_when_acknowledgement_is_lost": true,
+    "realm_delete_commits_once_across_lost_ack_and_leader_replacement": true,
+    "other_realm_client_identities_survive_owned_cleanup": true
+  },
+  "faults": {},
+  "resources": {
+    "requests": {
+      "cpu": "100m",
+      "memory": "256Mi"
+    },
+    "limits": {
+      "cpu": "2",
+      "memory": "512Mi"
+    }
+  },
+  "limitations": [
+    "single disposable kind node and dev-file provider",
+    "five-minute loss of operator API transport; administrator API remains available",
+    "owned realm cleanup waits for explicit child deletion; no automatic cascading mutation",
+    "realm delete acknowledgement checkpoint only; other journals, split brain and clock skew remain unqualified",
+    "not production HA, full six-cell qualification or a 24-hour soak"
+  ],
+  "client_ids_sha256": "275e8f6237e43577cb9f921700841e0d4ca534a9cc9f6b540d9ff1a8ed545e3f",
+  "cleanup_complete": true,
+  "active_phase": "owned_realm_deletion",
+  "convergence": {
+    "initial_dependencies": {
+      "budget_seconds": 900,
+      "seconds": 43.882,
+      "complete": true
+    },
+    "applications_after_leader_loss": {
+      "budget_seconds": 900,
+      "seconds": 232.945,
+      "complete": true
+    },
+    "authorization_graph": {
+      "budget_seconds": 900,
+      "seconds": 16.839,
+      "complete": true
+    },
+    "api_outage_recovery": {
+      "budget_seconds": 900,
+      "seconds": 0.45,
+      "complete": true
+    }
+  },
+  "convergence_progress": {
+    "HankoRealm": {
+      "count": 2,
+      "expected": 2,
+      "current": 2,
+      "observed_elapsed_seconds": 941.429
+    },
+    "HankoRole": {
+      "count": 20,
+      "expected": 20,
+      "current": 20,
+      "observed_elapsed_seconds": 941.698
+    },
+    "HankoOrganization": {
+      "count": 20,
+      "expected": 20,
+      "current": 20,
+      "observed_elapsed_seconds": 941.738
+    },
+    "HankoApplication": {
+      "count": 400,
+      "expected": 400,
+      "current": 400,
+      "observed_elapsed_seconds": 941.656
+    },
+    "HankoResourceServer": {
+      "count": 4,
+      "expected": 4,
+      "current": 4,
+      "observed_elapsed_seconds": 941.786
+    }
+  },
+  "scale_fixture_sha256": "beda4c818c5b32eee386b910401a975ecb4dd2c4f69902a74a5f7f5d8d57dcb8",
+  "outage": {
+    "required_seconds": 300,
+    "observed_seconds": 300.001,
+    "samples": 29,
+    "max_sample_gap_seconds": 10.73,
+    "complete": true,
+    "refused_requests": 488
+  },
+  "owned_deletion": {
+    "dependents": 222,
+    "applications": 200,
+    "complete": true,
+    "accepted_realm_deletes": 1,
+    "leader_replaced": true,
+    "surviving_applications": 200
+  }
+}

@@ -12,6 +12,7 @@ import (
 	"github.com/Alien6-Studio/hankoshell-operator/internal/applications"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -551,7 +552,7 @@ func permissionNames(v []api.AuthorizationPermission) []string {
 	}
 	return r
 }
-func (r *HankoImportReconciler) patchInventoryCandidate(ctx context.Context, target adoption.TargetIdentity, c adoption.Candidate) bool {
+func (r *HankoImportReconciler) patchInventoryCandidate(ctx context.Context, target adoption.TargetIdentity, c adoption.Candidate) (bool, error) {
 	var object client.Object
 	switch target.Kind {
 	case "HankoApplication":
@@ -563,39 +564,52 @@ func (r *HankoImportReconciler) patchInventoryCandidate(ctx context.Context, tar
 	case "HankoResourceServer":
 		object = &api.HankoResourceServer{}
 	default:
-		return false
+		return false, nil
 	}
 	key := types.NamespacedName{Namespace: target.Namespace, Name: target.Name}
-	if r.importReader().Get(ctx, key, object) != nil || (string(object.GetUID()) != target.UID || object.GetGeneration() != target.Generation || object.GetLabels()[importedByLabel] != target.ImportRef || object.GetLabels()["hanko.sh/tenant"] != target.TenantRef) {
-		return false
-	}
-	// Evidence is bound to the exact fresh spec and metadata, not status. Avoid
-	// timestamps and semantic no-op writes that would create informer hot loops.
-	base, ok := object.DeepCopyObject().(client.Object)
-	if !ok {
-		return false
-	}
-	patch := client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{})
-	status := candidateStatus(c)
-	var old *api.AdoptionCandidateStatus
-	switch o := object.(type) {
-	case *api.HankoApplication:
-		old = o.Status.AdoptionCandidate
-		o.Status.AdoptionCandidate = status
-	case *api.HankoServiceAccount:
-		old = o.Status.AdoptionCandidate
-		o.Status.AdoptionCandidate = status
-	case *api.HankoRole:
-		old = o.Status.AdoptionCandidate
-		o.Status.AdoptionCandidate = status
-	case *api.HankoResourceServer:
-		old = o.Status.AdoptionCandidate
-		o.Status.AdoptionCandidate = status
-	}
-	if !reflect.DeepEqual(old, status) {
-		return r.Status().Patch(ctx, object, patch) == nil
-	}
-	return true
+	published := false
+	// The ordinary leaf reconciler can update status between this direct read
+	// and the conditional patch. Retry only conflicts, revalidating authority on
+	// every attempt. Other API errors must keep the parent import resumable.
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := r.importReader().Get(ctx, key, object); err != nil {
+			return err
+		}
+		if !object.GetDeletionTimestamp().IsZero() || string(object.GetUID()) != target.UID || object.GetGeneration() != target.Generation || object.GetLabels()[importedByLabel] != target.ImportRef || object.GetLabels()["hanko.sh/tenant"] != target.TenantRef {
+			return nil
+		}
+		// Evidence is bound to the exact fresh spec and metadata, not status. Avoid
+		// timestamps and semantic no-op writes that would create informer hot loops.
+		base, ok := object.DeepCopyObject().(client.Object)
+		if !ok {
+			return nil
+		}
+		patch := client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{})
+		status := candidateStatus(c)
+		var old *api.AdoptionCandidateStatus
+		switch o := object.(type) {
+		case *api.HankoApplication:
+			old = o.Status.AdoptionCandidate
+			o.Status.AdoptionCandidate = status
+		case *api.HankoServiceAccount:
+			old = o.Status.AdoptionCandidate
+			o.Status.AdoptionCandidate = status
+		case *api.HankoRole:
+			old = o.Status.AdoptionCandidate
+			o.Status.AdoptionCandidate = status
+		case *api.HankoResourceServer:
+			old = o.Status.AdoptionCandidate
+			o.Status.AdoptionCandidate = status
+		}
+		if !reflect.DeepEqual(old, status) {
+			if err := r.Status().Patch(ctx, object, patch); err != nil {
+				return err
+			}
+		}
+		published = true
+		return nil
+	})
+	return published, err
 }
 
 func effectiveClaimName(claim api.ApplicationTokenClaim) string {

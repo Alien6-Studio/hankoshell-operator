@@ -1,0 +1,61 @@
+name: Development
+# Accumulate changes here before opening the integration PR. The required full
+# CI workflow still qualifies every PR and main; this is only push feedback.
+on:
+  push:
+    branches: [feat/1.0.0-dev]
+permissions:
+  contents: read
+concurrency:
+  group: development-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  preflight:
+    name: Development source preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned preflight dependencies
+        run: |
+          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+          sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
+          python -m pip install -r scripts/requirements.txt
+          make install-preflight-tools install-hook-tools
+      - name: Validate formatting, vet, generated schemas and delivery contracts
+        run: make preflight hooks-check
+
+  security-fuzz:
+    name: Security parser fuzzing
+    needs: [preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Fuzz every reviewed parser and preserve seeds and failures
+        run: make security-fuzz FUZZ_OUTPUT="$RUNNER_TEMP/security-fuzz"
+      - name: Preserve complete and incomplete fuzz evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: security-fuzz-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/security-fuzz/
+          if-no-files-found: error
+          retention-days: 30

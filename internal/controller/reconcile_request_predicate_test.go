@@ -73,7 +73,7 @@ func TestGenerationOrReconcileRequestChanged(t *testing.T) {
 func TestAdoptionMetadataChangesEnqueueEachLeafWithoutGenerationChange(t *testing.T) {
 	for _, object := range []client.Object{&hankoshv1alpha1.HankoApplication{}, &hankoshv1alpha1.HankoRole{}, &hankoshv1alpha1.HankoServiceAccount{}} {
 		object.SetGeneration(8)
-		for _, key := range []string{adoption.SourceAnnotation, adoption.ContractAnnotation, adoption.CandidateAnnotation, "hanko.sh/migrate-keycloak-client-uuid", "hanko.sh/migrate-keycloak-observation"} {
+		for _, key := range []string{lifecycleApprovalAnnotation, adoption.SourceAnnotation, adoption.ContractAnnotation, adoption.CandidateAnnotation, "hanko.sh/migrate-keycloak-client-uuid", "hanko.sh/migrate-keycloak-observation"} {
 			for _, value := range []string{"", "reviewed"} {
 				changed := object.DeepCopyObject().(client.Object)
 				changed.SetAnnotations(map[string]string{key: value})
@@ -95,5 +95,20 @@ func TestReconcileRequestPredicateAppliesToHankoApplication(t *testing.T) {
 	newApplication.Annotations[reconcileRequestAnnotation] = "after"
 	if !predicate.Update(event.UpdateEvent{ObjectOld: oldApplication, ObjectNew: newApplication}) {
 		t.Fatal("HankoApplication reconcile-request annotation change was filtered")
+	}
+}
+
+func TestProviderSelectionAlwaysReevaluatesAuthority(t *testing.T) {
+	p := generationOrReconcileRequestChanged()
+	for _, labels := range []map[string]string{{providerConnectionLabel: ""}, {providerConnectionLabel: "experimental"}} {
+		old := &hankoshv1alpha1.HankoApplication{ObjectMeta: metav1.ObjectMeta{Generation: 1}}
+		current := old.DeepCopy()
+		current.Labels = labels
+		if !p.Update(event.UpdateEvent{ObjectOld: old, ObjectNew: current}) || !p.Update(event.UpdateEvent{ObjectOld: current, ObjectNew: old}) {
+			t.Fatal("provider selector presence did not enqueue authority reevaluation")
+		}
+		if p.Update(event.UpdateEvent{ObjectOld: current, ObjectNew: current.DeepCopy()}) {
+			t.Fatal("unchanged selector re-enqueued status echo")
+		}
 	}
 }

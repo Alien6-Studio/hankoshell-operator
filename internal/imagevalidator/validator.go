@@ -1,4 +1,4 @@
-// Package imagevalidator enforces the operator image trust policy (ADR-017/044).
+// Package imagevalidator enforces the operator image trust policy (ADR-017 and ADR-044).
 // Workload execution requires a release approval and signature (ADR-047).
 // ValidateImageRef only checks structural identity and never authorizes execution.
 package imagevalidator

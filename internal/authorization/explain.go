@@ -21,15 +21,28 @@ type Explanation struct {
 	Paths                 []ExplanationPath `json:"paths"`
 }
 type ExplanationPath struct {
-	Permission      string     `json:"permission"`
-	Resource        string     `json:"resource"`
-	Action          string     `json:"action"`
-	SourceKind      string     `json:"sourceKind"`
-	SourceRef       string     `json:"sourceRef"`
-	OrganizationRef string     `json:"organizationRef,omitempty"`
-	Relationship    string     `json:"relationship"`
-	Ancestry        []string   `json:"ancestry,omitempty"`
-	RoleChain       []RoleStep `json:"roleChain,omitempty"`
+	Permission      string            `json:"permission"`
+	Resource        string            `json:"resource"`
+	Action          string            `json:"action"`
+	SourceKind      string            `json:"sourceKind"`
+	SourceRef       string            `json:"sourceRef"`
+	OrganizationRef string            `json:"organizationRef,omitempty"`
+	Relationship    string            `json:"relationship"`
+	Ancestry        []string          `json:"ancestry,omitempty"`
+	RoleChain       []RoleStep        `json:"roleChain,omitempty"`
+	Delegation      *DelegationOrigin `json:"delegation,omitempty"`
+}
+
+type DelegationOrigin struct {
+	Actor         DelegationOriginIdentity `json:"actor"`
+	Subject       DelegationOriginIdentity `json:"subject"`
+	MaxDepth      int32                    `json:"maxDepth"`
+	MaxTTLSeconds int32                    `json:"maxTTLSeconds"`
+}
+
+type DelegationOriginIdentity struct {
+	Kind string `json:"kind"`
+	Ref  string `json:"ref"`
 }
 type RoleStep struct {
 	Kind   string `json:"kind"`
@@ -46,6 +59,7 @@ type StructuralObservation struct {
 	Resources   []ObservedResource
 	Policies    []ObservedPolicy
 	Permissions []ObservedPermission
+	Delegations []string
 }
 type ObservedResource struct {
 	Name          string
@@ -121,10 +135,7 @@ func Explain(plan Plan, state State, evidence ExplanationEvidence, generation in
 	result.SourceObservationHash = string(iamcontract.Hash(iamcontract.Version, "authorization", "explanation-observation", snapshot))
 	graph := state.Structure
 	result.Complete = evidence.Complete && graph != nil && state.Observation.Complete && graph.Complete && !graph.Native
-	if graph == nil {
-		return normalizeExplanation(result)
-	}
-	if !graph.Enabled {
+	if !explainableGraph(graph) {
 		return normalizeExplanation(result)
 	}
 
@@ -141,8 +152,13 @@ func Explain(plan Plan, state State, evidence ExplanationEvidence, generation in
 	for _, p := range graph.Permissions {
 		builder.permission(p)
 	}
+	for _, permission := range plan.resolved.model.Permissions {
+		builder.delegation(permission, graph.Delegations)
+	}
 	return normalizeExplanation(result)
 }
+
+func explainableGraph(graph *StructuralObservation) bool { return graph != nil && graph.Enabled }
 
 type explanationBuilder struct {
 	result      *Explanation
@@ -150,6 +166,35 @@ type explanationBuilder struct {
 	resources   map[string]ObservedResource
 	policies    map[string]ObservedPolicy
 	permissions map[string]Permission
+}
+
+func (b *explanationBuilder) delegation(permission Permission, verified []string) {
+	if permission.Delegation == nil {
+		return
+	}
+	delegation := permission.Delegation
+	if !slices.Contains(verified, permission.Name) || delegation.Actor.PortableRef == "" || delegation.Subject.PortableRef == "" {
+		b.result.Complete = false
+		return
+	}
+	for _, resource := range permission.Resources {
+		observed, present := b.resources[resource]
+		if !present || !observed.Present || observed.UnknownScopes > 0 {
+			b.result.Complete = false
+			continue
+		}
+		for _, action := range permission.Scopes {
+			if !slices.Contains(observed.Scopes, action) {
+				b.result.Complete = false
+				continue
+			}
+			b.result.Paths = append(b.result.Paths, ExplanationPath{Permission: permission.Name, Resource: resource, Action: action,
+				SourceKind: delegation.Actor.Kind, SourceRef: delegation.Actor.PortableRef, Relationship: "delegated",
+				Delegation: &DelegationOrigin{Actor: DelegationOriginIdentity{Kind: delegation.Actor.Kind, Ref: delegation.Actor.PortableRef},
+					Subject:  DelegationOriginIdentity{Kind: delegation.Subject.Kind, Ref: delegation.Subject.PortableRef},
+					MaxDepth: delegation.MaxDepth, MaxTTLSeconds: delegation.MaxTTLSeconds}})
+		}
+	}
 }
 
 func (b *explanationBuilder) permission(p ObservedPermission) {

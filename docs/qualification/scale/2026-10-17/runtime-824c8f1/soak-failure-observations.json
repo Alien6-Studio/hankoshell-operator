@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "publishable": false,
+  "complete": false,
+  "revision": "824c8f17db1654bdf4bc9744522ba76059350db7",
+  "sources": {
+    "hankorealms.hanko.sh.yaml": "sha256:bf7b92260d41afa954d489a14c0e45d4a5a1cf37e732677d6ffc56daf20d3966",
+    "pods.yaml": "sha256:fa265ccbbc6171a8a37bf2865b8f1143e4c51abd741ae67e532f04c24a1c5297"
+  },
+  "failed_realm_observations": [
+    {
+      "kind": "HankoRealm",
+      "phase": "Error",
+      "condition": "Synced",
+      "status": "False",
+      "reason": "KeycloakError",
+      "provider_http_status": 401,
+      "transition_time": "2026-10-17T20:45:25Z"
+    },
+    {
+      "kind": "HankoRealm",
+      "phase": "Error",
+      "condition": "Synced",
+      "status": "False",
+      "reason": "KeycloakError",
+      "provider_http_status": 401,
+      "transition_time": "2026-10-17T20:45:27Z"
+    }
+  ],
+  "surviving_operator_container_restart_counts": [
+    0,
+    0
+  ],
+  "process_epoch_losses": [
+    {
+      "sample": 30,
+      "elapsed_seconds": 212.329,
+      "lost_processes": 1
+    },
+    {
+      "sample": 2288,
+      "elapsed_seconds": 21844.294,
+      "lost_processes": 3
+    },
+    {
+      "sample": 2766,
+      "elapsed_seconds": 27060.598,
+      "lost_processes": 5
+    },
+    {
+      "sample": 2769,
+      "elapsed_seconds": 27093.66,
+      "lost_processes": 7
+    },
+    {
+      "sample": 2849,
+      "elapsed_seconds": 27968.39,
+      "lost_processes": 9
+    },
+    {
+      "sample": 2851,
+      "elapsed_seconds": 27990.418,
+      "lost_processes": 11
+    },
+    {
+      "sample": 3165,
+      "elapsed_seconds": 31443.783,
+      "lost_processes": 13
+    },
+    {
+      "sample": 3167,
+      "elapsed_seconds": 31470.526,
+      "lost_processes": 15
+    },
+    {
+      "sample": 3638,
+      "elapsed_seconds": 36632.936,
+      "lost_processes": 17
+    }
+  ],
+  "cause": "unresolved",
+  "limits": [
+    "Counters lost across process epochs are incomplete.",
+    "Process-epoch changes do not establish container restarts.",
+    "Elapsed timestamps include setup; they do not qualify a completed steady interval."
+  ]
+}

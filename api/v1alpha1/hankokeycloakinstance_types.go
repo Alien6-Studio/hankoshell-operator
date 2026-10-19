@@ -136,6 +136,11 @@ type HankoKeycloakInstanceStatus struct {
 	// LastProbed is the timestamp of the last successful Admin API probe.
 	LastProbed *metav1.Time `json:"lastProbed,omitempty"`
 
+	// ManagedObservation binds a successful Admin API probe to the same ready,
+	// owned Deployment observed before and after the probe. Absent for external
+	// and adopted instances; legacy Ready status is not managed rollout evidence.
+	ManagedObservation *ManagedDeploymentObservation `json:"managedObservation,omitempty"`
+
 	// LastReconciled is the timestamp of the last successful reconciliation.
 	LastReconciled *metav1.Time `json:"lastReconciled,omitempty"`
 
@@ -148,7 +153,20 @@ type HankoKeycloakInstanceStatus struct {
 	NextCredentialRotation *metav1.Time `json:"nextCredentialRotation,omitempty"`
 
 	// Conditions holds standard Kubernetes condition objects.
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
+// ManagedDeploymentObservation identifies the rollout surrounding an Admin API probe.
+// These observations are not an atomic transaction with the provider or kubelet.
+type ManagedDeploymentObservation struct {
+	// DeploymentUID prevents replacement Deployments inheriting a previous probe.
+	// +kubebuilder:validation:MinLength=1
+	DeploymentUID string `json:"deploymentUID"`
+	// DeploymentGeneration identifies the exact ready pod template observed.
+	// +kubebuilder:validation:Minimum=1
+	DeploymentGeneration int64 `json:"deploymentGeneration"`
 }
 
 // +kubebuilder:object:root=true

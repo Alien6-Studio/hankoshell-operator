@@ -1,0 +1,65 @@
+# Explicit administrator installation only; never part of the operator chart.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: hanko-recovery-inspector
+rules:
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [list]
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [list]
+  - apiGroups: [authentication.k8s.io]
+    resources: [selfsubjectreviews]
+    verbs: [create]
+  - apiGroups: [admissionregistration.k8s.io]
+    resources: [validatingadmissionpolicies, validatingadmissionpolicybindings]
+    resourceNames: [hanko-finalizer-release-audit]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: hanko-recovery-inspectors
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: hanko-recovery-inspector
+subjects:
+  - kind: Group
+    apiGroup: rbac.authorization.k8s.io
+    name: hanko:recovery-executors
+  - kind: Group
+    apiGroup: rbac.authorization.k8s.io
+    name: hanko:recovery-approvers
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: hanko-recovery-records
+  namespace: hanko-recovery-audit
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get, create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: hanko-recovery-records
+  namespace: hanko-recovery-audit
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: hanko-recovery-records
+subjects:
+  - kind: Group
+    apiGroup: rbac.authorization.k8s.io
+    name: hanko:recovery-executors
+  - kind: Group
+    apiGroup: rbac.authorization.k8s.io
+    name: hanko:recovery-approvers

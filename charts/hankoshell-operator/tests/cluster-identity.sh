@@ -32,7 +32,7 @@ for documents in [render(), render('hub.endpoint=https://hub.example.test', 'hub
     all_rules = [rule for item in documents if item['kind'] in ('Role', 'ClusterRole') for rule in item['rules']]
     assert not any('serviceaccounts/token' in rule.get('resources', []) or 'tokenreviews' in rule.get('resources', []) for rule in all_rules), 'Workload trust granted runtime token authority'
     trust_rules = [rule for rule in all_rules if 'hankoworkloadtrusts' in rule.get('resources', [])]
-    assert len(trust_rules) == 1 and set(trust_rules[0]['verbs']) == {'get', 'list', 'watch', 'create', 'update', 'patch', 'delete'}
+    assert {verb for rule in trust_rules for verb in rule['verbs']} == {'get', 'list', 'watch', 'update', 'patch'}, 'Workload trust must remain observable/finalizable without arbitrary creation or deletion'
     ownership_rules = [rule for rule in identity_role['rules'] if rule.get('apiGroups') == ['rbac.authorization.k8s.io']]
     assert ownership_rules == [{'apiGroups': ['rbac.authorization.k8s.io'], 'resources': ['clusterroles', 'clusterrolebindings'], 'resourceNames': ['hanko-operator-cluster-identity-reader', 'hanko-operator-node-reader'], 'verbs': ['get', 'patch', 'delete']}], 'Decommission permissions exceeded release-owned RBAC'
     namespace_rules = [rule for item in documents if item['kind'] in ('Role', 'ClusterRole') for rule in item['rules'] if 'namespaces' in rule.get('resources', [])]

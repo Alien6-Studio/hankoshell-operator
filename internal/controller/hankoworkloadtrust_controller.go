@@ -327,6 +327,9 @@ func (r *HankoWorkloadTrustReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if err := r.APIReader.Get(ctx, req.NamespacedName, &current); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	if _, selected := current.Labels[providerConnectionLabel]; selected {
+		return rejectExperimentalResource(ctx, r.Client, &current)
+	}
 	observe := effectiveWorkloadTrustMode(&current) == ModeObserve
 	approval, approvalError := adoption.ParseApproval(current.Annotations)
 	writes := !observe || approvalError == nil && approval.Requested && current.DeletionTimestamp.IsZero()
@@ -621,5 +624,5 @@ func (r *HankoWorkloadTrustReconciler) workloadStatus(ctx context.Context, t *ap
 }
 
 func (r *HankoWorkloadTrustReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).For(&api.HankoWorkloadTrust{}).Complete(r)
+	return ctrl.NewControllerManagedBy(mgr).For(&api.HankoWorkloadTrust{}).Complete(observeReconciler("HankoWorkloadTrust", r))
 }

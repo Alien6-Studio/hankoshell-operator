@@ -1,0 +1,35 @@
+{
+  "core": [
+    "TestRealKeycloakConcurrentCredentialBudget",
+    "TestKeycloakFixtureRedactsAndDetectsCredentials",
+    "TestRealKeycloakFleetDisconnectedAuthority",
+    "TestRealKeycloakIAMContract",
+    "TestRealKeycloakManagedTransport",
+    "TestRealKeycloakPortableCorpus",
+    "TestRealKeycloakTenantRouting"
+  ],
+  "adoption": [
+    "TestRealKeycloakAdoptionCharacterization",
+    "TestRealKeycloakAuthorizationExplanation",
+    "TestRealKeycloakFederatedServiceAccountAdoption",
+    "TestRealKeycloakInventoryPaginationAndSecondPageDenial",
+    "TestRealKeycloakLegacyApplicationMigration",
+    "TestRealKeycloakOrganizationAggregateAcquisition",
+    "TestRealKeycloakOrganizationReadiness",
+    "TestRealKeycloakOwnershipAcquisition",
+    "TestRealKeycloakReconciledOrganizationPrincipals",
+    "TestRealKeycloakResourceServerAggregateAcquisition"
+  ],
+  "protocols": [
+    "TestRealKeycloakApplicationProtocolsAndFlows",
+    "TestRealKeycloakCompatibility",
+    "TestRealKeycloakDelegationPreview",
+    "TestRealKeycloakNativeSAMLRepresentation",
+    "TestRealKeycloakOrganizationalAuthorizationCharacterization",
+    "TestRealKeycloakPermissionProfiles",
+    "TestRealKeycloakServiceAccountAuthenticationRoundTrip",
+    "TestRealKeycloakStandardTokenExchange",
+    "TestRealKeycloakWorkloadTrustController",
+    "TestRealKeycloakWorkloadTrustRequiredInventoryPermissions"
+  ]
+}

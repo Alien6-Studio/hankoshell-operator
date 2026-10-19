@@ -1,0 +1,295 @@
+{
+  "schema": 1,
+  "result": "pass",
+  "recorded_at": "2026-10-19T17:39:32.418387+00:00",
+  "scope": "Administrator CLI and API admission qualification; no provider cleanup, node garbage collection or connected production recovery",
+  "qualification_revision": "48e94019780ea752eca489ad62e1f83e2f549057",
+  "preflight_revision": "f0645a09dc3375b88cc45f37a10b2aac42078ab4",
+  "components": [
+    {
+      "path": "scripts/finalizer_recovery.py",
+      "sha256": "4ba988153e2d21f3632d2beb9171f766be2eb97215d3dd9f4ef77c3e830998ea"
+    },
+    {
+      "path": "scripts/finalizer-recovery.py",
+      "sha256": "25c00750b5b7fcaaed6062629916f50bb44071e41221452632e92973b7da615d"
+    },
+    {
+      "path": "scripts/finalizer-recovery-fixture.py",
+      "sha256": "c2f2d8c48bf883603f764fc1e10f9570ca09c48498693bf278a33fdd15e64ad7"
+    },
+    {
+      "path": "scripts/test_finalizer_recovery.py",
+      "sha256": "c837c2e3d5b47eec6e91c7c873ac13949ad8cb60fac90664be68ad855939d76c"
+    },
+    {
+      "path": "api/v1alpha1/finalizer_recovery_integration_test.go",
+      "sha256": "430de02497bf8a3b605bb43d8bc8575c3fcd72c1ee277120413709497f3abb53"
+    },
+    {
+      "path": "api/v1alpha1/kubernetes_compatibility_test.go",
+      "sha256": "376caf8af97e6fbc77d6fb41ec67de985b113668e63448b1abce69870fd8e7ad"
+    },
+    {
+      "path": "config/recovery/approval-policy.yaml",
+      "sha256": "2c85f498145a47b58c1f0e9faec3c8ce14a22338215a4d3845018e9542ab9f25"
+    },
+    {
+      "path": "config/recovery/audit-access.yaml",
+      "sha256": "7969e2ee97d39f43922397d81711e2b077c2bfe0e7bca6afc706cbeee26f131b"
+    },
+    {
+      "path": "config/recovery/target-access.yaml",
+      "sha256": "b9876e1a43be4e3660df3f41e4861ab9726fcdd85ab1a99d6fdfc2ee991f9543"
+    },
+    {
+      "path": "docs/finalizer-recovery.md",
+      "sha256": "e0eecc6abdcda16439e7d3bbc545e26fa6ffb9d139fca969911934371f36e037"
+    },
+    {
+      "path": "docs/operational-contract.json",
+      "sha256": "6c71b0d11a82b85083ed11c26fadab8dea3b4908c7fb8aa2d5fb99112de930d3"
+    },
+    {
+      "path": "scripts/operations-contract.py",
+      "sha256": "daa68569192df2432c4005edb7d3b9d7c9e83023a8eb4025f30dd66f9947d5ae"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "4588eb68f4c62a073443c1b443d4c97966c14833173d2353c1c195356a1a09e8"
+    }
+  ],
+  "api_matrix": [
+    {
+      "kubernetes": "1.35.0",
+      "result": "pass",
+      "counts": {
+        "passed": 779,
+        "failed": 0,
+        "skipped": 0
+      },
+      "source_changed": false,
+      "dirty": false,
+      "local_report": ".tools/finalizer-recovery-batch/results/kubernetes-1.35.0/results.json",
+      "report_sha256": "39ecd8741f1637edb365db6ac6fe03284216c8d6d0cc737f90ef9c199b7d6ade",
+      "recovery_tests": [
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/self-approval",
+          "outcome": "passed",
+          "seconds": 0.01
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/forged-actor",
+          "outcome": "passed",
+          "seconds": 0.0
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/operator",
+          "outcome": "passed",
+          "seconds": 0.01
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/mutable",
+          "outcome": "passed",
+          "seconds": 0.0
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/owner-reference",
+          "outcome": "passed",
+          "seconds": 0.0
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/binary-data",
+          "outcome": "passed",
+          "seconds": 0.0
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/extra-data",
+          "outcome": "passed",
+          "seconds": 0.0
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery",
+          "outcome": "passed",
+          "seconds": 2.8
+        }
+      ]
+    },
+    {
+      "kubernetes": "1.36.2",
+      "result": "pass",
+      "counts": {
+        "passed": 779,
+        "failed": 0,
+        "skipped": 0
+      },
+      "source_changed": false,
+      "dirty": false,
+      "local_report": ".tools/finalizer-recovery-batch/results/kubernetes-1.36.2/results.json",
+      "report_sha256": "c84d61051b45a0249cd9ae1ebcf11a71de9bb6a70dd999b40cd0d984d1ab1717",
+      "recovery_tests": [
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/self-approval",
+          "outcome": "passed",
+          "seconds": 0.04
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/forged-actor",
+          "outcome": "passed",
+          "seconds": 0.0
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/operator",
+          "outcome": "passed",
+          "seconds": 0.02
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/mutable",
+          "outcome": "passed",
+          "seconds": 0.0
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/owner-reference",
+          "outcome": "passed",
+          "seconds": 0.0
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/binary-data",
+          "outcome": "passed",
+          "seconds": 0.0
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/extra-data",
+          "outcome": "passed",
+          "seconds": 0.0
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery",
+          "outcome": "passed",
+          "seconds": 2.78
+        }
+      ]
+    },
+    {
+      "kubernetes": "1.37.0",
+      "result": "pass",
+      "counts": {
+        "passed": 779,
+        "failed": 0,
+        "skipped": 0
+      },
+      "source_changed": false,
+      "dirty": false,
+      "local_report": ".tools/finalizer-recovery-batch/results/kubernetes-1.37.0/results.json",
+      "report_sha256": "11d847a8d04bb91a927293e4d6336a10b3922ae168f36ec0c379580051410e1b",
+      "recovery_tests": [
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/self-approval",
+          "outcome": "passed",
+          "seconds": 0.02
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/forged-actor",
+          "outcome": "passed",
+          "seconds": 0.0
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/operator",
+          "outcome": "passed",
+          "seconds": 0.02
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/mutable",
+          "outcome": "passed",
+          "seconds": 0.01
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/owner-reference",
+          "outcome": "passed",
+          "seconds": 0.0
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/binary-data",
+          "outcome": "passed",
+          "seconds": 0.0
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery/extra-data",
+          "outcome": "passed",
+          "seconds": 0.0
+        },
+        {
+          "package": "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1",
+          "name": "TestKubernetesCompatibility/audited_administrator_finalizer_recovery",
+          "outcome": "passed",
+          "seconds": 2.94
+        }
+      ]
+    }
+  ],
+  "checks": {
+    "preflight": {
+      "result": "pass",
+      "local_log": ".tools/finalizer-recovery-batch/preflight-final.log",
+      "sha256": "2ceffb5b3bbc124b8e2f90268791851f625a5c77509987363e294e4948c1662a",
+      "revision": "f0645a09dc3375b88cc45f37a10b2aac42078ab4"
+    },
+    "hooks": {
+      "result": "pass",
+      "local_log": ".tools/finalizer-recovery-batch/hooks-final.log",
+      "sha256": "17816d2600a5eb022412c0b510f921d680f31177159aebb4b8f480312ff7831b",
+      "revision": "f0645a09dc3375b88cc45f37a10b2aac42078ab4"
+    },
+    "chart": {
+      "result": "pass",
+      "local_log": ".tools/finalizer-recovery-batch/chart-final.log",
+      "sha256": "880d8f56643b1c88c59b0d016e2cf2330e8abe67b0b1038231028e3b7b2faa5c",
+      "revision": "f0645a09dc3375b88cc45f37a10b2aac42078ab4"
+    },
+    "lint": {
+      "result": "pass",
+      "local_log": ".tools/finalizer-recovery-batch/lint.log",
+      "sha256": "e779200fd9364cfb22cde9fe0f19990618a0699a29a8603805035d2a7ccf2398",
+      "revision": "48e94019780ea752eca489ad62e1f83e2f549057"
+    }
+  },
+  "python_tests": 443,
+  "new_recovery_unit_cases": 16,
+  "ci_correction": {
+    "failed_run": "https://github.com/Alien6-Studio/hankoshell-operator/actions/runs/39293190067",
+    "failed_head": "f9b2a6150b9f6b799a67098e488f5d84be624fe6",
+    "cause": "A glob-selected multi-version donor copied beta into HankoFuture, which has no reviewed candidate profile. Filesystem-dependent fixture selection failed on Linux.",
+    "fix": "Explicit single-version and multi-version donors; copy only the reviewed hub version. Keep strict kind and served-version refusal assertions.",
+    "regression": "scripts/test_versions.py::VersionContractTests::test_new_api_needs_matching_manifest_type_and_registration_without_a_count_edit"
+  },
+  "limits": [
+    "Full protected CI on the integration head remains required; this packet is not remote CI success.",
+    "No new full operator unit, provider, installed native-storage or production endurance qualification is claimed.",
+    "The API witness releases a Role; the closed eight-kind/ten-finalizer profile is not a provider cleanup certification.",
+    "Two-person approval and records protect this CLI workflow; privileged administrators retain direct patch and guard-retirement authority.",
+    "Connected installation, external audit recovery and public predecessor upgrade/rollback remain unqualified."
+  ]
+}

@@ -19,6 +19,7 @@ var ErrOwnershipConflict = errors.New("authorization object is not owned by Hank
 
 // Capabilities declares provider semantics explicitly.
 type Capabilities struct {
+	BoundedDelegation        bool `json:",omitempty"`
 	OrganizationPrincipals   bool `json:",omitempty"`
 	OrganizationDescendants  bool `json:",omitempty"`
 	ScopeGrants              bool
@@ -33,14 +34,30 @@ type Capabilities struct {
 
 // Model is the portable desired state passed to a provider driver.
 type Model struct {
-	Name           string
-	Realm          string
-	Audience       string
-	DisplayName    string
-	ApplicationRef string
-	Scopes         []Scope
-	Resources      []Resource
-	Permissions    []Permission
+	Name              string
+	Realm             string
+	Audience          string
+	DisplayName       string
+	ApplicationRef    string
+	Scopes            []Scope
+	Resources         []Resource
+	Permissions       []Permission
+	DelegationContext *ResolvedDelegationContext `json:",omitempty"`
+}
+
+// ResolvedDelegationContext is private execution evidence. Normalization removes
+// it from portable intent; executable plan identity binds its current proof.
+type ResolvedDelegationContext struct {
+	AudienceUID string
+	Runtime     iamcontract.Digest `json:",omitempty"`
+}
+
+type DelegationPlanner interface {
+	PrepareDelegation(context.Context, Model, string) (Model, error)
+}
+
+type DelegationMutationGuard interface {
+	WithDelegationMutationGuard(func(context.Context) error) Driver
 }
 
 type Scope struct {
@@ -61,6 +78,7 @@ type Permission struct {
 	Resources  []string
 	Scopes     []string
 	Principals []Principal
+	Delegation *Delegation `json:",omitempty"`
 }
 
 type Principal struct {
@@ -70,6 +88,7 @@ type Principal struct {
 	IncludeDescendants bool   `json:",omitempty"`
 	// Organization is private execution evidence; Normalize removes it from intent.
 	Organization *ResolvedOrganizationPrincipal `json:",omitempty"`
+	SoftwareUID  string                         `json:",omitempty"`
 }
 
 // ResolvedOrganizationPrincipal keeps verified execution groups separate from
@@ -145,22 +164,40 @@ func ValidateCapabilities(model Model, capabilities Capabilities) error {
 		}
 	}
 	for _, permission := range model.Permissions {
-		for _, principal := range permission.Principals {
-			supported := map[string]bool{
-				"realm_role":      capabilities.RolePrincipals,
-				"application":     capabilities.ApplicationPrincipals,
-				"service_account": capabilities.ServiceAccountPrincipals,
-				"organization":    capabilities.OrganizationPrincipals,
-			}[principal.Kind]
-			if !supported {
-				return errors.Join(ErrCapabilityUnsupported, errors.New("principal semantics are unsupported"))
-			}
-			if principal.IncludeDescendants && (principal.Kind != "organization" || !capabilities.OrganizationDescendants) {
-				return ErrCapabilityUnsupported
-			}
+		if err := validatePermissionCapabilities(permission, capabilities); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func validatePermissionCapabilities(permission Permission, capabilities Capabilities) error {
+	if permission.Delegation != nil && !capabilities.BoundedDelegation {
+		return DelegationUnsupported()
+	}
+	for _, principal := range capabilityPrincipals(permission) {
+		supported := map[string]bool{
+			"realm_role":      capabilities.RolePrincipals,
+			"application":     capabilities.ApplicationPrincipals,
+			"service_account": capabilities.ServiceAccountPrincipals,
+			"organization":    capabilities.OrganizationPrincipals,
+		}[principal.Kind]
+		if !supported {
+			return errors.Join(ErrCapabilityUnsupported, errors.New("principal semantics are unsupported"))
+		}
+		if principal.IncludeDescendants && (principal.Kind != "organization" || !capabilities.OrganizationDescendants) {
+			return ErrCapabilityUnsupported
+		}
+	}
+	return nil
+}
+
+func capabilityPrincipals(permission Permission) []Principal {
+	if permission.Delegation == nil {
+		return permission.Principals
+	}
+	principals := append([]Principal{}, permission.Principals...)
+	return append(principals, permission.Delegation.Actor, permission.Delegation.Subject)
 }
 
 // BoundedManagedObjects refuses oversized operational evidence. Ownership must

@@ -81,6 +81,27 @@ func (c *Client) currentAdoptedAuthorizationGraph(ctx context.Context, authority
 	return state, nil
 }
 
+// Ordinary UID-owned graphs need the same incoming-edge check as adopted ones.
+// Bounded delegation is withdrawn first; a conflict retains the graph/finalizer.
+func (c *Client) checkAuthorizationCleanupDependencies(ctx context.Context, realm, clientID string, owned AuthorizationManagedObjects) error {
+	graph, err := c.inventoryAuthorization(ctx, realm, clientID, MaxAuthorizationCollectionObjects, MaxAuthorizationCollectionObjects, MaxAuthorizationCollectionObjects)
+	if err != nil {
+		return err
+	}
+	for _, permission := range graph.Permissions {
+		if permission.Type == "resource" {
+			if err := c.readResourcePermissionDependencies(ctx, realm, clientID, &graph, MaxAuthorizationCollectionObjects); err != nil {
+				return err
+			}
+			break
+		}
+	}
+	if err := authorizationIncomingDependencies(graph, owned); err != nil {
+		return ErrAuthorizationCleanupConflict
+	}
+	return nil
+}
+
 func (c *Client) guardAdoptedAuthorizationMutation(ctx context.Context, method, path string) error {
 	authority, adopted := ctx.Value(authorizationAdoptionContextKey{}).(authorizationAdoptionAuthority)
 	if !adopted || method == http.MethodGet {

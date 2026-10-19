@@ -86,6 +86,13 @@ func TestAllKeycloakOperationsBoundNetworkReadsAndCloseBodies(t *testing.T) {
 					if strings.HasSuffix(operation.Capability, "cleanup-members") {
 						request.URL.RawQuery = "first=0&max=1"
 					}
+					if operation.Capability == "bounded-delegation" {
+						request = request.WithContext(context.WithValue(request.Context(), boundedDelegationReadKey{},
+							boundedDelegationRead{realm: "fixture", clientID: "fixture", userID: "fixture"}))
+						if strings.HasSuffix(operation.Path, "/groups") {
+							request.URL.RawQuery = "first=0&max=129&briefRepresentation=true"
+						}
+					}
 					response, err := c.do(request)
 					if response != nil || !errors.Is(err, ErrResponseTooLarge) {
 						t.Fatalf("HTTP %d accepted an oversized response: %v", status, err)
@@ -132,7 +139,11 @@ func TestKeycloakBudgetsUseActualBytesAndPreserveExactBoundaries(t *testing.T) {
 					// The network body is closed already; readers see a bounded buffer.
 					buffered, readErr := io.ReadAll(response.Body)
 					response.Body.Close()
-					if readErr != nil || int64(len(buffered)) != test.limit {
+					expected := test.limit
+					if test.status < 200 || test.status >= 300 {
+						expected = int64(len(http.StatusText(test.status)))
+					}
+					if readErr != nil || int64(len(buffered)) != expected {
 						t.Fatal("bounded response was truncated")
 					}
 				}

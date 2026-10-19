@@ -84,62 +84,75 @@ func (r *HankoImportReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
 	var operation hankoshv1alpha1.HankoImport
-	if err := r.Get(ctx, req.NamespacedName, &operation); err != nil {
+	if err := r.importReader().Get(ctx, req.NamespacedName, &operation); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	if operation.Status.Phase == "Done" || operation.Status.Phase == "Failed" {
+	if !operation.DeletionTimestamp.IsZero() || operation.Status.Phase == "Done" || operation.Status.Phase == "Failed" {
 		return ctrl.Result{}, nil
 	}
 
-	operation.Status.Phase = "Scanning"
+	// A retry performs a new observation. Counts and evidence describe this
+	// attempt, not an accumulation of partially acknowledged previous attempts.
+	operation.Status = hankoshv1alpha1.HankoImportStatus{Phase: "Scanning"}
 	// Persist the full initial status, including required false/zero coverage
 	// fields. A typed merge baseline contains those zero values even when the
 	// API object has no status, so a merge patch would omit their initialization.
 	if err := r.Status().Update(ctx, &operation); err != nil {
 		return ctrl.Result{}, fmt.Errorf("initialize import scanning status: %w", err)
 	}
-	patch := client.MergeFrom(operation.DeepCopy())
+	patch := client.MergeFromWithOptions(operation.DeepCopy(), client.MergeFromWithOptimisticLock{})
 
-	kc, handled := r.importKeycloakClient(ctx, &operation, patch)
-	if handled {
-		return ctrl.Result{}, nil
+	kc, err := r.importKeycloakClient(ctx, &operation, patch)
+	if err != nil || kc == nil {
+		return ctrl.Result{}, err
 	}
 	discovered, result, err := r.discoverImport(ctx, &operation, kc, patch)
 	if ctx.Err() != nil {
 		statusCtx, statusCancel := context.WithTimeout(parent, 10*time.Second)
 		defer statusCancel()
-		r.failImport(statusCtx, &operation, patch, "DiscoveryDeadlineExceeded", "bounded discovery deadline expired; inventory evidence is incomplete", "patch status after discovery deadline")
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, r.failImport(statusCtx, &operation, patch, "DiscoveryDeadlineExceeded", "bounded discovery deadline expired; inventory evidence is incomplete")
 	}
 	if err != nil || discovered == nil {
 		return result, err
 	}
 	operation.Status.Findings = importApplicationProtocolFindings(discovered)
+	if !operation.Spec.DryRun {
+		operation.Status.Phase = "Applying"
+	}
+	// Discovery may take time. This conditional write rejects an import edited,
+	// replaced or deleted meanwhile, before creating targets or publishing their
+	// adoption evidence (including evidence refreshed by a dry-run).
+	if err := r.Status().Patch(ctx, &operation, patch); err != nil {
+		return ctrl.Result{}, fmt.Errorf("checkpoint import discovery: %w", err)
+	}
+	patch = client.MergeFromWithOptions(operation.DeepCopy(), client.MergeFromWithOptimisticLock{})
 	if operation.Spec.DryRun {
+		if err := r.updateImportEvidence(ctx, &operation, discovered, true); err != nil {
+			return ctrl.Result{}, fmt.Errorf("publish import evidence: %w", err)
+		}
 		return r.completeImportDryRun(ctx, &operation, discovered, patch)
 	}
-
-	operation.Status.Phase = "Applying"
-	if err := r.Status().Patch(ctx, &operation, patch); err != nil {
-		log.FromContext(ctx).Error(err, "patch status to Applying")
-	}
-	patch = client.MergeFrom(operation.DeepCopy())
 	applyErrors := r.applyImport(ctx, &operation, discovered)
-	r.publishImportEvidence(ctx, &operation, discovered)
+	if err := r.updateImportEvidence(ctx, &operation, discovered, true); err != nil {
+		// A concurrent leaf status update or API outage is not terminal partial
+		// inventory. Leave the discovery checkpoint resumable and rescan on retry.
+		return ctrl.Result{}, fmt.Errorf("publish import evidence: %w", err)
+	}
 	return r.completeImport(ctx, &operation, applyErrors, patch)
 }
 
-func (r *HankoImportReconciler) failImport(ctx context.Context, operation *hankoshv1alpha1.HankoImport, patch client.Patch, reason, message, logMessage string) {
+func (r *HankoImportReconciler) failImport(ctx context.Context, operation *hankoshv1alpha1.HankoImport, patch client.Patch, reason, message string) error {
 	operation.Status.Phase = "Failed"
 	operation.Status.Coverage.Complete = false
 	setCondition(&operation.Status.Conditions, "InventoryComplete", metav1.ConditionFalse, "Incomplete", "required source or discovery read failed")
 	setCondition(&operation.Status.Conditions, "ImportReady", metav1.ConditionFalse, reason, message)
 	if err := r.Status().Patch(ctx, operation, patch); err != nil {
-		log.FromContext(ctx).Error(err, logMessage)
+		return fmt.Errorf("record import failure %s: %w", reason, err)
 	}
+	return nil
 }
 
-func (r *HankoImportReconciler) importKeycloakClient(ctx context.Context, operation *hankoshv1alpha1.HankoImport, patch client.Patch) (*keycloak.Client, bool) {
+func (r *HankoImportReconciler) importKeycloakClient(ctx context.Context, operation *hankoshv1alpha1.HankoImport, patch client.Patch) (*keycloak.Client, error) {
 	var instance hankoshv1alpha1.HankoKeycloakInstance
 	err := r.importReader().Get(ctx, types.NamespacedName{Name: operation.Spec.SourceRef, Namespace: operation.Namespace}, &instance)
 	if err != nil {
@@ -149,25 +162,22 @@ func (r *HankoImportReconciler) importKeycloakClient(ctx context.Context, operat
 			reason = "SourceNotFound"
 			message = fmt.Sprintf("HankoKeycloakInstance %q not found in namespace %q", operation.Spec.SourceRef, operation.Namespace)
 		}
-		r.failImport(ctx, operation, patch, reason, message, "patch status after source not found")
-		return nil, true
+		return nil, r.failImport(ctx, operation, patch, reason, message)
 	}
 	kc, err := buildKCClientForInstance(ctx, r.importReader(), &instance, r.RequireHTTPS)
 	if err != nil {
 		log.FromContext(ctx).Error(iamcontract.SafeError(err), "failed to build Keycloak client from instance")
-		r.failImport(ctx, operation, patch, "KCClientError", "cannot initialize the sourceRef inventory identity and verified transport", "patch status after KC client error")
-		return nil, true
+		return nil, r.failImport(ctx, operation, patch, "KCClientError", "cannot initialize the sourceRef inventory identity and verified transport")
 	}
 	kc.RestrictToInventory()
-	return kc, false
+	return kc, nil
 }
 
 func (r *HankoImportReconciler) discoverImport(ctx context.Context, operation *hankoshv1alpha1.HankoImport, kc *keycloak.Client, patch client.Patch) ([]importedRealmData, ctrl.Result, error) {
 	realms, err := kc.ListRealms(ctx)
 	if err != nil {
 		log.FromContext(ctx).Error(iamcontract.SafeError(err), "failed to list realms")
-		r.failImport(ctx, operation, patch, "ListRealmsError", "cannot read the authorized realm inventory", "patch status after list realms error")
-		return nil, ctrl.Result{}, nil
+		return nil, ctrl.Result{}, r.failImport(ctx, operation, patch, "ListRealmsError", "cannot read the authorized realm inventory")
 	}
 	selected := selectImportRealms(realms, operation.Spec.Realms)
 	sort.Slice(selected, func(i, j int) bool { return selected[i].URLName() < selected[j].URLName() })
@@ -192,7 +202,9 @@ func (r *HankoImportReconciler) discoverImport(ctx context.Context, operation *h
 		data, discoverErr := discoverImportedRealm(ctx, kc, realm, includeIdentityProviders)
 		if discoverErr != nil {
 			log.FromContext(ctx).Error(iamcontract.SafeError(discoverErr.cause), "failed to discover realm")
-			r.failImport(ctx, operation, patch, discoverErr.reason, "required realm inventory read failed", "patch status after realm discovery error")
+			if err := r.failImport(ctx, operation, patch, discoverErr.reason, "required realm inventory read failed"); err != nil {
+				return nil, ctrl.Result{}, err
+			}
 			return nil, ctrl.Result{}, iamcontract.SafeError(discoverErr.cause)
 		}
 		data.inventory = r.discoverRealmAdoption(ctx, operation, kc, realm, includeIdentityProviders, remainingInventory)
@@ -207,7 +219,9 @@ func (r *HankoImportReconciler) discoverImport(ctx context.Context, operation *h
 		discovered = append(discovered, data)
 	}
 	operation.Status.Discovered = importDiscoveryCounts(discovered)
-	r.publishImportEvidence(ctx, operation, discovered)
+	if err := r.updateImportEvidence(ctx, operation, discovered, false); err != nil {
+		return nil, ctrl.Result{}, err
+	}
 	return discovered, ctrl.Result{}, nil
 }
 
@@ -414,7 +428,8 @@ func (r *HankoImportReconciler) completeImport(ctx context.Context, operation *h
 	operation.Status.Phase = "Done"
 	operation.Status.CompletedAt = &now
 	if len(applyErrors) > 0 {
-		setCondition(&operation.Status.Conditions, "ImportReady", metav1.ConditionTrue, "PartialFailure",
+		operation.Status.Phase = "Failed"
+		setCondition(&operation.Status.Conditions, "ImportReady", metav1.ConditionFalse, "PartialFailure",
 			fmt.Sprintf("import completed with %d target creation or mapping error(s); inspect bounded inventory findings", len(applyErrors)))
 	} else {
 		setCondition(&operation.Status.Conditions, "ImportReady", metav1.ConditionTrue, "Completed", "import completed successfully")
@@ -667,7 +682,7 @@ func (r *HankoImportReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoImport{}).
-		Complete(r)
+		Complete(observeReconciler("HankoImport", r))
 }
 
 func (r *HankoImportReconciler) importReader() client.Reader {

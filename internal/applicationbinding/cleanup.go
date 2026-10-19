@@ -28,6 +28,13 @@ func records(app *api.HankoApplication) ([]record, error) {
 	if len(value) > 49152 || json.Unmarshal([]byte(value), &result) != nil || len(result) > MaxBindings {
 		return nil, failure("CleanupConflict")
 	}
+	// This journal is written by saveJournal, never by a remote serializer.
+	// Require that exact representation: duplicate/case-aliased members and
+	// unknown fields must not silently choose the targets of a cleanup.
+	canonical, err := json.Marshal(result)
+	if err != nil || result == nil || string(canonical) != value {
+		return nil, failure("CleanupConflict")
+	}
 	for _, r := range result {
 		if !validBinding(r.Binding) || !validRecordUIDs(r) || (r.Binding.Credentials != nil && (len(r.Binding.Credentials.SecretRef) > 253 || !dnsName.MatchString(r.Binding.Credentials.SecretRef))) {
 			return nil, failure("CleanupConflict")

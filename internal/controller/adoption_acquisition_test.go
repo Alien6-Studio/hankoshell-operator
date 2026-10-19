@@ -123,6 +123,8 @@ func (f *acquisitionFixture) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	var value any
 	switch r.URL.Path {
+	case "/admin/realms":
+		value = []any{map[string]any{"id": "realm-uuid", "realm": "realm", "enabled": true}}
 	case "/admin/realms/realm":
 		value = map[string]any{"id": "realm-uuid", "realm": "realm", "enabled": true}
 	case "/admin/realms/realm/clients":
@@ -131,7 +133,7 @@ func (f *acquisitionFixture) serve(w http.ResponseWriter, r *http.Request) {
 		value = f.document
 	case "/admin/realms/realm/clients/client-uuid/protocol-mappers/models":
 		value = f.mappers
-	case "/admin/realms/realm/clients/client-uuid/roles", "/admin/realms/realm/clients/client-uuid/scope-mappings/realm", "/admin/realms/realm/roles/reader/composites/realm":
+	case "/admin/realms/realm/clients/client-uuid/roles", "/admin/realms/realm/clients/client-uuid/scope-mappings/realm", "/admin/realms/realm/roles/reader/composites/realm", "/admin/realms/realm/roles", "/admin/realms/realm/groups":
 		value = []any{}
 	default:
 		w.WriteHeader(http.StatusNotFound)

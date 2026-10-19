@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "allowed_licenses": [
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "MIT",
+    "MPL-2.0"
+  ],
+  "denied_licenses": [
+    "AGPL-1.0",
+    "AGPL-3.0",
+    "BUSL-1.1",
+    "CC-BY-NC-4.0",
+    "GPL-1.0",
+    "GPL-2.0",
+    "GPL-3.0",
+    "LGPL-2.0",
+    "LGPL-2.1",
+    "LGPL-3.0",
+    "SSPL-1.0"
+  ],
+  "module_sources": {
+    "goproxy": "https://proxy.golang.org",
+    "gosumdb": "sum.golang.org",
+    "allow_replace": false
+  },
+  "exceptions": [
+    {
+      "module": "github.com/alibabacloud-go/cr-20160607",
+      "version": "v1.0.1",
+      "sum": "h1:WEnP1iPFKJU74ryUKh/YDPHoxMZawqlPajOymyNAkts=",
+      "license": "Apache-2.0",
+      "justification": "Module zip ships no license file; the Alibaba Cloud SDK repository root carries Apache-2.0",
+      "expires": "2027-09-30"
+    },
+    {
+      "module": "github.com/cyberphone/json-canonicalization",
+      "version": "v0.0.0-20241213102144-19d51d7fe467",
+      "sum": "h1:uX1JmpONuD549D73r6cgnxyUu18Zb7yHAy5AYU0Pm4Q=",
+      "license": "Apache-2.0",
+      "justification": "go-licenses cannot map the module root Apache-2.0 LICENSE to the packages under go/src",
+      "expires": "2027-09-30"
+    },
+    {
+      "module": "github.com/in-toto/attestation",
+      "version": "v1.2.0",
+      "sum": "h1:aPRUZ3azbqD7yEBD5fP3TD8Dszf+YHo284SOcpahjQk=",
+      "license": "Apache-2.0",
+      "justification": "go-licenses cannot map the module root Apache-2.0 LICENSE to the packages under go/",
+      "expires": "2027-09-30"
+    },
+    {
+      "module": "github.com/in-toto/in-toto-golang",
+      "version": "v0.11.0",
+      "sum": "h1:nfidMYBFx+E0lnmX5KUnN2Pdm8zdNKal1ayjJuzzRoA=",
+      "license": "Apache-2.0",
+      "justification": "go-licenses cannot map the module root Apache-2.0 LICENSE to the in_toto packages",
+      "expires": "2027-09-30"
+    }
+  ]
+}

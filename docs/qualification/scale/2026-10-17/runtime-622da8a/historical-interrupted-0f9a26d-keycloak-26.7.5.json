@@ -1,0 +1,88 @@
+{
+  "schema": 1,
+  "suite": "keycloak/26.7.5/core",
+  "revision": "0f9a26d257e49a0ac0aae8e3f739d3be03064ab4",
+  "returncode": 1,
+  "worktree_dirty": false,
+  "source_changed": false,
+  "suite_errors": 0,
+  "counts": {
+    "passed": 3,
+    "failed": 9,
+    "skipped": 0
+  },
+  "tests": [
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakConcurrentCredentialBudget",
+      "outcome": "failed",
+      "seconds": 79.95
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakIAMContract/roles_shared_conformance",
+      "outcome": "failed",
+      "seconds": 0.13
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakIAMContract/authorization_shared_conformance",
+      "outcome": "failed",
+      "seconds": 0.14
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakIAMContract/role_status_patch_recovery",
+      "outcome": "failed",
+      "seconds": 0.09
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakIAMContract/authorization_status_patch_recovery",
+      "outcome": "failed",
+      "seconds": 0.1
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakIAMContract",
+      "outcome": "failed",
+      "seconds": 31.5
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakManagedTransport",
+      "outcome": "failed",
+      "seconds": 33.55
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakPortableCorpus",
+      "outcome": "failed",
+      "seconds": 46.64
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakTenantRouting",
+      "outcome": "failed",
+      "seconds": 62.79
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestKeycloakFixtureRedactsAndDetectsCredentials/bounded_HTTP_diagnostics",
+      "outcome": "passed",
+      "seconds": 0.01
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestKeycloakFixtureRedactsAndDetectsCredentials",
+      "outcome": "passed",
+      "seconds": 0.01
+    },
+    {
+      "package": "github.com/Alien6-Studio/hankoshell-operator/internal/controller",
+      "name": "TestRealKeycloakFleetDisconnectedAuthority",
+      "outcome": "passed",
+      "seconds": 35.57
+    }
+  ]
+}

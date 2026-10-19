@@ -62,11 +62,22 @@ type HankoSnapshotStatus struct {
 	// +kubebuilder:validation:Enum=Pending;Running;Done;Failed
 	Phase string `json:"phase,omitempty"`
 
+	// StartedGeneration and IntentHash bind retries to the original specification and tenant.
+	StartedGeneration int64  `json:"startedGeneration,omitempty"`
+	IntentHash        string `json:"intentHash,omitempty"`
+	// InstanceUID identifies the source instance before any child is created.
+	InstanceUID string `json:"instanceUID,omitempty"`
+
 	// ConfigMapRef is the name of the ConfigMap holding the serialized CRD config.
 	ConfigMapRef string `json:"configMapRef,omitempty"`
+	// ConfigMapUID and ConfigHash bind the immutable configuration captured on the first successful create.
+	ConfigMapUID string `json:"configMapUID,omitempty"`
+	ConfigHash   string `json:"configHash,omitempty"`
 
 	// DBJobRef is the name of the pg_dump Job (set only when includeData=true).
 	DBJobRef string `json:"dbJobRef,omitempty"`
+	// DBJobUID prevents replay when a previously accepted backup Job disappears or is replaced.
+	DBJobUID string `json:"dbJobUID,omitempty"`
 
 	// TakenAt is when the snapshot completed successfully.
 	TakenAt *metav1.Time `json:"takenAt,omitempty"`
@@ -75,6 +86,8 @@ type HankoSnapshotStatus struct {
 	LastReconciled *metav1.Time `json:"lastReconciled,omitempty"`
 
 	// Conditions holds standard Kubernetes condition objects.
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 

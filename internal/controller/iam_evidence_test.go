@@ -3,6 +3,8 @@ package controller
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -10,10 +12,74 @@ import (
 	"github.com/Alien6-Studio/hankoshell-operator/internal/authorization"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamconformance"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/workloadbinding"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+func TestIAMFailureReasonsUseTypedCausesAndPreserveFailureEvidence(t *testing.T) {
+	cases := []struct {
+		name   string
+		cause  error
+		reason string
+	}{
+		{"request", &keycloak.StatusError{Code: http.StatusBadRequest}, "ProviderRequestRejected"},
+		{"authentication", &keycloak.StatusError{Code: http.StatusUnauthorized}, "ProviderAuthenticationFailed"},
+		{"permission", &keycloak.StatusError{Code: http.StatusForbidden}, "ProviderPermissionDenied"},
+		{"missing", &keycloak.StatusError{Code: http.StatusNotFound}, "ProviderObjectNotFound"},
+		{"conflict", &keycloak.StatusError{Code: http.StatusConflict}, "ProviderConflict"},
+		{"throttle", &keycloak.StatusError{Code: http.StatusTooManyRequests}, "ProviderThrottled"},
+		{"outage", &keycloak.StatusError{Code: http.StatusServiceUnavailable}, "ProviderUnavailable"},
+		{"server", &keycloak.StatusError{Code: http.StatusInternalServerError}, "ProviderUnavailable"},
+		{"deadline", context.DeadlineExceeded, "ReconcileDeadlineExceeded"},
+		{"cancelled", context.Canceled, "ReconcileCancelled"},
+		{"ownership", authorization.ErrOwnershipConflict, "OwnershipConflict"},
+		{"client-precondition", keycloak.ErrApplicationPrecondition, "OwnershipConflict"},
+		{"tls", errors.Join(keycloak.ErrTransport, keycloak.ErrTLSVerification), "ProviderTLSVerificationFailed"},
+		{"transport", keycloak.ErrTransport, "ProviderTransportFailed"},
+		{"response-size", keycloak.ErrResponseTooLarge, "ProviderResponseTooLarge"},
+		{"response-read", keycloak.ErrResponseRead, "ProviderResponseIncomplete"},
+		{"binding", workloadbinding.Failure("fixture-secret-sentinel"), "WorkloadBindingUnavailable"},
+		{"trust", trustFailure("fixture-secret-sentinel"), "WorkloadTrustNotReady"},
+		{"string-is-not-status", errors.New("403 Forbidden fixture-secret-sentinel"), "ReconcileFailed"},
+		{"other-status", &keycloak.StatusError{Code: http.StatusTeapot}, "ReconcileFailed"},
+		{"stale-wins", errors.Join(iamcontract.ErrStale, &keycloak.StatusError{Code: http.StatusForbidden}), "StalePlan"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			obj, objects := validResourceServerObjects(ModeManage)
+			obj.Generation = 2
+			prior := string(iamcontract.Hash(iamcontract.Version, "test", "prior-applied", nil))
+			obj.Status = api.HankoResourceServerStatus{ContractVersion: string(iamcontract.Version), AppliedGeneration: 1, AppliedPlanHash: prior}
+			cause := iamcontract.SafeError(fmt.Errorf("fixture-secret-sentinel: %w", tc.cause))
+			driver := &recordingAuthorizationDriver{capabilities: supportedAuthorizationCapabilities(), err: cause}
+			c := resourceServerClient(t, objects...)
+			r := &HankoResourceServerReconciler{Client: c, DriverFactory: func(string, map[string]string) authorization.Driver { return driver }}
+			_, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(obj)})
+			var got api.HankoResourceServer
+			if getErr := c.Get(context.Background(), client.ObjectKeyFromObject(obj), &got); getErr != nil {
+				t.Fatal(getErr)
+			}
+			if err == nil || got.Status.Phase != "Error" || got.Status.AppliedGeneration != 1 || got.Status.AppliedPlanHash != prior {
+				t.Fatal("failed provider attempt advanced application evidence", err)
+			}
+			for _, kind := range []string{"Synced", "DriftFree"} {
+				found := false
+				for _, condition := range got.Status.Conditions {
+					if condition.Type == kind {
+						found = condition.Status == metav1.ConditionFalse && condition.Reason == tc.reason && condition.ObservedGeneration == 2
+					}
+				}
+				if !found {
+					t.Fatal("missing typed current failure reason", kind, got.Status.Conditions)
+				}
+			}
+			iamconformance.NoSecrets(t, []string{"fixture-secret-sentinel"}, got.Status, err.Error())
+		})
+	}
+}
 
 func TestResourceServerEvidenceFailureAndObservationContract(t *testing.T) {
 	for _, outcome := range []string{"manage", "observe", "observe-drift", "readback-drift", "incomplete", "write-failed", "invalid-reference", "unsupported", "oversized-ownership"} {

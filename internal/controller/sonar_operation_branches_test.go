@@ -29,10 +29,11 @@ func TestOperationPendingAndSkippedTransitions(t *testing.T) {
 	})
 
 	t.Run("snapshot created then running", func(t *testing.T) {
-		operation := &hankoshv1alpha1.HankoOperation{ObjectMeta: metav1.ObjectMeta{Name: "backup", Namespace: "test"}, Spec: hankoshv1alpha1.HankoOperationSpec{InstanceRef: "source"}}
-		k8sClient := controllerTestClient(scheme)
+		operation := &hankoshv1alpha1.HankoOperation{ObjectMeta: metav1.ObjectMeta{Name: "backup", Namespace: "test", UID: "operation-uid"}, Spec: hankoshv1alpha1.HankoOperationSpec{InstanceRef: "source"}}
+		k8sClient := operationChildTestClient(t)
 		reconciler := &HankoOperationReconciler{Client: k8sClient, Scheme: scheme}
 		step := &hankoshv1alpha1.OperationStep{Name: "Snapshot", Status: "Pending"}
+		operation.Status.IntentHash = operationIntentHash(operation)
 		_, next, err := reconciler.advanceSnapshotStep(ctx, operation, step, &now)
 		if err != nil || next || step.Status != "Running" || operation.Status.Phase != "Snapshotting" {
 			t.Fatalf("create snapshot transition: next=%t step=%#v err=%v", next, step, err)
@@ -46,7 +47,7 @@ func TestOperationPendingAndSkippedTransitions(t *testing.T) {
 
 	t.Run("image transitions", func(t *testing.T) {
 		instance := managedTestInstance("test", "source")
-		k8sClient := controllerTestClient(scheme, instance)
+		k8sClient := operationChildTestClient(t, instance)
 		reconciler := &HankoOperationReconciler{Client: k8sClient, Scheme: scheme}
 		step := &hankoshv1alpha1.OperationStep{Name: "UpdateImage"}
 		_, next, err := reconciler.advanceImageStep(ctx, &hankoshv1alpha1.HankoOperation{}, instance, step, &now)
@@ -70,7 +71,7 @@ func TestOperationPendingAndSkippedTransitions(t *testing.T) {
 
 	t.Run("database transitions", func(t *testing.T) {
 		instance := managedTestInstance("test", "database")
-		k8sClient := controllerTestClient(scheme, instance)
+		k8sClient := operationChildTestClient(t, instance)
 		reconciler := &HankoOperationReconciler{Client: k8sClient, Scheme: scheme}
 		step := &hankoshv1alpha1.OperationStep{Name: "UpdateDatabase"}
 		_, next, err := reconciler.advanceDatabaseStep(ctx, &hankoshv1alpha1.HankoOperation{}, instance, step, &now)
@@ -100,7 +101,7 @@ func TestOperationCloneRolloutAndValidationTransitions(t *testing.T) {
 	instance := managedTestInstance("test", "source")
 
 	t.Run("clone target", func(t *testing.T) {
-		k8sClient := controllerTestClient(scheme, instance)
+		k8sClient := operationChildTestClient(t, instance)
 		reconciler := &HankoOperationReconciler{Client: k8sClient, Scheme: scheme}
 		step := &hankoshv1alpha1.OperationStep{Name: "CreateTarget"}
 		_, next, err := reconciler.advanceCreateTargetStep(ctx, &hankoshv1alpha1.HankoOperation{}, instance, step, &now)
@@ -108,36 +109,39 @@ func TestOperationCloneRolloutAndValidationTransitions(t *testing.T) {
 			t.Fatalf("missing clone spec: next=%t step=%#v err=%v", next, step, err)
 		}
 		operation := &hankoshv1alpha1.HankoOperation{
-			ObjectMeta: metav1.ObjectMeta{Name: "clone", Namespace: "test"},
-			Spec:       hankoshv1alpha1.HankoOperationSpec{Clone: &hankoshv1alpha1.CloneSpec{TargetName: "target", TargetNamespace: "target-ns"}},
+			ObjectMeta: metav1.ObjectMeta{Name: "clone", Namespace: "test", UID: "operation-uid"},
+			Spec:       hankoshv1alpha1.HankoOperationSpec{Clone: &hankoshv1alpha1.CloneSpec{TargetName: "target", TargetNamespace: "test"}},
 		}
 		step = &hankoshv1alpha1.OperationStep{Name: "CreateTarget"}
+		operation.Status.IntentHash = operationIntentHash(operation)
 		_, next, err = reconciler.advanceCreateTargetStep(ctx, operation, instance, step, &now)
-		if err != nil || next || step.Status != "Done" {
+		if err != nil || next || step.Status != "Running" {
 			t.Fatalf("create target transition: next=%t step=%#v err=%v", next, step, err)
 		}
 	})
 
 	t.Run("import created then running", func(t *testing.T) {
-		k8sClient := controllerTestClient(scheme)
+		k8sClient := operationChildTestClient(t)
 		reconciler := &HankoOperationReconciler{Client: k8sClient, Scheme: scheme}
 		step := &hankoshv1alpha1.OperationStep{Name: "ImportConfig"}
 		_, next, err := reconciler.advanceImportStep(ctx, &hankoshv1alpha1.HankoOperation{}, step, &now)
-		if err != nil || !next || step.Status != "Skipped" {
+		if err != nil || next || step.Status != "Failed" {
 			t.Fatalf("missing clone import: next=%t step=%#v err=%v", next, step, err)
 		}
 		operation := &hankoshv1alpha1.HankoOperation{
-			ObjectMeta: metav1.ObjectMeta{Name: "clone", Namespace: "test"},
+			ObjectMeta: metav1.ObjectMeta{Name: "clone", Namespace: "test", UID: "operation-uid"},
 			Spec: hankoshv1alpha1.HankoOperationSpec{
 				InstanceRef: "source", Clone: &hankoshv1alpha1.CloneSpec{TargetName: "target"},
 			},
 		}
 		step = &hankoshv1alpha1.OperationStep{Name: "ImportConfig"}
+		operation.Status.IntentHash = operationIntentHash(operation)
 		_, next, err = reconciler.advanceImportStep(ctx, operation, step, &now)
 		if err != nil || next || step.Status != "Running" {
 			t.Fatalf("create import transition: next=%t step=%#v err=%v", next, step, err)
 		}
 		step = &hankoshv1alpha1.OperationStep{Name: "ImportConfig"}
+		operation.Status.IntentHash = operationIntentHash(operation)
 		_, next, err = reconciler.advanceImportStep(ctx, operation, step, &now)
 		if err != nil || next || step.Message != "import in progress" {
 			t.Fatalf("running import transition: next=%t step=%#v err=%v", next, step, err)
@@ -169,14 +173,14 @@ func TestOperationCloneRolloutAndValidationTransitions(t *testing.T) {
 	t.Run("validation and unknown step", func(t *testing.T) {
 		operation := &hankoshv1alpha1.HankoOperation{}
 		step := &hankoshv1alpha1.OperationStep{Name: "Validate"}
-		_, next, err := advanceValidationStep(operation, instance, step, &now)
+		_, next, err := (&HankoOperationReconciler{}).advanceValidationStep(ctx, operation, instance, step, &now)
 		if err != nil || next || step.Status != "Running" || operation.Status.Phase != "Validating" {
 			t.Fatalf("validation wait: next=%t step=%#v err=%v", next, step, err)
 		}
 		reconciler := &HankoOperationReconciler{Client: controllerTestClient(scheme), Scheme: scheme}
 		unknown := &hankoshv1alpha1.OperationStep{Name: "FutureStep"}
 		_, next, err = reconciler.advanceStep(ctx, operation, instance, unknown, &now)
-		if err != nil || next || unknown.Status != "Skipped" {
+		if err != nil || next || unknown.Status != "Failed" {
 			t.Fatalf("unknown step transition: next=%t step=%#v err=%v", next, unknown, err)
 		}
 	})
@@ -196,7 +200,7 @@ func TestOperationAdvanceAndFailureBookkeeping(t *testing.T) {
 	if _, err := reconciler.advanceSteps(ctx, operation, instance, &now); err != nil {
 		t.Fatalf("advance mixed steps: %v", err)
 	}
-	if operation.Status.Steps[2].Status != "Skipped" {
+	if operation.Status.Steps[2].Status != "Failed" {
 		t.Fatalf("unknown step was not checkpointed: %#v", operation.Status.Steps)
 	}
 

@@ -37,20 +37,28 @@ type HankoOrganizationSpec struct {
 
 	// RealmRef references the HankoRealm this organization belongs to.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	RealmRef string `json:"realmRef"`
 
 	// Name is the organization's display name and Keycloak group name.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
 	Name string `json:"name"`
 
 	// Slug is the stable, URL-safe identifier surfaced to Trunx. When empty it
 	// is derived from Name by the consumer.
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`
+	// +kubebuilder:validation:MaxLength=253
 	Slug string `json:"slug,omitempty"`
 
 	// ParentRef is the name of the parent HankoOrganization in the same
 	// namespace, empty for a top-level (tenant-root) organization. It expresses
 	// the multi-level hierarchy as nested Keycloak groups.
+	// +kubebuilder:validation:MaxLength=253
 	ParentRef string `json:"parentRef,omitempty"`
 
 	// Roles lists the realm roles mapped onto this organization's group. Every
@@ -65,6 +73,7 @@ type HankoOrganizationSpec struct {
 	// (HKX-09): members of the node inherit each client's listed roles in
 	// tokens issued for that client. Referenced clients and roles must already
 	// exist (typically declared by a HankoApplication).
+	// +kubebuilder:validation:MaxItems=64
 	ClientRoles []OrganizationClientRoles `json:"clientRoles,omitempty"`
 
 	// Domains lists the internet domains owned by this tenant, e.g.
@@ -72,6 +81,10 @@ type HankoOrganizationSpec struct {
 	// root is reconciled into a Keycloak Organization carrying the alias and
 	// domains, which is the tenancy isolation boundary. Internal nodes inherit
 	// the root's isolation and must leave this empty.
+	// +kubebuilder:validation:MaxItems=64
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:MaxLength=253
+	// +kubebuilder:validation:items:Pattern=`^[^\x00-\x1F\x7F]+$`
 	Domains []string `json:"domains,omitempty"`
 
 	// IdentityProvider is the alias of an existing realm identity broker to
@@ -80,6 +93,8 @@ type HankoOrganizationSpec struct {
 	// empty, organization IdP links are left unmanaged: the operator never
 	// unlinks a broker it was not told about, so a live login path cannot be
 	// broken by omission.
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]*$`
 	IdentityProvider string `json:"identityProvider,omitempty"`
 }
 
@@ -88,10 +103,17 @@ type HankoOrganizationSpec struct {
 type OrganizationClientRoles struct {
 	// Client is the Keycloak clientID owning the roles, e.g. "trunx-dashboard".
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
 	Client string `json:"client"`
 
 	// Roles lists the client role names mapped onto the node's group.
 	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=64
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:MaxLength=255
+	// +kubebuilder:validation:items:Pattern=`^[^\x00-\x1F\x7F]+$`
 	Roles []string `json:"roles"`
 }
 
@@ -134,6 +156,8 @@ type HankoOrganizationStatus struct {
 
 	// Conditions separates provider Synced from optional platform Projection.
 	// Disabled projection is Unknown/Disabled, not a synchronization failure.
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 

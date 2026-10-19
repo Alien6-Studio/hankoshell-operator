@@ -19,7 +19,7 @@ func TestIsNotFound_Nil(t *testing.T) {
 }
 
 func TestIsNotFound_404(t *testing.T) {
-	err := fmt.Errorf("keycloak /admin/realms/x 404: realm not found")
+	err := fmt.Errorf("read failed: %w", &keycloak.StatusError{Code: http.StatusNotFound})
 	if !keycloak.IsNotFound(err) {
 		t.Errorf("IsNotFound(%v) must be true for a 404 error", err)
 	}
@@ -33,7 +33,7 @@ func TestIsNotFound_500(t *testing.T) {
 }
 
 func TestIsForbidden(t *testing.T) {
-	if !keycloak.IsForbidden(fmt.Errorf("keycloak /admin/realms/x 403: forbidden")) {
+	if !keycloak.IsForbidden(fmt.Errorf("read failed: %w", &keycloak.StatusError{Code: http.StatusForbidden})) {
 		t.Error("IsForbidden must recognize Keycloak 403 responses")
 	}
 	if keycloak.IsForbidden(fmt.Errorf("keycloak /admin/realms/x 404: not found")) {

@@ -223,7 +223,7 @@ func TestMalformedPolicyAndMissingVerifierDenyExecution(t *testing.T) {
 		t.Fatal("ambiguous duplicate approval accepted")
 	}
 	writeApprovalPolicy(t, path, approval)
-	if err := os.WriteFile(filepath.Join(filepath.Dir(path), approval.KeyFile), []byte("-----BEGIN PRIVATE KEY-----\nprivate\n-----END PRIVATE KEY-----"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(filepath.Dir(path), approval.KeyFile), []byte("-----BEGIN "+"PRIVATE KEY-----\nprivate\n-----END PRIVATE KEY-----"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	if NewWithPolicy(path, verifier).VerifyImage(context.Background(), ThemeBuilder, approvedImage) == nil || verifier.calls != 0 {

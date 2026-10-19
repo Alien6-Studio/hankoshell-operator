@@ -4,7 +4,6 @@ import importlib.util
 import io
 import json
 import os
-import itertools
 from pathlib import Path
 import subprocess
 import tarfile
@@ -26,20 +25,39 @@ class QualificationGateTests(unittest.TestCase):
         aggregate = workflow["jobs"]["checks"]
         self.assertEqual(aggregate["name"], "Source and chart checks")
         self.assertEqual(aggregate["if"], "always()")
-        self.assertEqual(set(aggregate["needs"]), set(workflow["jobs"]) - {"checks"})
+        # The reporting job observes the gate; it can never be required by it.
+        self.assertEqual(set(aggregate["needs"]), set(workflow["jobs"]) - {"checks", "schedule-report"})
         step = aggregate["steps"][0]
         dependencies = {f"${{{{ needs.{job}.result }}}}" for job in aggregate["needs"]}
-        self.assertEqual(set(step["env"].values()), dependencies)
-        # Execute the actual gate for every combination, using one shell instead
-        # of spawning 4**N processes. Adding preflight must not quadruple forks.
-        for name in step["env"]:
+        result_env = {name: value for name, value in step["env"].items() if name.endswith("_RESULT")}
+        self.assertEqual(set(result_env.values()), dependencies)
+        self.assertEqual(step["env"]["QUALIFY_SCALE"], "${{ github.event_name == 'workflow_dispatch' && inputs.qualify_scale == true }}")
+        # Validate the closed conjunction, then execute every single-input
+        # non-success. This proves each dependency is required without an
+        # exponentially growing 4**N input stream as the matrix gains jobs.
+        for name in result_env:
             self.assertRegex(name, r"^[A-Z][A-Z_]*_RESULT$")
-        cases = "".join(
-            " ".join(results) + (" success\n" if all(value == "success" for value in results) else " failure\n")
-            for results in itertools.product(("success", "failure", "cancelled", "skipped"),
-                                             repeat=len(aggregate["needs"]))
-        )
-        script = "set -eu\nqualification_gate() {\n" + step["run"] + "\n}\nchecked=0\n"
+        self.assertEqual(step["run"].splitlines()[0], " && ".join(
+            'test "$' + name + '" = success' for name in result_env if name != "INSTALLED_SCALE_RESULT") + " || exit 1")
+        names = list(step["env"])
+        baseline = ["success" if name in result_env else "true" for name in names]
+        combinations = [(baseline, True)]
+        for index, name in enumerate(names):
+            if name not in result_env:
+                continue
+            for failure in ("failure", "cancelled", "skipped"):
+                changed = baseline.copy()
+                changed[index] = failure
+                combinations.append((changed, False))
+        for result in ("success", "failure", "cancelled", "skipped"):
+            changed = baseline.copy()
+            changed[names.index("QUALIFY_SCALE")] = "false"
+            changed[names.index("INSTALLED_SCALE_RESULT")] = result
+            combinations.append((changed, result == "skipped"))
+        cases = "".join(" ".join(results) + (" success\n" if passes else " failure\n")
+                        for results, passes in combinations)
+        # Isolate explicit failure exits while exercising every gate case.
+        script = "set -eu\nqualification_gate() (\n" + step["run"] + "\n)\nchecked=0\n"
         script += "while read -r " + " ".join(step["env"]) + " expected; do\n"
         script += '''
           if qualification_gate; then actual=success; else actual=failure; fi
@@ -54,7 +72,7 @@ class QualificationGateTests(unittest.TestCase):
         result = subprocess.run(["bash", "-c", script], input=cases, text=True,
                                 capture_output=True, check=False, timeout=120)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.strip(), str(4 ** len(aggregate["needs"])))
+        self.assertEqual(result.stdout.strip(), str(len(combinations)))
 
     def test_release_reuses_the_full_required_qualification_gate(self):
         root = Path(__file__).parents[1] / ".github/workflows"
@@ -73,6 +91,15 @@ class QualificationGateTests(unittest.TestCase):
         download = next(step for step in installed["steps"] if "download-artifact@" in step.get("uses", ""))
         self.assertEqual(download["with"]["artifact-ids"], "${{ needs.oci.outputs.artifact_id }}")
         command = next(step for step in installed["steps"] if "scripts/workload-installed-test.py" in step.get("run", ""))
+        self.assertEqual(command["env"]["DIGEST"], "${{ needs.oci.outputs.digest }}")
+        self.assertIn('--revision "$GITHUB_SHA"', command["run"])
+        fleet = ci["jobs"]["installed-fleet"]
+        self.assertEqual(fleet["strategy"]["matrix"], installed["strategy"]["matrix"])
+        self.assertEqual(fleet["needs"], ["source", "oci"])
+        self.assertFalse(fleet.get("continue-on-error", False))
+        download = next(step for step in fleet["steps"] if "download-artifact@" in step.get("uses", ""))
+        self.assertEqual(download["with"]["artifact-ids"], "${{ needs.oci.outputs.artifact_id }}")
+        command = next(step for step in fleet["steps"] if "scripts/fleet-installed-test.py" in step.get("run", ""))
         self.assertEqual(command["env"]["DIGEST"], "${{ needs.oci.outputs.digest }}")
         self.assertIn('--revision "$GITHUB_SHA"', command["run"])
         self.assertEqual(delivery["jobs"]["quality"]["uses"], "./.github/workflows/ci.yml")
@@ -142,7 +169,7 @@ class AttestConfigurationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "TSA X.509"):
                 release.validate_configuration(self.config, Path("attest"), Path("openssl"))
             self.assertEqual(tool.call_count, 2)
-        for field, value, message in (("SIGNING_KEY", "-----BEGIN PRIVATE KEY-----\ninvalid\n", "private key"),
+        for field, value, message in (("SIGNING_KEY", "-----BEGIN " "PRIVATE KEY-----\ninvalid\n", "private key"),
                                      ("SIGNING_KEY", self.other_private, "does not match"),
                                      ("PUBLIC_KEY", "b" * 64, "does not match"),
                                      ("KEY_ID", "0" * 32, "key ID")):
@@ -228,8 +255,13 @@ class DeliveryArtifactTests(unittest.TestCase):
         (self.dist / release.PUBLIC_KEY_FILE).write_text(release.public_key_pem("b" * 64))
         (self.dist / "checksums.sigstore.json").write_text(json.dumps({"fixture": True}))
         (self.dist / "release-notes.md").write_text(release.contract.notes(self.version))
+        for name, source in (("THIRD_PARTY_NOTICES", "THIRD_PARTY_NOTICES"),
+                             ("THIRD_PARTY_NOTICES.cosign", "THIRD_PARTY_NOTICES.cosign"),
+                             ("dependency-policy.json", "security/dependency-policy.json")):
+            (self.dist / name).write_bytes((release.contract.ROOT / source).read_bytes())
         names = [self.chart.name, "image-digest.txt", "source-revision.txt", "artifacthub-repo.yml", release.PUBLIC_KEY_FILE,
-                 "oci-security.json", "trivy-amd64.json", "trivy-arm64.json", "oci-vulnerability-policy.json", "release-notes.md"]
+                 "oci-security.json", "trivy-amd64.json", "trivy-arm64.json", "oci-vulnerability-policy.json", "release-notes.md",
+                 "THIRD_PARTY_NOTICES", "THIRD_PARTY_NOTICES.cosign", "dependency-policy.json"]
         (self.dist / "checksums.txt").write_text("".join(
             hashlib.sha256((self.dist / name).read_bytes()).hexdigest() + "  " + name + "\n"
             for name in names))
@@ -238,7 +270,7 @@ class DeliveryArtifactTests(unittest.TestCase):
         return release.delivery_files(self.dist, self.version, self.revision, self.image)
 
     def test_exact_delivery_is_accepted(self):
-        self.assertEqual(len(self.check()), 12)
+        self.assertEqual(len(self.check()), 15)
 
     def test_modified_publisher_metadata_or_public_key_is_refused(self):
         for name in ("artifacthub-repo.yml", release.PUBLIC_KEY_FILE, "release-notes.md"):

@@ -18,6 +18,10 @@ type contractReferenceReader struct {
 	client.Client
 	Reader     client.Reader
 	references []referenceIdentity
+	// One compilation may name the same workload in several permissions and
+	// as actor/subject. Share only that compilation's verified snapshot; each
+	// mutation guard constructs a new reader and performs fresh authority reads.
+	workloadBindings map[client.ObjectKey]*serviceAccountWorkloadSnapshot
 }
 
 func (r *contractReferenceReader) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {

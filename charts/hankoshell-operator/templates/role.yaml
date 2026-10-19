@@ -20,11 +20,61 @@ rules:
       - hankotenants
       - hankokeycloakinstances
       - hankoimports
+      {{- if .Values.lifecycle.enabled }}
       - hankooperations
+      {{- end }}
+      {{- if .Values.lifecycle.enabled }}
       - hankosnapshots
+      {{- end }}
       - hankoresourceservers
       - hankomeshservices
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+    verbs: ["get", "list", "watch"]
+  # Metadata/finalizer and reviewed Fleet writes. Issuer, MeshService and
+  # Import controllers publish through /status and do not edit their own spec.
+  - apiGroups: ["hanko.sh"]
+    resources:
+      - hankorealms
+      - hankoiamprofiles
+      - hankoapplications
+      - hankoroles
+      - hankoorganizations
+      - hankoserviceaccounts
+      - hankoworkloadtrusts
+      - hankothemes
+      - hankotenants
+      - hankokeycloakinstances
+      - hankoresourceservers
+      {{- if .Values.lifecycle.enabled }}
+      - hankooperations
+      - hankosnapshots
+      {{- end }}
+    verbs: ["update", "patch"]
+  # Fleet delivery and Observe-only import creation have explicit kind sets.
+  - apiGroups: ["hanko.sh"]
+    resources:
+      - hankoiamprofiles
+      - hankorealms
+      - hankoapplications
+      - hankoserviceaccounts
+      - hankothemes
+      - hankoroles
+      {{- if .Values.lifecycle.enabled }}
+      - hankokeycloakinstances
+      - hankoimports
+      - hankosnapshots
+      {{- end }}
+    verbs: ["create"]
+  # Fleet rollback deletes only its five content kinds. Decommission removes
+  # its HankoTenant; no controller deletes arbitrary lifecycle requests.
+  - apiGroups: ["hanko.sh"]
+    resources:
+      - hankoiamprofiles
+      - hankorealms
+      - hankoapplications
+      - hankoserviceaccounts
+      - hankothemes
+      - hankotenants
+    verbs: ["delete"]
   - apiGroups: ["hanko.sh"]
     resources:
       - hankorealms/status
@@ -39,8 +89,12 @@ rules:
       - hankotenants/status
       - hankokeycloakinstances/status
       - hankoimports/status
+      {{- if .Values.lifecycle.enabled }}
       - hankooperations/status
+      {{- end }}
+      {{- if .Values.lifecycle.enabled }}
       - hankosnapshots/status
+      {{- end }}
       - hankoresourceservers/status
       - hankomeshservices/status
     verbs: ["get", "update", "patch"]
@@ -55,8 +109,12 @@ rules:
       - hankothemes/finalizers
       - hankotenants/finalizers
       - hankokeycloakinstances/finalizers
+      {{- if .Values.lifecycle.enabled }}
       - hankosnapshots/finalizers
+      {{- end }}
+      {{- if .Values.lifecycle.enabled }}
       - hankooperations/finalizers
+      {{- end }}
       - hankoresourceservers/finalizers
     verbs: ["update"]
   # Legacy email resources are read only except for invalidating obsolete status.
@@ -103,9 +161,15 @@ rules:
   - apiGroups: ["", "events.k8s.io"]
     resources: ["events"]
     verbs: ["create", "patch"]
+  # client-go LeaseLock uses Create/Get/Update only. Kubernetes RBAC cannot
+  # restrict create by resourceName; reads and renewals need only this lock.
   - apiGroups: ["coordination.k8s.io"]
     resources: ["leases"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+    verbs: ["create"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    resourceNames: ["hanko-operator.hanko.sh"]
+    verbs: ["get", "update"]
   # Hub-driven decommission: every extra verb below is pinned by resourceName
   # to the exact release-owned objects the operator removes when Hub asks it
   # to uninstall itself. The Hub credential Secret is deliberately absent.

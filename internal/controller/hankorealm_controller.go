@@ -37,6 +37,7 @@ const realmFinalizerName = "hanko.sh/realm-cleanup"
 // +kubebuilder:rbac:groups=hanko.sh,resources=hankoiamprofiles,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 type HankoRealmReconciler struct {
+	APIReader client.Reader
 	client.Client
 	ProtectedRealm string
 	Scheme         *runtime.Scheme
@@ -46,7 +47,7 @@ type HankoRealmReconciler struct {
 
 func (r *HankoRealmReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var realm hankoshv1alpha1.HankoRealm
-	if err := r.Get(ctx, req.NamespacedName, &realm); err != nil {
+	if err := r.realmReader().Get(ctx, req.NamespacedName, &realm); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -56,6 +57,11 @@ func (r *HankoRealmReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			r.Recorder.Eventf(&realm, nil, corev1.EventTypeWarning, "ProtectedRealm", "Reconcile", "%s", "hanko-operator does not manage the master realm")
 		}
 		return ctrl.Result{}, nil
+	}
+
+	kc := kcForObject(r.Pool, realm.Namespace, realm.Labels)
+	if handled, result, err := reconcileTenantClient(ctx, r.Client, &realm, kc); handled {
+		return result, err
 	}
 
 	observe := isImported(realm.Labels)
@@ -74,7 +80,6 @@ func (r *HankoRealmReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			return ctrl.Result{RequeueAfter: requeueWithJitter()}, nil
 		}
 	}
-	kc := kcForObject(r.Pool, realm.Namespace, realm.Labels)
 	if !observe && !realm.DeletionTimestamp.IsZero() && strings.TrimSpace(r.ProtectedRealm) != "" && realm.Name == strings.TrimSpace(r.ProtectedRealm) {
 		return r.releaseProtectedAuthorityRealm(ctx, &realm)
 	}
@@ -168,10 +173,13 @@ func (r *HankoRealmReconciler) reconcileRealmDeletion(ctx context.Context, realm
 		return ctrl.Result{RequeueAfter: requeueOnError}, err
 	}
 	if len(blocking) > 0 {
-		return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("realm %q has %d managed resource(s) still present: %v — delete them first", realm.Name, len(blocking), blocking)
+		return r.waitForRealmDependents(ctx, realm, blocking)
 	}
 	if err := kc.EnsureRealmDeletionAccess(ctx, realm.Name); err != nil {
 		return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("ensure realm deletion access: %w", err)
+	}
+	if err := r.verifyRealmDeletionAuthority(ctx, realm); err != nil {
+		return ctrl.Result{RequeueAfter: requeueOnError}, err
 	}
 	if err := kc.DeleteRealm(ctx, realm.Name); err != nil {
 		return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("delete realm from keycloak: %w", err)
@@ -181,38 +189,6 @@ func (r *HankoRealmReconciler) reconcileRealmDeletion(ctx context.Context, realm
 	}
 	log.FromContext(ctx).Info("HankoRealm deleted from Keycloak", "realm", realm.Name)
 	return ctrl.Result{}, r.removeRealmFinalizer(ctx, realm, "remove realm finalizer")
-}
-
-func (r *HankoRealmReconciler) realmDeletionBlockers(ctx context.Context, realm *hankoshv1alpha1.HankoRealm) ([]string, error) {
-	var apps hankoshv1alpha1.HankoApplicationList
-	if err := r.List(ctx, &apps, client.InNamespace(realm.Namespace)); err != nil {
-		return nil, err
-	}
-	blocking := make([]string, 0)
-	for _, app := range apps.Items {
-		if app.Spec.RealmRef == realm.Name {
-			blocking = append(blocking, app.Spec.ClientID)
-		}
-	}
-	var accounts hankoshv1alpha1.HankoServiceAccountList
-	if err := r.List(ctx, &accounts, client.InNamespace(realm.Namespace)); err != nil {
-		return nil, err
-	}
-	for _, account := range accounts.Items {
-		if account.Spec.RealmRef == realm.Name {
-			blocking = append(blocking, account.Spec.ClientID)
-		}
-	}
-	var issuers hankoshv1alpha1.HankoIssuerList
-	if err := r.List(ctx, &issuers, client.InNamespace(realm.Namespace)); err != nil {
-		return nil, err
-	}
-	for _, issuer := range issuers.Items {
-		if issuer.Spec.RealmRef == realm.Name {
-			blocking = append(blocking, "issuer/"+issuer.Spec.Host)
-		}
-	}
-	return blocking, nil
 }
 
 func (r *HankoRealmReconciler) removeRealmFinalizer(ctx context.Context, realm *hankoshv1alpha1.HankoRealm, action string) error {
@@ -822,11 +798,14 @@ func (r *HankoRealmReconciler) reconcileThemeReadiness(ctx context.Context, real
 // explicit reconcile-request annotation enqueue the primary resource; ordinary
 // status and metadata writes remain filtered to avoid tight reconcile loops.
 func (r *HankoRealmReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.APIReader == nil {
+		r.APIReader = mgr.GetAPIReader()
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoRealm{}, builder.WithPredicates(generationOrReconcileRequestChanged())).
 		Watches(&hankoshv1alpha1.HankoTheme{}, handler.EnqueueRequestsFromMapFunc(r.realmRequestsForTheme)).
 		Watches(&hankoshv1alpha1.HankoIAMProfile{}, handler.EnqueueRequestsFromMapFunc(r.realmRequestsForIAMProfile), builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Complete(r)
+		Complete(observeReconciler("HankoRealm", r))
 }
 
 func (r *HankoRealmReconciler) realmRequestsForIAMProfile(ctx context.Context, obj client.Object) []reconcile.Request {

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
@@ -329,6 +330,67 @@ func (f *bindingFixture) activeFixtureEvidence() {
 	iamCondition(&f.account.Status.Conditions, f.account.Generation, "FederatedModeApplied", metav1.ConditionTrue, "FixtureNativeReadBack", "synthetic activation fixture")
 	if err := f.kube.Status().Update(context.Background(), f.account); err != nil {
 		f.t.Fatal(err)
+	}
+}
+
+func TestAuthorizationWorkloadEvidenceIsScopedToOneCompilation(t *testing.T) {
+	for _, change := range []string{"native-disabled", "workload-replaced", "activation-status-lost"} {
+		t.Run(change, func(t *testing.T) {
+			f := newBindingFixture(t)
+			f.nativeClient("identity-uid")
+			f.activeFixtureEvidence()
+			var reads atomic.Int32
+			previous := f.server.Config.Handler
+			f.server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				reads.Add(1)
+				previous.ServeHTTP(w, req)
+			})
+			reader := &contractReferenceReader{Client: f.kube, Reader: f.kube}
+			r := &HankoResourceServerReconciler{Client: reader, APIReader: f.kube, WorkloadTrust: f.r}
+			rs := &api.HankoResourceServer{ObjectMeta: metav1.ObjectMeta{Namespace: "auth"}, Spec: api.HankoResourceServerSpec{RealmRef: "managed"}}
+			principal := api.AuthorizationPrincipal{Kind: "service_account", Ref: f.account.Name}
+			if _, err := r.resolveAuthorizationPrincipal(context.Background(), rs, nil, principal); err != nil {
+				t.Fatal(err)
+			}
+			firstReads := reads.Load()
+			if firstReads == 0 {
+				t.Fatal("initial resolution skipped live native evidence")
+			}
+			for range 6 {
+				if _, err := r.resolveAuthorizationPrincipal(context.Background(), rs, nil, principal); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if reads.Load() != firstReads {
+				t.Fatal("repeated principal re-read the same native evidence within one compilation")
+			}
+			switch change {
+			case "native-disabled":
+				f.mu.Lock()
+				f.dependents[0]["enabled"] = false
+				f.mu.Unlock()
+			case "workload-replaced":
+				f.replaceWorkload()
+			case "activation-status-lost":
+				f.account.Status.Phase = "Error"
+				if err := f.kube.Status().Update(context.Background(), f.account); err != nil {
+					t.Fatal(err)
+				}
+				// A changed HSA invalidates even this compilation's memo.
+				if _, err := r.resolveAuthorizationPrincipal(context.Background(), rs, nil, principal); err == nil {
+					t.Fatal("changed activation status reused earlier evidence")
+				}
+			}
+			// This is the new reader created by the next mutation guard, even
+			// when its HSA object has not changed at all.
+			r.Client = &contractReferenceReader{Client: f.kube, Reader: f.kube}
+			if _, err := r.resolveAuthorizationPrincipal(context.Background(), rs, nil, principal); err == nil {
+				t.Fatal("a later compilation reused revoked workload authority")
+			}
+			if reads.Load() <= firstReads {
+				t.Fatal("later compilation did not obtain fresh native evidence")
+			}
+		})
 	}
 }
 

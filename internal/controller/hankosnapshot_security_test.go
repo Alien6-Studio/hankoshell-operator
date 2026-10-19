@@ -41,7 +41,14 @@ func snapshotBackupSecret(snapshot *hankoshv1alpha1.HankoSnapshot) *corev1.Secre
 
 func snapshotOwnedJob(t *testing.T, r *HankoSnapshotReconciler, snapshot *hankoshv1alpha1.HankoSnapshot) *batchv1.Job {
 	t.Helper()
+	if snapshot.UID == "" {
+		snapshot.UID = "snapshot-uid"
+	}
+	snapshot.Status.IntentHash = snapshotIntentHash(snapshot)
 	job := r.buildPGDumpJob("snap-"+snapshot.Name+"-pgdump", snapshot)
+	job.UID = "job-uid"
+	job.Annotations = map[string]string{snapshotIntentAnnotation: snapshot.Status.IntentHash}
+	job.Labels = map[string]string{"hanko.sh/tenant": snapshot.Labels["hanko.sh/tenant"]}
 	if err := controllerutil.SetControllerReference(snapshot, job, r.Scheme); err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +128,7 @@ func TestSnapshotBackupRejectsUntrustedExecutionAndSharedCredentials(t *testing.
 				validator = fixtureValidator(t, verifier)
 			}
 			scheme := controllerTestScheme(t)
-			kube := controllerTestClient(scheme, objects...)
+			kube := snapshotTestClient(t, objects...)
 			r := &HankoSnapshotReconciler{Client: kube, Scheme: scheme, ImageValidator: validator}
 			ctx := context.Background()
 			if _, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(snapshot)}); err != nil {
@@ -216,7 +223,10 @@ func TestSnapshotDoesNotAdoptLegacyOrAlteredJobs(t *testing.T) {
 			job.Status.Conditions = []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}}
 			test.mutate(job)
 			r.Client = controllerTestClient(scheme, snapshot, job, snapshotBackupSecret(snapshot))
-			_, handled := r.reconcileSnapshotData(context.Background(), snapshot, managedTestInstance("test", "keycloak"), client.MergeFrom(snapshot.DeepCopy()))
+			_, handled, err := r.reconcileSnapshotData(context.Background(), snapshot, managedTestInstance("test", "keycloak"), client.MergeFrom(snapshot.DeepCopy()))
+			if err != nil {
+				t.Fatal(err)
+			}
 			if !handled || snapshot.Status.Phase != "Failed" || conditionReason(snapshot.Status.Conditions, "SnapshotReady") != "JobContractMismatch" {
 				t.Fatalf("existing Job bypassed trust: %+v", snapshot.Status)
 			}
@@ -231,8 +241,33 @@ func TestSnapshotExistingJobStillRequiresLiveSignature(t *testing.T) {
 	job := snapshotOwnedJob(t, r, snapshot)
 	job.Status.Conditions = []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}}
 	r.Client = controllerTestClient(scheme, snapshot, job, snapshotBackupSecret(snapshot))
-	_, handled := r.reconcileSnapshotData(context.Background(), snapshot, managedTestInstance("test", "keycloak"), client.MergeFrom(snapshot.DeepCopy()))
+	_, handled, err := r.reconcileSnapshotData(context.Background(), snapshot, managedTestInstance("test", "keycloak"), client.MergeFrom(snapshot.DeepCopy()))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !handled || snapshot.Status.Phase != "Failed" || conditionReason(snapshot.Status.Conditions, "SnapshotReady") != "UntrustedBackupImage" {
 		t.Fatalf("completed Job bypassed publisher verification: %+v", snapshot.Status)
+	}
+}
+
+func TestSnapshotBackupJobsWriteDistinctDumpFiles(t *testing.T) {
+	first := snapshotDataFixture()
+	sibling := snapshotDataFixture()
+	sibling.Name, sibling.UID = "data-2", "snapshot-uid-2"
+	recreated := snapshotDataFixture()
+	recreated.UID = "snapshot-uid-recreated"
+	r := &HankoSnapshotReconciler{Scheme: controllerTestScheme(t)}
+	files := map[string]bool{}
+	for _, snapshot := range []*hankoshv1alpha1.HankoSnapshot{first, sibling, recreated} {
+		command := snapshotOwnedJob(t, r, snapshot).Spec.Template.Spec.Containers[0].Command
+		file := command[len(command)-1]
+		name := strings.TrimPrefix(file, "--file=/backup/")
+		if name == file || strings.Contains(name, "/") || !strings.HasSuffix(name, ".dump") {
+			t.Fatalf("dump file escapes the backup volume: %q", file)
+		}
+		files[file] = true
+	}
+	if len(files) != 3 {
+		t.Fatalf("snapshots sharing a backup PVC would overwrite each other's archive: %v", files)
 	}
 }

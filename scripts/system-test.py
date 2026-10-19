@@ -6,6 +6,7 @@ normal operator uses the chart service account and target-realm Keycloak roles.
 
 import argparse
 import base64
+import copy
 import hashlib
 import importlib.util
 import json
@@ -22,12 +23,15 @@ from urllib.request import Request, urlopen
 
 import yaml
 
+from evidence_privacy import contains_jwt, redact_jwts
+
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("release_system", ROOT / "scripts/release-system-test.py")
 publication = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(publication)
 diagnostics = publication.publish.contract.module("qualification_diagnostics", "qualification-diagnostics.py")
 run = publication.publish.run
+lifecycle = publication.publish.contract.module("lifecycle_approval", "lifecycle-approval.py")
 PINS = publication.publish.contract.pins.DATA
 VERSION = PINS["release"]["version"]
 KUBERNETES_VERSION = PINS["kubernetes"]["default"]
@@ -170,7 +174,7 @@ class System:
             diagnostic = copy.stderr.decode(errors="replace")[-2048:]
             for value in self.sensitive:
                 diagnostic = diagnostic.replace(value, "[REDACTED]")
-            diagnostic = re.sub(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", "[REDACTED JWT]", diagnostic)
+            diagnostic = redact_jwts(diagnostic)
             raise RuntimeError("Local OCI mirror copy failed: " + diagnostic)
         if publication.publish.Registry(self.args.oras, self.args.helm, plain_http=True).resolve(self.registry + "/hankoshell-operator:scanned") != self.args.digest:
             raise ValueError("System-test mirror changed the scanned OCI graph")
@@ -260,6 +264,7 @@ class System:
                                     "kubernetesAPIEndpointCIDRs": [item["ip"] + "/32" for item in endpoints]}}
         if getattr(self, "workload_grants", None):
             values["workloadBinding"] = {"grants": self.workload_grants}
+        values.update(getattr(self, "install_values", {}))
         file = self.private / "values.yaml"
         file.write_text(yaml.safe_dump(values))
         run([self.args.helm, "install", "system", ROOT / "charts/hankoshell-operator", "--namespace", "auth",
@@ -269,7 +274,7 @@ class System:
         if container["image"] != self.registry + "/hankoshell-operator@" + self.args.digest:
             raise ValueError("Installed image is not the scanned graph")
         if (pod["spec"]["securityContext"]["runAsNonRoot"] is not True or container["securityContext"]["readOnlyRootFilesystem"] is not True
-                or "--metrics-bind-address=0" not in container["args"]):
+                or (("--metrics-bind-address=0" in container["args"]) != (not values.get("metrics", {}).get("enabled", False)))):
             raise ValueError("Installed chart hardening/metrics contract differs")
         for namespace, expected in (("auth", "yes"), ("other", "no")):
             result = self.kubectl("auth", "can-i", "get", "secrets", "-n", namespace, "--as", "system:serviceaccount:auth:system-operator") if expected == "yes" else subprocess.run(
@@ -779,7 +784,7 @@ class System:
         self.api("POST", "/admin/realms", {"realm": "denied-adoption"}, token=constrained, expected=(403,))
         return credential
 
-    def adoption_operator(self, namespace, realm, reader_roles, writer_roles):
+    def adoption_operator(self, namespace, realm, reader_roles, writer_roles, lifecycle_enabled=False):
         writer, reader = namespace + "-writer", namespace + "-reader"
         writer_secret = self.adoption_identity(writer, realm, writer_roles)
         reader_secret = self.adoption_identity(reader, realm, reader_roles)
@@ -791,6 +796,7 @@ class System:
                 "HANKO_KC_CLIENT_ID": reader, "HANKO_KC_CLIENT_SECRET": reader_secret}, namespace))
         values = yaml.safe_load((self.private / "values.yaml").read_text())
         values["fullnameOverride"] = namespace + "-operator"
+        values["lifecycle"] = {"enabled": lifecycle_enabled, "adminGroups": []}
         values["networkPolicy"]["keycloakNamespace"] = "auth"
         config = self.private / (namespace + "-values.yaml")
         config.write_text(yaml.safe_dump(values))
@@ -818,6 +824,162 @@ class System:
             raise ValueError("Aggregate checkpoint implicitly granted Manage")
         return {"contractVersion": "hanko.sh/adoption-contract/v1alpha1", "targetKind": acquired["kind"],
                 "targetUID": acquired["metadata"]["uid"], "candidateHash": candidate["candidateHash"]}
+
+    def approve_lifecycle(self, kind, name, namespace, operator_name=None):
+        def request():
+            return any(c.get("type") == "Authorized" and c.get("reason") == "ApprovalRequired"
+                       for c in self.get(kind, name, namespace).get("status", {}).get("conditions", []))
+        wait("installed lifecycle waits for independent approval", request)
+        target = self.get(kind, name, namespace)
+        if target.get("status", {}).get("steps") or target.get("status", {}).get("configMapUID"):
+            raise ValueError("Unapproved lifecycle request created an execution checkpoint")
+        patch = lifecycle.prepare(target)
+        author = "lifecycle-fixture-author"
+        self.apply({"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "Role",
+                    "metadata": {"namespace": namespace, "name": author}, "rules": [{"apiGroups": ["hanko.sh"],
+                    "resources": ["hankooperations", "hankosnapshots"], "verbs": ["get", "create", "patch"]}]},
+                   {"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "RoleBinding",
+                    "metadata": {"namespace": namespace, "name": author},
+                    "roleRef": {"apiGroup": "rbac.authorization.k8s.io", "kind": "Role", "name": author},
+                    "subjects": [{"kind": "User", "name": author, "apiGroup": "rbac.authorization.k8s.io"}]})
+        for identity in (author, f"system:serviceaccount:{namespace}:{operator_name or namespace + '-operator'}"):
+            result = subprocess.run([str(self.args.kubectl), "--kubeconfig", str(self.config), "--as=" + identity,
+                "patch", kind, name, "-n", namespace, "--type=merge", "-p", json.dumps(patch), "--dry-run=server"],
+                capture_output=True, text=True, timeout=30, check=False)
+            if result.returncode == 0 or "Lifecycle approval requires independent administrator authority" not in result.stderr:
+                raise ValueError("Installed lifecycle self-approval was not independently refused")
+        forged = {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoSnapshot",
+                  "metadata": {"name": "forged-" + name, "namespace": namespace,
+                               "annotations": {"hanko.sh/operation-intent": "forged"}},
+                  "spec": {"instanceRef": target["spec"]["instanceRef"]}}
+        result = subprocess.run([str(self.args.kubectl), "--kubeconfig", str(self.config), "--as=" + author,
+            "create", "--dry-run=server", "-f", "-"], input=json.dumps(forged), capture_output=True, text=True, timeout=30, check=False)
+        if result.returncode == 0 or "Lifecycle child provenance requires operator or administrator authority" not in result.stderr:
+            raise ValueError("Installed ordinary author forged lifecycle child provenance")
+        self.kubectl("--as=lifecycle-fixture-administrator", "--as-group=system:masters",
+                     "patch", kind, name, "-n", namespace, "--type=merge", "-p", json.dumps(patch))
+
+    def lifecycle_alias(self):
+        """Exercise real Clone/configuration recovery with a read-only provider identity."""
+        realm, namespace = "lifecycle-target", "lifecycle-auth"
+        self.api("POST", "/admin/realms", {"realm": realm, "enabled": True})
+        self.api("POST", f"/admin/realms/{realm}/clients", {"clientId": "lifecycle-spa", "protocol": "openid-connect",
+            "enabled": True, "publicClient": True, "standardFlowEnabled": True, "directAccessGrantsEnabled": False,
+            "serviceAccountsEnabled": False, "fullScopeAllowed": False, "redirectUris": ["https://lifecycle.example.test/callback"]})
+        roles = ["view-realm", "view-clients", "view-identity-providers"]
+        self.adoption_operator(namespace, realm, [*roles, "view-users"], roles, lifecycle_enabled=True)
+        source = self.get("hankokeycloakinstance", "source", namespace)
+        provider_before, client_before = self.api("GET", "/admin/realms/" + realm), self.client(realm, "lifecycle-spa")
+        reader = self.get("secret", "inventory-credentials", namespace)["data"]
+        inventory_token = self.access_token({"client_id": namespace + "-reader",
+            "client_secret": base64.b64decode(reader["HANKO_KC_CLIENT_SECRET"]).decode(), "grant_type": "client_credentials"})
+        self.api("GET", f"/admin/realms/{realm}/groups", token=inventory_token)
+        self.api("PUT", f'/admin/realms/{realm}/clients/{client_before["id"]}', {"enabled": False}, token=inventory_token, expected=(403,))
+        deployment = namespace + "-operator"
+        role = self.get("role", deployment, namespace)
+        blocked, protected = [], False
+        for rule in role["rules"]:
+            if "" in rule.get("apiGroups", []) and "configmaps" in rule.get("resources", []) and "create" in rule.get("verbs", []):
+                protected = True
+                others = [resource for resource in rule["resources"] if resource != "configmaps"]
+                if others:
+                    blocked.append({**rule, "resources": others})
+                blocked.append({**rule, "resources": ["configmaps"], "verbs": [verb for verb in rule["verbs"] if verb != "create"]})
+            else:
+                blocked.append(rule)
+        if not protected:
+            raise ValueError("Lifecycle fixture cannot establish its ConfigMap create denial")
+        self.kubectl("patch", "role", deployment, "-n", namespace, "--type=merge", "-p", json.dumps({"rules": blocked}))
+        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoOperation", "metadata": {"name": "clone", "namespace": namespace},
+                    "spec": {"type": "Clone", "instanceRef": "source", "clone": {"targetName": "alias"}}})
+
+        self.approve_lifecycle("hankooperation", "clone", namespace)
+
+        def blocked_snapshot():
+            operation = self.get("hankooperation", "clone", namespace)
+            step = next((s for s in operation.get("status", {}).get("steps", []) if s["name"] == "Snapshot"), {})
+            if not step.get("childUID"):
+                return False
+            snapshot = self.get("hankosnapshot", "op-clone-snap", namespace)
+            return (snapshot["metadata"]["uid"] == step["childUID"] and snapshot.get("status", {}).get("intentHash")
+                    and not snapshot["status"].get("configMapUID") and snapshot["status"].get("phase") == "Running")
+
+        wait("installed lifecycle durable checkpoint under real RBAC denial", blocked_snapshot)
+        snapshot_before = self.get("hankosnapshot", "op-clone-snap", namespace)
+        if self.exists("configmap", "snap-op-clone-snap-config", namespace):
+            raise ValueError("Lifecycle fixture did not deny capture creation")
+        self.kubectl("scale", "deployment/" + deployment, "-n", namespace, "--replicas=0")
+        self.kubectl("wait", "--for=delete", "pods", "-n", namespace, "-l", "app.kubernetes.io/instance=" + namespace, "--timeout=90s")
+        self.kubectl("patch", "role", deployment, "-n", namespace, "--type=merge", "-p", json.dumps({"rules": role["rules"]}))
+        self.kubectl("scale", "deployment/" + deployment, "-n", namespace, "--replicas=1")
+        self.kubectl("rollout", "status", "deployment/" + deployment, "-n", namespace, "--timeout=180s")
+        def clone_complete():
+            phase = self.get("hankooperation", "clone", namespace).get("status", {}).get("phase")
+            if phase == "Failed":
+                raise ValueError("Installed Clone failed before complete provider verification")
+            return phase == "Done"
+
+        wait("installed configuration alias Clone completion", clone_complete, 240)
+        operation = self.get("hankooperation", "clone", namespace)
+        snapshot = self.get("hankosnapshot", "op-clone-snap", namespace)
+        target, imported = self.get("hankokeycloakinstance", "alias", namespace), self.get("hankoimport", "op-clone-import", namespace)
+        steps = {step["name"]: step for step in operation["status"]["steps"]}
+        if (set(steps) != {"Snapshot", "CreateTarget", "ImportConfig", "Validate"}
+                or any(step["status"] != "Done" for step in steps.values())
+                or operation["status"].get("instanceUID") != source["metadata"]["uid"]
+                or operation["status"].get("startedGeneration") != operation["metadata"]["generation"]
+                or not any(c.get("type") == "Completed" and c.get("status") == "True"
+                           and c.get("observedGeneration") == operation["metadata"]["generation"] for c in operation["status"].get("conditions", []))
+                or snapshot["metadata"]["uid"] != snapshot_before["metadata"]["uid"]
+                or steps["Snapshot"].get("childUID") != snapshot["metadata"]["uid"]
+                or steps["CreateTarget"].get("childUID") != target["metadata"]["uid"]
+                or steps["ImportConfig"].get("childUID") != imported["metadata"]["uid"]):
+            raise ValueError("Installed Clone did not preserve exact durable child identities")
+        capture = self.get("configmap", snapshot["status"]["configMapRef"], namespace)
+        if (capture["metadata"]["uid"] != snapshot["status"].get("configMapUID") or capture.get("immutable") is not True
+                or hashlib.sha256(capture["data"]["snapshot.json"].encode()).hexdigest() != snapshot["status"].get("configHash")
+                or [item["metadata"]["name"] for item in json.loads(capture["data"]["snapshot.json"]).get("realms", [])] != [realm]):
+            raise ValueError("Installed Clone did not validate its immutable configuration capture")
+        if (target["spec"]["mode"] != "external" or target.get("status", {}).get("phase") != "Ready" or target["spec"]["adminRef"] != source["spec"]["adminRef"]
+                or target["spec"]["tlsCARef"] != source["spec"]["tlsCARef"] or target["spec"].get("hardenMasterRealm", False)
+                or not any(c.get("type") == "AdminAPIReachable" and c.get("status") == "True"
+                           and c.get("observedGeneration") == target["metadata"]["generation"] for c in target.get("status", {}).get("conditions", []))
+                or imported["status"].get("phase") != "Done" or not imported["status"].get("coverage", {}).get("complete")
+                or imported["status"]["coverage"].get("truncated", False)):
+            raise ValueError("Installed Clone did not retain verified TLS and complete provider observation")
+        for resource in ("hankosnapshots", "hankoimports"):
+            if len(json.loads(self.kubectl("get", resource, "-n", namespace, "-o", "json"))["items"]) != 1:
+                raise ValueError("Installed Clone restart duplicated a child")
+        # Existing aliases remain foreign even when their connection spec matches.
+        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoKeycloakInstance", "metadata": {"name": "foreign", "namespace": namespace}, "spec": source["spec"]})
+        foreign = self.get("hankokeycloakinstance", "foreign", namespace)
+        self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoOperation", "metadata": {"name": "foreign", "namespace": namespace},
+                    "spec": {"type": "Clone", "instanceRef": "source", "snapshotBefore": False, "clone": {"targetName": "foreign"}}})
+        self.approve_lifecycle("hankooperation", "foreign", namespace)
+        wait("installed Clone refuses foreign target", lambda: self.get("hankooperation", "foreign", namespace).get("status", {}).get("phase") == "Failed")
+        current = self.get("hankokeycloakinstance", "foreign", namespace)
+        if (current["metadata"]["uid"] != foreign["metadata"]["uid"] or current["spec"] != foreign["spec"]
+                or current["metadata"].get("ownerReferences") or self.exists("hankoimport", "op-foreign-import", namespace)):
+            raise ValueError("Installed Clone took ownership of a foreign alias")
+        credential = self.adoption_identity("lifecycle-incomplete-reader", realm, ["view-realm", "view-clients", "view-users"])
+        token = self.access_token({"client_id": "lifecycle-incomplete-reader", "client_secret": credential, "grant_type": "client_credentials"})
+        self.api("GET", f"/admin/realms/{realm}/identity-provider/instances", token=token, expected=(403,))
+        self.apply(self.secret("incomplete-inventory", {"HANKO_KEYCLOAK_URL": "https://keycloak.auth.svc:8443",
+            "HANKO_KC_CLIENT_ID": "lifecycle-incomplete-reader", "HANKO_KC_CLIENT_SECRET": credential}, namespace),
+            {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoKeycloakInstance", "metadata": {"name": "incomplete-source", "namespace": namespace},
+             "spec": {"mode": "external", "adminRef": {"name": "incomplete-inventory"}, "tlsCARef": "operator-ca"}},
+            {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoOperation", "metadata": {"name": "incomplete", "namespace": namespace},
+             "spec": {"type": "Clone", "instanceRef": "incomplete-source", "snapshotBefore": False, "clone": {"targetName": "incomplete-alias"}}})
+        self.approve_lifecycle("hankooperation", "incomplete", namespace)
+        wait("installed Clone propagates a real denied inventory read", lambda: self.get("hankooperation", "incomplete", namespace).get("status", {}).get("phase") == "Failed", 180)
+        failed = self.get("hankooperation", "incomplete", namespace)["status"]
+        child = self.get("hankoimport", "op-incomplete-import", namespace)
+        if (child.get("status", {}).get("phase") != "Failed" or child["status"].get("coverage", {}).get("complete", False)
+                or not any(step["name"] == "ImportConfig" and step["status"] == "Failed" for step in failed["steps"])
+                or not any(c.get("type") == "Completed" and c.get("status") == "False" for c in failed.get("conditions", []))):
+            raise ValueError("Installed Clone reported success after incomplete provider discovery")
+        if self.api("GET", "/admin/realms/" + realm) != provider_before or self.client(realm, "lifecycle-spa") != client_before:
+            raise ValueError("Configuration alias Clone changed the provider")
 
     def aggregate_manage(self, kind, name, namespace):
         self.kubectl("annotate", kind, name, "-n", namespace, "hanko.sh/adoption-source-", "hanko.sh/adoption-contract-", "hanko.sh/adoption-candidate-")
@@ -1107,6 +1269,75 @@ class System:
         if self.client(realm, "reviewed-api")["id"] != backing["id"] or self.api("GET", base) != realm_before:
             raise ValueError("Child cleanup replaced the client or changed the external realm")
 
+    def public_contract_corpus(self):
+        path = ROOT / "internal/iamconformance/testdata/public-0.1.0/corpus.json"
+        corpus = json.loads(path.read_text())
+        aliases = {"portal": "public-application-oidc", "api": "public-application-m2m", "reader": "public-role-composite"}
+        for name in ("writer", "viewer"):
+            self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoRole", "metadata": {"name": "public-" + name, "namespace": "auth"},
+                        "spec": {"realmRef": "managed", "name": "public-" + name}})
+            wait("public auxiliary owned role", lambda: self.role_reconciled("public-" + name))
+        # Parent roles precede scoped clients; the resource server follows its
+        # backing client. Logical fixture references are rebound explicitly.
+        ordered = sorted(corpus["fixtures"], key=lambda f: {"HankoRole": 0, "HankoApplication": 1, "HankoResourceServer": 2}[f["kind"]])
+        objects = []
+        clients = []
+        for fixture in ordered:
+            spec = copy.deepcopy(fixture["spec"])
+            spec["realmRef"] = "managed"
+            if fixture["kind"] == "HankoRole":
+                spec["name"] = "public-" + spec["name"]
+                spec["composites"] = ["public-" + name for name in spec.get("composites", [])]
+            elif fixture["kind"] == "HankoApplication":
+                if spec.get("protocol") == "saml":
+                    spec["clientID"] = "https://public-contract.example.test/entity"
+                else:
+                    spec["clientID"] = "public-" + spec["clientID"]
+                spec["realmRoleScopes"] = ["public-" + role for role in spec["realmRoleScopes"]] if "realmRoleScopes" in spec else None
+                if spec["realmRoleScopes"] is None:
+                    del spec["realmRoleScopes"]
+                clients.append(spec["clientID"])
+            else:
+                spec["applicationRef"] = aliases[spec["applicationRef"]]
+                for permission in spec["permissions"]:
+                    for principal in permission["principals"]:
+                        principal["ref"] = aliases[principal["ref"]]
+            name = "public-" + fixture["name"]
+            self.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": fixture["kind"],
+                        "metadata": {"name": name, "namespace": "auth"}, "spec": spec})
+            wait("installed public corpus evaluated/applied/observed", lambda: self.iam_reconciled(fixture["kind"].lower(), name))
+            objects.append((fixture["kind"].lower(), name))
+            if fixture["kind"] == "HankoApplication" and spec.get("protocol", "oidc") == "oidc":
+                secret = self.get("secret", "hanko-app-" + spec["clientID"])["data"]["client_secret"]
+                self.sensitive.append(base64.b64decode(secret).decode())
+        before = {client: self.client("managed", client)["id"] for client in clients}
+        owners = {(kind, name): self.get(kind, name)["metadata"]["uid"] for kind, name in objects}
+        role_id = self.api("GET", "/admin/realms/managed/roles/public-reader")["id"]
+        journal_before = json.loads(self.client("managed", "public-api")["attributes"]["hanko.sh/resource-server-ownership"])
+        self.kubectl("rollout", "restart", "deployment/system-operator", "-n", "auth")
+        self.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=120s")
+        for kind, name in objects:
+            wait("public corpus readiness after restart", lambda: self.iam_reconciled(kind, name))
+            if self.get(kind, name)["metadata"]["uid"] != owners[(kind, name)]:
+                raise ValueError("Public corpus object was recreated")
+        if any(self.client("managed", name)["id"] != identity for name, identity in before.items()):
+            raise ValueError("Public corpus client was duplicated or replaced")
+        role = self.api("GET", "/admin/realms/managed/roles/public-reader")
+        if role["id"] != role_id or role.get("attributes", {}).get("hanko.sh/role-owner") != [owners[("hankorole", "public-role-composite")]]:
+            raise ValueError("Public role UID ownership changed")
+        journal = json.loads(self.client("managed", "public-api")["attributes"]["hanko.sh/resource-server-ownership"])
+        if journal != journal_before or journal["ownerUID"] != owners[("hankoresourceserver", "public-resource-server")]:
+            raise ValueError("Public authorization UID ownership changed")
+        for fixture in ordered:
+            if fixture["kind"] == "HankoApplication":
+                client_id = "https://public-contract.example.test/entity" if fixture["spec"].get("protocol") == "saml" else "public-" + fixture["spec"]["clientID"]
+                owner = owners[("hankoapplication", "public-" + fixture["name"])]
+                if self.client("managed", client_id).get("attributes", {}).get("hanko.sh/application-owner") != owner:
+                    raise ValueError("Public application UID ownership changed")
+        self.public_corpus_evidence = {"fixture_sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "fixtures": len(objects),
+            "restart_preserves_native_identity": True, "cross_release": corpus["limitation"]}
+        print("System: public contract corpus and restart passed; cross-release: " + corpus["limitation"], flush=True)
+
     def reconcile(self):
         self.reject_wrong_ca()
         self.api("POST", "/admin/realms/managed/clients", {"clientId": "unmanaged", "enabled": True, "publicClient": True})
@@ -1186,6 +1417,12 @@ class System:
         self.organization_adoption()
         self.workload_trust()
         self.resourceserver_adoption()
+        self.lifecycle_alias()
+        self.public_contract_corpus()
+        observability_spec = importlib.util.spec_from_file_location("installed_observability", ROOT / "scripts/observability-installed-test.py")
+        observability = importlib.util.module_from_spec(observability_spec)
+        observability_spec.loader.exec_module(observability)
+        self.observability_checks = observability.qualify(self)
         # Verify logs, events and every stored CRD, never exposing Secret values.
         data = ""
         for namespace, deployment in self.scanned_operators:
@@ -1193,7 +1430,7 @@ class System:
             for crd in json.loads(self.kubectl("get", "crds", "-o", "json"))["items"]:
                 if crd["spec"]["group"] == "hanko.sh":
                     data += self.kubectl("get", crd["metadata"]["name"], "-n", namespace, "-o", "json")
-        if any(value in data for value in self.sensitive) or re.search(r"eyJ[\w-]+\.[\w-]+\.[\w-]+", data):
+        if any(value in data for value in self.sensitive) or contains_jwt(data):
             raise ValueError("Credential detected in system logs/events/CRDs (withheld)")
 
     def cleanup(self):
@@ -1232,7 +1469,7 @@ def main():
             print("System: scanned operator installed through Helm", flush=True)
             system.reconcile()
             args.output.write_text(json.dumps({"version": VERSION, "revision": args.revision, "image_digest": args.digest,
-                "kubernetes": KUBERNETES_VERSION, "keycloak": KEYCLOAK_VERSION, "result": "pass",
+                "kubernetes": KUBERNETES_VERSION, "keycloak": KEYCLOAK_VERSION, "result": "pass", "public_contract": system.public_corpus_evidence, "operational_checks": system.observability_checks,
                 "checks": ["Helm installation and real pod startup under Restricted admission", "namespace RBAC and current-API event recording",
                            "verified private-CA HTTPS, wrong-CA readiness/write denial and trust repair", "scoped Keycloak identity and denied authority", "realm/client/roles/Secret reconciliation",
                            "IAM role and authorization evaluated/applied/read-back evidence, UID ownership and finalizer cleanup",
@@ -1245,6 +1482,7 @@ def main():
                            "drift recovery after manager restart without duplicate client or credential rotation", "managed finalizer and Observe preservation", "runtime M2M projected-credential token and rotation", "SAML metadata binding and target-preserving cleanup",
                            "independent typed shared trust in external Observe realm; actual current kube-system UID/public API CA DER anchor and verified issuer/JWKS, three dedicated credentials, native UUID/journal, manager restart, explicit shared-age inventory review and zero-dependent provider-only cleanup",
                            "workload binding and native federated activation: actual cross-namespace named SA/CM get/patch, explicit approved UID and target UID consent, current owned native client and active public-only metadata, recreated-SA containment preserves complete native state except enabled=false; no TokenRequest/list/create/delete grant",
+                           "configuration-only Clone alias: explicit lifecycle opt-in and UID/intent approval, ordinary author/operator self-approval and forged-child denial, read-only provider identities, actual ConfigMap-create RBAC denial, durable snapshot checkpoint, manager restart, same child UIDs, immutable capture, complete import and current verified-TLS target observation; foreign target refused and actual denied inventory propagated as failure without provider mutation",
                            "no credentials in logs/events/CRDs"],
                 "organization_permissions": {"scope": "organization-target only", "roles": ["manage-realm", "manage-clients", "manage-events", "manage-users"],
                                              "denied": ["master administration", "managed realm administration", "realm creation", "identity providers"]},

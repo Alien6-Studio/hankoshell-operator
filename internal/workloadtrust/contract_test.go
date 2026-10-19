@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func testPlan(t *testing.T) Plan {
+func testPlan(t testing.TB) Plan {
 	t.Helper()
 	h := Digest("test", "public")
 	p, err := Compile(Intent{RealmRef: "managed", Alias: "cluster", Issuer: "https://cluster.example.test", NamespaceUID: "namespace-uid", CAHash: h, MaxAge: 600}, References{Owner: "trust-uid", Generation: 1, RealmID: "realm-uuid", ProviderID: "provider-uuid", SourceHash: h, FreshReferencesHash: h, FlowHash: h, DependenciesHash: h})
@@ -21,6 +21,25 @@ func testPlan(t *testing.T) Plan {
 
 func TestPlanRejectsUnqualifiedInputsAndStaleAuthority(t *testing.T) {
 	p := testPlan(t)
+	if err := p.Validate(p); err != nil {
+		t.Fatalf("current compiled plan rejected: %v", err)
+	}
+	forged := p
+	forged.refs.Owner = ""
+	if forged.Validate(forged) == nil {
+		t.Fatal("matching forged identity skipped reference validation")
+	}
+	encoded, err := json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded Plan
+	if err := json.Unmarshal(encoded, &decoded); err != nil { //nolint:staticcheck // Public identity must not hydrate private execution authority.
+		t.Fatal(err)
+	}
+	if decoded.Validate(p) == nil || p.Identity() == decoded.Identity() {
+		t.Fatal("public identity serialization reconstructed execution authority")
+	}
 	for _, age := range []int64{0, 599, 3601} {
 		i := p.Intent()
 		i.MaxAge = age

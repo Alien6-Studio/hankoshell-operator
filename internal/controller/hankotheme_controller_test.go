@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -85,6 +86,22 @@ func testTheme() *hankoshv1alpha1.HankoTheme {
 			},
 		},
 	}
+}
+
+// ownedThemeBuildJob builds the exact Job the reconciler submits so tests
+// exercise the fail-closed adoption contract with a conforming child.
+func ownedThemeBuildJob(t *testing.T, theme *hankoshv1alpha1.HankoTheme, name string) *batchv1.Job {
+	t.Helper()
+	scheme := newThemeScheme(t)
+	job := (&HankoThemeReconciler{Scheme: scheme, KeycloakDeploymentName: "keycloak"}).buildJob(theme, name)
+	if err := controllerutil.SetControllerReference(theme, job, scheme); err != nil {
+		t.Fatalf("set build Job owner: %v", err)
+	}
+	return job
+}
+
+func completedJobStatus() batchv1.JobStatus {
+	return batchv1.JobStatus{Conditions: []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}}}
 }
 
 func envMap(env []corev1.EnvVar) map[string]string {
@@ -279,10 +296,8 @@ func TestThemeCompletedJobRestartsKeycloakOnlyOnce(t *testing.T) {
 	theme.Status.Phase = "Building"
 	theme.Status.BuildJob = jobName
 	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: theme.Spec.KeycloakPVC, Namespace: theme.Namespace}}
-	job := &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{Name: jobName, Namespace: theme.Namespace},
-		Status:     batchv1.JobStatus{Conditions: []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}}},
-	}
+	job := ownedThemeBuildJob(t, theme, jobName)
+	job.Status = completedJobStatus()
 	deployment := testKeycloakDeployment(theme.Namespace)
 	c := newThemeClient(t, theme, pvc, job, deployment)
 	r := &HankoThemeReconciler{
@@ -383,12 +398,8 @@ func TestThemeCompletedBuildPrunesPreviousJarBeforeRestart(t *testing.T) {
 	buildJobName := themeJobName("hanko-theme", theme.Name, revision)
 	theme.Status.BuildJob = buildJobName
 	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: theme.Spec.KeycloakPVC, Namespace: theme.Namespace}}
-	buildJob := &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{Name: buildJobName, Namespace: theme.Namespace},
-		Status: batchv1.JobStatus{Conditions: []batchv1.JobCondition{{
-			Type: batchv1.JobComplete, Status: corev1.ConditionTrue,
-		}}},
-	}
+	buildJob := ownedThemeBuildJob(t, theme, buildJobName)
+	buildJob.Status = completedJobStatus()
 	deployment := testKeycloakDeployment(theme.Namespace)
 	c := newThemeClient(t, theme, pvc, buildJob, deployment)
 	r := &HankoThemeReconciler{
@@ -457,12 +468,8 @@ func TestThemePVCChangePrunesArtifactFromPreviouslyInstalledClaim(t *testing.T) 
 	theme.Status.BuildJob = buildJobName
 	newPVC := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: theme.Spec.KeycloakPVC, Namespace: theme.Namespace}}
 	oldPVC := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: theme.Status.InstalledPVC, Namespace: theme.Namespace}}
-	buildJob := &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{Name: buildJobName, Namespace: theme.Namespace},
-		Status: batchv1.JobStatus{Conditions: []batchv1.JobCondition{{
-			Type: batchv1.JobComplete, Status: corev1.ConditionTrue,
-		}}},
-	}
+	buildJob := ownedThemeBuildJob(t, theme, buildJobName)
+	buildJob.Status = completedJobStatus()
 	c := newThemeClient(t, theme, newPVC, oldPVC, buildJob, testKeycloakDeployment(theme.Namespace))
 	r := &HankoThemeReconciler{
 		Client: c, Scheme: newThemeScheme(t), KeycloakDeploymentName: "keycloak",
@@ -638,16 +645,8 @@ func TestThemeCompletedCleanupRemovesFinalizerAndRestartsKeycloak(t *testing.T) 
 	theme.Finalizers = []string{themeFinalizer}
 	revision := themeRevision(theme, themeSpecHash(theme.Spec))
 	jobName := themeJobName("hanko-theme-cleanup", theme.Name, revision)
-	job := &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      jobName,
-			Namespace: theme.Namespace,
-			Labels:    map[string]string{"hanko.sh/theme": theme.Name},
-		},
-		Status: batchv1.JobStatus{Conditions: []batchv1.JobCondition{{
-			Type: batchv1.JobComplete, Status: corev1.ConditionTrue,
-		}}},
-	}
+	job := (&HankoThemeReconciler{KeycloakDeploymentName: "keycloak"}).cleanupJob(theme, jobName, theme.Spec.JarName)
+	job.Status = completedJobStatus()
 	deployment := testKeycloakDeployment(theme.Namespace)
 	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: theme.Spec.KeycloakPVC, Namespace: theme.Namespace}}
 	c := newThemeClient(t, theme, job, deployment, pvc)
@@ -793,6 +792,121 @@ func TestExistingThemeBuildReportsRunningAndFailedJobs(t *testing.T) {
 				t.Fatalf("existing %s build status=%#v", test.name, actual.Status)
 			}
 		})
+	}
+}
+
+func assertNoThemeRestart(t *testing.T, c client.Client, theme *hankoshv1alpha1.HankoTheme) {
+	t.Helper()
+	var deployment appsv1.Deployment
+	if err := c.Get(context.Background(), types.NamespacedName{Name: "keycloak", Namespace: theme.Namespace}, &deployment); err != nil {
+		t.Fatalf("get deployment: %v", err)
+	}
+	if deployment.Spec.Template.Annotations[themeRestartAnnotationKey(theme.Name)] != "" {
+		t.Fatal("untrusted Job restarted Keycloak")
+	}
+}
+
+func TestThemeDoesNotAdoptForeignOrAlteredBuildJobs(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		mutate func(*batchv1.Job)
+	}{
+		{name: "foreign owner", mutate: func(j *batchv1.Job) { j.OwnerReferences[0].UID = "other-theme" }},
+		{name: "no owner", mutate: func(j *batchv1.Job) { j.OwnerReferences = nil }},
+		{name: "missing theme label", mutate: func(j *batchv1.Job) { delete(j.Labels, themeLabel) }},
+		{name: "foreign image", mutate: func(j *batchv1.Job) {
+			j.Spec.Template.Spec.Containers[0].Image = "attacker.example/theme-builder:latest"
+		}},
+		{name: "changed command", mutate: func(j *batchv1.Job) {
+			j.Spec.Template.Spec.Containers[0].Command = []string{"sh", "-c", "env"}
+		}},
+		{name: "token mount", mutate: func(j *batchv1.Job) {
+			j.Spec.Template.Spec.AutomountServiceAccountToken = boolPtr(true)
+		}},
+		{name: "privileged", mutate: func(j *batchv1.Job) {
+			j.Spec.Template.Spec.Containers[0].SecurityContext.Privileged = boolPtr(true)
+		}},
+		{name: "sidecar", mutate: func(j *batchv1.Job) {
+			j.Spec.Template.Spec.Containers = append(j.Spec.Template.Spec.Containers, corev1.Container{Name: "sidecar", Image: approvedThemeImage})
+		}},
+		{name: "init container", mutate: func(j *batchv1.Job) {
+			j.Spec.Template.Spec.InitContainers = []corev1.Container{{Name: "init", Image: approvedThemeImage}}
+		}},
+		{name: "extra volume", mutate: func(j *batchv1.Job) {
+			j.Spec.Template.Spec.Volumes = append(j.Spec.Template.Spec.Volumes, corev1.Volume{
+				Name: "secret", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "admin"}},
+			})
+		}},
+		{name: "host networking", mutate: func(j *batchv1.Job) { j.Spec.Template.Spec.HostNetwork = true }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			theme := testTheme()
+			job := ownedThemeBuildJob(t, theme, themeBuildJobName(theme, themeSpecHash(theme.Spec)))
+			job.Status = completedJobStatus()
+			test.mutate(job)
+			pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: theme.Spec.KeycloakPVC, Namespace: theme.Namespace}}
+			c := newThemeClient(t, theme, pvc, job, testKeycloakDeployment(theme.Namespace))
+			r := &HankoThemeReconciler{
+				Client:                 c,
+				Scheme:                 newThemeScheme(t),
+				KeycloakDeploymentName: "keycloak",
+				ImageValidator:         approvedFixtureValidator(t),
+				Recorder:               events.NewFakeRecorder(10),
+			}
+			if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: theme.Name, Namespace: theme.Namespace}}); err != nil {
+				t.Fatalf("Reconcile: %v", err)
+			}
+			var got hankoshv1alpha1.HankoTheme
+			if err := c.Get(context.Background(), types.NamespacedName{Name: theme.Name, Namespace: theme.Namespace}, &got); err != nil {
+				t.Fatalf("get theme: %v", err)
+			}
+			built := themeCondition(&got, "Built")
+			if got.Status.Phase != "Error" || built == nil || built.Reason != "JobContractMismatch" {
+				t.Fatalf("existing Job bypassed trust: %+v", got.Status)
+			}
+			assertNoThemeRestart(t, c, theme)
+		})
+	}
+}
+
+func TestThemeExistingBuildJobStillRequiresLiveSignature(t *testing.T) {
+	theme := testTheme()
+	job := ownedThemeBuildJob(t, theme, themeBuildJobName(theme, themeSpecHash(theme.Spec)))
+	job.Status = completedJobStatus()
+	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: theme.Spec.KeycloakPVC, Namespace: theme.Namespace}}
+	c := newThemeClient(t, theme, pvc, job, testKeycloakDeployment(theme.Namespace))
+	r := &HankoThemeReconciler{
+		Client:                 c,
+		Scheme:                 newThemeScheme(t),
+		KeycloakDeploymentName: "keycloak",
+		ImageValidator:         fixtureValidator(t, fixtureSignatureVerifier{err: errors.New("publisher revoked")}),
+		Recorder:               events.NewFakeRecorder(10),
+	}
+	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: theme.Name, Namespace: theme.Namespace}}); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+	var got hankoshv1alpha1.HankoTheme
+	if err := c.Get(context.Background(), types.NamespacedName{Name: theme.Name, Namespace: theme.Namespace}, &got); err != nil {
+		t.Fatalf("get theme: %v", err)
+	}
+	built := themeCondition(&got, "Built")
+	if got.Status.Phase != "Error" || built == nil || built.Reason != "UntrustedImageRef" {
+		t.Fatalf("completed Job bypassed publisher verification: %+v", got.Status)
+	}
+	assertNoThemeRestart(t, c, theme)
+}
+
+func TestThemeJobsDisableServiceAccountTokenAutomount(t *testing.T) {
+	theme := testTheme()
+	r := &HankoThemeReconciler{KeycloakDeploymentName: "keycloak"}
+	for name, job := range map[string]*batchv1.Job{
+		"build":   r.buildJob(theme, "build-job"),
+		"cleanup": r.cleanupJob(theme, "cleanup-job", "hanko-theme.jar"),
+	} {
+		automount := job.Spec.Template.Spec.AutomountServiceAccountToken
+		if automount == nil || *automount {
+			t.Errorf("%s Job pods mount a Kubernetes token by default", name)
+		}
 	}
 }
 

@@ -46,6 +46,7 @@ type keycloakFixture struct {
 	kc         *keycloak.Client
 	credential string
 	logs       bytes.Buffer
+	httpTrace  *fixtureHTTPTrace
 }
 
 func fixtureSecret(t *testing.T) string {
@@ -88,7 +89,7 @@ func fixtureTLS(t *testing.T, publicIP ...bool) ([]byte, []byte) {
 func (f *keycloakFixture) docker(timeout time.Duration, environment []string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd := exec.CommandContext(ctx, "docker", args...) // #nosec G702 -- Reviewed fixture argv, no shell; the local JAR is a single read-only mount argument.
 	cmd.Env = append(os.Environ(), environment...)
 	return cmd.CombinedOutput()
 }
@@ -117,7 +118,11 @@ func newKeycloakFixtureWithTransport(t *testing.T, managed, publicIP bool) *keyc
 	return newKeycloakFixtureWithTransportAndDiscovery(t, managed, publicIP, false)
 }
 
-func newKeycloakFixtureWithTransportAndDiscovery(t *testing.T, managed, publicIP, selfDiscovery bool) *keycloakFixture {
+func newKeycloakFixtureWithTransportAndDiscovery(t *testing.T, managed, publicIP, selfDiscovery bool, features ...string) *keycloakFixture {
+	return newKeycloakFixtureConfigured(t, managed, publicIP, selfDiscovery, "", features...)
+}
+
+func newKeycloakFixtureConfigured(t *testing.T, managed, publicIP, selfDiscovery bool, extension string, features ...string) *keycloakFixture {
 	t.Helper()
 	// Use exactly the same reviewed image indexes as the installed qualification.
 	var pins struct {
@@ -161,19 +166,34 @@ func newKeycloakFixtureWithTransportAndDiscovery(t *testing.T, managed, publicIP
 	}
 	serverArgs := []string{"start", "--db=dev-file", "--http-enabled=false", "--hostname-strict=false",
 		"--https-certificate-file=/fixture-tls/tls.crt", "--https-certificate-key-file=/fixture-tls/tls.key", "--https-protocols=TLSv1.3"}
+	if len(features) > 0 {
+		if managed {
+			t.Fatal("preview features are only allowed in isolated characterization fixtures")
+		}
+		serverArgs = append(serverArgs, "--features="+strings.Join(features, ","))
+	}
 	if selfDiscovery {
 		serverArgs = append(serverArgs, "--truststore-paths=/fixture-tls/tls.crt")
 	}
 	mountPath := "/fixture-tls"
 	if managed {
 		serverArgs, mountPath = managedFixtureTemplate(t, image, cert, key)
-		image = f.buildManagedFixture(image)
+		image = f.buildOptimizedFixture(image)
+	} else if len(features) == 0 && extension == "" {
+		// Reuse Docker's immutable build layer instead of repeating Quarkus
+		// augmentation in every disposable container. Preview builds retain
+		// their explicit feature-specific path and production assertions.
+		image = f.buildOptimizedFixture(image)
+		serverArgs = append(serverArgs, "--optimized")
 	}
 	name := "hankoshell-keycloak-test-" + fixtureSecret(t)[:12]
 	// Register cleanup before startup: even a timed-out docker run may have
 	// created the container. Never prune or touch developer-owned containers.
 	t.Cleanup(func() {
 		if t.Failed() {
+			if f.httpTrace != nil {
+				t.Logf("Fixture HTTP exchanges (bounded; no headers, queries or bodies):\n%s", f.redact(f.httpTrace.snapshot()))
+			}
 			output, _ := f.docker(10*time.Second, nil, "logs", "--tail", "100", name)
 			t.Logf("Keycloak %s diagnostics (redacted):\n%s", version, f.redact(output))
 			output, _ = f.docker(10*time.Second, nil, "inspect", "--format", "{{.State.Status}} {{.State.ExitCode}} {{.State.Error}} {{json .Config.Cmd}}", name)
@@ -190,6 +210,20 @@ func newKeycloakFixtureWithTransportAndDiscovery(t *testing.T, managed, publicIP
 		"--publish", "127.0.0.1::8443", "--env", "KC_BOOTSTRAP_ADMIN_USERNAME=fixture-admin",
 		"--env", "KC_BOOTSTRAP_ADMIN_PASSWORD",
 		"--volume", directory + ":" + mountPath + ":ro"}
+	if extension != "" {
+		if managed {
+			t.Fatal("extension qualification requires an isolated unmanaged fixture")
+		}
+		path, err := filepath.Abs(extension)
+		if err != nil {
+			t.Fatal("invalid extension path")
+		}
+		info, err := os.Stat(path) // #nosec G703 -- Explicit local test artifact, regular-file/size checked below; never a network or application input.
+		if err != nil || !info.Mode().IsRegular() || info.Size() < 1 || info.Size() > 5*1024*1024 {
+			t.Fatal("build the bounded-delegation extension before running its qualification")
+		}
+		dockerArgs = append(dockerArgs, "--volume", path+":/opt/keycloak/providers/bounded-delegation.jar:ro")
+	}
 	if managed {
 		dockerArgs = append(dockerArgs, "--read-only", "--tmpfs", "/tmp:rw,nosuid,nodev",
 			"--tmpfs", "/opt/keycloak/data:rw,uid=1000,gid=1000,mode=0770",
@@ -221,9 +255,14 @@ func newKeycloakFixtureWithTransportAndDiscovery(t *testing.T, managed, publicIP
 	}
 	roots := x509.NewCertPool()
 	roots.AppendCertsFromPEM(cert)
-	f.http = &http.Client{Timeout: 5 * time.Second, Transport: &http.Transport{
+	f.httpTrace = &fixtureHTTPTrace{next: &http.Transport{
 		TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS13},
-	}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	}}
+	// Bootstrap POSTs can exceed five seconds while the disposable JVM warms
+	// up on shared runners (#110). Keep them bounded and never retry a POST
+	// whose acknowledgement was lost. Production clients retain their deadlines.
+	f.http = &http.Client{Timeout: 15 * time.Second, Transport: f.httpTrace,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	t.Cleanup(f.http.CloseIdleConnections)
 	deadline := time.Now().Add(2 * time.Minute)
 	for {
@@ -356,6 +395,7 @@ func (f *keycloakFixture) credentialsPresent(data []byte) bool {
 }
 
 func TestKeycloakFixtureRedactsAndDetectsCredentials(t *testing.T) {
+	t.Run("bounded HTTP diagnostics", testFixtureHTTPDiagnostics)
 	secret := fixtureSecret(t)
 	token := "eyJ" + strings.Repeat("a", 10) + "." + strings.Repeat("b", 10) + ".fixture"
 	f := &keycloakFixture{t: t, secrets: []string{"", secret}}

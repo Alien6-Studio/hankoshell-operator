@@ -1,0 +1,13 @@
+{
+  "revision": "d6f7fd66e2f6bee220ad17632d0bf4fbe7b60cae",
+  "returncode": 0,
+  "worktree_dirty": false,
+  "source_changed": false,
+  "suite_errors": 0,
+  "counts": {
+    "passed": 2699,
+    "failed": 0,
+    "skipped": 0
+  },
+  "full_report_sha256": "sha256:2f95d3f80460772f24b69ea08a53909fa8271089571d91024949e5df19385cb3"
+}

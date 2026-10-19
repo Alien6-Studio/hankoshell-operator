@@ -147,9 +147,98 @@ profile, synchronization is bound to the configured private relay and Hub TLS
 name. Those controls protect transport and destination; they do not convert
 the shared HMAC into an independent signature.
 
-Independent bundle publisher verification would require a coordinated Hub
-protocol with a separately trusted signing key and explicit tenant, freshness
-and key-rotation bindings. The current bundle wire contract remains HMAC.
+The default bundle wire contract remains HMAC. An explicit signed fleet
+transition adds independent publisher verification with the protocol below;
+the Hub must implement that protocol before it can be enabled.
+
+#### Signed fleet plan transition
+
+The [Fleet contract](architecture/fleet-reconciliation.md) and
+[ADR-049](architecture/decisions/ADR-049-locally-approved-fleet-plans.md) define
+the exact Ed25519 signing input, closed JSON, local key scopes, expiry and
+sequence rules. In a reviewed deployment:
+
+1. Provision publisher public keys and exact tenant/cluster/namespace/source
+   tuples in `trust.json` of the same-namespace `hanko-fleet-plan-trust` ConfigMap.
+   Obtain keys through the independent local approval process. The private signer
+   belongs outside the cluster; never put it or Hub credentials in that ConfigMap.
+2. Independently install [the trust admission policy](../config/security/fleet-plan-trust-admission.yaml)
+   before enabling verification. Its default target is namespace `auth` and that
+   exact ConfigMap name. Customize both if the deployment uses another location.
+   Only policy administrators with the separate `update` authorization on
+   `kube-system/hanko-fleet-trust-authority` may change this root. Do not grant
+   that authorization or policy/binding administration to the operator or CR
+   authors. The policy does not create or store a credential in that name.
+3. Require a compatible HTTPS Hub route serving
+   `application/vnd.hanko.fleet-plan+json`, an enrolled cluster identity and current
+   locally approved issuer keys. Enable `hub.enabled` and set
+   `fleetPlanVerification.trustConfigMap` to the protected name. The process uses
+   `HANKO_FLEET_TRUST_CONFIGMAP`; no tenant spec or remote plan selects it.
+4. Review `status.fleetPlan` and the Synced condition. Acceptance persists the
+   monotonic identity before child writes; applied identity describes Kubernetes
+   delivery, not provider convergence. Rotation needs a locally approved fresh
+   key ID and a higher-sequence plan. Revocation stops subsequent verification.
+
+Once a signed checkpoint exists, removing the setting, deleting trust or serving
+an old HMAC response fails closed. For binary rollback, suspend the operator and
+retain the newer CRD/status, then review actual child/provider state. An older
+binary cannot enforce this ratchet. Do not clear a checkpoint or prune/downgrade
+the CRD to bypass it. A previous identity is evidence for future reviewed rollback,
+not rollback execution. Capability-aware rollout and local stop controls follow
+the [conservative Fleet profile](architecture/fleet-reconciliation.md#capability-aware-delivery-and-local-stop-controls):
+existing realms, explicit local realm binding, qualified versions and effective
+native roles are required. Use protected `rollout.json` overrides to pause/refuse
+new delivery; partial success stays degraded with bounded findings. Disconnected
+provider expiry and installed fleet qualification remain #79/#80. Current child reconcilers can
+continue acting on previously delivered declarations after a plan expires.
+
+#### Shared bundle object ownership
+
+Bundle application preflights object identity, metadata and current tenant labels
+before any resource write. A declared foreign namespace or tenant is refused,
+as is an existing object without the exact local `hanko.sh/tenant` label.
+`BundleTenantConflict` reports these collisions. Bundle metadata permits only
+name, namespace, ordinary labels and annotations; server metadata, owner references,
+finalizers, status and reserved `hanko.sh/`, `hanko.io/` or `mesh.hanko.io/` metadata
+(except the exact tenant label) cannot be supplied by Hub. This prevents a bundle
+from injecting local adoption approvals or import/ownership markers.
+
+New targets use create-only writes. Existing targets use server-side apply with
+the observed UID/resource version and without forced ownership. Concurrent
+creation, transfer, replacement or edits are refused with `BundleObjectConflict`.
+The dedicated `hanko-hub-bundle` field manager preserves local lifecycle and
+approval metadata, including fields owned by the previous `hanko-operator`
+manager. The create-to-apply transition conditionally converts only the new
+manager's own creation entry; other managers' fields are retained, and a lost
+acknowledgement resumes from the stored entry. A spec field still owned by that
+legacy manager or a local administrator can block a changed bundle: a local
+administrator must review and explicitly resolve that field ownership conflict. The operator never force-transfers it.
+
+These checks are exercised against HTTPS Hub fixtures and all supported Kubernetes
+API versions, including lost creation acknowledgements. They do not make a bundle
+transactional: API admission or concurrent conflicts during later writes can leave
+earlier resources applied. A retry rechecks current ownership; no rollback or
+successful bundle version is recorded for a failed apply. Opt-in signed Fleet
+plans additionally enforce the publisher, replay and rollout controls above.
+Disconnected provider expiry, controlled rollback and installed Fleet
+qualification remain #79/#80.
+
+Tenant Keycloak routing is registered before Hub enrollment, credential rotation
+or bundle requests. An unavailable Hub therefore does not prevent reconstruction
+of a dedicated connection after an operator restart. Dedicated credentials are
+read as one current Secret; invalid credentials or a deleted tenant remove its
+registration. Resources carrying `hanko.sh/tenant` never implicitly use the
+installation's default client. Until their tenant is registered, the pooled IAM
+controllers report `TenantClientUnavailable`, defer provider reads/writes and
+retain cleanup finalizers. Realm isolation explicitly registers the shared client;
+unlabelled resources continue to use the installation default. Secretless workload
+authentication and imports retain their separate explicit instance references.
+
+This routing boundary is tested with Kubernetes API servers and real HTTPS
+Keycloak. It does not establish a last-verified signed plan, disconnected validity
+window, replay protection or rollback authority; that qualification remains open
+in [issue #79](https://github.com/Alien6-Studio/hankoshell-operator/issues/79) and
+its prerequisite plan-protocol issues.
 
 Ed25519 mesh-policy envelopes are a different protocol. The operator carries
 the exact bounded response bytes and requires the `audit-only` mode binding;
@@ -426,13 +515,50 @@ administrative HTTP exception above. Enterprise refuses this combination.
 
 ### Keycloak compatibility
 
-The current development operator **is qualified against Keycloak 26.8.0 and 26.7.5**
+The exact current Keycloak qualification versions are listed in the generated support window below
 using the HTTPS Admin API v1 and service-account `client_credentials` flow.
 The official images are pinned by immutable multi-architecture index digests
 in the [qualification fixture](../internal/controller/keycloak_fixture_test.go).
 Both versions run in required PR/release CI and weekly CI; the aggregate required
 check fails on either matrix failure or startup failure. Qualification is a
 compatibility contract, not a recommendation to retain a vulnerable patch.
+
+The Keycloak job runs three independent, serial shards per version: `core`,
+`adoption` and `protocols`. The runner compares the compiled tagged and ordinary
+test inventories with [the reviewed partition](../scripts/keycloak-shards.json),
+rejecting missing, duplicate or obsolete assignments. Ordinary controller tests
+remain in `core`, so the partition retains the previous tagged suite in full.
+Each shard has a ten-minute test deadline and a fifteen-minute job deadline.
+Run one locally with `make keycloak-integration-test KEYCLOAK_VERSION=26.7.5
+KEYCLOAK_SHARD=adoption`; omitting the shard still runs the full suite.
+
+`make test`, `make integration-test` and `make keycloak-integration-test` use
+the pinned gotestsum version from `versions.json` and write JUnit, outcome JSON
+and a Markdown summary under `.tools/test-results/` (`TEST_REPORT_DIR` overrides
+the directory). CI uploads these on success or failure and lists failed tests
+in the job summary. Reports do not trigger retries, skips or weaker assertions.
+The outcome JSON contains names, status and timing, without test output payloads.
+
+The 2026-10-11 application flow and 2026-10-12 adoption failures exhausted the
+fixture's five-second bootstrap HTTP deadline on client-creation POSTs. Fixture
+HTTP calls now have a bounded fifteen-second budget, with no retry of ambiguous
+writes; production client deadlines are unchanged. Failures preserve the last
+64 fixture HTTP methods/routes/statuses/timings and redacted container logs;
+headers, query values and bodies are excluded from the HTTP trace. Shard timings
+on GitHub runners and twenty consecutive runs of both historically failing
+tests are recorded through the [concurrency and stability qualification](keycloak-concurrency.md).
+Its independent series stops on the first failure and retains every JUnit; it
+does not replace the required twenty-run `main` history window.
+
+The weekly `Go test history` workflow reads the last twenty completed `main` CI
+runs and compares outcomes only for the same commit, test and suite/version.
+Earlier attempts remain visible when a job is manually rerun; a successful retry
+cannot erase a recorded failure. Reports from modified local checkouts are marked
+as such and are refused by the history collector.
+Its artifact and job summary distinguish mixed pass/fail results from missing or
+expired reports. It has read-only permissions and does not publish issue comments;
+tracking-issue automation is handled separately in #111. Historical runs without
+JUnit outcome artifacts cannot count toward a twenty-run stability qualification.
 
 | Version | Current qualification |
 | --- | --- |
@@ -450,6 +576,29 @@ restoration; unrelated client/role/provider preservation; finalizer ordering;
 and read-only import/observe. Admin write-event history must remain unchanged
 during observation. CRD specs/status, controller logs and Kubernetes events
 must contain no credential values or bearer tokens.
+
+Canonical application credential Secrets must have a controller owner reference
+matching the current HankoApplication name, UID, kind and API version. An existing
+foreign or ownerless Secret at the canonical name is a conflict, never implicitly
+adopted. Resolve such a collision through its owner before retrying. The controller
+compares an owned credential with the current provider value without rotating it,
+and repairs drift before reporting credential readiness. This adds a bounded
+credential read during each managed confidential-application reconciliation.
+Observe, public-client and SAML paths do not gain credential reads.
+
+Canonical and legacy projected Secret writes use resource-version preconditions
+and live identity/value read-back. Legacy projections retain their documented
+initial authorization compatibility; replacement, deletion or revoked consent
+cannot be acknowledged as current delivery. A conflict requires a fresh reconcile.
+
+All Hub clients refuse redirects, including public enrollment and legacy HMAC
+routes. Configure the final endpoint directly instead of relying on a redirect.
+Hub error responses expose only locally authored operation/status diagnostics,
+never their remote response bodies. Legacy bundles share the signed Fleet
+aggregate maximum of 200 objects across all kinds; larger bundles must be split
+at the publisher before retrying. Byte limits remain independently enforced.
+These transport checks do not independently authorize the initially configured
+Hub origin or bind arbitrary provider Secret references to a local approval.
 
 The fixture creates a temporary bootstrap administrator only for setup, drift
 injection and state verification. Normal reconcilers use a dedicated master
@@ -667,80 +816,19 @@ another namespace. An empty image policy denies new workload image execution.
 
 ## Metrics and Prometheus
 
-`metrics.enabled: false` is the default and disables the manager metrics server
-(`--metrics-bind-address=0`), container port, Service, scrape annotations,
-ServiceMonitor and metrics ingress. The separate health probe port 8081 remains.
-The binary's default is also `0`; direct deployments must explicitly configure
-their metrics bind address and equivalent network controls.
-The global disable also overrides a retained `serviceMonitor.enabled: true`:
-no monitor is created and no Prometheus API is needed while metrics are off.
+Metrics are off by default. When enabled, TLS 1.3, trusted client certificates
+and exact authorized SPIFFE URI SANs are required. Server certificates and client
+CA trust come from pre-existing namespace-local Secrets. The ServiceMonitor uses
+HTTPS with server CA/DNS verification and client certificate authentication.
+No pod scrape annotations or anonymous/plaintext mode are provided. Exact
+Prometheus namespace AND pod labels still constrain ingress on TCP/8080.
+The Pod readiness probe excludes the leader check so healthy standbys remain Ready;
+the full `/readyz` endpoint reports reconciliation readiness.
 
-`metrics.enabled: true` exposes HTTP `/metrics` on TCP/8080 through the
-release-owned ClusterIP Service. With `metrics.serviceMonitor.enabled: false`,
-pod annotations advertise scraping; annotation discovery must already be configured
-in Prometheus. With `true`, the chart creates a ServiceMonitor selecting only
-that Service in the operator namespace and suppresses pod scrape annotations.
-The Prometheus Operator API must be installed. Configure Prometheus to discover
-ServiceMonitors in that namespace and match their metadata labels; use
-`metrics.serviceMonitor.labels` for an existing discovery filter. Those labels
-cannot replace chart identity labels. The chart does not install monitoring
-components or change Prometheus's outbound policies.
+Operational procedures: [runbooks](operations-runbooks.md), [secure observability](operational-observability.md) and the [machine contract](operational-contract.json).
 
-Default-deny NetworkPolicy remains enabled. Enabling metrics with it requires
-both source selectors, regardless of the discovery method:
-
-```yaml
-metrics:
-  enabled: true
-  serviceMonitor:
-    enabled: true
-    labels:
-      release: prometheus-stack
-  networkPolicy:
-    namespaceSelector:
-      matchLabels:
-        kubernetes.io/metadata.name: monitoring
-    podSelector:
-      matchLabels:
-        app.kubernetes.io/name: prometheus
-        prometheus: platform
-```
-
-Replace the namespace and pod/discovery labels with your actual configuration.
-Selectors accept only nonempty exact `matchLabels`. The namespace must be pinned
-by its immutable `kubernetes.io/metadata.name`; arbitrary namespace labels alone,
-expression-only selectors, wildcards and IP/CIDR sources are rejected. The
-rendered rule has **one peer containing both selectors**, and only TCP/8080.
-This conjunctive source constraint avoids the cluster-wide grant produced by
-empty selectors or separate namespace/pod peers. See the Kubernetes
-[NetworkPolicy selector semantics](https://kubernetes.io/docs/concepts/services-networking/network-policies/#behavior-of-to-and-from-selectors).
-Other pod ingress remains denied by this policy. The optional Cilium egress
-policy preserves this baseline ingress and grants no additional source.
-
-For offline rendering with ServiceMonitor enabled, add
-`--api-versions monitoring.coreos.com/v1/ServiceMonitor` to `helm template`.
-Inspect the Deployment flags/ports, Service, ServiceMonitor and NetworkPolicy.
-Check the actual Prometheus pod labels, its monitor discovery filters and its
-own egress policy. On each target installation, verify scraping from the selected
-pods and denial from an unrelated pod in the same namespace and from another
-namespace. The API-server tests validate admission and policy shape, not CNI
-enforcement or a running Prometheus deployment.
-
-Metrics may disclose operational details. They use unauthenticated plaintext
-HTTP; these selectors restrict reachability and provide neither encryption nor
-cryptographic authentication. Control who can deploy/relabel pods in the selected
-namespace. Review other additive allow policies, node/host-network behavior and
-your CNI's enforcement. Disabling `networkPolicy.enabled` in standard mode means
-this chart provides no ingress restriction; enterprise rejects that opt-out.
-
-**Migration and rollback:** the old `metrics.enabled` only created a
-ServiceMonitor while the listener, Service and annotations were always active.
-Retaining ServiceMonitor discovery now requires both enable flags, the explicit
-Prometheus identity when NetworkPolicy is on, and matching discovery labels.
-The old flag alone fails closed with default networking. Default `false` now
-removes that exposure. Service names, selectors and TCP/8080 remain compatible.
-An older chart/image restores its previous exposure/defaults; inspect its render
-and network controls before rollback.
+See the observability guide for complete values, trust rotation, migration,
+label bounds, alerts, dashboard and qualification limits.
 
 ## Enterprise profile
 
@@ -837,6 +925,37 @@ submitted on those paths. Existing Jobs must be controlled by this snapshot and
 match its image, command, credentials, volumes and security settings; even a
 completed Job is not accepted by name alone. Changes to the recorded Job template,
 including extra containers or altered execution settings, fail this check.
+Before creating children, the snapshot records its generation, specification/tenant
+hash and source instance UID. Configuration is captured in an immutable ConfigMap;
+status records its UID and content hash before submitting a database Job. Retries
+reuse that stored capture without enumerating live configuration again. Each child
+must retain this snapshot's owner UID and intent marker. Status also records the
+Job UID; deleted or replaced checkpointed children are refused rather than recreated.
+Transient errors reading the source, listing configuration or reading/creating
+children, and status-write failures are retried, including lost acknowledgements.
+A failed Job cannot yield a successful snapshot, even with a
+contradictory completion condition. These paths are tested against the supported
+Kubernetes API servers; the tests do not execute a database backup or qualify restore.
+
+Configuration capture includes only realms, applications, service accounts and
+issuers in the snapshot's namespace with the exact same `hanko.sh/tenant` label
+identity. An unlabelled snapshot captures only unlabelled resources; an explicitly
+empty tenant label is distinct from an absent label. The source instance must
+match this scope as well. Namespace-scoped RBAC still determines who can read
+the resulting ConfigMap; tenant labels are not a Kubernetes access-control boundary.
+Before accepting an existing capture after interruption, the controller verifies
+the tenant and namespace of every stored resource in addition to ownership and
+content hashes. A legacy namespace-wide capture containing another scope fails
+with `ConfigMapContractMismatch`, without rewriting the immutable capture or
+starting a database Job.
+The six installed workload cells also exercise this boundary with the scanned
+operator image. Both deep-migration cells inject loss of an accepted capture
+response, restart the manager and check exact UID/content preservation without
+another create. They separately seed an owned legacy cross-tenant capture after
+the authority checkpoint and require refusal without rewriting it or creating a
+backup Job. This qualifies configuration-capture recovery, not database recovery
+or the complete Upgrade/Clone/DBSwitch workflows.
+
 An approval removal does not kill
 an already-running pod; suspend/delete it and revoke its DB credential during an
 incident. Kubernetes admission and administrator control remain necessary.
@@ -872,29 +991,140 @@ qualify certificate-verifying database TLS in the installation.
 and create a new snapshot. Old mutable Jobs are not adopted or silently replaced;
 inspect and stop them before enabling the new path. Previously terminal snapshots
 remain historical records, not retroactive evidence of verified execution.
+For this tenant-isolation change, review existing snapshot ConfigMaps for
+configuration outside their intended scope using an administrator identity.
+Restrict access and retain or remove affected captures according to the local
+retention policy. Create a new snapshot after correcting the scope; do not copy
+foreign configuration into a replacement capture or clear a failed checkpoint.
+Rolling back to the older operator reintroduces namespace-wide capture, so
+suspend new snapshot operations before such a rollback.
+In-flight snapshots without identity checkpoints, changed specifications or tenant
+labels, and recreated source instances are refused. Inspect their children and
+backup PVC before starting a new snapshot; do not clear checkpoints to force replay.
+Deletion stops further reconciliation and permits child garbage collection; it
+does not undo a database dump or make concurrent snapshots transactionally consistent.
 Portable backup/restore, consistency and recovery across database versions or
 cloud providers are not qualified. `HankoOperation.snapshotBefore` creates only
 a configuration snapshot and does not establish a database rollback point.
 
 ## Lifecycle operation qualification
 
-`HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows are experimental
-and unqualified in the current lifecycle contract. Existing unit tests exercise step transitions, but do
-not qualify durable completion, interruption/retry, child ownership or recovery
-on real installations. Qualification is tracked in
+`HankoOperation`'s `Upgrade`, `Clone` and `DBSwitch` workflows remain experimental.
+Installed qualification covers only the Clone subset described below; Upgrade
+and DBSwitch remain unqualified as installed provider workflows. Unit tests and tests against
+the three supported Kubernetes API servers exercise identity checkpoints,
+interruption/retry, child provenance, failed children and stale completion.
+They do not qualify actual kubelet rollouts, database transitions or provider
+upgrade compatibility. Installed qualification remains tracked in
 [issue #20](https://github.com/Alien6-Studio/hankoshell-operator/issues/20), with no
 future release version scheduled. These workflows are available, but are
 outside the first release's qualified core IAM contract.
+
+The required installed-system test on Kubernetes **1.37.0** and HTTPS Keycloak
+**26.8.0** exercises same-namespace Clone from an external source as a configuration
+alias, with `includeData: false` and a configuration snapshot. A separate namespace
+uses the exact scanned operator image and a read-only `view-realm`, `view-clients`,
+`view-identity-providers` chart identity. The separate source inventory identity
+adds `view-users`: complete import coverage reads the group inventory as well,
+even when it is empty, and this role also permits target-realm user reads. The
+fixture proves group reads succeed while client writes remain denied. It removes only the
+operator's ConfigMap-create permission, waits for real persisted operation and
+snapshot checkpoints, stops the manager, restores that permission and restarts.
+Completion requires the original child UIDs, immutable capture hash, complete
+import and current-generation verified-TLS target observation. Separate installed
+cases refuse a foreign target and propagate an actual denied inventory read as
+failed import/operation; the original realm and application must remain unchanged.
+This subset does not qualify managed-source Clone, another Kubernetes/Keycloak
+cell, arbitrary provider configuration, data copying, automatic rollback or
+Upgrade/DBSwitch. The wider API/fault matrix and #20 remain separate requirements.
 
 `Upgrade` changes the managed instance image; it does not establish provider or
 database upgrade compatibility. `Clone` creates an external instance alias
 reusing the source administrative connection and imports supported configuration;
 it does not provision a new
-database. `clone.includeData` has no effect in the current operation contract. A target namespace outside
-the release namespace is outside the default watch/RBAC scope. `DBSwitch` changes
+database. `clone.includeData: true` and cross-namespace targets are refused;
+administrative and TLS CA Secret references remain in the source namespace.
+The alias retains the source TLS CA reference without enabling master hardening
+or credential rotation. `DBSwitch` changes
 the database Secret reference without migrating data. Operation `dryRun` skips
 planned steps; it does not validate provider compatibility or recoverability.
 These operations are not a tested disaster-recovery workflow.
+
+Before the first mutation, status records the operation generation, intent hash
+and source instance UID. Each child carries the operation's UID ownership and
+intent marker; status records its UID and generation before consuming its result.
+An acknowledged or lost-acknowledgement create is recovered by reading the exact
+owned child. Foreign, replaced, edited or deleted checkpointed children fail the
+operation; failed snapshots and incomplete/failed imports never advance it.
+Database/image patches are idempotent on retry, and status-write errors propagate.
+
+Completion requires the owned Deployment's current generation, desired image and
+database reference, all desired replicas updated/ready/available with no old
+replicas, and current-generation Admin API observation. Clone validates the
+target alias, not the source. These observations are not an atomic transaction
+with Kubernetes or Keycloak and do not prove database consistency.
+
+For managed instances, `status.managedObservation` binds a successful Admin API
+probe to the Deployment UID and generation. The instance controller requires an
+owned, fully ready rollout with the desired image/database/replicas through the
+uncached Kubernetes reader before probing, then verifies the same rollout again
+before persisting Ready. It clears the previous binding while probing and on
+failure. A successful response from old Pods during an in-progress rollout is
+therefore insufficient. Operation validation reads the rollout again and requires
+the identical binding, even when `WaitRollout` was already checkpointed as Done.
+Replacement, changed or no-longer-ready Deployments require a new bound probe.
+This fences the observations; it does not attest endpoint routing or create an
+atomic snapshot of Kubernetes, networking, Keycloak and the database.
+
+**Managed-status migration and rollback:** apply the updated CRD before the
+operator. Existing managed Ready records without this binding cannot complete
+in-flight Upgrade/DBSwitch operations; allow the instance controller to observe a
+ready rollout and probe again. Do not write the binding manually or clear an
+operation checkpoint. Existing terminal operation records remain historical.
+An older operator does not enforce this binding, so suspend managed lifecycle
+operations before rollback and inspect any in-flight effects before resuming on
+an operator that enforces it. The real API and TLS regression tests for these
+guards do not qualify installed managed rollouts, provider version compatibility,
+database switching/migration or recovery; those #20 requirements remain open.
+
+Managed infrastructure updates also require the exact current instance controller
+owner (UID, name, kind and API version) on the Deployment, Service, NetworkPolicy
+and PodDisruptionBudget. The controller reads that authority through the uncached
+API and binds patches to its resourceVersion. Single-replica cleanup deletes only
+an owned budget with UID and resourceVersion preconditions. An unowned, foreign,
+deleting or concurrently reassigned object blocks the affected reconcile; it is
+not an adoption request. Earlier owned writes in the same reconcile are not
+transactionally undone.
+
+**Infrastructure migration and rollback:** managed objects created by the operator
+already carry their instance controller owner. A recreated instance or a legacy
+manually provisioned homonym may now be refused. Inspect its ownership and effects
+and use the explicit adopted mode for externally managed workloads; do not add an
+owner merely to force an update. Preserve foreign resources and resolve names
+before resuming managed reconciliation. An older operator lacks these write/delete
+guards, so suspend managed reconciliation before rollback when foreign or
+reassigned objects may be present. Real API race tests qualify the conditional
+writes, not a production rollout or a database transition.
+The instance itself is read through the uncached API; deletion stops this
+reconciler before administrative activity or infrastructure writes. This does
+not undo earlier effects and does not replace Kubernetes garbage collection.
+
+Do not edit an in-flight specification to retarget or cancel it. A changed intent,
+recreated source or legacy in-flight status without identity checkpoints is
+refused. Inspect the source and children before creating a new operation; do not
+clear checkpoints to force replay. Deleting an operation stops further steps and
+permits Kubernetes garbage collection of its owned children, but does not undo
+instance patches, imported resources or external effects. No automatic rollback,
+deadline or mutual exclusion between administrator-submitted operations is
+provided by this checkpoint contract.
+
+Operation children preserve both the value and presence of the parent's tenant
+label. Standalone operations leave the label absent; they do not synthesize an
+empty label on snapshots, aliases or imports. Checkpoints also distinguish an
+explicit empty tenant label from an absent one. Existing in-flight children made
+by an older operator with a synthetic empty label may fail exact-scope validation;
+inspect their status and effects before creating a new operation. The controller
+does not relabel or reacquire such children to force continuation.
 
 ## Installed system test
 
@@ -941,7 +1171,7 @@ The first public 0.1.0 is in development; no public release has been published.
 Source/chart/app/build/rehearsal metadata is `0.1.0-dev.0`, with Artifact Hub
 `prerelease: true`. All implemented capabilities and canonical Attest hardening
 remain intact. Workload Identity, Delegation & Agent Identity, Provider Portability, Fleet Reconciliation and Initial Public Contract Stabilization and #21's real trust evidence are required before
-first publication; see the [roadmap](../ROADMAP.md) and
+first publication; see the [Release 1.0.0 milestone](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11) and
 [administrator checklist](release-public-0.1.0-preparation.md).
 
 The parser accepts normal `v<SemVer>` tags and extracts `0.1.0` from `v0.1.0`.
@@ -1061,6 +1291,12 @@ Actions concurrency serializes release workflows; other registry/release writers
 are trusted administrators and must not race this workflow.
 
 ## Upgrade and rollback
+
+Apply the [API conversion, migration and rollback policy](api-migration-policy.md)
+and review the [per-resource support inventory](api-support.md). CRDs precede
+new operator fields; Helm rollback alone does not downgrade stored state.
+The Conditions topology change has a separate writer-ownership migration and
+does not establish public cross-version compatibility.
 
 Clusters below 1.35 must be upgraded and qualified before installing this chart;
 the previous unrestricted `>=1.30` declaration did not establish that support.
@@ -1327,3 +1563,99 @@ Issued access tokens retain their own lifetime after containment or authenticato
 changes. The existing native UID/replay limitations and residual revocation interval
 still apply. Installed-system qualification proves Pod-to-resource authorization
 and deep restart/recovery on the documented matrix; no release/publication is added.
+
+## Experimental lifecycle approval
+
+`HankoOperation` / `HankoSnapshot` are excluded from the stable 1.0 contract by
+[ADR-050](architecture/decisions/ADR-050-experimental-lifecycle-authority.md).
+They retain their experimental v1alpha1 schemas. The chart defaults to
+`lifecycle.enabled: false`, removes their complete resource/status/finalizer RBAC
+and registers neither controller. Its independent admission guard remains active
+while disabled. The raw binary defaults to `--lifecycle-enabled=false`.
+
+Before enabling or upgrading pending work, stop submissions, inspect the exact
+operation/snapshot spec, source instance and owned children, and retain their
+UID-bound checkpoints. Remove any pre-existing approval whose independent origin
+cannot be established. Do not delete children or rewrite checkpoints to make an
+old operation resume. A malformed/legacy checkpoint still fails closed. Existing
+accepted provider/database effects are not rolled back by disabling the writers.
+
+Enable explicitly in reviewed Helm values:
+
+```yaml
+lifecycle:
+  enabled: true
+  adminGroups: [platform-lifecycle-admins]
+```
+
+Install/upgrade with the normal pinned image/chart procedure above and those
+values. The installer must have admission-policy installation authority. Do not
+grant membership of this administrator group to the operator or ordinary authors.
+Raw installations must provision equivalent fail-closed admission protection
+before enabling the process flag. Namespace Secret writers remain separately
+trusted; DBSwitch accepts only a dedicated PostgreSQL configuration Secret in the
+same namespace/tenant scope with exactly the four reviewed `KC_DB*` fields in
+ADR-050. Backup Jobs retain their dedicated Secret/image/PVC guards. Never put
+credentials in an approval annotation or diagnostic artifact.
+
+An ordinary author may submit a request; it waits with current
+`Authorized=False/ApprovalRequired`. No children or execution checkpoint are
+created. As the independent administrator, first review the spec and source:
+
+```sh
+kubectl get hankooperation upgrade -n auth -o yaml
+kubectl get hankokeycloakinstance source -n auth -o yaml
+kubectl get hankooperation upgrade -n auth -o json   | python3 scripts/lifecycle-approval.py > lifecycle-approval.json
+cat lifecycle-approval.json
+kubectl patch hankooperation upgrade -n auth --type=merge --patch-file=lifecycle-approval.json
+```
+
+Use `hankosnapshot` for an independently requested snapshot. The patch contains
+only public UID/generation/intent/source bindings. The helper prepares it without
+contacting Kubernetes; it does not approve or execute the request. Review the
+source and intent before applying it with administrator credentials. The runtime
+recomputes the binding and refuses stale/cross-object approvals. A child
+configuration snapshot uses only its currently approved parent Snapshot step;
+there is no general inherited approval for arbitrary backup work.
+
+Remove authority to suspend **further** effects:
+
+```sh
+kubectl annotate hankooperation upgrade -n auth hanko.sh/lifecycle-approval-
+```
+
+A previously accepted Job or image/database patch continues independently; inspect
+actual state before recovery. Do not call this command rollback. A spec/tenant
+change or object/source recreation invalidates approval. Approval changes enqueue
+immediately and are rechecked before effect boundaries; cross-object API reads
+and writes are not a distributed transaction. Re-enable only after reviewing the
+same intent and existing child identities. No bulk approval or checkpoint reset
+is a supported recovery procedure.
+
+Validation: `charts/hankoshell-operator/tests/lifecycle.py` renders opt-out/RBAC;
+`checkLifecycleAdmission` exercises independent admission on all supported real
+API servers; `TestLifecycle*` exercises exact authority/revocation/Secret refusal.
+`scripts/system-test.py::lifecycle_alias` exercises opt-in, approval wait and
+administrator patch, ConfigMap-create denial, restart and stable child UIDs on a
+real installed configuration-only Clone. These commands are administrator
+procedures; installed managed Upgrade/DBSwitch and portable restore remain
+explicitly unqualified. No production evidence is claimed.
+
+The exact active qualification window is generated below. Earlier version-specific
+permission, protocol and installed evidence records remain historical qualification
+snapshots and must be reviewed before promoting new pins. See [support policy](support-window.md).
+
+<!-- support-window:start -->
+| Component | Exact qualification versions | Default |
+| --- | --- | --- |
+| kubernetes | `1.35.0`, `1.36.2`, `1.37.0` | `1.37.0` |
+| keycloak | `26.7.5`, `26.8.0` | `26.8.0` |
+<!-- support-window:end -->
+
+## Executable CRD and RBAC review inventory
+
+Review [the validation/grant inventory](security-surface.md) and its migration
+notice before applying the candidate CRDs. Preflight freezes all served schema
+hashes and four rendered RBAC profiles. The inventory records remaining bound
+and authority gaps; it does not accept them. Native lease election is exercised
+with only CREATE and exact-lock GET/UPDATE on real Kubernetes API servers.

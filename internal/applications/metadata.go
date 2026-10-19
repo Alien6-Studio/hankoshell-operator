@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/Alien6-Studio/hankoshell-operator/internal/httpsecurity"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
 )
 
@@ -199,7 +200,7 @@ func validateMetadataNamespaces(data []byte) error {
 }
 
 func (d *KeycloakDriver) Metadata(ctx context.Context, p Plan) (Metadata, error) {
-	if err := p.Validate(p); err != nil {
+	if _, _, err := p.Inputs(iamcontract.Keycloak); err != nil {
 		return Metadata{}, err
 	}
 	base := p.resolved.PublicBase
@@ -218,6 +219,11 @@ func (d *KeycloakDriver) Metadata(ctx context.Context, p Plan) (Metadata, error)
 	if p.intent.Protocol == "saml" {
 		return ParseSAMLMetadata(data, expected)
 	}
+	return parseOIDCMetadata(data, expected)
+}
+
+func parseOIDCMetadata(data []byte, expected string) (Metadata, error) {
+	fallback := expectedOIDCMetadata(expected)
 	var doc struct {
 		Issuer        string `json:"issuer"`
 		Authorization string `json:"authorization_endpoint"`
@@ -225,7 +231,7 @@ func (d *KeycloakDriver) Metadata(ctx context.Context, p Plan) (Metadata, error)
 		JWKS          string `json:"jwks_uri"`
 		UserInfo      string `json:"userinfo_endpoint"`
 	}
-	if err := json.Unmarshal(data, &doc); err != nil || doc.Issuer != expected {
+	if len(data) > maxProtocolDocument || httpsecurity.ValidateJSON(data) != nil || json.Unmarshal(data, &doc) != nil || doc.Issuer != expected {
 		return fallback, fmt.Errorf("OIDC discovery identity mismatch")
 	}
 	prefix := expected + "/protocol/openid-connect"

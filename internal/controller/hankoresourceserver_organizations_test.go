@@ -272,6 +272,58 @@ func TestResourceServerWatchFiltersOnlyStatusEchoes(t *testing.T) {
 	}
 }
 
+func TestAuthorizationDependencyWatchPreservesGraphAuthorityWithoutTimestampFanout(t *testing.T) {
+	old := organizationNode("europe", "", "/europe")
+	for _, test := range []struct {
+		name   string
+		wake   bool
+		change func(*api.HankoOrganization)
+	}{
+		{"observation timestamp", false, func(o *api.HankoOrganization) { now := metav1.Now(); o.Status.LastReconciled = &now }},
+		{"optional projection", false, func(o *api.HankoOrganization) { o.Status.PositionID = "new"; o.Status.Phase = "Ready" }},
+		{"condition timestamp and reason", false, func(o *api.HankoOrganization) {
+			o.Status.Conditions[0].LastTransitionTime = metav1.Now()
+			o.Status.Conditions[0].Reason = "Refreshed"
+		}},
+		{"group identity", true, func(o *api.HankoOrganization) { o.Status.GroupID = "replacement" }},
+		{"group path", true, func(o *api.HankoOrganization) { o.Status.GroupPath = "/replacement" }},
+		{"observed generation", true, func(o *api.HankoOrganization) { o.Status.ObservedGeneration++ }},
+		{"provider refusal", true, func(o *api.HankoOrganization) { o.Status.Conditions[0].Status = metav1.ConditionFalse }},
+		{"missing synchronization proof", true, func(o *api.HankoOrganization) { o.Status.Conditions = nil }},
+		{"stale synchronization proof", true, func(o *api.HankoOrganization) { o.Status.Conditions[0].ObservedGeneration++ }},
+		{"recreated object", true, func(o *api.HankoOrganization) { o.UID = "replacement" }},
+		{"spec generation", true, func(o *api.HankoOrganization) { o.Generation++ }},
+		{"graph label presence", true, func(o *api.HankoOrganization) { o.Labels = map[string]string{"graph-label": ""} }},
+		{"manual request", true, func(o *api.HankoOrganization) { o.Annotations = map[string]string{reconcileRequestAnnotation: "new"} }},
+		{"deletion", true, func(o *api.HankoOrganization) { now := metav1.Now(); o.DeletionTimestamp = &now }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			next := old.DeepCopy()
+			test.change(next)
+			if authorizationDependencyChanged().Update(event.UpdateEvent{ObjectOld: old, ObjectNew: next}) != test.wake {
+				t.Fatal("dependency wake differs from consumed graph authority")
+			}
+		})
+	}
+	role := &api.HankoRole{ObjectMeta: metav1.ObjectMeta{Generation: 1, UID: "role"}}
+	next := role.DeepCopy()
+	now := metav1.Now()
+	next.Status.LastReconciled = &now
+	next.Status.ObservedGeneration = 1
+	if authorizationDependencyChanged().Update(event.UpdateEvent{ObjectOld: role, ObjectNew: next}) {
+		t.Fatal("role observation broadcasts to grant consumers")
+	}
+	for _, object := range []client.Object{old, role} {
+		changed := object.DeepCopyObject().(client.Object)
+		changed.SetLabels(map[string]string{"hanko.sh/tenant": ""})
+		if !authorizationDependencyChanged().Update(event.UpdateEvent{ObjectOld: object, ObjectNew: changed}) ||
+			!authorizationDependencyChanged().Create(event.CreateEvent{Object: object}) ||
+			!authorizationDependencyChanged().Delete(event.DeleteEvent{Object: object}) {
+			t.Fatal("authority presence, insertion or deletion was filtered")
+		}
+	}
+}
+
 func TestOrganizationHierarchyBudgetsAndRecreation(t *testing.T) {
 	ctx := context.Background()
 	for _, count := range []int{129, 34} {

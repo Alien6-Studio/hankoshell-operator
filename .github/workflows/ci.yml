@@ -16,14 +16,169 @@ on:
       release_candidate:
         value: ${{ jobs.oci.outputs.candidate_digest }}
   workflow_dispatch:
+    inputs:
+      qualify_scale:
+        description: Also run the six-cell installed 1000-application scale matrix
+        type: boolean
+        default: false
+      schedule_report_test:
+        description: Exercise the scheduled-failure tracking issue on this run
+        type: boolean
+        default: false
   schedule:
     - cron: '17 6 * * 1'
 permissions:
   contents: read
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # A manually requested batch must not discard the qualification already running.
+  # GitHub retains one pending run; subsequent manual requests replace that pending run.
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 jobs:
+  installed-scale-qualification:
+    name: Scale KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
+    needs: [source, oci]
+    if: github.event_name == 'workflow_dispatch' && inputs.qualify_scale == true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        keycloak: ["26.7.5", "26.8.0"] # versions:workload-keycloak
+        kubernetes: ["1.35.0", "1.36.2", "1.37.0"] # versions:kubernetes
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.oci.outputs.artifact_id }}
+          path: ${{ runner.temp }}/scale-oci
+          merge-multiple: true
+      - name: Install checksum-pinned fixture tools
+        run: |
+          python3 -m pip install -r scripts/requirements.txt
+          python3 scripts/install-system-tools.py "$RUNNER_TEMP/scale-tools"
+          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+          GOBIN="$RUNNER_TEMP/scale-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"
+      - name: Run measured scale, overload recovery and leader removal
+        env:
+          SCALE_PROFILE: scale
+          OCI_DIGEST: ${{ needs.oci.outputs.digest }}
+          KEYCLOAK_VERSION: ${{ matrix.keycloak }}
+          KUBERNETES_VERSION: ${{ matrix.kubernetes }}
+        run: |
+          python3 scripts/scale-installed-test.py --profile "$SCALE_PROFILE" --workers 4 \
+            --archive "$RUNNER_TEMP/scale-oci/image.tar" --evidence "$RUNNER_TEMP/scale-oci/evidence" \
+            --digest "$OCI_DIGEST" --revision "$GITHUB_SHA" --output "$RUNNER_TEMP/scale-report" \
+            --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
+            --kind "$RUNNER_TEMP/scale-tools/kind" --kubectl "$RUNNER_TEMP/scale-tools/kubectl" \
+            --oras "$RUNNER_TEMP/scale-tools/oras" --helm /tmp/linux-amd64/helm --openssl /usr/bin/openssl
+      - name: Qualify five-minute API outage and owned-realm cleanup
+        env:
+          OCI_DIGEST: ${{ needs.oci.outputs.digest }}
+          KEYCLOAK_VERSION: ${{ matrix.keycloak }}
+          KUBERNETES_VERSION: ${{ matrix.kubernetes }}
+        run: |
+          python3 scripts/recovery-installed-test.py \
+            --archive "$RUNNER_TEMP/scale-oci/image.tar" --evidence "$RUNNER_TEMP/scale-oci/evidence" \
+            --digest "$OCI_DIGEST" --revision "$GITHUB_SHA" --output "$RUNNER_TEMP/recovery-report" \
+            --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
+            --kind "$RUNNER_TEMP/scale-tools/kind" --kubectl "$RUNNER_TEMP/scale-tools/kubectl" \
+            --oras "$RUNNER_TEMP/scale-tools/oras" --helm /tmp/linux-amd64/helm --openssl /usr/bin/openssl
+      - name: Preserve successful and incomplete measurements
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: NONPUBLISHABLE-scale-${{ matrix.keycloak }}-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/scale-report/
+            ${{ runner.temp }}/scale-report.diagnostics/
+            ${{ runner.temp }}/recovery-report/
+            ${{ runner.temp }}/recovery-report.diagnostics/
+          if-no-files-found: error
+          retention-days: 30
+  installed-transactions:
+    name: HA transactions KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
+    needs: [source, oci, keycloak-extension]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        keycloak: ["26.7.5", "26.8.0"] # versions:workload-keycloak
+        kubernetes: ["1.35.0", "1.36.2", "1.37.0"] # versions:kubernetes
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.oci.outputs.artifact_id }}
+          path: ${{ runner.temp }}/ha-oci
+          merge-multiple: true
+      - name: Install checksum-pinned HA fixture tools
+        run: |
+          python3 -m pip install -r scripts/requirements.txt
+          python3 scripts/install-system-tools.py "$RUNNER_TEMP/ha-tools"
+          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+          GOBIN="$RUNNER_TEMP/ha-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"
+      - name: Restore the exact SDK provider for delegation HA
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: keycloak-extension-java-${{ matrix.keycloak }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .tools/keycloak-bounded-delegation/
+      - name: Qualify transaction recovery and live-holder API partition
+        env:
+          OCI_DIGEST: ${{ needs.oci.outputs.digest }}
+          KEYCLOAK_VERSION: ${{ matrix.keycloak }}
+          KUBERNETES_VERSION: ${{ matrix.kubernetes }}
+        run: |
+          python3 scripts/transactions-installed-test.py \
+            --archive "$RUNNER_TEMP/ha-oci/image.tar" --evidence "$RUNNER_TEMP/ha-oci/evidence" \
+            --digest "$OCI_DIGEST" --revision "$GITHUB_SHA" --output "$RUNNER_TEMP/transactions-report.json" \
+            --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
+            --kind "$RUNNER_TEMP/ha-tools/kind" --kubectl "$RUNNER_TEMP/ha-tools/kubectl" \
+            --oras "$RUNNER_TEMP/ha-tools/oras" --helm /tmp/linux-amd64/helm --openssl /usr/bin/openssl
+      - name: Qualify four delegation journal phases across two-replica handoff
+        if: ${{ !cancelled() }}
+        env:
+          OCI_DIGEST: ${{ needs.oci.outputs.digest }}
+          KEYCLOAK_VERSION: ${{ matrix.keycloak }}
+          KUBERNETES_VERSION: ${{ matrix.kubernetes }}
+        run: |
+          python3 scripts/delegation-installed-test.py --ha-only \
+            --archive "$RUNNER_TEMP/ha-oci/image.tar" --evidence "$RUNNER_TEMP/ha-oci/evidence" \
+            --digest "$OCI_DIGEST" --revision "$GITHUB_SHA" --output "$RUNNER_TEMP/delegation-ha-report.json" \
+            --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
+            --kind "$RUNNER_TEMP/ha-tools/kind" --kubectl "$RUNNER_TEMP/ha-tools/kubectl" \
+            --oras "$RUNNER_TEMP/ha-tools/oras" --helm /tmp/linux-amd64/helm --openssl /usr/bin/openssl
+      - name: Preserve successful and incomplete HA evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: NONPUBLISHABLE-HA-${{ matrix.keycloak }}-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/transactions-report.json
+            ${{ runner.temp }}/transactions-report.diagnostics/
+            ${{ runner.temp }}/delegation-ha-report.json
+            ${{ runner.temp }}/delegation-ha-report.diagnostics/
+          if-no-files-found: error
+          retention-days: 30
   preflight:
     name: Fast source preflight
     runs-on: ubuntu-24.04
@@ -60,6 +215,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
@@ -67,14 +223,62 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
+      - name: Verify DCO on every pull-request commit
+        if: github.event_name == 'pull_request'
+        env:
+          DCO_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          DCO_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/check-dco.py --base "$DCO_BASE_SHA" --head "$DCO_HEAD_SHA" \
+            --repository "$GITHUB_REPOSITORY"
       - name: Install pinned Helm and test dependencies
         run: |
           python3 scripts/install-helm.py /tmp/linux-amd64/helm
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
           python -m pip install -r scripts/requirements.txt
           make install-tools
+      - name: Verify architecture decision references
+        run: python3 scripts/check-adr-references.py
+      - name: Run the same pre-commit hooks as contributors
+        env:
+          # Upstream hook repositories contain their own synthetic secret tests.
+          # Keep dependency caches outside the source checkout scanned below.
+          PRE_COMMIT_HOME: ${{ runner.temp }}/hankoshell-pre-commit
+        run: make hooks-check
+      - name: Compare visible GitHub protections with reviewed exports
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/check-rulesets.py --live --allow-hidden-bypass
       - name: Validate unit tests, chart, architecture, lint and vulnerabilities
         run: make test chart-test arch lint vuln
+      - name: Enforce package and security function coverage floors
+        run: python3 scripts/check-coverage.py --profile .tools/test-results/unit/coverage.out
+      - name: Enforce the dependency license policy and shipped notices
+        run: make licenses
+      - name: Preserve Go test outcomes
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: go-tests-unit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .tools/test-results/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+      - name: Qualify the real experimental authentik adapter and portable corpus
+        id: authentik
+        run: |
+          make authentik-integration-test
+          go vet -tags=authentik_integration ./internal/controller
+          make lint LINT_BUILD_TAGS=authentik_integration
+      - name: Preserve real experimental provider outcomes
+        if: always() && steps.authentik.outcome != 'skipped'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: go-tests-authentik-2026.8.4-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .tools/test-results/authentik-2026.8.4/
+          if-no-files-found: error
       - name: Cross-compile both Linux architectures
         run: |
           make build GOARCH=amd64
@@ -101,20 +305,107 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install recovery CLI dependencies
+        run: python3 -m pip install -r scripts/requirements.txt
       - name: Install pinned Helm
         run: |
           python3 scripts/install-helm.py /tmp/linux-amd64/helm
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
       - name: Qualify CRDs, server-side apply, RBAC and Restricted admission
         run: make integration-test KUBERNETES_VERSION=${{ matrix.version }}
+      - name: Preserve Go test outcomes
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: go-tests-kubernetes-${{ matrix.version }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .tools/test-results/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
       - name: Lint integration test code
         if: matrix.version == '1.37.0' # versions:kubernetes-lint
         run: make lint LINT_BUILD_TAGS=integration
-  keycloak:
-    name: Keycloak ${{ matrix.version }} Admin API and security
+  storage-migration:
+    name: Native storage migration K8s ${{ matrix.version }}
     needs: [preflight]
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ["1.35.0", "1.36.2", "1.37.0"] # versions:kubernetes
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install checksum-pinned native fixture tools
+        run: |
+          python3 -m pip install -r scripts/requirements.txt
+          python3 scripts/install-system-tools.py "$RUNNER_TEMP/storage-tools"
+          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+      - name: Qualify physical rewrites, interrupted processes and rollback
+        env:
+          KUBERNETES_VERSION: ${{ matrix.version }}
+        run: |
+          archive_args=()
+          if test "$KUBERNETES_VERSION" = "$(python3 scripts/versions.py get kubernetes built_node version)"; then
+            curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+              --max-time 180 --output "$RUNNER_TEMP/storage-node.tar.gz" \
+              "https://dl.k8s.io/release/v$KUBERNETES_VERSION/kubernetes-server-linux-amd64.tar.gz"
+            archive_args=(--node-archive "$RUNNER_TEMP/storage-node.tar.gz")
+          fi
+          python3 scripts/storage-migration-installed-test.py \
+            --kind "$RUNNER_TEMP/storage-tools/kind" --kubectl "$RUNNER_TEMP/storage-tools/kubectl" \
+            --helm /tmp/linux-amd64/helm --kubernetes-version "$KUBERNETES_VERSION" \
+            --output "$RUNNER_TEMP/storage-report" "${archive_args[@]}"
+      - name: Preserve bounded native migration evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: NONPUBLISHABLE-storage-${{ matrix.version }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/storage-report/report.json
+          if-no-files-found: error
+          retention-days: 30
+  keycloak:
+    name: Keycloak ${{ matrix.version }} / ${{ matrix.shard }} Admin API and security
+    needs: [preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ["26.8.0", "26.7.5"] # versions:keycloak
+        shard: [core, adoption, protocols]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Qualify reconcilers against the real HTTPS Admin API
+        run: make keycloak-integration-test KEYCLOAK_VERSION=${{ matrix.version }} KEYCLOAK_SHARD=${{ matrix.shard }}
+      - name: Preserve Go test outcomes
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: go-tests-keycloak-${{ matrix.version }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .tools/test-results/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+  keycloak-ordinary:
+    name: Keycloak ${{ matrix.version }} tagged ordinary race tests
+    needs: [preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -127,13 +418,78 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - name: Qualify reconcilers against the real HTTPS Admin API
-        run: make keycloak-integration-test KEYCLOAK_VERSION=${{ matrix.version }}
-      - name: Vet and lint Keycloak integration test code
-        if: matrix.version == '26.8.0' # versions:keycloak-lint
+      - name: Preserve every ordinary test with the native build tag
+        run: make keycloak-integration-test KEYCLOAK_VERSION=${{ matrix.version }} KEYCLOAK_SHARD=ordinary
+      - name: Preserve Go test outcomes
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: go-tests-keycloak-${{ matrix.version }}-ordinary-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .tools/test-results/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+  keycloak-extension:
+    name: Bounded delegation extension KC ${{ matrix.version }}
+    needs: [preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ["26.8.0", "26.7.5"] # versions:keycloak
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Build the matching SPI and qualify native delegated tokens
+        run: make keycloak-extension-test KEYCLOAK_VERSION=${{ matrix.version }}
+      - name: Preserve Go test outcomes
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: go-tests-keycloak-extension-${{ matrix.version }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .tools/test-results/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve Java test and artifact identity
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: keycloak-extension-java-${{ matrix.version }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .tools/keycloak-bounded-delegation/*/target/${{ matrix.version }}/build.json
+            .tools/keycloak-bounded-delegation/*/target/${{ matrix.version }}/bounded-delegation-keycloak-${{ matrix.version }}.jar
+            .tools/keycloak-bounded-delegation/*/target/${{ matrix.version }}/surefire-reports/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+  keycloak-static:
+    name: Keycloak tagged vet and lint
+    needs: [preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Vet and lint every Keycloak-tagged package
         run: |
-          go vet -tags=keycloak_integration ./...
-          make lint LINT_BUILD_TAGS=keycloak_integration
+          go vet -tags=keycloak_integration,keycloak_extension_integration ./...
+          make lint LINT_BUILD_TAGS=keycloak_integration,keycloak_extension_integration
   workload:
     name: Workload identity KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
     needs: [preflight]
@@ -166,7 +522,7 @@ jobs:
             --kubernetes-version '${{ matrix.kubernetes }}' --kind "$RUNNER_TEMP/workload-tools/kind" \
             --kubectl "$RUNNER_TEMP/workload-tools/kubectl" --openssl /usr/bin/openssl \
             --output "$RUNNER_TEMP/workload-identity.json"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: NONPUBLISHABLE-workload-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/workload-identity.json
@@ -174,17 +530,41 @@ jobs:
           retention-days: 14
       - name: Preserve bounded workload failure diagnostics
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: NONPUBLISHABLE-diagnostics-workload-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/workload-identity.diagnostics
           if-no-files-found: warn
           retention-days: 7
+  security-fuzz:
+    name: Security parser fuzzing
+    needs: [preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Fuzz every reviewed parser and preserve seeds and failures
+        run: make security-fuzz FUZZ_OUTPUT="$RUNNER_TEMP/security-fuzz"
+      - name: Preserve complete and incomplete fuzz evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: security-fuzz-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/security-fuzz/
+          if-no-files-found: error
+          retention-days: 30
   security-mutations:
     name: Security mutation checks
     needs: [preflight]
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    # Cold race compilation and assertion execution retain the existing job cap.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -200,7 +580,7 @@ jobs:
         run: make security-mutations MUTATION_OUTPUT="$RUNNER_TEMP/security-mutations.json"
       - name: Preserve assertion outcomes without test payloads
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: security-mutations-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/security-mutations.json
@@ -229,7 +609,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           artifact-ids: ${{ needs.oci.outputs.artifact_id }}
           path: ${{ runner.temp }}/hankoshell-scanned-oci
@@ -251,7 +631,7 @@ jobs:
             --output "$RUNNER_TEMP/hankoshell-release-dry-run" --helm /tmp/linux-amd64/helm \
             --cosign "$RUNNER_TEMP/rehearsal-tools/cosign" --attest "$RUNNER_TEMP/rehearsal-tools/attest" \
             --openssl /usr/bin/openssl --oras "$RUNNER_TEMP/rehearsal-tools/oras"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: NONPUBLISHABLE-release-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/hankoshell-release-dry-run
@@ -259,7 +639,7 @@ jobs:
           retention-days: 14
       - name: Preserve bounded release fixture failure diagnostics
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: NONPUBLISHABLE-diagnostics-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/hankoshell-release-dry-run/NONPUBLISHABLE-diagnostics
@@ -280,7 +660,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           artifact-ids: ${{ needs.oci.outputs.artifact_id }}
           path: ${{ runner.temp }}/hankoshell-scanned-oci
@@ -300,7 +680,7 @@ jobs:
             --output "$RUNNER_TEMP/system-test.json" --kind "$RUNNER_TEMP/system-tools/kind" \
             --kubectl "$RUNNER_TEMP/system-tools/kubectl" --oras "$RUNNER_TEMP/system-tools/oras" \
             --helm /tmp/linux-amd64/helm --openssl /usr/bin/openssl
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: system-test-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/system-test.json
@@ -308,7 +688,7 @@ jobs:
           retention-days: 14
       - name: Preserve bounded installed system failure diagnostics
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: NONPUBLISHABLE-diagnostics-system-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/system-test.diagnostics
@@ -336,7 +716,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           artifact-ids: ${{ needs.oci.outputs.artifact_id }}
           path: ${{ runner.temp }}/hankoshell-scanned-oci
@@ -362,7 +742,7 @@ jobs:
             --kind "$RUNNER_TEMP/workload-tools/kind" --kubectl "$RUNNER_TEMP/workload-tools/kubectl" \
             --oras "$RUNNER_TEMP/workload-tools/oras" --helm /tmp/linux-amd64/helm --openssl /usr/bin/openssl \
             --output "$RUNNER_TEMP/installed-workload.json"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: NONPUBLISHABLE-installed-workload-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -371,15 +751,205 @@ jobs:
           retention-days: 14
       - name: Preserve bounded installed workload failure diagnostics
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: NONPUBLISHABLE-diagnostics-installed-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/installed-workload.diagnostics
           if-no-files-found: warn
           retention-days: 7
+  installed-delegation:
+    name: Installed delegation KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
+    needs: [source, oci, keycloak-extension]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        keycloak: ["26.7.5", "26.8.0"] # versions:workload-keycloak
+        kubernetes: ["1.35.0", "1.36.2", "1.37.0"] # versions:kubernetes
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.oci.outputs.artifact_id }}
+          path: ${{ runner.temp }}/hankoshell-scanned-oci
+          merge-multiple: true
+      - name: Install checksum-pinned installed delegation tools
+        run: |
+          python3 -m pip install -r scripts/requirements.txt
+          python3 scripts/install-system-tools.py "$RUNNER_TEMP/workload-tools"
+          GOBIN="$RUNNER_TEMP/workload-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"
+          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+      - name: Restore the exact SDK provider already qualified in this run
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: keycloak-extension-java-${{ matrix.keycloak }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .tools/keycloak-bounded-delegation/
+      - name: Qualify installed delegation, independent HTTPS resource access and native recovery
+        env:
+          DIGEST: ${{ needs.oci.outputs.digest }}
+          KEYCLOAK_VERSION: ${{ matrix.keycloak }}
+          KUBERNETES_VERSION: ${{ matrix.kubernetes }}
+        run: |
+          python3 scripts/delegation-installed-test.py \
+            --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
+            --evidence "$RUNNER_TEMP/hankoshell-scanned-oci/evidence" --digest "$DIGEST" --revision "$GITHUB_SHA" \
+            --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
+            --kind "$RUNNER_TEMP/workload-tools/kind" --kubectl "$RUNNER_TEMP/workload-tools/kubectl" \
+            --oras "$RUNNER_TEMP/workload-tools/oras" --helm /tmp/linux-amd64/helm --openssl /usr/bin/openssl \
+            --output "$RUNNER_TEMP/installed-delegation.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: NONPUBLISHABLE-installed-delegation-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/installed-delegation.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve bounded installed delegation failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: NONPUBLISHABLE-diagnostics-delegation-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/installed-delegation.diagnostics
+          if-no-files-found: warn
+          retention-days: 7
+  installed-portable:
+    name: Portable KC + authentik / KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
+    needs: [source, oci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        keycloak: ["26.7.5", "26.8.0"] # versions:workload-keycloak
+        kubernetes: ["1.35.0", "1.36.2", "1.37.0"] # versions:kubernetes
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.oci.outputs.artifact_id }}
+          path: ${{ runner.temp }}/hankoshell-scanned-oci
+          merge-multiple: true
+      - name: Install checksum-pinned portable test tools
+        run: |
+          python3 -m pip install -r scripts/requirements.txt
+          python3 scripts/install-system-tools.py "$RUNNER_TEMP/workload-tools"
+          GOBIN="$RUNNER_TEMP/workload-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"
+          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+      - name: Qualify the identical intent corpus on both installed providers
+        env:
+          DIGEST: ${{ needs.oci.outputs.digest }}
+          KEYCLOAK_VERSION: ${{ matrix.keycloak }}
+          KUBERNETES_VERSION: ${{ matrix.kubernetes }}
+        run: |
+          python3 scripts/portable-installed-test.py \
+            --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
+            --evidence "$RUNNER_TEMP/hankoshell-scanned-oci/evidence" --digest "$DIGEST" --revision "$GITHUB_SHA" \
+            --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION"  \
+            --kind "$RUNNER_TEMP/workload-tools/kind" --kubectl "$RUNNER_TEMP/workload-tools/kubectl" \
+            --oras "$RUNNER_TEMP/workload-tools/oras" --helm /tmp/linux-amd64/helm --openssl /usr/bin/openssl \
+            --output "$RUNNER_TEMP/installed-portable.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: NONPUBLISHABLE-installed-portable-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/installed-portable.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve bounded portable failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: NONPUBLISHABLE-diagnostics-installed-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/installed-portable.diagnostics
+          if-no-files-found: warn
+          retention-days: 7
+  installed-fleet:
+    name: Installed Fleet KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
+    needs: [source, oci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        keycloak: ["26.7.5", "26.8.0"] # versions:workload-keycloak
+        kubernetes: ["1.35.0", "1.36.2", "1.37.0"] # versions:kubernetes
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.oci.outputs.artifact_id }}
+          path: ${{ runner.temp }}/hankoshell-scanned-oci
+          merge-multiple: true
+      - name: Install checksum-pinned installed Fleet tools
+        run: |
+          python3 -m pip install -r scripts/requirements.txt
+          python3 scripts/install-system-tools.py "$RUNNER_TEMP/workload-tools"
+          GOBIN="$RUNNER_TEMP/workload-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"
+          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+      - name: Qualify installed signed Fleet tamper, replay, disconnected recovery and rollback
+        env:
+          DIGEST: ${{ needs.oci.outputs.digest }}
+          KEYCLOAK_VERSION: ${{ matrix.keycloak }}
+          KUBERNETES_VERSION: ${{ matrix.kubernetes }}
+        run: |
+          python3 scripts/fleet-installed-test.py \
+            --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
+            --evidence "$RUNNER_TEMP/hankoshell-scanned-oci/evidence" --digest "$DIGEST" --revision "$GITHUB_SHA" \
+            --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
+            --kind "$RUNNER_TEMP/workload-tools/kind" --kubectl "$RUNNER_TEMP/workload-tools/kubectl" \
+            --oras "$RUNNER_TEMP/workload-tools/oras" --helm /tmp/linux-amd64/helm --openssl /usr/bin/openssl \
+            --output "$RUNNER_TEMP/installed-fleet.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: NONPUBLISHABLE-installed-fleet-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/installed-fleet.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve bounded installed Fleet failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: NONPUBLISHABLE-diagnostics-fleet-KC-${{ matrix.keycloak }}-K8s-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/installed-fleet.diagnostics
+          if-no-files-found: warn
+          retention-days: 7
   checks:
     name: Source and chart checks
-    needs: [preflight, source, kubernetes, keycloak, workload, security-mutations, oci, rehearsal, system, installed-workload]
+    # Pull requests run the full qualification matrix (ADR-048); this required
+    # gate must keep representing every qualification job before merge.
+    needs: [preflight, source, kubernetes, storage-migration, keycloak, keycloak-ordinary, keycloak-extension, keycloak-static, workload, security-fuzz, security-mutations, oci, rehearsal, system, installed-workload, installed-delegation, installed-portable, installed-fleet, installed-transactions, installed-scale-qualification]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -388,11 +958,56 @@ jobs:
           PREFLIGHT_RESULT: ${{ needs.preflight.result }}
           SOURCE_RESULT: ${{ needs.source.result }}
           KUBERNETES_RESULT: ${{ needs.kubernetes.result }}
+          STORAGE_MIGRATION_RESULT: ${{ needs.storage-migration.result }}
           KEYCLOAK_RESULT: ${{ needs.keycloak.result }}
+          KEYCLOAK_ORDINARY_RESULT: ${{ needs.keycloak-ordinary.result }}
+          KEYCLOAK_EXTENSION_RESULT: ${{ needs.keycloak-extension.result }}
+          KEYCLOAK_STATIC_RESULT: ${{ needs.keycloak-static.result }}
           WORKLOAD_RESULT: ${{ needs.workload.result }}
+          FUZZ_RESULT: ${{ needs.security-fuzz.result }}
           MUTATIONS_RESULT: ${{ needs.security-mutations.result }}
           OCI_RESULT: ${{ needs.oci.result }}
           REHEARSAL_RESULT: ${{ needs.rehearsal.result }}
           SYSTEM_RESULT: ${{ needs.system.result }}
           INSTALLED_WORKLOAD_RESULT: ${{ needs.installed-workload.result }}
-        run: test "$PREFLIGHT_RESULT" = success && test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$MUTATIONS_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success
+          INSTALLED_DELEGATION_RESULT: ${{ needs.installed-delegation.result }}
+          INSTALLED_PORTABLE_RESULT: ${{ needs.installed-portable.result }}
+          INSTALLED_FLEET_RESULT: ${{ needs.installed-fleet.result }}
+          INSTALLED_TRANSACTIONS_RESULT: ${{ needs.installed-transactions.result }}
+          INSTALLED_SCALE_RESULT: ${{ needs.installed-scale-qualification.result }}
+          QUALIFY_SCALE: ${{ github.event_name == 'workflow_dispatch' && inputs.qualify_scale == true }}
+        run: |
+          test "$PREFLIGHT_RESULT" = success && test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$STORAGE_MIGRATION_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$KEYCLOAK_ORDINARY_RESULT" = success && test "$KEYCLOAK_EXTENSION_RESULT" = success && test "$KEYCLOAK_STATIC_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$FUZZ_RESULT" = success && test "$MUTATIONS_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success && test "$INSTALLED_DELEGATION_RESULT" = success && test "$INSTALLED_PORTABLE_RESULT" = success && test "$INSTALLED_FLEET_RESULT" = success && test "$INSTALLED_TRANSACTIONS_RESULT" = success || exit 1
+          if test "$QUALIFY_SCALE" = true; then
+            test "$INSTALLED_SCALE_RESULT" = success
+          else
+            test "$INSTALLED_SCALE_RESULT" = skipped
+          fi
+  schedule-report:
+    name: Scheduled qualification tracking issue
+    needs: [preflight, source, kubernetes, storage-migration, keycloak, keycloak-ordinary, keycloak-extension, keycloak-static, workload, security-fuzz, security-mutations, oci, rehearsal, system, installed-workload, installed-delegation, installed-portable, installed-fleet, installed-transactions, installed-scale-qualification, checks]
+    if: always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.schedule_report_test == true))
+    permissions:
+      contents: read
+      issues: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: go-tests-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/qualification-reports
+      - name: Open, update or close the tracking issue from this run's outcome
+        env:
+          GH_TOKEN: ${{ github.token }}
+          QUALIFICATION_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 scripts/schedule-report.py --repository "$GITHUB_REPOSITORY" \
+            --run-id "$GITHUB_RUN_ID" --revision "$GITHUB_SHA" \
+            --reports "$RUNNER_TEMP/qualification-reports"

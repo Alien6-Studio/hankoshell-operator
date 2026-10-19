@@ -4,7 +4,6 @@ package controller_test
 
 import (
 	"context"
-	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -107,8 +106,7 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 	f.requireNoError(err)
 	f.requireNoError(wrongHost.RequireHTTPS())
 	_, err = wrongHost.ServerVersion(ctx)
-	var hostnameError x509.HostnameError
-	if !errors.As(err, &hostnameError) {
+	if !errors.Is(err, keycloak.ErrTLSVerification) || !errors.Is(err, keycloak.ErrTransport) {
 		t.Fatal("operator client did not reject the real server's certificate hostname mismatch")
 	}
 	if _, err := keycloak.New("http://"+address, "fixture-operator", f.credential).ServerVersion(ctx); err == nil || !strings.Contains(err.Error(), "requires explicit") {
@@ -135,10 +133,10 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 	fixtureEqual(t, "denied management access left no proxy", len(forbiddenProxies), 0)
 
 	scheme := newScheme(t)
-	k8s := fake.NewClientBuilder().WithScheme(scheme).
+	k8s := runtimeKube(fake.NewClientBuilder().WithScheme(scheme).
 		WithIndex(&hanko.HankoApplication{}, controller.RealmClientIndexKey, realmClientIndexer).
 		WithStatusSubresource(&hanko.HankoApplication{}, &hanko.HankoServiceAccount{}, &hanko.HankoRealm{},
-			&hanko.HankoRole{}, &hanko.HankoIAMProfile{}, &hanko.HankoImport{}, &hanko.HankoKeycloakInstance{}).Build()
+			&hanko.HankoRole{}, &hanko.HankoIAMProfile{}, &hanko.HankoImport{}, &hanko.HankoKeycloakInstance{}).Build())
 	pool := keycloak.NewPool(f.kc)
 	recorder := events.NewFakeRecorder(100)
 	rr := &controller.HankoRealmReconciler{Client: k8s, Scheme: scheme, Pool: pool, Recorder: recorder}
@@ -521,8 +519,8 @@ func TestRealKeycloakCompatibility(t *testing.T) {
 	// Explicit realm deletion must wait until managed applications and SAs are
 	// deleted; unmanaged contents belong to the explicitly owned realm boundary.
 	f.requireNoError(k8s.Delete(ctx, realm))
-	_, err = rr.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(realm)})
-	if err == nil || !strings.Contains(err.Error(), "managed resource(s) still present") {
+	blocked, err := rr.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(realm)})
+	if err != nil || blocked.RequeueAfter < 30*time.Second {
 		t.Fatal("realm deletion did not fail closed while managed children remained")
 	}
 	if _, err := f.kc.GetRealm(ctx, "managed"); err != nil {

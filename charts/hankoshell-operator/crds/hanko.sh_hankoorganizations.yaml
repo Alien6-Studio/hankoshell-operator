@@ -79,18 +79,26 @@ spec:
                     client:
                       description: Client is the Keycloak clientID owning the roles,
                         e.g. "trunx-dashboard".
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     roles:
                       description: Roles lists the client role names mapped onto the
                         node's group.
                       items:
+                        maxLength: 255
+                        minLength: 1
+                        pattern: ^[^\x00-\x1F\x7F]+$
                         type: string
+                      maxItems: 64
                       minItems: 1
                       type: array
                   required:
                   - client
                   - roles
                   type: object
+                maxItems: 64
                 type: array
               domains:
                 description: |-
@@ -100,7 +108,11 @@ spec:
                   domains, which is the tenancy isolation boundary. Internal nodes inherit
                   the root's isolation and must leave this empty.
                 items:
+                  maxLength: 253
+                  minLength: 1
+                  pattern: ^[^\x00-\x1F\x7F]+$
                   type: string
+                maxItems: 64
                 type: array
               identityProvider:
                 description: |-
@@ -110,6 +122,8 @@ spec:
                   empty, organization IdP links are left unmanaged: the operator never
                   unlinks a broker it was not told about, so a live login path cannot be
                   broken by omission.
+                maxLength: 255
+                pattern: ^[^\x00-\x1F\x7F]*$
                 type: string
               mode:
                 default: Manage
@@ -124,16 +138,23 @@ spec:
               name:
                 description: Name is the organization's display name and Keycloak
                   group name.
+                maxLength: 255
+                minLength: 1
+                pattern: ^[^\x00-\x1F\x7F]+$
                 type: string
               parentRef:
                 description: |-
                   ParentRef is the name of the parent HankoOrganization in the same
                   namespace, empty for a top-level (tenant-root) organization. It expresses
                   the multi-level hierarchy as nested Keycloak groups.
+                maxLength: 253
                 type: string
               realmRef:
                 description: RealmRef references the HankoRealm this organization
                   belongs to.
+                maxLength: 253
+                minLength: 1
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
               roles:
                 description: |-
@@ -149,6 +170,7 @@ spec:
                 description: |-
                   Slug is the stable, URL-safe identifier surfaced to Trunx. When empty it
                   is derived from Name by the consumer.
+                maxLength: 253
                 pattern: ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$
                 type: string
             required:
@@ -504,6 +526,9 @@ spec:
                   - type
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
               groupID:
                 description: GroupID is the Keycloak UUID of the reconciled group.
                 type: string

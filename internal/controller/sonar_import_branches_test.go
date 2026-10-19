@@ -34,7 +34,10 @@ func TestImportDoesNotDiscoverBeforeStatusInitializationSucceeds(t *testing.T) {
 		},
 	})
 	reader := interceptor.NewClient(kube, interceptor.Funcs{
-		Get: func(_ context.Context, _ client.WithWatch, _ client.ObjectKey, _ client.Object, _ ...client.GetOption) error {
+		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			if _, ok := obj.(*hankoshv1alpha1.HankoImport); ok {
+				return c.Get(ctx, key, obj, opts...)
+			}
 			t.Error("source discovery started before a durable valid status")
 			return failure
 		},

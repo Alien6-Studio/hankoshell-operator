@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "group": "hanko.sh",
+  "hub_version": "v1alpha1",
+  "default_storage": "v1alpha1",
+  "strategy": "None",
+  "maturity": "experimental",
+  "published": false,
+  "resources": {
+    "HankoApplication": {
+      "plural": "hankoapplications",
+      "versions": [
+        "v1alpha1",
+        "v1beta1"
+      ],
+      "schema_sha256": "0fefebeff048b89aedba4162c2118cbaebcd9420ff1ce7a12c048146b525af04"
+    },
+    "HankoResourceServer": {
+      "plural": "hankoresourceservers",
+      "versions": [
+        "v1alpha1",
+        "v1beta1"
+      ],
+      "schema_sha256": "5f7f83ef11130172c9cd0b85f111d607028601e4fb198f2c2a3ad9d3a6ae3eda"
+    },
+    "HankoRole": {
+      "plural": "hankoroles",
+      "versions": [
+        "v1alpha1",
+        "v1beta1"
+      ],
+      "schema_sha256": "efe70081e6570f522056c700932df7e0eec248142b5dd8b24328690fd4bf87d2"
+    }
+  }
+}

@@ -1,0 +1,208 @@
+{
+  "schema_version": 1,
+  "layer": "installed-scale",
+  "profile": "scale",
+  "revision": "a65f15791956e750b9f629374b7554b0da20788f",
+  "image_digest": "sha256:17d746ee4af707da6f7d577b26a71bfa9f348d1b3d5c257f3bc199c1acfc5608",
+  "fixture_sha256": "1b520af8c4eb5625dec9f40daa3034f99b25135cf3fe88b294054aa1e8faccaa",
+  "measurement_sha256": "ffaddf868705737826d4e97a109c61848708e1454d64af4aea73102390c4b1f1",
+  "keycloak_version": "26.7.5",
+  "kubernetes_version": "1.36.2",
+  "publishable": false,
+  "complete": true,
+  "started_at": "2026-10-18T21:04:30.460208+00:00",
+  "completed_at": "2026-10-18T21:31:15.168126+00:00",
+  "counts": {
+    "realms": 10,
+    "applications": 1000,
+    "roles": 100,
+    "organizations": 100,
+    "grants": 20
+  },
+  "workers": 4,
+  "steady_seconds_requested": 300,
+  "samples": 378,
+  "checks": {
+    "exact_keycloak_version": true,
+    "scoped_writer_has_no_global_or_master_administration": true,
+    "burst_and_leader_replacement_converge_without_duplicate_native_clients": true,
+    "keycloak_429_does_not_report_current_ready": true,
+    "keycloak_429_recovers_without_manual_status_reset": true,
+    "keycloak_503_does_not_report_current_ready": true,
+    "keycloak_503_recovers_without_manual_status_reset": true,
+    "api_429_does_not_report_current_ready": true,
+    "api_throttle_preserves_provider_until_authority_recovers": true,
+    "api_429_recovers_without_manual_status_reset": true,
+    "steady_samples_have_no_status_echo_hot_loop_or_process_gap": true,
+    "native_client_ids_preserved_after_faults_and_steady_state": true,
+    "one_accepted_native_client_create_per_application": true,
+    "observe_realm_deletion_preserves_native_dependents": true
+  },
+  "faults": {
+    "keycloak_429": {
+      "triggered": true,
+      "refused_requests": 8
+    },
+    "keycloak_503": {
+      "triggered": true,
+      "refused_requests": 2
+    },
+    "api_429": {
+      "triggered": true,
+      "refused_requests": 31
+    }
+  },
+  "resources": {
+    "requests": {
+      "cpu": "100m",
+      "memory": "256Mi"
+    },
+    "limits": {
+      "cpu": "2",
+      "memory": "512Mi"
+    }
+  },
+  "limitations": [
+    "single disposable kind node and dev-file provider",
+    "realms are preprovisioned and managed during load, then switched to Observe; owned realm cascade deletion unqualified",
+    "counter gaps during leader replacement are lower bounds; steady phase rejects gaps",
+    "worker setting covers four IAM controllers only; journaled transaction HA remains separate",
+    "not a production capacity recommendation or full six-cell/24-hour qualification"
+  ],
+  "steady": {
+    "seconds": 301.677,
+    "samples": 27,
+    "counter_completeness": true,
+    "api_request_starts_per_second": 61.51622217741929,
+    "provider_requests_per_second": 50.113279818850344,
+    "reconciles": {
+      "HankoRealm": 89.0,
+      "HankoApplication": 231.0,
+      "HankoRole": 918.0,
+      "HankoOrganization": 887.0,
+      "HankoResourceServer": 48.0
+    },
+    "hot_loop_ceiling": {
+      "HankoRealm": 361.6765227630001,
+      "HankoApplication": 36167.65227630001,
+      "HankoRole": 3616.7652276300005,
+      "HankoOrganization": 3616.7652276300005,
+      "HankoResourceServer": 723.3530455260002
+    },
+    "reconcile_latency": {
+      "HankoRealm": {
+        "observations": 89.0,
+        "p95_upper_bound_seconds": 2.5
+      },
+      "HankoRole": {
+        "observations": 918.0,
+        "p95_upper_bound_seconds": 1.0
+      },
+      "HankoOrganization": {
+        "observations": 887.0,
+        "p95_upper_bound_seconds": 2.5
+      },
+      "HankoApplication": {
+        "observations": 231.0,
+        "p95_upper_bound_seconds": 10.0
+      },
+      "HankoResourceServer": {
+        "observations": 48.0,
+        "p95_upper_bound_seconds": null
+      }
+    },
+    "rss_peak_bytes": 169910272.0,
+    "observed_peak_workers": {
+      "HankoApplication": 4.0,
+      "HankoOrganization": 4.0,
+      "HankoResourceServer": 4.0,
+      "HankoRole": 4.0
+    },
+    "max_sample_gap_seconds": 11.84
+  },
+  "steady_observation": {
+    "elapsed_seconds": 301.677,
+    "samples": 27,
+    "lost_processes": 0,
+    "complete": true
+  },
+  "soak": {
+    "required_seconds": 86400,
+    "observed_seconds": 301.677,
+    "qualified": false
+  },
+  "provider_traffic": {
+    "accepted_client_creates": 1000,
+    "requests": 69934,
+    "token_requests": 57,
+    "credential_read_requests": 38,
+    "refused_requests": 10
+  },
+  "client_ids_sha256": "7c2ebb21628386637ccf607f20f8cfe17b0a23c472635bd0ce4108e59f977381",
+  "cleanup_complete": true,
+  "active_phase": "steady",
+  "convergence": {
+    "initial_dependencies": {
+      "budget_seconds": 900,
+      "seconds": 48.775,
+      "complete": true
+    },
+    "applications_after_leader_loss": {
+      "budget_seconds": 900,
+      "seconds": 667.296,
+      "complete": true
+    },
+    "authorization_graph": {
+      "budget_seconds": 900,
+      "seconds": 140.029,
+      "complete": true
+    },
+    "keycloak_429_recovery": {
+      "budget_seconds": 900,
+      "seconds": 125.003,
+      "complete": true
+    },
+    "keycloak_503_recovery": {
+      "budget_seconds": 900,
+      "seconds": 103.77,
+      "complete": true
+    },
+    "api_429_recovery": {
+      "budget_seconds": 900,
+      "seconds": 5.157,
+      "complete": true
+    }
+  },
+  "convergence_progress": {
+    "HankoRealm": {
+      "count": 10,
+      "expected": 10,
+      "current": 10,
+      "observed_elapsed_seconds": 1600.867
+    },
+    "HankoRole": {
+      "count": 100,
+      "expected": 100,
+      "current": 100,
+      "observed_elapsed_seconds": 1602.219
+    },
+    "HankoOrganization": {
+      "count": 100,
+      "expected": 100,
+      "current": 100,
+      "observed_elapsed_seconds": 1602.304
+    },
+    "HankoApplication": {
+      "count": 1000,
+      "expected": 1000,
+      "current": 1000,
+      "observed_elapsed_seconds": 1602.087
+    },
+    "HankoResourceServer": {
+      "count": 20,
+      "expected": 20,
+      "current": 20,
+      "observed_elapsed_seconds": 1602.378
+    }
+  }
+}

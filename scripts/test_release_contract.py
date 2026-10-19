@@ -1,4 +1,5 @@
 import base64
+import copy
 import hashlib
 import importlib.util
 import json
@@ -18,33 +19,136 @@ dry_run = contract.module("release_dry_run", "release-dry-run.py")
 
 
 class ReleaseContractTests(unittest.TestCase):
+    def test_exported_rulesets_match_the_required_gate_and_weekly_audit_is_read_only(self):
+        rulesets = contract.module("rulesets_contract", "check-rulesets.py")
+        exports = rulesets.check_contract()
+        self.assertEqual(set(exports), {"default-branch.json", "release-tags.json"})
+        ci = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())
+        source = ci["jobs"]["source"]
+        audit = next(step for step in source["steps"] if "check-rulesets.py" in step.get("run", ""))
+        self.assertEqual(audit["if"], "github.event_name == 'schedule'")
+        self.assertEqual(audit["env"], {"GH_TOKEN": "${{ github.token }}"})
+        self.assertEqual(audit["run"], "python3 scripts/check-rulesets.py --live --allow-hidden-bypass")
+        self.assertFalse(audit.get("continue-on-error", False))
+        self.assertEqual(source.get("permissions", ci["permissions"]), {"contents": "read"})
+        self.assertIn("source", ci["jobs"]["checks"]["needs"])
+        security = (contract.ROOT / "SECURITY.md").read_text()
+        for statement in (".github/rulesets/default-branch.json", ".github/rulesets/release-tags.json",
+                          "zero mandatory approving reviews", "resolved review threads", "verified signatures",
+                          "linear", "squash", "refs/tags/v*", "UNVERIFIED", "--allow-hidden-bypass"):
+            self.assertIn(statement, security)
+
+    def test_development_pushes_run_preflight_without_weakening_full_qualification(self):
+        workflows = contract.ROOT / ".github/workflows"
+        development = yaml.safe_load((workflows / "development.yml").read_text())
+        ci = yaml.safe_load((workflows / "ci.yml").read_text())
+        # PyYAML's YAML 1.1 loader represents the Actions "on" key as True.
+        self.assertEqual(development[True], {"push": {"branches": ["feat/1.0.0-dev"]}})
+        self.assertEqual(set(development["jobs"]), {"preflight", "security-fuzz"})
+        expected = copy.deepcopy(ci["jobs"]["preflight"])
+        expected["name"] = "Development source preflight"
+        # Development adds the same hooks enforced in source, retaining every
+        # existing preflight command and its permissions/timeout.
+        install = next(step for step in expected["steps"] if step.get("name") == "Install pinned preflight dependencies")
+        install["run"] = install["run"].replace("make install-preflight-tools\n", "make install-preflight-tools install-hook-tools\n")
+        validation = next(step for step in expected["steps"] if step.get("run") == "make preflight")
+        validation["run"] += " hooks-check"
+        self.assertEqual(development["jobs"]["preflight"], expected)
+        self.assertTrue(development["concurrency"]["cancel-in-progress"])
+        self.assertEqual(ci["concurrency"]["cancel-in-progress"], "${{ github.event_name != 'workflow_dispatch' }}")
+        self.assertNotEqual(development["concurrency"]["group"], ci["concurrency"]["group"])
+        self.assertEqual(ci[True]["push"], {"branches": ["main"]})
+        self.assertIn("pull_request", ci[True])
+        self.assertIsNone(ci[True]["pull_request"])
+        self.assertIn("workflow_dispatch", ci[True])
+        self.assertIn("schedule", ci[True])
+
+    def test_dco_checks_the_pr_head_and_complete_commit_range_without_credentials_in_git(self):
+        jobs = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
+        steps = jobs["source"]["steps"]
+        checkout = next(step for step in steps if step.get("uses", "").startswith("actions/checkout@"))
+        self.assertIs(checkout["with"]["persist-credentials"], False)
+        self.assertEqual(checkout["with"]["fetch-depth"], 0)
+        self.assertNotIn("ref", checkout["with"])  # Other source checks still qualify the PR test merge.
+        check = next(step for step in steps if "scripts/check-dco.py" in step.get("run", ""))
+        self.assertEqual(check["if"], "github.event_name == 'pull_request'")
+        self.assertFalse(check.get("continue-on-error", False))
+        self.assertEqual(check["env"], {"DCO_BASE_SHA": "${{ github.event.pull_request.base.sha }}",
+                                       "DCO_HEAD_SHA": "${{ github.event.pull_request.head.sha }}",
+                                       "GH_TOKEN": "${{ github.token }}"})
+        self.assertIn('--base "$DCO_BASE_SHA" --head "$DCO_HEAD_SHA"', check["run"])
+        self.assertIn('--repository "$GITHUB_REPOSITORY"', check["run"])
+        self.assertLess(steps.index(check), next(i for i, step in enumerate(steps) if "make test" in step.get("run", "")))
+
     def test_ci_preflight_blocks_every_expensive_job_and_remains_required(self):
         ci = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
-        self.assertEqual(set(ci), {"preflight", "source", "kubernetes", "keycloak", "workload", "oci",
-                                   "rehearsal", "system", "installed-workload", "security-mutations", "checks"})
-        for job in ("source", "kubernetes", "keycloak", "workload", "security-mutations", "oci"):
+        self.assertEqual(set(ci), {"preflight", "source", "kubernetes", "storage-migration", "keycloak", "keycloak-ordinary", "keycloak-extension", "keycloak-static", "workload", "oci",
+                                   "rehearsal", "system", "installed-workload", "installed-delegation", "installed-portable", "installed-fleet", "security-fuzz", "security-mutations", "checks",
+                                   "schedule-report", "installed-scale-qualification", "installed-transactions"})
+        for job in ("source", "kubernetes", "storage-migration", "keycloak", "keycloak-ordinary", "keycloak-extension", "keycloak-static", "workload", "security-fuzz", "security-mutations", "oci"):
             with self.subTest(job=job):
                 self.assertEqual(ci[job].get("needs"), ["preflight"])
                 self.assertNotIn("if", ci[job])  # Keep implicit success(), including for reusable OCI.
                 self.assertFalse(ci[job].get("continue-on-error", False))
-        for job in ("rehearsal", "system", "installed-workload"):
+        for job in ("rehearsal", "system", "installed-workload", "installed-portable", "installed-fleet"):
             self.assertEqual(ci[job]["needs"], ["source", "oci"])
             self.assertNotIn("if", ci[job])
+        self.assertEqual(ci["installed-delegation"]["needs"], ["source", "oci", "keycloak-extension"])
+        self.assertNotIn("if", ci["installed-delegation"])
+        self.assertEqual(ci["installed-scale-qualification"]["needs"], ["source", "oci"])
         self.assertNotIn("needs", ci["preflight"])
         self.assertNotIn("if", ci["preflight"])
         self.assertFalse(ci["preflight"].get("continue-on-error", False))
-        self.assertEqual(set(ci["checks"]["needs"]), set(ci) - {"checks"})
+        self.assertEqual(set(ci["checks"]["needs"]), set(ci) - {"checks", "schedule-report"})
         self.assertEqual(ci["checks"]["name"], "Source and chart checks")
         self.assertEqual(ci["checks"]["if"], "always()")
         self.assertIn("make preflight", [step.get("run") for step in ci["preflight"]["steps"]])
         makefile = (contract.ROOT / "Makefile").read_text()
-        self.assertRegex(makefile, r"(?m)^preflight: fmt-check vet generated-check\n\tpython3 -m unittest discover -s scripts -p 'test_\*\.py'$")
+        self.assertRegex(makefile, r"(?m)^preflight: fmt-check vet generated-check\n\tpython3 scripts/public-contract\.py check\n\tpython3 scripts/stable-contract\.py\n\tpython3 scripts/security-surface\.py check\n\tpython3 scripts/compatibility-gate\.py check\n\tpython3 scripts/go-api-contract\.py check\n\tpython3 scripts/compatibility-evidence\.py check\n\tpython3 -m unittest discover -s scripts -p 'test_\*\.py'$")
         self.assertIn("make test chart-test arch lint vuln", [step.get("run") for step in ci["source"]["steps"]])
+
+    def test_native_storage_matrix_is_required_and_uploads_only_public_evidence(self):
+        jobs = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
+        job = jobs["storage-migration"]
+        self.assertEqual(job["strategy"]["matrix"]["version"], contract.pins.DATA["kubernetes"]["versions"])
+        self.assertIs(job["strategy"]["fail-fast"], False)
+        self.assertNotIn("continue-on-error", job)
+        commands = "\n".join(step.get("run", "") for step in job["steps"])
+        self.assertIn("scripts/storage-migration-installed-test.py", commands)
+        self.assertIn('--node-archive "$RUNNER_TEMP/storage-node.tar.gz"', commands)
+        uploads = [step for step in job["steps"] if "actions/upload-artifact@" in step.get("uses", "")]
+        self.assertEqual(len(uploads), 1)
+        self.assertEqual(uploads[0]["with"]["path"], "${{ runner.temp }}/storage-report/report.json")
+        gate = jobs["checks"]["steps"][0]
+        self.assertEqual(gate["env"]["STORAGE_MIGRATION_RESULT"], "${{ needs.storage-migration.result }}")
+        self.assertIn('test "$STORAGE_MIGRATION_RESULT" = success', gate["run"])
+        self.assertIn("storage-migration", jobs["schedule-report"]["needs"])
+
+    def test_scheduled_failures_maintain_one_tracking_issue_with_scoped_write(self):
+        ci = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())
+        job = ci["jobs"]["schedule-report"]
+        self.assertEqual(job["if"], "always() && (github.event_name == 'schedule' || "
+                                    "(github.event_name == 'workflow_dispatch' && inputs.schedule_report_test == true))")
+        self.assertEqual(job["permissions"], {"contents": "read", "issues": "write"})
+        self.assertEqual(set(job["needs"]), set(ci["jobs"]) - {"schedule-report"})
+        self.assertLessEqual(job["timeout-minutes"], 10)
+        self.assertFalse(job.get("continue-on-error", False))
+        self.assertEqual(ci[True]["workflow_dispatch"]["inputs"]["schedule_report_test"]["default"], False)
+        download = next(step for step in job["steps"] if "download-artifact@" in step.get("uses", ""))
+        self.assertEqual(download["with"]["pattern"], "go-tests-*-${{ github.run_id }}-${{ github.run_attempt }}")
+        reconcile = next(step for step in job["steps"] if "schedule-report.py" in step.get("run", ""))
+        self.assertEqual(reconcile["env"], {"GH_TOKEN": "${{ github.token }}",
+                                            "QUALIFICATION_RESULTS": "${{ toJSON(needs) }}"})
+        self.assertNotIn("${{", reconcile["run"])  # The token and results reach the script via env only.
+        for argument in ('--repository "$GITHUB_REPOSITORY"', '--run-id "$GITHUB_RUN_ID"',
+                         '--revision "$GITHUB_SHA"', '--reports "$RUNNER_TEMP/qualification-reports"'):
+            self.assertIn(argument, reconcile["run"])
 
     def test_security_mutation_job_runs_the_complete_catalog_and_preserves_results(self):
         jobs = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
         job = jobs["security-mutations"]
-        self.assertLessEqual(job["timeout-minutes"], 10)
+        self.assertGreaterEqual(job["timeout-minutes"] * 60, 900)
+        self.assertLessEqual(job["timeout-minutes"], 20)
         self.assertIn("security-mutations", jobs["checks"]["needs"])
         self.assertEqual([step["run"] for step in job["steps"] if "run" in step],
                          ['make security-mutations MUTATION_OUTPUT="$RUNNER_TEMP/security-mutations.json"'])
@@ -155,6 +259,13 @@ class ReleaseContractTests(unittest.TestCase):
                 if "permissions" in job:
                     if path.name == "release.yml" and name == "publish":
                         self.assertEqual(job["permissions"], {"contents": "write", "packages": "write", "id-token": "write"})
+                    elif (path.name, name) == ("support-window.yml", "draft"):
+                        self.assertEqual(job["permissions"], {"contents": "write", "pull-requests": "write"})
+                        self.assertEqual(job["if"], "github.event_name == 'workflow_dispatch' && inputs.create_pull_request == true")
+                        self.assertEqual(job["needs"], ["proposal"])
+                        self.assertIs(workflow[True]["workflow_dispatch"]["inputs"]["create_pull_request"]["default"], False)
+                    elif (path.name, name) in (("ci.yml", "schedule-report"), ("test-history.yml", "issue")):
+                        self.assertEqual(job["permissions"], {"contents": "read", "issues": "write"})
                     else:
                         self.assertTrue(all(value == "read" for value in job["permissions"].values()), (path, name))
                 for step in job.get("steps", []):
