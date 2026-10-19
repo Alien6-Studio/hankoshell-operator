@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "layer": "installed-transactions",
+  "keycloak_version": "26.8.0",
+  "kubernetes_version": "1.35.0",
+  "publishable": false,
+  "complete": true,
+  "started_at": "2026-10-19T13:17:16.520173+00:00",
+  "completed_at": "2026-10-19T13:25:40.954928+00:00",
+  "fixture_sha256": "5ffaf701b18ea6e0d02d4d75d6a873d24314487dc252d4963c4d08bc9c19c8d5",
+  "node_image": "kindest/node:v1.35.0@sha256:4613778f3cfcd10e615029370f5786704559103cf27bef934597ba562b269661",
+  "keycloak_image": "quay.io/keycloak/keycloak:26.8.0@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc",
+  "revision": "dcee6b6e263597de3b7241a23b78e60583b3c80f",
+  "image_digest": "sha256:a9b0c061e051bf18a37fd7636650d4669b8cc1d53f960e8a60176dc44813519b",
+  "checks": {
+    "exact_keycloak_version": true,
+    "operator_cannot_rewrite_fleet_trust": true,
+    "native_rotation_recovers_after_actual_leader_replacement": true,
+    "secret_output_recovers_after_actual_leader_replacement": true,
+    "rotation_commit_recovers_after_actual_leader_replacement": true,
+    "inventory_reader_native_client_writes_refused": true,
+    "client_acquisition_recovers_after_actual_leader_replacement": true,
+    "role_acquisition_recovers_after_actual_leader_replacement": true,
+    "verified_plan_recovers_after_actual_leader_replacement": true,
+    "live_holder_api_partition_expires_without_administrator_restart": true,
+    "isolated_holder_cannot_write_and_new_holder_recovers_once": true,
+    "other_tenant_physical_identity_preserved": true,
+    "operator_logs_no_private_inputs": true,
+    "hub_payloads_public_and_no_decommission_confirmation": true,
+    "no_managed_credential_secret": true,
+    "no_private_artifact_inputs": true
+  },
+  "hub_payloads_inspected": 26,
+  "checkpoints": {
+    "native_rotation": {
+      "complete": true,
+      "leader_replaced": true,
+      "accepted_rotations": 1,
+      "attempted_rotations": 1,
+      "accepted_secret_patches": 1
+    },
+    "secret_output": {
+      "complete": true,
+      "leader_replaced": true,
+      "accepted_rotations": 1,
+      "attempted_rotations": 1,
+      "accepted_secret_patches": 1
+    },
+    "rotation_commit": {
+      "complete": true,
+      "leader_replaced": true,
+      "accepted_rotations": 1,
+      "attempted_rotations": 1,
+      "accepted_secret_patches": 1
+    },
+    "client_acquisition": {
+      "complete": true,
+      "leader_replaced": true,
+      "accepted_receipt_writes": 1,
+      "attempted_receipt_writes": 1,
+      "credential_read_requests": 0
+    },
+    "role_acquisition": {
+      "complete": true,
+      "leader_replaced": true,
+      "accepted_receipt_writes": 1,
+      "attempted_receipt_writes": 1,
+      "credential_read_requests": 0
+    },
+    "verified_plan": {
+      "complete": true,
+      "leader_replaced": true,
+      "accepted_native_creates": 1,
+      "accepted_child_creates": 1
+    }
+  },
+  "limitations": [
+    "single disposable kind node and dev-file provider",
+    "six selected accepted-write checkpoints",
+    "26.7.5 reader profile can read native credentials; provider-level credential-read separation not qualified",
+    "one caller-source API partition with observed natural lease expiry; not arbitrary partitions or a fencing proof",
+    "not delegation apply, every journal, replica clock skew or production HA"
+  ],
+  "cleanup_complete": true,
+  "reader_profile": {
+    "credential_read_http_status": 403,
+    "provider_credential_read_separation": true,
+    "native_client_writes_refused": true
+  },
+  "plan_counts": {
+    "candidate_native_clients": 1,
+    "accepted_native_creates": 1,
+    "accepted_child_creates": 1
+  },
+  "lease_partition": {
+    "complete": true,
+    "samples": 15,
+    "old_process_observed_alive": true,
+    "administrator_pod_deletions": 0,
+    "max_sample_gap_seconds": 1.168,
+    "seconds": 32.001,
+    "refused_api_requests": 37,
+    "old_provider_write_attempts": 0,
+    "new_provider_write_attempts": 1,
+    "accepted_provider_writes": 1,
+    "leader_replaced": true
+  }
+}

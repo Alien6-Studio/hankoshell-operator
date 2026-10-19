@@ -8,9 +8,13 @@ It does not qualify every journal, arbitrary partitions,
 replica clock skew or production HA. The partition is newly implemented; only
 completed installed reports qualify its behavior.
 
-The [2026-10-17 qualification packet](qualification/transactions/2026-10-17/runtime-5d5e3f7/README.md)
-retains both completed Keycloak cells, initial incomplete reports, source checks
-and the exact scanned image binding.
+The [current transaction packet](qualification/transactions/2026-10-19/runtime-dcee6b6/README.md)
+retains the complete six-cell CI matrix and two local cells. The separate
+[delegation HA packet](qualification/transactions/2026-10-19/runtime-643f607/README.md)
+retains four completed handoffs in one local cell. Each names its exact runtime
+and scanned image; neither is a complete production HA verdict.
+The [earlier qualification packet](qualification/transactions/2026-10-17/runtime-5d5e3f7/README.md)
+preserves the preceding two cells and their initial incomplete reports.
 
 ## Six deterministic checkpoints
 
