@@ -391,6 +391,14 @@ class Scale(installed.Installed):
         self.record(target + "_" + str(status) + "_recovers_without_manual_status_reset",
                     self.api("GET", "/admin/realms/scale-000/roles/scale-role-000000")["description"] == description)
 
+    def checked_sampling_gap(self, previous, observed, previous_wall, observed_wall):
+        try:
+            return max(measure.sampling_gap(previous, observed), measure.sampling_gap(previous_wall, observed_wall))
+        except ValueError:
+            self.report["failure_sampling"] = {"monotonic_seconds": round(observed - previous, 3),
+                "wall_seconds": round(observed_wall - previous_wall, 3), "budget_seconds": 45}
+            raise
+
     def steady(self):
         self.report["active_phase"] = "steady"
         before = self.ledger.checkpoint()
@@ -399,13 +407,13 @@ class Scale(installed.Installed):
         try:
             self.observe()
             previous, previous_wall = time.monotonic(), time.time()
-            max_gap = max(measure.sampling_gap(started, previous), measure.sampling_gap(started_wall, previous_wall))
+            max_gap = self.checked_sampling_gap(started, previous, started_wall, previous_wall)
             self.ledger.require_continuity(before)
             while time.monotonic() - started < self.seconds:
                 time.sleep(max(0, min(10, self.seconds - (time.monotonic() - started))))
                 self.observe()
                 observed, observed_wall = time.monotonic(), time.time()
-                max_gap = max(max_gap, measure.sampling_gap(previous, observed), measure.sampling_gap(previous_wall, observed_wall))
+                max_gap = max(max_gap, self.checked_sampling_gap(previous, observed, previous_wall, observed_wall))
                 previous, previous_wall = observed, observed_wall
                 # A doomed 24-hour interval must stop at its first broken
                 # process epoch, including a loss during the first sample.
@@ -414,7 +422,7 @@ class Scale(installed.Installed):
                     raise ValueError("Steady-state object lost current applied/read-back readiness")
                 checkout(self.args.revision)
             elapsed, ended_wall = time.monotonic() - started, time.time()
-            max_gap = max(max_gap, measure.sampling_gap(previous, started + elapsed), measure.sampling_gap(previous_wall, ended_wall))
+            max_gap = max(max_gap, self.checked_sampling_gap(previous, started + elapsed, previous_wall, ended_wall))
             self.report["steady"] = self.ledger.window(before, elapsed, self.counts_by_kind())
             self.report["steady"]["max_sample_gap_seconds"] = round(max_gap, 3)
             self.record("steady_samples_have_no_status_echo_hot_loop_or_process_gap")
@@ -465,7 +473,7 @@ class Scale(installed.Installed):
     def public_evidence(self):
         keys = ("schema_version", "layer", "profile", "revision", "image_digest", "fixture_sha256", "measurement_sha256", "keycloak_version", "kubernetes_version",
                 "publishable", "complete", "started_at", "completed_at", "counts", "workers", "steady_seconds_requested", "samples", "checks", "faults", "resources",
-                "limitations", "steady", "steady_observation", "soak", "provider_traffic", "client_ids_sha256", "failure_type", "cleanup_complete",
+                "limitations", "steady", "steady_observation", "soak", "failure_sampling", "provider_traffic", "client_ids_sha256", "failure_type", "cleanup_complete",
                 "active_phase", "convergence", "convergence_progress")
         return {key: self.report[key] for key in keys if key in self.report}
 

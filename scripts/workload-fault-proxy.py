@@ -73,6 +73,23 @@ class Proxy(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def relay_watch(self, response, content_type):
+        # Once the status and headers are sent, an upstream timeout is EOF.
+        # A second HTTP response would become invalid Kubernetes event JSON.
+        self.close_connection = True
+        try:
+            self.send_response(response.status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Connection", "close")
+            self.end_headers()
+            while chunk := response.read1(65536):
+                self.wfile.write(chunk)
+                self.wfile.flush()
+        except Exception:
+            # Keep the existing finite upstream timeout; clients resume their
+            # watch/relist after disconnect. Never export exception contents.
+            pass
+
     def handle_request(self):
         size = int(self.headers.get("Content-Length", "0"))
         if size > 2**20:
@@ -139,15 +156,8 @@ class Proxy(BaseHTTPRequestHandler):
         try:
             with urlopen(request, context=self.server.context, timeout=35) as response:
                 content_type = response.headers.get("Content-Type", "application/json")
-                if self.command == "GET" and "watch=true" in self.path:
-                    self.send_response(response.status)
-                    self.send_header("Content-Type", content_type)
-                    self.send_header("Connection", "close")
-                    self.end_headers()
-                    while chunk := response.read1(65536):
-                        self.wfile.write(chunk)
-                        self.wfile.flush()
-                    self.close_connection = True
+                if self.command == "GET" and parse_qs(urlsplit(self.path).query).get("watch") in (["true"], ["1"]):
+                    self.relay_watch(response, content_type)
                     return
                 status, response_body = response.status, response.read(8 * 2**20)
         except HTTPError as error:

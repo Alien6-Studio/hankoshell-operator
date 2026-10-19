@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "layer": "installed-scale",
+  "profile": "scale",
+  "revision": "a65f15791956e750b9f629374b7554b0da20788f",
+  "image_digest": "sha256:b62ecbc9937545d3f2c8d3aedbb3b13589f51a98e0e511f372abd3699687b600",
+  "fixture_sha256": "1b520af8c4eb5625dec9f40daa3034f99b25135cf3fe88b294054aa1e8faccaa",
+  "measurement_sha256": "ffaddf868705737826d4e97a109c61848708e1454d64af4aea73102390c4b1f1",
+  "keycloak_version": "26.7.5",
+  "kubernetes_version": "1.36.2",
+  "publishable": false,
+  "complete": false,
+  "started_at": "2026-10-18T20:20:42.384524+00:00",
+  "counts": {
+    "realms": 100,
+    "applications": 1000,
+    "roles": 1000,
+    "organizations": 1000,
+    "grants": 1000
+  },
+  "workers": 4,
+  "steady_seconds_requested": 300,
+  "samples": 1776,
+  "checks": {
+    "exact_keycloak_version": true,
+    "scoped_writer_has_no_global_or_master_administration": true
+  },
+  "faults": {},
+  "resources": {
+    "requests": {
+      "cpu": "100m",
+      "memory": "256Mi"
+    },
+    "limits": {
+      "cpu": "2",
+      "memory": "512Mi"
+    }
+  },
+  "limitations": [
+    "single disposable kind node and dev-file provider",
+    "realms are preprovisioned and managed during load, then switched to Observe; owned realm cascade deletion unqualified",
+    "counter gaps during leader replacement are lower bounds; steady phase rejects gaps",
+    "worker setting covers four IAM controllers only; journaled transaction HA remains separate",
+    "not a production capacity recommendation or full six-cell/24-hour qualification"
+  ],
+  "failure_type": "DeadlineExceeded",
+  "cleanup_complete": true,
+  "active_phase": "authorization_graph",
+  "convergence": {
+    "initial_dependencies": {
+      "budget_seconds": 3600,
+      "seconds": 400.146,
+      "complete": true
+    },
+    "applications_after_leader_loss": {
+      "budget_seconds": 3600,
+      "seconds": 1666.84,
+      "complete": true
+    },
+    "authorization_graph": {
+      "budget_seconds": 3600,
+      "seconds": 3603.528,
+      "complete": false
+    }
+  },
+  "convergence_progress": {
+    "HankoRealm": {
+      "count": 100,
+      "expected": 100,
+      "current": 100,
+      "observed_elapsed_seconds": 5912.377
+    },
+    "HankoRole": {
+      "count": 1000,
+      "expected": 1000,
+      "current": 1000,
+      "observed_elapsed_seconds": 5913.28
+    },
+    "HankoOrganization": {
+      "count": 1000,
+      "expected": 1000,
+      "current": 1000,
+      "observed_elapsed_seconds": 5913.548
+    },
+    "HankoApplication": {
+      "count": 1000,
+      "expected": 1000,
+      "current": 1000,
+      "observed_elapsed_seconds": 5912.927
+    },
+    "HankoResourceServer": {
+      "count": 1000,
+      "expected": 1000,
+      "current": 408,
+      "observed_elapsed_seconds": 5913.969
+    }
+  }
+}

@@ -6,8 +6,10 @@ import hashlib
 import json
 from io import BytesIO
 from email.message import Message
+from http.client import HTTPConnection
 from pathlib import Path
 import tempfile
+import threading
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -225,6 +227,75 @@ class InstalledEvidenceTests(unittest.TestCase):
             self.assertEqual(proxy.STATE["traffic"], {"requests": 1, "credential_read_requests": 1})
             self.assertNotIn("private", json.dumps(proxy.STATE["traffic"]))
         handler.reply.assert_called_once_with(503, b"{}")
+
+    def test_watch_disconnect_never_appends_an_http_response_to_events(self):
+        event = b'{"type":"BOOKMARK","object":{"metadata":{"resourceVersion":"42"}}}\n'
+        for ending in (b"", TimeoutError("upstream idle"), ConnectionResetError("upstream closed")):
+            with self.subTest(ending=type(ending).__name__):
+                handler = proxy.Proxy.__new__(proxy.Proxy)
+                handler.headers, handler.rfile, handler.wfile = Message(), BytesIO(), BytesIO()
+                handler.command, handler.path = "GET", "/apis/hanko.sh/v1alpha1/hankorealms?watch=true"
+                handler.server = SimpleNamespace(upstream="https://fixture", context=None)
+                handler.reply, handler.send_response = MagicMock(), MagicMock()
+                handler.send_header, handler.end_headers = MagicMock(), MagicMock()
+                response = MagicMock()
+                response.__enter__.return_value = response
+                response.status, response.headers = 200, {"Content-Type": "application/json"}
+                response.read1.side_effect = [event, ending]
+                with patch.dict(proxy.STATE, {"rule": None, "blocked": False, "triggered": False}, clear=True), \
+                     patch.object(proxy, "urlopen", return_value=response):
+                    handler.handle_request()
+                handler.send_response.assert_called_once_with(200)
+                handler.reply.assert_not_called()
+                self.assertEqual(handler.wfile.getvalue(), event)
+                self.assertTrue(handler.close_connection)
+
+    def test_watch_query_uses_exact_boolean_values(self):
+        for query, streaming in (("watch=1", True), ("watch=true", True), ("watch=false", False),
+                                 ("labelSelector=watch=true", False), ("watch=trueish", False)):
+            with self.subTest(query=query):
+                handler = proxy.Proxy.__new__(proxy.Proxy)
+                handler.headers, handler.rfile, handler.wfile = Message(), BytesIO(), BytesIO()
+                handler.command, handler.path = "GET", "/api/v1/pods?" + query
+                handler.server = SimpleNamespace(upstream="https://fixture", context=None)
+                handler.reply, handler.send_response = MagicMock(), MagicMock()
+                handler.send_header, handler.end_headers = MagicMock(), MagicMock()
+                response = MagicMock()
+                response.__enter__.return_value = response
+                response.status, response.headers = 200, {}
+                response.read.return_value = b'{}'
+                response.read1.side_effect = [b'{}', b'']
+                with patch.dict(proxy.STATE, {"rule": None, "blocked": False, "triggered": False}, clear=True), \
+                     patch.object(proxy, "urlopen", return_value=response):
+                    handler.handle_request()
+                self.assertEqual(response.read1.called, streaming)
+                self.assertEqual(response.read.called, not streaming)
+
+    def test_watch_timeout_leaves_only_valid_events_on_the_wire(self):
+        event = b'{"type":"BOOKMARK","object":{"metadata":{"resourceVersion":"42"}}}\n'
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.status, response.headers = 200, {"Content-Type": "application/json"}
+        response.read1.side_effect = [event, TimeoutError("upstream idle")]
+        server = proxy.FixtureServer(("127.0.0.1", 0), proxy.Proxy)
+        server.upstream, server.context = "https://fixture", None
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        connection = HTTPConnection(*server.server_address, timeout=3)
+        try:
+            with patch.dict(proxy.STATE, {"rule": None, "blocked": False, "triggered": False}, clear=True), \
+                 patch.object(proxy, "urlopen", return_value=response):
+                worker.start()
+                connection.request("GET", "/api/v1/pods?watch=true")
+                downstream = connection.getresponse()
+                self.assertEqual(downstream.status, 200)
+                body = downstream.read()
+                self.assertEqual(body, event)
+                self.assertEqual([json.loads(line)["type"] for line in body.splitlines()], ["BOOKMARK"])
+        finally:
+            connection.close()
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=3)
 
     def test_persisted_child_creates_include_server_side_apply_but_never_dry_run_or_update(self):
         root = "/apis/hanko.sh/v1alpha1/namespaces/auth/hankoapplications"

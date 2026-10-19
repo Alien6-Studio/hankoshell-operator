@@ -64,6 +64,12 @@ recorded in [the development contract notice](../go-api-contract.md).
 
 ## Installed qualification gate (#71)
 
+The [a65f157 CI audit](../qualification/delegation/2026-10-19/runtime-a65f157/README.md)
+retains four passing cells and two application-update deadlines on Kubernetes
+1.35.0. Both failed cells completed initial delegation successfully. The separate
+fault-proxy watch framing correction requires new installed qualification;
+#71 remains open.
+
 `scripts/delegation-installed-test.py` requires the exact clean Operator revision,
 its scanned OCI graph and the matching JAR already built/tested by the same CI run.
 The required six-cell Kubernetes/Keycloak matrix runs the reviewed chart with

@@ -1,5 +1,10 @@
 # Installed scale, soak and leader recovery
 
+The [2026-10-19 CI packet](qualification/scale/2026-10-19/runtime-a65f157/README.md)
+retains six passing 1,000-application cells, their recovery/transaction reports,
+the failed larger authorization profile and the failed older endurance interval.
+Full CI and 24-hour endurance remain incomplete.
+
 This development fixture addresses #95 and part of #96. It installs the actual
 chart and scanned, exact-source OCI image on disposable kind and real HTTPS
 Keycloak. Passing a short fixture does not qualify production capacity, all six
@@ -127,6 +132,8 @@ A process-epoch loss stops the interval at the first affected sample. Host sleep
 or a wall-clock rollback cannot qualify through a short monotonic gap. Failed
 intervals retain numeric elapsed time, sample and lost-process counts in
 `steady_observation`, with `complete: false` and `soak.qualified: false`.
+Sampling failures also retain numeric monotonic and wall-clock gaps in
+`failure_sampling`; the existing 45-second limit is unchanged.
 The retained [824c8f1](qualification/scale/2026-10-17/runtime-824c8f1/soak-final.json)
 and [64e4890](qualification/recovery/2026-10-17/runtime-64e4890/soak-final.json)
 endurance reports are failures, superseding their running snapshots. Neither

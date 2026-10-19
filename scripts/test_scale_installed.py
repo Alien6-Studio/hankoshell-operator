@@ -240,6 +240,17 @@ class ScaleScenarioTests(unittest.TestCase):
         fixture.record = MagicMock()
         return fixture
 
+    def test_failed_sampling_retains_both_clock_gaps_without_qualifying(self):
+        for monotonic_gap, wall_gap in ((46, 46), (10, 3600), (10, -5)):
+            with self.subTest(monotonic_gap=monotonic_gap, wall_gap=wall_gap):
+                fixture = self.steady_fixture()
+                with self.assertRaisesRegex(ValueError, "sampling bound"):
+                    fixture.checked_sampling_gap(100, 100 + monotonic_gap, 1000, 1000 + wall_gap)
+                self.assertEqual(fixture.public_evidence()["failure_sampling"], {
+                    "monotonic_seconds": monotonic_gap, "wall_seconds": wall_gap, "budget_seconds": 45})
+                self.assertNotIn("steady", fixture.report)
+                self.assertNotIn("soak", fixture.report)
+
     def test_soak_stops_at_first_process_loss_and_retains_incomplete_interval(self):
         for loss_sample in (1, 2):
             with self.subTest(loss_sample=loss_sample):

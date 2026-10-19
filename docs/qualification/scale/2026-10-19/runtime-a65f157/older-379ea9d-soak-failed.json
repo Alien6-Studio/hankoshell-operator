@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "layer": "installed-scale",
+  "profile": "soak",
+  "revision": "379ea9db5673e2d871aca7bdde20b4fa9480b18a",
+  "image_digest": "sha256:f6fa907a9608eae1469c1eca02db349401bf1ca1c6f07d7f6e17061287f87f69",
+  "fixture_sha256": "1b520af8c4eb5625dec9f40daa3034f99b25135cf3fe88b294054aa1e8faccaa",
+  "measurement_sha256": "ffaddf868705737826d4e97a109c61848708e1454d64af4aea73102390c4b1f1",
+  "keycloak_version": "26.8.0",
+  "kubernetes_version": "1.37.0",
+  "publishable": false,
+  "complete": false,
+  "started_at": "2026-10-18T19:33:48.475188+00:00",
+  "counts": {
+    "realms": 10,
+    "applications": 1000,
+    "roles": 100,
+    "organizations": 100,
+    "grants": 20
+  },
+  "workers": 4,
+  "steady_seconds_requested": 86400,
+  "samples": 3856,
+  "checks": {
+    "exact_keycloak_version": true,
+    "scoped_writer_has_no_global_or_master_administration": true,
+    "burst_and_leader_replacement_converge_without_duplicate_native_clients": true,
+    "keycloak_429_does_not_report_current_ready": true,
+    "keycloak_429_recovers_without_manual_status_reset": true,
+    "keycloak_503_does_not_report_current_ready": true,
+    "keycloak_503_recovers_without_manual_status_reset": true,
+    "api_429_does_not_report_current_ready": true,
+    "api_throttle_preserves_provider_until_authority_recovers": true,
+    "api_429_recovers_without_manual_status_reset": true
+  },
+  "faults": {
+    "keycloak_429": {
+      "triggered": true,
+      "refused_requests": 2
+    },
+    "keycloak_503": {
+      "triggered": true,
+      "refused_requests": 4
+    },
+    "api_429": {
+      "triggered": true,
+      "refused_requests": 30
+    }
+  },
+  "resources": {
+    "requests": {
+      "cpu": "100m",
+      "memory": "256Mi"
+    },
+    "limits": {
+      "cpu": "2",
+      "memory": "512Mi"
+    }
+  },
+  "limitations": [
+    "single disposable kind node and dev-file provider",
+    "realms are preprovisioned and managed during load, then switched to Observe; owned realm cascade deletion unqualified",
+    "counter gaps during leader replacement are lower bounds; steady phase rejects gaps",
+    "worker setting covers four IAM controllers only; journaled transaction HA remains separate",
+    "not a production capacity recommendation or full six-cell/24-hour qualification"
+  ],
+  "steady_observation": {
+    "elapsed_seconds": 37498.606,
+    "samples": 3454,
+    "lost_processes": 0,
+    "complete": false
+  },
+  "soak": {
+    "required_seconds": 86400,
+    "observed_seconds": 37498.606,
+    "qualified": false
+  },
+  "client_ids_sha256": "cb71c0e7c01ffeae14522dda7ddaaa1e2f8d88a011875d8f02c64ff7ade4b21b",
+  "failure_type": "ValueError",
+  "cleanup_complete": true,
+  "active_phase": "steady",
+  "convergence": {
+    "initial_dependencies": {
+      "budget_seconds": 900,
+      "seconds": 56.155,
+      "complete": true
+    },
+    "applications_after_leader_loss": {
+      "budget_seconds": 900,
+      "seconds": 666.665,
+      "complete": true
+    },
+    "authorization_graph": {
+      "budget_seconds": 900,
+      "seconds": 140.645,
+      "complete": true
+    },
+    "keycloak_429_recovery": {
+      "budget_seconds": 900,
+      "seconds": 121.753,
+      "complete": true
+    },
+    "keycloak_503_recovery": {
+      "budget_seconds": 900,
+      "seconds": 29.931,
+      "complete": true
+    },
+    "api_429_recovery": {
+      "budget_seconds": 900,
+      "seconds": 3.439,
+      "complete": true
+    }
+  },
+  "convergence_progress": {
+    "HankoRealm": {
+      "count": 10,
+      "expected": 10,
+      "current": 10,
+      "observed_elapsed_seconds": 38674.793
+    },
+    "HankoRole": {
+      "count": 100,
+      "expected": 100,
+      "current": 100,
+      "observed_elapsed_seconds": 38675.355
+    },
+    "HankoOrganization": {
+      "count": 100,
+      "expected": 100,
+      "current": 100,
+      "observed_elapsed_seconds": 38675.412
+    },
+    "HankoApplication": {
+      "count": 1000,
+      "expected": 1000,
+      "current": 1000,
+      "observed_elapsed_seconds": 38675.287
+    },
+    "HankoResourceServer": {
+      "count": 20,
+      "expected": 20,
+      "current": 20,
+      "observed_elapsed_seconds": 38675.457
+    }
+  }
+}
