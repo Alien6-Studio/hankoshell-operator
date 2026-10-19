@@ -99,9 +99,10 @@ class AuthentikFixtureTests(unittest.TestCase):
         source = jobs["source"]
         step = next(s for s in source["steps"] if "make authentik-integration-test" in s.get("run", ""))
         self.assertNotIn("if", step)
+        self.assertEqual(step["id"], "authentik")
         self.assertFalse(step.get("continue-on-error", False))
         self.assertIn("make lint LINT_BUILD_TAGS=authentik_integration", step["run"])
         artifact = next(s for s in source["steps"] if s.get("with", {}).get("name", "").startswith("go-tests-authentik-"))
-        self.assertEqual(artifact["if"], "always()")
+        self.assertEqual(artifact["if"], "always() && steps.authentik.outcome != 'skipped'")
         self.assertEqual(artifact["with"]["path"], ".tools/test-results/authentik-2026.8.4/")
         self.assertEqual(artifact["with"]["if-no-files-found"], "error")
