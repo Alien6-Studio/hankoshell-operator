@@ -25,15 +25,19 @@ type HankoRealm struct {
 // +kubebuilder:validation:XValidation:rule="!(has(self.iamProfileRef) && has(self.securityProfile))",message="iamProfileRef and securityProfile are mutually exclusive"
 type HankoRealmSpec struct {
 	// DisplayName is the human-readable realm name shown on the login page.
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]*$`
 	DisplayName string `json:"displayName,omitempty"`
 
 	// FrontendURL is the canonical public URL Keycloak uses for browser-facing
 	// endpoints in this realm. When omitted, the operator leaves the existing
 	// Keycloak realm frontend URL unmanaged.
 	// +kubebuilder:validation:Pattern=`^https?://.+$`
+	// +kubebuilder:validation:MaxLength=2048
 	FrontendURL string `json:"frontendURL,omitempty"`
 
 	// LoginTheme is the Keycloak theme applied to the realm login page.
+	// +kubebuilder:validation:MaxLength=255
 	LoginTheme string `json:"loginTheme,omitempty"`
 
 	// Roles lists realm-scoped roles managed additively by the operator.
@@ -102,9 +106,12 @@ type RealmRole struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9._-]+$`
 	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
 	Name string `json:"name"`
 
 	// Description is an optional human-readable explanation of the role.
+	// +kubebuilder:validation:MaxLength=1024
 	Description string `json:"description,omitempty"`
 
 	// Composites lists realm roles included by this role.

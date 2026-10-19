@@ -16,9 +16,21 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = ROOT / "docs/security-surface.json"
 LIMITS = ("minLength", "maxLength", "pattern", "format", "enum", "minItems", "maxItems", "minProperties", "maxProperties")
+CUSTOM_RESOURCES = {
+    "hankorealms", "hankoiamprofiles", "hankoissuers", "hankoapplications", "hankoroles",
+    "hankoorganizations", "hankoserviceaccounts", "hankoworkloadtrusts", "hankothemes",
+    "hankotenants", "hankokeycloakinstances", "hankoimports", "hankooperations",
+    "hankosnapshots", "hankoresourceservers", "hankomeshservices", "hankoemailproviders",
+}
+METADATA_WRITERS = CUSTOM_RESOURCES - {"hankoissuers", "hankomeshservices", "hankoimports", "hankoemailproviders"}
+CREATED_RESOURCES = {"hankoiamprofiles", "hankorealms", "hankoapplications", "hankoserviceaccounts",
+                     "hankothemes", "hankoroles", "hankokeycloakinstances", "hankoimports", "hankosnapshots"}
+DELETED_RESOURCES = {"hankoiamprofiles", "hankorealms", "hankoapplications", "hankoserviceaccounts", "hankothemes", "hankotenants"}
+FINALIZER_RESOURCES = METADATA_WRITERS - {"hankoiamprofiles"}
 PROFILES = {
     "standard": {},
     "without-lifecycle": {"lifecycle": {"enabled": False}},
+    "with-lifecycle": {"lifecycle": {"enabled": True}},
     "cilium": {"networkPolicy": {"cilium": {"enabled": True}}},
     "connected-with-grants": {
         "profile": "enterprise", "image": {"digest": "sha256:" + "0" * 64},
@@ -79,7 +91,37 @@ def rationale(rule):
             raise ValueError("Unreviewed non-resource authority")
         return "Read current-cluster public issuer and signing keys; no token issuance or review."
     if rule["apiGroups"] == ["hanko.sh"]:
-        return "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work."
+        for resource in resources:
+            base, _, subresource = resource.partition("/")
+            if base not in CUSTOM_RESOURCES:
+                raise ValueError("Unreviewed custom resource grant")
+            allowed = {"get", "list", "watch"}
+            if subresource == "status":
+                allowed = {"get", "update", "patch"}
+            elif subresource == "finalizers" and base in FINALIZER_RESOURCES:
+                allowed = {"update"}
+            elif subresource:
+                raise ValueError("Unreviewed custom subresource grant")
+            else:
+                if base in METADATA_WRITERS:
+                    allowed |= {"update", "patch"}
+                if base in CREATED_RESOURCES:
+                    allowed.add("create")
+                if base in DELETED_RESOURCES:
+                    allowed.add("delete")
+            if not set(verbs) <= allowed:
+                raise ValueError("Custom resource authority exceeds its controller use: " + resource)
+        if all(resource.endswith("/status") for resource in resources):
+            return "Publish observed status independently of spec/metadata write authority."
+        if all(resource.endswith("/finalizers") for resource in resources):
+            return "Finalizer updates for lifecycle-owning controllers; regular metadata updates use separately reviewed main-resource grants."
+        if verbs == ["get", "list", "watch"]:
+            return "Watch/cache every registered CR; no spec mutation follows from these read grants."
+        if verbs == ["create"]:
+            return "Create five Fleet content kinds, Observe role imports, and opt-in approved Operation children (instance/import/snapshot); no arbitrary request creation."
+        if verbs == ["delete"]:
+            return "Delete only five Fleet content kinds during owned rollback and HankoTenant during approved decommission."
+        return "Update metadata/finalizers of lifecycle-owned CRs and reviewed Fleet content; Issuer, MeshService, Import and legacy EmailProvider remain status-only writers."
     if resources == ["leases"]:
         if names == [] and verbs == ["create"]:
             return "Create the leader lock; Kubernetes RBAC cannot name-scope CREATE. Namespace-scoped residual authority."

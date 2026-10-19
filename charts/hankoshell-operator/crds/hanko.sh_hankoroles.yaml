@@ -80,11 +80,14 @@ spec:
                   Composite is true.
                 items:
                   maxLength: 255
+                  minLength: 1
+                  pattern: ^[^\x00-\x1F\x7F]+$
                   type: string
                 maxItems: 64
                 type: array
               description:
                 description: Description is a human-readable description of the role.
+                maxLength: 1024
                 type: string
               mode:
                 default: Manage
@@ -98,6 +101,8 @@ spec:
               name:
                 description: Name is the Keycloak realm role name.
                 maxLength: 255
+                minLength: 1
+                pattern: ^[^\x00-\x1F\x7F]+$
                 type: string
               realmRef:
                 description: RealmRef references the HankoRealm this role belongs
@@ -690,11 +695,14 @@ spec:
                   Composite is true.
                 items:
                   maxLength: 255
+                  minLength: 1
+                  pattern: ^[^\x00-\x1F\x7F]+$
                   type: string
                 maxItems: 64
                 type: array
               description:
                 description: Description is a human-readable description of the role.
+                maxLength: 1024
                 type: string
               mode:
                 default: Manage
@@ -708,6 +716,8 @@ spec:
               name:
                 description: Name is the Keycloak realm role name.
                 maxLength: 255
+                minLength: 1
+                pattern: ^[^\x00-\x1F\x7F]+$
                 type: string
               realmRef:
                 description: RealmRef references the HankoRealm this role belongs

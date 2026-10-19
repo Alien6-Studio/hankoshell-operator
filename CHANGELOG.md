@@ -3,6 +3,18 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### IAM admission, Kubernetes authority and incident evidence (#99, #103)
+
+- Bound IAM client/role/organization identifiers and related strings and
+  collections consistently in served alpha/beta schemas. Reject empty and
+  control-character identifiers while preserving native Unicode/punctuation.
+- Replace bulk CR write grants with separate read, metadata, creation and
+  deletion sets. Issuer/MeshService/Import controllers retain status publication
+  without spec mutation; lifecycle child creation is conditional on its opt-in.
+- Export anonymous bounded condition evidence through an offline administrator
+  collector. Exclude spec, identifiers, journals and arbitrary messages; refuse
+  credential objects, unknown versions and unsafe/existing output paths.
+
 ### CI coverage and integration checks
 
 - Add the missing experimental beta package coverage floor from its measured

@@ -282,6 +282,31 @@ Hanko CRDs; the observability fixture also scans actual scraped metrics. This is
 regression check, not blanket permission to publish raw logs. Preserve incident
 evidence privately; security escalation follows [SECURITY.md](../SECURITY.md).
 
+For a report that can be reviewed without exposing resource identity or arbitrary
+provider text, select the affected Hanko objects and use the offline collector:
+
+```sh
+kubectl -n "$namespace" get hankoapplication "$application" -o json \
+  | python3 scripts/incident-evidence.py --output "$new_private_incident_file"
+```
+
+`scripts/test_incident_evidence.py` exercises the actual CLI, exclusive mode-0600
+creation, symlink refusal, credential sentinels, unknown decisions, malformed
+input, duplicate keys and size/depth/object limits. The collector makes no API or
+provider calls. It accepts only reviewed Hanko resource versions, at most 2 MiB,
+1,000 selected objects and nesting depth 64. Select fewer objects if refused;
+do not save a raw dump to bypass its limit. Existing output paths are refused.
+
+The output contains fixed kind/version/phase/condition decisions, bounded generation
+numbers, a deletion flag and finalizer counts. Names, namespaces, UIDs, spec,
+annotations, journals, messages and timestamps supplied by objects are omitted.
+Unknown condition types/reasons/phases become `Other`; unknown resource versions
+and Secret/ConfigMap/Event/Pod inputs are refused. Object numbers correspond only
+to input order; keep their mapping privately. A stale condition is explicitly
+marked non-current. This is evidence about the selected input, not proof of a
+complete cluster inventory, native cleanup or administrator approval. Review even
+this filtered report before sharing it; do not attach the raw input or command errors.
+
 
 ### Managed realm waits for explicit child cleanup
 

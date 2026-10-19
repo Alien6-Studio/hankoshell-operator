@@ -114,3 +114,14 @@ Some issue descriptions also have closure-link cycles: #104 asks for links to
 issues closed before #107. Track contract decisions, implementation completion
 and final delivery evidence separately; do not fabricate closures to satisfy
 such a cycle. Reconcile those issue dependencies in the final acceptance review.
+
+
+## Security and operations implementation follow-up (#99/#103)
+
+The IAM admission budget reduces the inventory gaps from 440 to 397 across the
+20 served schemas. Per-kind CR grants replace the blanket writer; live
+authorizer/admission fixtures cover both lifecycle profiles. An offline incident
+collector exports only anonymous fixed decisions and generation/count evidence,
+with bounded parsing and private exclusive output. Stable field/RBAC acceptance,
+independent review, public upgrade evidence and the audited finalizer-release
+mechanism remain unfinished; these two roadmap issues are not closed by this lot.

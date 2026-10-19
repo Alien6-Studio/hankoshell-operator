@@ -66,6 +66,18 @@ class SecuritySurfaceTests(unittest.TestCase):
             with self.subTest(change=change), self.assertRaises(ValueError):
                 gate.rbac(roles(rule))
 
+    def test_custom_resource_grants_cannot_restore_the_bulk_writer(self):
+        for resource, verb in (("hankoissuers", "patch"), ("hankomeshservices", "create"),
+                               ("hankoroles", "delete"), ("hankooperations", "create"),
+                               ("hankoimports", "update"), ("hankoworkloadtrusts", "create"),
+                               ("hankorealms", "deletecollection"), ("hankoissuers/finalizers", "update")):
+            with self.subTest(resource=resource, verb=verb), self.assertRaises(ValueError):
+                gate.rbac(roles({"apiGroups": ["hanko.sh"], "resources": [resource], "verbs": [verb]}))
+        for resource, verb in (("hankoissuers/status", "patch"), ("hankoroles", "create"),
+                               ("hankorealms", "delete"), ("hankotenants", "delete"),
+                               ("hankokeycloakinstances", "create")):
+            self.assertEqual(len(gate.rbac(roles({"apiGroups": ["hanko.sh"], "resources": [resource], "verbs": [verb]}))["rules"]), 1)
+
     def test_unreviewed_nonresource_paths_and_empty_roles_fail(self):
         for urls in (["/*"], ["/private"]):
             with self.assertRaises(ValueError):

@@ -410,7 +410,7 @@
           "apiGroups": [
             "hanko.sh"
           ],
-          "justification": "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work.",
+          "justification": "Create five Fleet content kinds, Observe role imports, and opt-in approved Operation children (instance/import/snapshot); no arbitrary request creation.",
           "kind": "Role",
           "name": "security-review-hanko-operator",
           "namespace": "auth",
@@ -419,34 +419,42 @@
           "resources": [
             "hankoapplications",
             "hankoiamprofiles",
-            "hankoimports",
-            "hankoissuers",
-            "hankokeycloakinstances",
-            "hankomeshservices",
-            "hankoorganizations",
             "hankorealms",
-            "hankoresourceservers",
             "hankoroles",
             "hankoserviceaccounts",
-            "hankotenants",
-            "hankothemes",
-            "hankoworkloadtrusts"
+            "hankothemes"
           ],
           "verbs": [
-            "create",
-            "delete",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
+            "create"
           ]
         },
         {
           "apiGroups": [
             "hanko.sh"
           ],
-          "justification": "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work.",
+          "justification": "Delete only five Fleet content kinds during owned rollback and HankoTenant during approved decommission.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoapplications",
+            "hankoiamprofiles",
+            "hankorealms",
+            "hankoserviceaccounts",
+            "hankotenants",
+            "hankothemes"
+          ],
+          "verbs": [
+            "delete"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Finalizer updates for lifecycle-owning controllers; regular metadata updates use separately reviewed main-resource grants.",
           "kind": "Role",
           "name": "security-review-hanko-operator",
           "namespace": "auth",
@@ -472,7 +480,7 @@
           "apiGroups": [
             "hanko.sh"
           ],
-          "justification": "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work.",
+          "justification": "Publish observed status independently of spec/metadata write authority.",
           "kind": "Role",
           "name": "security-review-hanko-operator",
           "namespace": "auth",
@@ -504,26 +512,7 @@
           "apiGroups": [
             "hanko.sh"
           ],
-          "justification": "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work.",
-          "kind": "Role",
-          "name": "security-review-hanko-operator",
-          "namespace": "auth",
-          "nonResourceURLs": [],
-          "resourceNames": [],
-          "resources": [
-            "hankoemailproviders"
-          ],
-          "verbs": [
-            "get",
-            "list",
-            "watch"
-          ]
-        },
-        {
-          "apiGroups": [
-            "hanko.sh"
-          ],
-          "justification": "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work.",
+          "justification": "Publish observed status independently of spec/metadata write authority.",
           "kind": "Role",
           "name": "security-review-hanko-operator",
           "namespace": "auth",
@@ -536,6 +525,85 @@
             "get",
             "patch",
             "update"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Update metadata/finalizers of lifecycle-owned CRs and reviewed Fleet content; Issuer, MeshService, Import and legacy EmailProvider remain status-only writers.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoapplications",
+            "hankoiamprofiles",
+            "hankokeycloakinstances",
+            "hankoorganizations",
+            "hankorealms",
+            "hankoresourceservers",
+            "hankoroles",
+            "hankoserviceaccounts",
+            "hankotenants",
+            "hankothemes",
+            "hankoworkloadtrusts"
+          ],
+          "verbs": [
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Watch/cache every registered CR; no spec mutation follows from these read grants.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoapplications",
+            "hankoiamprofiles",
+            "hankoimports",
+            "hankoissuers",
+            "hankokeycloakinstances",
+            "hankomeshservices",
+            "hankoorganizations",
+            "hankorealms",
+            "hankoresourceservers",
+            "hankoroles",
+            "hankoserviceaccounts",
+            "hankotenants",
+            "hankothemes",
+            "hankoworkloadtrusts"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Watch/cache every registered CR; no spec mutation follows from these read grants.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoemailproviders"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch"
           ]
         },
         {
@@ -1279,7 +1347,7 @@
           "apiGroups": [
             "hanko.sh"
           ],
-          "justification": "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work.",
+          "justification": "Create five Fleet content kinds, Observe role imports, and opt-in approved Operation children (instance/import/snapshot); no arbitrary request creation.",
           "kind": "Role",
           "name": "security-review-hanko-operator",
           "namespace": "auth",
@@ -1288,34 +1356,42 @@
           "resources": [
             "hankoapplications",
             "hankoiamprofiles",
-            "hankoimports",
-            "hankoissuers",
-            "hankokeycloakinstances",
-            "hankomeshservices",
-            "hankoorganizations",
             "hankorealms",
-            "hankoresourceservers",
             "hankoroles",
             "hankoserviceaccounts",
-            "hankotenants",
-            "hankothemes",
-            "hankoworkloadtrusts"
+            "hankothemes"
           ],
           "verbs": [
-            "create",
-            "delete",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
+            "create"
           ]
         },
         {
           "apiGroups": [
             "hanko.sh"
           ],
-          "justification": "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work.",
+          "justification": "Delete only five Fleet content kinds during owned rollback and HankoTenant during approved decommission.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoapplications",
+            "hankoiamprofiles",
+            "hankorealms",
+            "hankoserviceaccounts",
+            "hankotenants",
+            "hankothemes"
+          ],
+          "verbs": [
+            "delete"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Finalizer updates for lifecycle-owning controllers; regular metadata updates use separately reviewed main-resource grants.",
           "kind": "Role",
           "name": "security-review-hanko-operator",
           "namespace": "auth",
@@ -1341,7 +1417,7 @@
           "apiGroups": [
             "hanko.sh"
           ],
-          "justification": "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work.",
+          "justification": "Publish observed status independently of spec/metadata write authority.",
           "kind": "Role",
           "name": "security-review-hanko-operator",
           "namespace": "auth",
@@ -1373,26 +1449,7 @@
           "apiGroups": [
             "hanko.sh"
           ],
-          "justification": "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work.",
-          "kind": "Role",
-          "name": "security-review-hanko-operator",
-          "namespace": "auth",
-          "nonResourceURLs": [],
-          "resourceNames": [],
-          "resources": [
-            "hankoemailproviders"
-          ],
-          "verbs": [
-            "get",
-            "list",
-            "watch"
-          ]
-        },
-        {
-          "apiGroups": [
-            "hanko.sh"
-          ],
-          "justification": "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work.",
+          "justification": "Publish observed status independently of spec/metadata write authority.",
           "kind": "Role",
           "name": "security-review-hanko-operator",
           "namespace": "auth",
@@ -1405,6 +1462,85 @@
             "get",
             "patch",
             "update"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Update metadata/finalizers of lifecycle-owned CRs and reviewed Fleet content; Issuer, MeshService, Import and legacy EmailProvider remain status-only writers.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoapplications",
+            "hankoiamprofiles",
+            "hankokeycloakinstances",
+            "hankoorganizations",
+            "hankorealms",
+            "hankoresourceservers",
+            "hankoroles",
+            "hankoserviceaccounts",
+            "hankotenants",
+            "hankothemes",
+            "hankoworkloadtrusts"
+          ],
+          "verbs": [
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Watch/cache every registered CR; no spec mutation follows from these read grants.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoapplications",
+            "hankoiamprofiles",
+            "hankoimports",
+            "hankoissuers",
+            "hankokeycloakinstances",
+            "hankomeshservices",
+            "hankoorganizations",
+            "hankorealms",
+            "hankoresourceservers",
+            "hankoroles",
+            "hankoserviceaccounts",
+            "hankotenants",
+            "hankothemes",
+            "hankoworkloadtrusts"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Watch/cache every registered CR; no spec mutation follows from these read grants.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoemailproviders"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch"
           ]
         },
         {
@@ -1965,7 +2101,7 @@
           "apiGroups": [
             "hanko.sh"
           ],
-          "justification": "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work.",
+          "justification": "Create five Fleet content kinds, Observe role imports, and opt-in approved Operation children (instance/import/snapshot); no arbitrary request creation.",
           "kind": "Role",
           "name": "security-review-hanko-operator",
           "namespace": "auth",
@@ -1974,34 +2110,42 @@
           "resources": [
             "hankoapplications",
             "hankoiamprofiles",
-            "hankoimports",
-            "hankoissuers",
-            "hankokeycloakinstances",
-            "hankomeshservices",
-            "hankoorganizations",
             "hankorealms",
-            "hankoresourceservers",
             "hankoroles",
             "hankoserviceaccounts",
-            "hankotenants",
-            "hankothemes",
-            "hankoworkloadtrusts"
+            "hankothemes"
           ],
           "verbs": [
-            "create",
-            "delete",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
+            "create"
           ]
         },
         {
           "apiGroups": [
             "hanko.sh"
           ],
-          "justification": "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work.",
+          "justification": "Delete only five Fleet content kinds during owned rollback and HankoTenant during approved decommission.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoapplications",
+            "hankoiamprofiles",
+            "hankorealms",
+            "hankoserviceaccounts",
+            "hankotenants",
+            "hankothemes"
+          ],
+          "verbs": [
+            "delete"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Finalizer updates for lifecycle-owning controllers; regular metadata updates use separately reviewed main-resource grants.",
           "kind": "Role",
           "name": "security-review-hanko-operator",
           "namespace": "auth",
@@ -2027,7 +2171,7 @@
           "apiGroups": [
             "hanko.sh"
           ],
-          "justification": "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work.",
+          "justification": "Publish observed status independently of spec/metadata write authority.",
           "kind": "Role",
           "name": "security-review-hanko-operator",
           "namespace": "auth",
@@ -2059,7 +2203,86 @@
           "apiGroups": [
             "hanko.sh"
           ],
-          "justification": "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work.",
+          "justification": "Publish observed status independently of spec/metadata write authority.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoemailproviders/status"
+          ],
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Update metadata/finalizers of lifecycle-owned CRs and reviewed Fleet content; Issuer, MeshService, Import and legacy EmailProvider remain status-only writers.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoapplications",
+            "hankoiamprofiles",
+            "hankokeycloakinstances",
+            "hankoorganizations",
+            "hankorealms",
+            "hankoresourceservers",
+            "hankoroles",
+            "hankoserviceaccounts",
+            "hankotenants",
+            "hankothemes",
+            "hankoworkloadtrusts"
+          ],
+          "verbs": [
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Watch/cache every registered CR; no spec mutation follows from these read grants.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoapplications",
+            "hankoiamprofiles",
+            "hankoimports",
+            "hankoissuers",
+            "hankokeycloakinstances",
+            "hankomeshservices",
+            "hankoorganizations",
+            "hankorealms",
+            "hankoresourceservers",
+            "hankoroles",
+            "hankoserviceaccounts",
+            "hankotenants",
+            "hankothemes",
+            "hankoworkloadtrusts"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Watch/cache every registered CR; no spec mutation follows from these read grants.",
           "kind": "Role",
           "name": "security-review-hanko-operator",
           "namespace": "auth",
@@ -2076,9 +2299,651 @@
         },
         {
           "apiGroups": [
+            "monitoring.coreos.com"
+          ],
+          "justification": "Read/delete the exact optional release metrics monitor at decommission.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [
+            "security-review-hanko-operator"
+          ],
+          "resources": [
+            "servicemonitors"
+          ],
+          "verbs": [
+            "delete",
+            "get"
+          ]
+        },
+        {
+          "apiGroups": [
+            "networking.k8s.io"
+          ],
+          "justification": "Reconcile managed provider network boundaries; delete exact release policies during decommission.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [
+            "security-review-hanko-operator",
+            "security-review-hanko-operator-theme-jobs"
+          ],
+          "resources": [
+            "networkpolicies"
+          ],
+          "verbs": [
+            "delete"
+          ]
+        },
+        {
+          "apiGroups": [
+            "networking.k8s.io"
+          ],
+          "justification": "Reconcile managed provider network boundaries; delete exact release policies during decommission.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "networkpolicies"
+          ],
+          "verbs": [
+            "create",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            "policy"
+          ],
+          "justification": "Maintain managed replica availability; remove the owned budget after scale-down.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "poddisruptionbudgets"
+          ],
+          "verbs": [
+            "create",
+            "delete",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            "rbac.authorization.k8s.io"
+          ],
+          "justification": "Adopt or remove exact release RBAC objects at decommission; no general role binding authority. Adopt or remove exact release RBAC objects at decommission; native Kubernetes escalation protection still applies.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [
+            "security-review-hanko-operator"
+          ],
+          "resources": [
+            "rolebindings",
+            "roles"
+          ],
+          "verbs": [
+            "get",
+            "patch"
+          ]
+        },
+        {
+          "apiGroups": [
+            "rbac.authorization.k8s.io"
+          ],
+          "justification": "Adopt/remove exact release cluster-reader bindings through the release anchor. Adopt/remove exact release cluster-reader RBAC through the release anchor; no wildcard or escalation verbs.",
+          "kind": "ClusterRole",
+          "name": "security-review-hanko-operator-cluster-identity-reader",
+          "namespace": "",
+          "nonResourceURLs": [],
+          "resourceNames": [
+            "security-review-hanko-operator-cluster-identity-reader",
+            "security-review-hanko-operator-node-reader"
+          ],
+          "resources": [
+            "clusterrolebindings",
+            "clusterroles"
+          ],
+          "verbs": [
+            "delete",
+            "get",
+            "patch"
+          ]
+        },
+        {
+          "apiGroups": [],
+          "justification": "Read current-cluster public issuer and signing keys; no token issuance or review.",
+          "kind": "ClusterRole",
+          "name": "security-review-hanko-operator-cluster-identity-reader",
+          "namespace": "",
+          "nonResourceURLs": [
+            "/.well-known/openid-configuration",
+            "/openid/v1/jwks"
+          ],
+          "resourceNames": [],
+          "resources": [],
+          "verbs": [
+            "get"
+          ]
+        }
+      ]
+    },
+    "with-lifecycle": {
+      "bindings": [
+        {
+          "kind": "ClusterRoleBinding",
+          "name": "security-review-hanko-operator-cluster-identity-reader",
+          "namespace": "",
+          "roleRef": {
+            "apiGroup": "rbac.authorization.k8s.io",
+            "kind": "ClusterRole",
+            "name": "security-review-hanko-operator-cluster-identity-reader"
+          },
+          "subjects": [
+            {
+              "kind": "ServiceAccount",
+              "name": "security-review-hanko-operator",
+              "namespace": "auth"
+            }
+          ]
+        },
+        {
+          "kind": "ClusterRoleBinding",
+          "name": "security-review-hanko-operator-node-reader",
+          "namespace": "",
+          "roleRef": {
+            "apiGroup": "rbac.authorization.k8s.io",
+            "kind": "ClusterRole",
+            "name": "security-review-hanko-operator-node-reader"
+          },
+          "subjects": [
+            {
+              "kind": "ServiceAccount",
+              "name": "security-review-hanko-operator",
+              "namespace": "auth"
+            }
+          ]
+        },
+        {
+          "kind": "RoleBinding",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "roleRef": {
+            "apiGroup": "rbac.authorization.k8s.io",
+            "kind": "Role",
+            "name": "security-review-hanko-operator"
+          },
+          "subjects": [
+            {
+              "kind": "ServiceAccount",
+              "name": "security-review-hanko-operator",
+              "namespace": "auth"
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "apiGroups": [
+            "",
+            "events.k8s.io"
+          ],
+          "justification": "Record reconciliation Events through both Kubernetes Event APIs; no list/read/delete.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "events"
+          ],
+          "verbs": [
+            "create",
+            "patch"
+          ]
+        },
+        {
+          "apiGroups": [
+            ""
+          ],
+          "justification": "Dynamic canonical credential creation/rotation and projections; controller owner/UID/consent checks. These are not Kubernetes admission isolation.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "secrets"
+          ],
+          "verbs": [
+            "create",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "apiGroups": [
+            ""
+          ],
+          "justification": "Fleet/checkpoint/runtime metadata and mesh projection; cross-namespace writers are named. Namespace-local dynamic names remain broad.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "configmaps"
+          ],
+          "verbs": [
+            "create",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            ""
+          ],
+          "justification": "Observe explicitly selected managed/theme storage; no volume writes.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "persistentvolumeclaims"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            ""
+          ],
+          "justification": "Observe managed workload readiness and node identity; no Pod writes or exec. Observe workload identities; decommission patches only the release-owned account. No token minting.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "pods",
+            "serviceaccounts"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            ""
+          ],
+          "justification": "Observe workload identities; decommission patches only the release-owned account. No token minting.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [
+            "security-review-hanko-operator"
+          ],
+          "resources": [
+            "serviceaccounts"
+          ],
+          "verbs": [
+            "patch"
+          ]
+        },
+        {
+          "apiGroups": [
+            ""
+          ],
+          "justification": "Read Pod.nodeName-derived node identity; names are discovered dynamically; no list/watch or writes.",
+          "kind": "ClusterRole",
+          "name": "security-review-hanko-operator-node-reader",
+          "namespace": "",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "nodes"
+          ],
+          "verbs": [
+            "get"
+          ]
+        },
+        {
+          "apiGroups": [
+            ""
+          ],
+          "justification": "Read referenced credentials without caching, or delete exact release bootstrap/CA Secrets at approved decommission.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [
+            "hanko-hub-enroll",
+            "hanko-hub-tls"
+          ],
+          "resources": [
+            "secrets"
+          ],
+          "verbs": [
+            "delete"
+          ]
+        },
+        {
+          "apiGroups": [
+            ""
+          ],
+          "justification": "Read referenced credentials without caching, or delete exact release bootstrap/CA Secrets at approved decommission.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "secrets"
+          ],
+          "verbs": [
+            "get"
+          ]
+        },
+        {
+          "apiGroups": [
+            ""
+          ],
+          "justification": "Read the exact kube-system UID used to bind this physical cluster.",
+          "kind": "ClusterRole",
+          "name": "security-review-hanko-operator-cluster-identity-reader",
+          "namespace": "",
+          "nonResourceURLs": [],
+          "resourceNames": [
+            "kube-system"
+          ],
+          "resources": [
+            "namespaces"
+          ],
+          "verbs": [
+            "get"
+          ]
+        },
+        {
+          "apiGroups": [
+            ""
+          ],
+          "justification": "Reconcile managed provider Services, observe mesh egress endpoints, remove exact release metrics Service.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [
+            "security-review-hanko-operator-metrics"
+          ],
+          "resources": [
+            "services"
+          ],
+          "verbs": [
+            "delete"
+          ]
+        },
+        {
+          "apiGroups": [
+            ""
+          ],
+          "justification": "Reconcile managed provider Services, observe mesh egress endpoints, remove exact release metrics Service.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "services"
+          ],
+          "verbs": [
+            "create",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            "apps"
+          ],
+          "justification": "Manage provider infrastructure or approved self-update; release deletion is named. Controller ownership checks are not universal admission isolation.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [
+            "security-review-hanko-operator"
+          ],
+          "resources": [
+            "deployments"
+          ],
+          "verbs": [
+            "delete"
+          ]
+        },
+        {
+          "apiGroups": [
+            "apps"
+          ],
+          "justification": "Manage provider infrastructure or approved self-update; release deletion is named. Controller ownership checks are not universal admission isolation.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "deployments"
+          ],
+          "verbs": [
+            "create",
+            "get",
+            "list",
+            "patch",
+            "update",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            "batch"
+          ],
+          "justification": "Run and observe approved theme/snapshot Jobs, then clean owned jobs; dynamic names require namespace scope.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "jobs"
+          ],
+          "verbs": [
+            "create",
+            "delete",
+            "get",
+            "list",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            "coordination.k8s.io"
+          ],
+          "justification": "Create the leader lock; Kubernetes RBAC cannot name-scope CREATE. Namespace-scoped residual authority.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "leases"
+          ],
+          "verbs": [
+            "create"
+          ]
+        },
+        {
+          "apiGroups": [
+            "coordination.k8s.io"
+          ],
+          "justification": "Read and renew only the configured client-go LeaseLock; no list/watch/patch/delete.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [
+            "hanko-operator.hanko.sh"
+          ],
+          "resources": [
+            "leases"
+          ],
+          "verbs": [
+            "get",
+            "update"
+          ]
+        },
+        {
+          "apiGroups": [
             "hanko.sh"
           ],
-          "justification": "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work.",
+          "justification": "Create five Fleet content kinds, Observe role imports, and opt-in approved Operation children (instance/import/snapshot); no arbitrary request creation.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoapplications",
+            "hankoiamprofiles",
+            "hankoimports",
+            "hankokeycloakinstances",
+            "hankorealms",
+            "hankoroles",
+            "hankoserviceaccounts",
+            "hankosnapshots",
+            "hankothemes"
+          ],
+          "verbs": [
+            "create"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Delete only five Fleet content kinds during owned rollback and HankoTenant during approved decommission.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoapplications",
+            "hankoiamprofiles",
+            "hankorealms",
+            "hankoserviceaccounts",
+            "hankotenants",
+            "hankothemes"
+          ],
+          "verbs": [
+            "delete"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Finalizer updates for lifecycle-owning controllers; regular metadata updates use separately reviewed main-resource grants.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoapplications/finalizers",
+            "hankokeycloakinstances/finalizers",
+            "hankooperations/finalizers",
+            "hankoorganizations/finalizers",
+            "hankorealms/finalizers",
+            "hankoresourceservers/finalizers",
+            "hankoroles/finalizers",
+            "hankoserviceaccounts/finalizers",
+            "hankosnapshots/finalizers",
+            "hankotenants/finalizers",
+            "hankothemes/finalizers",
+            "hankoworkloadtrusts/finalizers"
+          ],
+          "verbs": [
+            "update"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Publish observed status independently of spec/metadata write authority.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoapplications/status",
+            "hankoiamprofiles/status",
+            "hankoimports/status",
+            "hankoissuers/status",
+            "hankokeycloakinstances/status",
+            "hankomeshservices/status",
+            "hankooperations/status",
+            "hankoorganizations/status",
+            "hankorealms/status",
+            "hankoresourceservers/status",
+            "hankoroles/status",
+            "hankoserviceaccounts/status",
+            "hankosnapshots/status",
+            "hankotenants/status",
+            "hankothemes/status",
+            "hankoworkloadtrusts/status"
+          ],
+          "verbs": [
+            "get",
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Publish observed status independently of spec/metadata write authority.",
           "kind": "Role",
           "name": "security-review-hanko-operator",
           "namespace": "auth",
@@ -2091,6 +2956,89 @@
             "get",
             "patch",
             "update"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Update metadata/finalizers of lifecycle-owned CRs and reviewed Fleet content; Issuer, MeshService, Import and legacy EmailProvider remain status-only writers.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoapplications",
+            "hankoiamprofiles",
+            "hankokeycloakinstances",
+            "hankooperations",
+            "hankoorganizations",
+            "hankorealms",
+            "hankoresourceservers",
+            "hankoroles",
+            "hankoserviceaccounts",
+            "hankosnapshots",
+            "hankotenants",
+            "hankothemes",
+            "hankoworkloadtrusts"
+          ],
+          "verbs": [
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Watch/cache every registered CR; no spec mutation follows from these read grants.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoapplications",
+            "hankoiamprofiles",
+            "hankoimports",
+            "hankoissuers",
+            "hankokeycloakinstances",
+            "hankomeshservices",
+            "hankooperations",
+            "hankoorganizations",
+            "hankorealms",
+            "hankoresourceservers",
+            "hankoroles",
+            "hankoserviceaccounts",
+            "hankosnapshots",
+            "hankotenants",
+            "hankothemes",
+            "hankoworkloadtrusts"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Watch/cache every registered CR; no spec mutation follows from these read grants.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoemailproviders"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch"
           ]
         },
         {
@@ -2630,7 +3578,7 @@
           "apiGroups": [
             "hanko.sh"
           ],
-          "justification": "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work.",
+          "justification": "Create five Fleet content kinds, Observe role imports, and opt-in approved Operation children (instance/import/snapshot); no arbitrary request creation.",
           "kind": "Role",
           "name": "security-review-hanko-operator",
           "namespace": "auth",
@@ -2639,34 +3587,42 @@
           "resources": [
             "hankoapplications",
             "hankoiamprofiles",
-            "hankoimports",
-            "hankoissuers",
-            "hankokeycloakinstances",
-            "hankomeshservices",
-            "hankoorganizations",
             "hankorealms",
-            "hankoresourceservers",
             "hankoroles",
             "hankoserviceaccounts",
-            "hankotenants",
-            "hankothemes",
-            "hankoworkloadtrusts"
+            "hankothemes"
           ],
           "verbs": [
-            "create",
-            "delete",
-            "get",
-            "list",
-            "patch",
-            "update",
-            "watch"
+            "create"
           ]
         },
         {
           "apiGroups": [
             "hanko.sh"
           ],
-          "justification": "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work.",
+          "justification": "Delete only five Fleet content kinds during owned rollback and HankoTenant during approved decommission.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoapplications",
+            "hankoiamprofiles",
+            "hankorealms",
+            "hankoserviceaccounts",
+            "hankotenants",
+            "hankothemes"
+          ],
+          "verbs": [
+            "delete"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Finalizer updates for lifecycle-owning controllers; regular metadata updates use separately reviewed main-resource grants.",
           "kind": "Role",
           "name": "security-review-hanko-operator",
           "namespace": "auth",
@@ -2692,7 +3648,7 @@
           "apiGroups": [
             "hanko.sh"
           ],
-          "justification": "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work.",
+          "justification": "Publish observed status independently of spec/metadata write authority.",
           "kind": "Role",
           "name": "security-review-hanko-operator",
           "namespace": "auth",
@@ -2724,26 +3680,7 @@
           "apiGroups": [
             "hanko.sh"
           ],
-          "justification": "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work.",
-          "kind": "Role",
-          "name": "security-review-hanko-operator",
-          "namespace": "auth",
-          "nonResourceURLs": [],
-          "resourceNames": [],
-          "resources": [
-            "hankoemailproviders"
-          ],
-          "verbs": [
-            "get",
-            "list",
-            "watch"
-          ]
-        },
-        {
-          "apiGroups": [
-            "hanko.sh"
-          ],
-          "justification": "CR cache GET/list/watch, fleet/import/child object delivery and cleanup; status/finalizer writes use their subresources. Per-kind verb reduction remains review work.",
+          "justification": "Publish observed status independently of spec/metadata write authority.",
           "kind": "Role",
           "name": "security-review-hanko-operator",
           "namespace": "auth",
@@ -2756,6 +3693,85 @@
             "get",
             "patch",
             "update"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Update metadata/finalizers of lifecycle-owned CRs and reviewed Fleet content; Issuer, MeshService, Import and legacy EmailProvider remain status-only writers.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoapplications",
+            "hankoiamprofiles",
+            "hankokeycloakinstances",
+            "hankoorganizations",
+            "hankorealms",
+            "hankoresourceservers",
+            "hankoroles",
+            "hankoserviceaccounts",
+            "hankotenants",
+            "hankothemes",
+            "hankoworkloadtrusts"
+          ],
+          "verbs": [
+            "patch",
+            "update"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Watch/cache every registered CR; no spec mutation follows from these read grants.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoapplications",
+            "hankoiamprofiles",
+            "hankoimports",
+            "hankoissuers",
+            "hankokeycloakinstances",
+            "hankomeshservices",
+            "hankoorganizations",
+            "hankorealms",
+            "hankoresourceservers",
+            "hankoroles",
+            "hankoserviceaccounts",
+            "hankotenants",
+            "hankothemes",
+            "hankoworkloadtrusts"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            "hanko.sh"
+          ],
+          "justification": "Watch/cache every registered CR; no spec mutation follows from these read grants.",
+          "kind": "Role",
+          "name": "security-review-hanko-operator",
+          "namespace": "auth",
+          "nonResourceURLs": [],
+          "resourceNames": [],
+          "resources": [
+            "hankoemailproviders"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch"
           ]
         },
         {
@@ -2923,13 +3939,19 @@
           "type": "string"
         },
         "spec.clientID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.clientSecretProjections": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "spec.clientSecretProjections[].name": {
@@ -3024,13 +4046,19 @@
           "type": "string"
         },
         "spec.postLogoutRedirectURIs": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "spec.postLogoutRedirectURIs[]": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.protocol": {
@@ -3053,38 +4081,58 @@
           "type": "string"
         },
         "spec.realmRoleScopes": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "spec.realmRoleScopes[]": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.redirectURIs": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "spec.redirectURIs[]": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.roles": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "spec.roles[].description": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 1024
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.roles[].name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.runtimeBindings": {
@@ -3175,8 +4223,10 @@
           "type": "string"
         },
         "spec.theme": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.tokenClaims": {
@@ -4137,7 +5187,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "62d4cfe96ee54a643f99a60da489d3c2f274598b188fe4912024ac33845a118d"
+      "schema_sha256": "0fefebeff048b89aedba4162c2118cbaebcd9420ff1ce7a12c048146b525af04"
     },
     "HankoApplication/v1beta1": {
       "nodes": {
@@ -4154,13 +5204,19 @@
           "type": "string"
         },
         "spec.clientID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.clientSecretProjections": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "spec.clientSecretProjections[].name": {
@@ -4255,13 +5311,19 @@
           "type": "string"
         },
         "spec.postLogoutRedirectURIs": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "spec.postLogoutRedirectURIs[]": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.protocol": {
@@ -4284,38 +5346,58 @@
           "type": "string"
         },
         "spec.realmRoleScopes": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "spec.realmRoleScopes[]": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.redirectURIs": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "spec.redirectURIs[]": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.roles": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "spec.roles[].description": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 1024
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.roles[].name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.runtimeBindings": {
@@ -4406,8 +5488,10 @@
           "type": "string"
         },
         "spec.theme": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.tokenClaims": {
@@ -5368,7 +6452,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "62d4cfe96ee54a643f99a60da489d3c2f274598b188fe4912024ac33845a118d"
+      "schema_sha256": "0fefebeff048b89aedba4162c2118cbaebcd9420ff1ce7a12c048146b525af04"
     },
     "HankoEmailProvider/v1alpha1": {
       "nodes": {
@@ -6653,40 +7737,60 @@
     "HankoOrganization/v1alpha1": {
       "nodes": {
         "spec.clientRoles": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "spec.clientRoles[].client": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.clientRoles[].roles": {
           "limits": {
+            "maxItems": 64,
             "minItems": 1
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "spec.clientRoles[].roles[]": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.domains": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "spec.domains[]": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.identityProvider": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.mode": {
@@ -6700,13 +7804,19 @@
           "type": "string"
         },
         "spec.name": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.parentRef": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.realmRef": {
@@ -6734,9 +7844,10 @@
         },
         "spec.slug": {
           "limits": {
+            "maxLength": 253,
             "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "status.adoptionCandidate.candidateHash": {
@@ -7169,13 +8280,16 @@
           "type": "string"
         }
       },
-      "schema_sha256": "4107db0331c564ffe079ade116a39e5b1788e06ee02870abb97e31c723f050bd"
+      "schema_sha256": "169cfef894d31b05d873437d4e36227281fe2edd67252db2f5e233b1e1b52d01"
     },
     "HankoRealm/v1alpha1": {
       "nodes": {
         "spec.displayName": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.email.fromName": {
@@ -7213,9 +8327,10 @@
         },
         "spec.frontendURL": {
           "limits": {
+            "maxLength": 2048,
             "pattern": "^https?://.+$"
           },
-          "missing_explicit_bound": true,
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.iamProfileRef": {
@@ -7320,8 +8435,10 @@
           "type": "string"
         },
         "spec.loginTheme": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.roles": {
@@ -7346,14 +8463,17 @@
           "type": "string"
         },
         "spec.roles[].description": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 1024
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.roles[].name": {
           "limits": {
             "maxLength": 255,
-            "pattern": "^[A-Za-z0-9._-]+$"
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
           },
           "missing_explicit_bound": false,
           "type": "string"
@@ -7529,7 +8649,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "43ba334dd91fe54eabf7cbdb54b6ec6d3159b2c7f76c608e90c701128c68e6b8"
+      "schema_sha256": "f9a8c44b31340cfb0c2a9b33258bda7e8ccfb2c695773cdbe8c4a50c6fff1902"
     },
     "HankoResourceServer/v1alpha1": {
       "nodes": {
@@ -9639,14 +10759,18 @@
         },
         "spec.composites[]": {
           "limits": {
-            "maxLength": 255
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
           },
           "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.description": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 1024
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.mode": {
@@ -9661,7 +10785,9 @@
         },
         "spec.name": {
           "limits": {
-            "maxLength": 255
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
           },
           "missing_explicit_bound": false,
           "type": "string"
@@ -10207,7 +11333,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "410582180989f0084aa4636b34f28e15cadeb8527f7c3e9e46eace5404605bdb"
+      "schema_sha256": "efe70081e6570f522056c700932df7e0eec248142b5dd8b24328690fd4bf87d2"
     },
     "HankoRole/v1beta1": {
       "nodes": {
@@ -10237,14 +11363,18 @@
         },
         "spec.composites[]": {
           "limits": {
-            "maxLength": 255
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
           },
           "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.description": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 1024
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.mode": {
@@ -10259,7 +11389,9 @@
         },
         "spec.name": {
           "limits": {
-            "maxLength": 255
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
           },
           "missing_explicit_bound": false,
           "type": "string"
@@ -10805,7 +11937,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "410582180989f0084aa4636b34f28e15cadeb8527f7c3e9e46eace5404605bdb"
+      "schema_sha256": "efe70081e6570f522056c700932df7e0eec248142b5dd8b24328690fd4bf87d2"
     },
     "HankoServiceAccount/v1alpha1": {
       "nodes": {
@@ -10945,8 +12077,12 @@
           "type": "string"
         },
         "spec.clientID": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.mode": {
@@ -10987,13 +12123,19 @@
           "type": "string"
         },
         "spec.scopes": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
           "type": "array"
         },
         "spec.scopes[]": {
-          "limits": {},
-          "missing_explicit_bound": true,
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+          },
+          "missing_explicit_bound": false,
           "type": "string"
         },
         "spec.secretRotationPolicy.forceRotateAt": {
@@ -11705,7 +12847,7 @@
           "type": "string"
         }
       },
-      "schema_sha256": "e74d4b0f92336014151f95c600a37555ad6f66c2210d2ab6bcf2225427249ea8"
+      "schema_sha256": "839eac28d8a962abfc5bf47d28e9c03faca7bbb35f7e95ef761e9526348a4a5f"
     },
     "HankoSnapshot/v1alpha1": {
       "nodes": {

@@ -36,6 +36,8 @@ class OperationalContractTests(unittest.TestCase):
             ("docs/operations-runbooks.md", "AuditRecorderUnavailable", "UnreviewedState"),
             ("docs/operations-runbooks.md", "`ProviderPermissionDenied`", "`UnreviewedPermission`"),
             ("internal/controller/iam_evidence.go", 'return "ProviderUnavailable"', 'return "UnreviewedFailure"'),
+            ("scripts/incident-evidence.py", "MAX_OBJECTS = 1000", "MAX_OBJECTS = 1001"),
+            ("scripts/incident-evidence.py", '"HankoSnapshot", "HankoResourceServer"', '"HankoUnreviewed", "HankoResourceServer"'),
             ("scripts/evidence_privacy.py", 'value.find("eyJ")', 'value.find("other-marker")'),
         ]
         for name, before, after in mutations:

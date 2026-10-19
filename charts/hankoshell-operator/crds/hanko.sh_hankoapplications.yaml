@@ -69,6 +69,9 @@ spec:
                 type: object
               clientID:
                 description: ClientID is the Keycloak client identifier.
+                maxLength: 255
+                minLength: 1
+                pattern: ^[^\x00-\x1F\x7F]+$
                 type: string
               clientSecretProjections:
                 description: |-
@@ -100,6 +103,7 @@ spec:
                   - name
                   - namespace
                   type: object
+                maxItems: 32
                 type: array
                 x-kubernetes-list-map-keys:
                 - namespace
@@ -212,7 +216,11 @@ spec:
                 description: PostLogoutRedirectURIs is the list of allowed URIs after
                   logout.
                 items:
+                  maxLength: 2048
+                  minLength: 1
+                  pattern: ^[^\x00-\x1F\x7F]+$
                   type: string
+                maxItems: 64
                 type: array
               protocol:
                 default: oidc
@@ -236,14 +244,22 @@ spec:
                   to this client while Keycloak fullScopeAllowed remains disabled. When the
                   field is omitted, existing realm-role scope mappings remain unmanaged.
                 items:
+                  maxLength: 255
+                  minLength: 1
+                  pattern: ^[^\x00-\x1F\x7F]+$
                   type: string
+                maxItems: 64
                 type: array
                 x-kubernetes-list-type: set
               redirectURIs:
                 description: RedirectURIs is the list of allowed redirect URIs after
                   authentication.
                 items:
+                  maxLength: 2048
+                  minLength: 1
+                  pattern: ^[^\x00-\x1F\x7F]+$
                   type: string
+                maxItems: 64
                 type: array
               roles:
                 description: |-
@@ -255,13 +271,18 @@ spec:
                   properties:
                     description:
                       description: Description is an optional human-readable description.
+                      maxLength: 1024
                       type: string
                     name:
                       description: Name is the Keycloak client role name.
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                   required:
                   - name
                   type: object
+                maxItems: 64
                 type: array
               runtimeBindings:
                 description: |-
@@ -388,6 +409,7 @@ spec:
               theme:
                 description: Theme references a HankoTheme to apply to this application's
                   login page.
+                maxLength: 253
                 type: string
               tokenClaims:
                 description: |-
@@ -1520,6 +1542,9 @@ spec:
                 type: object
               clientID:
                 description: ClientID is the Keycloak client identifier.
+                maxLength: 255
+                minLength: 1
+                pattern: ^[^\x00-\x1F\x7F]+$
                 type: string
               clientSecretProjections:
                 description: |-
@@ -1551,6 +1576,7 @@ spec:
                   - name
                   - namespace
                   type: object
+                maxItems: 32
                 type: array
                 x-kubernetes-list-map-keys:
                 - namespace
@@ -1663,7 +1689,11 @@ spec:
                 description: PostLogoutRedirectURIs is the list of allowed URIs after
                   logout.
                 items:
+                  maxLength: 2048
+                  minLength: 1
+                  pattern: ^[^\x00-\x1F\x7F]+$
                   type: string
+                maxItems: 64
                 type: array
               protocol:
                 default: oidc
@@ -1687,14 +1717,22 @@ spec:
                   to this client while Keycloak fullScopeAllowed remains disabled. When the
                   field is omitted, existing realm-role scope mappings remain unmanaged.
                 items:
+                  maxLength: 255
+                  minLength: 1
+                  pattern: ^[^\x00-\x1F\x7F]+$
                   type: string
+                maxItems: 64
                 type: array
                 x-kubernetes-list-type: set
               redirectURIs:
                 description: RedirectURIs is the list of allowed redirect URIs after
                   authentication.
                 items:
+                  maxLength: 2048
+                  minLength: 1
+                  pattern: ^[^\x00-\x1F\x7F]+$
                   type: string
+                maxItems: 64
                 type: array
               roles:
                 description: |-
@@ -1706,13 +1744,18 @@ spec:
                   properties:
                     description:
                       description: Description is an optional human-readable description.
+                      maxLength: 1024
                       type: string
                     name:
                       description: Name is the Keycloak client role name.
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                   required:
                   - name
                   type: object
+                maxItems: 64
                 type: array
               runtimeBindings:
                 description: |-
@@ -1839,6 +1882,7 @@ spec:
               theme:
                 description: Theme references a HankoTheme to apply to this application's
                   login page.
+                maxLength: 253
                 type: string
               tokenClaims:
                 description: |-

@@ -56,6 +56,8 @@ spec:
               displayName:
                 description: DisplayName is the human-readable realm name shown on
                   the login page.
+                maxLength: 255
+                pattern: ^[^\x00-\x1F\x7F]*$
                 type: string
               email:
                 description: |-
@@ -93,6 +95,7 @@ spec:
                   FrontendURL is the canonical public URL Keycloak uses for browser-facing
                   endpoints in this realm. When omitted, the operator leaves the existing
                   Keycloak realm frontend URL unmanaged.
+                maxLength: 2048
                 pattern: ^https?://.+$
                 type: string
               iamProfileRef:
@@ -229,6 +232,7 @@ spec:
               loginTheme:
                 description: LoginTheme is the Keycloak theme applied to the realm
                   login page.
+                maxLength: 255
                 type: string
               otpRequired:
                 description: OTPRequired forces TOTP for all realm users when true.
@@ -256,11 +260,13 @@ spec:
                     description:
                       description: Description is an optional human-readable explanation
                         of the role.
+                      maxLength: 1024
                       type: string
                     name:
                       description: Name is the Keycloak realm role name.
                       maxLength: 255
-                      pattern: ^[A-Za-z0-9._-]+$
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                   required:
                   - name

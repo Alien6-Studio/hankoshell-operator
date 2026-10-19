@@ -48,12 +48,19 @@ type HankoServiceAccountSpec struct {
 
 	// ClientID is the Keycloak client identifier for the M2M client.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
 	ClientID string `json:"clientID"`
 
 	Authentication  *ServiceAccountAuthentication  `json:"authentication,omitempty"`
 	RuntimeMetadata *WorkloadRuntimeMetadataTarget `json:"runtimeMetadata,omitempty"`
 
 	// Scopes lists the OAuth2 scopes granted to this service account.
+	// +kubebuilder:validation:MaxItems=64
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:MaxLength=255
+	// +kubebuilder:validation:items:Pattern=`^[^\x00-\x1F\x7F]+$`
 	Scopes []string `json:"scopes,omitempty"`
 
 	// SecretRotationPolicy controls automatic secret rotation.

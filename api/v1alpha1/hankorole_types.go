@@ -45,9 +45,12 @@ type HankoRoleSpec struct {
 	// Name is the Keycloak realm role name.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
 	Name string `json:"name"`
 
 	// Description is a human-readable description of the role.
+	// +kubebuilder:validation:MaxLength=1024
 	Description string `json:"description,omitempty"`
 
 	// Composite marks this role as a composite role, aggregating the
@@ -58,6 +61,8 @@ type HankoRoleSpec struct {
 	// Composite is true.
 	// +kubebuilder:validation:MaxItems=64
 	// +kubebuilder:validation:items:MaxLength=255
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:Pattern=`^[^\x00-\x1F\x7F]+$`
 	Composites []string `json:"composites,omitempty"`
 
 	// Attributes holds arbitrary key/value metadata attached to the role in

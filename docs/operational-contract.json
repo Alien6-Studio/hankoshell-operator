@@ -175,5 +175,12 @@
     "ReconcileDeadlineExceeded",
     "StalePlan",
     "Unsupported"
-  ]
+  ],
+  "incident_evidence": {
+    "collector": "scripts/incident-evidence.py",
+    "tests": "scripts/test_incident_evidence.py",
+    "input_bytes": 2097152,
+    "objects": 1000,
+    "depth": 64
+  }
 }

@@ -43,6 +43,9 @@ type HankoApplicationSpec struct {
 
 	// ClientID is the Keycloak client identifier.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
 	ClientID string `json:"clientID"`
 
 	// Protocol defaults to OIDC for existing manifests. An owned client cannot
@@ -59,22 +62,36 @@ type HankoApplicationSpec struct {
 	Type string `json:"type,omitempty"`
 
 	// RedirectURIs is the list of allowed redirect URIs after authentication.
+	// +kubebuilder:validation:MaxItems=64
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:MaxLength=2048
+	// +kubebuilder:validation:items:Pattern=`^[^\x00-\x1F\x7F]+$`
 	RedirectURIs []string `json:"redirectURIs,omitempty"`
 
 	// PostLogoutRedirectURIs is the list of allowed URIs after logout.
+	// +kubebuilder:validation:MaxItems=64
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:MaxLength=2048
+	// +kubebuilder:validation:items:Pattern=`^[^\x00-\x1F\x7F]+$`
 	PostLogoutRedirectURIs []string `json:"postLogoutRedirectURIs,omitempty"`
 
 	// Theme references a HankoTheme to apply to this application's login page.
+	// +kubebuilder:validation:MaxLength=253
 	Theme string `json:"theme,omitempty"`
 
 	// Roles lists client roles to create in Keycloak alongside this application.
 	// Roles are scoped to this client and deleted automatically when the client is deleted.
+	// +kubebuilder:validation:MaxItems=64
 	Roles []ApplicationRole `json:"roles,omitempty"`
 
 	// RealmRoleScopes is the exact set of realm roles allowed into tokens issued
 	// to this client while Keycloak fullScopeAllowed remains disabled. When the
 	// field is omitted, existing realm-role scope mappings remain unmanaged.
 	// +listType=set
+	// +kubebuilder:validation:MaxItems=64
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:MaxLength=255
+	// +kubebuilder:validation:items:Pattern=`^[^\x00-\x1F\x7F]+$`
 	RealmRoleScopes []string `json:"realmRoleScopes,omitempty"`
 
 	// IdentityMappings maps claims received from an upstream OIDC identity provider
@@ -124,6 +141,7 @@ type HankoApplicationSpec struct {
 	// +listType=map
 	// +listMapKey=namespace
 	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=32
 	ClientSecretProjections []ApplicationSecretProjection `json:"clientSecretProjections,omitempty"`
 
 	// RuntimeBindings delivers proven application metadata and optional OIDC
@@ -154,8 +172,12 @@ type ApplicationSecretProjection struct {
 type ApplicationRole struct {
 	// Name is the Keycloak client role name.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
 	Name string `json:"name"`
 	// Description is an optional human-readable description.
+	// +kubebuilder:validation:MaxLength=1024
 	Description string `json:"description,omitempty"`
 }
 

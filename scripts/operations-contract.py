@@ -72,6 +72,19 @@ def check(root=ROOT):
     for state in ("CleanupConflict", "RotationFailed", "AuditRecorderUnavailable", "FleetSignatureInvalid", "UNQUALIFIED"):
         if state not in runbook:
             raise ValueError("Missing fail-closed runbook coverage: " + state)
+    incident = contract["incident_evidence"]
+    source = ast.parse((root / incident["collector"]).read_text())
+    values = {node.targets[0].id: ast.literal_eval(node.value) for node in source.body
+              if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
+              and node.targets[0].id in {"MAX_BYTES", "MAX_OBJECTS", "MAX_DEPTH", "KINDS", "BETA_KINDS"}}
+    if any(values[key] != incident[field] for key, field in (("MAX_BYTES", "input_bytes"), ("MAX_OBJECTS", "objects"), ("MAX_DEPTH", "depth"))):
+        raise ValueError("Incident collection budget differs from the reviewed contract")
+    support = json.loads((root / "docs/api-support.json").read_text())
+    conversion = json.loads((root / "docs/api-conversion.json").read_text())
+    if values["KINDS"] != {r["kind"] for r in support["resources"]} or values["BETA_KINDS"] != set(conversion["resources"]):
+        raise ValueError("Incident collection must explicitly cover every reviewed resource/version")
+    if incident["collector"] not in runbook or incident["tests"] not in runbook or not (root / incident["tests"]).is_file():
+        raise ValueError("Missing executable incident evidence runbook/fixture")
     for path in re.findall(r'`((?:scripts|internal|api)/[^` ]+\.py|(?:internal|api)/[^` ]+\.go)`', runbook):
         if not (root / path).is_file():
             raise ValueError("Runbook references missing executable fixture: " + path)
