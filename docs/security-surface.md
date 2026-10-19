@@ -186,3 +186,8 @@ Deployment grants still need their independent review in #99.
 The [incident collector](operations-runbooks.md#incident-evidence-without-secrets)
 adds a separately tested offline export path for #103. It does not implement the
 outstanding independently approved finalizer-release workflow.
+
+The initial unpublished `public-0.1.0` candidate schema snapshots for Application
+and Role are refreshed explicitly with these admission bounds. Their compiler
+intent/plan identities and corpus objects are unchanged; this does not replace
+a published baseline or grant stable compatibility.

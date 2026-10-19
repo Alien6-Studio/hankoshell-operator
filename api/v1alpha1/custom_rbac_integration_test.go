@@ -91,7 +91,11 @@ func checkCustomResourceRBAC(t *testing.T, ctx context.Context, admin, operator 
 		if err := operator.Delete(ctx, obj, client.DryRunAll); !apierrors.IsForbidden(err) {
 			t.Fatalf("operator can delete %s: %v", kind, err)
 		}
-		if err := operator.Status().Patch(ctx, obj, client.RawPatch(types.MergePatchType, []byte(`{"status":{"observedGeneration":1}}`)), client.DryRunAll); err != nil {
+		status := []byte(`{"status":{"conditions":[]}}`)
+		if kind == "HankoMeshService" {
+			status = []byte(`{"status":{"conditions":[],"receiverNodeUIDs":[]}}`)
+		}
+		if err := operator.Status().Patch(ctx, obj, client.RawPatch(types.MergePatchType, status), client.DryRunAll); err != nil {
 			t.Fatalf("operator lost %s status publication: %v", kind, err)
 		}
 	}

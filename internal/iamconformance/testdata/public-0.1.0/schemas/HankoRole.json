@@ -34,6 +34,8 @@
           "description": "Composites lists child realm role names aggregated by this role when\nComposite is true.",
           "items": {
             "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1F\\x7F]+$",
             "type": "string"
           },
           "maxItems": 64,
@@ -41,6 +43,7 @@
         },
         "description": {
           "description": "Description is a human-readable description of the role.",
+          "maxLength": 1024,
           "type": "string"
         },
         "mode": {
@@ -55,6 +58,8 @@
         "name": {
           "description": "Name is the Keycloak realm role name.",
           "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^[^\\x00-\\x1F\\x7F]+$",
           "type": "string"
         },
         "realmRef": {
