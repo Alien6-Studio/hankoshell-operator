@@ -65,6 +65,16 @@ thresholds. To reproduce it, extract its recorded revision and run the recorded
 `go test` command followed by `go tool cover -func=coverage.out` inside that source
 snapshot. A new baseline needs its own explicit revision, environment and evidence.
 
+The experimental `api/v1beta1` package has an initial 41.7% floor. Its conversion,
+mutable-state isolation and complete exported-field round-trip tests executed
+71/166 statements (42.77%) in the source job for revision
+`516364fab907918d2bce28e66805285ba752024c` with Go 1.27.2 on Linux AMD64.
+The floor follows the same one-percentage-point margin as ordinary packages;
+generated deepcopy branches remain in the denominator. This adds the missing
+package entry without lowering existing thresholds or changing the historical
+baseline. API-server conversion and cross-version field-ownership tests remain
+separate required checks.
+
 The checker regression tests exercise lowered package/function coverage, missing
 packages, renamed functions, ambiguous method names, invalid profiles and policies,
 and failure summaries. Run them with

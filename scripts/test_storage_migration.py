@@ -1,8 +1,11 @@
 import base64
 import copy
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
+import subprocess
+import tempfile
 import unittest
 from unittest.mock import patch
 from urllib.parse import urlsplit
@@ -11,6 +14,10 @@ import yaml
 
 import api_conversion_contract as conversion
 import storage_migration as migration
+
+spec = importlib.util.spec_from_file_location("storage_installed", Path(__file__).with_name("storage-migration-installed-test.py"))
+installed = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(installed)
 
 
 class NativeCluster:
@@ -242,6 +249,35 @@ class StorageMigrationTests(unittest.TestCase):
         with self.assertRaisesRegex(migration.Refused, "PlanApprovalMismatch"):
             migration.Migration(kube, kube.contract, plan, "0" * 64)
         self.assertEqual(kube.writes, [])
+
+
+class InstalledEvidenceTests(unittest.TestCase):
+    def test_cleanup_failures_retain_bounded_failure_evidence_and_remove_credentials(self):
+        for failed_step in (None, "cluster_delete", "image_delete", "cluster_inspect"):
+            with self.subTest(failed_step=failed_step), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory)
+                kubeconfig = output / "kubeconfig"
+                kubeconfig.write_text("private-credential-sentinel")
+                report = {"complete": False, "cleanup": False, "active_phase": "resume_commit", "failure_type": "RuntimeError"}
+                calls = []
+
+                def execute(command, **kwargs):
+                    label = "image_delete" if command[0] == "docker" else "cluster_inspect" if command[1] == "get" else "cluster_delete"
+                    calls.append(label)
+                    if label == failed_step:
+                        raise subprocess.TimeoutExpired(command, 120, stderr=b"private-credential-sentinel")
+                    return b""
+
+                with patch.object(installed, "execute", side_effect=execute):
+                    installed.cleanup("kind", "owned-fixture", "owned-image", kubeconfig, output, report)
+                self.assertEqual(calls, ["cluster_delete", "image_delete", "cluster_inspect"])
+                retained = json.loads((output / "report.json").read_text())
+                self.assertFalse(retained["complete"])
+                self.assertEqual(retained["active_phase"], "resume_commit")
+                self.assertEqual(retained["failure_type"], "RuntimeError")
+                self.assertEqual(retained["cleanup_failures"], [failed_step] if failed_step else [])
+                self.assertNotIn("private-credential-sentinel", json.dumps(retained))
+                self.assertFalse(kubeconfig.exists())
 
 
 if __name__ == "__main__":

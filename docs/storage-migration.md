@@ -162,7 +162,9 @@ copy independence and bounded hostile JSON fuzz input.
 CI runs this native fixture on all three reviewed Kubernetes versions. The
 protected aggregate requires every cell to succeed, independently of provider
 tests. Only its bounded report is uploaded; kubeconfig and reviewed plan files
-are excluded. The weekly qualification uses the same matrix.
+are excluded. Cleanup failures retain the qualification phase and a fixed failure
+category, remove the disposable kubeconfig, and fail the run rather than hiding
+its report. The weekly qualification uses the same matrix.
 
 For Kubernetes 1.36.2, additionally pass `--node-archive` with the official Linux
 server archive for the Docker architecture. The fixture verifies the reviewed

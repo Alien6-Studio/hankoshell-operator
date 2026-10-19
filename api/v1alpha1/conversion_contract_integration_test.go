@@ -133,12 +133,12 @@ func checkCrossVersionApply(t *testing.T, ctx context.Context, kube client.Clien
 	}
 	alpha := object("v1alpha1")
 	alpha.Object["spec"] = runtime.DeepCopyJSONValue(spec)
-	if err := kube.Patch(ctx, alpha, client.Apply, client.FieldOwner("alpha-spec-owner")); err != nil {
+	if err := kube.Apply(ctx, client.ApplyConfigurationFromUnstructured(alpha), client.FieldOwner("alpha-spec-owner")); err != nil {
 		t.Fatal(err)
 	}
 	conflicting := object("v1beta1")
 	conflicting.Object["spec"] = map[string]any{"realmRef": "another-realm"}
-	if err := kube.Patch(ctx, conflicting, client.Apply, client.FieldOwner("beta-foreign-owner")); !apierrors.IsConflict(err) {
+	if err := kube.Apply(ctx, client.ApplyConfigurationFromUnstructured(conflicting), client.FieldOwner("beta-foreign-owner")); !apierrors.IsConflict(err) {
 		t.Fatalf("beta bypassed alpha field ownership: %v", err)
 	}
 	var owners sync.WaitGroup
@@ -150,7 +150,7 @@ func checkCrossVersionApply(t *testing.T, ctx context.Context, kube client.Clien
 			for range 3 {
 				obj := object(version)
 				obj.SetAnnotations(map[string]string{"fixture.example/" + version: "preserved"})
-				if err := kube.Patch(ctx, obj, client.Apply, client.FieldOwner("annotation-owner-"+version)); err != nil {
+				if err := kube.Apply(ctx, client.ApplyConfigurationFromUnstructured(obj), client.FieldOwner("annotation-owner-"+version)); err != nil {
 					errors <- err
 					return
 				}

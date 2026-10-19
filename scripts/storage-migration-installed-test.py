@@ -222,6 +222,30 @@ def qualify(kubectl, kubeconfig, control_plane, output, helm, report):
             "preserved": ["uid", "spec", "status", "generation", "annotations", "finalizers", "managedFields"], "chart_live_guard_verified": True, "public_release_compatibility": False}
 
 
+def cleanup(kind, cluster, built_image, kubeconfig, output, report):
+    """Retain the qualification result even when disposable cleanup fails."""
+    failures = []
+    commands = [("cluster_delete", [kind, "delete", "cluster", "--name", cluster])]
+    if built_image:
+        commands.append(("image_delete", ["docker", "image", "rm", built_image]))
+    for label, command in commands:
+        try:
+            execute(command, timeout=120)
+        except (OSError, RuntimeError, subprocess.SubprocessError):
+            failures.append(label)
+    try:
+        report["cleanup"] = cluster not in execute([kind, "get", "clusters"]).decode().splitlines()
+    except (OSError, RuntimeError, subprocess.SubprocessError):
+        failures.append("cluster_inspect")
+        report["cleanup"] = False
+    report["cleanup_failures"] = failures
+    report["complete"] = report["complete"] and report["cleanup"] and not failures
+    try:
+        (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
+    finally:
+        kubeconfig.unlink(missing_ok=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--kind", type=Path, required=True)
@@ -268,16 +292,13 @@ def main():
         if server["serverVersion"]["gitVersion"] != "v" + args.kubernetes_version:
             raise RuntimeError("UnexpectedKubernetesVersion")
         report.update(qualify(args.kubectl.resolve(), kubeconfig, cluster + "-control-plane", args.output, args.helm.resolve(), report), active_phase="complete")
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+        report["failure_type"] = type(error).__name__
     finally:
-        execute([args.kind, "delete", "cluster", "--name", cluster], timeout=120)
-        if built_image:
-            execute(["docker", "image", "rm", built_image], timeout=120)
-        report["cleanup"] = cluster not in execute([args.kind, "get", "clusters"]).decode().splitlines()
-        report["complete"] = report["complete"] and report["cleanup"]
-        (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
-        kubeconfig.unlink(missing_ok=True)
+        cleanup(args.kind, cluster, built_image, kubeconfig, args.output, report)
     print(json.dumps(report, sort_keys=True))
+    return int(not report["complete"])
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

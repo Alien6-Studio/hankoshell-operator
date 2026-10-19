@@ -3,6 +3,15 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### CI coverage and integration checks
+
+- Add the missing experimental beta package coverage floor from its measured
+  conversion tests; preserve existing package, global and security thresholds.
+- Use the supported controller-runtime apply API in cross-version ownership
+  tests. Preserve failed Authentik outcomes only when that fixture was started.
+- Retain bounded native-storage reports and remove the disposable kubeconfig
+  even when cluster or image cleanup fails; failed cleanup cannot qualify a run.
+
 ### Recovery diagnostics and interrupted storage migration (#92, #103)
 
 - Report fixed IAM condition reasons for typed provider authentication,

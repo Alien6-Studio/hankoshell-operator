@@ -79,6 +79,11 @@ class ReleaseContractTests(unittest.TestCase):
         self.assertIn('--base "$DCO_BASE_SHA" --head "$DCO_HEAD_SHA"', check["run"])
         self.assertIn('--repository "$GITHUB_REPOSITORY"', check["run"])
         self.assertLess(steps.index(check), next(i for i, step in enumerate(steps) if "make test" in step.get("run", "")))
+        provider = next(step for step in steps if step.get("id") == "authentik")
+        self.assertIn("make authentik-integration-test", provider["run"])
+        artifact = next(step for step in steps if step.get("name") == "Preserve real experimental provider outcomes")
+        self.assertEqual(artifact["if"], "always() && steps.authentik.outcome != 'skipped'")
+        self.assertEqual(artifact["with"]["if-no-files-found"], "error")
 
     def test_ci_preflight_blocks_every_expensive_job_and_remains_required(self):
         ci = yaml.safe_load((contract.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
