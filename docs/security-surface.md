@@ -191,3 +191,9 @@ The initial unpublished `public-0.1.0` candidate schema snapshots for Applicatio
 and Role are refreshed explicitly with these admission bounds. Their compiler
 intent/plan identities and corpus objects are unchanged; this does not replace
 a published baseline or grant stable compatibility.
+
+An existing object with an invalid native identity needs a separately reviewed
+object/provider migration. Do not rename a provider object, drop its CRD or
+remove its finalizer just to satisfy these admission bounds. Metadata writes
+on an invalid stored object may also be refused; assess these objects before
+applying the candidate CRDs.

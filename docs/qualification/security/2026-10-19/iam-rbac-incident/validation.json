@@ -1,0 +1,226 @@
+{
+  "schema_version": 1,
+  "source_commit": "b9b31e58dce4e01d19b4a56d766e961caa5ce4a7",
+  "source_tree": "33187bb1ddbef418bb9a9e2e4084bbcdb69f7b70",
+  "scope": "local API/admission/RBAC and offline incident collection; full CI, installed provider and independent security acceptance remain separate",
+  "kubernetes": [
+    {
+      "version": "1.35.0",
+      "revision": "b9b31e58dce4e01d19b4a56d766e961caa5ce4a7",
+      "returncode": 0,
+      "worktree_dirty": false,
+      "source_changed": false,
+      "suite_errors": 0,
+      "counts": {
+        "passed": 771,
+        "failed": 0,
+        "skipped": 0
+      },
+      "junit_sha256": "b2f9c44431ea182a7f031b724c3647b7203c0c2cebf0fdb50975e8ae13e0bdb2"
+    },
+    {
+      "version": "1.36.2",
+      "revision": "b9b31e58dce4e01d19b4a56d766e961caa5ce4a7",
+      "returncode": 0,
+      "worktree_dirty": false,
+      "source_changed": false,
+      "suite_errors": 0,
+      "counts": {
+        "passed": 771,
+        "failed": 0,
+        "skipped": 0
+      },
+      "junit_sha256": "84d78ed728b5e99af47b48c8a53ba56a713ce29046367c3db1f89c069de8ea78"
+    },
+    {
+      "version": "1.37.0",
+      "revision": "b9b31e58dce4e01d19b4a56d766e961caa5ce4a7",
+      "returncode": 0,
+      "worktree_dirty": false,
+      "source_changed": false,
+      "suite_errors": 0,
+      "counts": {
+        "passed": 771,
+        "failed": 0,
+        "skipped": 0
+      },
+      "junit_sha256": "169cfbcdacfaa6303f807a8769a5e6afa3f94ddfdb55bae64b973064872cf6d3"
+    }
+  ],
+  "files": [
+    {
+      "path": "CHANGELOG.md",
+      "sha256": "380ae43ebadaf7311385ddb4211d6d4e9e374369fce09fecd837ea4a8e6fc946"
+    },
+    {
+      "path": "api/v1alpha1/custom_rbac_integration_test.go",
+      "sha256": "0a9e7f86be45c6a320b30cb840ebcaca54f9884e20f2ad8b56c0ff1f7b704c27"
+    },
+    {
+      "path": "api/v1alpha1/hankoapplication_types.go",
+      "sha256": "251916d42e6322d0b26a0d883cba41f22120d18cd93cead8a0267b51c041fa18"
+    },
+    {
+      "path": "api/v1alpha1/hankoorganization_types.go",
+      "sha256": "2e7b4be5caab81c5ea1a5b40ffdef5e9832cdf821f8cab5cef5c40c8e9b07d57"
+    },
+    {
+      "path": "api/v1alpha1/hankorealm_types.go",
+      "sha256": "d9764ba8a97a5d03ceb5d9ec78c66d4811ba495716733882663996709cd29f5a"
+    },
+    {
+      "path": "api/v1alpha1/hankorole_types.go",
+      "sha256": "66492c59bd8887563ea3f08f15e0d1c401887866eb5f895b767a6f5b256a7808"
+    },
+    {
+      "path": "api/v1alpha1/hankoserviceaccount_types.go",
+      "sha256": "fd2223b893a5b3d8e39f6e3543e14a68986284d754647259b6268c3b342e4800"
+    },
+    {
+      "path": "api/v1alpha1/iam_bounds_integration_test.go",
+      "sha256": "972922f52c8b1abba8452602cd99c77114a0ce63de2dd7c28bbb42170833a824"
+    },
+    {
+      "path": "api/v1alpha1/kubernetes_compatibility_test.go",
+      "sha256": "27af4dc85c13e8cb7c4c17cbfb3a080dc6bd93c0493920ff12ca2bd3978ff28c"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankoapplications.yaml",
+      "sha256": "7ce4c580ac529967b176172d9ed8caf18560190755c28cfa30e958bb6689c9a0"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankoorganizations.yaml",
+      "sha256": "2dbc61a271ad3a78372f35979db537b100cdd0616a51d6e0bcee264cd929849a"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankorealms.yaml",
+      "sha256": "f3303c10f29dd9782517316f48e19ca84fcc25e3108296d1304645feba17ff2d"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankoroles.yaml",
+      "sha256": "daf2fa57e451ad39628126a6f0fa138e083236aea4893050faa28f12389e6943"
+    },
+    {
+      "path": "charts/hankoshell-operator/crds/hanko.sh_hankoserviceaccounts.yaml",
+      "sha256": "653c76c40603d430cdacf80f63ca1a6d35339a7b739d2e311ae8562ff0dfd497"
+    },
+    {
+      "path": "charts/hankoshell-operator/templates/role.yaml",
+      "sha256": "c686ed42103f301c7eb550ecb3866e798bf39da2cde19c3a6aef3f88a37aaf08"
+    },
+    {
+      "path": "docs/api-conversion.json",
+      "sha256": "d41d1fc87b06f58a0a30ae09f37f9fd5355bdba614b99d1474107df419dd097e"
+    },
+    {
+      "path": "docs/development-backlog.md",
+      "sha256": "c21fbccf8aa68475aac4e66407394877258bb8198e68816582aa7488a7544a68"
+    },
+    {
+      "path": "docs/operational-contract.json",
+      "sha256": "9cb006eb9abdde33455ea2c2f7fb94edce9aecb7131daab0cf7d0a358392417c"
+    },
+    {
+      "path": "docs/operations-runbooks.md",
+      "sha256": "6542c16011a39a167892b67c7dbe813916fde6777db161ee75a568341ef0e6a4"
+    },
+    {
+      "path": "docs/security-surface.json",
+      "sha256": "774d3cd2efcb3a8aef8d936cd8ccb79dc963d40a4017a9ec7054dbada4c49e0d"
+    },
+    {
+      "path": "docs/security-surface.md",
+      "sha256": "e11f7cf7c5806b3dc6066b152e08ffc269942d6e4eba4c93fc93a995dd7ee734"
+    },
+    {
+      "path": "internal/iamconformance/testdata/public-0.1.0/schemas/HankoApplication.json",
+      "sha256": "617b1fb5ee6e8cc2faac76de190120f296f3d36b39fd5cee6ae05f281c4eaa45"
+    },
+    {
+      "path": "internal/iamconformance/testdata/public-0.1.0/schemas/HankoRole.json",
+      "sha256": "d2d12768cc0f2ec88fc76684bd5e2cdc6ddc56bbfb6796425ecdac44a95a04f3"
+    },
+    {
+      "path": "scripts/incident-evidence.py",
+      "sha256": "b83e8e30cacf08b0585b9d78e2c1819625fa9d547b2defd5a93ab04a7e4a1595"
+    },
+    {
+      "path": "scripts/operations-contract.py",
+      "sha256": "c3c19f33ee346c9a71e1a81a60bf235df2214418a424e10f9338dc9987dc6227"
+    },
+    {
+      "path": "scripts/security-surface.py",
+      "sha256": "ce872682cbbd4c05432f4d1653267a6790eebc86c761c6bfe3f894bd024136bc"
+    },
+    {
+      "path": "scripts/test_incident_evidence.py",
+      "sha256": "67412993cca3e991159a67817100dcf1c081d9f7f64acdcb88e24805e19a840d"
+    },
+    {
+      "path": "scripts/test_operations_contract.py",
+      "sha256": "e6c921c502938483bfd60f8bc884585e524cdaf8ea3a83f09b59f654da109dc8"
+    },
+    {
+      "path": "scripts/test_security_surface.py",
+      "sha256": "04948d6ae7250f6ae37ad2abc2291a3f6114da618d3b3068655ddfcfa73f7251"
+    }
+  ],
+  "security_surface": {
+    "served_schemas": 20,
+    "schema_nodes": 1343,
+    "missing_explicit_bounds_before": 440,
+    "missing_explicit_bounds_after": 397,
+    "rbac_profiles": 5
+  },
+  "local_attempts": {
+    "first_source": "ed93642473ceefa10ae9dab117c4dc1a614f2ef7",
+    "not_qualified": [
+      "Candidate schema corpus had not yet been explicitly refreshed; preflight refused drift.",
+      "The mesh status fixture omitted required receiverNodeUIDs; all three initial API runs failed that fixture. No grant was broadened to fix it.",
+      "The old render-only trust assertion still expected the removed broad writer; updated to exactly get/list/watch/update/patch and the full chart suite passed. No permission was restored."
+    ],
+    "fixed_source": "b9b31e58dce4e01d19b4a56d766e961caa5ce4a7"
+  },
+  "shared_validation": {
+    "preflight": "pass",
+    "hooks": "pass",
+    "python_tests": 427,
+    "chart": "pass after render-only assertion updated for the reduced workload trust grant",
+    "tagged_lint": "0 issues",
+    "go_race_packages": [
+      "api/v1beta1",
+      "internal/iamconformance"
+    ],
+    "alpha_unit_package": "no unit tests; covered by the three real API fixtures"
+  },
+  "followup_files": [
+    {
+      "path": "charts/hankoshell-operator/tests/cluster-identity.sh",
+      "sha256": "864355fdd2c9d66dc1dafd39717c29b6d30f94f334673351bbb64070bcbb090b",
+      "scope": "render-only test expectation or documentation; product source unchanged"
+    },
+    {
+      "path": "docs/security-surface.md",
+      "sha256": "e6d87fab6cd0a4071ff1c5f74c0f3d0c1b79749e5a436140a2811c3bfc2bd975",
+      "scope": "render-only test expectation or documentation; product source unchanged"
+    }
+  ],
+  "logs": [
+    {
+      "path": "shared-final.log",
+      "sha256": "5b4552ec5a9a4a18f8f374b28f756a0b6ada3c8c49496a3bede3d555e6e3abb5"
+    },
+    {
+      "path": "chart-final.log",
+      "sha256": "880d8f56643b1c88c59b0d016e2cf2330e8abe67b0b1038231028e3b7b2faa5c"
+    },
+    {
+      "path": "lint-frozen.log",
+      "sha256": "e779200fd9364cfb22cde9fe0f19990618a0699a29a8603805035d2a7ccf2398"
+    },
+    {
+      "path": "go-contracts.log",
+      "sha256": "1782927862b89f97d4cbe211a54d215b50f7b8db16ef1dffa96b638a69742840"
+    }
+  ]
+}
