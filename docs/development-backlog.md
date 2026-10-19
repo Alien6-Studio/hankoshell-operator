@@ -1,8 +1,10 @@
 # Development backlog for the 1.0 workstream
 
 Snapshot: 2026-10-19, `feat/1.0.0-dev`, after implementation delivery of #91, #92, #94 and #103.
-There are **16 open issues**.
-Recent batches advanced repairs and qualification for #71/#95; they did not complete the rest
+There are **16 open issues at this snapshot**, before the final protected Resolution of #71/#99.
+The [complete delegation CI packet](qualification/delegation/2026-10-19/runtime-98659a0/README.md)
+now records all twelve installed/HA cells for #71; final integration and closure are pending.
+Recent batches advanced repairs and qualification for #95; they did not complete the rest
 of this backlog. The branch name does not announce a stable API or public release.
 
 | Tracking category | Count | Issues and remaining work |
@@ -66,8 +68,9 @@ Its actual CLI/admission witness passes on all three reviewed Kubernetes version
 ## Current HA and security batch
 
 Delegation implementation #69/#70 is delivered through the pinned standalone
-Keycloak extension. #71 still needs complete installed qualification; earlier
-failed cells and incomplete endurance intervals remain retained as failures.
+Keycloak extension. #71's complete installed/HA CI packet supersedes its earlier
+failed-cell gaps. Historical failures remain retained; final protected Resolution
+and closure must follow the current integration.
 
 The current batch advances #96/#99 together: caller-scoped loss of the live
 leader's API access, natural lease handoff and per-caller provider-write checks;
@@ -82,8 +85,10 @@ job requires both fixtures and retains their independent reports. Installed
 completion must still be measured; implementation alone is not a passing cell.
 Remaining #96 scope includes arbitrary partitions and clock skew, plus the full
 retained candidate matrix, outage coverage and endurance prerequisites.
-Remaining #99 scope includes stable conversion/storage fuzzing, complete stable
-admission/RBAC review, installed adversarial evidence and independent review.
+The [#99 instrumented audit](qualification/security/2026-10-19/bounded-contract/README.md)
+now records complete field budgets, conversion/parser fuzzing and the admission/RBAC
+review. Its report route satisfies the issue's external-review-or-audit requirement;
+the current exact-image installed CI and protected Verified Resolution remain mandatory.
 
 The version/conversion implementation (#91) and storage movement/rollback (#92)
 are delivered for the three reviewed IAM candidates. Their beta version remains
