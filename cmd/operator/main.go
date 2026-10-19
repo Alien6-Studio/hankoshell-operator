@@ -19,6 +19,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
+	hankoshv1beta1 "github.com/Alien6-Studio/hankoshell-operator/api/v1beta1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/controller"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/decommission"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/hankoapi"
@@ -52,6 +53,7 @@ type runtimeConfig struct {
 func init() { //nolint:gochecknoinits // controller-runtime requires scheme registration before manager startup.
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(hankoshv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(hankoshv1beta1.AddToScheme(scheme))
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(batchv1.AddToScheme(scheme))
 	utilruntime.Must(appsv1.AddToScheme(scheme))

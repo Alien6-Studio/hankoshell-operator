@@ -18,7 +18,7 @@ between minor versions. All controllers are registered; integration flags
 configure their connections to optional services.
 
 <!-- api-support:start -->
-All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibility commitment has been selected.
+All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibility commitment has been selected. Candidate `v1beta1` additionally serves Application, Role and ResourceServer with identical schemas; storage remains `v1alpha1`.
 
 | Resource | Surface | Compatibility |
 | --- | --- | --- |
@@ -50,6 +50,10 @@ All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibili
 | Managed lifecycle | experimental |
 | Cloud, CNI and CSI | experimental |
 <!-- api-support:end -->
+
+Before changing storage or applying CRDs to an existing installation, follow the
+[storage migration runbook](../../docs/storage-migration.md). Helm upgrades do not
+update crds/; the live stored-version guard refuses an unreadable rollback.
 
 See the [support and field-group inventory](../../docs/api-support.md) and
 [API migration policy](../../docs/api-migration-policy.md) before upgrading CRDs.

@@ -36,9 +36,11 @@ def crd_inventory(root=ROOT, data=None):
         crd = yaml.safe_load(path.read_text())
         spec = crd["spec"]
         kind = spec["names"]["kind"]
+        candidate_versions = [name for name, item in api.get("candidate_versions", {}).items() if kind in item["kinds"]]
         if (crd["kind"] != "CustomResourceDefinition" or spec["group"] != "hanko.sh"
-                or [v["name"] for v in spec["versions"]] != [api["version"]]
+                or [v["name"] for v in spec["versions"]] != [api["version"], *candidate_versions]
                 or not spec["versions"][0]["served"] or not spec["versions"][0]["storage"]
+                or any(not v["served"] or v["storage"] for v in spec["versions"][1:])
                 or kind in kinds):
             raise ValueError("Invalid or duplicate served API: " + str(path))
         kinds.add(kind)
@@ -51,6 +53,15 @@ def crd_inventory(root=ROOT, data=None):
     if not kinds or kinds != source_kinds or kinds != registered:
         raise ValueError(f"CRD/source/scheme kinds differ: manifests={sorted(kinds)}, "
                          f"types={sorted(source_kinds)}, scheme={sorted(registered)}")
+    for version, entry in api.get("candidate_versions", {}).items():
+        directory = root / entry["types"]
+        declarations = "\n".join(p.read_text() for p in directory.glob("*_types.go"))
+        declared = set(re.findall(r"(?m)^type (\w+) struct \{\s*metav1\.TypeMeta\b", declarations))
+        declared = {kind for kind in declared if not kind.endswith("List")}
+        registration = (directory / "groupversion_info.go").read_text()
+        registered = {kind for kind in re.findall(r"&(\w+)\{\}", registration) if not kind.endswith("List")}
+        if set(entry["kinds"]) != declared or declared != registered or f'Version: "{version}"' not in registration:
+            raise ValueError("Candidate source/scheme inventory differs from reviewed kinds")
     return {"version": api["version"], "crd_count": len(kinds), "kinds": sorted(kinds)}
 
 

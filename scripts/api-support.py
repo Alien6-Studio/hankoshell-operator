@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 import yaml
+import api_conversion_contract as conversion
 
 ROOT = Path(__file__).resolve().parents[1]
 START, END = "<!-- api-support:start -->", "<!-- api-support:end -->"
@@ -28,11 +29,18 @@ def inventory(root=ROOT):
     if len(set(kinds)) != len(kinds):
         raise ValueError("Duplicate API support resource")
     schemas = {}
+    candidate = conversion.load(root, optional=True)
+    expected_candidates = {"v1beta1": sorted(candidate["resources"])} if candidate else {}
+    if data.get("candidateVersions", {}) != expected_candidates:
+        raise ValueError("Candidate API support requires the exact conversion decision")
     for path in (root / "charts/hankoshell-operator/crds").glob("*.yaml"):
         crd = yaml.safe_load(path.read_text())
         kind = crd["spec"]["names"]["kind"]
         versions = crd["spec"]["versions"]
-        if (crd["spec"]["group"] != "hanko.sh" or len(versions) != 1
+        reviewed = candidate and kind in candidate["resources"]
+        if reviewed:
+            conversion.validate_crd(crd, candidate)
+        if (crd["spec"]["group"] != "hanko.sh" or len(versions) != (2 if reviewed else 1)
                 or versions[0]["name"] != data["storedVersion"] or not versions[0]["storage"]
                 or not versions[0]["served"] or crd["spec"].get("conversion", {}).get("strategy", "None") != data["conversion"]):
             raise ValueError("Stored API version or conversion changed without an inventory review")
@@ -65,8 +73,11 @@ def inventory(root=ROOT):
 
 
 def summary(data):
-    return (f"All {len(data['resources'])} `{data['apiVersion']}` resources are experimental; "
+    text = (f"All {len(data['resources'])} `{data['apiVersion']}` resources are experimental; "
             "no public API compatibility commitment has been selected.")
+    if data.get("candidateVersions"):
+        text += " Candidate `v1beta1` additionally serves Application, Role and ResourceServer with identical schemas; storage remains `v1alpha1`."
+    return text
 
 
 def render(data):

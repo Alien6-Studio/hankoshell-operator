@@ -4139,6 +4139,1237 @@
       },
       "schema_sha256": "62d4cfe96ee54a643f99a60da489d3c2f274598b188fe4912024ac33845a118d"
     },
+    "HankoApplication/v1beta1": {
+      "nodes": {
+        "spec.attributes": {
+          "limits": {
+            "maxProperties": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "object"
+        },
+        "spec.attributes{}": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.clientID": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.clientSecretProjections": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "array"
+        },
+        "spec.clientSecretProjections[].name": {
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.clientSecretProjections[].namespace": {
+          "limits": {
+            "maxLength": 63,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.identityMappings": {
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "spec.identityMappings[].claim": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.identityMappings[].identityProvider": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.identityMappings[].keycloakName": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.identityMappings[].matchValue": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.identityMappings[].name": {
+          "limits": {
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.identityMappings[].syncMode": {
+          "limits": {
+            "enum": [
+              "IMPORT",
+              "FORCE",
+              "LEGACY",
+              "INHERIT"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.identityMappings[].target.clientRole": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.identityMappings[].target.realmRole": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.identityMappings[].target.userAttribute": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.mode": {
+          "limits": {
+            "enum": [
+              "Manage",
+              "Observe"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.postLogoutRedirectURIs": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "array"
+        },
+        "spec.postLogoutRedirectURIs[]": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.protocol": {
+          "limits": {
+            "enum": [
+              "oidc",
+              "saml"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.realmRef": {
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.realmRoleScopes": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "array"
+        },
+        "spec.realmRoleScopes[]": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.redirectURIs": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "array"
+        },
+        "spec.redirectURIs[]": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.roles": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "array"
+        },
+        "spec.roles[].description": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.roles[].name": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.runtimeBindings": {
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "spec.runtimeBindings[].credentials.secretRef": {
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.runtimeBindings[].name": {
+          "limits": {
+            "maxLength": 63,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.runtimeBindings[].publicMetadata.configMapRef": {
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.runtimeBindings[].workload.namespace": {
+          "limits": {
+            "maxLength": 63,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.runtimeBindings[].workload.serviceAccountRef": {
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.saml.assertionConsumerServices": {
+          "limits": {
+            "maxItems": 8,
+            "minItems": 1
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "spec.saml.assertionConsumerServices[]": {
+          "limits": {
+            "maxLength": 2048,
+            "pattern": "^https://([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\\.)*[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(:[0-9]{1,5})?(/[^\\s?#@\\\\*]*)?$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.saml.nameIDFormat": {
+          "limits": {
+            "enum": [
+              "persistent",
+              "transient",
+              "email",
+              "unspecified"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.secretRotationPolicy.forceRotateAt": {
+          "limits": {
+            "format": "date-time"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.theme": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.tokenClaims": {
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "spec.tokenClaims[].claim": {
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.tokenClaims[].jsonType": {
+          "limits": {
+            "enum": [
+              "String",
+              "long",
+              "int",
+              "boolean",
+              "JSON"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.tokenClaims[].keycloakName": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.tokenClaims[].name": {
+          "limits": {
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.tokenClaims[].realmRolePrefix": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.tokenClaims[].userAttribute": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.tokenClaims[].value": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.type": {
+          "limits": {
+            "enum": [
+              "spa",
+              "web",
+              "m2m"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.candidateHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.adoptionCandidate.contractVersion": {
+          "limits": {
+            "enum": [
+              "hanko.sh/adoption-contract/v1alpha1"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff": {
+          "limits": {
+            "maxItems": 256
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.adoptionCandidate.diffHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].classification": {
+          "limits": {
+            "enum": [
+              "supported-typed-native",
+              "preserved-readonly-native",
+              "unsupported",
+              "conflicting",
+              "security-sensitive-excluded"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].code": {
+          "limits": {
+            "enum": [
+              "equal",
+              "would-manage",
+              "would-change",
+              "would-preserve",
+              "provider-native-readonly",
+              "unsupported",
+              "credential-excluded",
+              "recreation-required",
+              "ownership-transition"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].current.set": {
+          "limits": {
+            "maxItems": 1024
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.adoptionCandidate.diff[].current.set[]": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].current.text": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].desired.set": {
+          "limits": {
+            "maxItems": 1024
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.adoptionCandidate.diff[].desired.set[]": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].desired.text": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].domain": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].field": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].identity": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].object": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].roundTrip": {
+          "limits": {
+            "enum": [
+              "lossless-represented",
+              "preserved-native",
+              "lossy",
+              "unsupported"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.findings": {
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.adoptionCandidate.findings[].code": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.findings[].domain": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.findings[].message": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.observationHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.caIdentity": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.caReference": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.instance.importRef": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.instance.kind": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.instance.name": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.instance.namespace": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.instance.tenantRef": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.instance.uid": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.objectIDs": {
+          "limits": {
+            "maxItems": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.adoptionCandidate.providerIdentity.objectIDs[]": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.origin": {
+          "limits": {
+            "maxLength": 2048
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.realmID": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.trust": {
+          "limits": {
+            "enum": [
+              "public-ca",
+              "private-ca",
+              "explicit-http",
+              "unknown"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.target.importRef": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.target.kind": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.target.name": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.target.namespace": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.target.tenantRef": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.target.uid": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionReceipt.candidateHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.adoptionReceipt.contractVersion": {
+          "limits": {
+            "enum": [
+              "hanko.sh/adoption-contract/v1alpha1"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionReceipt.state": {
+          "limits": {
+            "enum": [
+              "Pending",
+              "Verified",
+              "Partial",
+              "Conflict"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.appliedPlanHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.backendKind": {
+          "limits": {
+            "maxLength": 32
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.capabilityEvidence.qualificationWindow": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.capabilityEvidence.source": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.clientSecret.secretRef.key": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.clientSecret.secretRef.name": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.conditions": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "array"
+        },
+        "status.conditions[].lastTransitionTime": {
+          "limits": {
+            "format": "date-time"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.conditions[].message": {
+          "limits": {
+            "maxLength": 32768
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.conditions[].reason": {
+          "limits": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.conditions[].status": {
+          "limits": {
+            "enum": [
+              "True",
+              "False",
+              "Unknown"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.conditions[].type": {
+          "limits": {
+            "maxLength": 316,
+            "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.contractVersion": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.driftState": {
+          "limits": {
+            "enum": [
+              "Unknown",
+              "InSync",
+              "Drifted"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.evaluatedPlanHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.findings": {
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.findings[].classification": {
+          "limits": {
+            "enum": [
+              "lossless",
+              "lossy",
+              "unsupported"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.findings[].code": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.findings[].message": {
+          "limits": {
+            "maxLength": 256
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.findings[].objectKind": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.findings[].objectName": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.intentHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.lastReconciled": {
+          "limits": {
+            "format": "date-time"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.lastRotated": {
+          "limits": {
+            "format": "date-time"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.managedClientSecretProjections": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "array"
+        },
+        "status.managedClientSecretProjections[].name": {
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.managedClientSecretProjections[].namespace": {
+          "limits": {
+            "maxLength": 63,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.managedIdentityMappings": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "array"
+        },
+        "status.managedIdentityMappings[].conditions": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "array"
+        },
+        "status.managedIdentityMappings[].conditions[].lastTransitionTime": {
+          "limits": {
+            "format": "date-time"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.managedIdentityMappings[].conditions[].message": {
+          "limits": {
+            "maxLength": 32768
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.managedIdentityMappings[].conditions[].reason": {
+          "limits": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.managedIdentityMappings[].conditions[].status": {
+          "limits": {
+            "enum": [
+              "True",
+              "False",
+              "Unknown"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.managedIdentityMappings[].conditions[].type": {
+          "limits": {
+            "maxLength": 316,
+            "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.managedIdentityMappings[].identityProvider": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.managedIdentityMappings[].keycloakID": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.managedIdentityMappings[].name": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.managedTokenClaims": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "array"
+        },
+        "status.managedTokenClaims[].conditions": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "array"
+        },
+        "status.managedTokenClaims[].conditions[].lastTransitionTime": {
+          "limits": {
+            "format": "date-time"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.managedTokenClaims[].conditions[].message": {
+          "limits": {
+            "maxLength": 32768
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.managedTokenClaims[].conditions[].reason": {
+          "limits": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.managedTokenClaims[].conditions[].status": {
+          "limits": {
+            "enum": [
+              "True",
+              "False",
+              "Unknown"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.managedTokenClaims[].conditions[].type": {
+          "limits": {
+            "maxLength": 316,
+            "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.managedTokenClaims[].keycloakID": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.managedTokenClaims[].name": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.nextRotation": {
+          "limits": {
+            "format": "date-time"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.observationPlanHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.observedStateHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.oidcEndpoints.authorization": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.oidcEndpoints.issuer": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.oidcEndpoints.jwks": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.oidcEndpoints.token": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.oidcEndpoints.userInfo": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.phase": {
+          "limits": {
+            "enum": [
+              "Pending",
+              "Reconciling",
+              "Ready",
+              "Error",
+              "Conflict"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.protocol": {
+          "limits": {
+            "enum": [
+              "oidc",
+              "saml",
+              "unsupported"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.runtimeBindings": {
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.runtimeBindings[].bindingRevision": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.runtimeBindings[].conditions": {
+          "limits": {
+            "maxItems": 1
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.runtimeBindings[].conditions[].lastTransitionTime": {
+          "limits": {
+            "format": "date-time"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.runtimeBindings[].conditions[].message": {
+          "limits": {
+            "maxLength": 32768
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.runtimeBindings[].conditions[].reason": {
+          "limits": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.runtimeBindings[].conditions[].status": {
+          "limits": {
+            "enum": [
+              "True",
+              "False",
+              "Unknown"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.runtimeBindings[].conditions[].type": {
+          "limits": {
+            "maxLength": 316,
+            "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.runtimeBindings[].configMapRef": {
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.runtimeBindings[].metadataHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.runtimeBindings[].name": {
+          "limits": {
+            "maxLength": 63
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.runtimeBindings[].namespace": {
+          "limits": {
+            "maxLength": 63
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.runtimeBindings[].secretRef": {
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.runtimeBindings[].serviceAccountRef": {
+          "limits": {
+            "maxLength": 253
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.runtimeBindings[].serviceAccountUID": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.runtimeBindings[].sourceAppliedPlanHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.samlEndpoints.issuer": {
+          "limits": {
+            "maxLength": 2048
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.samlEndpoints.metadata": {
+          "limits": {
+            "maxLength": 2048
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.samlEndpoints.responseBinding": {
+          "limits": {
+            "enum": [
+              "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.samlEndpoints.sso": {
+          "limits": {
+            "maxLength": 2048
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        }
+      },
+      "schema_sha256": "62d4cfe96ee54a643f99a60da489d3c2f274598b188fe4912024ac33845a118d"
+    },
     "HankoEmailProvider/v1alpha1": {
       "nodes": {
         "spec.fromAddress": {
@@ -7340,7 +8571,1645 @@
       },
       "schema_sha256": "5f7f83ef11130172c9cd0b85f111d607028601e4fb198f2c2a3ad9d3a6ae3eda"
     },
+    "HankoResourceServer/v1beta1": {
+      "nodes": {
+        "spec.applicationRef": {
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.audience": {
+          "limits": {
+            "maxLength": 2048,
+            "minLength": 1
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.displayName": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.mode": {
+          "limits": {
+            "enum": [
+              "Manage",
+              "Observe"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.permissions": {
+          "limits": {
+            "maxItems": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "spec.permissions[].delegation.actor.kind": {
+          "limits": {
+            "enum": [
+              "application",
+              "service_account"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.permissions[].delegation.actor.ref": {
+          "limits": {
+            "maxLength": 253,
+            "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.permissions[].delegation.subject.kind": {
+          "limits": {
+            "enum": [
+              "application",
+              "service_account"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.permissions[].delegation.subject.ref": {
+          "limits": {
+            "maxLength": 253,
+            "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.permissions[].name": {
+          "limits": {
+            "maxLength": 255,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9:._/-]*$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.permissions[].principals": {
+          "limits": {
+            "maxItems": 128,
+            "minItems": 1
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "spec.permissions[].principals[].kind": {
+          "limits": {
+            "enum": [
+              "realm_role",
+              "application",
+              "service_account",
+              "organization"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.permissions[].principals[].ref": {
+          "limits": {
+            "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.permissions[].resources": {
+          "limits": {
+            "maxItems": 8
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "spec.permissions[].resources[]": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.permissions[].scopes": {
+          "limits": {
+            "maxItems": 8,
+            "minItems": 1
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "spec.permissions[].scopes[]": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.realmRef": {
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.resources": {
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "spec.resources[].displayName": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.resources[].name": {
+          "limits": {
+            "maxLength": 255,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9:._/-]*$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.resources[].scopes": {
+          "limits": {
+            "maxItems": 8
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "spec.resources[].scopes[]": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.resources[].type": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.resources[].uris": {
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "spec.resources[].uris[]": {
+          "limits": {
+            "maxLength": 2048
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.scopes": {
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "spec.scopes[].description": {
+          "limits": {
+            "maxLength": 1024
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.scopes[].name": {
+          "limits": {
+            "maxLength": 255,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9:._/-]*$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.candidateHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.adoptionCandidate.contractVersion": {
+          "limits": {
+            "enum": [
+              "hanko.sh/adoption-contract/v1alpha1"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff": {
+          "limits": {
+            "maxItems": 256
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.adoptionCandidate.diffHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].classification": {
+          "limits": {
+            "enum": [
+              "supported-typed-native",
+              "preserved-readonly-native",
+              "unsupported",
+              "conflicting",
+              "security-sensitive-excluded"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].code": {
+          "limits": {
+            "enum": [
+              "equal",
+              "would-manage",
+              "would-change",
+              "would-preserve",
+              "provider-native-readonly",
+              "unsupported",
+              "credential-excluded",
+              "recreation-required",
+              "ownership-transition"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].current.set": {
+          "limits": {
+            "maxItems": 1024
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.adoptionCandidate.diff[].current.set[]": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].current.text": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].desired.set": {
+          "limits": {
+            "maxItems": 1024
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.adoptionCandidate.diff[].desired.set[]": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].desired.text": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].domain": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].field": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].identity": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].object": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].roundTrip": {
+          "limits": {
+            "enum": [
+              "lossless-represented",
+              "preserved-native",
+              "lossy",
+              "unsupported"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.findings": {
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.adoptionCandidate.findings[].code": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.findings[].domain": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.findings[].message": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.observationHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.caIdentity": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.caReference": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.instance.importRef": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.instance.kind": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.instance.name": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.instance.namespace": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.instance.tenantRef": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.instance.uid": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.objectIDs": {
+          "limits": {
+            "maxItems": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.adoptionCandidate.providerIdentity.objectIDs[]": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.origin": {
+          "limits": {
+            "maxLength": 2048
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.realmID": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.trust": {
+          "limits": {
+            "enum": [
+              "public-ca",
+              "private-ca",
+              "explicit-http",
+              "unknown"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.target.importRef": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.target.kind": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.target.name": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.target.namespace": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.target.tenantRef": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.target.uid": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionReceipt.candidateHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.adoptionReceipt.contractVersion": {
+          "limits": {
+            "enum": [
+              "hanko.sh/adoption-contract/v1alpha1"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionReceipt.state": {
+          "limits": {
+            "enum": [
+              "Pending",
+              "Verified",
+              "Partial",
+              "Conflict"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.appliedPlanHash": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.authorizationExplanation.explanationHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.authorizationExplanation.paths": {
+          "limits": {
+            "maxItems": 256
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.authorizationExplanation.paths[].action": {
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.authorizationExplanation.paths[].ancestry": {
+          "limits": {
+            "maxItems": 33
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.authorizationExplanation.paths[].ancestry[]": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.authorizationExplanation.paths[].delegation.actor.kind": {
+          "limits": {
+            "enum": [
+              "application",
+              "service_account"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.authorizationExplanation.paths[].delegation.actor.ref": {
+          "limits": {
+            "maxLength": 253,
+            "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.authorizationExplanation.paths[].delegation.subject.kind": {
+          "limits": {
+            "enum": [
+              "application",
+              "service_account"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.authorizationExplanation.paths[].delegation.subject.ref": {
+          "limits": {
+            "maxLength": 253,
+            "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.authorizationExplanation.paths[].organizationRef": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.authorizationExplanation.paths[].permission": {
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.authorizationExplanation.paths[].relationship": {
+          "limits": {
+            "enum": [
+              "direct",
+              "descendant",
+              "generic",
+              "mapped_role",
+              "mapped_composite_role",
+              "mapped_client_role",
+              "delegated"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.authorizationExplanation.paths[].resource": {
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.authorizationExplanation.paths[].roleChain": {
+          "limits": {
+            "maxItems": 33
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.authorizationExplanation.paths[].roleChain[].client": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.authorizationExplanation.paths[].roleChain[].kind": {
+          "limits": {
+            "enum": [
+              "realm_role",
+              "client_role"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.authorizationExplanation.paths[].roleChain[].ref": {
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.authorizationExplanation.paths[].sourceKind": {
+          "limits": {
+            "enum": [
+              "organization",
+              "realm_role",
+              "application",
+              "service_account"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.authorizationExplanation.paths[].sourceRef": {
+          "limits": {
+            "maxLength": 255,
+            "minLength": 1
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.authorizationExplanation.source": {
+          "limits": {
+            "enum": [
+              "Applied",
+              "Observed"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.authorizationExplanation.sourceObservationHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.authorizationExplanation.sourcePlanHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.backendKind": {
+          "limits": {
+            "maxLength": 32
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.capabilityEvidence.qualificationWindow": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.capabilityEvidence.source": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.conditions": {
+          "limits": {
+            "maxItems": 8
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.conditions[].lastTransitionTime": {
+          "limits": {
+            "format": "date-time"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.conditions[].message": {
+          "limits": {
+            "maxLength": 32768
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.conditions[].reason": {
+          "limits": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.conditions[].status": {
+          "limits": {
+            "enum": [
+              "True",
+              "False",
+              "Unknown"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.conditions[].type": {
+          "limits": {
+            "maxLength": 316,
+            "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.contractVersion": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.driftState": {
+          "limits": {
+            "enum": [
+              "Unknown",
+              "InSync",
+              "Drifted"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.evaluatedPlanHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.findings": {
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.findings[].classification": {
+          "limits": {
+            "enum": [
+              "lossless",
+              "lossy",
+              "unsupported"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.findings[].code": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.findings[].message": {
+          "limits": {
+            "maxLength": 256
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.findings[].objectKind": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.findings[].objectName": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.intentHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.lastReconciled": {
+          "limits": {
+            "format": "date-time"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.managedObjects.permissions": {
+          "limits": {
+            "maxItems": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.managedObjects.permissions[].id": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.managedObjects.permissions[].name": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.managedObjects.policies": {
+          "limits": {
+            "maxItems": 256
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.managedObjects.policies[].id": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.managedObjects.policies[].name": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.managedObjects.resources": {
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.managedObjects.resources[].id": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.managedObjects.resources[].name": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.managedObjects.scopes": {
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.managedObjects.scopes[].id": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.managedObjects.scopes[].name": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.observationPlanHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.observedStateHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.phase": {
+          "limits": {
+            "enum": [
+              "Pending",
+              "Reconciling",
+              "Ready",
+              "Error"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.providerResourceServerID": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        }
+      },
+      "schema_sha256": "5f7f83ef11130172c9cd0b85f111d607028601e4fb198f2c2a3ad9d3a6ae3eda"
+    },
     "HankoRole/v1alpha1": {
+      "nodes": {
+        "spec.attributes": {
+          "limits": {
+            "maxProperties": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "object"
+        },
+        "spec.attributes{}": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "array"
+        },
+        "spec.attributes{}[]": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.composites": {
+          "limits": {
+            "maxItems": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "spec.composites[]": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.description": {
+          "limits": {},
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "spec.mode": {
+          "limits": {
+            "enum": [
+              "Manage",
+              "Observe"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.name": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "spec.realmRef": {
+          "limits": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.candidateHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.adoptionCandidate.contractVersion": {
+          "limits": {
+            "enum": [
+              "hanko.sh/adoption-contract/v1alpha1"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff": {
+          "limits": {
+            "maxItems": 256
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.adoptionCandidate.diffHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].classification": {
+          "limits": {
+            "enum": [
+              "supported-typed-native",
+              "preserved-readonly-native",
+              "unsupported",
+              "conflicting",
+              "security-sensitive-excluded"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].code": {
+          "limits": {
+            "enum": [
+              "equal",
+              "would-manage",
+              "would-change",
+              "would-preserve",
+              "provider-native-readonly",
+              "unsupported",
+              "credential-excluded",
+              "recreation-required",
+              "ownership-transition"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].current.set": {
+          "limits": {
+            "maxItems": 1024
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.adoptionCandidate.diff[].current.set[]": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].current.text": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].desired.set": {
+          "limits": {
+            "maxItems": 1024
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.adoptionCandidate.diff[].desired.set[]": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].desired.text": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].domain": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].field": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].identity": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].object": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.diff[].roundTrip": {
+          "limits": {
+            "enum": [
+              "lossless-represented",
+              "preserved-native",
+              "lossy",
+              "unsupported"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.findings": {
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.adoptionCandidate.findings[].code": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.findings[].domain": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.findings[].message": {
+          "limits": {
+            "maxLength": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.observationHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.caIdentity": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.caReference": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.instance.importRef": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.instance.kind": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.instance.name": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.instance.namespace": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.instance.tenantRef": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.instance.uid": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.objectIDs": {
+          "limits": {
+            "maxItems": 512
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.adoptionCandidate.providerIdentity.objectIDs[]": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.origin": {
+          "limits": {
+            "maxLength": 2048
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.realmID": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.providerIdentity.trust": {
+          "limits": {
+            "enum": [
+              "public-ca",
+              "private-ca",
+              "explicit-http",
+              "unknown"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.target.importRef": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.target.kind": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.target.name": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.target.namespace": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.target.tenantRef": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionCandidate.target.uid": {
+          "limits": {
+            "maxLength": 128
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionReceipt.candidateHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.adoptionReceipt.contractVersion": {
+          "limits": {
+            "enum": [
+              "hanko.sh/adoption-contract/v1alpha1"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.adoptionReceipt.state": {
+          "limits": {
+            "enum": [
+              "Pending",
+              "Verified",
+              "Partial",
+              "Conflict"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.appliedPlanHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.backendKind": {
+          "limits": {
+            "maxLength": 32
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.capabilityEvidence.qualificationWindow": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.capabilityEvidence.source": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.conditions": {
+          "limits": {
+            "maxItems": 8
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.conditions[].lastTransitionTime": {
+          "limits": {
+            "format": "date-time"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.conditions[].message": {
+          "limits": {
+            "maxLength": 32768
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.conditions[].reason": {
+          "limits": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.conditions[].status": {
+          "limits": {
+            "enum": [
+              "True",
+              "False",
+              "Unknown"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.conditions[].type": {
+          "limits": {
+            "maxLength": 316,
+            "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.contractVersion": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.driftState": {
+          "limits": {
+            "enum": [
+              "Unknown",
+              "InSync",
+              "Drifted"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.evaluatedPlanHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.findings": {
+          "limits": {
+            "maxItems": 32
+          },
+          "missing_explicit_bound": false,
+          "type": "array"
+        },
+        "status.findings[].classification": {
+          "limits": {
+            "enum": [
+              "lossless",
+              "lossy",
+              "unsupported"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.findings[].code": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.findings[].message": {
+          "limits": {
+            "maxLength": 256
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.findings[].objectKind": {
+          "limits": {
+            "maxLength": 64
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.findings[].objectName": {
+          "limits": {
+            "maxLength": 255
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        },
+        "status.intentHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.lastReconciled": {
+          "limits": {
+            "format": "date-time"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.observationPlanHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.observedStateHash": {
+          "limits": {
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "missing_explicit_bound": true,
+          "type": "string"
+        },
+        "status.phase": {
+          "limits": {
+            "enum": [
+              "Pending",
+              "Reconciling",
+              "Ready",
+              "Error"
+            ]
+          },
+          "missing_explicit_bound": false,
+          "type": "string"
+        }
+      },
+      "schema_sha256": "410582180989f0084aa4636b34f28e15cadeb8527f7c3e9e46eace5404605bdb"
+    },
+    "HankoRole/v1beta1": {
       "nodes": {
         "spec.attributes": {
           "limits": {

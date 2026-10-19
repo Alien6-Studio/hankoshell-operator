@@ -19,7 +19,7 @@ SCHEMA = {"type": "object", "properties": {"spec": {"type": "object", "propertie
 
 class CompatibilityGateTests(unittest.TestCase):
     def test_current_alpha_does_not_fabricate_stable_history(self):
-        self.assertEqual(gate.check(), {"state": "NoPublishedPredecessor", "experimental_schemas": 17, "stable_comparisons": 0})
+        self.assertEqual(gate.check(), {"state": "NoPublishedPredecessor", "experimental_schemas": 20, "stable_comparisons": 0})
 
     def test_breaking_changes_name_the_precise_field(self):
         for change in ("rename", "required", "default", "enum", "pattern", "listType", "listKey", "type", "maxLength", "validation"):

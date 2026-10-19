@@ -32,7 +32,8 @@ class VersionContractTests(unittest.TestCase):
             destination = root / filename
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(versions.ROOT / filename, destination)
-        for directory in (versions.DATA["api"]["crds"], versions.DATA["api"]["types"]):
+        for directory in (versions.DATA["api"]["crds"], versions.DATA["api"]["types"],
+                          *(v["types"] for v in versions.DATA["api"].get("candidate_versions", {}).values())):
             shutil.copytree(versions.ROOT / directory, root / directory)
         return root
 

@@ -10,17 +10,28 @@ N-1 → N public-release compatibility.
 
 ## Stored API and conversion
 
-Every resource in the [support inventory](api-support.md) currently has exactly
-one served and stored version, `hanko.sh/v1alpha1`, with conversion strategy
-`None`. This applies to all 17 CRDs, including connected, operational and
-deprecated resources. The [field inventory](api-support.json) records their
-complete spec/status groups. Conversion `None` is not semantic conversion to a
-future API version. No automatic stored-object migration is implemented.
+The 17 CRDs remain experimental. Application, Role and ResourceServer now
+serve **v1alpha1 and v1beta1**; the other 14 serve only v1alpha1. The default hub
+and storage version remain v1alpha1 for every CRD. This technical beta candidate
+does not ratify the stable resource contract or change release metadata.
 
-The [executable development contract](go-api-contract.md) guards exported Go
-fixture APIs, the served/storage/conversion envelope and all 17 same-version
-typed readers on the real API matrix. It cannot substitute for future interversion
-conversion or stored-byte migration evidence.
+The [conversion decision](api-conversion.json) requires identical complete
+structural schemas, defaults, validation, list topology, subresources and
+selectors in both versions. Kubernetes conversion `None` changes only the root
+apiVersion. The beta Go package uses the alpha Spec/Status types and explicit,
+independent deep-copy conversions, including lists. UID, owner-reference versions,
+approvals, provider journals and field managers retain their meaning. Divergent
+schemas or a new version require a new conversion design; this mechanism cannot
+implement renames or semantic transformations.
+
+The [executable development contract](go-api-contract.md) guards the Go surface
+and schema fingerprints. Real API fixtures exercise every served version through
+the opposite typed reader; native storage qualification uses the administrator
+command and actual etcd encoding. See the [storage migration runbook](storage-migration.md)
+for plan approval, native migrator prerequisites, interruption recovery, rollback
+and CRD upgrade preflight. No operator or chart installation automatically flips
+storage. The migration command deliberately refuses active rotation/delegation
+configurations whose native transaction state cannot be proven idle from CR status.
 
 Within the development version, prefer additive optional fields. Any new required
 field, tightened validation, default change, list/map topology change, pruning,
@@ -29,7 +40,7 @@ rollback limitation in the same PR. Do not call an optional addition safe until
 old stored objects and readers are checked. Admission validation and read-time
 defaulting alone do not prove stored bytes have been rewritten.
 
-A future served/storage version requires an explicit conversion decision,
+Any further served/storage version requires an explicit conversion decision,
 round-trip fixtures preserving supported meaning, a storedVersion inventory,
 restartable migration and a reviewed rollback matrix before changing storage.
 Do not remove an old served version or edit CRD status.storedVersions to pretend
@@ -119,7 +130,8 @@ commitment is ratified by this development policy.
 
 ## Per-resource rollback boundaries
 
-All rows use stored `v1alpha1` / conversion `None`.
+All rows use conversion `None`. Default storage is `v1alpha1`; the three beta
+candidates may use `v1beta1` only after the approved native migration procedure.
 
 | Resource | Required inspection before rollback |
 | --- | --- |

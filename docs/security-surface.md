@@ -6,8 +6,8 @@ schema hash, declared string/array/typed-map bounds, rendered Role/ClusterRole
 rule and binding on four reviewed chart profiles. It is not stable-contract
 acceptance or an independent security audit.
 
-The inventory contains **966 declared fields/collections across 17 schemas**.
-**348 lack an explicit maximum length/cardinality** (finite string enums count as
+The inventory contains **1,343 declared fields/collections across 20 served schemas**.
+**440 lack an explicit maximum length/cardinality** (finite string enums count as
 bounded). A regex, runtime validator, HTTP byte budget or Kubernetes metadata
 limit may impose an independent bound; these gaps are not automatically
 vulnerabilities. Opaque provider extensions and inherited Kubernetes schemas
@@ -132,3 +132,13 @@ contract. This raises the inventoried string/collection count from 962 to 966;
 are unchanged. The frozen unpublished ResourceServer schema and Go development
 contract are updated in this batch; regenerate clients/CRDs before enabling it.
 The extension/profile remains experimental and is not stable-contract acceptance.
+
+
+## Experimental beta envelope (2026-10-19)
+
+Three served beta schemas mirror Application, Role and ResourceServer alpha
+exactly. The previous 17 schema records and all four RBAC profiles are unchanged;
+new totals count the same 377 fields/collections and 92 unbounded entries again
+under beta. This is an expanded served-version inventory, not additional fields
+or accepted risk. The migration utility runs with administrator credentials;
+the operator receives no CRD, native migration or Secret authority from it.

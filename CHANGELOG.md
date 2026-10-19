@@ -3,6 +3,20 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Experimental API versions and storage migration (#91, #92, #94)
+
+- Serve structurally equivalent v1beta1 candidates for Application, Role and
+  ResourceServer, with explicit object/list conversions and the existing alpha
+  controller hub/default storage. Freeze schema equivalence and extend Go/API
+  guards, cross-version field ownership tests and conversion fuzzing.
+- Add administrator-approved native storage migration, resumable progress,
+  separately approved rollback, CRD upgrade preflight preserving live storage
+  and a chart guard against unreadable stored versions. Preserve ownership,
+  approvals, journals, finalizers and managedFields; refuse pending transactions.
+- Provide a disposable Kubernetes fixture that checks actual etcd encoding and
+  native completion. This is development capability, not stable graduation or
+  qualified public predecessor/production upgrade evidence.
+
 ### Installed bounded-delegation qualification (#71)
 
 - Add a mandatory six-cell installed delegation gate using the scanned Operator,
@@ -413,7 +427,7 @@ Provider Portability, Fleet Reconciliation and Initial Public Contract
 Stabilization, plus #21's real trust/publication evidence. These are work subjects,
 not product versions. A later 1.0 decision depends on public use and a proven
 compatibility commitment.
-All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibility commitment has been selected.
+All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibility commitment has been selected. Candidate `v1beta1` additionally serves Application, Role and ResourceServer with identical schemas; storage remains `v1alpha1`.
 
 Experimental surfaces: managed lifecycle, portable backup and restore, delegation
 and agent identity, a second IAM provider, mesh traffic enforcement and cloud/CNI/CSI

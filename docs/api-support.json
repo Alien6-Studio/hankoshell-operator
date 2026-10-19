@@ -606,5 +606,12 @@
       "limitation": "API and kind fixtures do not qualify production cloud, networking or storage implementations.",
       "evidence": "docs/secure-deployment.md"
     }
-  ]
+  ],
+  "candidateVersions": {
+    "v1beta1": [
+      "HankoApplication",
+      "HankoResourceServer",
+      "HankoRole"
+    ]
+  }
 }

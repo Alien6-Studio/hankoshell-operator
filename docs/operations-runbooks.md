@@ -1,7 +1,7 @@
 # Operator operational runbooks
 
 This is an **initial development** runbook for the v1alpha1 API, before the first
-public release. No predecessor-to-public upgrade, production HA, storage migration,
+public release. No predecessor-to-public upgrade, production HA, production storage migration,
 bounded delegation recovery or connected installation is qualified. Do not infer
 those capabilities from a documented command. [Stable graduation](stable-graduation.md)
 and [lifecycle authority](architecture/decisions/ADR-050-experimental-lifecycle-authority.md)
@@ -53,7 +53,8 @@ a standalone fixture as evidence of a connected installation.
 ## Upgrade, rollback and storage
 
 **UNQUALIFIED: supported public upgrade/rollback paths.** There is no published
-predecessor. All 17 resources remain experimental v1alpha1; HankoOperation and
+predecessor. All 17 resources remain experimental; three IAM resources additionally serve
+v1beta1, with default storage still v1alpha1. HankoOperation and
 HankoSnapshot are outside stable 1.0 graduation. Managed Upgrade and DBSwitch are
 not qualified. Do not use those CRs as a substitute for a tested migration.
 
@@ -92,12 +93,12 @@ CRDs, storedVersions and a provider backup through its separately approved proce
 Old metrics configurations used plaintext HTTP; never roll back transport protection
 without first disabling metrics or restoring equivalent independently enforced trust.
 
-The API-server fixture `api/v1alpha1/kubernetes_compatibility_test.go`
-checks v1alpha1 structural admission across the support matrix. There is only one
-served/storage version. **UNQUALIFIED: changing storage version/conversion.** No
-conversion webhook or storage migration command is shipped. Inspecting
-`kubectl get crd -o jsonpath` is not migration evidence; do not patch storedVersions
-or restore old schemas over objects with unknown fields.
+The API-server fixture `api/v1alpha1/kubernetes_compatibility_test.go` checks
+every served version, including opposite-version typed reads/writes for the three
+beta resources. [The storage runbook](storage-migration.md) provides explicit
+native migration, resume, rollback and CRD upgrade preflight. Migration is never
+a chart side effect. Never clear storedVersions manually or overwrite a migrated
+CRD with an unreviewed older bundle. Public cross-release paths remain unqualified.
 
 ## Leader failover and provider outage
 

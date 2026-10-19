@@ -107,6 +107,16 @@
   "api": {
     "version": "v1alpha1",
     "crds": "charts/hankoshell-operator/crds",
-    "types": "api/v1alpha1"
+    "types": "api/v1alpha1",
+    "candidate_versions": {
+      "v1beta1": {
+        "types": "api/v1beta1",
+        "kinds": [
+          "HankoApplication",
+          "HankoResourceServer",
+          "HankoRole"
+        ]
+      }
+    }
   }
 }

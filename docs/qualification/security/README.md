@@ -9,8 +9,8 @@ record.
 
 ## Parser and decision campaign
 
-The reviewed [inventory](../../../scripts/fuzz-targets.json) contains 24
-compiled Go fuzz targets in eleven packages. Positive seeds and hostile cases are
+The reviewed [inventory](../../../scripts/fuzz-targets.json) contains 25
+compiled Go fuzz targets in twelve packages. Positive seeds and hostile cases are
 checked in with `f.Add`: duplicate/escaped JSON members, trailing documents,
 size/depth boundaries, DTD/entities, duplicate XML IDs, private JWK fields,
 foreign ownership, stale approvals and mutable/foreign image references. Fleet
@@ -28,6 +28,7 @@ mutations to reach validation behind the signature check.
 | Recovery and transitions | `FuzzTrustRecoveryMetadata`, `FuzzAuthenticationJournal`, `FuzzAuthenticationApproval`, `FuzzDeliveryRecord`: canonical journals/checkpoints/approvals, immutable identity and absent-vs-invalid distinctions |
 | Runtime outputs | `FuzzRuntimeCleanupJournal`, `FuzzRuntimeTargetAuthorization`: canonical bounded cleanup records, exact application/workload/target consent and deletion refusal |
 | Delegation recovery | `FuzzBoundedDelegationDocument`, `FuzzBoundedDelegationActorMarker`: native phase/authority bounds, physical client and owner binding, replacement actor UID and sibling-owner refusal |
+| API versions | `FuzzAPIVersionRoundTrip`: bounded non-default alpha/beta object conversion, journals and identity preservation; deterministic tests cover all exported fields and lists |
 | Hub wire | `FuzzLegacyBundle`, `FuzzHubControlResponse`: independent byte/object budgets, unambiguous commands/credentials and no trailing values |
 | Image authority | `FuzzImageReference`, `FuzzImageApprovalPolicy`: registry/repository boundaries, immutable SHA256 identity and qualified publisher approval |
 | Provider status | `FuzzProviderStatusDecision`: arbitrary error text cannot impersonate 403/404; wrapping native text around a typed error cannot change its numeric status |
@@ -63,7 +64,7 @@ execution; allocation profiling and longer campaigns remain review work.
 | Namespace object writers | Current CR UID/generation, administrator approvals where required, exact live target identity and optimistic writes | Ownership/authority tests, admission tests and 71 reviewed security mutations; stable CRD field inventory and full RBAC verb table remain |
 | Application credential delivery | Matching controller owner plus fresh provider value, consent/current target UID, resource-version writes and read-back | Canonical/projection race tests; legacy migration now exercises explicit administrator Secret binding |
 | Image policy administrators | Approved digest, purpose, source revision and publisher; ambiguity cannot select another approval | Publisher-policy fuzzing plus existing revocation/signature/installed tests; no fuzz test substitutes for a signature verifier |
-| API conversion/storage migration | Lossless round trip, preserved journals/approvals and reversible journaled storage movement | Not implemented yet: depends on #91/#92; add conversion and migration fuzzing against that actual implementation |
+| API conversion/storage migration | Lossless round trip, preserved journals/approvals and reversible journaled storage movement | Experimental alpha/beta conversion fuzzing, real API readers and native storage fixture; full stable/public and independent acceptance remain open |
 
 Namespace administrators, provider administrators, repository/workflow
 administrators and local image-policy writers have distinct trust boundaries;

@@ -59,6 +59,8 @@ components:
     in: "/internal/fleetplan"
   api_types:
     in: "/api/v1alpha1"
+  api_beta:
+    in: "/api/v1beta1"
   imagevalidator:
     in: "/internal/imagevalidator"
   supervision:
@@ -73,6 +75,9 @@ components:
     in: "/internal/version"
 
 deps:
+  api_beta:
+    mayDependOn:
+      - api_types
   observability:
     anyVendorDeps: true
   # cmd/ wires everything — no restriction.

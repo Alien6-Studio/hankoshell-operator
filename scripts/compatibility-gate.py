@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 
 import yaml
+import api_conversion_contract as conversion
 
 ROOT = Path(__file__).resolve().parents[1]
 POLICY = "docs/compatibility-policy.json"
@@ -148,7 +149,9 @@ def check(root=ROOT):
     if not policy["baseline"]:
         if policy["public_releases"] or policy["notices"] or policy["exceptions"]:
             raise ValueError("Public compatibility claims require authentic retained release baselines")
-        if any(re.fullmatch(r"v[1-9][0-9]*(?:beta[1-9][0-9]*)?", key.split("/")[1]) for key in current):
+        candidate = conversion.load(root, optional=True)
+        reviewed = {kind + "/v1beta1" for kind in (candidate or {}).get("resources", {})}
+        if any(re.fullmatch(r"v[1-9][0-9]*(?:beta[1-9][0-9]*)?", key.split("/")[1]) and key not in reviewed for key in current):
             raise ValueError("New stable API requires a reviewed conversion/baseline decision")
         return {"state": "NoPublishedPredecessor", "experimental_schemas": len(current), "stable_comparisons": 0}
     baseline_file = local_file(root, policy["baseline"]["path"])
@@ -172,13 +175,18 @@ def check(root=ROOT):
 def check_versions(root, policy):
     """Refuse unimplemented multi-version conversion and unannounced deprecation."""
     result = {}
+    candidate = conversion.load(root, optional=True)
     for path in sorted((root / "charts/hankoshell-operator/crds").glob("*.yaml")):
-        spec = yaml.safe_load(path.read_text())["spec"]
+        crd = yaml.safe_load(path.read_text())
+        spec = crd["spec"]
         versions = spec["versions"]
         served = [v for v in versions if v["served"]]
         storage = [v for v in versions if v["storage"]]
         strategy = spec.get("conversion", {}).get("strategy", "None")
-        if len(storage) != 1 or not storage[0]["served"] or len(served) != 1 or strategy != "None":
+        reviewed = candidate and spec["names"]["kind"] in candidate["resources"]
+        if reviewed:
+            conversion.validate_crd(crd, candidate)
+        if len(storage) != 1 or not storage[0]["served"] or not reviewed and len(served) != 1 or strategy != "None":
             raise ValueError(spec["names"]["kind"] + ": conversion/storage change requires #91 round-trip and #92 migration qualification")
         records = []
         for version in versions:

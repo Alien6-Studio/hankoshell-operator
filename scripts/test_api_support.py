@@ -16,7 +16,7 @@ spec.loader.exec_module(support)
 class APISupportTests(unittest.TestCase):
     def fixture(self, root):
         data = support.inventory()
-        files = {"docs/api-support.json", "docs/api-support.md", "README.md",
+        files = {"docs/api-conversion.json", "docs/api-support.json", "docs/api-support.md", "README.md",
                  "charts/hankoshell-operator/README.md", "CHANGELOG.md"}
         files.update(item["evidence"] for item in data["resources"] + data["features"])
         files.update(str(p.relative_to(support.ROOT)) for p in (support.ROOT / "charts/hankoshell-operator/crds").glob("*.yaml"))

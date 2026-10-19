@@ -5,6 +5,7 @@ import (
 )
 
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=hrole,categories=hanko
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=".status.phase"

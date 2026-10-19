@@ -19,7 +19,7 @@ publish their contents. Observed state, Conditions and plan hashes are evidence,
 not authorization, transactional completion or a compatibility guarantee.
 
 <!-- api-support:start -->
-All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibility commitment has been selected.
+All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibility commitment has been selected. Candidate `v1beta1` additionally serves Application, Role and ResourceServer with identical schemas; storage remains `v1alpha1`.
 
 | Resource | Surface | Compatibility |
 | --- | --- | --- |

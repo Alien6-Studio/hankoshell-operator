@@ -1,7 +1,7 @@
 # Development backlog for the 1.0 workstream
 
 Snapshot: 2026-10-19, `feat/1.0.0-dev`. There are **20 open issues**.
-Recent batches repaired and requalified #71/#95; they did not complete the rest
+Recent batches advanced repairs and qualification for #71/#95; they did not complete the rest
 of this backlog. The branch name does not announce a stable API or public release.
 
 | Tracking category | Count | Issues and remaining work |
@@ -14,11 +14,26 @@ These groups preserve all acceptance criteria. The stable-roadmap group contains
 real implementation work; independent work can proceed before the public-history
 and ratification prerequisites. A source push cannot create those external proofs.
 
-Develop related changes before running shared source/API/provider gates. Keep
-long installed/soak runs in isolated immutable worktrees. Push signed batches and
-close completed implementation issues according to CONTRIBUTING.md, with the
-exact commit and available validation. Incomplete implementation or required
-qualification remains open with its actual missing criteria.
+Develop coherent batches locally, then run shared validation before pushing.
+Keep long installed/soak runs in isolated immutable worktrees. Signed pushes record
+implementation delivery; integration retains the protected PR and qualification
+requirements. Local implementation does not manufacture external evidence or
+close partially delivered roadmap issues.
+
+## API/storage implementation batch (#91/#92/#94)
+
+Application, Role and ResourceServer gain a served experimental v1beta1 candidate,
+lossless object/list conversion and frozen schema equivalence. Alpha remains the
+hub/default storage. The administrator utility implements reviewed plans, native
+storage rewrite, interruption recovery and separately approved rollback. CRD
+preflight preserves live storage and rejects orphaning stored versions; the chart
+checks stored-version readability. Conversion fuzzing and a disposable native
+fixture cover meaning, authority metadata and actual etcd encoding.
+
+Stable API graduation, resource ratification, production evidence and genuine public predecessor paths
+remain distinct acceptance requirements. The migration utility refuses active
+rotation/delegation policies until their native state has an independent idle
+inspection path; it does not clear their journals to force a migration.
 
 ## Current HA and security batch
 

@@ -1,9 +1,9 @@
 # Executable Go and conversion development contracts
 
-`docs/go-api-contract.json` selects seven exact local packages used by the public
+`docs/go-api-contract.json` selects eight exact local packages used by the public
 contract fixtures. `scripts/api-surface` reads compiler export data using the pinned
 Go toolchain. It does not run package initializers. The reviewed development
-snapshot in `docs/contracts/go-api-development.json` contains 1,586 exports,
+snapshot in `docs/contracts/go-api-development.json` contains 1,787 exports,
 including signatures, constant values, named types and aliases, fields/JSON tags,
 interface requirements, generic constraints and value/pointer/promoted methods.
 Names use full import paths so local import aliases cannot conceal a change.
@@ -31,11 +31,13 @@ review, release-count and elapsed-time checks of the shared compatibility policy
 The development snapshot cannot replace that public baseline.
 
 `scripts/compatibility-gate.py check` separately checks CRD schemas and the version
-envelope: one currently served/stored v1alpha1, conversion None, and no unannounced
-deprecation warning. A new served/storage version or webhook is refused until
-#91/#92 supply reviewed conversion, migration and rollback qualification. Deprecation
-must name a real notice/release and appear in both warning and CHANGELOG. A future
-published snapshot retains this version envelope beside the schemas and Go API.
+envelope: v1alpha1 remains default storage; exactly three reviewed experimental
+resources also serve v1beta1 with structurally identical schemas and conversion
+None. The [conversion decision](api-conversion.json) freezes all fields/defaults/
+validation/topology. Schema drift, silent storage flips and unreviewed webhooks
+are refused. Deprecation must name a real notice/release and appear in both warning
+and CHANGELOG. A future public snapshot retains the version envelope beside the
+schemas and Go API. Candidate beta is not stable graduation.
 
 `checkConversionContract` in
 `api/v1alpha1/conversion_contract_integration_test.go` runs in every existing real
@@ -43,9 +45,11 @@ Kubernetes API cell. For all 17 CRDs it stores a declaration and public status,
 reads the defaulted object, passes it through the registered typed reader and
 DeepCopy, and checks spec/status and UID/generation/approval-checkpoint annotations/
 finalizers. An unknown field is rejected under Strict validation rather than
-silently pruned. These are same-version reader fixtures; they do not qualify
-alpha-to-v1 conversion, stored-byte migration, old managedFields transfer or a
-public release upgrade/rollback. The existing public plan/defaulting goldens and
+silently pruned. The three beta resources are read and written through the opposite served
+version. These fixtures do not qualify a public release upgrade/rollback,
+alpha-to-v1 semantic conversion or old managedFields topology transfer. The
+separate [native storage fixture](storage-migration.md#local-qualification) checks
+physical encoding and preserved managedFields during alpha/beta storage rewrites. The existing public plan/defaulting goldens and
 all other admission/SSA/installed/security gates remain mandatory.
 
 Run `make preflight`, `make test` and the full `make integration-test` support
@@ -73,3 +77,12 @@ additions. Regenerate clients/CRDs before enabling the extension. Older strict
 schemas cannot store the new status origin. No spec default, resource scope,
 storage version, stable API or published compatibility predecessor is added.
 Existing stable/conversion/public-corpus and future publication gates still apply.
+
+## Experimental beta addition (2026-10-19)
+
+The new api/v1beta1 package adds 201 exports. Compiler comparison verified that
+all seven existing package snapshots remain byte-for-byte equivalent; the
+reviewed development snapshot/hash adds only this package. Existing alpha field
+schemas and controller hub types remain unchanged. The security inventory adds
+three beta schemas identical to their alpha counterparts; no RBAC rule or binding
+changes. Clients can opt into beta while alpha readers continue to reconcile.

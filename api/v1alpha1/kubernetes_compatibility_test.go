@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	beta "github.com/Alien6-Studio/hankoshell-operator/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	eventsv1 "k8s.io/api/events/v1"
@@ -71,6 +72,9 @@ func TestKubernetesCompatibility(t *testing.T) {
 	if err := hankoshv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
+	if err := beta.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
 	expectedKinds := make(map[string]bool)
 	for kind, typ := range scheme.KnownTypes(hankoshv1alpha1.GroupVersion) {
 		if _, ok := reflect.New(typ).Interface().(client.Object); ok {
@@ -105,7 +109,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 	}
 	t.Run("condition ownership across all CRDs", func(t *testing.T) { checkConditionApply(t, ctx, admin, environment.CRDs) })
 	t.Run("frozen public contract corpus", func(t *testing.T) { checkPublicContractCorpus(t, ctx, admin) })
-	t.Run("single-version conversion and typed reader contract", func(t *testing.T) { checkConversionContract(t, ctx, admin, environment.CRDs) })
+	t.Run("served-version conversion and typed reader contract", func(t *testing.T) { checkConversionContract(t, ctx, admin, environment.CRDs) })
 	t.Run("bounded realm and application references", func(t *testing.T) { checkBoundedReferences(t, ctx, admin) })
 	t.Run("fresh realm ownership selectors", func(t *testing.T) { checkRealmOwnershipSelectors(t, ctx, admin) })
 	t.Run("fresh paginated realm deletion inventory", func(t *testing.T) { checkRealmDeletionInventory(t, ctx, admin) })

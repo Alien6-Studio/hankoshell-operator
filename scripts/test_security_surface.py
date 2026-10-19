@@ -77,7 +77,7 @@ class SecuritySurfaceTests(unittest.TestCase):
         baseline = json.loads(gate.BASELINE.read_text())
         self.assertEqual(baseline["schemas"], gate.schemas())
         self.assertEqual(set(baseline["rbac"]), set(gate.PROFILES))
-        self.assertEqual(gate.summary(baseline)["served_schemas"], 17)
+        self.assertEqual(gate.summary(baseline)["served_schemas"], 20)
         for profile in baseline["rbac"].values():
             for row in profile["rules"]:
                 self.assertTrue(row["justification"])

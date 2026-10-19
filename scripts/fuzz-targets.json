@@ -1,4 +1,7 @@
 {
+  "api/v1beta1": [
+    "FuzzAPIVersionRoundTrip"
+  ],
   "internal/adoption": [
     "FuzzAdoptionReceipt",
     "FuzzAdoptionApproval"

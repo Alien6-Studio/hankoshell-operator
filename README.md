@@ -127,7 +127,7 @@ The API provides 17 `hanko.sh/v1alpha1` custom resources, including the deprecat
 Integration flags configure clients and do not disable controller registration.
 
 <!-- api-support:start -->
-All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibility commitment has been selected.
+All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibility commitment has been selected. Candidate `v1beta1` additionally serves Application, Role and ResourceServer with identical schemas; storage remains `v1alpha1`.
 
 | Resource | Surface | Compatibility |
 | --- | --- | --- |
@@ -162,6 +162,8 @@ All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibili
 
 See the [support and field-group inventory](docs/api-support.md) and
 [API migration policy](docs/api-migration-policy.md).
+Use the [storage migration runbook](docs/storage-migration.md) before changing
+storage or applying CRDs to an existing installation with the beta candidate.
 Snapshot database Jobs require a locally approved, publisher-verified image digest
 and a dedicated backup credential Secret. PostgreSQL/PVC configuration and
 portable backup/restore remain installation-specific and unqualified; see the

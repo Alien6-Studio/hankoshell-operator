@@ -6,6 +6,7 @@ import (
 )
 
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +kubebuilder:selectablefield:JSONPath=".spec.realmRef"
 // +kubebuilder:resource:scope=Namespaced,shortName=happ,categories=hanko

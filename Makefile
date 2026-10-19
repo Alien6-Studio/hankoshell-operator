@@ -29,6 +29,7 @@ RELEASE_VERSION := $(shell python3 scripts/versions.py get release version)
 .DEFAULT_GOAL := all
 .PHONY: keycloak-extension-build keycloak-extension-test
 .PHONY: delegation-installed-test
+.PHONY: storage-migration-installed-test
 
 .PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-test integration-test keycloak-integration-test keycloak-stability-test authentik-integration-test security-mutations security-fuzz licenses lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test fleet-installed-test portable-installed-test scale-installed-test
 versions-sync:
@@ -69,6 +70,10 @@ security-mutations:
 	python3 scripts/security-mutations.py $(if $(MUTATION_OUTPUT),--output "$(MUTATION_OUTPUT)")
 security-fuzz:
 	python3 scripts/security-fuzz.py $(if $(FUZZ_SECONDS),--seconds "$(FUZZ_SECONDS)") $(if $(FUZZ_OUTPUT),--output "$(FUZZ_OUTPUT)")
+storage-migration-installed-test:
+	python3 scripts/storage-migration-installed-test.py --kind "$(KIND)" --kubectl "$(KUBECTL)" \
+		--helm "$(HELM)" --kubernetes-version "$(KUBERNETES_VERSION)" --output "$(STORAGE_OUTPUT)" \
+		$(if $(NODE_ARCHIVE),--node-archive "$(NODE_ARCHIVE)")
 chart-test:
 	helm lint $(CHART) --kube-version $(KUBERNETES_VERSION) --set-string image.tag=lint
 	bash $(CHART)/tests/image-verification.sh

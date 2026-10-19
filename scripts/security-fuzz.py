@@ -42,7 +42,7 @@ def target_inventory():
     if not isinstance(manifest, dict) or not manifest:
         raise ValueError("Missing fuzz inventory")
     for package, names in manifest.items():
-        if not re.fullmatch(r"internal/[a-z]+", package) or not isinstance(names, list) or not names:
+        if not re.fullmatch(r"(?:internal/[a-z]+|api/v1beta1)", package) or not isinstance(names, list) or not names:
             raise ValueError("Invalid fuzz package")
         if len(names) != len(set(names)) or any(not re.fullmatch(r"Fuzz[A-Za-z0-9]+", n) for n in names):
             raise ValueError("Invalid fuzz target")
@@ -51,7 +51,7 @@ def target_inventory():
         if sorted(compiled) != sorted(names):
             raise ValueError("Compiled fuzz inventory drift: " + package)
     # New packages cannot silently escape the reviewed CI campaign.
-    source_packages = {str(p.parent.relative_to(ROOT)) for p in (ROOT / "internal").rglob("*_test.go")
+    source_packages = {str(p.parent.relative_to(ROOT)) for folder in ("internal", "api") for p in (ROOT / folder).rglob("*_test.go")
                        if re.search(r"^func Fuzz[A-Za-z0-9]+\(", p.read_text(), re.MULTILINE)}
     if source_packages != set(manifest):
         raise ValueError("Unreviewed fuzz package")
