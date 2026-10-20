@@ -45,6 +45,23 @@ class TokenAPI:
             return response.code, json.loads(raw) if raw else {}
 
 
+def write_authority_ready(api, secret, provider):
+    code, review = api("POST", "/apis/authorization.k8s.io/v1/selfsubjectaccessreviews", {
+        "apiVersion": "authorization.k8s.io/v1", "kind": "SelfSubjectAccessReview", "spec": {"resourceAttributes": {"namespace": "auth", "verb": "create", "resource": "secrets"}}})
+    if code != 201 or review.get("status", {}).get("allowed") is not True:
+        return False
+    # Each policy propagates independently after the administrator updates it.
+    for root, approved, unknown in (("/api/v1/namespaces/auth/secrets", secret, "security-unapproved-output"),
+            ("/apis/apps/v1/namespaces/auth/deployments", provider, "security-unapproved-provider")):
+        if api("POST", root, approved, dry=True)[0] != 201:
+            return False
+        foreign = copy.deepcopy(approved)
+        foreign["metadata"]["name"] = unknown
+        if api("POST", root, foreign, dry=True)[0] != 403:
+            return False
+    return True
+
+
 def probe(fixture):
     checks = {}
     identity = "system-operator"
@@ -74,19 +91,16 @@ def probe(fixture):
     root = "/api/v1/namespaces/auth/secrets"
     target, foreign = "hanko-app-security-probe", "security-unapproved-output"
     secret = {"apiVersion": "v1", "kind": "Secret", "metadata": {"name": target, "namespace": "auth"}, "type": "Opaque", "data": {"public-fixture": "cHJvYmU="}}
+    deployment = fixture.get("deployment", "system-operator")
+    provider = {"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "security-reviewed-provider", "namespace": "auth"},
+        "spec": {"replicas": 0, "selector": {"matchLabels": {"app": "security-probe"}}, "template": {"metadata": {"labels": {"app": "security-probe"}},
+            "spec": {"automountServiceAccountToken": False, "securityContext": {"runAsNonRoot": True, "runAsUser": 1000, "seccompProfile": {"type": "RuntimeDefault"}},
+                "containers": [{"name": "provider", "image": deployment["spec"]["template"]["spec"]["containers"][0]["image"],
+                    "securityContext": {"allowPrivilegeEscalation": False, "capabilities": {"drop": ["ALL"]}}}]}}}}
     # Both the broad CREATE authorization and the independently denied unknown
     # name must be observed; an RBAC refusal is not admission qualification.
-    def ready():
-        code, review = api("POST", "/apis/authorization.k8s.io/v1/selfsubjectaccessreviews", {
-            "apiVersion": "authorization.k8s.io/v1", "kind": "SelfSubjectAccessReview", "spec": {"resourceAttributes": {"namespace": "auth", "verb": "create", "resource": "secrets"}}})
-        if code != 201 or review.get("status", {}).get("allowed") is not True:
-            return False
-        positive, _ = api("POST", root, secret, dry=True)
-        unknown = copy.deepcopy(secret); unknown["metadata"]["name"] = foreign
-        negative, _ = api("POST", root, unknown, dry=True)
-        return positive == 201 and negative == 403
     deadline = time.monotonic() + 10
-    while not ready():
+    while not write_authority_ready(api, secret, provider):
         if time.monotonic() >= deadline:
             raise ValueError("Installed sensitive-write policy did not become effective")
         time.sleep(0.1)
@@ -115,14 +129,8 @@ def probe(fixture):
         record("rolebinding_delegation_refused", api("PATCH", "/apis/rbac.authorization.k8s.io/v1/namespaces/auth/rolebindings/system-operator", {"subjects": subjects}, dry=True)[0] == 403)
         record("metadata_adoption_preserved", api("PATCH", "/apis/rbac.authorization.k8s.io/v1/namespaces/auth/rolebindings/system-operator", {
             "metadata": {"ownerReferences": [{"apiVersion": "v1", "kind": "Namespace", "name": "auth", "uid": fixture.get("namespace", "auth")["metadata"]["uid"]}]}}, dry=True)[0] == 200)
-        deployment = fixture.get("deployment", "system-operator")
         forged = {"spec": {"template": {"spec": {"serviceAccountName": "default"}}}}
         record("deployment_service_account_change_refused", api("PATCH", "/apis/apps/v1/namespaces/auth/deployments/system-operator", forged, dry=True)[0] == 403)
-        provider = {"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "security-reviewed-provider", "namespace": "auth"},
-            "spec": {"replicas": 0, "selector": {"matchLabels": {"app": "security-probe"}}, "template": {"metadata": {"labels": {"app": "security-probe"}},
-                "spec": {"automountServiceAccountToken": False, "securityContext": {"runAsNonRoot": True, "runAsUser": 1000, "seccompProfile": {"type": "RuntimeDefault"}},
-                    "containers": [{"name": "provider", "image": deployment["spec"]["template"]["spec"]["containers"][0]["image"],
-                        "securityContext": {"allowPrivilegeEscalation": False, "capabilities": {"drop": ["ALL"]}}}]}}}}
         record("reviewed_provider_creation_allowed", api("POST", "/apis/apps/v1/namespaces/auth/deployments", provider, dry=True)[0] == 201)
         provider["metadata"]["name"] = "security-unapproved-provider"
         record("foreign_provider_creation_refused", api("POST", "/apis/apps/v1/namespaces/auth/deployments", provider, dry=True)[0] == 403)

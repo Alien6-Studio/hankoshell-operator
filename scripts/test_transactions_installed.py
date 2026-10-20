@@ -1,4 +1,5 @@
 import copy
+from datetime import datetime, timezone
 import importlib.util
 import json
 from pathlib import Path
@@ -14,6 +15,22 @@ spec.loader.exec_module(transactions)
 
 
 class TransactionEvidenceTests(unittest.TestCase):
+    def test_force_trigger_is_already_due_and_after_the_last_rotation_second(self):
+        before = {"metadata": {}, "status": {"lastRotated": "2026-10-20T09:00:00Z"}}
+        now = datetime(2026, 10, 20, 9, 0, 0, 900000, tzinfo=timezone.utc)
+        self.assertIsNone(transactions.forced_rotation_trigger(before, now))
+        now = now.replace(second=1)
+        trigger = transactions.forced_rotation_trigger(before, now)
+        self.assertEqual(trigger, "2026-10-20T09:00:01Z")
+        self.assertLess(datetime.fromisoformat(trigger.replace("Z", "+00:00")), now)
+
+    def test_unknown_initial_rotation_does_not_add_a_future_second_request(self):
+        before = {"metadata": {"creationTimestamp": "2026-10-20T09:00:00Z"}, "status": {}}
+        now = datetime(2026, 10, 20, 9, 0, 1, 100000, tzinfo=timezone.utc)
+        self.assertEqual(transactions.forced_rotation_trigger(before, now), "2026-10-20T09:00:01Z")
+        before["metadata"]["creationTimestamp"] = "2026-10-20T09:00:02Z"
+        self.assertIsNone(transactions.forced_rotation_trigger(before, now))
+
     def test_ha_matrix_is_required_on_full_ci_and_does_not_repeat_the_scale_job(self):
         jobs = yaml.safe_load((transactions.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
         ha = jobs["installed-transactions"]
@@ -102,6 +119,31 @@ class TransactionEvidenceTests(unittest.TestCase):
         self.assertNotEqual(transactions.native_semantics(before), transactions.native_semantics(after))
         after = {**before, "id": "replacement"}
         self.assertNotEqual(transactions.native_semantics(before), transactions.native_semantics(after))
+
+    def test_acquisition_observes_the_target_without_borrowing_other_clients_reads(self):
+        path = "/admin/realms/managed/clients/reviewed"
+        before = {"id": "reviewed", "attributes": {"locale": "fr"}}
+        after = copy.deepcopy(before)
+        after["attributes"].update({"hanko.sh/client-owner-uid": "owner", "hanko.sh/adoption-receipt": "receipt"})
+        acquired = {"metadata": {}, "status": {}}
+        state = {"counts": {"PUT " + path: 1}, "attempted_counts": {"PUT " + path: 1},
+            "traffic": {"credential_read_requests": 7},
+            "credential_reads": {"/admin/realms/managed/clients/unrelated/client-secret": 7}}
+        receipt = {"targetUID": "owner"}
+        def checks(current=state, obj=after, cr=acquired):
+            return transactions.acquisition_checks(receipt, receipt, before, obj, cr, current, path)
+        self.assertTrue(all(checks().values()))
+        read_target = copy.deepcopy(state)
+        read_target["credential_reads"][path + "/client-secret"] = 1
+        self.assertFalse(checks(read_target)["no_target_credential_read"])
+        duplicate = copy.deepcopy(state); duplicate["attempted_counts"]["PUT " + path] = 2
+        self.assertFalse(checks(duplicate)["single_attempted_receipt_write"])
+        changed = copy.deepcopy(after); changed["attributes"]["locale"] = "changed"
+        self.assertFalse(checks(obj=changed)["native_semantics_preserved"])
+        self.assertFalse(checks(cr={"metadata": {"finalizers": ["unexpected"]}})["observe_remains_unmanaged"])
+        missing = copy.deepcopy(state); del missing["credential_reads"]
+        with self.assertRaisesRegex(ValueError, "target-scoped"):
+            checks(missing)
 
     def test_fault_release_requires_confirmed_old_pod_deletion(self):
         fixture = transactions.Transactions.__new__(transactions.Transactions)

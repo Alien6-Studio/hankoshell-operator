@@ -17,7 +17,7 @@ from urllib.parse import parse_qs, urlsplit
 from urllib.request import Request, urlopen
 
 LOCK = threading.Lock()
-STATE = {"rule": None, "blocked": False, "triggered": False, "counts": {}, "attempted_counts": {}, "metadata_activations": {}, "upstream_status": None, "traffic": {}}
+STATE = {"rule": None, "blocked": False, "triggered": False, "counts": {}, "attempted_counts": {}, "metadata_activations": {}, "upstream_status": None, "traffic": {}, "credential_reads": {}}
 
 
 def source_matches(rule, peer):
@@ -143,6 +143,7 @@ class Proxy(BaseHTTPRequestHandler):
                         STATE["attempted_counts"] = {}
                         STATE["metadata_activations"] = {}
                         STATE["traffic"] = {}
+                        STATE["credential_reads"] = {}
                         for key in ("peer_counts", "peer_attempted_counts", "peer_requests"):
                             STATE[key] = {}
                         STATE.update(document_transitions=[], last_document_digest=None, document_transitions_overflow=False)
@@ -163,6 +164,9 @@ class Proxy(BaseHTTPRequestHandler):
                 traffic["token_requests"] = traffic.get("token_requests", 0) + 1
             if self.command == "GET" and self.path.split("?")[0].endswith("/client-secret"):
                 traffic["credential_read_requests"] = traffic.get("credential_read_requests", 0) + 1
+                path = self.path.split("?")[0]
+                reads = STATE.setdefault("credential_reads", {})
+                reads[path] = reads.get(path, 0) + 1
             rule = STATE["rule"]
             selected = source_matches(rule, peer) and matches(rule, self.command, self.path, body) and not STATE["triggered"]
             blocked = STATE["blocked"] and source_matches(rule, peer)

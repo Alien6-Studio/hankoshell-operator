@@ -226,7 +226,18 @@ class InstalledEvidenceTests(unittest.TestCase):
             handler.handle_request()
             self.assertEqual(proxy.STATE["traffic"], {"requests": 1, "credential_read_requests": 1})
             self.assertNotIn("private", json.dumps(proxy.STATE["traffic"]))
-        handler.reply.assert_called_once_with(503, b"{}")
+            self.assertEqual(proxy.STATE["credential_reads"], {"/admin/realms/private/clients/private/client-secret": 1})
+            handler.path = "/admin/realms/private/clients/other/client-secret"
+            handler.handle_request()
+            self.assertEqual(len(proxy.STATE["credential_reads"]), 2)
+            body = b'{"reset_counts":true}'
+            handler.path, handler.command = "/__fixture/control", "POST"
+            handler.headers["Content-Length"] = str(len(body))
+            handler.rfile = BytesIO(body)
+            handler.handle_request()
+            self.assertEqual(proxy.STATE["credential_reads"], {})
+        self.assertEqual(handler.reply.call_args_list[0].args, (503, b"{}"))
+        self.assertEqual(handler.reply.call_args_list[1].args, (503, b"{}"))
 
     def test_watch_disconnect_never_appends_an_http_response_to_events(self):
         event = b'{"type":"BOOKMARK","object":{"metadata":{"resourceVersion":"42"}}}\n'

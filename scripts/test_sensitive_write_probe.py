@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError
 
-from sensitive_write_probe import NoRedirect, TokenAPI
+from sensitive_write_probe import NoRedirect, TokenAPI, write_authority_ready
 
 
 class OperatorProbeTests(unittest.TestCase):
@@ -21,6 +21,32 @@ class OperatorProbeTests(unittest.TestCase):
             self.assertIsNone(handlers[2].redirect_request(None, None, 302, None, {}, "https://other.invalid/"))
             self.assertFalse(tls.return_value.load_cert_chain.called)
         return api
+
+    def test_readiness_requires_both_independently_propagated_write_grants(self):
+        secret = {"metadata": {"name": "reviewed-secret"}}
+        provider = {"metadata": {"name": "reviewed-provider"}}
+        for pending in (None, "secrets", "deployments", "rbac"):
+            def api(method, path, body, **options):
+                if path.endswith("selfsubjectaccessreviews"):
+                    return 201, {"status": {"allowed": pending != "rbac"}}
+                self.assertTrue(options["dry"])
+                approved = body["metadata"]["name"].startswith("reviewed-")
+                return (201 if approved and not path.endswith(pending or "/none") else 403), {}
+            with self.subTest(pending=pending):
+                self.assertEqual(write_authority_ready(api, secret, provider), pending is None)
+        self.assertEqual(secret["metadata"]["name"], "reviewed-secret")
+        self.assertEqual(provider["metadata"]["name"], "reviewed-provider")
+
+    def test_readiness_does_not_accept_either_missing_admission_boundary(self):
+        for unguarded in ("secrets", "deployments"):
+            def api(method, path, body, **options):
+                if path.endswith("selfsubjectaccessreviews"):
+                    return 201, {"status": {"allowed": True}}
+                foreign = body["metadata"]["name"].startswith("security-unapproved-")
+                return (201 if not foreign or path.endswith(unguarded) else 403), {}
+            with self.subTest(unguarded=unguarded):
+                self.assertFalse(write_authority_ready(api, {"metadata": {"name": "reviewed-secret"}},
+                    {"metadata": {"name": "reviewed-provider"}}))
 
     def test_token_only_verified_connection_without_redirect_proxy_or_client_key(self):
         api = self.client()

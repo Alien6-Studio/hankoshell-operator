@@ -116,3 +116,10 @@ not a substitute. The issue's final **Resolution** must bind the published repor
 exact passing integration run and **Verified protected squash commit**. Until
 those results exist, this report records resolved source findings and does not
 claim final acceptance.
+
+The [installed fixture follow-up](../../2026-10-20/installed-fixtures/README.md)
+retains the first failed integration and documents independent policy readiness,
+target-scoped read counters and the distinction between interval initialization
+and a future forced rotation. Its component identities and local diagnostics are
+separate from the original campaign above; none of the failed cells is counted
+as acceptance of the final candidate.
