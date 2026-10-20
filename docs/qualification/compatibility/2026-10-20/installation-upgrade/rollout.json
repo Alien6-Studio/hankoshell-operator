@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-20",
+  "environment": {
+    "provider": "Scaleway",
+    "kubernetes": "1.35.8",
+    "keycloak": "26.7.3",
+    "predecessor": "private unreleased development installation"
+  },
+  "scope": "In-place development operator upgrade, reviewed native ownership acquisition and recovery fixes",
+  "initial_upgrade": {
+    "image_digest": "sha256:c1e1b2ae3dccc8cbd6a7a446f60914709f6a4b121b66bf30d5f441c04a5107f6",
+    "build_revision": "513af5224710f7f28a2b10ec80da1d3218f7197d",
+    "source_tree": "bbe5798ba63a63f36de96129cfa98b778e994ff2",
+    "equivalent_main_commit": "c51365ab8e74cf88a3ca54c90a0db05d8593f9b9",
+    "old_writer_quiescence_verified": true
+  },
+  "recovery_upgrade": {
+    "source_revision": "1ad60cd70da4ad452c7f54354b3d0bb631aa59f2",
+    "source_tree": "8aa0efa7037e9d75263b78f928024ae782f96302",
+    "image_digest": "sha256:025b55d792e0844a0d95e7651177f31b2b4d2052d83c30d5bb47a62f411aa784",
+    "image_only_chart_change": true,
+    "ready_replicas": 1,
+    "pod_restarts": 0
+  },
+  "preservation": {
+    "original_declaration_uids": {
+      "expected": 109,
+      "retained": 109
+    },
+    "original_crd_uids": {
+      "expected": 16,
+      "retained": 16
+    },
+    "installed_crds": 17,
+    "storage_version": "v1alpha1",
+    "operator_deployment_uid_retained": true,
+    "selector_and_service_account_retained": true,
+    "native_clients": {
+      "compared": 30,
+      "uuid_config_mappers_roles_scopes_preserved": 30
+    },
+    "credential_outputs": {
+      "compared": 32,
+      "uids_retained": 32,
+      "data_unchanged": 30,
+      "early_service_account_rotations": 2,
+      "early_rotated_outputs_authenticate": 2,
+      "pod_or_workload_template_consumers_of_rotated_outputs": 0,
+      "all_credentials_unchanged": false,
+      "stable_since_recovery_snapshot": 32
+    }
+  },
+  "current_generation_ready_targets": {
+    "HankoResourceServer": {
+      "total": 8,
+      "Manage": 8,
+      "current_ready": 8,
+      "receipt_verified": 8
+    },
+    "HankoApplication": {
+      "total": 30,
+      "Manage": 30,
+      "current_ready": 30
+    },
+    "HankoOrganization": {
+      "total": 13,
+      "Manage": 13,
+      "current_ready": 13,
+      "receipt_verified": 13
+    },
+    "HankoRole": {
+      "total": 4,
+      "Manage": 4,
+      "current_ready": 4,
+      "receipt_verified": 4
+    },
+    "HankoServiceAccount": {
+      "total": 2,
+      "Manage": 2,
+      "current_ready": 2,
+      "receipt_verified": 2
+    }
+  },
+  "themes": {
+    "ready": 7,
+    "legacy_mutable_references_migrated": 3,
+    "existing_approved_signed_builders_used": true,
+    "keycloak_restarted_by_normal_theme_workflow": true
+  },
+  "recovery_source_validation": {
+    "revision": "1ad60cd70da4ad452c7f54354b3d0bb631aa59f2",
+    "go_race_packages": [
+      "internal/applications",
+      "internal/keycloak",
+      "internal/controller"
+    ],
+    "python_tests_passed": 477,
+    "preflight": "pass",
+    "hooks": "pass",
+    "native_legacy_migration": {
+      "supported_versions": [
+        "26.7.5",
+        "26.8.0"
+      ],
+      "private_characterization_version": "26.7.3",
+      "private_version_pin_changes_public_support": false
+    },
+    "oci": {
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "policy_verdict": "pass",
+      "high_critical_findings": 0,
+      "exceptions": 0,
+      "database_updated_at": "2026-10-20T13:14:22.737606427Z"
+    }
+  },
+  "resource_profile": {
+    "requests": {
+      "cpu": "100m",
+      "memory": "128Mi"
+    },
+    "limits": {
+      "cpu": "500m",
+      "memory": "256Mi"
+    },
+    "qualification": "provisional installation values; not a measured sizing bound",
+    "namespace_cpu_limit_quota_restored": "8"
+  },
+  "cleanup": {
+    "temporary_admission_namespace_removed": true,
+    "temporary_verifier_pod_and_policy_removed": true
+  },
+  "retained_failures": [
+    "Provider receipt output became stale during temporary Keycloak unavailability; fresh native verification repaired it.",
+    "Claim CLI rejected its read-back after a controller added the exact cleanup finalizer; plan binding now accepts only this post-consent addition.",
+    "Legacy clients with both true catalog hints remained drifted until normalization/preservation was fixed.",
+    "Observe/acquisition cleared historical service-account rotation timestamps, causing two early rotations. Their original credential values were not restored.",
+    "The old Fleet authority realm lived in the previous Deployment environment, not its Helm values. Restoring that exact setting fixed the new chart default mismatch without relaxing reserved-role guards.",
+    "The first final-image scan timed out fetching the vulnerability database. The unchanged standard scan passed on retry; an independent official-GHCR DB scan also passed."
+  ],
+  "boundaries": {
+    "rollback_executed": false,
+    "larger_capacity_qualified": false,
+    "continuous_24h_campaign_active": false,
+    "public_predecessor_qualified": false,
+    "stable_release_published": false,
+    "raw_credentials_or_native_identifiers_published": false,
+    "open_issues": 13
+  },
+  "deployment_complete": true,
+  "latest_operator": {
+    "source_revision": "7d235f8e9445d03a6e5c41479c47aa03e3e02bd7",
+    "source_tree": "d2733dc927f83604113bd41b633af51370aeb416",
+    "image_digest": "sha256:9a8852460a20f384f4ad044f3e3c7465e6e60d7d2e790055a807a9b940e9c555",
+    "ready_replicas": 1,
+    "active_pods": 1,
+    "crash_restarts": 0,
+    "previous_authority_realm_restored": true
+  },
+  "realms": {
+    "managed_or_observed": 4,
+    "current_ready": 4,
+    "protected_master_excluded": 1
+  },
+  "rotation_checkpoint_validation": {
+    "revision": "7d235f8e9445d03a6e5c41479c47aa03e3e02bd7",
+    "focused_acquisition_and_two_mode_round_trips": "pass with race detection",
+    "full_controller_race": "pass, 266.431 seconds",
+    "hooks": "pass",
+    "python_tests_passed": 477,
+    "oci": {
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "verdict": "pass",
+      "high_critical_findings": 0,
+      "exceptions": 0,
+      "database_updated_at": "2026-10-20T13:14:22.737606427Z"
+    },
+    "preflight": "pass including 477 Python tests, 76.913 seconds"
+  }
+}
