@@ -103,9 +103,16 @@ func TestOrganizationNativeLocaleProjectionIsClosedAndHashBound(t *testing.T) {
 	}
 }
 func TestNativeAuthorizationFeatureIsClosedAndHashBound(t *testing.T) {
+	for _, field := range []string{"authorizationServices", "frontchannelLogout"} {
+		t.Run(field, func(t *testing.T) { testNativeClientFlag(t, field) })
+	}
+}
+
+func testNativeClientFlag(t *testing.T, field string) {
+	t.Helper()
 	target, provider, observation, desired := fixture()
 	enabled := true
-	fact := Fact{Domain: "application", Identity: "client-uuid", Object: "app", Field: "authorizationServices", Classification: Preserved, RoundTrip: PreservedNative, Value: Value{Flag: &enabled}}
+	fact := Fact{Domain: "application", Identity: "client-uuid", Object: "app", Field: field, Classification: Preserved, RoundTrip: PreservedNative, Value: Value{Flag: &enabled}}
 	observation.Facts = []Fact{fact}
 	base := Build(target, provider, observation, desired)
 	if !base.Approvable {

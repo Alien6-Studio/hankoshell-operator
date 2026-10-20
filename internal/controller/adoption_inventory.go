@@ -318,6 +318,11 @@ func (r *HankoImportReconciler) discoverClientInventory(ctx context.Context, kc 
 		feature := inventoryFact(kind, c.ID, c.ClientID, "authorizationServices", flagValue(c.AuthorizationServicesEnabled))
 		feature.Classification, feature.RoundTrip = adoption.Preserved, adoption.PreservedNative
 		item.observation.Facts = append(item.observation.Facts, feature)
+		if c.FrontchannelLogout != nil {
+			logout := inventoryFact(kind, c.ID, c.ClientID, "frontchannelLogout", flagValue(*c.FrontchannelLogout))
+			logout.Classification, logout.RoundTrip = adoption.Preserved, adoption.PreservedNative
+			item.observation.Facts = append(item.observation.Facts, logout)
+		}
 		pattern := "web"
 		if c.PublicClient {
 			pattern = "spa"

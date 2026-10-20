@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "reports": [
+    {
+      "file": "main-ci-1.36.2-opaque-failure.json",
+      "source_sha256": "a660518a281a096200198703145fb823c4b89ec4f556789aa46b5d90fcb6d7ad",
+      "public_sha256": "69ee03139b12dbba6057fe9d9bd64489d52fef8707cafd4791f14c83c640eaf6",
+      "serialization_changes": [
+        "contract_hash_field_name",
+        "canonical_json_whitespace"
+      ]
+    },
+    {
+      "file": "before-native-cas-1.36.2.json",
+      "source_sha256": "a0dbe734cf9f94da963860076c75c602173e25b4477f4e10c2d277b5e948da8f",
+      "public_sha256": "d337eef3bb3b009d9e6aad9b40d31289c01c817e3d97b37978e7dd8f16ccdde0",
+      "serialization_changes": [
+        "contract_hash_field_name",
+        "canonical_json_whitespace"
+      ]
+    },
+    {
+      "file": "before-refusal.json",
+      "source_sha256": "c3ff11ab1425587ed48e3aa529e2dd79278e7d2d192193ac1d6d827ff07ade84",
+      "public_sha256": "c3ff11ab1425587ed48e3aa529e2dd79278e7d2d192193ac1d6d827ff07ade84",
+      "serialization_changes": [
+        "canonical_json_whitespace"
+      ]
+    },
+    {
+      "file": "before-native-conflict.json",
+      "source_sha256": "e105dcdf6be2544eda6357b77c75a88af9fc7eba27ce6f4931c7554c7405749c",
+      "public_sha256": "302d934927b0c3fbe62327531f601bd7b4d45f586e397e0a58ac61809c4cf615",
+      "serialization_changes": [
+        "canonical_json_whitespace"
+      ]
+    },
+    {
+      "file": "first-harness-reverse-conflict-not-proven.json",
+      "source_sha256": "0f90c0f686dacddf3946704f21c1ab1738585bcee3a21b77b52a047c55e5fd36",
+      "public_sha256": "68d22fcb783472be53fcd4ebbacfc7f883f081232e21241d5d5f2c2e481d128f",
+      "serialization_changes": [
+        "contract_hash_field_name",
+        "canonical_json_whitespace"
+      ]
+    },
+    {
+      "file": "native-1.35.0.json",
+      "source_sha256": "f01d4873013c6e556cd4f8bce7d7aed54b7ab95d52fc07b1604f0284e479b1f9",
+      "public_sha256": "d7114e3042a74b0d6ffd4c79b6e603b29565c715251ff520cb968365a965a850",
+      "serialization_changes": [
+        "contract_hash_field_name",
+        "canonical_json_whitespace"
+      ]
+    },
+    {
+      "file": "native-1.36.2.json",
+      "source_sha256": "1a5ca6347ff3315ecd532f1b3f3fec91bf9616e842b396e521dd1cd38b20b45d",
+      "public_sha256": "dc35a4722fd2084dfc34dbdfe408c75a7ea49edcc525b0e35cb559d59f6e71b4",
+      "serialization_changes": [
+        "contract_hash_field_name",
+        "canonical_json_whitespace"
+      ]
+    },
+    {
+      "file": "native-1.37.0.json",
+      "source_sha256": "fff13e899f587e534dd60bbbe750ab003724d7938f35bcc341ca7edbe14b5bb8",
+      "public_sha256": "9c1435942966ad8efe50c06bfc1ff5894ef81d43377aeb720d86db1bfaf3fcf1",
+      "serialization_changes": [
+        "contract_hash_field_name",
+        "canonical_json_whitespace"
+      ]
+    }
+  ],
+  "cas_matrix_source_components": [
+    {
+      "sha256": "e13542a49f71e4e1d1faeb37db5a01199af24bd8ef834c1895d3c4098381be91",
+      "file": "scripts/storage_migration.py"
+    },
+    {
+      "sha256": "8e80d2d0a4d3e296639f5663e36ffd97bf0209bb3605d398855d8c9a96c90e54",
+      "file": "scripts/storage-migration-installed-test.py"
+    }
+  ],
+  "final_source_components": [
+    {
+      "sha256": "90d81108ed4e7713181c09f4109a5c91dfbc03be601108fc6f101a2e188d7695",
+      "file": "scripts/storage_migration.py"
+    },
+    {
+      "sha256": "112f2b207aa4b7ff46fea634cd29fbb434a9a4b202cb29f6dc912efddccdd84b",
+      "file": "scripts/storage-migration-installed-test.py"
+    }
+  ],
+  "final_guard_witness": "native-quiescence-1.35.0.json",
+  "exact_revision_pr_ci_required": true
+}

@@ -105,9 +105,10 @@ func TestRealKeycloakOrganizationAggregateAcquisition(t *testing.T) {
 	f.requireNoError(err)
 	observer, err := keycloak.NewWithTLS(relay.URL, "aggregate-org-reader", readSecret, ca)
 	f.requireNoError(err)
-	for _, fault := range []string{"normal", "partial", "lost-ack", "status-failure"} {
+	for _, fault := range []string{"normal", "partial", "lost-ack", "status-failure", "legacy-native-owner"} {
 		f.run(fault, func(t *testing.T) {
 			name := "reviewed-aggregate-" + fault
+			meta := fixtureMeta(name)
 			base := "/admin/realms/managed"
 			mu.Lock()
 			manage = false
@@ -117,7 +118,15 @@ func TestRealKeycloakOrganizationAggregateAcquisition(t *testing.T) {
 			f.admin(http.MethodGet, base+"/group-by-path/"+name, nil, &group)
 			groupID := group["id"].(string)
 			f.admin(http.MethodPost, base+"/groups/"+groupID+"/children", map[string]any{"name": "Foreign"}, nil)
-			f.admin(http.MethodPost, base+"/organizations", map[string]any{"name": name, "alias": name, "enabled": true, "attributes": map[string][]string{"locale": {"en"}}, "domains": []map[string]any{{"name": name + ".example.test", "verified": true}}}, nil)
+			nativeAttributes := map[string][]string{"locale": {"en"}}
+			if fault == "legacy-native-owner" {
+				// Existing installations can own the native root while their
+				// structural group still needs explicit reviewed acquisition.
+				nativeAttributes[organization.OwnerName] = []string{meta.Name}
+				nativeAttributes[organization.OwnerNamespace] = []string{meta.Namespace}
+				nativeAttributes[organization.OwnerUID] = []string{string(meta.UID)}
+			}
+			f.admin(http.MethodPost, base+"/organizations", map[string]any{"name": name, "alias": name, "enabled": true, "attributes": nativeAttributes, "domains": []map[string]any{{"name": name + ".example.test", "verified": true}}}, nil)
 			var listed []map[string]any
 			f.admin(http.MethodGet, base+"/organizations?max=100", nil, &listed)
 			orgID := ""
@@ -139,7 +148,6 @@ func TestRealKeycloakOrganizationAggregateAcquisition(t *testing.T) {
 			f.admin(http.MethodGet, base+"/organizations/"+orgID, nil, &beforeNative)
 			_, err := observer.ReadOrganizationOwnership(ctx, "managed", "/"+name, name)
 			f.requireNoError(err)
-			meta := fixtureMeta(name)
 			meta.Annotations = map[string]string{adoption.SourceAnnotation: "source"}
 			org := &api.HankoOrganization{ObjectMeta: meta, Spec: api.HankoOrganizationSpec{Mode: "Observe", RealmRef: "managed", Name: name, Slug: name, Domains: []string{name + ".example.test"}}}
 			externalRealm := &api.HankoRealm{ObjectMeta: fixtureMeta("managed")}

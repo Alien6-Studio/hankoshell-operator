@@ -227,6 +227,26 @@ func (c *Client) ReconcileAuthorization(ctx context.Context, model Authorization
 	if err := authorizationOwnershipBudget(model, owned); err != nil {
 		return AuthorizationState{}, err
 	}
+	// Only a current native journal can authorize this read-only shortcut.
+	// Delegation cleanup and phase checkpoints still use their full path.
+	attributes, _ := representation["attributes"].(map[string]any)
+	_, hasDelegation := attributes[BoundedDelegationAttribute]
+	if enabled && model.OwnerUID != "" && !hasDelegation && !boundedDelegationInProgress(ctx, model.OwnerUID) {
+		settled := AuthorizationState{ResourceServerID: clientID, ManagedObjects: owned,
+			Observation: AuthorizationObservation{Enabled: true, Complete: true}}
+		if err := c.observeAuthorizationGraph(ctx, model, &settled, owned, authorizationBase(model.Realm, clientID)); err != nil {
+			return AuthorizationState{}, err
+		}
+		// An equal desired projection does not prove that obsolete owned
+		// references have retired. Every owned entry must still be observed.
+		if !settled.Drifted && settled.Observation.Complete &&
+			len(owned.Scopes) == len(settled.Observation.Scopes) &&
+			len(owned.Resources) == len(settled.Observation.Resources) &&
+			len(owned.Policies) == len(settled.Observation.Policies) &&
+			len(owned.Permissions) == len(settled.Observation.Permissions) {
+			return settled, nil
+		}
+	}
 	ctx, err = c.authorizationAdoptionContext(ctx, model, clientID)
 	if err != nil {
 		return AuthorizationState{}, err

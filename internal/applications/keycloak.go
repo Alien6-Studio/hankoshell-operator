@@ -57,6 +57,12 @@ func desired(p Plan) keycloak.Application {
 	result := keycloak.Application{ClientID: i.ClientID, Name: i.ClientID, Protocol: providerProtocol(i.Protocol), Enabled: true,
 		PublicClient: i.Pattern == "spa", StandardFlowEnabled: i.Pattern != "m2m", ServiceAccountsEnabled: i.Pattern == "m2m",
 		RedirectURIs: i.RedirectURIs, WebOrigins: []string{"+"}, Attributes: attrs}
+	if i.WebOrigins != nil {
+		result.WebOrigins = slices.Clone(*i.WebOrigins)
+		if result.WebOrigins == nil {
+			result.WebOrigins = []string{}
+		}
+	}
 	if i.Pattern == "m2m" {
 		attrs["hanko.service"] = "true"
 	} else {
@@ -146,6 +152,8 @@ func observedClient(got keycloak.Application, p Plan) (keycloak.Application, boo
 	got.ID = ""
 	got.RedirectURIs = stringSet(got.RedirectURIs)
 	got.WebOrigins = stringSet(got.WebOrigins)
+	got.DefaultClientScopes = stringSet(got.DefaultClientScopes)
+	got.OptionalClientScopes = stringSet(got.OptionalClientScopes)
 	delete(got.Attributes, OwnerAttribute)
 	delete(got.Attributes, "hanko.sh/adoption-receipt")
 	delete(got.Attributes, "hanko.sh/resource-server-ownership")

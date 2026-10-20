@@ -5,8 +5,9 @@ scanned exact-source OCI archive, real HTTPS Keycloak and external fault proxies
 It includes six accepted-write checkpoints and one live-holder API partition.
 A separate installed delegation fixture adds its four native journal phases.
 It does not qualify every journal, arbitrary partitions,
-replica clock skew or production HA. The partition is newly implemented; only
-completed installed reports qualify its behavior.
+replica clock skew or production HA. The current fixture extends the caller
+partition to 300 measured seconds; fresh installed reports must qualify this
+stronger interval. Earlier natural-handoff reports retain their actual durations.
 
 The [current transaction packet](qualification/transactions/2026-10-19/runtime-dcee6b6/README.md)
 retains the complete six-cell CI matrix and two local cells. The separate
@@ -62,6 +63,17 @@ process alive during the fault. Missing caller attribution, continued renewal,
 early native changes, duplicate writes or failed recovery fail the scenario.
 The old caller is unblocked only after these checks; both serving replicas and
 one lease-matched metrics leader must recover.
+
+The current fixture holds that same caller-specific rule for at least 300
+measured seconds. After handoff it continues checking the rule, lease holder,
+and old caller's attempted/accepted configuration writes. The new holder must
+recover the changed role within the existing 180-second budget while the fault
+remains active. Monotonic and wall sampling gaps must remain within 45 seconds.
+Only then can the fixture release the partition. Public evidence records the
+required interval, actual isolated duration and handoff time; unit negatives
+include a delayed stale write, early fault release, lease loss and wall-clock gap.
+This is a five-minute caller partition, not a five-minute loss of every replica's
+API access; the latter retains its separate recovery fixture.
 
 Per-caller addresses and native routes are private proxy control data. Public
 evidence contains only fixed decisions, numeric counts, sample gaps and elapsed

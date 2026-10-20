@@ -1,0 +1,7 @@
+{
+  "diagnostic_only": true,
+  "command_failed": true,
+  "code": "ConcurrentModification",
+  "active_phase": "resume_rewrite",
+  "active_target": "v1beta1"
+}

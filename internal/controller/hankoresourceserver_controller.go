@@ -759,7 +759,7 @@ func findingsStatus(findings []authorization.Finding) []hankoshv1alpha1.Authoriz
 }
 
 func (r *HankoResourceServerReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	options, err := iamControllerOptions()
+	options, err := iamControllerOptions("ResourceServer")
 	if err != nil {
 		return err
 	}

@@ -28,6 +28,7 @@ type authorizationTestServer struct {
 	permissions map[string]authorizationPermissionRepresentation
 
 	mutations     int
+	requests      int
 	deleteOrder   []string
 	attributes    map[string]any
 	failPath      string
@@ -63,6 +64,7 @@ func (s *authorizationTestServer) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		writeAuthorizationJSON(w, map[string]any{"access_token": "token", "expires_in": 300})
 		return
 	}
+	s.requests++
 	if r.URL.Path == "/admin/realms/acme/clients" && r.Method == http.MethodGet {
 		clientID := r.URL.Query().Get("clientId")
 		if clientID == "missing" {

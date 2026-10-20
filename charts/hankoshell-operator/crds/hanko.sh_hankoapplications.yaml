@@ -561,6 +561,21 @@ spec:
                 - web
                 - m2m
                 type: string
+              webOrigins:
+                description: |-
+                  WebOrigins explicitly selects the native OIDC CORS entry set. Omission retains
+                  the legacy "+" default, which derives origins from redirect URIs. An
+                  explicit empty array disables CORS origins. HTTP(S) entries and "+"
+                  are accepted, including legacy callback paths and terminal path wildcards.
+                  Credentials, queries, fragments and wildcard authorities are rejected.
+                items:
+                  maxLength: 255
+                  minLength: 1
+                  pattern: ^(\+|https?://[^/?#@\s\\*]+(/[^?#@\s\\*]*)?(/\*)?)$
+                  type: string
+                maxItems: 64
+                type: array
+                x-kubernetes-list-type: set
             required:
             - clientID
             - realmRef
@@ -590,12 +605,13 @@ spec:
             - message: SAML rejects OIDC types, callbacks, claims, mappings, scopes,
                 rotation and secret projections
               rule: '!has(self.protocol) || self.protocol != ''saml'' || (!has(self.type)
-                && (!has(self.redirectURIs) || size(self.redirectURIs) == 0) && (!has(self.postLogoutRedirectURIs)
-                || size(self.postLogoutRedirectURIs) == 0) && (!has(self.tokenClaims)
-                || size(self.tokenClaims) == 0) && (!has(self.identityMappings) ||
-                size(self.identityMappings) == 0) && !has(self.realmRoleScopes) &&
-                !has(self.secretRotationPolicy) && (!has(self.clientSecretProjections)
-                || size(self.clientSecretProjections) == 0))'
+                && !has(self.webOrigins) && (!has(self.redirectURIs) || size(self.redirectURIs)
+                == 0) && (!has(self.postLogoutRedirectURIs) || size(self.postLogoutRedirectURIs)
+                == 0) && (!has(self.tokenClaims) || size(self.tokenClaims) == 0) &&
+                (!has(self.identityMappings) || size(self.identityMappings) == 0)
+                && !has(self.realmRoleScopes) && !has(self.secretRotationPolicy) &&
+                (!has(self.clientSecretProjections) || size(self.clientSecretProjections)
+                == 0))'
             - message: native attributes cannot override protocol, SAML, ownership
                 or managed theme/logout settings
               rule: '!has(self.attributes) || self.attributes.all(k, !k.matches(''(?i)^(saml|hanko[.]).*'')
@@ -2105,6 +2121,21 @@ spec:
                 - web
                 - m2m
                 type: string
+              webOrigins:
+                description: |-
+                  WebOrigins explicitly selects the native OIDC CORS entry set. Omission retains
+                  the legacy "+" default, which derives origins from redirect URIs. An
+                  explicit empty array disables CORS origins. HTTP(S) entries and "+"
+                  are accepted, including legacy callback paths and terminal path wildcards.
+                  Credentials, queries, fragments and wildcard authorities are rejected.
+                items:
+                  maxLength: 255
+                  minLength: 1
+                  pattern: ^(\+|https?://[^/?#@\s\\*]+(/[^?#@\s\\*]*)?(/\*)?)$
+                  type: string
+                maxItems: 64
+                type: array
+                x-kubernetes-list-type: set
             required:
             - clientID
             - realmRef
@@ -2134,12 +2165,13 @@ spec:
             - message: SAML rejects OIDC types, callbacks, claims, mappings, scopes,
                 rotation and secret projections
               rule: '!has(self.protocol) || self.protocol != ''saml'' || (!has(self.type)
-                && (!has(self.redirectURIs) || size(self.redirectURIs) == 0) && (!has(self.postLogoutRedirectURIs)
-                || size(self.postLogoutRedirectURIs) == 0) && (!has(self.tokenClaims)
-                || size(self.tokenClaims) == 0) && (!has(self.identityMappings) ||
-                size(self.identityMappings) == 0) && !has(self.realmRoleScopes) &&
-                !has(self.secretRotationPolicy) && (!has(self.clientSecretProjections)
-                || size(self.clientSecretProjections) == 0))'
+                && !has(self.webOrigins) && (!has(self.redirectURIs) || size(self.redirectURIs)
+                == 0) && (!has(self.postLogoutRedirectURIs) || size(self.postLogoutRedirectURIs)
+                == 0) && (!has(self.tokenClaims) || size(self.tokenClaims) == 0) &&
+                (!has(self.identityMappings) || size(self.identityMappings) == 0)
+                && !has(self.realmRoleScopes) && !has(self.secretRotationPolicy) &&
+                (!has(self.clientSecretProjections) || size(self.clientSecretProjections)
+                == 0))'
             - message: native attributes cannot override protocol, SAML, ownership
                 or managed theme/logout settings
               rule: '!has(self.attributes) || self.attributes.all(k, !k.matches(''(?i)^(saml|hanko[.]).*'')

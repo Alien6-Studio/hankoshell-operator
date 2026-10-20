@@ -49,6 +49,17 @@ func TestRealKeycloakLegacyApplicationMigration(t *testing.T) {
 		credential, err := operator.CreateApp(ctx, "example", keycloak.CreateAppSpec{ClientID: app.Spec.ClientID, Name: app.Spec.ClientID, Type: kind, RedirectURIs: app.Spec.RedirectURIs, PostLogoutRedirectURIs: app.Spec.PostLogoutRedirectURIs})
 		f.requireNoError(err)
 		f.secrets = append(f.secrets, credential)
+		if kind == "m2m" {
+			cl := f.client("example", app.Spec.ClientID)
+			path := "/admin/realms/example/clients/" + cl["id"].(string) + "/default-client-scopes"
+			var scopes []map[string]any
+			f.admin(http.MethodGet, path, nil, &scopes)
+			for _, scope := range scopes {
+				if scope["name"] == "service_account" {
+					f.admin(http.MethodDelete, path+"/"+scope["id"].(string), nil, nil)
+				}
+			}
+		}
 		f.requireNoError(operator.ReconcileClientRealmRoleScopes(ctx, "example", app.Spec.ClientID, app.Spec.RealmRoleScopes))
 		f.requireNoError(operator.CreateClientRole(ctx, "example", app.Spec.ClientID, "viewer", "Existing role"))
 		app.Spec.Roles = []api.ApplicationRole{{Name: "viewer", Description: "Existing role"}}
@@ -56,6 +67,17 @@ func TestRealKeycloakLegacyApplicationMigration(t *testing.T) {
 		app.Spec.TokenClaims = []api.ApplicationTokenClaim{{Name: "environment", Claim: "deployment_environment", Value: &value}}
 		mapper, err := operator.EnsureClientProtocolMapper(ctx, "example", app.Spec.ClientID, keycloak.ProtocolMapper{Name: "hanko:qualification:" + app.Name + ":claim:environment", Protocol: "openid-connect", ProtocolMapper: "oidc-hardcoded-claim-mapper", Config: map[string]string{"claim.name": "deployment_environment", "claim.value": value, "jsonType.label": "String", "id.token.claim": "true", "access.token.claim": "true", "userinfo.token.claim": "true", "introspection.token.claim": "true"}})
 		f.requireNoError(err)
+		// Existing installations can have explicitly restricted or empty CORS
+		// origins. Review them in the declaration before migrating ownership.
+		longOrigin := "https://legacy.example.test/" + strings.Repeat("a", 255-len("https://legacy.example.test/"))
+		origins := []string{"https://legacy.example.test", "http://localhost:3000", "https://legacy.example.test/auth/callback", "https://legacy.example.test/login/*", longOrigin}
+		if kind == "web" {
+			origins = []string{}
+		}
+		app.Spec.WebOrigins = &origins
+		current := f.client("example", app.Spec.ClientID)
+		current["webOrigins"] = origins
+		f.admin(http.MethodPut, "/admin/realms/example/clients/"+current["id"].(string), current, nil)
 		before := f.client("example", app.Spec.ClientID)
 		if kind != "spa" {
 			last := metav1.NewTime(time.Now().Add(-time.Hour))
@@ -113,6 +135,9 @@ func TestRealKeycloakLegacyApplicationMigration(t *testing.T) {
 		}
 		after := f.client("example", app.Spec.ClientID)
 		fixtureEqual(t, "migration retains UUID", after["id"], before["id"])
+		for _, field := range []string{"defaultClientScopes", "optionalClientScopes", "frontchannelLogout"} {
+			fixtureEqual(t, "legacy migration retains native setting: "+field, adoptionClone(t, after)[field], adoptionClone(t, before)[field])
+		}
 		mappers, err := operator.ListClientProtocolMappers(ctx, "example", app.Spec.ClientID)
 		f.requireNoError(err)
 		fixtureEqual(t, "migration retains mapper UUID", mappers[0].ID, mapper.ID)

@@ -77,6 +77,8 @@ replicaCount: 1
 # Provider request budgets are shared per connection and do not grow with this.
 reconciliation:
   maxConcurrent: 1
+  # Optional Application, Role, Organization and ResourceServer overrides (1..8).
+  maxConcurrentByKind: {}
 
 resources:
   requests:

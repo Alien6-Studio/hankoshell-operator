@@ -26,7 +26,8 @@
         "secretRotationPolicy": "alpha",
         "theme": "alpha",
         "tokenClaims": "alpha",
-        "type": "public"
+        "type": "public",
+        "webOrigins": "public"
       },
       "status": {
         "adoptionCandidate": "alpha",
@@ -62,7 +63,8 @@
         "samlEndpoints": "public"
       },
       "publicNativeSpecFields": [
-        "saml"
+        "saml",
+        "webOrigins"
       ],
       "evidence": [
         "docs/architecture/application-identity.md",

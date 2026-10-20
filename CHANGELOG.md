@@ -3,6 +3,18 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Preserve existing OIDC settings during operator migration
+
+- Qualify bounded OIDC scope references and the native frontchannel logout flag
+  for reviewed acquisition. Bind changed settings to approval hashes while
+  ignoring provider ordering of native scope sets and mapper UUID collections.
+- Keep an intentionally removed `service_account` scope absent during legacy
+  ownership migration and subsequent application updates. Exclude credentials
+  and caller-specific administrative permissions from ownership writes.
+- Exercise common and legacy migrations, lost acknowledgements, explicit Manage
+  and mixed legacy Organization ownership against real HTTPS providers. Existing
+  installations still require exact reviewed acquisition and rollback checks.
+
 ### Bound status and preserve partial mapper checkpoints (#99)
 
 - Close all 294 remaining status size-inventory gaps across the 20 served

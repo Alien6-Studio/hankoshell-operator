@@ -1,0 +1,43 @@
+{
+  "merged_sha": "5e6692686d92b50f7ad5e0bb140403467e712b01",
+  "qualified_revision": "61276333ebfd5f4c655fe95093f3dc718d7f6a6a",
+  "source_tree": "70ed7584397a7c8a60401beb67b03513675b532a",
+  "run_id": 39403930093,
+  "passed_jobs": 61,
+  "codeql_analyses": 3,
+  "image_digest": "sha256:b4b1e61b03ebacfb4c13299d321cd45cd1a909df4d6e0747e23a7a09cabfb421",
+  "schema_version": 1,
+  "issue": 86,
+  "public_version": "0.1.0-dev.0",
+  "publishable": false,
+  "report_files": [
+    {
+      "file": "system-test.json",
+      "sha256": "b5f967810325ca235b49a4af2bb3d5a84b904585703348df59ddd5193fade35e"
+    },
+    {
+      "file": "fleet-KC-26.7.5-K8s-1.35.0.json",
+      "sha256": "1e50e39e50d4f52fb955144fa5641528e1852406db379bb9117bfa2233ce1be4"
+    },
+    {
+      "file": "fleet-KC-26.7.5-K8s-1.36.2.json",
+      "sha256": "95370ce2d9b58426460b251c8d92c8fedb6c693d4ff18884cc7df0b29386ee42"
+    },
+    {
+      "file": "fleet-KC-26.7.5-K8s-1.37.0.json",
+      "sha256": "789394ed51517bf457e77d9bd51d4b105f3dabeebe249aebf2ab1e8b21417288"
+    },
+    {
+      "file": "fleet-KC-26.8.0-K8s-1.35.0.json",
+      "sha256": "5389303426a8634f7bf79004cca06d8596d83d000f5b5ae73f9201f71ad29223"
+    },
+    {
+      "file": "fleet-KC-26.8.0-K8s-1.36.2.json",
+      "sha256": "2843441e4edbe0d184e20233a643bdabc87ffc230e6dbc8da9fda7755d4caaea"
+    },
+    {
+      "file": "fleet-KC-26.8.0-K8s-1.37.0.json",
+      "sha256": "b0071f02ebb1192de785764aa303c35873799c81c8c22bd4ee5b0c2b22177b2b"
+    }
+  ]
+}

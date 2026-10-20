@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "qualification": "native-operator-upgrade-regressions",
+  "cluster_upgrade_completed": false,
+  "live_cluster_mutations": 0,
+  "qualifies_all_deployed_targets": false,
+  "source_parent_commit": "a88cf10a596a9341abe30711b786e4863c08eb5a",
+  "production_components": [
+    {
+      "file": "internal/adoption/contract.go",
+      "sha256": "9059d228deec0fd20cf5164b1d859b5dbb76cf6dbffb65881531d0e6f997d270"
+    },
+    {
+      "file": "internal/applications/keycloak.go",
+      "sha256": "516757a7dc46d9728655366ed59659edd90d8cc63edf596f06ef8717e8c2aa7e"
+    },
+    {
+      "file": "internal/controller/adoption_acquisition.go",
+      "sha256": "24fd721b6a893f41a13c707416aed1b99ba2f5813d699cb58b4e3562eb450378"
+    },
+    {
+      "file": "internal/controller/adoption_inventory.go",
+      "sha256": "1f2beca2d3c49ae218528209099a5870824262c2be01a4ef2f8fd9c36707da70"
+    },
+    {
+      "file": "internal/keycloak/adoption.go",
+      "sha256": "0841737aa98aae1da79426231fc72a5a2b652e4f068845ed03c3fb4b4bf3baa0"
+    },
+    {
+      "file": "internal/keycloak/applications.go",
+      "sha256": "2a4874f89f5dc8a39cce5cc9ab67385a018dd9800f53a0b9386f79a37f410462"
+    }
+  ],
+  "native_fixture_components": [
+    {
+      "file": "internal/controller/keycloak_aggregate_adoption_test.go",
+      "sha256": "e873057c9275121776ac50c6a313875e60506fd596bac244bf3a5087cf394de5"
+    },
+    {
+      "file": "internal/controller/keycloak_application_migration_test.go",
+      "sha256": "50e13663c7c397e5194e9896f0505baedf19933a559833055a5691eac7c73f23"
+    },
+    {
+      "file": "internal/controller/keycloak_ownership_acquisition_test.go",
+      "sha256": "ca7e1ded307fa9f5e52eaa85f4e0fd871835fa8a364f622671945ddb2fa40f93"
+    }
+  ],
+  "providers": [
+    {
+      "keycloak": "26.7.3",
+      "image": "quay.io/keycloak/keycloak:26.7.3@sha256:29be7252db0a106f1cd2ac17b9a56ff2668073da645638a38b9fc67deeb2d6c4",
+      "race": true,
+      "test_roots": [
+        "TestRealKeycloakLegacyApplicationMigration",
+        "TestRealKeycloakOrganizationAggregateAcquisition",
+        "TestRealKeycloakOwnershipAcquisition"
+      ],
+      "passing_outcomes": 24,
+      "failures": 0,
+      "raw_output_sha256": "a72a1df1d96162dfe2a10cac01ab6ce40239adfafb43317e6c94df04590b2257",
+      "expands_support_matrix": false,
+      "private_fixture_adjustments": [
+        "add the exact legacy image pin",
+        "expect the native view-clients credential visibility also present on 26.7.5; operator acquisition remains barred from credential routes"
+      ],
+      "adjusted_fixture_sha256": "1c89e6941d5f899c870443230bab50ebf03d9b73ad28c71fd0c2a6b8cebf4aed",
+      "retained_first_attempt": {
+        "outcome": "failed",
+        "fixed_cause": "unsupported legacy version used the 26.8.0 credential-visibility expectation",
+        "raw_output_sha256": "c2f864b6e317eaef01c47bfe4a89d70e494e029361d1d17f98dcbb3d41255c3c"
+      }
+    },
+    {
+      "keycloak": "26.7.5",
+      "image": "quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85",
+      "race": true,
+      "test_roots": [
+        "TestRealKeycloakLegacyApplicationMigration",
+        "TestRealKeycloakOrganizationAggregateAcquisition",
+        "TestRealKeycloakOwnershipAcquisition"
+      ],
+      "passing_outcomes": 24,
+      "failures": 0,
+      "raw_output_sha256": "fa1bcd45d8c6efbab54bba19c4ef4ed10a1ae57ff63fac6835aa26f53bd3c091",
+      "expands_support_matrix": false
+    },
+    {
+      "keycloak": "26.8.0",
+      "image": "quay.io/keycloak/keycloak:26.8.0@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc",
+      "race": true,
+      "test_roots": [
+        "TestRealKeycloakLegacyApplicationMigration",
+        "TestRealKeycloakOrganizationAggregateAcquisition",
+        "TestRealKeycloakOwnershipAcquisition"
+      ],
+      "passing_outcomes": 24,
+      "failures": 0,
+      "raw_output_sha256": "e367d2bdf3faa982464bef267442e5158fce18b58c8369ee413d6ec1ef4f5535",
+      "expands_support_matrix": false
+    }
+  ],
+  "verified_behaviors": [
+    "bounded native OIDC scope references and frontchannel logout remain unchanged through owner-only acquisition and explicit Manage",
+    "lost ownership acknowledgement recovers without a second ownership PUT",
+    "changed native membership or logout invalidates unconsumed approval",
+    "legacy application migration keeps UUIDs roles mappers and credentials and does not reattach a removed service_account scope",
+    "native Organization root already owned by the exact target can be acquired together with its unmarked structural group without business changes",
+    "foreign objects and native state remain preserved; unknown roots attributes and mappers remain refused"
+  ]
+}

@@ -18,6 +18,18 @@ callbacks, logout redirects, themes, client roles, declared realm-role scopes,
 token claims, inbound OIDC broker mappings, native client attributes, credential
 rotation and authorized Secret projections. Manage and Observe remain separate.
 
+OIDC `spec.webOrigins` selects the exact CORS origin set. Omission retains the
+existing `["+"]` behavior, deriving origins from redirect URIs; `webOrigins: []`
+explicitly disables CORS origins. A set may contain up to 64 HTTP(S) entries of at most 255 characters, or
+the Keycloak `+` value. Legacy callback paths and terminal path wildcards are
+preserved verbatim; the operator does not turn them into broader origin grants.
+Userinfo, query strings, fragments and wildcard authorities are refused. Import preserves the observed set, including an empty set. Before
+upgrading an existing installation, declare its current origins so ownership
+migration and later reconciliation retain the same CORS policy. The set binds
+intent, observation and candidate hashes; changing it invalidates stale reviews.
+The length limit follows Keycloak's native
+[`WEB_ORIGINS.VALUE` storage definition](https://github.com/keycloak/keycloak/blob/26.8.0/model/jpa/src/main/resources/META-INF/jpa-changelog-1.0.0.Final.xml).
+
 ```yaml
 apiVersion: hanko.sh/v1alpha1
 kind: HankoApplication
@@ -52,7 +64,7 @@ are `persistent`, `transient`, `email` and `unspecified`. The IdP forces that fo
 independently of the request preference. Email uses the SAML 1.1 emailAddress URI;
 unspecified uses the SAML 1.1 unspecified URI and Keycloak's username mapping.
 
-SAML rejects `type`, OIDC callbacks/logout redirects, `tokenClaims`,
+SAML rejects `type`, `webOrigins`, OIDC callbacks/logout redirects, `tokenClaims`,
 `identityMappings`, even an explicitly empty `realmRoleScopes`, rotation policies
 and client-secret projections. Client roles and login theme selection are shared
 semantics. A realm's inherited OIDC rotation policy does not create a SAML secret.

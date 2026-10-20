@@ -36,6 +36,21 @@ def frame(leader=1, started=10, requests=100, reconciles=3):
 
 
 class ScaleMeasurementTests(unittest.TestCase):
+    def test_per_kind_measurement_matches_each_installed_controller_and_its_active_bound(self):
+        expected = {"HankoApplication": 2, "HankoRole": 1, "HankoOrganization": 1, "HankoResourceServer": 8}
+        current = frame()
+        current["workers"] = {measure.KINDS[kind]: workers for kind, workers in expected.items()}
+        current["active"] = {"hankoapplication": 2, "hankoresourceserver": 8}
+        self.assertEqual(measure.Ledger().observe({"a": current}, expected)["peak_workers"]["HankoResourceServer"], 8)
+        for key in ("workers", "active"):
+            changed = copy.deepcopy(current)
+            changed[key]["hankoapplication"] = 4
+            with self.assertRaises(ValueError):
+                measure.Ledger().observe({"a": changed}, expected)
+        for invalid in ({}, {"HankoTenant": 4}, {**expected, "HankoRole": True}, {**expected, "HankoRole": 9}, 0):
+            with self.assertRaises(ValueError):
+                measure.Ledger().observe({"a": current}, invalid)
+
     def test_continuous_measurement_cannot_count_a_long_unsampled_pause(self):
         for gap in (0, 10, 45):
             self.assertEqual(measure.sampling_gap(100, 100 + gap), gap)
@@ -121,6 +136,14 @@ unreviewed_metric{token="private-token-sentinel"} 42
 class ScaleScenarioTests(unittest.TestCase):
     def args(self, **kwargs):
         return SimpleNamespace(profile="smoke", workers=4, seconds=None, **kwargs)
+
+    def test_worker_overrides_are_explicit_bounded_and_default_other_controllers(self):
+        args = self.args(resourceserver_workers=8, role_workers=1)
+        self.assertEqual(scale.worker_configuration(args), {"HankoApplication": 4, "HankoRole": 1, "HankoOrganization": 4, "HankoResourceServer": 8})
+        for value in (0, 9, True, "8", -1):
+            args.resourceserver_workers = value
+            with self.assertRaises(ValueError):
+                scale.parameters(args)
 
     def test_soak_cannot_be_shortened_into_a_passing_24_hour_report(self):
         args = self.args()

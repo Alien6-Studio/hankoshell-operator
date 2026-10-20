@@ -153,7 +153,7 @@ func readTargetCandidate(ctx context.Context, kube client.Client, reader client.
 		if normalizeAcquisition {
 			item.ownerID = ""
 		}
-		current, desired := reconciler.currentInventoryTarget(ctx, &operation, item)
+		current, desired := reconciler.currentInventoryTarget(ctx, &operation, item, object)
 		if current.UID != target.UID || current.ImportRef != importName {
 			return failed()
 		}

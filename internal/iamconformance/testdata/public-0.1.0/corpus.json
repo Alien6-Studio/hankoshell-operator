@@ -32,6 +32,10 @@
             "name": "read",
             "description": "Read"
           }
+        ],
+        "webOrigins": [
+          "https://portal.example.test",
+          "http://localhost:3000"
         ]
       },
       "defaultedSpec": {
@@ -60,7 +64,11 @@
           }
         ],
         "mode": "Manage",
-        "protocol": "oidc"
+        "protocol": "oidc",
+        "webOrigins": [
+          "https://portal.example.test",
+          "http://localhost:3000"
+        ]
       },
       "status": {
         "appliedGeneration": 1,
@@ -129,14 +137,18 @@
               "name": "write",
               "description": "Write"
             }
+          ],
+          "webOrigins": [
+            "http://localhost:3000",
+            "https://portal.example.test"
           ]
         }
       ],
       "identity": {
         "contract": "hanko.sh/iam-contract/v1alpha1",
         "backend": "keycloak",
-        "intent": "sha256:7818815fad310e6a9ba9f43165c62e55494e93265638e2457298156aeef06f09",
-        "plan": "sha256:5086c270f72ea8136eab7a405f1214258a0c93a043512ce2e1eb1b0f26c65b21"
+        "intent": "sha256:688adf02d420dd8e37e70710982f800f85dc2dfb4425b4e2b3ed73175e4f7b37",
+        "plan": "sha256:bdfd0ec4a56c7e60afaca130d283700e44031c3aff76f0a717c4cd1752972811"
       }
     },
     {

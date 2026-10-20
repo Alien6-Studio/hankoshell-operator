@@ -51,6 +51,7 @@ type SAML struct {
 
 // Intent is explicit semantic input, never a CR, status or Secret payload.
 type Intent struct {
+	WebOrigins                                    *[]string `json:",omitempty"`
 	RealmRef, ClientID, Protocol, Pattern, Theme  string
 	RedirectURIs, PostLogoutURIs, RealmRoleScopes []string
 	ScopesManaged                                 bool
@@ -137,6 +138,7 @@ func Normalize(i Intent) Intent {
 		result.Pattern = "web"
 	}
 	result.RedirectURIs = stringSet(result.RedirectURIs)
+	result.WebOrigins = normalizeWebOrigins(i.WebOrigins)
 	result.PostLogoutURIs = stringSet(result.PostLogoutURIs)
 	result.RealmRoleScopes = stringSet(result.RealmRoleScopes)
 	for n := range result.Claims {
@@ -222,6 +224,9 @@ func CompileForBackend(backend iamcontract.BackendKind, i Intent, r ResolvedRefe
 
 // These fields occupy native VARCHAR/NVARCHAR(255), unlike NCLOB attributes.
 func keycloakStorageBudgets(i Intent) bool {
+	if !validOptionalWebOrigins(i.WebOrigins) {
+		return false
+	}
 	if !utf8.ValidString(i.ClientID) || utf8.RuneCountInString(i.ClientID) > 255 {
 		return false
 	}
@@ -268,6 +273,9 @@ func requiresMissingCapability(i Intent, c Capabilities) bool {
 	return len(i.Roles) > 0 && !c.ClientRoles || len(i.Claims) > 0 && !c.ProtocolMappers
 }
 func validateOIDC(i Intent, e CapabilityEvidence) error {
+	if !validOptionalWebOrigins(i.WebOrigins) {
+		return iamcontract.ErrRejected
+	}
 	if !e.Supported.OIDC || i.SAML != nil || !slices.Contains([]string{"web", "spa", "m2m"}, i.Pattern) {
 		return iamcontract.ErrRejected
 	}
@@ -284,7 +292,7 @@ func validateSAML(i Intent, e CapabilityEvidence) error {
 	if !supportsSAML(c) || i.SAML == nil {
 		return iamcontract.ErrRejected
 	}
-	if !i.SAML.SignedAssertions || i.Pattern != "" || len(i.RedirectURIs)+len(i.PostLogoutURIs)+len(i.Claims)+len(i.IdentityMappings)+len(i.Projections) > 0 || i.ScopesManaged || i.Rotation != nil {
+	if !i.SAML.SignedAssertions || i.Pattern != "" || i.WebOrigins != nil || len(i.RedirectURIs)+len(i.PostLogoutURIs)+len(i.Claims)+len(i.IdentityMappings)+len(i.Projections) > 0 || i.ScopesManaged || i.Rotation != nil {
 		return iamcontract.ErrRejected
 	}
 	if !validEntity(i.ClientID) || len(i.SAML.ACS) < 1 || len(i.SAML.ACS) > 8 {
@@ -300,6 +308,7 @@ func validateSAML(i Intent, e CapabilityEvidence) error {
 	}
 	return nil
 }
+
 func validEntity(value string) bool {
 	u, err := url.Parse(value)
 	return err == nil && len(value) <= 255 && u.IsAbs() && u.User == nil && u.Fragment == "" && !strings.ContainsAny(value, " \t\r\n\\*") && (u.Opaque != "" || u.Hostname() != "")

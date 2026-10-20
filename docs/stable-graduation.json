@@ -120,6 +120,10 @@
         "type": {
           "maturity": "alpha",
           "providerNative": false
+        },
+        "webOrigins": {
+          "maturity": "alpha",
+          "providerNative": true
         }
       },
       "statusGroups": {

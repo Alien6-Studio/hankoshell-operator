@@ -27,7 +27,8 @@
         "secretRotationPolicy",
         "theme",
         "tokenClaims",
-        "type"
+        "type",
+        "webOrigins"
       ],
       "statusFields": [
         "adoptionCandidate",
@@ -67,7 +68,8 @@
         "identityMappings",
         "saml",
         "theme",
-        "tokenClaims"
+        "tokenClaims",
+        "webOrigins"
       ],
       "evidence": "docs/architecture/application-identity.md"
     },

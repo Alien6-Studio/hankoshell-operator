@@ -170,7 +170,7 @@ func adoptionCandidateFailure(c *api.AdoptionCandidateStatus, a adoption.Approva
 		}
 		// Credential exclusion is intentional. Other opaque/native state is
 		// not an acquisition exception to #47's reviewed semantic boundary.
-		if d.Classification != string(adoption.SecurityExcluded) && d.RoundTrip != string(adoption.Lossless) && !qualifiedDefaultDiff(d) && !qualifiedNativeLocaleDiff(d) && !qualifiedAuthorizationFlagDiff(d) {
+		if d.Classification != string(adoption.SecurityExcluded) && d.RoundTrip != string(adoption.Lossless) && !qualifiedDefaultDiff(d) && !qualifiedNativeLocaleDiff(d) && !qualifiedNativeClientFlagDiff(d) {
 			return "AdoptionUnsupported"
 		}
 	}
@@ -394,6 +394,6 @@ func (s *acquisitionSnapshot) mark(ctx context.Context, kc *keycloak.Client, o c
 	return keycloak.ErrAdoptionPrecondition
 }
 
-func qualifiedAuthorizationFlagDiff(d api.AdoptionDiffEntry) bool {
-	return (d.Domain == "application" || d.Domain == "service-account") && d.Field == "authorizationServices" && d.Code == string(adoption.NativeReadOnly) && d.Classification == string(adoption.Preserved) && d.RoundTrip == string(adoption.PreservedNative) && d.Current != nil && d.Current.Flag != nil && len(d.Current.Set) == 0 && d.Current.Text == "" && d.Desired == nil
+func qualifiedNativeClientFlagDiff(d api.AdoptionDiffEntry) bool {
+	return (d.Domain == "application" || d.Domain == "service-account") && (d.Field == "authorizationServices" || d.Field == "frontchannelLogout") && d.Code == string(adoption.NativeReadOnly) && d.Classification == string(adoption.Preserved) && d.RoundTrip == string(adoption.PreservedNative) && d.Current != nil && d.Current.Flag != nil && len(d.Current.Set) == 0 && d.Current.Text == "" && d.Desired == nil
 }

@@ -4,17 +4,24 @@ package controller_test
 
 import (
 	"context"
+	"encoding/pem"
 	"errors"
 	"net/http"
+	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/Alien6-Studio/hankoshell-operator/internal/authorization"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamconformance"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/roles"
 )
 
@@ -147,6 +154,7 @@ func TestRealKeycloakIAMContract(t *testing.T) {
 		_, unprivilegedSecret := f.serviceClient("contract-unprivileged")
 		plan := compile(false)
 		var owned authorization.ManagedObjects
+		settledBudgetVerified := false
 		iamconformance.Run(t, iamconformance.Fixture{
 			Compile: func(reverse bool) iamcontract.PlanIdentity { return compile(reverse).Identity() }, Writes: writes,
 			Refuse: func() error {
@@ -159,6 +167,10 @@ func TestRealKeycloakIAMContract(t *testing.T) {
 				state, err := driver.Reconcile(ctx, plan, owned)
 				if err == nil {
 					owned = state.ManagedObjects
+					if !settledBudgetVerified {
+						qualifySettledAuthorizationBudget(t, f, credential, plan, owned)
+						settledBudgetVerified = true
+					}
 					if len(owned.Permissions) == 1 {
 						path := "/admin/realms/managed/clients/" + owned.ResourceServerID + "/authz/resource-server/policy/" + owned.Permissions[0].ID + "/associatedPolicies"
 						fixtureEqual(t, "observer associated-policy read succeeds", f.identityStatus("contract-observer", observerSecret, http.MethodGet, path, nil), http.StatusOK)
@@ -247,4 +259,48 @@ func TestRealKeycloakIAMContract(t *testing.T) {
 		iamconformance.NoSecrets(t, []string{credential, f.adminToken}, plan, plan.Identity())
 	})
 	checkRealKeycloakEvidenceRecovery(t, f, kc, credential)
+}
+
+func qualifySettledAuthorizationBudget(t *testing.T, f *keycloakFixture, credential string, plan authorization.Plan, owned authorization.ManagedObjects) {
+	t.Helper()
+	upstream, err := url.Parse(f.baseURL)
+	f.requireNoError(err)
+	proxy := &httputil.ReverseProxy{
+		Rewrite:   func(r *httputil.ProxyRequest) { r.SetURL(upstream); r.Out.Host = upstream.Host },
+		Transport: f.http.Transport,
+		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, _ error) {
+			http.Error(w, "fixture upstream unavailable", http.StatusBadGateway)
+		},
+	}
+	var reads, writes atomic.Int32
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			reads.Add(1)
+		} else if r.Method != http.MethodPost || r.URL.Path != "/realms/master/protocol/openid-connect/token" {
+			writes.Add(1)
+			http.Error(w, "settled provider writes denied", http.StatusForbidden)
+			return
+		}
+		proxy.ServeHTTP(w, r)
+	}))
+	t.Cleanup(server.Close)
+	ca := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw})
+	kc, err := keycloak.NewWithTLS(server.URL, "contract-operator", credential, ca)
+	f.requireNoError(err)
+	driver := authorization.NewKeycloakDriver(kc)
+	observed, err := driver.Observe(t.Context(), plan)
+	f.requireNoError(err)
+	if !observed.Observation.Complete || observed.Drifted {
+		t.Fatal("native baseline observation is not synchronized")
+	}
+	budget := reads.Swap(0)
+	// Lose Kubernetes ownership status and reconstruct it from the freshly
+	// validated native journal, with every configuration write denied.
+	state, err := driver.Reconcile(t.Context(), plan, authorization.ManagedObjects{})
+	f.requireNoError(err)
+	if reads.Load() > budget || writes.Load() != 0 || !state.Observation.Complete || state.Drifted ||
+		state.Structure == nil || !state.Structure.Complete || len(state.RealmRoleIDs) == 0 || !reflect.DeepEqual(owned, state.ManagedObjects) {
+		t.Fatal("settled native reconciliation exceeded one complete observation or lost recovery evidence")
+	}
+	t.Logf("Keycloak %s settled authorization: %d HTTPS reads, one-observation budget %d, zero configuration writes; native status recovery preserved", f.version, reads.Load(), budget)
 }

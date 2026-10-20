@@ -1,0 +1,6 @@
+{
+  "diagnostic_only": true,
+  "concurrent_metadata_write": true,
+  "generation_unchanged": true,
+  "actual_conflict": true
+}

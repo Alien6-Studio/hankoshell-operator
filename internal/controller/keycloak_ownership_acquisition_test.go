@@ -162,7 +162,11 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 					protocol = "saml"
 					attrs = map[string]string{"locale": "en", "saml.server.signature": "true", "saml.assertion.signature": "true", "saml_name_id_format": "persistent", "saml.client.signature": "false", "saml.signature.algorithm": "RSA_SHA256", "saml_force_name_id_format": "true", "saml.force.post.binding": "true", "saml.authnstatement": "true", "saml.encrypt": "false", "saml.artifact.binding": "false", "saml.allow.ecp.flow": "false", "saml_assertion_consumer_url_post": "https://reviewed.example.test/callback", "saml_signature_canonicalization_method": "http://www.w3.org/2001/10/xml-exc-c14n#"}
 				}
-				f.admin(http.MethodPost, base+"/clients", map[string]any{"clientId": clientID, "name": clientID, "protocol": protocol, "enabled": true, "publicClient": capability == "spa", "standardFlowEnabled": !m2m, "serviceAccountsEnabled": m2m, "authorizationServicesEnabled": capability == "application-m2m", "directAccessGrantsEnabled": false, "fullScopeAllowed": false, "secret": credential, "redirectUris": redirects, "webOrigins": []string{}, "attributes": attrs, "defaultClientScopes": []string{}, "optionalClientScopes": []string{}, "frontchannelLogout": true}, nil)
+				defaultScopes, optionalScopes := []string{}, []string{}
+				if protocol == "openid-connect" {
+					defaultScopes, optionalScopes = []string{"profile", "email"}, []string{"offline_access", "address"}
+				}
+				f.admin(http.MethodPost, base+"/clients", map[string]any{"clientId": clientID, "name": clientID, "protocol": protocol, "enabled": true, "publicClient": capability == "spa", "standardFlowEnabled": !m2m, "serviceAccountsEnabled": m2m, "authorizationServicesEnabled": capability == "application-m2m", "directAccessGrantsEnabled": false, "fullScopeAllowed": false, "secret": credential, "redirectUris": redirects, "webOrigins": []string{}, "attributes": attrs, "defaultClientScopes": defaultScopes, "optionalClientScopes": optionalScopes, "frontchannelLogout": protocol == "saml"}, nil)
 				cl := f.client("managed", clientID)
 				path = base + "/clients/" + cl["id"].(string)
 				before = reader.read(path)
@@ -172,8 +176,8 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 						fixtureEqual(t, "qualified canonical Keycloak default", defaults[key], want)
 					}
 				}
-				// Bootstrap constructs a leaf without opaque attributes or native scopes.
-				// The three exact qualified Keycloak defaults remain reviewed facts.
+				// Bootstrap keeps real native scope memberships and logout settings.
+				// Remove only the auto-attached M2M scope to detect accidental reattachment.
 				clean := adoptionClone(t, before)
 				clean["attributes"] = attrs
 				f.admin(http.MethodPut, path, clean, nil)
@@ -181,7 +185,9 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 					var scopes []map[string]any
 					f.admin(http.MethodGet, path+"/default-client-scopes", nil, &scopes)
 					for _, scope := range scopes {
-						f.admin(http.MethodDelete, path+"/default-client-scopes/"+scope["id"].(string), nil, nil)
+						if scope["name"] == "service_account" {
+							f.admin(http.MethodDelete, path+"/default-client-scopes/"+scope["id"].(string), nil, nil)
+						}
 					}
 				}
 				before = reader.read(path)
@@ -213,6 +219,17 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 				&api.HankoKeycloakInstance{ObjectMeta: metav1.ObjectMeta{Name: "source", Namespace: meta.Namespace, UID: "source-uid"}, Spec: api.HankoKeycloakInstanceSpec{Mode: "external", AdminRef: corev1.LocalObjectReference{Name: "reader"}, TLSCARef: "ca"}},
 				&corev1.Secret{ObjectMeta: fixtureMeta("reader"), Data: map[string][]byte{"HANKO_KEYCLOAK_URL": []byte(server.URL), "HANKO_KC_CLIENT_ID": []byte("ownership-reader"), "HANKO_KC_CLIENT_SECRET": []byte(readSecret)}},
 				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "ca", Namespace: meta.Namespace, UID: "ca-uid"}, Data: map[string][]byte{"ca.crt": ca}})
+			// An imported Observe declaration may describe the same native client.
+			// Exact target consent must preserve that passive alias, including when
+			// the client is represented by the other supported Kubernetes kind.
+			if capability != "role" {
+				aliasMeta := metav1.ObjectMeta{Name: "passive-client-alias", Namespace: meta.Namespace, UID: "passive-alias-uid", Labels: map[string]string{"hanko.sh/imported-by": "inventory"}}
+				var alias client.Object = &api.HankoServiceAccount{ObjectMeta: aliasMeta, Spec: api.HankoServiceAccountSpec{Mode: "Observe", RealmRef: "managed", ClientID: clientID}}
+				if capability == "m2m" {
+					alias = &api.HankoApplication{ObjectMeta: aliasMeta, Spec: api.HankoApplicationSpec{Mode: "Observe", RealmRef: "managed", ClientID: clientID, Type: "m2m"}}
+				}
+				f.requireNoError(storage.Create(ctx, alias))
+			}
 			failureClient := &ownershipStatusFailureClient{Client: storage}
 			var kube client.Client = failureClient
 			var reconcile func() error
@@ -357,6 +374,11 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 				fixtureEqual(t, "client native locale survives Manage", native["locale"], "en")
 			}
 			fixtureEqual(t, "provider UUID survives Manage", managedSnapshot["id"], before["id"])
+			if capability != "role" {
+				for _, field := range []string{"defaultClientScopes", "optionalClientScopes", "frontchannelLogout"} {
+					fixtureEqual(t, "native setting survives Manage: "+field, adoptionClone(t, managedSnapshot)[field], adoptionClone(t, before)[field])
+				}
+			}
 			if capability == "application-m2m" {
 				fixtureEqual(t, "native Authorization Services flag survives Manage", managedSnapshot["authorizationServicesEnabled"], true)
 				fixtureEqual(t, "foreign authorization resource semantics and UUID survive Manage", reader.list(path+"/authz/resource-server/resource"), resourcesBefore)

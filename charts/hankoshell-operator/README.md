@@ -4,6 +4,9 @@ Helm chart for declarative Keycloak IAM configuration with hankoShell Operator.
 `reconciliation.maxConcurrent` defaults to 1 and accepts integers 1–8 for the four
 reviewed IAM controllers. See the [concurrency review and scale qualification](../../docs/scale-and-soak.md)
 before increasing it; this setting is not a measured capacity recommendation.
+`reconciliation.maxConcurrentByKind` optionally supplies 1–8 workers for
+`Application`, `Role`, `Organization` or `ResourceServer`; other kinds inherit
+the global value. Every controller still shares its connection's provider budget.
 Target 0.1.0 is in initial development; current chart/app metadata is the
 prerelease `0.1.0-dev.0`. No public release has been published yet.
 The source includes the [OIDC/SAML application contract](../../docs/architecture/application-identity.md),
@@ -301,11 +304,12 @@ pending in #21.
 See the [complete candidate review](../../docs/public-contract-selection.md).
 
 <!-- public-selection:start -->
+
 Initial 0.1.0 selection: 3 public resource candidates; qualification and first publication remain pending. Current development APIs remain experimental.
 
 | Resource | Selected scope | Public spec groups |
 | --- | --- | --- |
-| `HankoApplication` | public | `clientID`, `mode`, `postLogoutRedirectURIs`, `protocol`, `realmRef`, `realmRoleScopes`, `redirectURIs`, `roles`, `saml`, `type` |
+| `HankoApplication` | public | `clientID`, `mode`, `postLogoutRedirectURIs`, `protocol`, `realmRef`, `realmRoleScopes`, `redirectURIs`, `roles`, `saml`, `type`, `webOrigins` |
 | `HankoEmailProvider` | experimental | — |
 | `HankoIAMProfile` | alpha | — |
 | `HankoImport` | experimental | — |
@@ -323,9 +327,10 @@ Initial 0.1.0 selection: 3 public resource candidates; qualification and first p
 | `HankoTheme` | experimental | — |
 | `HankoWorkloadTrust` | alpha | — |
 
-Native SAML remains an explicit Keycloak extension. Delegation, organization principals,
+Native SAML and CORS entry policy remain Keycloak extensions. Delegation, organization principals,
 connected integrations and every other deferred field retain their named limitations in
 the complete selection; no planned capability is removed.
+
 <!-- public-selection:end -->
 
 ## Experimental authentik registration

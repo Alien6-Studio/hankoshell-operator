@@ -7,11 +7,12 @@ The current development API remains experimental. The 1.0 selection and graduati
 review in #89/#90 may expand this initial surface after evidence is available.
 
 <!-- public-selection:start -->
+
 Initial 0.1.0 selection: 3 public resource candidates; qualification and first publication remain pending. Current development APIs remain experimental.
 
 | Resource | Selected scope | Public spec groups |
 | --- | --- | --- |
-| `HankoApplication` | public | `clientID`, `mode`, `postLogoutRedirectURIs`, `protocol`, `realmRef`, `realmRoleScopes`, `redirectURIs`, `roles`, `saml`, `type` |
+| `HankoApplication` | public | `clientID`, `mode`, `postLogoutRedirectURIs`, `protocol`, `realmRef`, `realmRoleScopes`, `redirectURIs`, `roles`, `saml`, `type`, `webOrigins` |
 | `HankoEmailProvider` | experimental | — |
 | `HankoIAMProfile` | alpha | — |
 | `HankoImport` | experimental | — |
@@ -29,15 +30,16 @@ Initial 0.1.0 selection: 3 public resource candidates; qualification and first p
 | `HankoTheme` | experimental | — |
 | `HankoWorkloadTrust` | alpha | — |
 
-Native SAML remains an explicit Keycloak extension. Delegation, organization principals,
+Native SAML and CORS entry policy remain Keycloak extensions. Delegation, organization principals,
 connected integrations and every other deferred field retain their named limitations in
 the complete selection; no planned capability is removed.
+
 <!-- public-selection:end -->
 
 ## Complete field review
 
 [public-contract-selection.json](public-contract-selection.json) assigns public,
-alpha or experimental status to every one of the 352 top-level spec/status field
+alpha or experimental status to every one of the 353 top-level spec/status field
 groups in all 17 resources. A group includes its nested fields except the explicit
 `nestedExclusions`. Every row has a rationale and repository evidence. The
 selection gate rejects missing/new groups, undeclared native boundaries, missing

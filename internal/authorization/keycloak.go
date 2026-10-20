@@ -58,6 +58,10 @@ func (d *KeycloakDriver) Observe(ctx context.Context, plan Plan) (State, error) 
 		return State{}, boundedAuthorizationError(err)
 	}
 	capabilities, _ := d.Capabilities(ctx, model.Realm)
+	return keycloakObservationState(state, capabilities), nil
+}
+
+func keycloakObservationState(state keycloak.AuthorizationState, capabilities Capabilities) State {
 	result := observationState(state, capabilities)
 	result.Structure = structuralObservation(state)
 	result.RealmRoleIDs = state.RealmRoleIDs
@@ -73,7 +77,7 @@ func (d *KeycloakDriver) Observe(ctx context.Context, plan Plan) (State, error) 
 		}))
 	}
 	result.Findings = iamcontract.Findings(result.Findings)
-	return result, nil
+	return result
 }
 
 func (d *KeycloakDriver) Reconcile(ctx context.Context, plan Plan, owned ManagedObjects) (State, error) {
@@ -107,6 +111,11 @@ func (d *KeycloakDriver) Reconcile(ctx context.Context, plan Plan, owned Managed
 			return State{ProviderResourceServerID: state.ResourceServerID, ManagedObjects: fromKeycloakManaged(state.ManagedObjects)}, errors.Join(ErrOwnershipConflict, iamcontract.SafeError(err))
 		}
 		return State{ProviderResourceServerID: state.ResourceServerID, ManagedObjects: fromKeycloakManaged(state.ManagedObjects)}, boundedAuthorizationError(err)
+	}
+	if state.Observation.Complete && !state.Drifted {
+		result := keycloakObservationState(state, capabilities)
+		result.ManagedObjects = fromKeycloakManaged(state.ManagedObjects)
+		return result, nil
 	}
 	result, err := d.Observe(ctx, plan)
 	result.ProviderResourceServerID = state.ResourceServerID

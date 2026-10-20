@@ -30,6 +30,7 @@ type Application struct {
 	DirectAccessGrantsEnabled bool              `json:"directAccessGrantsEnabled"`
 	ImplicitFlowEnabled       bool              `json:"implicitFlowEnabled"`
 	FullScopeAllowed          bool              `json:"fullScopeAllowed"`
+	FrontchannelLogout        *bool             `json:"frontchannelLogout,omitempty"`
 	RedirectURIs              []string          `json:"redirectUris"`
 	WebOrigins                []string          `json:"webOrigins"`
 	Attributes                map[string]string `json:"attributes"`
@@ -205,7 +206,7 @@ func (c *Client) UpdateApplication(ctx context.Context, realm string, desired Ap
 	current["standardFlowEnabled"], current["serviceAccountsEnabled"] = desired.StandardFlowEnabled, desired.ServiceAccountsEnabled
 	current["directAccessGrantsEnabled"], current["implicitFlowEnabled"], current["fullScopeAllowed"] = false, false, false
 	current["redirectUris"], current["webOrigins"] = desired.RedirectURIs, desired.WebOrigins
-	if adopted && alreadyServiceAccount && desired.ServiceAccountsEnabled {
+	if alreadyServiceAccount && desired.ServiceAccountsEnabled {
 		delete(current, "serviceAccountsEnabled")
 	}
 	nextAttributes := applicationUpdateAttributes(attributes, desired.Attributes, adopted)
@@ -247,6 +248,7 @@ func (c *Client) MarkApplicationOwner(ctx context.Context, realm string, expecte
 		return ErrApplicationPrecondition
 	}
 	delete(current, "secret")
+	delete(current, "access")
 	data, err := json.Marshal(current)
 	if err != nil {
 		return err
@@ -260,6 +262,9 @@ func (c *Client) MarkApplicationOwner(ctx context.Context, realm string, expecte
 	}
 	attrs[ownerKey] = owner
 	current["attributes"] = attrs
+	// Resending true reattaches Keycloak's service_account scope, even when
+	// it was deliberately removed from an already-enabled legacy client.
+	delete(current, "serviceAccountsEnabled")
 	return c.putJSON(ctx, path, current)
 }
 

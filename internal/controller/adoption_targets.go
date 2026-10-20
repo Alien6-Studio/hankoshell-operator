@@ -178,6 +178,16 @@ func importedTokenClaim(mapper keycloak.ProtocolMapper) (api.ApplicationTokenCla
 }
 func importedApplicationSpec(realm string, c keycloak.InventoryClient, roles []keycloak.RealmRole, mappers []keycloak.ProtocolMapper) (api.HankoApplicationSpec, bool) {
 	spec := api.HankoApplicationSpec{RealmRef: realm, ClientID: c.ClientID, Type: "web", Protocol: "oidc", Mode: ModeObserve, RedirectURIs: c.RedirectURIs}
+	if c.Protocol != "saml" {
+		if !applications.ValidWebOrigins(c.WebOrigins) {
+			return spec, false
+		}
+		origins := slices.Clone(c.WebOrigins)
+		if origins == nil {
+			origins = []string{}
+		}
+		spec.WebOrigins = &origins
+	}
 	if !safeInventoryURLs(c.RedirectURIs) || !safeInventoryURLs(strings.Split(c.Attributes["post.logout.redirect.uris"], "##")) {
 		return spec, false
 	}
@@ -240,11 +250,16 @@ func importedApplicationSpec(realm string, c keycloak.InventoryClient, roles []k
 func safeSAMLACS(value string) bool { // same qualified URL contract as the adapter
 	return len(value) <= adoption.MaxTextBytes && applications.ValidACS(value)
 }
-func (r *HankoImportReconciler) currentInventoryTarget(ctx context.Context, operation *api.HankoImport, item *adoptionInventoryItem) (adoption.TargetIdentity, []adoption.Fact) {
+func (r *HankoImportReconciler) currentInventoryTarget(ctx context.Context, operation *api.HankoImport, item *adoptionInventoryItem, expected ...client.Object) (adoption.TargetIdentity, []adoption.Fact) {
 	target := adoption.TargetIdentity{Namespace: operation.Namespace, Name: importResourceName(item.realm, item.name)}
 	var obj client.Object
 	switch item.kind {
 	case "application":
+		if len(expected) == 1 {
+			obj = r.explicitClientInventoryTarget(ctx, operation.Namespace, item, expected[0])
+			target.Kind = adoptionTargetKind(expected[0])
+			break
+		}
 		var list api.HankoApplicationList
 		if r.importReader().List(ctx, &list, client.InNamespace(operation.Namespace)) != nil {
 			item.failed("target_read_failed")
@@ -262,6 +277,11 @@ func (r *HankoImportReconciler) currentInventoryTarget(ctx context.Context, oper
 		}
 		target.Kind = "HankoApplication"
 	case "service-account":
+		if len(expected) == 1 {
+			obj = r.explicitClientInventoryTarget(ctx, operation.Namespace, item, expected[0])
+			target.Kind = adoptionTargetKind(expected[0])
+			break
+		}
 		var apps api.HankoApplicationList
 		if r.importReader().List(ctx, &apps, client.InNamespace(operation.Namespace)) != nil {
 			item.failed("target_read_failed")
@@ -352,6 +372,11 @@ func (r *HankoImportReconciler) currentInventoryTarget(ctx context.Context, oper
 		item.failed("target_read_failed")
 		return target, nil
 	}
+	if len(expected) == 1 && (item.kind == "application" || item.kind == "service-account") &&
+		(obj.GetUID() != expected[0].GetUID() || !inventoryClientMatches(obj, item)) {
+		item.failed("target_identity_changed")
+		return target, nil
+	}
 	target.Name = obj.GetName()
 	target.UID = string(obj.GetUID())
 	target.Generation = obj.GetGeneration()
@@ -440,7 +465,11 @@ func desiredInventoryFacts(item *adoptionInventoryItem, obj client.Object) []ado
 			add("signedResponses", flagValue(true))
 			add("webOrigins", setValue(nil))
 		} else {
-			add("webOrigins", setValue([]string{"+"}))
+			origins := []string{"+"}
+			if o.Spec.WebOrigins != nil {
+				origins = *o.Spec.WebOrigins
+			}
+			add("webOrigins", setValue(origins))
 		}
 		if len(o.Spec.RuntimeBindings) > 0 {
 			add("runtimeBindings", flagValue(true))

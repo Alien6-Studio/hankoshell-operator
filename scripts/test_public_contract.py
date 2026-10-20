@@ -31,7 +31,7 @@ class PublicContractTests(unittest.TestCase):
     def test_complete_selection_and_real_corpus_match(self):
         data = contract.check()
         self.assertEqual(len(data["resources"]), 17)
-        self.assertEqual(sum(len(r["spec"]) + len(r["status"]) for r in data["resources"]), 352)
+        self.assertEqual(sum(len(r["spec"]) + len(r["status"]) for r in data["resources"]), 353)
 
     def test_unreviewed_promotion_and_field_exclusions_fail(self):
         for change in ("promote", "missing-field", "native", "nested-path", "fake-publication"):
