@@ -56,6 +56,8 @@ class MutationRunnerTests(unittest.TestCase):
                     "application-canonical-write-version", "application-projection-write-version",
                     "application-projection-cleanup-version", "application-canonical-readback-uid",
                     "application-projection-live-plan", "runtime-cleanup-canonical-journal", "runtime-cleanup-record-bound", "bounded-actor-explicit-recovery-identity"}
+        required.update({"settled-authorization-retire-scopes", "settled-authorization-retire-resources",
+                         "settled-authorization-retire-policies", "settled-authorization-retire-permissions"})
         self.assertEqual({entry["name"] for entry in gate.MUTATIONS}, required)
         self.assertEqual(len(gate.MUTATIONS), len(required))
         for entry in gate.MUTATIONS:

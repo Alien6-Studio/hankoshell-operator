@@ -1,0 +1,32 @@
+{
+  "complete": false,
+  "kubernetes": "1.37.0",
+  "cleanup": true,
+  "harness_sha256": "10304f06f1d23b6e6d569bb2098145c814a124a1e1ead7de9e71d0c2d5cfa0ce",
+  "node_image": "kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5",
+  "interruption_evidence": [
+    {
+      "target": "v1alpha1",
+      "predecessor_pruned_by_native_controller": true,
+      "native_succeeded": true,
+      "uid_matches": true,
+      "resource_matches": true,
+      "native_failed": false,
+      "physical_encoding_matches": true
+    }
+  ],
+  "conflict_evidence": [
+    {
+      "target": "v1beta1",
+      "metadata_write": true,
+      "generation_unchanged": true,
+      "actual_conflict": true
+    }
+  ],
+  "active_target": "v1alpha1",
+  "active_phase": "resume_rewrite",
+  "failure_type": "RuntimeError",
+  "failure_code": "FixtureCommandFailed",
+  "cleanup_failures": [],
+  "contract_sha256": "eeb0e2e7b9797e468679bd33530ce6b18b7ba0f3c8eb10241d9c77a4ba727b6c"
+}

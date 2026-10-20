@@ -1,0 +1,14 @@
+{
+  "complete": false,
+  "kubernetes": "1.36.2",
+  "cleanup": true,
+  "harness_sha256": "63a19b7de13c0eb32aebc7fe806d3074c75125d50a1581c13241e153b41097fa",
+  "node_archive_sha256": "a87298665748685c6ea595f6cb1dd8b437b4148cb7f40ab9dc7d88d2da18e7df",
+  "node_image": "hanko-storage-31bd14611094-node:v1.36.2",
+  "interruption_evidence": [],
+  "active_target": "v1beta1",
+  "active_phase": "resume_rewrite",
+  "failure_type": "RuntimeError",
+  "cleanup_failures": [],
+  "contract_sha256": "eeb0e2e7b9797e468679bd33530ce6b18b7ba0f3c8eb10241d9c77a4ba727b6c"
+}

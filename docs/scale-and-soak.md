@@ -51,6 +51,21 @@ as a workaround.
 | Organization | Per-request working objects; immutable projection configuration |
 | ResourceServer | Per-call resolver copy and organization-grant cache |
 
+`reconciliation.maxConcurrentByKind` optionally overrides that global value for
+`Application`, `Role`, `Organization` or `ResourceServer`, each with an integer
+from 1 to 8. Omitted kinds inherit the global value. Both settings are validated
+before registration; an override cannot hide an invalid global value. The chart
+owns the corresponding `HANKO_IAM_<KIND>_MAX_CONCURRENT_RECONCILES` variables and
+refuses direct `env` overrides. ResourceServer uses `RESOURCESERVER` in that name.
+This permits an explicit worker allocation when kinds compete for the shared
+provider budget. It neither increases that budget nor qualifies a capacity bound.
+
+The scale CLI accepts `--application-workers`, `--role-workers`,
+`--organization-workers` and `--resourceserver-workers`. Reports retain the
+global `workers` and exact `workers_by_kind` map. The measurement checks each
+actual controller configuration and active-worker bound against that map.
+Earlier reports with a single global worker value retain their original scope.
+
 The runtime rejects empty, noncanonical and out-of-range values before controller
 registration. The chart rejects an environment override that would bypass the
 typed setting. All other controllers retain one worker. Controller-runtime
@@ -99,6 +114,28 @@ ignore status-only updates. Realm default-policy consumers also ignore realm
 status writes; spec, manual requests, authority and deletion remain immediate
 wakes. Periodic reconciliation remains. A resync interval is not a guaranteed
 per-object service deadline under a saturated provider budget.
+
+## Settled authorization observations
+
+ResourceServer reconciliation can finish from one fresh complete native graph
+observation when the current journal proves this owner's full set of bindings.
+The observed ownership counts must match all four journal categories; obsolete
+owned scopes, resources, policies and permissions still take the retirement
+path. Incomplete or unavailable observations cannot report convergence. Native
+drift takes the normal repair and independent read-back path. Delegation
+transitions and withdrawal retain their complete checkpoint/cleanup path.
+
+The adapter reuses that attempt's complete evidence, including structural
+explanation and role IDs. No provider snapshot survives between reconciliations.
+Real HTTPS conformance on Keycloak 26.7.5 and 26.8.0 measured 14 reads in its
+settled graph, with every configuration write denied and Kubernetes ownership
+status absent. This count is fixture-specific; larger graphs and pagination
+require more reads. It does not prove that the larger load profile converges.
+
+Native journal, Secret, CRD and storage formats are unchanged. Before rolling
+back to an older chart/image, remove `maxConcurrentByKind` and restore the
+reviewed global worker setting. An older image uses its global setting and full
+reconciliation path; no journal or status reset is needed.
 
 ## Scenarios and measurements
 

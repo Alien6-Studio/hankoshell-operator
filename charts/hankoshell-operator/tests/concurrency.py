@@ -29,4 +29,15 @@ for workers in (1, 4, 8):
 for workers in (0, 9, -1, True, "4", "", 1.5):
     render({"reconciliation": {"maxConcurrent": workers}}, False)
 render({"env": {"HANKO_IAM_MAX_CONCURRENT_RECONCILES": "8"}}, False)
+for kind in ("Application", "Role", "Organization", "ResourceServer"):
+    key = "HANKO_IAM_" + kind.upper() + "_MAX_CONCURRENT_RECONCILES"
+    manager = render({"reconciliation": {"maxConcurrent": 4, "maxConcurrentByKind": {kind: 8}}}, True)
+    env = {v["name"]: v.get("value") for v in manager["env"]}
+    assert env[key] == "8" and env["HANKO_IAM_MAX_CONCURRENT_RECONCILES"] == "4"
+    assert sum(k.startswith("HANKO_IAM_") for k in env) == 2
+    render({"env": {key: "8"}}, False)
+    for workers in (0, 9, True, "4", None, 1.5):
+        render({"reconciliation": {"maxConcurrentByKind": {kind: workers}}}, False)
+for overrides in ([], "", {"Tenant": 4}, {"application": 4}):
+    render({"reconciliation": {"maxConcurrentByKind": overrides}}, False)
 print("IAM workers: reviewed 1..8 values and override refusal passed")

@@ -358,7 +358,7 @@ func (r *HankoRoleReconciler) ensureRoleFinalizer(ctx context.Context, role *han
 }
 
 func (r *HankoRoleReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	options, err := iamControllerOptions()
+	options, err := iamControllerOptions("Role")
 	if err != nil {
 		return err
 	}

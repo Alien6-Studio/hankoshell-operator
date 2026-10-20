@@ -24,14 +24,104 @@ import storage_migration as migration
 import versions
 
 ROOT = Path(__file__).resolve().parents[1]
+CLI_REFUSALS = {"ConcurrentModification", "KubernetesRequestRefused", "KubernetesReadUnavailable", "KubernetesWriteOutcomeUnknown",
+    "NativeMigrationDeadline", "NativeMigrationFailed", "NativeMigrationIncomplete", "NativeMigrationIdentityChanged",
+    "StorageEncoderUnconfirmed", "StorageVersionChanged", "StorageVersionNotApplied", "MigratedObjectChanged",
+    "ReviewSnapshotChanged", "ObjectIdentityChanged", "ConversionContractMismatch", "UnknownStoredVersion",
+    "MigrationJournalConflict", "MigrationJournalReplaced", "InvalidMigrationInput", "StoredVersionCommitUnconfirmed",
+    "OperatorNotQuiescent", "InvalidKubernetesList", "InventoryTooLarge", "InvalidContinueToken"}
+FIXTURE_REFUSALS = {"FixtureCommandFailed", "StoredObjectNotFound", "UnexpectedInitialEncoding", "PlanFileIsNotPrivate",
+    "MigrationCheckpointNotReached", "MigrationInterruptionNotConfirmed", "InterruptedMigrationChangedObjectMeaning",
+    "InterruptedRewriteNativeProofInvalid", "InterruptedRewriteNativeProofDeadline", "InterruptedRewritePhysicalEncodingMismatch",
+    "MigrationChangedObjectMeaning", "PhysicalEncodingNotMigrated", "StoredVersionCommitMissing", "UpgradeWouldResetLiveStorage",
+    "ChartDidNotRefuseUnreadableStorage", "InterruptedCommitChangedObjectMeaning", "ResumeChangedObjectMeaning", "NativeMigrationProofMissing",
+    "FixtureClusterAlreadyExists", "PinnedNodeArchiveRequired", "NodeArchiveChecksumMismatch", "UnexpectedKubernetesVersion",
+    "ConcurrentMetadataConflictNotObserved", "ConcurrentMetadataProofInvalid"}
 
 
 def execute(command, value=None, *, timeout=120):
     result = subprocess.run([str(v) for v in command], input=None if value is None else json.dumps(value).encode(),
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, check=False)
     if result.returncode:
-        raise RuntimeError("FixtureCommandFailed")
+        code = "FixtureCommandFailed"
+        if len(result.stderr) < 65536:
+            try:
+                failure = migration.decode(result.stderr)
+                if (isinstance(failure, dict) and set(failure) == {"complete", "reason"}
+                        and failure["complete"] is False and failure["reason"] in CLI_REFUSALS):
+                    code = failure["reason"]
+            except (migration.Refused, TypeError, ValueError):
+                pass
+        raise RuntimeError(code)
     return result.stdout
+
+
+def record_failure(report, error):
+    report["failure_type"] = type(error).__name__
+    code = str(error)
+    report["failure_code"] = code if isinstance(error, RuntimeError) and code in CLI_REFUSALS | FIXTURE_REFUSALS else "FixtureOperationFailed"
+
+
+def run_with_crd_conflict(command, target, report):
+    """A real intervening metadata PUT must cause 409, then ordinary CLI recovery."""
+    with tempfile.TemporaryDirectory(prefix="hanko-migration-conflict-") as directory:
+        marker = Path(directory) / "conflict.json"
+        program = """
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+sys.path.insert(0, sys.argv.pop(1))
+marker = Path(sys.argv.pop(1))
+import storage_migration as migration
+original = migration.Kubernetes.request
+injected = False
+def request(self, method, path, value=None, *, optional=False):
+    global injected
+    if not injected and method == 'PUT' and path.startswith(migration.CRDS) and not path.endswith('/status'):
+        injected = True
+        current = original(self, 'GET', path)
+        # Change metadata on both forward and rollback runs. Repeating the
+        # same annotation value can be an API no-op with no new resourceVersion.
+        current['metadata'].setdefault('annotations', {})['fixture.example/concurrent-storage-writer'] = next(v['name'] for v in value['spec']['versions'] if v['storage'])
+        updated = original(self, 'PUT', path, current)
+        proof = {'metadata_write': True, 'generation_unchanged': updated['metadata']['generation'] == value['metadata']['generation'], 'actual_conflict': False}
+        try:
+            result = original(self, method, path, value, optional=optional)
+        except migration.Refused as error:
+            proof['actual_conflict'] = str(error) == 'ConcurrentModification'
+            fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, 'w') as stream:
+                json.dump(proof, stream)
+            raise
+        raise migration.Refused('ConcurrentMetadataConflictNotObserved')
+    return original(self, method, path, value, optional=optional)
+migration.Kubernetes.request = request
+try:
+    migration.main()
+except (migration.Refused, KeyError, TypeError, ValueError, AttributeError, OSError, subprocess.SubprocessError) as error:
+    reason = str(error) if isinstance(error, migration.Refused) else 'InvalidMigrationInput'
+    print(json.dumps({'complete': False, 'reason': reason}), file=sys.stderr)
+    raise SystemExit(1) from None
+"""
+        try:
+            result = execute([command[0], "-c", program, ROOT / "scripts", marker, *command[2:]], timeout=600)
+        finally:
+            if marker.exists():
+                if marker.stat().st_size > 1024:
+                    raise RuntimeError("ConcurrentMetadataProofInvalid")
+                try:
+                    proof = migration.decode(marker.read_bytes())
+                except (migration.Refused, TypeError, ValueError):
+                    raise RuntimeError("ConcurrentMetadataProofInvalid") from None
+                if (not isinstance(proof, dict) or set(proof) != {"metadata_write", "generation_unchanged", "actual_conflict"}
+                        or any(value is not True for value in proof.values())):
+                    raise RuntimeError("ConcurrentMetadataProofInvalid")
+                report.setdefault("conflict_evidence", []).append({"target": target, **proof})
+        if not marker.exists():
+            raise RuntimeError("ConcurrentMetadataConflictNotObserved")
+        return result
 
 
 def interrupt_after_checkpoint(command, boundary):
@@ -130,6 +220,7 @@ def qualify(kubectl, kubeconfig, control_plane, output, helm, report):
             raise RuntimeError("UnexpectedInitialEncoding")
     cli = [sys.executable, ROOT / "scripts/storage_migration.py", "--kubectl", kubectl, "--kubeconfig", kubeconfig]
     report["interruption_evidence"] = []
+    report["conflict_evidence"] = []
     for target in ("v1beta1", "v1alpha1"):
         report.update(active_target=target, active_phase="review")
         path = output / (target + "-plan.json")
@@ -174,7 +265,7 @@ def qualify(kubectl, kubeconfig, control_plane, output, helm, report):
             if not proof["physical_encoding_matches"]:
                 raise RuntimeError("InterruptedRewritePhysicalEncodingMismatch")
         report["active_phase"] = "resume_rewrite"
-        result = json.loads(execute(run, timeout=600))
+        result = json.loads(run_with_crd_conflict(run, target, report))
         if result.get("complete") is not True or snapshot() != before:
             raise RuntimeError("MigrationChangedObjectMeaning")
         for entry in contract["resources"].values():
@@ -293,7 +384,7 @@ def main():
             raise RuntimeError("UnexpectedKubernetesVersion")
         report.update(qualify(args.kubectl.resolve(), kubeconfig, cluster + "-control-plane", args.output, args.helm.resolve(), report), active_phase="complete")
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
-        report["failure_type"] = type(error).__name__
+        record_failure(report, error)
     finally:
         cleanup(args.kind, cluster, built_image, kubeconfig, args.output, report)
     print(json.dumps(report, sort_keys=True))

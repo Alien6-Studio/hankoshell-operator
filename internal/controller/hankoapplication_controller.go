@@ -1490,7 +1490,7 @@ func (r *HankoApplicationReconciler) requestsForApplicationRealm(ctx context.Con
 // explicit reconcile-request annotation enqueue the primary resource; ordinary
 // status and metadata writes remain filtered to avoid tight reconcile loops.
 func (r *HankoApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	options, err := iamControllerOptions()
+	options, err := iamControllerOptions("Application")
 	if err != nil {
 		return err
 	}

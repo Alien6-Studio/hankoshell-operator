@@ -35,6 +35,10 @@ def mutation(name, file, before, after, package, test):
 
 
 MUTATIONS = [
+    *[mutation("settled-authorization-retire-" + kind.lower(), "internal/keycloak/authorization.go",
+               "len(owned." + kind + ") == len(settled.Observation." + kind + ")", "true",
+               "internal/keycloak", "TestSettledAuthorizationRetiresEachUnobservedOwnedCategory")
+      for kind in ("Scopes", "Resources", "Policies", "Permissions")],
     mutation("bounded-actor-explicit-recovery-identity", "internal/keycloak/bounded_delegation_journal.go",
              'var stored boundedDelegationActorMarker', 'stored := marker',
              "internal/keycloak", "TestBoundedActorRecoveryRequiresExplicitStoredIdentity"),

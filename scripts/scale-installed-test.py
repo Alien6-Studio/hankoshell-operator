@@ -59,7 +59,21 @@ def status_counts(objects):
     return {"phases": phases, "synced_reasons": reasons}
 
 
+def worker_configuration(args):
+    if type(args.workers) is not int or not 1 <= args.workers <= 8:
+        raise ValueError("IAM workers must be integers from 1 to 8")
+    result = {}
+    for kind in ("Application", "Role", "Organization", "ResourceServer"):
+        workers = getattr(args, kind.lower() + "_workers", None)
+        workers = args.workers if workers is None else workers
+        if type(workers) is not int or not 1 <= workers <= 8:
+            raise ValueError("IAM worker overrides must be integers from 1 to 8")
+        result["Hanko" + kind] = workers
+    return result
+
+
 def parameters(args):
+    worker_configuration(args)
     keys = ("realms", "applications", "roles", "organizations", "grants")
     counts = dict(zip(keys, DEFAULTS[args.profile]))
     for key in keys:
@@ -209,13 +223,17 @@ class Scale(installed.Installed):
         self.certificate_days = math.ceil((self.seconds + 3600) / 86400) + 1
         self.install_values = {"replicaCount": 2, "reconciliation": {"maxConcurrent": args.workers},
             "resources": {"requests": {"cpu": "100m", "memory": "256Mi"}, "limits": {"cpu": "2", "memory": "512Mi"}}}
+        workers = worker_configuration(args)
+        overrides = {kind.removeprefix("Hanko"): value for kind, value in workers.items() if value != args.workers}
+        if overrides:
+            self.install_values["reconciliation"]["maxConcurrentByKind"] = overrides
         self.workload_grants = []
         self.ledger, self.scraper, self.burst = measure.Ledger(), None, None
         self.objects = objects(self.counts)
         self.approve_sensitive_writes(self.objects)
         self.report.update({"layer": "installed-scale", "profile": args.profile, "fixture_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
             "measurement_sha256": hashlib.sha256((ROOT / "scripts/scale-evidence.py").read_bytes()).hexdigest(), "counts": self.counts,
-            "workers": args.workers, "steady_seconds_requested": self.seconds, "samples": 0, "faults": {}, "complete": False,
+            "workers": args.workers, "workers_by_kind": workers, "steady_seconds_requested": self.seconds, "samples": 0, "faults": {}, "complete": False,
             "resources": self.install_values["resources"], "limitations": ["single disposable kind node and dev-file provider",
                 "realms are preprovisioned and managed during load, then switched to Observe; owned realm cascade deletion unqualified",
                 "counter gaps during leader replacement are lower bounds; steady phase rejects gaps",
@@ -245,7 +263,7 @@ class Scale(installed.Installed):
         raise ValueError("No reconciliation leader after startup or replacement budget")
 
     def observe(self):
-        frame = self.ledger.observe(self.scraper.sample(), self.args.workers)
+        frame = self.ledger.observe(self.scraper.sample(), worker_configuration(self.args))
         frame["elapsed_seconds"] = round(time.monotonic() - self.started, 3)
         with (self.args.output / "samples.jsonl").open("a") as stream:
             stream.write(native.safe_report(frame, self.sensitive).replace("\n", "") + "\n")
@@ -490,7 +508,7 @@ class Scale(installed.Installed):
 
     def public_evidence(self):
         keys = ("schema_version", "layer", "profile", "revision", "image_digest", "fixture_sha256", "measurement_sha256", "keycloak_version", "kubernetes_version",
-                "publishable", "complete", "started_at", "completed_at", "counts", "workers", "steady_seconds_requested", "samples", "checks", "faults", "resources",
+                "publishable", "complete", "started_at", "completed_at", "counts", "workers", "workers_by_kind", "steady_seconds_requested", "samples", "checks", "faults", "resources",
                 "limitations", "steady", "steady_observation", "soak", "failure_sampling", "provider_traffic", "client_ids_sha256", "failure_type", "cleanup_complete",
                 "active_phase", "convergence", "convergence_progress")
         return {key: self.report[key] for key in keys if key in self.report}
@@ -520,6 +538,8 @@ def main():
     parser.add_argument("--profile", choices=DEFAULTS, default="smoke")
     parser.add_argument("--seconds", type=int)
     parser.add_argument("--workers", type=int, default=4)
+    for kind in ("application", "role", "organization", "resourceserver"):
+        parser.add_argument("--" + kind + "-workers", type=int)
     parser.add_argument("--converge-timeout", type=int, default=900)
     for name in ("realms", "applications", "roles", "organizations", "grants"):
         parser.add_argument("--" + name, type=int)

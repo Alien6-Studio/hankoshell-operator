@@ -28,10 +28,11 @@ import versions
 
 FORMAT = "hanko.sh/storage-migration/v1alpha1"
 CRDS = "/apis/apiextensions.k8s.io/v1/customresourcedefinitions/"
-SELECTOR = "app.kubernetes.io/name=hankoshell-operator"
+OPERATOR_NAMES = {"hankoshell-operator", "hanko-operator"}
 LIMIT = 32 * 1024 * 1024
 MAX_OBJECTS = 10_000
 JOURNAL_KEY = "migration.json"
+CONFLICT_ATTEMPTS = 4
 
 
 class Refused(Exception):
@@ -153,10 +154,18 @@ def listed(kube, path, maximum=MAX_OBJECTS):
         seen.add(cursor)
 
 
+def operator_workload(value):
+    labels = [value.get("metadata", {}).get("labels") or {},
+              value.get("spec", {}).get("template", {}).get("metadata", {}).get("labels") or {}]
+    return any(v.get("app.kubernetes.io/name") in OPERATOR_NAMES or v.get("app") == "hanko-operator" for v in labels)
+
+
 def quiescent(kube):
-    query = "?" + urlencode({"labelSelector": SELECTOR})
-    deployments = kube.request("GET", "/apis/apps/v1/deployments" + query).get("items", [])
-    pods = kube.request("GET", "/api/v1/pods" + query).get("items", [])
+    # One name selector misses the chart's default name and can ignore a live
+    # legacy writer beside a stopped canonical deployment. Inspect all pages;
+    # custom chart names retain the fixed Pod/template app marker.
+    deployments = [v for v in listed(kube, "/apis/apps/v1/deployments") if operator_workload(v)]
+    pods = [v for v in listed(kube, "/api/v1/pods") if operator_workload(v)]
     require(deployments and not pods and all(d.get("spec", {}).get("replicas", 1) == 0
         and d.get("status", {}).get("replicas", 0) == 0 for d in deployments), "OperatorNotQuiescent")
 
@@ -351,21 +360,63 @@ class Migration:
             crd = self.guard(kind)
             if kind:
                 require(crd["metadata"].get("generation") == generation and next(v["name"] for v in crd["spec"]["versions"] if v["storage"]) == self.plan["target"], "StorageVersionChanged")
-            value = self.kube.request("GET", path)
-            require(value["metadata"].get("uid") == uid and value.get("spec") == spec and not value["metadata"].get("deletionTimestamp"), "NativeMigrationIdentityChanged")
-            conditions = value.get("status", {}).get("conditions", [])
-            require(not any(c.get("type") == "Failed" and c.get("status") == "True" for c in conditions), "NativeMigrationFailed")
-            # GroupResource is immutable. Older native migrators omit the
-            # optional observedGeneration and metadata.generation (zero for
-            # the native REST storage). Only an unchanged immutable resource
-            # at its initial generation may use that representation.
-            if any(c.get("type") == "Succeeded" and c.get("status") == "True" and
-                   (type(c.get("observedGeneration")) is int and c["observedGeneration"] == value["metadata"].get("generation", 0)
-                    or c.get("observedGeneration", 0) == 0 and value["metadata"].get("generation", 0) in (0, 1)) for c in conditions):
-                require(value.get("status", {}).get("resourceVersion"), "NativeMigrationIncomplete")
+            if self.native_succeeded(path, uid, spec):
                 return
             time.sleep(2)
         raise Refused("NativeMigrationDeadline")
+
+    def native_succeeded(self, path, uid, spec):
+        value = self.kube.request("GET", path)
+        require(value["metadata"].get("uid") == uid and value.get("spec") == spec and not value["metadata"].get("deletionTimestamp"), "NativeMigrationIdentityChanged")
+        conditions = value.get("status", {}).get("conditions", [])
+        require(not any(c.get("type") == "Failed" and c.get("status") == "True" for c in conditions), "NativeMigrationFailed")
+        # Older native REST storage omits optional generation fields. Only
+        # the unchanged immutable GroupResource at its initial generation may.
+        succeeded = any(c.get("type") == "Succeeded" and c.get("status") == "True" and
+            (type(c.get("observedGeneration")) is int and c["observedGeneration"] == value["metadata"].get("generation", 0)
+             or c.get("observedGeneration", 0) == 0 and value["metadata"].get("generation", 0) in (0, 1)) for c in conditions)
+        if succeeded:
+            require(value.get("status", {}).get("resourceVersion"), "NativeMigrationIncomplete")
+        return succeeded
+
+    def set_storage_version(self, kind, crd, before):
+        generation = crd["metadata"].get("generation")
+        require(type(generation) is int, "InvalidCRDIdentity")
+        source = next(v["name"] for v in crd["spec"]["versions"] if v["storage"])
+        path = CRDS + self.contract["resources"][kind]["plural"] + ".hanko.sh"
+        for attempt in range(CONFLICT_ATTEMPTS):
+            if attempt:
+                crd = self.guard(kind)
+            require(crd["metadata"].get("generation") == generation and
+                next(v["name"] for v in crd["spec"]["versions"] if v["storage"]) == source, "StorageVersionChanged")
+            require(self.snapshot(kind) == before, "MigratedObjectChanged")
+            if source == self.plan["target"]:
+                return crd
+            for version in crd["spec"]["versions"]:
+                version["storage"] = version["name"] == self.plan["target"]
+            try:
+                return self.kube.request("PUT", path, crd)
+            except Refused as error:
+                if str(error) != "ConcurrentModification" or attempt == CONFLICT_ATTEMPTS - 1:
+                    raise
+
+    def commit_stored_versions(self, kind, generation, before, proof):
+        path = CRDS + self.contract["resources"][kind]["plural"] + ".hanko.sh/status"
+        for attempt in range(CONFLICT_ATTEMPTS):
+            current = self.guard(kind)
+            require(current["metadata"].get("generation") == generation and
+                next(v["name"] for v in current["spec"]["versions"] if v["storage"]) == self.plan["target"], "StorageVersionChanged")
+            require(self.snapshot(kind) == before, "MigratedObjectChanged")
+            require(self.native_succeeded(**proof), "NativeMigrationIncomplete")
+            if current["status"]["storedVersions"] == [self.plan["target"]]:
+                return
+            current["status"]["storedVersions"] = [self.plan["target"]]
+            try:
+                self.kube.request("PUT", path, current)
+                return
+            except Refused as error:
+                if str(error) != "ConcurrentModification" or attempt == CONFLICT_ATTEMPTS - 1:
+                    raise
 
     def await_encoder(self, kind, generation):
         expected = base64.b64encode(hashlib.sha256(("hanko.sh/" + self.plan["target"] + "/" + kind).encode()).digest()[:8]).decode()
@@ -417,10 +468,7 @@ class Migration:
             self.progress["phase"] = "Migrating"
             self.progress["resources"][kind] = {"phase": "Prepared", "objects": len(before)}
             self.checkpoint()
-            for version in crd["spec"]["versions"]:
-                version["storage"] = version["name"] == self.plan["target"]
-            path = CRDS + self.contract["resources"][kind]["plural"] + ".hanko.sh"
-            written = self.kube.request("PUT", path, crd)
+            written = self.set_storage_version(kind, crd, before)
             generation = written["metadata"].get("generation")
             require(type(generation) is int, "InvalidCRDIdentity")
             current = self.guard(kind)
@@ -435,11 +483,8 @@ class Migration:
             self.progress["resources"][kind].update(phase="Rewriting", migration=job_name, uid=job["metadata"]["uid"])
             self.checkpoint()
             self.wait_native(base + "/" + job_name, job["metadata"]["uid"], spec, kind=kind, generation=generation)
-            require(self.snapshot(kind) == before, "MigratedObjectChanged")
-            current = self.guard(kind)
-            require(current["metadata"].get("generation") == generation and next(v["name"] for v in current["spec"]["versions"] if v["storage"]) == self.plan["target"], "StorageVersionChanged")
-            current["status"]["storedVersions"] = [self.plan["target"]]
-            self.kube.request("PUT", path + "/status", current)
+            self.commit_stored_versions(kind, generation, before,
+                {"path": base + "/" + job_name, "uid": job["metadata"]["uid"], "spec": spec})
             require(self.guard(kind)["status"]["storedVersions"] == [self.plan["target"]], "StoredVersionCommitUnconfirmed")
             self.progress["resources"][kind]["phase"] = "Committed"
             self.checkpoint()

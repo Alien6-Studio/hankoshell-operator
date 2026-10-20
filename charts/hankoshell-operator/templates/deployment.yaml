@@ -21,8 +21,15 @@
 {{- if or (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" .Values.experimental.authentik.egress.namespace)) (gt (len .Values.experimental.authentik.egress.namespace) 63) }}{{ fail "experimental authentik egress namespace is invalid" }}{{ end }}
 {{- if or (not (regexMatch "^[0-9]+$" (toString .Values.experimental.authentik.egress.port))) (lt (int .Values.experimental.authentik.egress.port) 1) (gt (int .Values.experimental.authentik.egress.port) 65535) }}{{ fail "experimental authentik requires a valid TLS port" }}{{ end }}
 {{- end }}
-{{- if hasKey .Values.env "HANKO_IAM_MAX_CONCURRENT_RECONCILES" }}{{ fail "IAM concurrency is controlled by reconciliation.maxConcurrent" }}{{ end }}
+{{- range $key, $_ := .Values.env }}
+{{- if and (hasPrefix "HANKO_IAM_" $key) (hasSuffix "MAX_CONCURRENT_RECONCILES" $key) }}{{ fail "IAM concurrency is controlled by reconciliation values" }}{{ end }}
+{{- end }}
 {{- if or (not (regexMatch "^[1-8]$" (toString .Values.reconciliation.maxConcurrent))) (kindIs "bool" .Values.reconciliation.maxConcurrent) (kindIs "string" .Values.reconciliation.maxConcurrent) }}{{ fail "reconciliation.maxConcurrent must be an integer from 1 to 8" }}{{ end }}
+{{- if not (kindIs "map" .Values.reconciliation.maxConcurrentByKind) }}{{ fail "reconciliation.maxConcurrentByKind must be a map" }}{{ end }}
+{{- range $kind, $workers := .Values.reconciliation.maxConcurrentByKind }}
+{{- if not (has $kind (list "Application" "Role" "Organization" "ResourceServer")) }}{{ fail "reconciliation.maxConcurrentByKind accepts only the four reviewed IAM controllers" }}{{ end }}
+{{- if or (not (regexMatch "^[1-8]$" (toString $workers))) (kindIs "bool" $workers) (kindIs "string" $workers) }}{{ fail "reconciliation.maxConcurrentByKind values must be integers from 1 to 8" }}{{ end }}
+{{- end }}
 {{- if hasKey .Values.env "HANKO_FLEET_TRUST_CONFIGMAP" }}{{ fail "HANKO_FLEET_TRUST_CONFIGMAP is controlled by fleetPlanVerification values" }}{{ end }}
 {{- if not (kindIs "string" .Values.fleetPlanVerification.trustConfigMap) }}{{ fail "fleetPlanVerification.trustConfigMap must be a string" }}{{ end }}
 {{- if .Values.fleetPlanVerification.trustConfigMap }}
@@ -175,6 +182,10 @@ spec:
           env:
             - name: HANKO_IAM_MAX_CONCURRENT_RECONCILES
               value: {{ .Values.reconciliation.maxConcurrent | quote }}
+            {{- range $kind, $workers := .Values.reconciliation.maxConcurrentByKind }}
+            - name: HANKO_IAM_{{ upper $kind }}_MAX_CONCURRENT_RECONCILES
+              value: {{ $workers | quote }}
+            {{- end }}
             - name: HANKO_EXPERIMENTAL_AUTHENTIK_CONNECTIONS
               value: {{ ternary (join "," .Values.experimental.authentik.connectionNames) "" .Values.experimental.authentik.enabled | quote }}
             - name: HANKO_EXPERIMENTAL_AUTHENTIK_ENABLED

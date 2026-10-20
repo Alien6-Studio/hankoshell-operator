@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 import yaml
 
@@ -45,8 +45,8 @@ class NativeCluster:
         if method == "GET":
             if route == "/version": return {"gitVersion": "v1.37.0"}
             if route == "/api/v1/namespaces/kube-system": return {"metadata": {"uid": "cluster-uid"}}
-            if route == "/apis/apps/v1/deployments": return {"items": [{"spec": {"replicas": int(self.active_operator)}, "status": {"replicas": int(self.active_operator)}}]}
-            if route == "/api/v1/pods": return {"items": [{}] if self.active_operator else []}
+            if route == "/apis/apps/v1/deployments": return {"items": [{"metadata": {"labels": {"app.kubernetes.io/name": "hanko-operator"}}, "spec": {"replicas": int(self.active_operator)}, "status": {"replicas": int(self.active_operator)}}]}
+            if route == "/api/v1/pods": return {"items": [{"metadata": {"labels": {"app": "hanko-operator"}}}] if self.active_operator else []}
             if route == "/apis/storagemigration.k8s.io":
                 return None if self.behavior == "no-migrator" else {"versions": [{"version": "v1"}]}
             if route == "/apis/storagemigration.k8s.io/v1":
@@ -116,6 +116,52 @@ class NativeCluster:
 
 
 class StorageMigrationTests(unittest.TestCase):
+    def test_quiescence_checks_default_custom_and_mixed_legacy_operator_workloads(self):
+        def deployment(label, replicas=0, template=None):
+            return {"metadata": {"labels": {"app.kubernetes.io/name": label}},
+                    "spec": {"replicas": replicas, "template": {"metadata": {"labels": template or {}}}},
+                    "status": {"replicas": replicas}}
+
+        def check(deployments, pods):
+            class Cluster:
+                def request(self, method, path):
+                    self_path = urlsplit(path)
+                    values = deployments if self_path.path.endswith("deployments") else pods
+                    selector = parse_qs(self_path.query).get("labelSelector", [None])[0]
+                    if selector:
+                        key, expected = selector.split("=", 1)
+                        values = [v for v in values if v.get("metadata", {}).get("labels", {}).get(key) == expected]
+                    return {"items": copy.deepcopy(values), "metadata": {}}
+            migration.quiescent(Cluster())
+
+        chart_default = yaml.safe_load((conversion.ROOT / "charts/hankoshell-operator/values.yaml").read_text())["nameOverride"]
+        for stopped in (deployment(chart_default), deployment("hankoshell-operator"),
+                        deployment("custom-name", template={"app": "hanko-operator"})):
+            with self.subTest(stopped=stopped):
+                check([stopped, deployment("unrelated", 1)], [])
+        for active in (deployment(chart_default, 1), deployment("hankoshell-operator", 1),
+                       deployment("custom-name", 1, {"app": "hanko-operator"})):
+            with self.subTest(active=active), self.assertRaisesRegex(migration.Refused, "OperatorNotQuiescent"):
+                check([deployment("hankoshell-operator"), active], [])
+        for labels in ({"app.kubernetes.io/name": chart_default}, {"app.kubernetes.io/name": "hankoshell-operator"},
+                       {"app.kubernetes.io/name": "custom-name", "app": "hanko-operator"}):
+            with self.subTest(terminating_pod=labels), self.assertRaisesRegex(migration.Refused, "OperatorNotQuiescent"):
+                check([deployment("hankoshell-operator")], [{"metadata": {"labels": labels, "deletionTimestamp": "pending"}}])
+        with self.assertRaisesRegex(migration.Refused, "OperatorNotQuiescent"):
+            check([deployment("unrelated")], [])
+
+        class PagedCluster:
+            def request(self, method, path):
+                route = urlsplit(path)
+                if route.path.endswith("pods"):
+                    return {"items": [], "metadata": {}}
+                if parse_qs(route.query).get("continue") == ["next"]:
+                    return {"items": [deployment(chart_default, 1)], "metadata": {}}
+                return {"items": [deployment("hankoshell-operator")], "metadata": {"continue": "next"}}
+
+        with self.assertRaisesRegex(migration.Refused, "OperatorNotQuiescent"):
+            migration.quiescent(PagedCluster())
+
     def fixture(self):
         kube = NativeCluster()
         plan = migration.plan(kube, kube.contract, "v1beta1", "hanko-migrations")
@@ -155,6 +201,57 @@ class StorageMigrationTests(unittest.TestCase):
         kube, plan = self.fixture(); kube.behavior = "native-without-generation"
         self.assertTrue(self.execute(kube, plan)["complete"])
         self.assertEqual(len(kube.jobs), 3)
+
+    def test_completed_resume_requires_fresh_native_jobs_without_rewriting_unchanged_crds(self):
+        kube, plan = self.fixture()
+        self.assertTrue(self.execute(kube, plan)["complete"])
+        kube.writes.clear()
+        self.assertTrue(self.execute(kube, plan)["complete"])
+        self.assertEqual(len(kube.jobs), 6)
+        self.assertFalse(any(method == "PUT" and path.startswith(migration.CRDS) for method, path in kube.writes))
+
+    def test_crd_conflicts_revalidate_identity_and_generation_and_never_retry_unknown_writes(self):
+        for boundary in ("spec", "status"):
+            for behavior in ("transient", "generation-changed", "object-changed", "persistent", "unknown-write", "native-failed"):
+                if behavior == "native-failed" and boundary != "status":
+                    continue
+                with self.subTest(boundary=boundary, behavior=behavior):
+                    kube, plan = self.fixture()
+                    original, attempts = kube.request, []
+                    first = sorted(kube.contract["resources"])[0]
+                    plural = kube.contract["resources"][first]["plural"]
+                    target = migration.CRDS + plural + ".hanko.sh" + ("/status" if boundary == "status" else "")
+
+                    def request(method, path, value=None, *, optional=False):
+                        if method == "PUT" and path == target:
+                            attempts.append(value["metadata"]["resourceVersion"])
+                            if len(attempts) == 1 or behavior == "persistent":
+                                current = kube.crds[plural]
+                                current["metadata"]["resourceVersion"] = str(int(current["metadata"]["resourceVersion"]) + 1)
+                                if behavior == "generation-changed":
+                                    current["metadata"]["generation"] += 1
+                                if behavior == "object-changed":
+                                    kube.objects[plural][0]["metadata"]["annotations"]["review.example/changed"] = "different"
+                                if behavior == "native-failed":
+                                    kube.behavior = "failed-native"
+                                if behavior == "unknown-write":
+                                    original(method, path, value, optional=optional)
+                                    raise migration.Refused("KubernetesWriteOutcomeUnknown")
+                                raise migration.Refused("ConcurrentModification")
+                            self.assertEqual(value["metadata"]["resourceVersion"], kube.crds[plural]["metadata"]["resourceVersion"])
+                        return original(method, path, value, optional=optional)
+
+                    kube.request = request
+                    if behavior == "transient":
+                        self.assertTrue(self.execute(kube, plan)["complete"])
+                        self.assertEqual(len(attempts), 2)
+                    else:
+                        expected = {"generation-changed": "StorageVersionChanged", "object-changed": "MigratedObjectChanged",
+                                    "native-failed": "NativeMigrationFailed", "persistent": "ConcurrentModification",
+                                    "unknown-write": "KubernetesWriteOutcomeUnknown"}[behavior]
+                        with self.assertRaisesRegex(migration.Refused, expected):
+                            self.execute(kube, plan)
+                        self.assertEqual(len(attempts), 4 if behavior == "persistent" else 1)
 
     def test_resuming_cannot_widen_approval_to_a_changed_declaration(self):
         kube, plan = self.fixture(); kube.interrupt = True
@@ -252,6 +349,51 @@ class StorageMigrationTests(unittest.TestCase):
 
 
 class InstalledEvidenceTests(unittest.TestCase):
+    def test_conflict_evidence_requires_complete_actual_native_proof(self):
+        valid = {"metadata_write": True, "generation_unchanged": True, "actual_conflict": True}
+        for proof in (None, b"invalid-private-proof", b"[]", json.dumps({**valid, "actual_conflict": False}).encode(),
+                      json.dumps({**valid, "private": "private-sentinel"}).encode(), b" " * 1025, json.dumps(valid).encode()):
+            with self.subTest(proof=proof), patch.object(installed, "execute") as execute:
+                def command(arguments, **kwargs):
+                    if proof is not None:
+                        Path(arguments[4]).write_bytes(proof)
+                    return b'{"complete":true}'
+                execute.side_effect = command
+                report = {}
+                if proof == json.dumps(valid).encode():
+                    self.assertEqual(installed.run_with_crd_conflict(["python", "cli", "execute"], "v1beta1", report), b'{"complete":true}')
+                    self.assertEqual(report["conflict_evidence"], [{"target": "v1beta1", **valid}])
+                else:
+                    expected = "ConcurrentMetadataConflictNotObserved" if proof is None else "ConcurrentMetadataProofInvalid"
+                    with self.assertRaisesRegex(RuntimeError, "^" + expected + "$"):
+                        installed.run_with_crd_conflict(["python", "cli", "execute"], "v1beta1", report)
+                    self.assertEqual(report, {})
+
+    def test_failure_report_retains_only_fixed_reviewed_reasons(self):
+        for error, code in ((RuntimeError("ConcurrentModification"), "ConcurrentModification"),
+                            (RuntimeError("private-sentinel"), "FixtureOperationFailed"),
+                            (ValueError("ConcurrentModification"), "FixtureOperationFailed"),
+                            (subprocess.TimeoutExpired(["private-sentinel"], 120), "FixtureOperationFailed")):
+            report = {}
+            installed.record_failure(report, error)
+            self.assertEqual(report, {"failure_type": type(error).__name__, "failure_code": code})
+            self.assertNotIn("sentinel", json.dumps(report))
+
+    def test_installed_command_failures_retain_only_reviewed_cli_refusal_codes(self):
+        reviewed = b'{"complete":false,"reason":"ConcurrentModification"}'
+        for stderr, expected in ((reviewed, "ConcurrentModification"),
+                (b'{"complete":false,"reason":"OperatorNotQuiescent"}', "OperatorNotQuiescent"),
+                (b'private-credential-sentinel', "FixtureCommandFailed"),
+                (b'{"complete":false,"reason":"private-credential-sentinel"}', "FixtureCommandFailed"),
+                (b'{"complete":false,"reason":"ConcurrentModification","private":"private-credential-sentinel"}', "FixtureCommandFailed"),
+                (b'{"complete":false,"reason":"ConcurrentModification","reason":"NativeMigrationFailed"}', "FixtureCommandFailed"),
+                (reviewed + b" " * 65536, "FixtureCommandFailed")):
+            with self.subTest(expected=expected), patch.object(installed.subprocess, "run", return_value=subprocess.CompletedProcess([], 1, b'private-stdout-sentinel', stderr)):
+                with self.assertRaises(RuntimeError) as caught:
+                    installed.execute(["fixture"])
+                self.assertEqual(str(caught.exception), expected)
+                self.assertNotIn("sentinel", str(caught.exception))
+
     def test_cleanup_failures_retain_bounded_failure_evidence_and_remove_credentials(self):
         for failed_step in (None, "cluster_delete", "image_delete", "cluster_inspect"):
             with self.subTest(failed_step=failed_step), tempfile.TemporaryDirectory() as directory:

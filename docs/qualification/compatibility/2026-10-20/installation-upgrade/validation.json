@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "publishable": false,
+  "qualification": "partial-development-installation-upgrade-preflight",
+  "complete_upgrade": false,
+  "cluster_mutations": 0,
+  "replayed_objects": 109,
+  "existing_provider_version": "26.7.3",
+  "legacy_provider_experiment": {
+    "keycloak_image": "quay.io/keycloak/keycloak:26.7.3@sha256:29be7252db0a106f1cd2ac17b9a56ff2668073da645638a38b9fc67deeb2d6c4",
+    "test": "TestRealKeycloakIAMContract",
+    "race": true,
+    "passed": true,
+    "fixture_pin_added_only_in_private_source_copy": true,
+    "adds_public_support": false,
+    "includes_deployed_owner_migration": false,
+    "additional_test": {
+      "test": "TestRealKeycloakAdoptionCharacterization",
+      "race": true,
+      "passed": true,
+      "qualifies_all_deployed_targets": false
+    }
+  },
+  "source_component_sha256": [
+    {
+      "sha256": "4eaad909f4e0ba3e94318cb6fe0920ed3e8f98983e94979b5a627d59b43aec48",
+      "file": "internal/keycloak/authorization.go"
+    },
+    {
+      "sha256": "6af4c98d3f8cdfe50ce4431297365d08013e449f0e8ae713f5e73c091a4c1186",
+      "file": "internal/authorization/keycloak.go"
+    },
+    {
+      "sha256": "4bd8af9ccd8db96162173e8a309d96034e7a155d1cc89160af532d3b44d1364a",
+      "file": "internal/controller/concurrency.go"
+    },
+    {
+      "sha256": "27671c232f89a4eca112ef54be9e27481f7ca0bf9ccf3ee04554e08781ee0748",
+      "file": "internal/controller/keycloak_contract_test.go"
+    },
+    {
+      "sha256": "13c2af948579e0acc81c6a2f8bf2f5c2e4e745dff2799568be3ed61e0198956e",
+      "file": "internal/controller/keycloak_fixture_test.go"
+    },
+    {
+      "sha256": "90d81108ed4e7713181c09f4109a5c91dfbc03be601108fc6f101a2e188d7695",
+      "file": "scripts/storage_migration.py"
+    },
+    {
+      "sha256": "112f2b207aa4b7ff46fea634cd29fbb434a9a4b202cb29f6dc912efddccdd84b",
+      "file": "scripts/storage-migration-installed-test.py"
+    }
+  ],
+  "candidate_crd_sha256": [
+    {
+      "sha256": "1d3e1b1ba00d13cb314241835fa4d5e7673d2ea468833616dc0e79ea868fdf06",
+      "file": "hanko.sh_hankoapplications.yaml"
+    },
+    {
+      "sha256": "2bb55f3e0a84e1dd0953eb829e7ab6b93ce3e79c2b384d73fe136afa923c8097",
+      "file": "hanko.sh_hankoemailproviders.yaml"
+    },
+    {
+      "sha256": "e888f5a3adfdad99467fdd929976c350d6f1bb01757314fefe09f9581317800a",
+      "file": "hanko.sh_hankoiamprofiles.yaml"
+    },
+    {
+      "sha256": "fe9a0a0e57d5ac705c31cff7600a8ba4308c2a5c497ed99a69f00bbe7cc20a77",
+      "file": "hanko.sh_hankoimports.yaml"
+    },
+    {
+      "sha256": "d3e3dc17ea2634d28dd92952dedb5ab9493ab23d4ad84dc1d0849fa3978c09b8",
+      "file": "hanko.sh_hankoissuers.yaml"
+    },
+    {
+      "sha256": "f67159ea20b1d2cfaa932d40d8d6a8fc3638d81f4482b09269c74e464f6e14f4",
+      "file": "hanko.sh_hankokeycloakinstances.yaml"
+    },
+    {
+      "sha256": "81e1cb9494fdb6f3cebd1b8b45e78084a37e0d4eab0f3c1484bae7de94d6c9ec",
+      "file": "hanko.sh_hankomeshservices.yaml"
+    },
+    {
+      "sha256": "15aabe69d8384faecf3d4e4e83f6920fc6b24ab93c588af63d322fc4086cfa44",
+      "file": "hanko.sh_hankooperations.yaml"
+    },
+    {
+      "sha256": "b8524a018fb39c35077f469028b49cad2a9a2197a67b5a8ad37548513479e558",
+      "file": "hanko.sh_hankoorganizations.yaml"
+    },
+    {
+      "sha256": "95abdd9f2b5b8bbc9b2afc0c802c9c49b981c04591dc6b591f5849c024a6b7a2",
+      "file": "hanko.sh_hankorealms.yaml"
+    },
+    {
+      "sha256": "bdd028157037707ff6d777bc242fd7829dfe650b20d3b1d4f38bb1b40db8e59b",
+      "file": "hanko.sh_hankoresourceservers.yaml"
+    },
+    {
+      "sha256": "3767a21e92de39a778bdf13c547f6775e8ad8eecd5d0c362ed1eb652900ed52d",
+      "file": "hanko.sh_hankoroles.yaml"
+    },
+    {
+      "sha256": "00f89c62bb46dcf01b9669fe44fe941866017aead8df81dd664b47bb13f85f6f",
+      "file": "hanko.sh_hankoserviceaccounts.yaml"
+    },
+    {
+      "sha256": "4a9cce4a38e7445a5556685edb4db9707be22a639f31db98401df9b192e8bc35",
+      "file": "hanko.sh_hankosnapshots.yaml"
+    },
+    {
+      "sha256": "d3601ba71be298c210b678d3d2abf6d4d45d7eebdd35c8eaef3b94a70033e2e7",
+      "file": "hanko.sh_hankotenants.yaml"
+    },
+    {
+      "sha256": "9c6939dcb01afd0d4fa7a05ff161f0af36eb81282b30b8aad6adf341057344a3",
+      "file": "hanko.sh_hankothemes.yaml"
+    },
+    {
+      "sha256": "0f8e9c845d2cde861f0b6ac9e2c1bee9155c985990f1876de4fc460e82f8c84a",
+      "file": "hanko.sh_hankoworkloadtrusts.yaml"
+    }
+  ],
+  "remaining": [
+    "reviewed acquisition of existing unmarked Manage objects with independent read-only source",
+    "organization/native transaction/field-manager and rollback qualification",
+    "current exact-image protected CI and rollout acceptance",
+    "continuous24h measurement on persistent Linux"
+  ]
+}

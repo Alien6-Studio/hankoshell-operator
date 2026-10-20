@@ -27,8 +27,10 @@ The native fixture separately uses exec only in its disposable etcd Pod.
 Retain a verified recovery backup through your existing private process. Suspend
 GitOps, autoscalers and every competing writer, then stop all operator deployments
 (including managed provider reconciliation). The command requires their standard
-`app.kubernetes.io/name=hankoshell-operator` label, zero replicas and no remaining
-Pods, including terminating ones. It checks this repeatedly; it does not stop them
+`app.kubernetes.io/name=hanko-operator` or `hankoshell-operator` label, or the
+chart's fixed `app=hanko-operator` Pod/template label for custom names. All must
+have zero replicas and no remaining Pods, including terminating ones. It scans
+paginated workload inventories, checks this repeatedly and does not stop them
 for you. Verify that no controller with a different label manages these objects.
 
 Every selected CR must be Ready, InSync, completely observed and applied at its
@@ -73,6 +75,14 @@ at the current CRD generation and an unchanged semantic snapshot permit reducing
 storedVersions to the target. UID, generation, spec/status, approvals, opaque
 journals, finalizers and managedFields must survive; only root apiVersion and
 resourceVersion may differ. Failed or unknown writes never clear old storedVersions.
+
+CRD spec/status updates use resourceVersion compare-and-swap. Only an explicit
+HTTP 409 permits another attempt, bounded to four attempts per update. Each
+attempt rechecks CRD identity, schema/generation, storage selection, quiescent
+writers and unchanged object meaning; a stored-version commit additionally
+requires fresh native success. Unknown write outcomes are not retried. A resumed
+or completed execution skips unchanged CRD writes but still obtains new native
+migration proof. These retries do not relax plan approval or migration deadlines.
 
 The ConfigMap journal records progress, not authority or physical migration proof.
 `status` is informational, including when it says Committed. Every `run`, including

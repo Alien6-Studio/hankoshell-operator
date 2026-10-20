@@ -183,14 +183,17 @@ class TransactionEvidenceTests(unittest.TestCase):
         fixture.assert_not_called()
 
     def test_live_partition_requires_natural_handoff_without_old_holder_writes(self):
-        for scenario in ("pass", "old-write", "lease-renewal", "no-live-process", "wrong-peer", "duplicate-new-write"):
+        for scenario in ("pass", "old-write", "late-old-write", "late-fault-release", "late-lease-loss", "wall-clock-gap",
+                         "lease-renewal", "no-live-process", "wrong-peer", "duplicate-new-write"):
             with self.subTest(scenario=scenario):
                 fixture = transactions.Transactions.__new__(transactions.Transactions)
                 fixture.report = {"checks": {}}
-                clock = SimpleNamespace(now=0, fault=False)
+                clock = SimpleNamespace(now=0, fault=False, rule=None)
                 old, new, route = "10.0.0.1", "10.0.0.2", "PUT /admin/realms/managed/roles/ha-partition-role"
                 def get(kind, name):
                     if kind == "lease":
+                        if scenario == "late-lease-loss" and clock.now >= 60:
+                            return {"spec": {"holderIdentity": "old_nonce", "renewTime": 1}}
                         return {"spec": {"holderIdentity": "new_nonce" if clock.now >= 6 else "old_nonce",
                                          "renewTime": 2 if scenario == "lease-renewal" and clock.now >= 4 else 1}}
                     if kind == "pod":
@@ -200,9 +203,9 @@ class TransactionEvidenceTests(unittest.TestCase):
                     return {"metadata": {"generation": 2}, "status": {"phase": "Ready", "observedGeneration": 2, "conditions": [{"type": "Synced", "status": "True"}]}}
                 def observed(target):
                     if target == "api":
-                        return {"traffic": {"refused_requests": 4}}
+                        return {"traffic": {"refused_requests": 4}, "rule": None if scenario == "late-fault-release" and clock.now >= 60 else clock.rule}
                     count = 2 if scenario == "duplicate-new-write" else 1
-                    writes = {old: {route: 1}} if scenario == "old-write" and clock.now >= 4 else {}
+                    writes = {old: {route: 1}} if (scenario == "old-write" and clock.now >= 4 or scenario == "late-old-write" and clock.now >= 60) else {}
                     if clock.now >= 6:
                         writes[new] = {route: count}
                     return {"peer_requests": {} if scenario == "wrong-peer" else {old: 5},
@@ -215,11 +218,13 @@ class TransactionEvidenceTests(unittest.TestCase):
                 def control(target, rule, **_):
                     if target == "api":
                         clock.fault = rule is not None
+                        clock.rule = rule
                 fixture.control = MagicMock(side_effect=control)
                 fixture.record = lambda name, value=True: fixture.report["checks"].update({name: value})
                 def wait(_, check, _seconds):
                     self.assertTrue(check())
                 with patch.object(transactions, "wait", side_effect=wait), patch.object(transactions.time, "monotonic", side_effect=lambda: clock.now), \
+                        patch.object(transactions.time, "time", side_effect=lambda: clock.now + (60 if scenario == "wall-clock-gap" and clock.now >= 60 else 0)), \
                         patch.object(transactions.time, "sleep", side_effect=lambda seconds: setattr(clock, "now", clock.now + seconds)), \
                         patch.object(transactions.scale.Scale, "await_leader"):
                     if scenario == "pass":
@@ -227,6 +232,8 @@ class TransactionEvidenceTests(unittest.TestCase):
                         self.assertTrue(fixture.report["lease_partition"]["complete"])
                         self.assertTrue(fixture.report["lease_partition"]["old_process_observed_alive"])
                         self.assertEqual(fixture.report["lease_partition"]["old_provider_write_attempts"], 0)
+                        self.assertEqual(transactions.PARTITION_SECONDS, 300)
+                        self.assertGreaterEqual(fixture.report["lease_partition"]["isolated_seconds"], 300)
                         self.assertNotIn(old, json.dumps(fixture.public_evidence()))
                         self.assertNotIn("native-role", json.dumps(fixture.public_evidence()))
                         self.assertTrue(all(call.args[0] != "delete" for call in fixture.kubectl.call_args_list))

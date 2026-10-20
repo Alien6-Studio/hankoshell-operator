@@ -4,6 +4,9 @@ Helm chart for declarative Keycloak IAM configuration with hankoShell Operator.
 `reconciliation.maxConcurrent` defaults to 1 and accepts integers 1–8 for the four
 reviewed IAM controllers. See the [concurrency review and scale qualification](../../docs/scale-and-soak.md)
 before increasing it; this setting is not a measured capacity recommendation.
+`reconciliation.maxConcurrentByKind` optionally supplies 1–8 workers for
+`Application`, `Role`, `Organization` or `ResourceServer`; other kinds inherit
+the global value. Every controller still shares its connection's provider budget.
 Target 0.1.0 is in initial development; current chart/app metadata is the
 prerelease `0.1.0-dev.0`. No public release has been published yet.
 The source includes the [OIDC/SAML application contract](../../docs/architecture/application-identity.md),

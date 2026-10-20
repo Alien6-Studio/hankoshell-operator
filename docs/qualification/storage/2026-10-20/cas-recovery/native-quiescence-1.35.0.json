@@ -1,0 +1,17 @@
+{
+  "complete": true,
+  "cleanup": true,
+  "kubernetes": "1.35.0",
+  "configuration_scope": "owned-disposable-kind",
+  "operator_processes_started": 0,
+  "provider_calls": 0,
+  "checks": {
+    "chart_default_stopped_recognized": true,
+    "live_default_beside_stopped_canonical_refused": true,
+    "live_custom_template_marker_refused": true,
+    "unrelated_paused_workload_ignored": true,
+    "terminating_unscheduled_operator_pod_refused": true,
+    "all_recognized_writers_stopped": true
+  },
+  "cli_sha256": "90d81108ed4e7713181c09f4109a5c91dfbc03be601108fc6f101a2e188d7695"
+}

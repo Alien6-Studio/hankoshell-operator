@@ -32,6 +32,7 @@ installed, native, system, wait = fleet.installed, fleet.native, fleet.system, f
 ROTATION = "hanko.sh/sa-secret-rotation"
 TENANT = {"hanko.sh/tenant": "tenant-a"}
 CHECKPOINTS = ("native_rotation", "secret_output", "rotation_commit", "client_acquisition", "role_acquisition", "verified_plan")
+PARTITION_SECONDS = 300
 
 
 def configuration_writes(state, peer, key):
@@ -139,12 +140,13 @@ class Transactions(fleet.Fleet):
         provider = self.observe_control("keycloak")
         if epoch is None or not peer or provider.get("peer_requests", {}).get(peer, 0) == 0:
             raise ValueError("Cannot bind the live lease holder to the observed provider caller")
-        evidence = {"complete": False, "samples": 0, "old_process_observed_alive": False,
+        evidence = {"complete": False, "required_seconds": PARTITION_SECONDS, "samples": 0, "old_process_observed_alive": False,
                     "administrator_pod_deletions": 0, "max_sample_gap_seconds": 0}
         self.report["lease_partition"] = evidence
         self.report["active_phase"] = "lease_partition"
-        self.control("api", {"method": "GET", "path": "/", "path_prefix": True, "client_ip": peer,
-                             "action": "http-status", "status": 503, "retry_after": 1}, reset=True)
+        partition_rule = {"method": "GET", "path": "/", "path_prefix": True, "client_ip": peer,
+                          "action": "http-status", "status": 503, "retry_after": 1}
+        self.control("api", partition_rule, reset=True)
         self.await_fault("api")
         evidence["old_process_observed_alive"] = process_epoch(self.get("pod", pod_name)) == epoch
         self.scraper.close()
@@ -179,7 +181,37 @@ class Transactions(fleet.Fleet):
             time.sleep(1)
         if not current or current == holder or not evidence["old_process_observed_alive"]:
             raise ValueError("No observed live-holder partition and natural lease replacement")
-        wait("new holder reconciles the changed role", lambda: ready_current(self.get("hankorole", name)), 180)
+        evidence["leader_handoff_seconds"] = round(time.monotonic() - started, 3)
+        recovery_deadline, recovered = time.monotonic() + 180, False
+        # Keep the original caller isolated for the complete fault interval.
+        # A quick handoff alone cannot prove absence of a delayed stale write.
+        while time.monotonic() - started < PARTITION_SECONDS:
+            now, wall = time.monotonic(), time.time()
+            gap = max(scale.measure.sampling_gap(previous, now), scale.measure.sampling_gap(previous_wall, wall))
+            previous, previous_wall = now, wall
+            evidence["max_sample_gap_seconds"] = round(max(evidence["max_sample_gap_seconds"], gap), 3)
+            evidence["samples"] += 1
+            if self.observe_control("api").get("rule") != partition_rule:
+                raise ValueError("Caller partition ended before the required observation interval")
+            if self.get("lease", "hanko-operator.hanko.sh")["spec"].get("holderIdentity") != current:
+                raise ValueError("Lease holder changed during the measured partition interval")
+            if ready_current(self.get("hankorole", name)) and time.monotonic() <= recovery_deadline:
+                recovered = True
+            if not recovered and time.monotonic() >= recovery_deadline:
+                raise ValueError("New holder did not recover within the unchanged 180-second budget")
+            provider = self.observe_control("keycloak")
+            for key in ("peer_counts", "peer_attempted_counts"):
+                if configuration_writes(provider, peer, key) != configuration_writes(baseline, peer, key):
+                    raise ValueError("Isolated holder attempted a delayed provider mutation")
+            time.sleep(max(0, min(2, PARTITION_SECONDS - (time.monotonic() - started))))
+        now, wall = time.monotonic(), time.time()
+        gap = max(scale.measure.sampling_gap(previous, now), scale.measure.sampling_gap(previous_wall, wall))
+        evidence["max_sample_gap_seconds"] = round(max(evidence["max_sample_gap_seconds"], gap), 3)
+        if self.observe_control("api").get("rule") != partition_rule:
+            raise ValueError("Caller partition was not retained through the final sample")
+        if not recovered:
+            raise ValueError("New holder recovery was not observed under the partition")
+        evidence["isolated_seconds"] = round(now - started, 3)
         provider = self.observe_control("keycloak")
         for key in ("peer_counts", "peer_attempted_counts"):
             if configuration_writes(provider, peer, key) != configuration_writes(baseline, peer, key):
@@ -201,6 +233,7 @@ class Transactions(fleet.Fleet):
                         old_provider_write_attempts=0, new_provider_write_attempts=1, accepted_provider_writes=1, leader_replaced=True)
         self.record("live_holder_api_partition_expires_without_administrator_restart")
         self.record("isolated_holder_cannot_write_and_new_holder_recovers_once")
+        self.record("five_minute_partition_retains_single_writer_after_handoff", evidence["isolated_seconds"] >= PARTITION_SECONDS)
 
     def replace_leader(self):
         holder = self.get("lease", "hanko-operator.hanko.sh")["spec"]["holderIdentity"]

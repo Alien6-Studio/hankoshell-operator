@@ -462,7 +462,7 @@ func (r *HankoOrganizationReconciler) ensureOrgFinalizer(ctx context.Context, or
 }
 
 func (r *HankoOrganizationReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	options, err := iamControllerOptions()
+	options, err := iamControllerOptions("Organization")
 	if err != nil {
 		return err
 	}

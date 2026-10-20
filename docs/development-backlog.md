@@ -1,162 +1,91 @@
 # Development backlog for the 1.0 workstream
 
-Snapshot: 2026-10-19, `feat/1.0.0-dev`, after implementation delivery of #91, #92, #94 and #103.
-There are **16 open issues at this snapshot**, before the final protected Resolution of #71/#99.
-The [complete delegation CI packet](qualification/delegation/2026-10-19/runtime-98659a0/README.md)
-now records all twelve installed/HA cells for #71; final integration and closure are pending.
-Recent batches advanced repairs and qualification for #95; they did not complete the rest
-of this backlog. The branch name does not announce a stable API or public release.
+Snapshot: 2026-10-20, after protected PR #134 and the Resolutions of #71, #86
+and #99. **13 issues remain open.** The development branch name does not publish
+a version or graduate an API. Current technical metadata is `0.1.0-dev.0`.
 
-| Tracking category | Count | Issues and remaining work |
+| Tracking category | Count | Remaining work |
 | --- | ---: | --- |
-| `track:qualification` | 4 | #71 installed delegation; #86 complete initial candidate; #95 capacity/endurance/sizing; #96 complete HA transaction and fault matrix |
-| `track:stable-roadmap` | 10 | #87, #88, #89, #93, #99, #101, #104, #105, #106, #107: remaining stable implementation, public history, decisions and delivery |
-| `track:external-evidence` | 2 | #21 independently verified publication trust; #110 usable twenty-consecutive-main-run history |
+| `track:qualification` | 2 | #95 capacity/endurance/sizing; #96 remaining HA faults and prerequisites |
+| `track:stable-roadmap` | 9 | #87, #88, #89, #93, #101, #104, #105, #106, #107: compatibility policy, public history, API selection, upgrade paths, ratification and delivery |
+| `track:external-evidence` | 2 | #21 independently verified production trust/catalog; #110 twenty-consecutive-main-run history |
 
-These groups preserve all acceptance criteria. The stable-roadmap group contains
-real implementation work; independent work can proceed before the public-history
-and ratification prerequisites. A source push cannot create those external proofs.
+Develop related issues as one batch, validate the shared final source, then push.
+Close fully implemented issues at push with the commit, validation and remaining
+integration evidence, as specified in CONTRIBUTING.md. Qualification issues
+require their complete actual reports. Keep long runs in clean isolated worktrees.
 
-Develop coherent batches locally, then run shared validation before pushing.
-Keep long installed/soak runs in isolated immutable worktrees. Signed pushes record
-implementation delivery; integration retains the protected PR and qualification
-requirements. Local implementation does not manufacture external evidence or
-close partially delivered roadmap issues.
+## Completed qualification
 
-## Delivered compatibility guard tooling (#94)
+- #71: installed delegation and two-replica recovery passed the complete matrix.
+  The [retained delegation packet](qualification/delegation/2026-10-19/runtime-98659a0/README.md)
+  preserves its actual runtime and the historical failures.
+- #86: [initial public-contract candidate](qualification/initial/2026-10-20/runtime-6127633/README.md)
+  completed on Verified main `5e66926`: 61 mandatory jobs, three CodeQL analyses,
+  exact scanned image, installed system and six connected Fleet cells. This is
+  initial development qualification; production Hub/Continuum and publication
+  trust retain their documented boundaries.
+- #99: [security audit](qualification/security/2026-10-19/bounded-contract/README.md)
+  and [fixture repairs](qualification/security/2026-10-20/installed-fixtures/README.md)
+  integrated through PR #134. All exact-candidate installed, fuzz, mutation,
+  admission, OCI and recovery gates passed before the Resolution and closure.
+- #91/#92: three experimental IAM beta candidates, lossless conversion and native
+  storage rewrite/interruption/resume/rollback are implemented. Alpha remains
+  default storage. #94 compatibility guards and #103 operational procedures are
+  delivered; their completion does not ratify stable APIs or public upgrade paths.
 
-Schema/default/enum/topology diffs, exact hash-bound deprecation exceptions,
-notice timing, typed-reader conversion, concurrent SSA, frozen plan identities
-and compiler-resolved Go exports are enforced by the shared make/CI/release gates.
-Adversarial tests cover field removal/rename, tighter validation, conversion loss
-and legitimate notice requirements. An added default now produces one review
-requirement rather than duplicate diagnostics. This records implementation
-delivery under CONTRIBUTING.md; authentic public baselines, actual cross-release
-paths and final integration qualification remain in their own open workstreams.
+## Current capacity and recovery batch
 
-## API/storage implementation batch (#91/#92/#94)
+The bounded provider connection remains eight in-flight requests and 50 requests
+per second, with at most seven guarded writers. The new ResourceServer settled
+path uses one fresh complete native observation and its verified journal. Every
+owned reference must still be represented; drift, retirement and delegation
+transitions retain their full mutation/checkpoint path. No provider snapshot is
+reused across attempts.
 
-Application, Role and ResourceServer gain a served experimental v1beta1 candidate,
-lossless object/list conversion and frozen schema equivalence. Alpha remains the
-hub/default storage. The administrator utility implements reviewed plans, native
-storage rewrite, interruption recovery and separately approved rollback. CRD
-preflight preserves live storage and rejects orphaning stored versions; the chart
-checks stored-version readability. Conversion fuzzing and a disposable native
-fixture cover meaning, authority metadata and actual etcd encoding.
+Optional per-kind IAM worker settings permit an explicit allocation under that
+shared budget. Defaults stay at one worker per controller. Scale reports record
+and verify each installed controller's worker count. Measurements determine any
+qualified profile; a tuning example is not a capacity recommendation.
 
-Stable API graduation, resource ratification, production evidence and genuine public predecessor paths
-remain distinct acceptance requirements. The migration utility refuses active
-rotation/delegation policies until their native state has an independent idle
-inspection path; it does not clear their journals to force a migration.
+The HA fixture now retains the original caller's API partition for 300 measured
+seconds after natural handoff begins, continuing stale-writer and lease checks.
+This strengthened interval needs fresh exact-image results. Earlier 31–34-second
+natural-handoff witnesses retain their original scope.
 
-The recovery follow-up interrupts real migration processes after native rewrite
-submission and after a first storedVersion commit, in both directions. Resume
-still needs fresh native proof and unchanged object meaning. Kubernetes may
-already complete and prune storedVersions during the interruption; the fixture
-requires that exact succeeded job and physical target encoding in this case.
-All three reviewed Kubernetes versions now run this fixture in required CI.
-This does not replace real-provider or public cross-release qualification in #92.
+The old B1 capacity and endurance trials are finished failures, with cleanup
+complete. The larger profile reached 408/1,000 current ResourceServers before its
+3,600-second graph deadline. The soak observed 7,925.648 steady seconds before a
+145.365-second wall sampling gap and process losses invalidated it. Neither is an
+active or passing 24-hour campaign. Their unmodified reports remain retained.
 
-Application, Role and ResourceServer status now distinguishes typed provider
-authentication, permission, overload, outage, conflict and cancellation failures.
-The operational contract binds every fixed reason to its recovery procedure,
-while regression tests reject string-spoofed status codes and private messages.
-The administrator finalizer-release workflow now supplies independent approval,
-immutable audit intent, selective CAS removal and observation without replay.
-Its actual CLI/admission witness passes on all three reviewed Kubernetes versions.
+#95 still requires completed larger capacity, uninterrupted >=24-hour endurance
+and measured sizing. #96 retains arbitrary partition/clock-skew and remaining
+fault coverage, plus #95 prerequisites. Existing six-cell transaction/delegation
+HA success does not close these missing acceptance items.
 
-## Current HA and security batch
+The [existing-installation preflight](qualification/compatibility/2026-10-20/installation-upgrade/README.md)
+replayed 109 declarations without loss after explicit default normalization and
+preserved the Deployment selector/service account. A targeted native contract
+also passed on legacy Keycloak 26.7.3. However, 44 of the 71 audited declarations
+are Manage objects without current native UID ownership markers. Their reviewed
+acquisition and rollback remain necessary before an in-place operator upgrade;
+schema compatibility alone does not authorize takeover. The live cluster is
+unchanged. These reports do not establish a public predecessor or 24-hour soak.
 
-Delegation implementation #69/#70 is delivered through the pinned standalone
-Keycloak extension. #71's complete installed/HA CI packet supersedes its earlier
-failed-cell gaps. Historical failures remain retained; final protected Resolution
-and closure must follow the current integration.
+## Release prerequisites
 
-The current batch advances #96/#99 together: caller-scoped loss of the live
-leader's API access, natural lease handoff and per-caller provider-write checks;
-a required six-cell HA CI matrix; canonical runtime cleanup journals; and fuzzing
-of runtime target authority plus native delegation recovery envelopes. HA is
-separate from the load job, so it can run without repeating the 1,000-object
-profile. Started or implemented scenarios are not completed installed evidence.
+#87/#89/#104 need actual compatibility/contract decisions and community review.
+#88 needs sanitized real installation/incident/upgrade reports after publication.
+#93/#101/#105 need genuine supported public predecessors and reported paths; there
+is currently no published predecessor. Fixtures cannot create production history.
+#110 needs twenty consecutive main-run history; development runs cannot replace it.
 
-The next HA fixture covers delegation apply at all four native phases across
-two-replica handoff, separately from restart/status-loss tests. The six-cell HA
-job requires both fixtures and retains their independent reports. Installed
-completion must still be measured; implementation alone is not a passing cell.
-Remaining #96 scope includes arbitrary partitions and clock skew, plus the full
-retained candidate matrix, outage coverage and endurance prerequisites.
-The [#99 instrumented audit](qualification/security/2026-10-19/bounded-contract/README.md)
-now records complete field budgets, conversion/parser fuzzing and the admission/RBAC
-review. Its report route satisfies the issue's external-review-or-audit requirement;
-the current exact-image installed CI and protected Verified Resolution remain mandatory.
+#106 aggregates the final ratified 1.0 candidate. #107 additionally requires the
+independent verifier and second-maintainer/environment approval specified there.
+#21 tracks externally provisioned signer/TSA/catalog trust. No development push
+creates those independent proofs or authorizes publication.
 
-The version/conversion implementation (#91) and storage movement/rollback (#92)
-are delivered for the three reviewed IAM candidates. Their beta version remains
-experimental; stable resource selection and compatibility ratification remain
-in #89/#104. #93/#101/#105 require authentic public predecessor artifacts and real
-paths. Implementation delivery does not provide those historical proofs.
-
-## Evidence that code alone cannot create
-
-- #21 needs independently provisioned/verified production trust and catalog
-  ownership. It does not authorize a tag, release or public registry write.
-- #87/#89/#104 require actual community/contract decisions; a draft document is
-  not ratification. Graduation currently requires production evidence and no
-  resource has graduated.
-- #88 requires real sanitized installation/incident/upgrade reports after public
-  delivery. Two fixture clusters are not independent production installations.
-- #110 needs the stated consecutive real test/main-run history. A local streak
-  does not replace the required main history.
-- #95 needs a completed 24-hour soak; #96/#99 need their complete installed
-  matrices. Started runs, parser tests and empty incomplete scan output are not
-  completed qualification.
-- #86/#106 aggregate exact-candidate evidence. #107 additionally needs independent
-  verification and the second-maintainer/environment approval specified there.
-
-Production publication remains a separate action; the development backlog does
-not waive the existing trust, review or qualification requirements.
-
-Some issue descriptions also have closure-link cycles: #104 asks for links to
-#105/#106/#107 while those issues depend on #104, and #106 asks for all milestone
-issues closed before #107. Track contract decisions, implementation completion
-and final delivery evidence separately; do not fabricate closures to satisfy
-such a cycle. Reconcile those issue dependencies in the final acceptance review.
-
-
-## Security and operations implementation follow-up (#99/#103)
-
-The IAM admission budget reduces the inventory gaps from 440 to 397 across the
-20 served schemas. Per-kind CR grants replace the blanket writer; live
-authorizer/admission fixtures cover both lifecycle profiles. An offline incident
-collector exports only anonymous fixed decisions and generation/count evidence,
-with bounded parsing and private exclusive output. Stable field/RBAC acceptance,
-independent review and public upgrade evidence remain unfinished in #99 and the
-release qualification issues. The audited finalizer-release mechanism is delivered.
-
-## Operational procedures delivered (#103)
-
-Installation, upgrade/rollback, native storage migration, leader/provider
-recovery, rotation/audit refusal, adoption/finalizer release, Fleet/delegation,
-decommission and private incident collection now have explicit commands,
-executable fixture references and qualification limits. The operational contract
-checks eleven procedure records across all eight runbook groups and rejects
-missing commands, missing fixtures and erased unqualified notices.
-
-Connected installation/decommission and public predecessor paths remain explicitly
-unqualified; #103 allows untested procedures when marked. Their actual installed
-or public-release evidence belongs to #86/#93/#101/#105/#106. Closing this
-documentation/operational implementation issue does not qualify those paths or
-graduate an API. Full protected integration remains required independently.
-
-## API and native storage delivery (#91/#92)
-
-The [current CI delivery packet](qualification/recovery/2026-10-19/api-storage-delivery/README.md)
-records passing API/security and native storage jobs on Kubernetes 1.35.0,
-1.36.2 and 1.37.0. Three fresh native reports prove 48 physical migrations and
-twelve real process interruptions with same-plan resume and alpha/beta rollback.
-Their artifact digests, source-component hashes and job links are retained.
-
-The implementation issues close under the push-based delivery rule in
-CONTRIBUTING.md. This does not mark the complete aggregate pipeline green,
-qualify a real-provider/public predecessor upgrade, or ratify a stable API.
-Those proofs and decisions remain in their dedicated open issues.
+The #104/#105/#106/#107 closure-link cycles must be resolved in final acceptance:
+record contract decisions, technical qualification and delivery in that order,
+without inventing earlier closures or weakening their substantive requirements.

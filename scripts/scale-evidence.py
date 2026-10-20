@@ -100,6 +100,11 @@ class Ledger:
         self.lost_processes = 0
 
     def observe(self, frames, workers):
+        if type(workers) is int:
+            workers = dict.fromkeys(WORKER_KINDS, workers)
+        if (not isinstance(workers, dict) or set(workers) != set(WORKER_KINDS)
+                or any(type(value) is not int or not 1 <= value <= 8 for value in workers.values())):
+            raise ValueError("Measurement requires the exact bounded worker configuration")
         if not frames or sum(frame["leader"] for frame in frames.values()) != 1:
             raise ValueError("A measured sample requires exactly one observed leader")
         current = set()
@@ -127,10 +132,10 @@ class Ledger:
                     target[bound] = target.get(bound, 0) + value - previous
             for kind in WORKER_KINDS:
                 controller = KINDS[kind]
-                if frame["leader"] and frame["workers"].get(controller) != workers:
+                if frame["leader"] and frame["workers"].get(controller) != workers[kind]:
                     raise ValueError("Installed controller workers differ from requested configuration")
                 active = frame["active"].get(controller, 0)
-                if active > workers:
+                if active > workers[kind]:
                     raise ValueError("Observed workers exceed configured concurrency")
                 self.peak_workers[kind] = max(self.peak_workers.get(kind, 0), active)
             rss += frame["rss_bytes"]

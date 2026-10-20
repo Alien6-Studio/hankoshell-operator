@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"strconv"
+	"strings"
 
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -19,14 +20,19 @@ const iamPeriodicPriority = -200
 // Only the four IAM controllers with request-local reconciliation state opt in.
 // Infrastructure, transactions, imports, Fleet and shared trust stay serial.
 // Controller-runtime continues to serialize each individual workqueue key.
-func iamControllerOptions() (runtimecontroller.Options, error) {
-	workers := 1
-	if value, present := os.LookupEnv("HANKO_IAM_MAX_CONCURRENT_RECONCILES"); present {
-		parsed, err := strconv.Atoi(value)
-		if err != nil || parsed < 1 || parsed > 8 || strconv.Itoa(parsed) != value {
-			return runtimecontroller.Options{}, errors.New("HANKO_IAM_MAX_CONCURRENT_RECONCILES must be an integer from 1 to 8")
-		}
-		workers = parsed
+func iamControllerOptions(kind string) (runtimecontroller.Options, error) {
+	switch kind {
+	case "Application", "Role", "Organization", "ResourceServer":
+	default:
+		return runtimecontroller.Options{}, errors.New("unsupported IAM concurrency controller")
+	}
+	workers, err := iamWorkerCount("HANKO_IAM_MAX_CONCURRENT_RECONCILES", 1)
+	if err != nil {
+		return runtimecontroller.Options{}, err
+	}
+	workers, err = iamWorkerCount("HANKO_IAM_"+strings.ToUpper(kind)+"_MAX_CONCURRENT_RECONCILES", workers)
+	if err != nil {
+		return runtimecontroller.Options{}, err
 	}
 	// Cold initial-list work and live changes share FIFO priority zero. Only
 	// periodic successful reconciliation moves to the background. A transient
@@ -34,6 +40,18 @@ func iamControllerOptions() (runtimecontroller.Options, error) {
 	priority := true
 	return runtimecontroller.Options{MaxConcurrentReconciles: workers, UsePriorityQueue: &priority,
 		RateLimiter: workqueue.DefaultTypedControllerRateLimiter[reconcile.Request](), NewQueue: newIAMQueue}, nil
+}
+
+func iamWorkerCount(key string, fallback int) (int, error) {
+	value, present := os.LookupEnv(key)
+	if !present {
+		return fallback, nil
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed < 1 || parsed > 8 || strconv.Itoa(parsed) != value {
+		return 0, errors.New(key + " must be an integer from 1 to 8")
+	}
+	return parsed, nil
 }
 
 // Delegate synchronization, coalescing, delayed work, backoff and metrics to the

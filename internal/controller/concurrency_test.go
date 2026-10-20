@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -22,7 +23,7 @@ func TestIAMConcurrencyIsBoundedAndDoesNotEchoInput(t *testing.T) {
 	if err := os.Unsetenv(key); err != nil {
 		t.Fatal(err)
 	}
-	options, err := iamControllerOptions()
+	options, err := iamControllerOptions("Application")
 	if err != nil || options.MaxConcurrentReconciles != 1 {
 		t.Fatal("default concurrency changed", options, err)
 	}
@@ -32,7 +33,7 @@ func TestIAMConcurrencyIsBoundedAndDoesNotEchoInput(t *testing.T) {
 	for _, value := range []string{"1", "4", "8", "", "0", "9", "-1", "+2", "02", "1.0", " 2", "private-input-sentinel"} {
 		t.Run(value, func(t *testing.T) {
 			t.Setenv(key, value)
-			options, err := iamControllerOptions()
+			options, err := iamControllerOptions("Application")
 			valid := value == "1" || value == "4" || value == "8"
 			if (err == nil) != valid || valid && options.MaxConcurrentReconciles < 1 || options.MaxConcurrentReconciles > 8 {
 				t.Fatal("invalid worker configuration accepted")
@@ -47,6 +48,46 @@ func TestIAMConcurrencyIsBoundedAndDoesNotEchoInput(t *testing.T) {
 	}
 }
 
+func TestIAMPerKindWorkersAreBoundedIsolatedAndInheritTheGlobalDefault(t *testing.T) {
+	t.Setenv("HANKO_IAM_MAX_CONCURRENT_RECONCILES", "4")
+	kinds := []string{"Application", "Role", "Organization", "ResourceServer"}
+	for _, kind := range kinds {
+		t.Run(kind, func(t *testing.T) {
+			key := "HANKO_IAM_" + strings.ToUpper(kind) + "_MAX_CONCURRENT_RECONCILES"
+			for _, value := range []string{"1", "8", "", "0", "9", "02", "private-input-sentinel"} {
+				t.Run(value, func(t *testing.T) {
+					t.Setenv(key, value)
+					options, err := iamControllerOptions(kind)
+					valid := value == "1" || value == "8"
+					if (err == nil) != valid || valid && strconv.Itoa(options.MaxConcurrentReconciles) != value {
+						t.Fatal("kind worker override did not enforce its exact bounds")
+					}
+					if err != nil && strings.Contains(err.Error(), "private-input-sentinel") {
+						t.Fatal("override diagnostic echoed an untrusted value")
+					}
+					for _, other := range kinds {
+						if other == kind {
+							continue
+						}
+						inherited, err := iamControllerOptions(other)
+						if err != nil || inherited.MaxConcurrentReconciles != 4 {
+							t.Fatal("per-kind override changed another controller")
+						}
+					}
+				})
+			}
+		})
+	}
+	t.Setenv("HANKO_IAM_MAX_CONCURRENT_RECONCILES", "0")
+	t.Setenv("HANKO_IAM_APPLICATION_MAX_CONCURRENT_RECONCILES", "8")
+	if _, err := iamControllerOptions("Application"); err == nil {
+		t.Fatal("per-kind override masked an invalid global setting")
+	}
+	if _, err := iamControllerOptions("private-input-sentinel"); err == nil || strings.Contains(err.Error(), "private-input-sentinel") {
+		t.Fatal("unreviewed controller was accepted or echoed")
+	}
+}
+
 func TestIAMSetupRejectsInvalidConcurrencyBeforeUsingManager(t *testing.T) {
 	t.Setenv("HANKO_IAM_MAX_CONCURRENT_RECONCILES", "9")
 	for _, err := range []error{
@@ -58,6 +99,26 @@ func TestIAMSetupRejectsInvalidConcurrencyBeforeUsingManager(t *testing.T) {
 		if err == nil {
 			t.Fatal("controller accepted out-of-bounds concurrency")
 		}
+	}
+}
+
+func TestIAMSetupUsesItsOwnKindOverrideBeforeManagerRegistration(t *testing.T) {
+	t.Setenv("HANKO_IAM_MAX_CONCURRENT_RECONCILES", "1")
+	for _, test := range []struct {
+		kind  string
+		setup func() error
+	}{
+		{"Application", func() error { return (&HankoApplicationReconciler{}).SetupWithManager(nil) }},
+		{"Role", func() error { return (&HankoRoleReconciler{}).SetupWithManager(nil) }},
+		{"Organization", func() error { return (&HankoOrganizationReconciler{}).SetupWithManager(nil) }},
+		{"ResourceServer", func() error { return (&HankoResourceServerReconciler{}).SetupWithManager(nil) }},
+	} {
+		t.Run(test.kind, func(t *testing.T) {
+			t.Setenv("HANKO_IAM_"+strings.ToUpper(test.kind)+"_MAX_CONCURRENT_RECONCILES", "0")
+			if err := test.setup(); err == nil {
+				t.Fatal("controller registration ignored its own invalid override")
+			}
+		})
 	}
 }
 
