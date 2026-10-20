@@ -64,10 +64,10 @@ jobs:
           merge-multiple: true
       - name: Install checksum-pinned fixture tools
         run: |
-          python3 -m pip install -r scripts/requirements.txt
-          python3 scripts/install-system-tools.py "$RUNNER_TEMP/scale-tools"
-          python3 scripts/install-helm.py /tmp/linux-amd64/helm
-          GOBIN="$RUNNER_TEMP/scale-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"
+          python3 -m pip install -r tools/requirements.txt
+          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/scale-tools"
+          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
+          GOBIN="$RUNNER_TEMP/scale-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
       - name: Run measured scale, overload recovery and leader removal
         env:
           SCALE_PROFILE: scale
@@ -75,7 +75,7 @@ jobs:
           KEYCLOAK_VERSION: ${{ matrix.keycloak }}
           KUBERNETES_VERSION: ${{ matrix.kubernetes }}
         run: |
-          python3 scripts/scale-installed-test.py --profile "$SCALE_PROFILE" --workers 4 \
+          python3 -m tools.qualification.scenarios.scale_installed_test --profile "$SCALE_PROFILE" --workers 4 \
             --archive "$RUNNER_TEMP/scale-oci/image.tar" --evidence "$RUNNER_TEMP/scale-oci/evidence" \
             --digest "$OCI_DIGEST" --revision "$GITHUB_SHA" --output "$RUNNER_TEMP/scale-report" \
             --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
@@ -87,7 +87,7 @@ jobs:
           KEYCLOAK_VERSION: ${{ matrix.keycloak }}
           KUBERNETES_VERSION: ${{ matrix.kubernetes }}
         run: |
-          python3 scripts/recovery-installed-test.py \
+          python3 -m tools.qualification.scenarios.recovery_installed_test \
             --archive "$RUNNER_TEMP/scale-oci/image.tar" --evidence "$RUNNER_TEMP/scale-oci/evidence" \
             --digest "$OCI_DIGEST" --revision "$GITHUB_SHA" --output "$RUNNER_TEMP/recovery-report" \
             --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
@@ -133,22 +133,22 @@ jobs:
           merge-multiple: true
       - name: Install checksum-pinned HA fixture tools
         run: |
-          python3 -m pip install -r scripts/requirements.txt
-          python3 scripts/install-system-tools.py "$RUNNER_TEMP/ha-tools"
-          python3 scripts/install-helm.py /tmp/linux-amd64/helm
-          GOBIN="$RUNNER_TEMP/ha-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"
+          python3 -m pip install -r tools/requirements.txt
+          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/ha-tools"
+          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
+          GOBIN="$RUNNER_TEMP/ha-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
       - name: Restore the exact SDK provider for delegation HA
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: keycloak-extension-java-${{ matrix.keycloak }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .tools/keycloak-bounded-delegation/
+          path: .tools/cache/keycloak-bounded-delegation/
       - name: Qualify transaction recovery and live-holder API partition
         env:
           OCI_DIGEST: ${{ needs.oci.outputs.digest }}
           KEYCLOAK_VERSION: ${{ matrix.keycloak }}
           KUBERNETES_VERSION: ${{ matrix.kubernetes }}
         run: |
-          python3 scripts/transactions-installed-test.py \
+          python3 -m tools.qualification.scenarios.transactions_installed_test \
             --archive "$RUNNER_TEMP/ha-oci/image.tar" --evidence "$RUNNER_TEMP/ha-oci/evidence" \
             --digest "$OCI_DIGEST" --revision "$GITHUB_SHA" --output "$RUNNER_TEMP/transactions-report.json" \
             --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
@@ -161,7 +161,7 @@ jobs:
           KEYCLOAK_VERSION: ${{ matrix.keycloak }}
           KUBERNETES_VERSION: ${{ matrix.kubernetes }}
         run: |
-          python3 scripts/delegation-installed-test.py --ha-only \
+          python3 -m tools.qualification.scenarios.delegation_installed_test --ha-only \
             --archive "$RUNNER_TEMP/ha-oci/image.tar" --evidence "$RUNNER_TEMP/ha-oci/evidence" \
             --digest "$OCI_DIGEST" --revision "$GITHUB_SHA" --output "$RUNNER_TEMP/delegation-ha-report.json" \
             --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
@@ -198,9 +198,9 @@ jobs:
           python-version: '3.12'
       - name: Install pinned preflight dependencies
         run: |
-          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
-          python -m pip install -r scripts/requirements.txt
+          python -m pip install -r tools/requirements.txt
           make install-preflight-tools
       - name: Validate formatting, vet, generated schemas and delivery contracts
         run: make preflight
@@ -230,16 +230,16 @@ jobs:
           DCO_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          python3 scripts/check-dco.py --base "$DCO_BASE_SHA" --head "$DCO_HEAD_SHA" \
+          python3 -m tools.quality.check_dco --base "$DCO_BASE_SHA" --head "$DCO_HEAD_SHA" \
             --repository "$GITHUB_REPOSITORY"
       - name: Install pinned Helm and test dependencies
         run: |
-          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
-          python -m pip install -r scripts/requirements.txt
+          python -m pip install -r tools/requirements.txt
           make install-tools
       - name: Verify architecture decision references
-        run: python3 scripts/check-adr-references.py
+        run: python3 -m tools.quality.check_adr_references
       - name: Run the same pre-commit hooks as contributors
         env:
           # Upstream hook repositories contain their own synthetic secret tests.
@@ -250,11 +250,11 @@ jobs:
         if: github.event_name == 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/check-rulesets.py --live --allow-hidden-bypass
+        run: python3 -m tools.quality.check_rulesets --live --allow-hidden-bypass
       - name: Validate unit tests, chart, architecture, lint and vulnerabilities
-        run: make test chart-test arch lint vuln
+        run: make test chart-check arch lint vuln
       - name: Enforce package and security function coverage floors
-        run: python3 scripts/check-coverage.py --profile .tools/test-results/unit/coverage.out
+        run: python3 -m tools.quality.check_coverage --profile .tools/runs/tests/unit/coverage.out
       - name: Enforce the dependency license policy and shipped notices
         run: make licenses
       - name: Preserve Go test outcomes
@@ -262,7 +262,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: go-tests-unit-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .tools/test-results/
+          path: .tools/runs/tests/
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
@@ -277,7 +277,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: go-tests-authentik-2026.8.4-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .tools/test-results/authentik-2026.8.4/
+          path: .tools/runs/tests/authentik-2026.8.4/
           if-no-files-found: error
       - name: Cross-compile both Linux architectures
         run: |
@@ -309,10 +309,10 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install recovery CLI dependencies
-        run: python3 -m pip install -r scripts/requirements.txt
+        run: python3 -m pip install -r tools/requirements.txt
       - name: Install pinned Helm
         run: |
-          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
       - name: Qualify CRDs, server-side apply, RBAC and Restricted admission
         run: make integration-test KUBERNETES_VERSION=${{ matrix.version }}
@@ -321,7 +321,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: go-tests-kubernetes-${{ matrix.version }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .tools/test-results/
+          path: .tools/runs/tests/
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
@@ -346,21 +346,21 @@ jobs:
           python-version: '3.12'
       - name: Install checksum-pinned native fixture tools
         run: |
-          python3 -m pip install -r scripts/requirements.txt
-          python3 scripts/install-system-tools.py "$RUNNER_TEMP/storage-tools"
-          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+          python3 -m pip install -r tools/requirements.txt
+          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/storage-tools"
+          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
       - name: Qualify physical rewrites, interrupted processes and rollback
         env:
           KUBERNETES_VERSION: ${{ matrix.version }}
         run: |
           archive_args=()
-          if test "$KUBERNETES_VERSION" = "$(python3 scripts/versions.py get kubernetes built_node version)"; then
+          if test "$KUBERNETES_VERSION" = "$(python3 -m tools.versions get kubernetes built_node version)"; then
             curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
               --max-time 180 --output "$RUNNER_TEMP/storage-node.tar.gz" \
               "https://dl.k8s.io/release/v$KUBERNETES_VERSION/kubernetes-server-linux-amd64.tar.gz"
             archive_args=(--node-archive "$RUNNER_TEMP/storage-node.tar.gz")
           fi
-          python3 scripts/storage-migration-installed-test.py \
+          python3 -m tools.qualification.scenarios.storage_migration_installed_test \
             --kind "$RUNNER_TEMP/storage-tools/kind" --kubectl "$RUNNER_TEMP/storage-tools/kubectl" \
             --helm /tmp/linux-amd64/helm --kubernetes-version "$KUBERNETES_VERSION" \
             --output "$RUNNER_TEMP/storage-report" "${archive_args[@]}"
@@ -397,7 +397,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: go-tests-keycloak-${{ matrix.version }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .tools/test-results/
+          path: .tools/runs/tests/
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
@@ -425,7 +425,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: go-tests-keycloak-${{ matrix.version }}-ordinary-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .tools/test-results/
+          path: .tools/runs/tests/
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
@@ -457,7 +457,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: go-tests-keycloak-extension-${{ matrix.version }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .tools/test-results/
+          path: .tools/runs/tests/
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
@@ -467,9 +467,9 @@ jobs:
         with:
           name: keycloak-extension-java-${{ matrix.version }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            .tools/keycloak-bounded-delegation/*/target/${{ matrix.version }}/build.json
-            .tools/keycloak-bounded-delegation/*/target/${{ matrix.version }}/bounded-delegation-keycloak-${{ matrix.version }}.jar
-            .tools/keycloak-bounded-delegation/*/target/${{ matrix.version }}/surefire-reports/
+            .tools/cache/keycloak-bounded-delegation/*/target/${{ matrix.version }}/build.json
+            .tools/cache/keycloak-bounded-delegation/*/target/${{ matrix.version }}/bounded-delegation-keycloak-${{ matrix.version }}.jar
+            .tools/cache/keycloak-bounded-delegation/*/target/${{ matrix.version }}/surefire-reports/
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
@@ -514,11 +514,11 @@ jobs:
           go-version-file: go.mod
       - name: Install checksum-pinned Kubernetes fixture tools
         run: |
-          python3 -m pip install -r scripts/requirements.txt
-          python3 scripts/install-system-tools.py "$RUNNER_TEMP/workload-tools"
+          python3 -m pip install -r tools/requirements.txt
+          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/workload-tools"
       - name: Qualify real projected assertions, expiry, UID recreation and native permissions
         run: |
-          python3 scripts/workload-identity-probe.py --keycloak-version '${{ matrix.keycloak }}' \
+          python3 -m tools.qualification.fixtures.workload_identity_probe --keycloak-version '${{ matrix.keycloak }}' \
             --kubernetes-version '${{ matrix.kubernetes }}' --kind "$RUNNER_TEMP/workload-tools/kind" \
             --kubectl "$RUNNER_TEMP/workload-tools/kubectl" --openssl /usr/bin/openssl \
             --output "$RUNNER_TEMP/workload-identity.json"
@@ -616,16 +616,16 @@ jobs:
           merge-multiple: true
       - name: Install verified release rehearsal tools
         run: |
-          python3 -m pip install -r scripts/requirements.txt
-          python3 scripts/install-helm.py /tmp/linux-amd64/helm
-          bash scripts/install-cosign.sh "$RUNNER_TEMP/rehearsal-tools/cosign"
-          bash scripts/install-attest.sh "$RUNNER_TEMP/rehearsal-tools/attest"
-          GOBIN="$RUNNER_TEMP/rehearsal-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"
+          python3 -m pip install -r tools/requirements.txt
+          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
+          bash tools/bootstrap/install_cosign.sh "$RUNNER_TEMP/rehearsal-tools/cosign"
+          bash tools/bootstrap/install_attest.sh "$RUNNER_TEMP/rehearsal-tools/attest"
+          GOBIN="$RUNNER_TEMP/rehearsal-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
       - name: Rehearse the exact scanned delivery without publication
         env:
           DIGEST: ${{ needs.oci.outputs.digest }}
         run: |
-          python3 scripts/release-dry-run.py --version "$(python3 scripts/versions.py get release version)" --revision "$GITHUB_SHA" --digest "$DIGEST" \
+          python3 -m tools.release.release_dry_run --version "$(python3 -m tools.versions get release version)" --revision "$GITHUB_SHA" --digest "$DIGEST" \
             --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
             --evidence "$RUNNER_TEMP/hankoshell-scanned-oci/evidence" \
             --output "$RUNNER_TEMP/hankoshell-release-dry-run" --helm /tmp/linux-amd64/helm \
@@ -667,15 +667,15 @@ jobs:
           merge-multiple: true
       - name: Install checksum-pinned system fixtures
         run: |
-          python3 -m pip install -r scripts/requirements.txt
-          python3 scripts/install-system-tools.py "$RUNNER_TEMP/system-tools"
-          GOBIN="$RUNNER_TEMP/system-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"
-          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+          python3 -m pip install -r tools/requirements.txt
+          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/system-tools"
+          GOBIN="$RUNNER_TEMP/system-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
+          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
       - name: Install and exercise the exact scanned operator with real Kubernetes and HTTPS Keycloak
         env:
           DIGEST: ${{ needs.oci.outputs.digest }}
         run: |
-          python3 scripts/system-test.py --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
+          python3 -m tools.qualification.reporting.public_release_corpus capture --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
             --evidence "$RUNNER_TEMP/hankoshell-scanned-oci/evidence" --digest "$DIGEST" --revision "$GITHUB_SHA" \
             --output "$RUNNER_TEMP/system-test.json" --kind "$RUNNER_TEMP/system-tools/kind" \
             --kubectl "$RUNNER_TEMP/system-tools/kubectl" --oras "$RUNNER_TEMP/system-tools/oras" \
@@ -683,9 +683,11 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: system-test-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/system-test.json
+          path: |
+            ${{ runner.temp }}/system-test.json
+            ${{ runner.temp }}/system-test.corpus.json
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 90
       - name: Preserve bounded installed system failure diagnostics
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -723,10 +725,10 @@ jobs:
           merge-multiple: true
       - name: Install checksum-pinned installed workload tools
         run: |
-          python3 -m pip install -r scripts/requirements.txt
-          python3 scripts/install-system-tools.py "$RUNNER_TEMP/workload-tools"
-          GOBIN="$RUNNER_TEMP/workload-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"
-          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+          python3 -m pip install -r tools/requirements.txt
+          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/workload-tools"
+          GOBIN="$RUNNER_TEMP/workload-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
+          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
       - name: Qualify installed Pod authentication, independent UMA decisions and recovery
         env:
           DIGEST: ${{ needs.oci.outputs.digest }}
@@ -734,8 +736,8 @@ jobs:
           KUBERNETES_VERSION: ${{ matrix.kubernetes }}
         run: |
           deep=()
-          if test "$KUBERNETES_VERSION" = "$(python3 scripts/versions.py get kubernetes deep_migration)"; then deep=(--deep-migration); fi
-          python3 scripts/workload-installed-test.py \
+          if test "$KUBERNETES_VERSION" = "$(python3 -m tools.versions get kubernetes deep_migration)"; then deep=(--deep-migration); fi
+          python3 -m tools.qualification.scenarios.workload_installed_test \
             --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
             --evidence "$RUNNER_TEMP/hankoshell-scanned-oci/evidence" --digest "$DIGEST" --revision "$GITHUB_SHA" \
             --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" "${deep[@]}" \
@@ -786,22 +788,22 @@ jobs:
           merge-multiple: true
       - name: Install checksum-pinned installed delegation tools
         run: |
-          python3 -m pip install -r scripts/requirements.txt
-          python3 scripts/install-system-tools.py "$RUNNER_TEMP/workload-tools"
-          GOBIN="$RUNNER_TEMP/workload-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"
-          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+          python3 -m pip install -r tools/requirements.txt
+          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/workload-tools"
+          GOBIN="$RUNNER_TEMP/workload-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
+          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
       - name: Restore the exact SDK provider already qualified in this run
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: keycloak-extension-java-${{ matrix.keycloak }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .tools/keycloak-bounded-delegation/
+          path: .tools/cache/keycloak-bounded-delegation/
       - name: Qualify installed delegation, independent HTTPS resource access and native recovery
         env:
           DIGEST: ${{ needs.oci.outputs.digest }}
           KEYCLOAK_VERSION: ${{ matrix.keycloak }}
           KUBERNETES_VERSION: ${{ matrix.kubernetes }}
         run: |
-          python3 scripts/delegation-installed-test.py \
+          python3 -m tools.qualification.scenarios.delegation_installed_test \
             --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
             --evidence "$RUNNER_TEMP/hankoshell-scanned-oci/evidence" --digest "$DIGEST" --revision "$GITHUB_SHA" \
             --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
@@ -852,17 +854,17 @@ jobs:
           merge-multiple: true
       - name: Install checksum-pinned portable test tools
         run: |
-          python3 -m pip install -r scripts/requirements.txt
-          python3 scripts/install-system-tools.py "$RUNNER_TEMP/workload-tools"
-          GOBIN="$RUNNER_TEMP/workload-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"
-          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+          python3 -m pip install -r tools/requirements.txt
+          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/workload-tools"
+          GOBIN="$RUNNER_TEMP/workload-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
+          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
       - name: Qualify the identical intent corpus on both installed providers
         env:
           DIGEST: ${{ needs.oci.outputs.digest }}
           KEYCLOAK_VERSION: ${{ matrix.keycloak }}
           KUBERNETES_VERSION: ${{ matrix.kubernetes }}
         run: |
-          python3 scripts/portable-installed-test.py \
+          python3 -m tools.qualification.scenarios.portable_installed_test \
             --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
             --evidence "$RUNNER_TEMP/hankoshell-scanned-oci/evidence" --digest "$DIGEST" --revision "$GITHUB_SHA" \
             --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION"  \
@@ -913,17 +915,17 @@ jobs:
           merge-multiple: true
       - name: Install checksum-pinned installed Fleet tools
         run: |
-          python3 -m pip install -r scripts/requirements.txt
-          python3 scripts/install-system-tools.py "$RUNNER_TEMP/workload-tools"
-          GOBIN="$RUNNER_TEMP/workload-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"
-          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+          python3 -m pip install -r tools/requirements.txt
+          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/workload-tools"
+          GOBIN="$RUNNER_TEMP/workload-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
+          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
       - name: Qualify installed signed Fleet tamper, replay, disconnected recovery and rollback
         env:
           DIGEST: ${{ needs.oci.outputs.digest }}
           KEYCLOAK_VERSION: ${{ matrix.keycloak }}
           KUBERNETES_VERSION: ${{ matrix.kubernetes }}
         run: |
-          python3 scripts/fleet-installed-test.py \
+          python3 -m tools.qualification.scenarios.fleet_installed_test \
             --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
             --evidence "$RUNNER_TEMP/hankoshell-scanned-oci/evidence" --digest "$DIGEST" --revision "$GITHUB_SHA" \
             --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
@@ -947,7 +949,7 @@ jobs:
           retention-days: 7
   checks:
     name: Source and chart checks
-    # Pull requests run the full qualification matrix (ADR-048); this required
+    # Pull requests run the full qualification matrix (ADR-009); this required
     # gate must keep representing every qualification job before merge.
     needs: [preflight, source, kubernetes, storage-migration, keycloak, keycloak-ordinary, keycloak-extension, keycloak-static, workload, security-fuzz, security-mutations, oci, rehearsal, system, installed-workload, installed-delegation, installed-portable, installed-fleet, installed-transactions, installed-scale-qualification]
     if: always()
@@ -1008,6 +1010,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           QUALIFICATION_RESULTS: ${{ toJSON(needs) }}
         run: |
-          python3 scripts/schedule-report.py --repository "$GITHUB_REPOSITORY" \
+          python3 -m tools.qualification.reporting.schedule_report --repository "$GITHUB_REPOSITORY" \
             --run-id "$GITHUB_RUN_ID" --revision "$GITHUB_SHA" \
             --reports "$RUNNER_TEMP/qualification-reports"

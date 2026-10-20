@@ -15,8 +15,8 @@ Review upstream security patches before deployment; an end-of-life or provider-e
 does not receive additional project qualification. See the
 [Kubernetes compatibility and hardening matrix](docs/secure-deployment.md#kubernetes-compatibility-and-hardening).
 
-The first public 0.1.0 is in initial development. No public release exists;
-current metadata `0.1.0-dev.0` is prerelease. The `v1alpha1` APIs remain
+The 1.0.0 target remains in initial development. No public release exists;
+current metadata `1.0.0-rc.1` is prerelease. The `v1alpha1` APIs remain
 experimental. Reports against `main` are welcome; the published-release support
 policy above applies once a public release exists.
 
@@ -35,7 +35,7 @@ The tag ruleset protects `refs/tags/v*` against deletion and rewriting. Both
 exports are active and have empty bypass lists. Tag signature verification is
 performed by release eligibility, not by a tag-signature ruleset.
 
-`python3 scripts/check-rulesets.py` checks the exported contract and required gate
+`python3 -m tools.quality.check_rulesets` checks the exported contract and required gate
 name locally; the same check runs through the preflight unit tests. Changing the
 CI aggregate's name without changing the export fails. The weekly source job
 also runs `--live --allow-hidden-bypass` with its existing read-only GitHub token.
@@ -47,7 +47,7 @@ GitHub only returns `bypass_actors` to callers with write access to the ruleset;
 see the [rules API visibility contract](https://docs.github.com/en/rest/repos/rules#get-a-repository-ruleset).
 When GitHub hides this field, the weekly check emits an explicit **UNVERIFIED**
 warning for bypass lists. It does not interpret an omitted list as empty.
-A complete audit uses `python3 scripts/check-rulesets.py --live` from an account
+A complete audit uses `python3 -m tools.quality.check_rulesets --live` from an account
 that can view the bypass lists; this mode fails if they are hidden. The full
 comparison was performed when recording these exports. Automated bypass auditing
 requires separately provisioned visibility and is not established by the weekly
@@ -87,7 +87,7 @@ missing inventory or mismatched architecture/configuration identity fails closed
 
 The reviewed scanner is **Trivy 0.75.0**, acquired from its fixed
 [upstream release](https://github.com/aquasecurity/trivy/releases/tag/v0.75.0)
-with archive SHA256 values committed in [the installer](scripts/install-trivy.py)
+with archive SHA256 values committed in [the installer](tools/bootstrap/install_trivy.py)
 and a runtime version check. No scanner action/image uses `latest`. Scan failures,
 unavailable databases, malformed reports and missing architectures block delivery.
 A fresh database is downloaded once for both scans; its hash and metadata are
@@ -98,7 +98,7 @@ Database updates intentionally remain current, rather than frozen with the tool.
 [The versioned policy](security/oci-vulnerability-policy.json) blocks known
 **HIGH and CRITICAL vulnerabilities with an available fixed version**. It reports
 all severities and unfixed findings without filtering them out of the JSON.
-This 0.1.0 baseline makes actionable upgrades mandatory while retaining visibility
+This delivery baseline makes actionable upgrades mandatory while retaining visibility
 of issues without an upstream fix. Passing does not mean there are no unfixed,
 lower-severity, unknown or undiscovered vulnerabilities; maintainers must review
 those findings and can defer publication independently of the automated threshold.
@@ -139,7 +139,7 @@ After these gates, package promotion and GitHub draft creation are separate
 network operations, not an atomic transaction. A later publication failure may
 leave already verified OCI packages available. Before promotion, the workflow
 commits the complete verified delivery under a non-release
-`delivery-candidate-0.1.0` OCI reference. A retry resolves and restores that
+`delivery-candidate-1.0.0` OCI reference. A retry resolves and restores that
 checkpoint by digest, rescans its exact AMD64/ARM64 archive under the current
 policy, verifies the existing Sigstore signatures and recomputes Attest evidence.
 The original signed scan remains historical evidence; it cannot replace the

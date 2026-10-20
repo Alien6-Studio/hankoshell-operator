@@ -382,6 +382,16 @@ func normalizeObservedAttributes(attrs map[string]string, p Plan) {
 	if attrs["login_theme"] == "" {
 		delete(attrs, "login_theme")
 	}
+	// Legacy catalog integrations marked some clients as both applications and
+	// services. Keep the opposite true hint natively without interpreting it as
+	// protocol authority or repeatedly trying to remove it from Keycloak.
+	otherHint := "hanko.service"
+	if p.intent.Pattern == "m2m" {
+		otherHint = "hanko.app"
+	}
+	if _, declared := p.resolved.Attributes[otherHint]; !declared && attrs[otherHint] == "true" {
+		delete(attrs, otherHint)
+	}
 	for key, value := range map[string]string{"realm_client": "false", "backchannel.logout.session.required": "true", "backchannel.logout.revoke.offline.tokens": "false"} {
 		if _, managed := p.resolved.Attributes[key]; !managed && attrs[key] == value {
 			delete(attrs, key)

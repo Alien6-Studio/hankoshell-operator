@@ -23,7 +23,7 @@ image:
 
 imagePullSecrets: []
 
-# Administrator-owned public policy and publisher keys (ADR-047). An empty
+# Administrator-owned public policy and publisher keys (ADR-008). An empty
 # policy denies database snapshot Jobs, theme Jobs, managed Keycloak Deployment
 # updates and Hub self-updates. Database snapshots require database-backup
 # approval; operator updates require exact operator-update approval.
@@ -250,7 +250,7 @@ azureKeyVault:
 
 # Supervision summary attached to Hub heartbeats (#314). When enabled, the
 # operator also fetches the alert digest and audit chain head from the local
-# hankoShell API supervision endpoint and delivers ADR-021 credential-rotation audit
+# hankoShell API supervision endpoint and delivers ADR-004 credential-rotation audit
 # receipts; the static machine token lives in a Kubernetes Secret and must
 # match HANKO_SUPERVISION_TOKEN on hanko-api.
 # When disabled, only operator-native Keycloak instance health is reported and

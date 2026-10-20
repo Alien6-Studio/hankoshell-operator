@@ -3,8 +3,8 @@
 See the [accepted architecture decisions](decisions/README.md) for the underlying
 operator, provider and trust boundaries.
 
-This document defines Workload Identity for the first public `0.1.0`.
-The technical version remains `0.1.0-dev.0`, development. Kubernetes workload
+This document defines Workload Identity for the first public `1.0.0`.
+The technical version remains `1.0.0-rc.1`, development. Kubernetes workload
 trust ownership implements the shared native trust; Workload binding and mesh
 coherence adds UID validation and public metadata delivery. HankoServiceAccount
 federated authentication implements native activation and reviewed authentication
@@ -82,7 +82,7 @@ prevent acquisition or authentication changes.
 
 The supported targets are **26.7.5 and 26.8.0**. Qualification uses their pinned
 official images and real Kubernetes **1.35.0, 1.36.2 and 1.37.0**. Run
-`scripts/workload-identity-probe.py`; its uploaded JSON records bounded decisions,
+`tools/qualification/fixtures/workload_identity_probe.py`; its uploaded JSON records bounded decisions,
 counts and fixture versions. It runs the production trust/identity reconcilers
 against native Keycloak, reads actual cluster/workload UIDs, and separately tests
 actual kubelet projections. Hanko CR storage in that native fixture is ephemeral.
@@ -899,7 +899,7 @@ freshness/containment, runtime metadata consent and mesh coherence **before**
 federated activation. HankoServiceAccount federated authentication uses the binding API and adds native activation, durable credential/mode transitions and explicit fallback.
 [Installed-system and migration qualification #63](https://github.com/Alien6-Studio/hankoshell-operator/issues/63) proves
 the complete installed/migration system. Workload Identity remains open until
-all implementation and installed proofs pass; the roadmap retains every other work subject required for the first public 0.1.0.
+all implementation and installed proofs pass; the roadmap retains every other work subject required for the first public 1.0.0.
 
 Apply the binding schemas before upgraded controllers; old manifests retain Secret
 mode. Inventory/review existing opaque `kubernetes` brokers and generic federated
@@ -944,8 +944,8 @@ Use Docker, OpenSSL 3, Python 3.12+ and the pinned tools; each invocation owns a
 cleans two uniquely named kind clusters and its Keycloak containers/image:
 
 ```sh
-python3 -m pip install -r scripts/requirements.txt
-python3 scripts/install-system-tools.py /tmp/hankoshell-workload-tools
+python3 -m pip install -r tools/requirements.txt
+python3 -m tools.bootstrap.install_system_tools /tmp/hankoshell-workload-tools
 make workload-identity-probe KEYCLOAK_VERSION=26.7.5 KUBERNETES_VERSION=1.35.0 \
   KIND=/tmp/hankoshell-workload-tools/kind \
   KUBECTL=/tmp/hankoshell-workload-tools/kubectl OPENSSL=/usr/bin/openssl \
@@ -1148,5 +1148,5 @@ no atomic pre-authentication proof or zero-downtime guarantee. No TokenReview
 based authenticator, remote-cluster binding, SPIFFE, delegation/token exchange or
 Pod injection is implemented. Single-node/dev-file fixtures do not qualify cloud,
 CNI policy enforcement, production databases or disaster recovery. Version stays
-`0.1.0-dev.0`; #21 and the other functional roadmap subjects still block initial
+`1.0.0-rc.1`; #21 and the other functional roadmap subjects still block initial
 public release preparation.

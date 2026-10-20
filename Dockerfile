@@ -8,7 +8,7 @@ COPY cmd ./cmd
 COPY internal ./internal
 ARG TARGETOS
 ARG TARGETARCH
-ARG VERSION=0.1.0-dev.0
+ARG VERSION=1.0.0-rc.1
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build -trimpath \
     -ldflags "-X github.com/Alien6-Studio/hankoshell-operator/internal/version.Agent=${VERSION}" \
     -o /hankoshell-operator ./cmd/operator
@@ -21,8 +21,8 @@ WORKDIR /cosign-source
 # Public module downloads retain checksum-database verification. Recompile the
 # reviewed release with the supported Go runtime and patched verification SDKs.
 # Keep the same reviewed modules as the native verifier.
-COPY scripts/cosign-pins.sh /cosign-pins.sh
-RUN . /cosign-pins.sh \
+COPY tools/bootstrap/cosign_pins.sh /cosign_pins.sh
+RUN . /cosign_pins.sh \
     && go mod init hankoshell.local/cosign-build \
     && go get "github.com/sigstore/cosign/v3/cmd/cosign@$COSIGN_VERSION" \
     && go get $COSIGN_DEPENDENCIES \

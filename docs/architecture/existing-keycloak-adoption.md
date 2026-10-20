@@ -7,7 +7,7 @@ Accepted direction for [RFC #46](https://github.com/Alien6-Studio/hankoshell-ope
 completing **Adopt Existing Keycloak**.
 The source tree implements bounded discovery/diff, explicit reviewed ownership
 acquisition, Organization and ResourceServer checkpoints, and a separate qualified
-transition to Manage. Current source/chart metadata is `0.1.0-dev.0`; source freeze
+transition to Manage. Current source/chart metadata is `1.0.0-rc.1`; source freeze
 requires protected merge and exact-main qualification. The 16 v1alpha1 CRDs remain
 experimental; source completion does not publish production packages.
 
@@ -169,7 +169,7 @@ candidate. Changing either setting invalidates approval; set ordering does not.
 
 ### Administrator workflow
 
-For an installation with many existing declarations, `scripts/claim_existing.py`
+For an installation with many existing declarations, `tools/operations/claim_existing.py`
 groups consent into a private, hash-bound batch. It uses the same controller
 transaction; there is no additional CRD or privileged provider bypass.
 Select exact targets in a mode-0600 JSON array:
@@ -181,9 +181,9 @@ Select exact targets in a mode-0600 JSON array:
 After selecting an inventory source and refreshing Observe candidates, run:
 
 ```sh
-python3 scripts/claim_existing.py --context CONTEXT plan --namespace auth \
+python3 -m tools.operations.claim_existing --context CONTEXT plan --namespace auth \
   --source inventory --targets targets.json --output claim.json
-python3 scripts/claim_existing.py --context CONTEXT apply \
+python3 -m tools.operations.claim_existing --context CONTEXT apply \
   --plan claim.json --approve PRINTED-APPROVAL-HASH
 ```
 
@@ -829,5 +829,5 @@ implementations. The accepted RFC and discovery/diff are #46/#47; leaf acquisiti
 The completed adoption contract is qualified through #49. The next work subject is
 **Workload Identity**. Workload Identity, Delegation & Agent Identity, Provider
 Portability, Fleet Reconciliation and Initial Public Contract Stabilization are
-required before the first public 0.1.0. Transversal first-publication trust/readiness
+required before the first public 1.0.0. Transversal first-publication trust/readiness
 remains open in #21.

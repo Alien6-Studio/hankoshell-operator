@@ -2,13 +2,13 @@
 
 Helm chart for declarative Keycloak IAM configuration with hankoShell Operator.
 `reconciliation.maxConcurrent` defaults to 1 and accepts integers 1–8 for the four
-reviewed IAM controllers. See the [concurrency review and scale qualification](../../docs/scale-and-soak.md)
+reviewed IAM controllers. See the [concurrency review and scale qualification](../../docs/qualification.md)
 before increasing it; this setting is not a measured capacity recommendation.
 `reconciliation.maxConcurrentByKind` optionally supplies 1–8 workers for
 `Application`, `Role`, `Organization` or `ResourceServer`; other kinds inherit
 the global value. Every controller still shares its connection's provider budget.
-Target 0.1.0 is in initial development; current chart/app metadata is the
-prerelease `0.1.0-dev.0`. No public release has been published yet.
+Target 1.0.0 remains in initial development; current chart/app metadata is the
+prerelease `1.0.0-rc.1`. No public release has been published yet.
 The source includes the [OIDC/SAML application contract](../../docs/architecture/application-identity.md),
 including explicit migration approval for existing unmarked clients and
 [UID-bound runtime bindings](../../docs/architecture/application-identity.md#runtime-bindings).
@@ -98,7 +98,7 @@ dedicated role writer where possible; see the
 Organization principals require explicitly
 provisioned target `view-users` in addition to `manage-clients`; that read role
 also exposes realm users. No chart flag grants this authority. See the
-[organization-grant contract](../../docs/keycloak-permissions.md#organization-principals-010)
+[organization-grant contract](../../docs/keycloak-permissions.md#organization-principals)
 for direct/descendant semantics, ownership, bounds and the reconciliation window.
 
 Real HTTPS Admin API v1 qualification covers only the exact Keycloak versions in the generated support table below.
@@ -196,10 +196,9 @@ Prometheus namespace AND pod labels still constrain ingress on TCP/8080.
 The Pod readiness probe excludes the leader check so healthy standbys remain Ready;
 the full `/readyz` endpoint reports reconciliation readiness.
 
-Operational procedures: [runbooks](../../docs/operations-runbooks.md), [secure observability](../../docs/operational-observability.md) and the [machine contract](../../docs/operational-contract.json).
-
-See the observability guide for complete values, trust rotation, migration,
-label bounds, alerts, dashboard and qualification limits.
+See the [operational runbooks](../../docs/operations-runbooks.md) and
+[secure metrics configuration](../../docs/operations-runbooks.md#secure-metrics)
+for Secrets, trust rotation, alerts and the dashboard.
 
 For Keycloak in another namespace, set `networkPolicy.keycloakNamespace`,
 `keycloakSelector` and `keycloakPorts` to its actual pod labels and Service/target
@@ -295,7 +294,7 @@ M2M clients require reviewed acquisition. Leaf and
 [aggregate checkpoints](../../docs/architecture/existing-keycloak-adoption.md#implemented-aggregate-acquisition-and-native-preservation-49)
 remain Observe until an administrator explicitly requests Manage and removes the
 imported latch. Exact current ownership and qualified native preservation are
-required; foreign dependencies hold cleanup. Chart/app source metadata is 0.1.0-dev.0;
+required; foreign dependencies hold cleanup. Chart/app source metadata is 1.0.0-rc.1;
 source freeze requires exact-main qualification. Production publication remains
 pending in #21.
 
@@ -305,7 +304,7 @@ See the [complete candidate review](../../docs/public-contract-selection.md).
 
 <!-- public-selection:start -->
 
-Initial 0.1.0 selection: 3 public resource candidates; qualification and first publication remain pending. Current development APIs remain experimental.
+Initial 1.0.0 selection: 3 public resource candidates; qualification and first publication remain pending. Current development APIs remain experimental.
 
 | Resource | Selected scope | Public spec groups |
 | --- | --- | --- |
@@ -355,7 +354,7 @@ unqualified. Disabling it retains existing cleanup finalizers and refuses writes
 The [1.0 graduation criteria and per-resource records](../../docs/stable-graduation.md)
 and [second-provider contract review](../../docs/stable-provider-review.md) remain
 unratified development inputs. Lifecycle APIs are excluded from the stable 1.0
-contract and disabled by default; see [ADR-050](../../docs/architecture/decisions/ADR-050-experimental-lifecycle-authority.md).
+contract and disabled by default; see [ADR-011](../../docs/architecture/decisions/ADR-011-experimental-lifecycle-authority.md).
 
 Qualification window: [support policy](../../docs/support-window.md), [compatibility proposal](../../docs/compatibility-policy.md).
 

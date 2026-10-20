@@ -1,6 +1,6 @@
 # Initial public IAM contract selection
 
-This review selects the **candidate** 0.1.0 contract for #81, its frozen semantics
+This review selects the **candidate** 1.0.0 contract for #81, its frozen semantics
 in #82 and its reusable fixtures in #84. It does not announce a public release.
 Activation requires #86 qualification and the separately authorized #21 delivery.
 The current development API remains experimental. The 1.0 selection and graduation
@@ -8,7 +8,7 @@ review in #89/#90 may expand this initial surface after evidence is available.
 
 <!-- public-selection:start -->
 
-Initial 0.1.0 selection: 3 public resource candidates; qualification and first publication remain pending. Current development APIs remain experimental.
+Initial 1.0.0 selection: 3 public resource candidates; qualification and first publication remain pending. Current development APIs remain experimental.
 
 | Resource | Selected scope | Public spec groups |
 | --- | --- | --- |
@@ -38,7 +38,7 @@ the complete selection; no planned capability is removed.
 
 ## Complete field review
 
-[public-contract-selection.json](public-contract-selection.json) assigns public,
+[public-contract-selection.json](../tools/qualification/config/contracts/public-contract-selection.json) assigns public,
 alpha or experimental status to every one of the 353 top-level spec/status field
 groups in all 17 resources. A group includes its nested fields except the explicit
 `nestedExclusions`. Every row has a rationale and repository evidence. The
@@ -86,7 +86,7 @@ The unfinished #69–#71 prerequisites remain explicit: bounded delegation has
 native counterexamples. #72–#75 now qualify an experimental second adapter and
 the shared installed corpus; a second production adapter has not been delivered. They are deferred from this initial public selection, not removed
 from the roadmap or considered complete. No planned 1.0 capability is dropped to
-publish 0.1.0. Promoting one requires its own qualified implementation, selection
+publish 1.0.0. Promoting one requires its own qualified implementation, selection
 update, fixtures and migration review.
 
 ## Compatibility and rollback

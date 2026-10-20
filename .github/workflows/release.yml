@@ -28,7 +28,7 @@ jobs:
           REF: ${{ github.ref }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python3 scripts/release-eligibility.py
+          python3 -m tools.release.release_eligibility
   quality:
     needs: eligibility
     permissions:
@@ -57,7 +57,7 @@ jobs:
           TAG: ${{ inputs.tag }}
           REF: ${{ github.ref }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 scripts/release-eligibility.py
+        run: python3 -m tools.release.release_eligibility
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
@@ -66,9 +66,9 @@ jobs:
           python-version: '3.12'
       - name: Install metadata dependencies and pinned OCI publisher
         run: |
-          python3 -m pip install -r scripts/requirements.txt
-          GOBIN="$RUNNER_TEMP/hankoshell-release-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"
-          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+          python3 -m pip install -r tools/requirements.txt
+          GOBIN="$RUNNER_TEMP/hankoshell-release-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
+          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
@@ -84,11 +84,11 @@ jobs:
           HANKOSHELL_ATTEST_TSA_CERTIFICATE: ${{ vars.HANKOSHELL_ATTEST_TSA_CERTIFICATE }}
           HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID: ${{ vars.HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID }}
         run: |
-          bash scripts/install-attest.sh "$RUNNER_TEMP/hankoshell-attest/attest"
-          python3 scripts/attest-release.py --check-config --attest "$RUNNER_TEMP/hankoshell-attest/attest"
-          python3 scripts/release-metadata.py --check-config
-          version="$(python3 scripts/release-version.py "$TAG")"
-          python3 scripts/release-contract.py check --version "$version"
+          bash tools/bootstrap/install_attest.sh "$RUNNER_TEMP/hankoshell-attest/attest"
+          python3 -m tools.release.attest_release --check-config --attest "$RUNNER_TEMP/hankoshell-attest/attest"
+          python3 -m tools.release.release_metadata --check-config
+          version="$(python3 -m tools.release.release_version "$TAG")"
+          python3 -m tools.qualification.checks.release_contract check --version "$version"
           echo "VERSION=$version" >> "$GITHUB_ENV"
           echo 'IMAGE=ghcr.io/alien6-studio/hankoshell-operator' >> "$GITHUB_ENV"
       - name: Download the immutable scanned OCI artifact
@@ -102,7 +102,7 @@ jobs:
         env:
           CANDIDATE_DIGEST: ${{ needs.quality.outputs.release_candidate }}
         run: |
-          python3 scripts/release-publish.py restore --root "$RUNNER_TEMP/hankoshell-delivery" \
+          python3 -m tools.release.release_publish restore --root "$RUNNER_TEMP/hankoshell-delivery" \
             --candidate-digest "$CANDIDATE_DIGEST" \
             --version "$VERSION" --revision "$GITHUB_SHA" \
             --oras "$RUNNER_TEMP/hankoshell-release-tools/oras" --helm /tmp/linux-amd64/helm
@@ -122,7 +122,7 @@ jobs:
       - name: Verify scan binding and upload a non-release staging reference
         if: steps.checkpoint.outputs.restored != 'true'
         run: |
-          python3 scripts/oci-security.py verify --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
+          python3 -m tools.release.oci_security verify --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
             --output "$RUNNER_TEMP/hankoshell-scanned-oci/evidence" \
             --digest "$DIGEST" --revision "$GITHUB_SHA" --version "$VERSION"
           "$RUNNER_TEMP/hankoshell-release-tools/oras" cp --from-oci-layout \
@@ -137,12 +137,12 @@ jobs:
           HANKOSHELL_ATTEST_PUBLIC_KEY: ${{ vars.HANKOSHELL_ATTEST_PUBLIC_KEY }}
           HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID: ${{ vars.HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID }}
         run: |
-          bash scripts/install-cosign.sh /tmp/cosign
+          bash tools/bootstrap/install_cosign.sh /tmp/cosign
           /tmp/cosign sign --yes -a "hanko.git.revision=$GITHUB_SHA" "$IMAGE@$DIGEST"
           /tmp/cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             --certificate-identity "https://github.com/$GITHUB_WORKFLOW_REF" \
             -a "hanko.git.revision=$GITHUB_SHA" "$IMAGE@$DIGEST"
-          python3 scripts/release-contract.py prepare --version "$VERSION" --image "$IMAGE@$DIGEST" \
+          python3 -m tools.qualification.checks.release_contract prepare --version "$VERSION" --image "$IMAGE@$DIGEST" \
             --revision "$GITHUB_SHA" --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
             --evidence "$RUNNER_TEMP/hankoshell-scanned-oci/evidence" \
             --chart-output "$RUNNER_TEMP/hankoshell-release-chart/hankoshell-operator" --dist "$RUNNER_TEMP/hankoshell-delivery/dist" \
@@ -160,8 +160,8 @@ jobs:
           HANKOSHELL_ATTEST_TSA_URL: ${{ vars.HANKOSHELL_ATTEST_TSA_URL }}
           HANKOSHELL_ATTEST_TSA_CERTIFICATE: ${{ vars.HANKOSHELL_ATTEST_TSA_CERTIFICATE }}
         run: |
-          bash scripts/install-attest.sh "$RUNNER_TEMP/hankoshell-attest/attest"
-          python3 scripts/attest-release.py --attest "$RUNNER_TEMP/hankoshell-attest/attest" \
+          bash tools/bootstrap/install_attest.sh "$RUNNER_TEMP/hankoshell-attest/attest"
+          python3 -m tools.release.attest_release --attest "$RUNNER_TEMP/hankoshell-attest/attest" \
             --dist "$RUNNER_TEMP/hankoshell-delivery/dist" --workspace "$RUNNER_TEMP/hankoshell-attest-delivery" \
             --output "$RUNNER_TEMP/hankoshell-delivery/release-evidence" --revision "$GITHUB_SHA" --version "$VERSION" \
             --image "$IMAGE@$DIGEST" \
@@ -172,7 +172,7 @@ jobs:
       - name: Prepare the local checkpoint manifest
         if: steps.checkpoint.outputs.restored != 'true'
         run: |
-          python3 scripts/release-publish.py manifest --root "$RUNNER_TEMP/hankoshell-delivery" \
+          python3 -m tools.release.release_publish manifest --root "$RUNNER_TEMP/hankoshell-delivery" \
             --image "$IMAGE@$DIGEST" --version "$VERSION" --revision "$GITHUB_SHA" \
             --oras "$RUNNER_TEMP/hankoshell-release-tools/oras" --helm /tmp/linux-amd64/helm
       - name: Revalidate the committed image and delivery on every attempt
@@ -181,10 +181,10 @@ jobs:
           HANKOSHELL_ATTEST_PUBLIC_KEY: ${{ vars.HANKOSHELL_ATTEST_PUBLIC_KEY }}
           HANKOSHELL_ATTEST_TSA_CERTIFICATE: ${{ vars.HANKOSHELL_ATTEST_TSA_CERTIFICATE }}
         run: |
-          bash scripts/install-cosign.sh /tmp/cosign
-          bash scripts/install-attest.sh "$RUNNER_TEMP/hankoshell-attest/attest"
-          python3 scripts/install-trivy.py "$RUNNER_TEMP/trivy"
-          python3 scripts/oci-security.py scan --archive "$RUNNER_TEMP/hankoshell-delivery/image.tar" \
+          bash tools/bootstrap/install_cosign.sh /tmp/cosign
+          bash tools/bootstrap/install_attest.sh "$RUNNER_TEMP/hankoshell-attest/attest"
+          python3 -m tools.bootstrap.install_trivy "$RUNNER_TEMP/trivy"
+          python3 -m tools.release.oci_security scan --archive "$RUNNER_TEMP/hankoshell-delivery/image.tar" \
             --output "$RUNNER_TEMP/fresh-scan" --scanner "$RUNNER_TEMP/trivy" \
             --digest "$DIGEST" --revision "$GITHUB_SHA" --version "$VERSION"
           /tmp/cosign verify --certificate-oidc-issuer https://token.actions.githubusercontent.com \
@@ -194,7 +194,7 @@ jobs:
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             --certificate-identity "https://github.com/$GITHUB_WORKFLOW_REF" \
             "$RUNNER_TEMP/hankoshell-delivery/dist/checksums.txt"
-          python3 scripts/release-publish.py verify-attest --root "$RUNNER_TEMP/hankoshell-delivery" \
+          python3 -m tools.release.release_publish verify-attest --root "$RUNNER_TEMP/hankoshell-delivery" \
             --version "$VERSION" --revision "$GITHUB_SHA" --attest "$RUNNER_TEMP/hankoshell-attest/attest" \
             --oras "$RUNNER_TEMP/hankoshell-release-tools/oras" --helm /tmp/linux-amd64/helm
       - name: Preserve current-attempt image revalidation evidence
@@ -207,7 +207,7 @@ jobs:
           retention-days: 30
       - name: Commit the verified delivery before promotion
         run: |
-          python3 scripts/release-publish.py save --root "$RUNNER_TEMP/hankoshell-delivery" \
+          python3 -m tools.release.release_publish save --root "$RUNNER_TEMP/hankoshell-delivery" \
             --image "$IMAGE@$DIGEST" --version "$VERSION" --revision "$GITHUB_SHA" \
             --oras "$RUNNER_TEMP/hankoshell-release-tools/oras" --helm /tmp/linux-amd64/helm
       - name: Resume publication without replacing existing content
@@ -215,6 +215,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           printf '%s' "$GH_TOKEN" | /tmp/linux-amd64/helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-          python3 scripts/release-publish.py promote --root "$RUNNER_TEMP/hankoshell-delivery" \
+          python3 -m tools.release.release_publish promote --root "$RUNNER_TEMP/hankoshell-delivery" \
             --version "$VERSION" --revision "$GITHUB_SHA" \
             --oras "$RUNNER_TEMP/hankoshell-release-tools/oras" --helm /tmp/linux-amd64/helm

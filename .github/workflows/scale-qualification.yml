@@ -29,11 +29,11 @@ jobs:
           python-version: '3.12'
       - name: Check source and chart before starting disposable clusters
         run: |
-          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
-          python3 -m pip install -r scripts/requirements.txt
+          python3 -m pip install -r tools/requirements.txt
           make install-preflight-tools
-          make preflight chart-test
+          make preflight chart-check
   oci:
     needs: preflight
     permissions:
@@ -68,10 +68,10 @@ jobs:
           merge-multiple: true
       - name: Install checksum-pinned fixture tools
         run: |
-          python3 -m pip install -r scripts/requirements.txt
-          python3 scripts/install-system-tools.py "$RUNNER_TEMP/scale-tools"
-          python3 scripts/install-helm.py /tmp/linux-amd64/helm
-          GOBIN="$RUNNER_TEMP/scale-tools" go install "oras.land/oras/cmd/oras@$(python3 scripts/versions.py get tools oras)"
+          python3 -m pip install -r tools/requirements.txt
+          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/scale-tools"
+          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
+          GOBIN="$RUNNER_TEMP/scale-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
       - name: Run measured scale, overload recovery and leader removal
         env:
           SCALE_PROFILE: ${{ inputs.profile }}
@@ -79,7 +79,7 @@ jobs:
           KEYCLOAK_VERSION: ${{ matrix.keycloak }}
           KUBERNETES_VERSION: ${{ matrix.kubernetes }}
         run: |
-          python3 scripts/scale-installed-test.py --profile "$SCALE_PROFILE" --workers 4 \
+          python3 -m tools.qualification.scenarios.scale_installed_test --profile "$SCALE_PROFILE" --workers 4 \
             --archive "$RUNNER_TEMP/scale-oci/image.tar" --evidence "$RUNNER_TEMP/scale-oci/evidence" \
             --digest "$OCI_DIGEST" --revision "$GITHUB_SHA" --output "$RUNNER_TEMP/scale-report" \
             --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
@@ -92,7 +92,7 @@ jobs:
           KEYCLOAK_VERSION: ${{ matrix.keycloak }}
           KUBERNETES_VERSION: ${{ matrix.kubernetes }}
         run: |
-          python3 scripts/recovery-installed-test.py \
+          python3 -m tools.qualification.scenarios.recovery_installed_test \
             --archive "$RUNNER_TEMP/scale-oci/image.tar" --evidence "$RUNNER_TEMP/scale-oci/evidence" \
             --digest "$OCI_DIGEST" --revision "$GITHUB_SHA" --output "$RUNNER_TEMP/recovery-report" \
             --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
@@ -105,7 +105,7 @@ jobs:
           KEYCLOAK_VERSION: ${{ matrix.keycloak }}
           KUBERNETES_VERSION: ${{ matrix.kubernetes }}
         run: |
-          python3 scripts/transactions-installed-test.py \
+          python3 -m tools.qualification.scenarios.transactions_installed_test \
             --archive "$RUNNER_TEMP/scale-oci/image.tar" --evidence "$RUNNER_TEMP/scale-oci/evidence" \
             --digest "$OCI_DIGEST" --revision "$GITHUB_SHA" --output "$RUNNER_TEMP/transactions-report.json" \
             --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \

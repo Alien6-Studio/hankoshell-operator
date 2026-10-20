@@ -4,11 +4,11 @@ Application, Role and ResourceServer serve v1alpha1 and v1beta1 with identical
 schemas. Alpha remains the controller hub and installation default. Migration
 changes Kubernetes encoding only; it does not call Keycloak, rotate credentials,
 change ownership or graduate an API. Public cross-release compatibility remains
-unqualified. See the [conversion decision](api-conversion.json).
+unqualified. See the [conversion decision](../tools/qualification/config/contracts/api-conversion.json).
 
 ## Prerequisites
 
-Use the exact reviewed source, Python 3.12+, `pip install -r scripts/requirements.txt`
+Use the exact reviewed source, Python 3.12+, `pip install -r tools/requirements.txt`
 and kubectl with an administrator context for the target cluster. The command
 accepts the exact Kubernetes pins in versions.json. The native
 [StorageVersionMigration API](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/storage-version-migration/)
@@ -49,7 +49,7 @@ prepare a dedicated journal namespace:
 
 ```sh
 kubectl create namespace hanko-migrations
-python3 scripts/storage_migration.py plan --target v1beta1 \
+python3 -m tools.operations.storage_migration plan --target v1beta1 \
   --namespace hanko-migrations --plan /private/path/to-beta.json
 ```
 
@@ -60,9 +60,9 @@ Review that inventory and retain the printed hash as `$approved_plan_sha256`.
 No spec, status, credential, provider ID or payload hash is persisted in it.
 
 ```sh
-python3 scripts/storage_migration.py run --plan /private/path/to-beta.json \
+python3 -m tools.operations.storage_migration run --plan /private/path/to-beta.json \
   --approve "$approved_plan_sha256" --timeout 1800
-python3 scripts/storage_migration.py status --plan /private/path/to-beta.json \
+python3 -m tools.operations.storage_migration status --plan /private/path/to-beta.json \
   --approve "$approved_plan_sha256"
 ```
 
@@ -104,9 +104,9 @@ interrupted storedVersions commit use the same resume command; do not infer
 which CRD completed from the process exit alone:
 
 ```sh
-python3 scripts/storage_migration.py status --plan /private/path/to-beta.json \
+python3 -m tools.operations.storage_migration status --plan /private/path/to-beta.json \
   --approve "$approved_plan_sha256"
-python3 scripts/storage_migration.py run --plan /private/path/to-beta.json \
+python3 -m tools.operations.storage_migration run --plan /private/path/to-beta.json \
   --approve "$approved_plan_sha256" --timeout 1800
 ```
 
@@ -134,8 +134,8 @@ reader, incompatible schemas/subresources/selectors, and identity/conversion
 changes. Rendering preserves the live storage flag and never emits server status:
 
 ```sh
-python3 scripts/storage_migration.py check-crds --crds "$reviewed_chart/crds"
-python3 scripts/storage_migration.py render-crds --crds "$reviewed_chart/crds" \
+python3 -m tools.operations.storage_migration check-crds --crds "$reviewed_chart/crds"
+python3 -m tools.operations.storage_migration render-crds --crds "$reviewed_chart/crds" \
   > /private/path/reviewed-crds.yaml
 # Inspect the rendered file, then apply through your normal CRD ownership process.
 kubectl apply --server-side -f /private/path/reviewed-crds.yaml
@@ -151,8 +151,7 @@ do not acquire the new guard: always run the explicit preflight before rollback.
 ## Local qualification
 
 ```sh
-python3 -m unittest discover -s scripts -p 'test_*migration*.py'
-python3 scripts/storage-migration-installed-test.py \
+python3 -m tools.qualification.scenarios.storage_migration_installed_test \
   --kind /path/to/kind --kubectl /path/to/kubectl \
   --helm /path/to/helm \
   --kubernetes-version 1.37.0 --output /private/path/fresh-migration-test
@@ -180,3 +179,10 @@ For Kubernetes 1.36.2, additionally pass `--node-archive` with the official Linu
 server archive for the Docker architecture. The fixture verifies the reviewed
 SHA256 in versions.json before building a temporary node with the pinned base;
 it never substitutes a different patch version and removes that temporary image.
+
+Executable qualification fixture: [tools/qualification/scenarios/storage_migration_installed_test.py](../tools/qualification/scenarios/storage_migration_installed_test.py).
+
+The `make qualify PROFILE=storage` entry point was requalified after the tooling
+move: [Kubernetes 1.35.0 report](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/storage/2026-10-20/tooling-layout-kubernetes-1.35.0.json).
+All 16 native migrations passed, including real conflicts and process interruptions
+in both directions; the disposable cluster was removed.

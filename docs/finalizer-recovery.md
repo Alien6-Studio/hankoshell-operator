@@ -1,6 +1,6 @@
 # Audited finalizer release
 
-The administrator boundary is recorded in [ADR-051](architecture/decisions/ADR-051-audited-finalizer-release.md).
+The administrator boundary is recorded in [ADR-012](architecture/decisions/ADR-012-audited-finalizer-release.md).
 
 Use normal reconciliation first. This exceptional administrator command releases
 one selected finalizer from an already terminating Hanko object. Two distinct
@@ -11,14 +11,14 @@ owned children after the finalizer is removed. Review these effects before appro
 
 Supported kinds are Application, Realm, Role, Organization, ServiceAccount,
 WorkloadTrust, Theme and ResourceServer. The exact ten finalizer strings are
-allowlisted in `scripts/finalizer_recovery.py`; an annotation with a similar name
+allowlisted in `tools/operations/finalizer_recovery.py`; an annotation with a similar name
 is not a finalizer. Each plan selects one string and preserves every other entry.
 Instance, Tenant, Operation and Snapshot have no release profile in this tool.
 
 ## Install administrator authority
 
 Use the reviewed repository checkout and Python dependencies from
-`scripts/requirements.txt`. A cluster administrator installs the following
+`tools/requirements.txt`. A cluster administrator installs the following
 manifests independently of Helm. The operator receives no recovery permissions.
 Map two human identities through your identity provider to the exact groups
 `hanko:recovery-executors` and `hanko:recovery-approvers`. Service accounts and
@@ -73,10 +73,10 @@ For a terminating role, the requester runs:
 
 ```sh
 umask 077
-python3 scripts/finalizer-recovery.py --context "$executor_context" plan \
+python3 -m tools.operations.finalizer_release --context "$executor_context" plan \
   --kind HankoRole --namespace "$target_namespace" --name "$target_name" \
   --finalizer hanko.sh/role-cleanup --output "$private_plan"
-python3 scripts/finalizer-recovery.py --context "$executor_context" request --plan "$private_plan"
+python3 -m tools.operations.finalizer_release --context "$executor_context" request --plan "$private_plan"
 ```
 
 The plan file is exclusively created with mode 0600. It contains private object
@@ -89,14 +89,14 @@ Transfer this private file through an approved channel to the independent
 approver, who reviews the target and external effects before executing:
 
 ```sh
-python3 scripts/finalizer-recovery.py --context "$approver_context" approve --plan "$private_plan" \
+python3 -m tools.operations.finalizer_release --context "$approver_context" approve --plan "$private_plan" \
   --accept-orphaned-provider-state-and-garbage-collection
 ```
 
 The original requester then executes:
 
 ```sh
-python3 scripts/finalizer-recovery.py --context "$executor_context" execute --plan "$private_plan" \
+python3 -m tools.operations.finalizer_release --context "$executor_context" execute --plan "$private_plan" \
   --accept-orphaned-provider-state-and-garbage-collection
 ```
 
@@ -118,7 +118,7 @@ automatically retries a write. After an intent exists, `execute` refuses another
 target patch; use the original plan for a read-only target observation:
 
 ```sh
-python3 scripts/finalizer-recovery.py --context "$executor_context" observe --plan "$private_plan"
+python3 -m tools.operations.finalizer_release --context "$executor_context" observe --plan "$private_plan"
 ```
 
 Observation can run after expiration. It writes an immutable receipt saying
@@ -139,16 +139,11 @@ count and GitOps control; this tool does not choose that count or restart worklo
 
 ## Executable qualification
 
-`scripts/test_finalizer_recovery.py` injects stale UIDs/versions/generations,
-changed finalizers, expired approvals, active operators, changed guards, failed
-audit writes, CAS races and lost acknowledgements. It verifies no target replay,
-foreign-finalizer preservation, bounded parsing and private exclusive files.
-
 `api/v1alpha1/finalizer_recovery_integration_test.go` installs the exact three
 manifests, authenticates distinct executor/approver identities, checks admission
 denials for forged actors/self-approval/service accounts/mutable or extra data,
 and denies audit rewriting/deletion. It invokes
-`scripts/finalizer-recovery-fixture.py` against a real disposable API server,
+`tools/qualification/fixtures/finalizer_recovery_fixture.py` against a real disposable API server,
 using the actual CLI and kubectl transport on the mandatory Kubernetes matrix:
 
 ```sh
@@ -161,3 +156,5 @@ The fixture releases a terminating Role while preserving a foreign finalizer;
 it does not run provider cleanup, node garbage collection, an external audit
 recorder, a public release upgrade or a connected production recovery scenario.
 Those limits remain **UNQUALIFIED** in the operational contract.
+
+Executable source: [tools/operations/finalizer_release.py](../tools/operations/finalizer_release.py).

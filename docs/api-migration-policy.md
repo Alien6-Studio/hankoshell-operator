@@ -15,7 +15,7 @@ serve **v1alpha1 and v1beta1**; the other 14 serve only v1alpha1. The default hu
 and storage version remain v1alpha1 for every CRD. This technical beta candidate
 does not ratify the stable resource contract or change release metadata.
 
-The [conversion decision](api-conversion.json) requires identical complete
+The [conversion decision](../tools/qualification/config/contracts/api-conversion.json) requires identical complete
 structural schemas, defaults, validation, list topology, subresources and
 selectors in both versions. Kubernetes conversion `None` changes only the root
 apiVersion. The beta Go package uses the alpha Spec/Status types and explicit,

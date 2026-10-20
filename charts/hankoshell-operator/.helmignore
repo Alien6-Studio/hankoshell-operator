@@ -1,0 +1,5 @@
+# Keep development programs outside the distributable chart.
+tests/
+*.py
+*.pyc
+__pycache__/

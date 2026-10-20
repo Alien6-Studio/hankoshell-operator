@@ -1,6 +1,6 @@
 # Signed fleet desired state
 
-This is the operator-side contract for #76–#80 and ADR-049. It does not implement
+This is the operator-side contract for #76–#80 and ADR-010. It does not implement
 Hub signing/distribution or qualify enterprise fleet operation. Keycloak retains
 all native extensions. #75 remains the provider-portability evidence boundary;
 this protocol binds a contract/source identity without inventing second-provider
@@ -353,7 +353,7 @@ enforcement follows from this contract.
 
 ## Installed Fleet qualification (#80)
 
-The installed harness is [scripts/fleet-installed-test.py](../../scripts/fleet-installed-test.py).
+The installed harness is [tools/qualification/scenarios/fleet_installed_test.py](../../tools/qualification/scenarios/fleet_installed_test.py).
 The mandatory CI job `installed-fleet` consumes the immutable scanned OCI artifact
 from the same workflow, checks its exact revision/index/archive/evidence, then
 installs the chart in a uniquely owned disposable cluster. All six combinations
@@ -437,9 +437,9 @@ only the public evidence allowlist; they are nonpublishable qualification inputs
 
 | Kubernetes | Keycloak 26.7.5 | Keycloak 26.8.0 |
 | --- | --- | --- |
-| 1.35.0 | [69/69](../qualification/fleet/2026-10-15/kubernetes-1.35.0-keycloak-26.7.5.json) | [69/69](../qualification/fleet/2026-10-15/kubernetes-1.35.0-keycloak-26.8.0.json) |
-| 1.36.2 | [69/69](../qualification/fleet/2026-10-15/kubernetes-1.36.2-keycloak-26.7.5.json) | [69/69](../qualification/fleet/2026-10-15/kubernetes-1.36.2-keycloak-26.8.0.json) |
-| 1.37.0 | [69/69](../qualification/fleet/2026-10-15/kubernetes-1.37.0-keycloak-26.7.5.json) | [69/69](../qualification/fleet/2026-10-15/kubernetes-1.37.0-keycloak-26.8.0.json) |
+| 1.35.0 | [69/69](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/fleet/2026-10-15/kubernetes-1.35.0-keycloak-26.7.5.json) | [69/69](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/fleet/2026-10-15/kubernetes-1.35.0-keycloak-26.8.0.json) |
+| 1.36.2 | [69/69](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/fleet/2026-10-15/kubernetes-1.36.2-keycloak-26.7.5.json) | [69/69](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/fleet/2026-10-15/kubernetes-1.36.2-keycloak-26.8.0.json) |
+| 1.37.0 | [69/69](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/fleet/2026-10-15/kubernetes-1.37.0-keycloak-26.7.5.json) | [69/69](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/fleet/2026-10-15/kubernetes-1.37.0-keycloak-26.8.0.json) |
 
 - Image source: `248395147d5170d28ac12aca486c48b00ad3d7ba`.
 - Exact OCI index: `sha256:72ae648871a524c36fd2642b3fff808f4f7f2ed7faf69a04097495f218ee9e61`.
@@ -459,8 +459,7 @@ only the public evidence allowlist; they are nonpublishable qualification inputs
 These results qualify this local image/harness cut. Full CI on the final pushed
 revision remains required before merge, including its Linux amd64 installed cells
 and every existing source, CodeQL, OCI, workload, system and rehearsal gate.
-The preceding complete CI run
-[38796511058](https://github.com/Alien6-Studio/hankoshell-operator/actions/runs/38796511058)
-passed on `a6cd98d111b4bf5f672b305fef215cb8c3ab8235`.
+Final candidate qualification is tracked in
+[#106](https://github.com/Alien6-Studio/hankoshell-operator/issues/106).
 No production trust, enterprise topology, network enforcement or release is
 qualified by these disposable local cells.

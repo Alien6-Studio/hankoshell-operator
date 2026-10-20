@@ -1,8 +1,72 @@
 # Changelog
 
-## 0.1.0 — In development
+## 1.0.0-rc.1
 
 <!-- release-notes:start -->
+### Release overview
+
+hankoShell Operator 1.0.0-rc.1 is the first release candidate for 1.0.0.
+It reconciles application identity and access from Kubernetes into Keycloak.
+
+### Included in RC1
+
+- Realms, shared authentication policies and upstream identity providers.
+- OIDC SPA, web and machine clients, plus a bounded SAML subset.
+- Roles, composites, API permissions and organization grants with provenance.
+- Credential rotation, workload federation and authorized runtime identity delivery.
+- Bounded delegation and agent identity through the dedicated Keycloak extension.
+- Existing-Keycloak discovery, observation and explicit adoption, with recovery
+  that preserves native configuration, credentials and ownership.
+- Optional signed fleet plans, local pause and reconnect/rollback support.
+- Namespace-scoped hardening, verified provider TLS and authenticated metrics.
+- Scanned Linux AMD64/ARM64 images and digest-pinned Helm packaging.
+
+### Qualification
+
+The candidate remains in initial development. Full CI, continuous endurance,
+HA qualification and independent release approval remain the final validation
+steps before stable 1.0.0. Progress is tracked in the
+[release milestone](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11).
+
+All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibility commitment has been selected. Candidate `v1beta1` additionally serves Application, Role and ResourceServer with identical schemas; storage remains `v1alpha1`.
+
+Experimental surfaces: advanced lifecycle operations, portable backup/restore,
+second-provider registration, connected integrations, mesh enforcement and cloud
+infrastructure retain their documented limitations.
+
+See the [API scope](docs/api-support.md), [support window](docs/support-window.md),
+[compatibility policy](docs/compatibility-policy.md) and
+[qualification guide](docs/qualification.md).
+<!-- release-notes:end -->
+
+<details>
+<summary>Implementation details</summary>
+
+### Candidate scope and remaining acceptance
+
+- Package the exact scanned Linux AMD64/ARM64 OCI image, digest-pinned Helm chart,
+  source revision, checksums and vulnerability evidence as `1.0.0-rc.1`.
+- Include the Scaleway ownership migration and recovery fixes: preserve native
+  OIDC configuration, repair verified receipts after an outage and retain
+  ServiceAccount rotation checkpoints across Observe/Manage transitions.
+- Keep all APIs experimental and the production publication gate closed. The
+  24-hour endurance campaign, full capacity/HA evidence, public predecessor
+  compatibility and independent release approval remain stable-release blockers.
+- The existing dashboard login was restored by reloading its rotated credential;
+  a Ready Pod alone does not establish consumer authentication health.
+
+### Authorization read-back and connection reuse
+
+- Resolve shared roles and client principals once within each fresh read-only
+  authorization observation, preserving all permission bindings. Query typed
+  policy endpoints only for types present in the complete generic inventory.
+- Refuse duplicate or missing native identities, inconsistent generic/typed
+  policies and permissions, and incomplete or ambiguous policy bindings before
+  treating an authorization graph as synchronized.
+- Reuse verified TLS connections up to the existing eight-request budget and
+  expire idle connections. Credential refresh and provider throttling retain
+  their shared bounds.
+
 ### Preserve existing OIDC settings during operator migration
 
 - Qualify bounded OIDC scope references and the native frontchannel logout flag
@@ -286,7 +350,7 @@
   [support policy](docs/support-window.md). All current versions derive from versions.json.
 - Add bounded official release discovery and review packets, with draft PR creation
   available only through explicit manual input. No fixture pin is auto-promoted.
-- Prepare the [0.x compatibility proposal](docs/compatibility-policy.md), deprecation
+- Prepare the [compatibility proposal](docs/compatibility-policy.md), deprecation
   registry and adversarial stable-schema diff gate. No public predecessor, stable
   conversion, production compatibility or completed community review is claimed.
 - Restore typed, redacted TLS refusal classification in native qualification and
@@ -326,7 +390,7 @@ notice policy requires community review under #87 before public acceptance.
   bound to exact object UID/generation/intent/source UID, protect child provenance
   through admission, recheck approval before effects, and validate DBSwitch Secrets.
   Existing pending work requires explicit review; revocation does not undo effects.
-  Upgrade/DBSwitch and portable restore remain unqualified. See ADR-050 and the
+  Upgrade/DBSwitch and portable restore remain unqualified. See ADR-011 and the
   lifecycle approval procedure before enabling or resuming experimental writers.
 
 
@@ -488,8 +552,8 @@ notice policy requires community review under #87 before public acceptance.
 
 ### Release overview
 
-hankoShell Operator 0.1.0-dev.0 is in initial development toward its first public
-release, 0.1.0. No public release has been published yet. It reconciles declarative
+hankoShell Operator 1.0.0-rc.1 is an initial development qualification candidate
+for the 1.0.0 target. It reconciles declarative
 Keycloak IAM configuration from Kubernetes; application identity lives beside
 deployment manifests. Hub, hankoShell API and Continuum are optional.
 Project: https://hanko.sh.
@@ -518,8 +582,7 @@ uses ephemeral local trust, an isolated registry and in-memory GitHub storage.
 The first public release requires Workload Identity, Delegation & Agent Identity,
 Provider Portability, Fleet Reconciliation and Initial Public Contract
 Stabilization, plus #21's real trust/publication evidence. These are work subjects,
-not product versions. A later 1.0 decision depends on public use and a proven
-compatibility commitment.
+not separate product versions. Stable approval remains part of final release qualification.
 All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibility commitment has been selected. Candidate `v1beta1` additionally serves Application, Role and ResourceServer with identical schemas; storage remains `v1alpha1`.
 
 Experimental surfaces: managed lifecycle, portable backup and restore, delegation
@@ -527,10 +590,7 @@ and agent identity, a second IAM provider, mesh traffic enforcement and cloud/CN
 remain unqualified beyond their named fixture subsets. Hub and Continuum remain
 optional alpha integrations. See [the support inventory](docs/api-support.md) and
 [API migration policy](docs/api-migration-policy.md).
-<!-- release-notes:end -->
 
-Early development used milestone-like version labels before the first public
-release; those labels did not identify public packages or GitHub Releases.
 
 ### Release trust and delivery readiness
 
@@ -558,8 +618,8 @@ release; those labels did not identify public packages or GitHub Releases.
   not evidence of a compromised signature or a CVE.
 - Keep production signer/TSA approval, public registry access and Artifact Hub
   ownership/indexing as separately reviewed evidence in #21. No fixture trust
-  authorizes publication. The future normal tag is `v0.1.0`; development metadata
-  `0.1.0-dev.0` is prerelease and never a production publication target.
+  authorizes publication. The stable release tag is `v1.0.0`; candidate metadata
+  `1.0.0-rc.1` is prerelease and never a production publication target.
 - Preserve signed/checksummed delivery, exact scanned-image binding, native Attest
   verification, retry checkpoints and all conflict/refusal tests. No IAM,
   permission, dependency or CRD behavior is rolled back.
@@ -1250,3 +1310,5 @@ https://github.com/Alien6-Studio/hankoshell-operator/security/advisories/new.
   can remain alpha with documented limits; this is no SemVer 1.0 guarantee.
 
 See the [Release 1.0.0 milestone](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11) for the remaining work and issue acceptance criteria.
+
+</details>

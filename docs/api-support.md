@@ -10,7 +10,7 @@ resource/field groups for #81. Its [frozen semantics and corpus](public-contract
 feed #82/#84 qualification; they do not change the current development maturity
 table or authorize first publication.
 
-The reviewed [machine-readable inventory](api-support.json) lists every top-level
+The reviewed [machine-readable inventory](../tools/qualification/config/contracts/api-support.json) lists every top-level
 spec/status field group for every CRD, plus explicit provider-native spec groups.
 Each classification applies to all nested fields in that group. Native groups
 remain Keycloak extensions: a typed field does not imply provider portability.
@@ -95,7 +95,7 @@ engineering requirements. The [migration policy](api-migration-policy.md) record
 the stored-version and rollback boundaries.
 
 Update the inventory and curated CHANGELOG when a field group or classification
-changes. `scripts/api-support.py` and `scripts/release-contract.py` reject missing
+changes. `tools/qualification/checks/api_support.py` and `tools/qualification/checks/release_contract.py` reject missing
 resources, unreviewed spec/status groups, missing evidence references and divergent
 README/chart/release-note classifications. These checks run in preflight through
 the release contract tests; they do not replace conformance or migration fixtures.
@@ -108,4 +108,4 @@ does not manufacture a predecessor release or certify downgrade compatibility.
 The [1.0 graduation criteria and per-resource records](stable-graduation.md)
 and [second-provider contract review](stable-provider-review.md) remain
 unratified development inputs. Lifecycle APIs are excluded from the stable 1.0
-contract and disabled by default; see [ADR-050](architecture/decisions/ADR-050-experimental-lifecycle-authority.md).
+contract and disabled by default; see [ADR-011](architecture/decisions/ADR-011-experimental-lifecycle-authority.md).

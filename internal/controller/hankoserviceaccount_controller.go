@@ -424,7 +424,8 @@ func (r *HankoServiceAccountReconciler) reconcileServiceAccountObserve(ctx conte
 	now := metav1.Now()
 	sa.Status.Phase = "Ready"
 	sa.Status.SecretRef = nil
-	sa.Status.LastRotated = nil
+	// Observe publishes no credential reference or scheduled rotation, but the
+	// previous rotation checkpoint must survive a later explicit Manage resume.
 	sa.Status.NextRotation = nil
 	sa.Status.ManagedTokenClaims = nil
 	sa.Status.LastReconciled = &now

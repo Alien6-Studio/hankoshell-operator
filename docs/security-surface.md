@@ -1,7 +1,7 @@
 # CRD validation and RBAC review inventory
 
 Development checkpoint for #99, with compatibility/runbook guard work for
-#94/#103. The [machine inventory](security-surface.json) records every served
+#94/#103. The [machine inventory](../tools/qualification/config/contracts/security-surface.json) records every served
 schema hash, declared string/array/typed-map bounds, rendered Role/ClusterRole
 rule, binding and mandatory admission policy on six reviewed chart profiles,
 including configured sensitive outputs and projection creation. It is not stable-contract
@@ -132,7 +132,7 @@ See [configuration and migration](secure-deployment.md#exact-secret-and-deployme
 
 ## Guard workflow
 
-`make preflight` runs `python3 scripts/security-surface.py check`. Any schema,
+`make preflight` runs `python3 -m tools.qualification.checks.security_surface check`. Any schema,
 field-bound, grant or binding drift requires an explicit review. The error names
 schema field paths and/or the affected RBAC profile. Wildcards, runtime token
 minting/review/exec, impersonation/escalation/bind verbs, misleading named CREATE
@@ -140,14 +140,14 @@ rules and leader-lock privilege expansion fail before a snapshot can be made.
 The absence of these permissions does not prove every remaining grant safe.
 
 To review an intended change, run
-`python3 scripts/security-surface.py snapshot --output /tmp/security-surface.json`,
+`python3 -m tools.qualification.checks.security_surface snapshot --output /tmp/security-surface.json`,
 compare it with the committed inventory, assess existing stored objects and
 record the migration/authority rationale. Update the committed inventory only
 as an explicit reviewed source change, with CRD/admission and relevant installed
 tests. The command never updates the baseline implicitly or changes cluster RBAC.
 The final audit/installed acceptance is recorded in the
-[security workstream](qualification/security/README.md); see also the
-[development execution map](development-backlog.md).
+[security workstream](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/security/README.md); see also the
+[development execution map](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/development-backlog.md).
 
 ## Observed delegation status (2026-10-17)
 
@@ -247,7 +247,7 @@ values and maps and use `kubectl apply --dry-run=server -f MANIFEST` against the
 candidate API. Correct configuration through the ordinary reviewed procedure;
 do not truncate identities, remove finalizers or recreate provider objects to
 make a manifest pass. Status budgets are described below. The final instrumented audit and exact-candidate installed evidence are tracked
-in the [security qualification record](qualification/security/README.md).
+in the [security qualification record](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/security/README.md).
 
 ## Status budgets and recovery inventories
 
@@ -290,7 +290,7 @@ existing status as well as spec for over-budget values. A spec-only dry run
 does not validate the stored status subresource. Do not erase recovery
 inventories or finalizers to pass validation; retain backups and complete the
 ordinary reviewed recovery procedure first. The inventory is a development
-record; the [security audit record](qualification/security/README.md) carries
+record; the [security audit record](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/security/README.md) carries
 the final review and exact-candidate qualification decision.
 
 ## Every public field has an admission fixture
@@ -319,7 +319,7 @@ and wildcard authorities remain outside this field's allowed values.
 Eight paths use 255 characters: OIDC redirects and SAML ACS destinations;
 Application/Realm role descriptions; HankoRole description and native attribute
 values; authorization scope descriptions and resource URI items. This follows
-the pinned [official migration definitions and source identities](qualification/security/2026-10-19/bounded-contract/native-storage-limits.json),
+the pinned [official migration definitions and source identities](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/security/2026-10-19/bounded-contract/native-storage-limits.json),
 unchanged between Keycloak 26.7.5 and 26.8.0. Scope description maps to the native
 scope display name. Resource URI items are nonempty and reject C0/DEL while
 retaining relative paths, Unicode and wildcards. Kubernetes admission, typed

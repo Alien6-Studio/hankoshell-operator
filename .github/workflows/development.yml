@@ -3,7 +3,7 @@ name: Development
 # CI workflow still qualifies every PR and main; this is only push feedback.
 on:
   push:
-    branches: [feat/1.0.0-dev]
+    branches: [1.0.0]
 permissions:
   contents: read
 concurrency:
@@ -29,9 +29,9 @@ jobs:
           python-version: '3.12'
       - name: Install pinned preflight dependencies
         run: |
-          python3 scripts/install-helm.py /tmp/linux-amd64/helm
+          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
-          python -m pip install -r scripts/requirements.txt
+          python -m pip install -r tools/requirements.txt
           make install-preflight-tools install-hook-tools
       - name: Validate formatting, vet, generated schemas and delivery contracts
         run: make preflight hooks-check

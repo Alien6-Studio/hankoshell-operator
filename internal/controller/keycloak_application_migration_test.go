@@ -77,6 +77,11 @@ func TestRealKeycloakLegacyApplicationMigration(t *testing.T) {
 		app.Spec.WebOrigins = &origins
 		current := f.client("example", app.Spec.ClientID)
 		current["webOrigins"] = origins
+		// Historical catalogs could set both non-authoritative discovery hints.
+		// Keycloak keeps omitted attributes on PUT, so trying to drop the other
+		// hint would otherwise leave an owned client permanently in drift.
+		attributes := current["attributes"].(map[string]any)
+		attributes["hanko.app"], attributes["hanko.service"] = "true", "true"
 		f.admin(http.MethodPut, "/admin/realms/example/clients/"+current["id"].(string), current, nil)
 		before := f.client("example", app.Spec.ClientID)
 		if kind != "spa" {
@@ -135,6 +140,9 @@ func TestRealKeycloakLegacyApplicationMigration(t *testing.T) {
 		}
 		after := f.client("example", app.Spec.ClientID)
 		fixtureEqual(t, "migration retains UUID", after["id"], before["id"])
+		for _, hint := range []string{"hanko.app", "hanko.service"} {
+			fixtureEqual(t, "migration retains catalog hint", after["attributes"].(map[string]any)[hint], "true")
+		}
 		for _, field := range []string{"defaultClientScopes", "optionalClientScopes", "frontchannelLogout"} {
 			fixtureEqual(t, "legacy migration retains native setting: "+field, adoptionClone(t, after)[field], adoptionClone(t, before)[field])
 		}

@@ -1,5 +1,5 @@
-// Package imagevalidator enforces the operator image trust policy (ADR-017 and ADR-044).
-// Workload execution requires a release approval and signature (ADR-047).
+// Package imagevalidator enforces the operator image trust policy (ADR-003 and ADR-007).
+// Workload execution requires a release approval and signature (ADR-008).
 // ValidateImageRef only checks structural identity and never authorizes execution.
 package imagevalidator
 
@@ -20,7 +20,7 @@ type ErrUntrustedImage struct {
 }
 
 func (e *ErrUntrustedImage) Error() string {
-	return fmt.Sprintf("imagevalidator: %q is not in the trusted registry allowlist %v — set HANKO_TRUSTED_REGISTRIES (ADR-017)", e.Image, e.Allowlist)
+	return fmt.Sprintf("imagevalidator: %q is not in the trusted registry allowlist %v — set HANKO_TRUSTED_REGISTRIES (ADR-003)", e.Image, e.Allowlist)
 }
 
 // Validator checks image references against a registry allowlist.

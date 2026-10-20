@@ -1,14 +1,13 @@
-# Proposed public 0.x compatibility and deprecation policy
+# Compatibility and deprecation policy
 
-Status: **prepublication proposal**, pending community review in #87 after the
-first qualified public release. No review start/end, acceptance, public release,
-stable API or upgrade evidence is fabricated. Current v1alpha1 APIs remain
-experimental. 0.x does not make a 1.0 SemVer commitment. Existing
+This policy is proposed for the first 1.0.0 release. Current v1alpha1 APIs remain
+experimental; approval of the stable commitment is tracked in #106 and #107.
+Existing
 [API migration rules](api-migration-policy.md), [selection](public-contract-selection.md),
 [stable graduation](stable-graduation.md), [support window](support-window.md) and
 [runbook limitations](operations-runbooks.md) retain their narrower meanings.
 
-The [machine registry](compatibility-policy.json) has no public releases,
+The [machine registry](../tools/qualification/config/contracts/compatibility-policy.json) has no public releases,
 compatibility baseline, notices or exceptions yet. Ratification is a separate
 reviewed change; repository documentation is not evidence of community acceptance.
 
@@ -30,7 +29,7 @@ A new documentation timestamp or a development build does not satisfy the wait.
 Security/EOL exceptions need an explicit reviewed notice, advisory and limitations;
 there is no automatic compatibility bypass flag.
 
-The latest patch in the latest published public 0.x minor receives security fixes;
+The latest patch in the latest published public minor receives security fixes;
 older minors, prereleases, development builds and forks have no separate backport
 commitment or LTS branch. This matches SECURITY.md. A release's upstream eligibility
 and exact qualification window must be recorded. Rollback is supported only where
@@ -38,7 +37,7 @@ real retained release fixtures reproduce it. Never call same-source Helm
 configuration rollback a public operator/provider/data rollback.
 
 Actual installations and upgrade paths use the [sanitized reporting procedure](production-evidence.md)
-and [per-release evidence summaries](compatibility-evidence/README.md). No public
+and [per-release evidence reporting](production-evidence.md). No public
 release or production report is currently recorded; development qualification
 does not populate that registry.
 
@@ -50,7 +49,7 @@ recreation, field pruning or forced finalizer removal is an upgrade procedure.
 
 ## Executable guard and current limits
 
-`scripts/compatibility-gate.py` reports `NoPublishedPredecessor` today. It does
+`tools/qualification/checks/compatibility_gate.py` reports `NoPublishedPredecessor` today. It does
 not turn the experimental schema into a stable commitment. Against a future
 reviewed stable baseline it names removed/renamed fields, newly required fields,
 changed defaults, enum narrowing, validation/pattern/CEL tightening, type/format
@@ -73,7 +72,8 @@ adversarial tests; push-based implementation tracking follows CONTRIBUTING.md.
 Authentic public baselines and actual cross-release paths remain separate
 qualification under #93/#101/#105 and the initial delivery. None is synthesized
 by the tooling. Candidate beta remains experimental pending resource graduation;
-#87 remains open for publication and community review.
+Publication and community review remain stable-delivery requirements in #106/#107;
+the RC1 implementation tracking for #87 does not imply their completion.
 
 To introduce a future legitimate deprecation, retain the published baseline,
 add the hash-bound announcement and migration note, obtain its recorded review,

@@ -4,7 +4,7 @@ This repository policy is active for **initial development qualification**.
 It does not publish a release or grant stable API compatibility. The proposed
 public rules in [compatibility-policy.md](compatibility-policy.md) await #87's
 post-publication community review. Machine rules live in
-[compatibility-policy.json](compatibility-policy.json); exact versions and immutable
+[compatibility-policy.json](../tools/qualification/config/contracts/compatibility-policy.json); exact versions and immutable
 fixture checksums live only in [versions.json](../versions.json).
 
 <!-- support-window:start -->
@@ -49,7 +49,7 @@ review must record upstream support eligibility and exact qualified artifacts.
 2. In the same reviewed PR, edit `versions.json` and supply actual reviewed image
    digests, envtest checksums and node fixtures. Never copy checksums from a proposal:
    proposals deliberately contain no fabricated fixture pins.
-3. Run `python3 scripts/versions.py sync`, then `python3 scripts/versions.py check`.
+3. Run `python3 -m tools.versions sync`, then `python3 -m tools.versions check`.
    This updates CI matrices, chart metadata and generated tables in README,
    SECURITY, chart README, this policy and the version-reference inventory.
    Makefile/installers/release-contract consume the manifest directly.
@@ -62,7 +62,7 @@ review must record upstream support eligibility and exact qualified artifacts.
 
 ## Discovery and proposals
 
-`scripts/support-window.py propose --revision <full-sha> --output <packet.json>`
+`tools/qualification/checks/support_window.py propose --revision <full-sha> --output <packet.json>`
 reads only the two fixed official GitHub release APIs, at most 100 entries each.
 It removes release bodies/assets and retains at most 2 MiB. Patch suggestions stay
 inside the current minor window; new minors are separate retirement-review items.

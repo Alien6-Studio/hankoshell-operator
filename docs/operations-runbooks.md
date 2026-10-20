@@ -4,7 +4,7 @@ This is an **initial development** runbook for the v1alpha1 API, before the firs
 public release. No predecessor-to-public upgrade, production HA, production storage migration,
 complete installed delegation matrix or connected installation is qualified. Do not infer
 those capabilities from a documented command. [Stable graduation](stable-graduation.md)
-and [lifecycle authority](architecture/decisions/ADR-050-experimental-lifecycle-authority.md)
+and [lifecycle authority](architecture/decisions/ADR-011-experimental-lifecycle-authority.md)
 retain their exclusions. Nothing here authorizes publication or bypasses approval.
 
 Every procedure below identifies its executable fixture or states **UNQUALIFIED**.
@@ -14,19 +14,19 @@ Commands with `$variables` require administrator-supplied reviewed inputs.
 
 The [CRD/RBAC security inventory](security-surface.md) records current admission
 bounds, grant justifications, unresolved authority limits and the reference-field
-migration notice. [The development execution map](development-backlog.md) groups
-open issues and distinguishes code from external acceptance evidence.
+migration notice. Remaining development and acceptance work is tracked in
+[GitHub issues](https://github.com/Alien6-Studio/hankoshell-operator/issues).
 
 ## Install: standalone and connected
 
-Load and leader-loss reproduction uses `scripts/scale-installed-test.py` with
+Load and leader-loss reproduction uses `tools/qualification/scenarios/scale_installed_test.py` with
 the exact scanned image and a clean immutable checkout. The
-[scale and soak procedure](scale-and-soak.md) documents bounded workers, overload
+[scale and soak procedure](qualification.md) documents bounded workers, overload
 injection, numeric metrics and the 24-hour minimum. Full transaction HA, owned
 realm cascade deletion and production sizing remain **UNQUALIFIED**.
 
 Standalone render/install, using the same flags as `System.install` in
-`scripts/system-test.py` (real kind, private-CA Keycloak, namespace RBAC, Restricted
+`tools/qualification/scenarios/system_test.py` (real kind, private-CA Keycloak, namespace RBAC, Restricted
 pods, immutable scanned OCI):
 
 ```sh
@@ -41,8 +41,55 @@ Values must bind image digest, Keycloak CA/credential Secret references, exact A
 egress and watch namespace; see [secure deployment](secure-deployment.md). Review
 the rendered RBAC and admission policies before installing. Do not export
 `helm get values --all` into an incident report: legacy/custom values can contain
-credentials. Metrics remain off unless the [mTLS configuration](operational-observability.md)
+credentials. Metrics remain off unless the [mTLS configuration](#secure-metrics)
 is provided. The installed observability fixture tests enabling and disabling them.
+
+### Secure metrics
+
+Create the referenced Secrets in the release namespace, then configure:
+
+```yaml
+metrics:
+  enabled: true
+  tls:
+    serverSecret: metrics-server
+    clientCASecret: metrics-client-ca
+    allowedClientURIs:
+      - spiffe://monitoring.example/prometheus/platform
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: prometheus-stack
+    serverCASecret: metrics-server-ca
+    clientSecret: prometheus-client
+  networkPolicy:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: monitoring
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: prometheus
+        prometheus: platform
+```
+
+Identity Secrets contain `tls.crt` and `tls.key`; CA Secrets contain `ca.crt`.
+The server certificate must cover `<operator-fullname>-metrics.<namespace>.svc`.
+Install the ServiceMonitor CRD and allow Prometheus to read its client Secret.
+Use a dedicated monitoring CA and restrict Secret writes to administrators.
+Without ServiceMonitor, configure equivalent mTLS in the scraper. The ingress
+peer combines the namespace and pod selectors; verify actual CNI enforcement.
+
+TLS 1.3 and an exact allowed client URI are required. Each new handshake reloads
+projected certificate/trust files; allow for Kubernetes projection delay. Rotate
+with overlapping trust, then remove the old CA. Invalid files refuse new
+connections; existing connections remain open until closed.
+
+Use the [PrometheusRule examples](../config/prometheus/alerts.yaml) and
+[Grafana dashboard](../tools/qualification/config/contracts/observability-dashboard.json)
+with installation-specific scrape jobs and thresholds. Custom labels exclude
+resource names, URLs and credentials; the reviewed bound is 1,114 custom series
+per process. The Go tests and installed observability scenario cover transport
+and label bounds. A running Prometheus/Grafana installation remains **UNQUALIFIED**.
 
 ### Connected installation
 
@@ -69,10 +116,7 @@ kubectl -n "$namespace" get hankotenant "$tenant" \
   -o jsonpath='{.status.phase}{"\n"}{range .status.conditions[*]}{.type}{" "}{.status}{" "}{.reason}{"\n"}{end}'
 ```
 
-`charts/hankoshell-operator/tests/keycloak-transport.py` exercises enterprise
-HTTPS configuration/refusals; `charts/hankoshell-operator/tests/fleet-plan.py`
-checks the independently owned local plan-trust reference. These are render
-fixtures. The install, rollout and tenant observation commands above have **not
+The install, rollout and tenant observation commands above have **not
 been qualified against a live Hub/Continuum installation**. Qualify them in the
 target environment before relying on them. A running Deployment does not prove
 tenant enrollment, a verified plan or successful audit delivery.
@@ -104,7 +148,7 @@ The controller refuses ownership authorization when these live lists fail.
 This prepares the current development API; it does not qualify a public upgrade.
 
 For development chart configuration changes only,
-`scripts/observability-installed-test.py` exercises a real Helm upgrade and
+`tools/qualification/scenarios/observability_installed_test.py` exercises a real Helm upgrade and
 rollback to previous reviewed values:
 
 ```sh
@@ -130,19 +174,19 @@ CRD with an unreviewed older bundle. Public cross-release paths remain unqualifi
 
 ## Leader failover and provider outage
 
-The [installed transaction failover fixture](transaction-failover.md) reproduces
+The [installed transaction failover fixture](qualification.md) reproduces
 six selected accepted-write boundaries with actual lease-holder replacement.
 Its final report and cleanup are required before treating a scenario as qualified.
 
 Process liveness, serving readiness and leader reconciliation readiness are
-specified in [observability](operational-observability.md#health-readiness-and-leader-semantics).
-`scripts/observability-installed-test.py` starts two replicas, proves exactly one lease
+specified in [observability](qualification.md).
+`tools/qualification/scenarios/observability_installed_test.py` starts two replicas, proves exactly one lease
 holder, verifies standby probe semantics, removes that leader and observes a new
 holder with the same native managed client and credential. This is a bounded
 single-node smoke test. The separate
-[transaction packet](qualification/transactions/2026-10-19/runtime-dcee6b6/README.md)
+[transaction packet](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/transactions/2026-10-19/runtime-dcee6b6/README.md)
 retains six real Kubernetes/Keycloak cells, including the caller-scoped live-leader
-API partition. The [realm recovery fixture](recovery-and-realm-deletion.md)
+API partition. The [realm recovery fixture](qualification.md)
 tests a five-minute operator API outage and interrupted owned-realm deletion.
 These exact-runtime reports do not qualify arbitrary partitions, split brain,
 clock skew, every transaction or a 24-hour soak (#96/#95).
@@ -228,6 +272,15 @@ decision and preserves the audit failure as history. It does not acknowledge the
 missing rotation receipt or clean/revoke a credential. KeycloakInstance has no
 release profile in that utility; retain its pending state and repair the recorder.
 
+After a successful rotation, verify the consumer as well as the native client and
+output Secret. Kubernetes environment variables retain their startup values when
+a Secret changes. Refresh that workload through its own rolling procedure after
+verifying the current output, or configure a consumer that reloads a projected
+credential file or has explicit rollout automation. Confirm discovery, client
+authentication and the public login journey; Pod/IAM Ready conditions alone do
+not establish successful login. Do not log credentials or reset global lockouts
+to diagnose a single stale consumer.
+
 ## Adoption, cleanup conflicts and finalizers
 
 For `AdoptionRequired`, `AdoptionConflict`, `CleanupConflict`, ownership loss or
@@ -242,13 +295,12 @@ Controller adoption recovery tests cover current authority re-read before writes
 If normal recovery cannot complete and two administrators explicitly accept
 orphaned provider state and Kubernetes garbage collection, follow the
 [audited finalizer release procedure](finalizer-recovery.md). Its exact manifests
-are in `config/recovery/`; `scripts/finalizer-recovery.py` binds a short-lived plan
+are in `config/recovery/`; `tools/operations/finalizer_release.py` binds a short-lived plan
 to the terminating object, admission guard and cluster identities. It records
 independent approval and durable intent before one selective compare-and-swap
 patch. It preserves all other finalizers and never calls a provider. Do not use
-`finalizers: []`. `scripts/test_finalizer_recovery.py` covers interruption, stale
-authority, expiry and recorder failures; `api/v1alpha1/finalizer_recovery_integration_test.go`
-and `scripts/finalizer-recovery-fixture.py` exercise authenticated admission and
+`finalizers: []`. `api/v1alpha1/finalizer_recovery_integration_test.go`
+and `tools/qualification/fixtures/finalizer_recovery_fixture.py` exercise authenticated admission and
 the actual CLI on the supported Kubernetes API matrix. This API qualification
 does not certify native cleanup, connected audit recovery or production HA.
 
@@ -263,7 +315,7 @@ local pause or another plan-verification refusal must stop mutation. Preserve th
 last checkpoint and local pause. Ask the authorized plan issuer/local trust owner
 to produce a fresh signed plan bound to the intended target and current sequence.
 Never lower the checkpoint, extend expiry locally or set trust from remote input.
-`TestSignedFleetPlanControllerRecovery` and `scripts/fleet-installed-test.py` test
+`TestSignedFleetPlanControllerRecovery` and `tools/qualification/scenarios/fleet_installed_test.py` test
 interruption, stale cache, trust revocation and safe recovery. The fleet plan
 runbook in [secure deployment](secure-deployment.md) provides the exact trust/plan
 ConfigMap schemas; raw signed envelopes are not suitable for incident uploads.
@@ -276,7 +328,7 @@ a patch without granting permission:
 
 ```sh
 kubectl -n "$namespace" get hankooperation "$operation" -o json \
-  | python3 scripts/lifecycle-approval.py > "$private_approval_patch"
+  | python3 -m tools.operations.lifecycle_approval > "$private_approval_patch"
 ```
 
 The helper reads the current Authorized=False/ApprovalRequired condition and
@@ -337,7 +389,7 @@ audit evidence, remove only the selected operator Helm release:
 helm uninstall "$release" --namespace "$namespace" --wait --timeout 180s
 ```
 
-`scripts/system-test.py` uses `System.cleanup` to remove its entire disposable
+`tools/qualification/scenarios/system_test.py` uses `System.cleanup` to remove its entire disposable
 fixture, not this production uninstall sequence. The standalone uninstall command
 above is **UNQUALIFIED** as a provider decommission procedure. Keep CRDs, shared
 trust, Secrets, audit records and other releases under their existing ownership
@@ -371,12 +423,10 @@ provider text, select the affected Hanko objects and use the offline collector:
 
 ```sh
 kubectl -n "$namespace" get hankoapplication "$application" -o json \
-  | python3 scripts/incident-evidence.py --output "$new_private_incident_file"
+  | python3 -m tools.operations.incident_evidence --output "$new_private_incident_file"
 ```
 
-`scripts/test_incident_evidence.py` exercises the actual CLI, exclusive mode-0600
-creation, symlink refusal, credential sentinels, unknown decisions, malformed
-input, duplicate keys and size/depth/object limits. The collector makes no API or
+The collector makes no API or
 provider calls. It accepts only reviewed Hanko resource versions, at most 2 MiB,
 1,000 selected objects and nesting depth 64. Select fewer objects if refused;
 do not save a raw dump to bypass its limit. Existing output paths are refused.
@@ -402,6 +452,8 @@ order. Observe declarations also block deletion of their managed parent.
 Unchanged waits retry every 30–35 seconds without rewriting status. An API list
 or authority recheck failure refuses provider deletion; repair access and allow
 normal reconciliation. Do not force-remove finalizers to bypass this guard.
-See [the installed recovery scenarios](recovery-and-realm-deletion.md) for the
+See [the installed recovery scenarios](qualification.md) for the
 five-minute operator API outage and lost realm DELETE acknowledgement tests.
 These cover selected checkpoints and do not establish full production HA.
+
+Incident evidence source: [tools/operations/incident_evidence.py](../tools/operations/incident_evidence.py).

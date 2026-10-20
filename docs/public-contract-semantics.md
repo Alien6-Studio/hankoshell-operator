@@ -1,6 +1,6 @@
 # Frozen candidate semantics and conformance corpus
 
-This is the #82/#84 baseline for the [selected 0.1.0 candidate](public-contract-selection.md).
+This is the #82/#84 baseline for the [selected 1.0.0 candidate](public-contract-selection.md).
 It covers the selected application, role and resource-server field groups. Current
 development maturity, native extensions and deferred nested authority remain as
 classified there. The [machine-readable corpus](../internal/iamconformance/testdata/public-0.1.0/corpus.json)
@@ -37,7 +37,7 @@ and reject an unknown newer format. An unmarked legacy object is not owned.
 Existing provider conformance also tests foreign conflicts, Observe/no mutation,
 lost acknowledgements, ownership recovery and safe deletion.
 
-These formats must remain readable by later 0.x readers when this selected
+These formats must remain readable by later supported readers when this selected
 contract is activated. A marker or semantic format change requires a migration
 issue, reader/rollback analysis and explicit corpus review. A public plan hash or
 historical status cannot substitute for current provider ownership or approval.
@@ -69,7 +69,7 @@ first-release limitation must not be silently converted into a passing path.
 
 ## Running and changing fixtures
 
-`python3 scripts/public-contract.py check` checks selection coverage, frozen schemas
+`python3 -m tools.qualification.checks.public_contract check` checks selection coverage, frozen schemas
 and corpus field coverage; release packaging invokes it. `make test` checks exact
 compiler identities and old ownership readers. `make integration-test` replays the
 stored corpus, and `make system-test` runs its installed behavior within the full

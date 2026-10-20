@@ -32,7 +32,7 @@ import (
 func TestRealAuthentikPortableCorpus(t *testing.T) {
 	upstream, err := url.Parse(os.Getenv("AUTHENTIK_FIXTURE_UPSTREAM"))
 	if err != nil || upstream.Scheme != "http" || upstream.Hostname() != "127.0.0.1" {
-		t.Fatal("use scripts/authentik-fixture.py with a loopback-only real server")
+		t.Fatal("use tools/qualification/fixtures/authentik_fixture.py with a loopback-only real server")
 	}
 	var mutex sync.Mutex
 	writes := 0

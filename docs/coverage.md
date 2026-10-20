@@ -2,19 +2,19 @@
 
 `make coverage` runs the unit suite once with `-race -count=1 -covermode=atomic`,
 then checks the resulting profile against
-[`scripts/coverage-floors.json`](../scripts/coverage-floors.json).
+[`tools/qualification/config/coverage-floors.json`](../tools/qualification/config/coverage-floors.json).
 `make check` includes this gate. CI runs it explicitly in the required source job
 after unit tests, without changing the other qualification gates.
 
 The profile, `go tool cover -func` output, machine-readable counts and Markdown
-summary are stored under `.tools/test-results/unit/` and uploaded with the JUnit
+summary are stored under `.tools/runs/tests/unit/` and uploaded with the JUnit
 results, including on failure. Package and named-function percentages also appear
 in the Actions step summary. Existing results are removed before a new test run;
 a missing profile cannot reuse a previous success.
 
 ## Baseline and thresholds
 
-The [committed baseline](../scripts/coverage-baseline.json) was measured from
+The [committed baseline](../tools/qualification/config/coverage-baseline.json) was measured from
 protected `main` commit `a10f2351fedf49ccfbabe200725d2a814c2b0a07` on Darwin arm64
 with Go 1.27.2. It records the exact command, statement counts, selected function
 percentages and SHA-256 digests of the original profile and function report. The
@@ -51,7 +51,7 @@ adversarial, race, provider and installed tests remain required.
 
 ## Reviewing a change
 
-Run `make coverage`, inspect `.tools/test-results/unit/coverage-summary.md`, and
+Run `make coverage`, inspect `.tools/runs/tests/unit/coverage-summary.md`, and
 add behavioral tests for the changed contract. A low result reports the package
 or exact security function and its required percentage. A new package requires an
 explicit floor; removing a package or renaming a floored function requires an
@@ -74,11 +74,6 @@ generated deepcopy branches remain in the denominator. This adds the missing
 package entry without lowering existing thresholds or changing the historical
 baseline. API-server conversion and cross-version field-ownership tests remain
 separate required checks.
-
-The checker regression tests exercise lowered package/function coverage, missing
-packages, renamed functions, ambiguous method names, invalid profiles and policies,
-and failure summaries. Run them with
-`python3 -m unittest discover -s scripts -p 'test_coverage.py'`.
 
 The operational telemetry/TLS leaf added on the development branch has an explicit
 89.5% package floor (measured 104/116 statements, 89.66%, on signed revision

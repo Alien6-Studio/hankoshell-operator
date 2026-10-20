@@ -87,7 +87,7 @@ Use independently reviewed current kube-system UID and the single public API CA
 DER hash in the trust spec. Ensure approved public HTTPS issuer/JWKS discovery is
 reachable without credentials; the controller never configures public access or
 repairs client-authentication flows. See the
-[implemented trust ownership and recovery contract](architecture/workload-identity.md#p62-implemented-trust-ownership).
+[implemented trust ownership and recovery contract](architecture/workload-identity.md#implemented-kubernetes-workload-trust-ownership).
 Trust Ready means configuration only, with no workload binding, token issuance,
 federated HankoServiceAccount activation or mesh authority.
 
@@ -218,7 +218,7 @@ the Hub must implement that protocol before it can be enabled.
 #### Signed fleet plan transition
 
 The [Fleet contract](architecture/fleet-reconciliation.md) and
-[ADR-049](architecture/decisions/ADR-049-locally-approved-fleet-plans.md) define
+[ADR-010](architecture/decisions/ADR-010-locally-approved-fleet-plans.md) define
 the exact Ed25519 signing input, closed JSON, local key scopes, expiry and
 sequence rules. In a reviewed deployment:
 
@@ -335,7 +335,7 @@ publisher signature with the pinned runtime cosign. It preserves its current
 image repository. Missing approval, revoked approval, failed verification or a
 concurrent Deployment change prevents the patch. Already-pinned images are checked
 again; a version string alone does not authorize an update.
-The Hub reference version must match the reviewed SemVer release, such as the future `0.1.0`. This example is unavailable during development.
+The Hub reference version must match the reviewed SemVer release, such as the future `1.0.0`. This example is unavailable during development.
 
 Configure `imageVerification.policyConfigMap: hanko-image-policy`, the independent
 [admission policy](../config/security/operator-image-policy-admission.yaml) and
@@ -358,8 +358,8 @@ approval. Replace the digest and source placeholders with the reviewed values:
     "purpose": "operator-update",
     "image": "ghcr.io/alien6-studio/hankoshell-operator@sha256:<verified-digest>",
     "revision": "<full-source-revision>",
-    "release_version": "0.1.0",
-    "certificate_identity": "https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.1.0",
+    "release_version": "1.0.0",
+    "certificate_identity": "https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v1.0.0",
     "certificate_oidc_issuer": "https://token.actions.githubusercontent.com"
   }]
 }
@@ -589,7 +589,7 @@ compatibility contract, not a recommendation to retain a vulnerable patch.
 
 The Keycloak job runs three independent, serial shards per version: `core`,
 `adoption` and `protocols`. The runner compares the compiled tagged and ordinary
-test inventories with [the reviewed partition](../scripts/keycloak-shards.json),
+test inventories with [the reviewed partition](../tools/qualification/config/keycloak-shards.json),
 rejecting missing, duplicate or obsolete assignments. Ordinary controller tests
 remain in `core`, so the partition retains the previous tagged suite in full.
 Each shard has a ten-minute test deadline and a fifteen-minute job deadline.
@@ -598,7 +598,7 @@ KEYCLOAK_SHARD=adoption`; omitting the shard still runs the full suite.
 
 `make test`, `make integration-test` and `make keycloak-integration-test` use
 the pinned gotestsum version from `versions.json` and write JUnit, outcome JSON
-and a Markdown summary under `.tools/test-results/` (`TEST_REPORT_DIR` overrides
+and a Markdown summary under `.tools/runs/tests/` (`TEST_REPORT_DIR` overrides
 the directory). CI uploads these on success or failure and lists failed tests
 in the job summary. Reports do not trigger retries, skips or weaker assertions.
 The outcome JSON contains names, status and timing, without test output payloads.
@@ -610,7 +610,7 @@ writes; production client deadlines are unchanged. Failures preserve the last
 64 fixture HTTP methods/routes/statuses/timings and redacted container logs;
 headers, query values and bodies are excluded from the HTTP trace. Shard timings
 on GitHub runners and twenty consecutive runs of both historically failing
-tests are recorded through the [concurrency and stability qualification](keycloak-concurrency.md).
+tests are recorded through the [concurrency and stability qualification](qualification.md).
 Its independent series stops on the first failure and retains every JUnit; it
 does not replace the required twenty-run `main` history window.
 
@@ -692,7 +692,7 @@ target-realm users; it is not group-only authority or part of the common profile
 Fresh strict group ownership/hierarchy reads precede grant execution. Missing
 authority refuses authorization writes; an old applied UUID snapshot can remain
 active until successful reconciliation or direct provider revocation. See
-[organization permissions and consistency](keycloak-permissions.md#organization-principals-04-unreleased).
+[organization permissions and consistency](keycloak-permissions.md#organization-principals).
 
 Unmanaged clients, roles and brokers survive child reconciliation/deletion.
 Deleting a managed realm is an explicit destructive ownership boundary: once
@@ -733,11 +733,11 @@ and independently observed non-secret state, then explicitly approve both throug
 the migration annotations. A matching clientID, client Secret or status hash alone
 cannot authorize adoption. Review applications before deleting them: client
 cleanup also removes its roles, mappers and credentials. See the
-[exact migration procedure and threat model](architecture/application-identity.md#ownership-and-02-migration).
+[exact migration procedure and threat model](architecture/application-identity.md#ownership-and-legacy-client-migration).
 
 ### Kubernetes compatibility and hardening
 
-The operator and chart keep their own development SemVer (`0.1.0-dev.0`); they do not share the
+The operator and chart keep their own development SemVer (`1.0.0-rc.1`); they do not share the
 cluster's version number. Kubernetes libraries are upgraded together:
 `k8s.io/{api,apimachinery,client-go,apiextensions-apiserver}` **v0.37.1** and
 `controller-runtime` **v0.25.2**, following its
@@ -867,7 +867,7 @@ helm template hankoshell-operator ./charts/hankoshell-operator \
 ```
 
 After reviewing the render, apply the CRDs and install as described in the
-[README](../README.md#deployment). Verify that the operator can reach its API
+[README](../README.md#install-from-source). Verify that the operator can reach its API
 and provider, and that unauthorized ingress/egress is denied. Test the actual
 CNI, DNS and API endpoint routing on each target cluster; Kubernetes and Cilium
 allow policies are additive when other policies select the same pods.
@@ -889,10 +889,9 @@ Prometheus namespace AND pod labels still constrain ingress on TCP/8080.
 The Pod readiness probe excludes the leader check so healthy standbys remain Ready;
 the full `/readyz` endpoint reports reconciliation readiness.
 
-Operational procedures: [runbooks](operations-runbooks.md), [secure observability](operational-observability.md) and the [machine contract](operational-contract.json).
-
-See the observability guide for complete values, trust rotation, migration,
-label bounds, alerts, dashboard and qualification limits.
+See the [operational runbooks](operations-runbooks.md) and
+[secure metrics configuration](operations-runbooks.md#secure-metrics) for Secrets,
+trust rotation, label bounds, alerts and the dashboard.
 
 ## Enterprise profile
 
@@ -1213,7 +1212,7 @@ Keycloak administrative traffic uses verified HTTPS.
 Reproduce with the fresh archive and evidence from the OCI security job:
 
 ```sh
-python3 scripts/install-system-tools.py /tmp/hankoshell-system-tools
+python3 -m tools.bootstrap.install_system_tools /tmp/hankoshell-system-tools
 GOBIN=/tmp/hankoshell-system-tools go install oras.land/oras/cmd/oras@v1.3.4
 make system-test REVISION="$reviewed_revision" DIGEST="$scanned_digest" \
   OCI_ARCHIVE="$archive_path" OCI_EVIDENCE="$evidence_directory" \
@@ -1231,14 +1230,14 @@ configuration, while installation-specific enforcement still needs qualification
 
 ## Release rehearsal and publication
 
-The first public 0.1.0 is in development; no public release has been published.
-Source/chart/app/build/rehearsal metadata is `0.1.0-dev.0`, with Artifact Hub
+The current candidate is `1.0.0-rc.1`; no public release has been published.
+Source/chart/app/build/rehearsal metadata is `1.0.0-rc.1`, with Artifact Hub
 `prerelease: true`. All implemented capabilities and canonical Attest hardening
 remain intact. Workload Identity, Delegation & Agent Identity, Provider Portability, Fleet Reconciliation and Initial Public Contract Stabilization and #21's real trust evidence are required before
 first publication; see the [Release 1.0.0 milestone](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11) and
-[administrator checklist](release-public-0.1.0-preparation.md).
+[release qualification](qualification.md#rc1-and-historical-upgrades).
 
-The parser accepts normal `v<SemVer>` tags and extracts `0.1.0` from `v0.1.0`.
+The parser accepts normal `v<SemVer>` tags and extracts `1.0.0` from `v1.0.0`.
 Parsing is separate from permission to publish: production eligibility and
 promotion fail closed while source maturity is development. Only reviewed source
 metadata declaring the target stable candidate can enable the future path.
@@ -1247,7 +1246,7 @@ rehearsal shares retry logic only with a loopback registry and in-memory GitHub
 storage; it cannot publish to GHCR or create a real GitHub Release.
 
 The future normal release requires a GitHub-verified source commit and signed
-annotated `v0.1.0` tag bound to that exact commit on protected main. Eligibility
+annotated `v1.0.0` tag bound to that exact commit on protected main. Eligibility
 checks ancestry, signatures, lightweight tags and moved/conflicting identities;
 these checks run again immediately before publication. Git metadata responses
 remain bounded to 1 MiB without fetching the commit diff. The signed root and
@@ -1273,8 +1272,8 @@ test. Conflicting release assets must fail before any publication write.
 To reproduce with the **fresh archive/evidence from the OCI security job**:
 
 ```sh
-bash scripts/install-cosign.sh /tmp/hankoshell-rehearsal-tools/cosign
-bash scripts/install-attest.sh /tmp/hankoshell-rehearsal-tools/attest
+bash tools/bootstrap/install_cosign.sh /tmp/hankoshell-rehearsal-tools/cosign
+bash tools/bootstrap/install_attest.sh /tmp/hankoshell-rehearsal-tools/attest
 GOBIN=/tmp/hankoshell-rehearsal-tools go install oras.land/oras/cmd/oras@v1.3.4
 make release-dry-run REVISION="$reviewed_revision" DIGEST="$scanned_digest" \
   OCI_ARCHIVE="$archive_path" OCI_EVIDENCE="$evidence_directory" \
@@ -1285,13 +1284,13 @@ make release-dry-run REVISION="$reviewed_revision" DIGEST="$scanned_digest" \
 ```
 
 Use OpenSSL 3, pinned Helm 3.17.0 and the Python dependencies in
-`scripts/requirements.txt`. The report is explicitly `publishable: false`; its
+`tools/requirements.txt`. The report is explicitly `publishable: false`; its
 keys, TSA and Artifact Hub ID are fixtures. No private key is retained in its
 artifacts. It writes only to its disposable loopback registry, never creates a tag/GitHub Release or
 changes Artifact Hub. The local signature proves payload binding, **not** GitHub
 OIDC/Fulcio/Rekor trust. Production image signatures remain keyless Sigstore with
 issuer `https://token.actions.githubusercontent.com` and exact certificate identity
-`https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.1.0`.
+`https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v1.0.0`.
 The workflow uses the actual `GITHUB_WORKFLOW_REF` and eligibility requires
 `github.ref == refs/tags/<tag>`; a main-ref run cannot claim this tag identity.
 
@@ -1320,7 +1319,7 @@ Publication consumes the same scanned archive without rebuilding, stages it unde
 a non-release reference, verifies real image/blob Sigstore signatures and strict
 Attest delivery evidence, then promotes the digest, chart and catalog metadata.
 Before promotion it commits the archive, packaged chart, signatures, checksums
-and Attest evidence under `delivery-candidate-0.1.0`, an explicitly non-release
+and Attest evidence under `delivery-candidate-1.0.0`, an explicitly non-release
 OCI checkpoint. Every retry resolves that reference once, restores it by digest
 and reuses its exact bytes rather than rebuilding/repackaging them. A different
 source revision or conflicting candidate is rejected. Do not delete or retag the
@@ -1631,7 +1630,7 @@ and deep restart/recovery on the documented matrix; no release/publication is ad
 ## Experimental lifecycle approval
 
 `HankoOperation` / `HankoSnapshot` are excluded from the stable 1.0 contract by
-[ADR-050](architecture/decisions/ADR-050-experimental-lifecycle-authority.md).
+[ADR-011](architecture/decisions/ADR-011-experimental-lifecycle-authority.md).
 They retain their experimental v1alpha1 schemas. The chart defaults to
 `lifecycle.enabled: false`, removes their complete resource/status/finalizer RBAC
 and registers neither controller. Its independent admission guard remains active
@@ -1659,7 +1658,7 @@ Raw installations must provision equivalent fail-closed admission protection
 before enabling the process flag. Namespace Secret writers remain separately
 trusted; DBSwitch accepts only a dedicated PostgreSQL configuration Secret in the
 same namespace/tenant scope with exactly the four reviewed `KC_DB*` fields in
-ADR-050. Backup Jobs retain their dedicated Secret/image/PVC guards. Never put
+ADR-011. Backup Jobs retain their dedicated Secret/image/PVC guards. Never put
 credentials in an approval annotation or diagnostic artifact.
 
 An ordinary author may submit a request; it waits with current
@@ -1669,7 +1668,7 @@ created. As the independent administrator, first review the spec and source:
 ```sh
 kubectl get hankooperation upgrade -n auth -o yaml
 kubectl get hankokeycloakinstance source -n auth -o yaml
-kubectl get hankooperation upgrade -n auth -o json   | python3 scripts/lifecycle-approval.py > lifecycle-approval.json
+kubectl get hankooperation upgrade -n auth -o json   | python3 -m tools.operations.lifecycle_approval > lifecycle-approval.json
 cat lifecycle-approval.json
 kubectl patch hankooperation upgrade -n auth --type=merge --patch-file=lifecycle-approval.json
 ```
@@ -1696,10 +1695,10 @@ and writes are not a distributed transaction. Re-enable only after reviewing the
 same intent and existing child identities. No bulk approval or checkpoint reset
 is a supported recovery procedure.
 
-Validation: `charts/hankoshell-operator/tests/lifecycle.py` renders opt-out/RBAC;
+Validation: `make chart-check` lints and renders the chart;
 `checkLifecycleAdmission` exercises independent admission on all supported real
 API servers; `TestLifecycle*` exercises exact authority/revocation/Secret refusal.
-`scripts/system-test.py::lifecycle_alias` exercises opt-in, approval wait and
+`tools/qualification/scenarios/system_test.py::lifecycle_alias` exercises opt-in, approval wait and
 administrator patch, ConfigMap-create denial, restart and stable child UIDs on a
 real installed configuration-only Clone. These commands are administrator
 procedures; installed managed Upgrade/DBSwitch and portable restore remain

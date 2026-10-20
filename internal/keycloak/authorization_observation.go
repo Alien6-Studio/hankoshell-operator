@@ -4,6 +4,7 @@ import (
 	"context"
 	"slices"
 	"strconv"
+	"strings"
 )
 
 // AuthorizationObservation is an explicit semantic projection, not a provider
@@ -110,33 +111,78 @@ func normalizedLogic(value string) string {
 	}
 	return value
 }
-func (c *Client) authorizationPrincipalNames(ctx context.Context, model AuthorizationModel, roleIDs map[string]string) (map[string]string, error) {
-	names := map[string]string{}
+
+// Resolve each native identity once within this read-only observation. Nothing
+// is retained across reconciliations or reused by the mutation path.
+func (c *Client) authorizationPrincipalNames(ctx context.Context, model AuthorizationModel, roleIDs, clientIDs map[string]string) (map[string]string, error) {
+	index := authorizationPrincipalIndex{names: map[string]string{}, roles: roleIDs, clients: clientIDs}
 	for _, permission := range model.Permissions {
 		for _, principal := range permission.Principals {
-			switch principal.Kind {
-			case "realm_role":
-				role, err := c.GetRealmRole(ctx, model.Realm, principal.Ref)
-				if err != nil {
-					return nil, err
-				}
-				names[role.ID] = "realm_role/" + principal.Ref
-				roleIDs[principal.Ref] = role.ID
-			case "organization":
-				for _, g := range principal.Groups {
-					names[g.ID] = "organization/" + observedOrganizationGroupRef(principal, g.ID)
-				}
-			default:
-				id, err := c.resolveClientUUID(ctx, model.Realm, principal.Ref)
-				if err != nil {
-					return nil, err
-				}
-				// Application/service-account principals share Keycloak client policy semantics.
-				names[id] = "client/" + principal.Ref
+			if err := index.resolve(ctx, c, model.Realm, principal); err != nil {
+				return nil, err
 			}
 		}
 	}
-	return names, nil
+	return index.names, nil
+}
+
+type authorizationPrincipalIndex struct {
+	names, roles, clients map[string]string
+}
+
+func (index authorizationPrincipalIndex) resolve(ctx context.Context, c *Client, realm string, principal AuthorizationPrincipal) error {
+	switch principal.Kind {
+	case "realm_role":
+		if index.roles[principal.Ref] != "" {
+			return nil
+		}
+		role, err := c.GetRealmRole(ctx, realm, principal.Ref)
+		if err != nil {
+			return err
+		}
+		if role.ID == "" {
+			return ErrAuthorizationReadLimit
+		}
+		index.names[role.ID] = "realm_role/" + principal.Ref
+		index.roles[principal.Ref] = role.ID
+	case "application", "service_account":
+		if index.clients[principal.Ref] != "" {
+			return nil
+		}
+		id, err := c.resolveClientUUID(ctx, realm, principal.Ref)
+		if err != nil {
+			return err
+		}
+		if id == "" {
+			return ErrAuthorizationReadLimit
+		}
+		index.names[id] = "client/" + principal.Ref
+		index.clients[principal.Ref] = id
+	case "organization":
+		for _, group := range principal.Groups {
+			index.names[group.ID] = "organization/" + observedOrganizationGroupRef(principal, group.ID)
+		}
+	default:
+		return ErrAuthorizationReadLimit
+	}
+	return nil
+}
+
+func observedAuthorizationPrincipals(principals []AuthorizationPrincipal, roleIDs, clientIDs map[string]string) ([]policyRole, []string, []AuthorizationGroupDefinition) {
+	roles, clients, groups := []policyRole{}, []string{}, []AuthorizationGroupDefinition{}
+	for _, principal := range principals {
+		switch principal.Kind {
+		case "realm_role":
+			roles = append(roles, policyRole{ID: roleIDs[principal.Ref]})
+		case "application", "service_account":
+			clients = append(clients, clientIDs[principal.Ref])
+		case "organization":
+			groups = append(groups, principal.Groups...)
+		}
+	}
+	slices.SortFunc(roles, func(a, b policyRole) int { return strings.Compare(a.ID, b.ID) })
+	slices.Sort(clients)
+	return roles, clients, canonicalAuthorizationGroups(groups)
 }
 
 func observeAuthorizationScopes(model AuthorizationModel, state *AuthorizationState, owned AuthorizationManagedObjects, scopes []authorizationScopeRepresentation) (map[string]string, map[string]string) {
@@ -185,15 +231,13 @@ func (c *Client) observeAuthorizationPolicies(ctx context.Context, model Authori
 	semanticPolicies := map[string]string{}
 	wantPolicyIDs := map[string][]string{}
 	state.RealmRoleIDs = map[string]string{}
-	principalNames, err := c.authorizationPrincipalNames(ctx, model, state.RealmRoleIDs)
+	clientIDs := map[string]string{}
+	principalNames, err := c.authorizationPrincipalNames(ctx, model, state.RealmRoleIDs, clientIDs)
 	if err != nil {
 		return nil, nil, err
 	}
 	for _, permission := range model.Permissions {
-		roles, clients, groups, err := c.resolveAuthorizationPrincipals(ctx, model.Realm, permission.Principals)
-		if err != nil {
-			return nil, nil, err
-		}
+		roles, clients, groups := observedAuthorizationPrincipals(permission.Principals, state.RealmRoleIDs, clientIDs)
 		for _, want := range desiredAuthorizationPolicies(model.Name, permission.Name, roles, clients, groups) {
 			got, exists := policies.byName[want.payload.Name]
 			item := ObservedAuthorizationPolicy{Name: want.logical, Present: exists, Owned: ownsObservation(owned.Policies, want.logical, got.ID), Type: got.Type, Logic: normalizedLogic(got.Logic), DecisionStrategy: got.DecisionStrategy, Principals: []string{}}

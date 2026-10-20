@@ -1,7 +1,7 @@
 # Second-provider review for the stable IAM contract
 
 Decision for #100 based on #73/#75, reviewed on 2026-10-16. The
-[machine-readable review](stable-provider-review.json) pins all fourteen shared
+[machine-readable review](../tools/qualification/config/contracts/stable-provider-review.json) pins all fourteen shared
 semantic fixtures, their outcomes and OIDC intent goldens. The current APIs and
 authentik adapter remain experimental. A **candidate** classification names a
 possible future guarantee; it does not graduate a resource or ratify #89/#104.
@@ -39,7 +39,7 @@ Only portable intent identities agree. Execution-plan identities bind provider
 and local authority and must differ. No lossy result is accepted, and no semantic
 with an unsupported adapter outcome is selected as a portable candidate.
 
-The six retained [installed reports](qualification/portable/2026-10-16) cover all
+The six retained [installed reports](../tools/qualification/config/evidence/) cover all
 three Kubernetes versions and both Keycloak versions, with real authentik in
 each cell: **168 observed outcomes and 270 assertions**. They bind revision
 `d52ab2ab7aeb9a6c7c7119280456723dfc223fac`, scanned multiarchitecture digest

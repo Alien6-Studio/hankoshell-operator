@@ -588,22 +588,21 @@ func (c *Client) loadAuthorizationPolicies(ctx context.Context, base string) (au
 		byID:   make(map[string]authorizationPolicyRepresentation, len(allPolicies)),
 		byName: make(map[string]authorizationPolicyRepresentation, len(allPolicies)),
 	}
+	policyTypes := map[string]bool{}
 	for _, item := range allPolicies {
-		if item.ID == "" || item.Name == "" {
-			return authorizationPolicyIndex{}, ErrAuthorizationReadLimit
-		}
-		if _, exists := index.byID[item.ID]; exists {
-			return authorizationPolicyIndex{}, ErrAuthorizationReadLimit
-		}
-		if _, exists := index.byName[item.Name]; exists {
+		if item.Type == "" {
 			return authorizationPolicyIndex{}, ErrAuthorizationReadLimit
 		}
 		index.byName[item.Name] = item
 		index.byID[item.ID] = item
+		policyTypes[item.Type] = true
 	}
 	// Generic representations omit type-specific bindings; typed reads are
 	// required for semantic drift comparison.
 	for _, policyType := range []string{"role", "client", "group"} {
+		if !policyTypes[policyType] {
+			continue
+		}
 		var typed []authorizationPolicyRepresentation
 		if err := readAuthorizationCollection(ctx, c, base+authorizationPolicyPath+"/"+policyType, &typed); err != nil {
 			return authorizationPolicyIndex{}, err
@@ -730,23 +729,48 @@ func (c *Client) loadAuthorizationPermissions(ctx context.Context, base string) 
 		return nil, nil, err
 	}
 	for _, item := range current {
-		item.Type = "scope"
-		var associated []struct {
-			ID string `json:"id"`
+		generic, found := byName[item.Name]
+		if !found || generic.ID != item.ID || generic.Type != "scope" || (item.Type != "" && item.Type != "scope") {
+			return nil, nil, ErrAuthorizationReadLimit
 		}
-		if err := c.get(ctx, base+authorizationPolicyPath+"/"+url.PathEscape(item.ID)+"/associatedPolicies", &associated); err != nil {
+		item.Type = "scope"
+		policies, err := c.authorizationPermissionPolicies(ctx, base, item.ID)
+		if err != nil {
 			return nil, nil, err
 		}
-		item.Policies = nil
-		for _, policy := range associated {
-			if policy.ID == "" {
-				return nil, nil, errors.New("keycloak associated policy ID missing")
-			}
-			item.Policies = append(item.Policies, policy.ID)
-		}
+		item.Policies = policies
 		byID[item.ID], byName[item.Name] = item, item
 	}
+	for _, item := range allPermissions {
+		if item.Type == "scope" {
+			if _, found := byID[item.ID]; !found {
+				return nil, nil, ErrAuthorizationReadLimit
+			}
+		}
+	}
 	return byID, byName, nil
+}
+
+func (c *Client) authorizationPermissionPolicies(ctx context.Context, base, permissionID string) ([]string, error) {
+	var associated []struct {
+		ID string `json:"id"`
+	}
+	if err := c.get(ctx, base+authorizationPolicyPath+"/"+url.PathEscape(permissionID)+"/associatedPolicies", &associated); err != nil {
+		return nil, err
+	}
+	if associated == nil || len(associated) > MaxAuthorizationCollectionObjects {
+		return nil, ErrAuthorizationReadLimit
+	}
+	policies := []string{}
+	seen := map[string]bool{}
+	for _, policy := range associated {
+		if policy.ID == "" || seen[policy.ID] {
+			return nil, ErrAuthorizationReadLimit
+		}
+		seen[policy.ID] = true
+		policies = append(policies, policy.ID)
+	}
+	return policies, nil
 }
 
 func buildAuthorizationPermission(permission AuthorizationPermission, scopeIDs, resourceIDs map[string]string, policyIDs map[string][]string) authorizationPermissionRepresentation {

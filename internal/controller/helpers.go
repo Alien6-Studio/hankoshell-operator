@@ -264,7 +264,7 @@ func kcForObject(pool *keycloak.Pool, namespace string, labels map[string]string
 	return pool.Get(namespace + "/" + tenantName)
 }
 
-// validateKeycloakURL enforces ADR-022: Keycloak URL must use http/https and
+// validateKeycloakURL enforces ADR-005: Keycloak URL must use http/https and
 // must not target cloud metadata endpoints.
 func validateKeycloakURL(rawURL string) error {
 	if err := keycloak.ValidateEndpoint(rawURL, true); err != nil {
@@ -275,14 +275,14 @@ func validateKeycloakURL(rawURL string) error {
 		return fmt.Errorf("invalid Keycloak URL %q: %w", rawURL, err)
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
-		return fmt.Errorf("keycloak URL %q must use http or https scheme (ADR-022)", rawURL)
+		return fmt.Errorf("keycloak URL %q must use http or https scheme (ADR-005)", rawURL)
 	}
 	host := u.Hostname()
-	// Block cloud instance metadata endpoints (ADR-022).
+	// Block cloud instance metadata endpoints (ADR-005).
 	ip := net.ParseIP(host)
 	for _, blocked := range metadataEndpointIPs() {
 		if ip != nil && ip.Equal(blocked) {
-			return fmt.Errorf("keycloak URL %q targets a blocked metadata endpoint (ADR-022)", rawURL)
+			return fmt.Errorf("keycloak URL %q targets a blocked metadata endpoint (ADR-005)", rawURL)
 		}
 	}
 	return nil
@@ -297,7 +297,7 @@ func metadataEndpointIPs() []net.IP {
 }
 
 // buildKCClientForInstance reads the AdminRef Secret from a HankoKeycloakInstance
-// and returns a keycloak.Client. URL is validated (ADR-022). TLSCARef is honoured when set.
+// and returns a keycloak.Client. URL is validated (ADR-005). TLSCARef is honoured when set.
 func buildKCClientForInstance(ctx context.Context, c client.Reader, ki *hankoshv1alpha1.HankoKeycloakInstance, requireHTTPS bool) (*keycloak.Client, error) {
 	var secret corev1.Secret
 	if err := c.Get(ctx, types.NamespacedName{Name: ki.Spec.AdminRef.Name, Namespace: ki.Namespace}, &secret); err != nil {
