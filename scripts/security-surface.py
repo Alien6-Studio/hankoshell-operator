@@ -29,6 +29,10 @@ DELETED_RESOURCES = {"hankoiamprofiles", "hankorealms", "hankoapplications", "ha
 FINALIZER_RESOURCES = METADATA_WRITERS - {"hankoiamprofiles"}
 PROFILES = {
     "standard": {},
+    "with-sensitive-targets": {"sensitiveWrites": {"secrets": ["hanko-app-reviewed", "reviewed-admin-rotation"],
+        "deployments": ["reviewed-provider"], "projections": [
+            {"namespace": "existing-workloads", "secrets": ["existing-output"], "create": False},
+            {"namespace": "created-workloads", "secrets": ["created-output"], "create": True}]}},
     "without-lifecycle": {"lifecycle": {"enabled": False}},
     "with-lifecycle": {"lifecycle": {"enabled": True}},
     "cilium": {"networkPolicy": {"cilium": {"enabled": True}}},
@@ -130,10 +134,10 @@ def rationale(rule):
         raise ValueError("Leader election authority exceeds the named lock")
     if resources == ["secrets"]:
         if not names and "delete" in verbs:
-            return "Opt-in transport Helm bookkeeping: namespace-wide get/list/delete. Dedicated namespace prerequisite is documented, not admission-enforced."
+            return "Opt-in transport bookkeeping: namespace-scoped get/list/delete; mandatory admission limits deletion to configured exact Secrets or exact release name, namespace, Helm type/labels and versioned history prefix."
         if set(verbs) <= {"get", "delete"}:
             return "Read referenced credentials without caching, or delete exact release bootstrap/CA Secrets at approved decommission."
-        return "Dynamic canonical credential creation/rotation and projections; controller owner/UID/consent checks. These are not Kubernetes admission isolation."
+        return "Administrator-approved exact credential/projection targets. Updates and patches are name-scoped; mandatory fail-closed admission constrains CREATE to those same namespace/name pairs and Opaque data, forbidding ServiceAccount token minting. Controller ownership and consumer UID consent remain required."
     purposes = {
         "namespaces": "Read the exact kube-system UID used to bind this physical cluster.",
         "nodes": "Read Pod.nodeName-derived node identity; names are discovered dynamically; no list/watch or writes.",
@@ -142,18 +146,18 @@ def rationale(rule):
         "serviceaccounts": "Observe workload identities; decommission patches only the release-owned account. No token minting.",
         "pods": "Observe managed workload readiness and node identity; no Pod writes or exec.",
         "persistentvolumeclaims": "Observe explicitly selected managed/theme storage; no volume writes.",
-        "jobs": "Run and observe approved theme/snapshot Jobs, then clean owned jobs; dynamic names require namespace scope.",
-        "deployments": "Manage provider infrastructure or approved self-update; release deletion is named. Controller ownership checks are not universal admission isolation.",
+        "jobs": "Run/observe/clean approved theme/snapshot Jobs with dynamic names in the operator namespace. Mandatory admission requires current Restricted Pod Security, default/no ServiceAccount and explicit refusal of automatic/projected API tokens. Controller UID/checkpoint checks remain necessary.",
+        "deployments": "Read provider infrastructure; exact administrator-approved names permit creation/update. Mandatory fail-closed admission requires current Restricted Pod Security, preserves ServiceAccount bindings, and forbids API token mounting in provider Deployments. Only the named operator Deployment may be deleted.",
         "networkpolicies": "Reconcile managed provider network boundaries; delete exact release policies during decommission.",
         "poddisruptionbudgets": "Maintain managed replica availability; remove the owned budget after scale-down.",
         "events": "Record reconciliation Events through both Kubernetes Event APIs; no list/read/delete.",
         "ciliumnetworkpolicies": "Read/delete the exact optional release Cilium policy at decommission.",
         "servicemonitors": "Read/delete the exact optional release metrics monitor at decommission.",
         "daemonsets": "Read/delete only the configured transport release DaemonSet after decommission approval.",
-        "roles": "Adopt or remove exact release RBAC objects at decommission; native Kubernetes escalation protection still applies.",
-        "rolebindings": "Adopt or remove exact release RBAC objects at decommission; no general role binding authority.",
-        "clusterroles": "Adopt/remove exact release cluster-reader RBAC through the release anchor; no wildcard or escalation verbs.",
-        "clusterrolebindings": "Adopt/remove exact release cluster-reader bindings through the release anchor.",
+        "roles": "Adopt ownerReferences or remove exact release RBAC at decommission. Mandatory admission preserves rules, subjects, aggregation labels/rules, annotations and finalizers; native escalation prevention remains active.",
+        "rolebindings": "Adopt ownerReferences or remove exact release bindings; mandatory admission forbids changing subjects/roleRef or other delegation metadata.",
+        "clusterroles": "Adopt ownerReferences/remove exact cluster-reader RBAC through the release anchor; admission forbids rules/aggregation changes and aggregation labels.",
+        "clusterrolebindings": "Adopt ownerReferences/remove exact cluster-reader bindings; admission preserves subjects/roleRef.",
     }
     if any(resource not in purposes for resource in resources):
         raise ValueError("RBAC resource needs a justification: " + str(resources))
@@ -180,6 +184,8 @@ def rbac(documents):
                 raise ValueError("Operator received runtime identity or escalation authority")
             if row["resourceNames"] and "create" in row["verbs"]:
                 raise ValueError("resourceNames cannot constrain CREATE")
+            if set(row["resources"]) & {"secrets", "deployments"} and set(row["verbs"]) & {"update", "patch"} and not row["resourceNames"]:
+                raise ValueError("Secret/Deployment updates require exact resourceNames")
             row["justification"] = rationale(row)
             rules.append(row)
     if not rules or not bindings:
@@ -198,8 +204,28 @@ def inventory(root=ROOT):
             output = subprocess.check_output(["helm", "template", "security-review", str(root / "charts/hankoshell-operator"),
                      "--namespace", "auth", "--api-versions", "cilium.io/v2/CiliumNetworkPolicy", "--kube-version", version, "--set-string", "image.tag=qualification", "--values", file.name],
                      text=True, timeout=45)
-        profiles[name] = rbac([d for d in yaml.safe_load_all(output) if d])
-    return {"schemaVersion": 1, "stage": "development-inventory-not-security-acceptance", "schemas": schemas(root), "rbac": profiles}
+        documents = [d for d in yaml.safe_load_all(output) if d]
+        profiles[name] = rbac(documents)
+        policies = [d for d in documents if d["kind"] in ("ValidatingAdmissionPolicy", "ValidatingAdmissionPolicyBinding")]
+        protected = [d for d in policies if d["kind"] == "ValidatingAdmissionPolicy" and
+                     any(marker in d["metadata"]["name"] for marker in ("-sensitive-", "-rbac-", "-execution-jobs-"))]
+        if len(protected) != 7 or any(d["spec"].get("failurePolicy") != "Fail" for d in protected):
+            raise ValueError("Missing mandatory sensitive-write/delegation admission")
+        for policy in protected:
+            binding = next((d for d in policies if d["kind"] == "ValidatingAdmissionPolicyBinding" and d["spec"]["policyName"] == policy["metadata"]["name"]), None)
+            if binding is None or binding["spec"].get("validationActions") != ["Deny", "Audit"]:
+                raise ValueError("Sensitive-write admission must deny and audit")
+        profiles[name]["admission"] = sorted([{"kind": d["kind"], "name": d["metadata"]["name"], "spec": d["spec"]} for d in policies], key=lambda d: (d["kind"], d["name"]))
+    current = schemas(root)
+    check_input_bounds(current)
+    return {"schemaVersion": 1, "stage": "development-inventory-not-security-acceptance", "schemas": current, "rbac": profiles}
+
+
+def check_input_bounds(current):
+    missing = [kind + ":" + path for kind, schema in current.items() for path, node in schema["nodes"].items()
+               if path.startswith(("spec.", "status.")) and node["missing_explicit_bound"]]
+    if missing:
+        raise ValueError("Public spec/status fields require explicit size bounds: " + ", ".join(sorted(missing)))
 
 
 def summary(data):
@@ -234,7 +260,9 @@ def main():
     current = inventory()
     if args.command == "snapshot":
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps(current, indent=2, sort_keys=True) + "\n")
+        # The resource/verb table is human-readable in docs/security-surface.md.
+        # Keep the full machine inventory within the contributor file budget.
+        args.output.write_text(json.dumps(current, sort_keys=True, separators=(",", ":")) + "\n")
     else:
         changed = drift(json.loads(BASELINE.read_text()), current)
         if changed:

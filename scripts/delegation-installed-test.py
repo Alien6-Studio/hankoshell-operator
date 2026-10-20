@@ -266,7 +266,7 @@ class Delegation(installed.Installed):
         self.positive()
 
     def audience_isolation(self):
-        self.apply(installed.object_value("HankoApplication", "other-api", {"realmRef": "managed", "clientID": "other-api", "type": "m2m"}))
+        self.apply_approved(installed.object_value("HankoApplication", "other-api", {"realmRef": "managed", "clientID": "other-api", "type": "m2m"}))
         wait("other audience application", lambda: self.ready("hankoapplication", "other-api"), 180)
         spec = server_spec(delegated=False)
         spec.update(applicationRef="other-api", audience="other-api")
@@ -544,7 +544,7 @@ class Delegation(installed.Installed):
             self.workload_anchors[name] = self.workload_pod("delegation-" + str(index), account)
             self.create_hsa(name)
             self.native_secret(name)  # Administrator-only sentinel for leak detection.
-        self.apply(installed.object_value("HankoApplication", "installed-api", {"realmRef": "managed", "clientID": "installed-api", "type": "m2m"}))
+        self.apply_approved(installed.object_value("HankoApplication", "installed-api", {"realmRef": "managed", "clientID": "installed-api", "type": "m2m"}))
         wait("installed audience application", lambda: self.ready("hankoapplication", "installed-api"), 180)
         initial_started = time.monotonic()
         self.apply(installed.object_value("HankoResourceServer", "installed-server", server_spec()))

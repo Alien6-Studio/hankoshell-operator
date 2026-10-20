@@ -51,7 +51,7 @@ class FuzzGateTests(unittest.TestCase):
         self.assertEqual(set(inventory), {"internal/" + p for p in (
             "adoption", "applicationbinding", "applications", "fleetplan", "httpsecurity", "hub", "imagevalidator",
             "keycloak", "workloadauth", "workloadbinding", "workloadtrust")} | {"api/v1beta1"})
-        self.assertEqual(sum(map(len, inventory.values())), 25)
+        self.assertEqual(sum(map(len, inventory.values())), 26)
         for package, names in inventory.items():
             source = "\n".join(p.read_text() for p in (gate.ROOT / package).glob("*_test.go"))
             for name in names:

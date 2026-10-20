@@ -512,6 +512,15 @@ func (r *HankoRealmReconciler) reconcileRealmIdentityProviders(ctx context.Conte
 }
 
 func (r *HankoRealmReconciler) reconcileRealmIdentityProvidersWithSecurity(ctx context.Context, realm *hankoshv1alpha1.HankoRealm, security *hankoshv1alpha1.RealmSecurityProfile, kc *keycloak.Client) error {
+	if err := checkStatusInventoryCapacity(len(realm.Status.ManagedIdentityProviders), len(realm.Spec.IdentityProviders)); err != nil {
+		return err
+	}
+	for _, provider := range realm.Spec.IdentityProviders {
+		previous, _ := managedRealmIdentityProvider(realm.Status.ManagedIdentityProviders, provider.Alias)
+		if err := checkStatusInventoryCapacity(len(previous.Mappers), len(provider.Mappers)); err != nil {
+			return err
+		}
+	}
 	if err := r.findRealmIdentityProviderMapperConflict(ctx, realm); err != nil {
 		return err
 	}
@@ -703,11 +712,6 @@ func managedRealmIdentityProvider(items []hankoshv1alpha1.ManagedRealmIdentityPr
 	return hankoshv1alpha1.ManagedRealmIdentityProviderReference{}, false
 }
 
-func containsManagedRealmIdentityProvider(items []hankoshv1alpha1.ManagedRealmIdentityProviderReference, target hankoshv1alpha1.ManagedRealmIdentityProviderReference) bool {
-	_, ok := managedRealmIdentityProvider(items, target.Alias)
-	return ok
-}
-
 func containsManagedRealmIdentityProviderMapper(items []hankoshv1alpha1.ManagedRealmIdentityProviderMapperReference, target hankoshv1alpha1.ManagedRealmIdentityProviderMapperReference) bool {
 	for _, item := range items {
 		if item.Name == target.Name && item.KeycloakID == target.KeycloakID {
@@ -718,10 +722,28 @@ func containsManagedRealmIdentityProviderMapper(items []hankoshv1alpha1.ManagedR
 }
 
 func checkpointManagedRealmIdentityProviders(current, previous []hankoshv1alpha1.ManagedRealmIdentityProviderReference) []hankoshv1alpha1.ManagedRealmIdentityProviderReference {
-	checkpoint := append([]hankoshv1alpha1.ManagedRealmIdentityProviderReference(nil), current...)
+	checkpoint := make([]hankoshv1alpha1.ManagedRealmIdentityProviderReference, 0, len(current)+len(previous))
+	for _, item := range current {
+		item.Mappers = append([]hankoshv1alpha1.ManagedRealmIdentityProviderMapperReference(nil), item.Mappers...)
+		checkpoint = append(checkpoint, item)
+	}
 	for _, item := range previous {
-		if !containsManagedRealmIdentityProvider(checkpoint, item) {
+		index := -1
+		for i := range checkpoint {
+			if checkpoint[i].Alias == item.Alias {
+				index = i
+				break
+			}
+		}
+		if index < 0 {
+			item.Mappers = append([]hankoshv1alpha1.ManagedRealmIdentityProviderMapperReference(nil), item.Mappers...)
 			checkpoint = append(checkpoint, item)
+			continue
+		}
+		for _, mapper := range item.Mappers {
+			if !containsManagedRealmIdentityProviderMapper(checkpoint[index].Mappers, mapper) {
+				checkpoint[index].Mappers = append(checkpoint[index].Mappers, mapper)
+			}
 		}
 	}
 	return checkpoint

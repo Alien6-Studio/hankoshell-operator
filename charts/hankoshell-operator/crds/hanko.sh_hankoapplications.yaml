@@ -59,6 +59,7 @@ spec:
             properties:
               attributes:
                 additionalProperties:
+                  maxLength: 4096
                   type: string
                 description: |-
                   Attributes sets arbitrary Keycloak client attributes (single string value per
@@ -67,6 +68,9 @@ spec:
                   other spec fields (login_theme, post.logout.redirect.uris) are rejected.
                 maxProperties: 64
                 type: object
+                x-kubernetes-validations:
+                - message: native map keys require 1..255 characters
+                  rule: self.all(k, size(k) > 0 && size(k) <= 255)
               clientID:
                 description: ClientID is the Keycloak client identifier.
                 maxLength: 255
@@ -122,27 +126,39 @@ spec:
                     claim:
                       description: Claim is the upstream OIDC claim to inspect or
                         import, for example "groups".
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     identityProvider:
                       description: IdentityProvider is the Keycloak identity-provider
                         alias, for example "entra".
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     keycloakName:
                       description: |-
                         KeycloakName explicitly adopts an existing mapper by name. When omitted,
                         the operator derives an application-namespaced mapper name. Use this only
                         for deliberate migration of a pre-existing mapper.
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     matchValue:
                       description: |-
                         MatchValue is required for role targets and is the exact claim value that
                         grants the role. For array claims, Keycloak matches when the array contains it.
                         It is omitted for userAttribute targets, which import the complete claim value.
+                      maxLength: 4096
                       type: string
                     name:
                       description: |-
                         Name is unique within this application and is used to derive a stable
                         operator-owned Keycloak mapper name.
+                      maxLength: 63
+                      minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
                     syncMode:
@@ -162,6 +178,9 @@ spec:
                           description: |-
                             ClientRole grants a role owned by this HankoApplication. The role should
                             also be declared in spec.roles.
+                          maxLength: 255
+                          minLength: 1
+                          pattern: ^[^\x00-\x1F\x7F]+$
                           type: string
                         realmRole:
                           description: RealmRole grants an existing realm role when
@@ -173,6 +192,9 @@ spec:
                             UserAttribute imports the upstream claim into this Keycloak user attribute.
                             Because Keycloak users are realm-scoped, the persisted attribute is global;
                             spec.tokenClaims controls which applications receive it in tokens.
+                          maxLength: 255
+                          minLength: 1
+                          pattern: ^[^\x00-\x1F\x7F]+$
                           type: string
                       type: object
                       x-kubernetes-validations:
@@ -255,7 +277,7 @@ spec:
                 description: RedirectURIs is the list of allowed redirect URIs after
                   authentication.
                 items:
-                  maxLength: 2048
+                  maxLength: 255
                   minLength: 1
                   pattern: ^[^\x00-\x1F\x7F]+$
                   type: string
@@ -271,7 +293,7 @@ spec:
                   properties:
                     description:
                       description: Description is an optional human-readable description.
-                      maxLength: 1024
+                      maxLength: 255
                       type: string
                     name:
                       description: Name is the Keycloak client role name.
@@ -358,7 +380,7 @@ spec:
                       AssertionConsumerServices is the exact set of HTTP-POST ACS destinations.
                       HTTPS is required. Wildcards, userinfo, query and fragments are forbidden.
                     items:
-                      maxLength: 2048
+                      maxLength: 255
                       pattern: ^https://([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(:[0-9]{1,5})?(/[^\s?#@\\*]*)?$
                       type: string
                     maxItems: 8
@@ -395,6 +417,7 @@ spec:
                     description: Enabled activates automatic rotation.
                     type: boolean
                   forceRotateAt:
+                    maxLength: 64
                     description: ForceRotateAt, when set, triggers an immediate rotation
                       on the next reconcile.
                     format: date-time
@@ -454,6 +477,9 @@ spec:
                       description: |-
                         KeycloakName explicitly adopts an existing client protocol mapper by name.
                         When omitted, the operator derives a stable application-scoped name.
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     multivalued:
                       description: Multivalued emits all values of a user attribute
@@ -461,12 +487,16 @@ spec:
                       type: boolean
                     name:
                       description: Name is unique within this application.
+                      maxLength: 63
+                      minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
                     realmRolePrefix:
                       description: |-
                         RealmRolePrefix, when set, restricts and strips a prefix from the projected
                         realm-role names. Only meaningful together with realmRoles.
+                      maxLength: 255
+                      pattern: ^[^\x00-\x1F\x7F]*$
                       type: string
                     realmRoles:
                       description: |-
@@ -481,11 +511,15 @@ spec:
                       description: |-
                         UserAttribute reads the value from a Keycloak user attribute.
                         Exactly one of userAttribute and value must be set.
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     value:
                       description: |-
                         Value emits a fixed application-specific claim value. A pointer allows an
                         explicitly configured empty string to remain distinguishable from omission.
+                      maxLength: 16384
                       type: string
                   required:
                   - claim
@@ -578,6 +612,7 @@ spec:
                   approvable:
                     type: boolean
                   candidateHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   complete:
@@ -674,6 +709,7 @@ spec:
                     maxItems: 256
                     type: array
                   diffHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   findings:
@@ -699,6 +735,7 @@ spec:
                     maxItems: 32
                     type: array
                   observationHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   providerIdentity:
@@ -832,6 +869,7 @@ spec:
                   deletion authority. A failed status update can be recovered from the provider.
                 properties:
                   candidateHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   contractVersion:
@@ -858,6 +896,7 @@ spec:
                 minimum: 0
                 type: integer
               appliedPlanHash:
+                maxLength: 71
                 description: |-
                   AppliedPlanHash identifies the latest Manage plan proven by matching read-back.
                   Observe clears applied evidence and cannot claim provider application.
@@ -922,10 +961,12 @@ spec:
                     description: SecretKeySelector selects a key of a Secret.
                     properties:
                       key:
+                        maxLength: 253
                         description: The key of the secret to select from.  Must be
                           a valid secret key.
                         type: string
                       name:
+                        maxLength: 253
                         default: ""
                         description: |-
                           Name of the referent.
@@ -946,12 +987,14 @@ spec:
                 - secretRef
                 type: object
               conditions:
+                maxItems: 32
                 description: Conditions holds standard Kubernetes condition objects.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
                   properties:
                     lastTransitionTime:
+                      maxLength: 64
                       description: |-
                         lastTransitionTime is the last time the condition transitioned from one status to another.
                         This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -1027,6 +1070,7 @@ spec:
                 minimum: 0
                 type: integer
               evaluatedPlanHash:
+                maxLength: 71
                 description: |-
                   EvaluatedPlanHash identifies the locally compiled provider-bound plan.
                   It is absent for rejected evaluation and is never execution authority.
@@ -1073,21 +1117,25 @@ spec:
                 - code
                 x-kubernetes-list-type: map
               intentHash:
+                maxLength: 71
                 description: IntentHash identifies normalized portable semantics of
                   EvaluatedGeneration.
                 pattern: ^sha256:[a-f0-9]{64}$
                 type: string
               lastReconciled:
+                maxLength: 64
                 description: LastReconciled is the timestamp of the last successful
                   reconciliation.
                 format: date-time
                 type: string
               lastRotated:
+                maxLength: 64
                 description: LastRotated is the timestamp of the last confidential
                   client secret rotation.
                 format: date-time
                 type: string
               managedClientSecretProjections:
+                maxItems: 128
                 description: |-
                   ManagedClientSecretProjections records the exact workload Secrets whose
                   client_secret value is lifecycle-managed by this application.
@@ -1120,6 +1168,7 @@ spec:
                 - name
                 x-kubernetes-list-type: map
               managedIdentityMappings:
+                maxItems: 128
                 description: |-
                   ManagedIdentityMappings records realm-scoped identity-provider mappers
                   lifecycle-owned by this application.
@@ -1129,6 +1178,7 @@ spec:
                     reconciliation state. KeycloakID is set once the operator owns an external mapper.
                   properties:
                     conditions:
+                      maxItems: 32
                       description: Conditions reports this mapper's individual reconciliation
                         state.
                       items:
@@ -1136,6 +1186,7 @@ spec:
                           the current state of this API Resource.
                         properties:
                           lastTransitionTime:
+                            maxLength: 64
                             description: |-
                               lastTransitionTime is the last time the condition transitioned from one status to another.
                               This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -1191,10 +1242,13 @@ spec:
                       - type
                       x-kubernetes-list-type: map
                     identityProvider:
+                      maxLength: 255
                       type: string
                     keycloakID:
+                      maxLength: 128
                       type: string
                     name:
+                      maxLength: 63
                       type: string
                   required:
                   - identityProvider
@@ -1203,6 +1257,7 @@ spec:
                   type: object
                 type: array
               managedTokenClaims:
+                maxItems: 128
                 description: ManagedTokenClaims records client-scoped protocol mappers
                   managed for this application.
                 items:
@@ -1211,6 +1266,7 @@ spec:
                     reconciliation state. KeycloakID is set once the operator owns an external mapper.
                   properties:
                     conditions:
+                      maxItems: 32
                       description: Conditions reports this mapper's individual reconciliation
                         state.
                       items:
@@ -1218,6 +1274,7 @@ spec:
                           the current state of this API Resource.
                         properties:
                           lastTransitionTime:
+                            maxLength: 64
                             description: |-
                               lastTransitionTime is the last time the condition transitioned from one status to another.
                               This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -1273,8 +1330,10 @@ spec:
                       - type
                       x-kubernetes-list-type: map
                     keycloakID:
+                      maxLength: 128
                       type: string
                     name:
+                      maxLength: 63
                       type: string
                   required:
                   - keycloakID
@@ -1282,6 +1341,7 @@ spec:
                   type: object
                 type: array
               nextRotation:
+                maxLength: 64
                 description: NextRotation is the next scheduled secret rotation, when
                   configured.
                 format: date-time
@@ -1299,6 +1359,7 @@ spec:
                 minimum: 0
                 type: integer
               observationPlanHash:
+                maxLength: 71
                 pattern: ^sha256:[a-f0-9]{64}$
                 type: string
               observedGeneration:
@@ -1308,6 +1369,7 @@ spec:
                 format: int64
                 type: integer
               observedStateHash:
+                maxLength: 71
                 description: |-
                   ObservedStateHash identifies safe normalized provider semantics, including
                   observation coverage. It is neither an intent/plan identity nor a provider ID.
@@ -1318,14 +1380,19 @@ spec:
                   this application.
                 properties:
                   authorization:
+                    maxLength: 4096
                     type: string
                   issuer:
+                    maxLength: 4096
                     type: string
                   jwks:
+                    maxLength: 4096
                     type: string
                   token:
+                    maxLength: 4096
                     type: string
                   userInfo:
+                    maxLength: 4096
                     type: string
                 type: object
               phase:
@@ -1354,6 +1421,7 @@ spec:
                     evidence only.
                   properties:
                     bindingRevision:
+                      maxLength: 71
                       pattern: ^sha256:[a-f0-9]{64}$
                       type: string
                     conditions:
@@ -1362,6 +1430,7 @@ spec:
                           the current state of this API Resource.
                         properties:
                           lastTransitionTime:
+                            maxLength: 64
                             description: |-
                               lastTransitionTime is the last time the condition transitioned from one status to another.
                               This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -1421,6 +1490,7 @@ spec:
                       maxLength: 253
                       type: string
                     metadataHash:
+                      maxLength: 71
                       pattern: ^sha256:[a-f0-9]{64}$
                       type: string
                     name:
@@ -1439,6 +1509,7 @@ spec:
                       maxLength: 128
                       type: string
                     sourceAppliedPlanHash:
+                      maxLength: 71
                       pattern: ^sha256:[a-f0-9]{64}$
                       type: string
                     sourceGeneration:
@@ -1532,6 +1603,7 @@ spec:
             properties:
               attributes:
                 additionalProperties:
+                  maxLength: 4096
                   type: string
                 description: |-
                   Attributes sets arbitrary Keycloak client attributes (single string value per
@@ -1540,6 +1612,9 @@ spec:
                   other spec fields (login_theme, post.logout.redirect.uris) are rejected.
                 maxProperties: 64
                 type: object
+                x-kubernetes-validations:
+                - message: native map keys require 1..255 characters
+                  rule: self.all(k, size(k) > 0 && size(k) <= 255)
               clientID:
                 description: ClientID is the Keycloak client identifier.
                 maxLength: 255
@@ -1595,27 +1670,39 @@ spec:
                     claim:
                       description: Claim is the upstream OIDC claim to inspect or
                         import, for example "groups".
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     identityProvider:
                       description: IdentityProvider is the Keycloak identity-provider
                         alias, for example "entra".
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     keycloakName:
                       description: |-
                         KeycloakName explicitly adopts an existing mapper by name. When omitted,
                         the operator derives an application-namespaced mapper name. Use this only
                         for deliberate migration of a pre-existing mapper.
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     matchValue:
                       description: |-
                         MatchValue is required for role targets and is the exact claim value that
                         grants the role. For array claims, Keycloak matches when the array contains it.
                         It is omitted for userAttribute targets, which import the complete claim value.
+                      maxLength: 4096
                       type: string
                     name:
                       description: |-
                         Name is unique within this application and is used to derive a stable
                         operator-owned Keycloak mapper name.
+                      maxLength: 63
+                      minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
                     syncMode:
@@ -1635,6 +1722,9 @@ spec:
                           description: |-
                             ClientRole grants a role owned by this HankoApplication. The role should
                             also be declared in spec.roles.
+                          maxLength: 255
+                          minLength: 1
+                          pattern: ^[^\x00-\x1F\x7F]+$
                           type: string
                         realmRole:
                           description: RealmRole grants an existing realm role when
@@ -1646,6 +1736,9 @@ spec:
                             UserAttribute imports the upstream claim into this Keycloak user attribute.
                             Because Keycloak users are realm-scoped, the persisted attribute is global;
                             spec.tokenClaims controls which applications receive it in tokens.
+                          maxLength: 255
+                          minLength: 1
+                          pattern: ^[^\x00-\x1F\x7F]+$
                           type: string
                       type: object
                       x-kubernetes-validations:
@@ -1728,7 +1821,7 @@ spec:
                 description: RedirectURIs is the list of allowed redirect URIs after
                   authentication.
                 items:
-                  maxLength: 2048
+                  maxLength: 255
                   minLength: 1
                   pattern: ^[^\x00-\x1F\x7F]+$
                   type: string
@@ -1744,7 +1837,7 @@ spec:
                   properties:
                     description:
                       description: Description is an optional human-readable description.
-                      maxLength: 1024
+                      maxLength: 255
                       type: string
                     name:
                       description: Name is the Keycloak client role name.
@@ -1831,7 +1924,7 @@ spec:
                       AssertionConsumerServices is the exact set of HTTP-POST ACS destinations.
                       HTTPS is required. Wildcards, userinfo, query and fragments are forbidden.
                     items:
-                      maxLength: 2048
+                      maxLength: 255
                       pattern: ^https://([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(:[0-9]{1,5})?(/[^\s?#@\\*]*)?$
                       type: string
                     maxItems: 8
@@ -1868,6 +1961,7 @@ spec:
                     description: Enabled activates automatic rotation.
                     type: boolean
                   forceRotateAt:
+                    maxLength: 64
                     description: ForceRotateAt, when set, triggers an immediate rotation
                       on the next reconcile.
                     format: date-time
@@ -1927,6 +2021,9 @@ spec:
                       description: |-
                         KeycloakName explicitly adopts an existing client protocol mapper by name.
                         When omitted, the operator derives a stable application-scoped name.
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     multivalued:
                       description: Multivalued emits all values of a user attribute
@@ -1934,12 +2031,16 @@ spec:
                       type: boolean
                     name:
                       description: Name is unique within this application.
+                      maxLength: 63
+                      minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
                     realmRolePrefix:
                       description: |-
                         RealmRolePrefix, when set, restricts and strips a prefix from the projected
                         realm-role names. Only meaningful together with realmRoles.
+                      maxLength: 255
+                      pattern: ^[^\x00-\x1F\x7F]*$
                       type: string
                     realmRoles:
                       description: |-
@@ -1954,11 +2055,15 @@ spec:
                       description: |-
                         UserAttribute reads the value from a Keycloak user attribute.
                         Exactly one of userAttribute and value must be set.
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^\x00-\x1F\x7F]+$
                       type: string
                     value:
                       description: |-
                         Value emits a fixed application-specific claim value. A pointer allows an
                         explicitly configured empty string to remain distinguishable from omission.
+                      maxLength: 16384
                       type: string
                   required:
                   - claim
@@ -2051,6 +2156,7 @@ spec:
                   approvable:
                     type: boolean
                   candidateHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   complete:
@@ -2147,6 +2253,7 @@ spec:
                     maxItems: 256
                     type: array
                   diffHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   findings:
@@ -2172,6 +2279,7 @@ spec:
                     maxItems: 32
                     type: array
                   observationHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   providerIdentity:
@@ -2305,6 +2413,7 @@ spec:
                   deletion authority. A failed status update can be recovered from the provider.
                 properties:
                   candidateHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   contractVersion:
@@ -2331,6 +2440,7 @@ spec:
                 minimum: 0
                 type: integer
               appliedPlanHash:
+                maxLength: 71
                 description: |-
                   AppliedPlanHash identifies the latest Manage plan proven by matching read-back.
                   Observe clears applied evidence and cannot claim provider application.
@@ -2395,10 +2505,12 @@ spec:
                     description: SecretKeySelector selects a key of a Secret.
                     properties:
                       key:
+                        maxLength: 253
                         description: The key of the secret to select from.  Must be
                           a valid secret key.
                         type: string
                       name:
+                        maxLength: 253
                         default: ""
                         description: |-
                           Name of the referent.
@@ -2419,12 +2531,14 @@ spec:
                 - secretRef
                 type: object
               conditions:
+                maxItems: 32
                 description: Conditions holds standard Kubernetes condition objects.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
                   properties:
                     lastTransitionTime:
+                      maxLength: 64
                       description: |-
                         lastTransitionTime is the last time the condition transitioned from one status to another.
                         This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -2500,6 +2614,7 @@ spec:
                 minimum: 0
                 type: integer
               evaluatedPlanHash:
+                maxLength: 71
                 description: |-
                   EvaluatedPlanHash identifies the locally compiled provider-bound plan.
                   It is absent for rejected evaluation and is never execution authority.
@@ -2546,21 +2661,25 @@ spec:
                 - code
                 x-kubernetes-list-type: map
               intentHash:
+                maxLength: 71
                 description: IntentHash identifies normalized portable semantics of
                   EvaluatedGeneration.
                 pattern: ^sha256:[a-f0-9]{64}$
                 type: string
               lastReconciled:
+                maxLength: 64
                 description: LastReconciled is the timestamp of the last successful
                   reconciliation.
                 format: date-time
                 type: string
               lastRotated:
+                maxLength: 64
                 description: LastRotated is the timestamp of the last confidential
                   client secret rotation.
                 format: date-time
                 type: string
               managedClientSecretProjections:
+                maxItems: 128
                 description: |-
                   ManagedClientSecretProjections records the exact workload Secrets whose
                   client_secret value is lifecycle-managed by this application.
@@ -2593,6 +2712,7 @@ spec:
                 - name
                 x-kubernetes-list-type: map
               managedIdentityMappings:
+                maxItems: 128
                 description: |-
                   ManagedIdentityMappings records realm-scoped identity-provider mappers
                   lifecycle-owned by this application.
@@ -2602,6 +2722,7 @@ spec:
                     reconciliation state. KeycloakID is set once the operator owns an external mapper.
                   properties:
                     conditions:
+                      maxItems: 32
                       description: Conditions reports this mapper's individual reconciliation
                         state.
                       items:
@@ -2609,6 +2730,7 @@ spec:
                           the current state of this API Resource.
                         properties:
                           lastTransitionTime:
+                            maxLength: 64
                             description: |-
                               lastTransitionTime is the last time the condition transitioned from one status to another.
                               This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -2664,10 +2786,13 @@ spec:
                       - type
                       x-kubernetes-list-type: map
                     identityProvider:
+                      maxLength: 255
                       type: string
                     keycloakID:
+                      maxLength: 128
                       type: string
                     name:
+                      maxLength: 63
                       type: string
                   required:
                   - identityProvider
@@ -2676,6 +2801,7 @@ spec:
                   type: object
                 type: array
               managedTokenClaims:
+                maxItems: 128
                 description: ManagedTokenClaims records client-scoped protocol mappers
                   managed for this application.
                 items:
@@ -2684,6 +2810,7 @@ spec:
                     reconciliation state. KeycloakID is set once the operator owns an external mapper.
                   properties:
                     conditions:
+                      maxItems: 32
                       description: Conditions reports this mapper's individual reconciliation
                         state.
                       items:
@@ -2691,6 +2818,7 @@ spec:
                           the current state of this API Resource.
                         properties:
                           lastTransitionTime:
+                            maxLength: 64
                             description: |-
                               lastTransitionTime is the last time the condition transitioned from one status to another.
                               This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -2746,8 +2874,10 @@ spec:
                       - type
                       x-kubernetes-list-type: map
                     keycloakID:
+                      maxLength: 128
                       type: string
                     name:
+                      maxLength: 63
                       type: string
                   required:
                   - keycloakID
@@ -2755,6 +2885,7 @@ spec:
                   type: object
                 type: array
               nextRotation:
+                maxLength: 64
                 description: NextRotation is the next scheduled secret rotation, when
                   configured.
                 format: date-time
@@ -2772,6 +2903,7 @@ spec:
                 minimum: 0
                 type: integer
               observationPlanHash:
+                maxLength: 71
                 pattern: ^sha256:[a-f0-9]{64}$
                 type: string
               observedGeneration:
@@ -2781,6 +2913,7 @@ spec:
                 format: int64
                 type: integer
               observedStateHash:
+                maxLength: 71
                 description: |-
                   ObservedStateHash identifies safe normalized provider semantics, including
                   observation coverage. It is neither an intent/plan identity nor a provider ID.
@@ -2791,14 +2924,19 @@ spec:
                   this application.
                 properties:
                   authorization:
+                    maxLength: 4096
                     type: string
                   issuer:
+                    maxLength: 4096
                     type: string
                   jwks:
+                    maxLength: 4096
                     type: string
                   token:
+                    maxLength: 4096
                     type: string
                   userInfo:
+                    maxLength: 4096
                     type: string
                 type: object
               phase:
@@ -2827,6 +2965,7 @@ spec:
                     evidence only.
                   properties:
                     bindingRevision:
+                      maxLength: 71
                       pattern: ^sha256:[a-f0-9]{64}$
                       type: string
                     conditions:
@@ -2835,6 +2974,7 @@ spec:
                           the current state of this API Resource.
                         properties:
                           lastTransitionTime:
+                            maxLength: 64
                             description: |-
                               lastTransitionTime is the last time the condition transitioned from one status to another.
                               This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -2894,6 +3034,7 @@ spec:
                       maxLength: 253
                       type: string
                     metadataHash:
+                      maxLength: 71
                       pattern: ^sha256:[a-f0-9]{64}$
                       type: string
                     name:
@@ -2912,6 +3053,7 @@ spec:
                       maxLength: 128
                       type: string
                     sourceAppliedPlanHash:
+                      maxLength: 71
                       pattern: ^sha256:[a-f0-9]{64}$
                       type: string
                     sourceGeneration:

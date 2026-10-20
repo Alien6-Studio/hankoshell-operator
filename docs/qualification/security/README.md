@@ -2,8 +2,8 @@
 
 Status on 2026-10-19: **in progress**, on `feat/1.0.0-dev`. This is the
 maintainer's qualification record and test map, not an independent audit or a
-stable-contract acceptance. The APIs remain experimental. #77 is closed; stable
-versions/conversions (#91) and stored-object migration/rollback (#92) are open.
+stable-contract acceptance. The APIs remain experimental. #77 is closed; the served conversion (#91) and stored migration (#92) contracts are implemented
+and their tickets are closed.
 No merge, release, registry publication or production approval follows from this
 record.
 
@@ -24,7 +24,7 @@ connection file, created without an initially permissive window. These are test
 infrastructure changes; no production operator API or RBAC authority changes.
 
 
-The reviewed [inventory](../../../scripts/fuzz-targets.json) contains 25
+The reviewed [inventory](../../../scripts/fuzz-targets.json) contains 26
 compiled Go fuzz targets in twelve packages. Positive seeds and hostile cases are
 checked in with `f.Add`: duplicate/escaped JSON members, trailing documents,
 size/depth boundaries, DTD/entities, duplicate XML IDs, private JWK fields,
@@ -37,7 +37,7 @@ mutations to reach validation behind the signature check.
 | --- | --- |
 | Shared JSON | `FuzzJSONDocument`: syntax, trailing values, safe diagnostics; deterministic unit tests enforce duplicate/depth/member bounds |
 | Protocol discovery | `FuzzOIDCDiscovery`, `FuzzPublicDiscovery`, `FuzzPublicKeys`: bounded documents, exact issuer/endpoints, closed public-key evidence; private key injection refused |
-| SAML metadata | `FuzzSAMLMetadata`: bounded XML, issuer/SSO binding, namespaces/certificate decoding, no DTD/entities or extra roots; positive certificate generated locally |
+| SAML metadata | `FuzzSAMLMetadata`, `FuzzSAMLACS`: bounded XML, issuer/SSO binding, namespaces/certificate decoding, no DTD/entities or extra roots; positive certificate generated locally |
 | Signed fleet state | `FuzzFleetEnvelope`, `FuzzFleetSignedPayload`, `FuzzFleetTrust`: signature tampering, target binding, exact recovery identity and lower-sequence replay refusal after successful verification |
 | Acquisition | `FuzzAdoptionReceipt`, `FuzzAdoptionApproval`, `FuzzAuthorizationJournal`: canonical receipt, exact owner/client, conflicting approval channels, bounded native ownership inventory |
 | Recovery and transitions | `FuzzTrustRecoveryMetadata`, `FuzzAuthenticationJournal`, `FuzzAuthenticationApproval`, `FuzzDeliveryRecord`: canonical journals/checkpoints/approvals, immutable identity and absent-vs-invalid distinctions |
@@ -75,11 +75,11 @@ execution; allocation profiling and longer campaigns remain review work.
 | Boundary / actor | Required authority | Evidence and remaining review |
 | --- | --- | --- |
 | Remote Hub or publisher | Locally approved issuer/key/source, exact tenant/cluster/namespace and monotonic durable checkpoint | #77 verification/replay tests, signed-payload fuzzing; rerun installed adversarial matrix on final stable version |
-| Provider-controlled documents | Trusted TLS origin, bounded complete response, closed identity/journal evidence; numeric typed status only | Protocol/JSON/ownership fuzzing and existing transport tests; collection allocation analysis remains |
-| Namespace object writers | Current CR UID/generation, administrator approvals where required, exact live target identity and optimistic writes | Ownership/authority tests, admission tests and 71 reviewed security mutations; stable CRD field inventory and full RBAC verb table remain |
+| Provider-controlled documents | Trusted TLS origin, bounded complete response, closed identity/journal evidence; numeric typed status only | Protocol/JSON/ownership fuzzing and existing transport tests; byte/depth/member/object limits reviewed; hostile boundary seeds remain mandatory |
+| Namespace object writers | Current CR UID/generation, administrator approvals where required, exact live target identity and optimistic writes | Ownership/authority tests, admission tests and 71 reviewed security mutations; complete field fixtures and rendered RBAC/admission inventory |
 | Application credential delivery | Matching controller owner plus fresh provider value, consent/current target UID, resource-version writes and read-back | Canonical/projection race tests; legacy migration now exercises explicit administrator Secret binding |
 | Image policy administrators | Approved digest, purpose, source revision and publisher; ambiguity cannot select another approval | Publisher-policy fuzzing plus existing revocation/signature/installed tests; no fuzz test substitutes for a signature verifier |
-| API conversion/storage migration | Lossless round trip, preserved journals/approvals and reversible journaled storage movement | Experimental alpha/beta conversion fuzzing, real API readers and native storage fixture; full stable/public and independent acceptance remain open |
+| API conversion/storage migration | Lossless round trip, preserved journals/approvals and reversible journaled storage movement | Experimental alpha/beta conversion fuzzing, real API readers and native storage fixture; no stable/public graduation is implied |
 
 Namespace administrators, provider administrators, repository/workflow
 administrators and local image-policy writers have distinct trust boundaries;
@@ -117,29 +117,33 @@ fresh-initialization path. A mutation check restores the old overlay and must be
 detected. Valid writer-generated markers are unchanged; malformed markers stop
 with ownership conflict and must be reviewed before retrying or rolling back.
 
-The [schema/grant review](../../security-surface.md) now records 962 declared
-fields/collections and every rendered RBAC rule/binding on four chart profiles.
-Seven reference fields gained explicit length bounds and Kubernetes-name checks;
-the common real-API fixture also covers the existing workload-trust reference.
-The leader lock loses broad read/renew/delete privileges. Preflight checks the
-reviewed inventory. 348 explicit length/cardinality gaps and broad dynamic
-Secret/Deployment authority remain contextual review work; inventory is not
-acceptance. See the migration notice before applying changed alpha CRDs.
+The [schema/grant review](../../security-surface.md) records 1,343 served
+string/list/map paths with no missing maximum, six complete RBAC/admission
+profiles and configuration/upgrade instructions. The independent field corpus
+covers all 966 alpha paths and every shared beta path; the maximum-boundary
+corpora remain separate. Secret/Deployment writes require exact administrator
+names, with mandatory fail-closed admission for creations and token/RBAC
+escalation guards. The leader lock retains only named read/renew and namespace
+CREATE required by client-go.
 
-## Remaining acceptance work
+The completion audit is an **internal instrumented source/configuration review**,
+with explicit findings, fixes and reproducible evidence. It is not an external
+penetration test or independent human signoff. The earlier optional Security CLI
+run was interrupted and produced no completed verdict; an empty confirmed-finding
+list is not used as a clean audit result. #99 asks for an external review **or an
+audit report**; this record uses the audit-report route without claiming a
+stable API, production qualification or first publication.
 
-- Complete stable API/conversion and stored-object migration first, then fuzz
-  their actual wire/storage contracts and qualify interrupted transitions.
-- Inventory every public CRD string/list/map bound against the chosen provider
-  limits and add missing admission tests; do not infer coverage from parser tests.
-- Publish a complete RBAC resource/verb/justification table, including generated
-  Secret/Deployment writes, dynamic names and admission protections.
-- Run the complete installed ownership/replay/stale-approval/SSA/foreign-tenant
-  matrix on the final candidate across the supported Kubernetes/Keycloak cells.
-- Finish independent security review with resolved/accepted findings. The earlier
-  optional Security CLI audit was interrupted by the service and produced no
-  completed verdict; its empty confirmed-findings output is not a clean audit.
-- Review longer fuzz campaigns and allocation evidence, plus parsers beyond the
-  initial inventory (including stable conversion parsers as they are added).
-  Keep #99 open until its full acceptance
-  criteria are met.
+The [completion audit](2026-10-19/bounded-contract/README.md) records the findings,
+fixes, trust assumptions and final integration gate.
+
+## Completion gate
+
+Retain the current source tests, complete parser campaign, mutation results,
+real-API field/admission tests and actual operator-token probe. Attach the
+required CI, CodeQL, OCI, rehearsal and installed ownership/replay/stale-approval/
+SSA/foreign-tenant results for the exact protected integration candidate. Resolve
+any finding or failure before recording the final decision. A passing earlier
+image is diagnostic context and cannot qualify changed source. The final report
+will link its immutable candidate and evidence; no tag/release/publication is
+part of this task.

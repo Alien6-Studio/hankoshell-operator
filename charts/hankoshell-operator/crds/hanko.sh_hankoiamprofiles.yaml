@@ -100,6 +100,9 @@ spec:
                       waitIncrements:
                         description: WaitIncrements is the lockout duration (Go duration
                           string, e.g. "30s").
+                        maxLength: 64
+                        minLength: 1
+                        pattern: ^[^\x00-\x1F\x7F]+$
                         type: string
                     required:
                     - enabled
@@ -210,10 +213,16 @@ spec:
                   sessionIdleTimeout:
                     description: SessionIdleTimeout is the maximum inactive SSO session
                       duration.
+                    maxLength: 64
+                    minLength: 1
+                    pattern: ^[^\x00-\x1F\x7F]+$
                     type: string
                   sessionLifetime:
                     description: SessionLifetime is the maximum SSO session duration
                       (Go duration string, e.g. "8h").
+                    maxLength: 64
+                    minLength: 1
+                    pattern: ^[^\x00-\x1F\x7F]+$
                     type: string
                   sslRequired:
                     default: external
@@ -243,12 +252,14 @@ spec:
               policy.
             properties:
               conditions:
+                maxItems: 32
                 description: Conditions holds standard Kubernetes condition objects.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
                   properties:
                     lastTransitionTime:
+                      maxLength: 64
                       description: |-
                         lastTransitionTime is the last time the condition transitioned from one status to another.
                         This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -303,6 +314,7 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               lastValidated:
+                maxLength: 64
                 description: LastValidated is the timestamp of the last successful
                   validation.
                 format: date-time
@@ -321,6 +333,7 @@ spec:
                 - Error
                 type: string
               policyHash:
+                maxLength: 71
                 description: PolicyHash is the deterministic SHA-256 of the effective
                   security policy.
                 type: string

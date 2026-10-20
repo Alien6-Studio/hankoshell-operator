@@ -212,6 +212,7 @@ class Scale(installed.Installed):
         self.workload_grants = []
         self.ledger, self.scraper, self.burst = measure.Ledger(), None, None
         self.objects = objects(self.counts)
+        self.approve_sensitive_writes(self.objects)
         self.report.update({"layer": "installed-scale", "profile": args.profile, "fixture_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
             "measurement_sha256": hashlib.sha256((ROOT / "scripts/scale-evidence.py").read_bytes()).hexdigest(), "counts": self.counts,
             "workers": args.workers, "steady_seconds_requested": self.seconds, "samples": 0, "faults": {}, "complete": False,

@@ -41,6 +41,9 @@ type HankoKeycloakInstanceSpec struct {
 	// TLSCARef is the name of a Secret containing a "ca.crt" key with the PEM-encoded
 	// CA bundle used to verify the Keycloak Admin API TLS certificate.
 	// HTTPS always verifies certificates; without this Secret it uses system CAs.
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	TLSCARef string `json:"tlsCARef,omitempty"`
 
 	// HardenMasterRealm explicitly authorizes changes to the master realm security
@@ -71,6 +74,8 @@ type ManagedKeycloakSpec struct {
 	// and tls.key for the native HTTPS listener on 8443. Required by default.
 	// Client trust is configured separately through spec.tlsCARef or system CAs.
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	TLSSecretRef string `json:"tlsSecretRef,omitempty"`
 
 	// AllowInsecureHTTP explicitly selects a plaintext listener on 8080 instead
@@ -82,6 +87,9 @@ type ManagedKeycloakSpec struct {
 	// Image is a digest-approved signed optimized Keycloak image, built for the
 	// declared database with health enabled and root IAM/management context paths.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=2048
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x20\x7F]+$`
 	Image string `json:"image"`
 
 	// Replicas is the number of Keycloak pods. Defaults to 1.
@@ -95,6 +103,9 @@ type ManagedKeycloakSpec struct {
 	Database corev1.LocalObjectReference `json:"database"`
 
 	// ThemePVC is the PersistentVolumeClaim name for Keycloak theme JARs.
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	ThemePVC string `json:"themePVC,omitempty"`
 
 	// Resources sets CPU/memory requests and limits on the Keycloak container.
@@ -105,10 +116,16 @@ type ManagedKeycloakSpec struct {
 type AdoptedKeycloakSpec struct {
 	// DeploymentRef is the name of the existing Keycloak Deployment in the same namespace.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	DeploymentRef string `json:"deploymentRef"`
 
 	// ServiceRef names an existing Keycloak Service for optional discovery metadata.
 	// The reference alone does not grant ownership or authorize updates.
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	ServiceRef string `json:"serviceRef,omitempty"`
 
 	// PublishDiscovery authorizes adding hankoShell discovery labels and annotations

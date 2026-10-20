@@ -124,3 +124,25 @@ Selector labels.
 app.kubernetes.io/name: {{ include "hanko-operator.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
+
+{{/* One reviewed exact-name inventory feeds both RBAC and admission. */}}
+{{- define "hanko-operator.sensitiveWriteNames" -}}
+{{- $root := .root -}}
+{{- $kind := .kind -}}
+{{- $names := index $root.Values.sensitiveWrites $kind -}}
+{{- if not (kindIs "slice" $names) }}{{ fail "sensitiveWrites requires exact-name lists" }}{{ end -}}
+{{- if gt (len $names) 4096 }}{{ fail "sensitiveWrites exceeds the 4096-name budget" }}{{ end -}}
+{{- $seen := dict -}}
+{{- range $name := $names -}}
+{{- if not (kindIs "string" $name) }}{{ fail "sensitiveWrites requires string names" }}{{ end -}}
+{{- if or (gt (len $name) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $name)) }}{{ fail "sensitiveWrites requires exact Kubernetes names" }}{{ end -}}
+{{- if hasKey $seen $name }}{{ fail "sensitiveWrites contains duplicate names" }}{{ end -}}
+{{- $_ := set $seen $name true -}}
+{{- end -}}
+{{- if and (eq $kind "secrets") $root.Values.hub.enabled -}}
+{{- $hubSecret := $root.Values.hub.tokenSecret | default "hanko-hub-token" -}}
+{{- if or (gt (len $hubSecret) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $hubSecret)) }}{{ fail "hub.tokenSecret requires an exact Kubernetes name" }}{{ end -}}
+{{- $names = append $names $hubSecret -}}
+{{- end -}}
+{{- $names | uniq | sortAlpha | toJson -}}
+{{- end -}}

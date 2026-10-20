@@ -1,0 +1,66 @@
+{{- $fullname := include "hanko-operator.fullname" . }}
+{{- range $family := list "roles" "clusterroles" "rolebindings" "clusterrolebindings" }}
+{{- $name := printf "%s-rbac-%s-%s" $fullname $family $.Release.Namespace }}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ $name }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [rbac.authorization.k8s.io]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [{{ $family }}]
+  matchConditions:
+    - name: exact-operator-identity
+      expression: request.userInfo.username == {{ printf "system:serviceaccount:%s:%s" $.Release.Namespace $fullname | toJson }}
+  validations:
+    - expression: request.operation != 'CREATE'
+      message: The operator cannot create RBAC authority
+      reason: Forbidden
+    - expression: >-
+        oldObject == null ||
+        ((!has(object.metadata.labels) && !has(oldObject.metadata.labels)) ||
+         has(object.metadata.labels) && has(oldObject.metadata.labels) && object.metadata.labels == oldObject.metadata.labels) &&
+        ((!has(object.metadata.annotations) && !has(oldObject.metadata.annotations)) ||
+         has(object.metadata.annotations) && has(oldObject.metadata.annotations) && object.metadata.annotations == oldObject.metadata.annotations) &&
+        ((!has(object.metadata.finalizers) && !has(oldObject.metadata.finalizers)) ||
+         has(object.metadata.finalizers) && has(oldObject.metadata.finalizers) && object.metadata.finalizers == oldObject.metadata.finalizers)
+      message: The operator cannot change RBAC aggregation labels, annotations or finalizers
+      reason: Forbidden
+    {{- if or (eq $family "roles") (eq $family "clusterroles") }}
+    - expression: >-
+        oldObject == null ||
+        ((!has(object.rules) && !has(oldObject.rules)) ||
+         has(object.rules) && has(oldObject.rules) && object.rules == oldObject.rules)
+      message: The operator may adopt RBAC metadata but cannot change its rules
+      reason: Forbidden
+    {{- if eq $family "clusterroles" }}
+    - expression: >-
+        oldObject == null ||
+        ((!has(object.aggregationRule) && !has(oldObject.aggregationRule)) ||
+         has(object.aggregationRule) && has(oldObject.aggregationRule) && object.aggregationRule == oldObject.aggregationRule)
+      message: The operator cannot change ClusterRole aggregation authority
+      reason: Forbidden
+    {{- end }}
+    {{- else }}
+    - expression: >-
+        oldObject == null ||
+        object.roleRef == oldObject.roleRef &&
+        ((!has(object.subjects) && !has(oldObject.subjects)) ||
+         has(object.subjects) && has(oldObject.subjects) && object.subjects == oldObject.subjects)
+      message: The operator may adopt RBAC metadata but cannot delegate its authority to another subject
+      reason: Forbidden
+    {{- end }}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ $name }}
+spec:
+  policyName: {{ $name }}
+  validationActions: [Deny, Audit]
+{{- end }}

@@ -9,7 +9,7 @@ type ApplicationSAML struct {
 	// +listType=set
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=8
-	// +kubebuilder:validation:items:MaxLength=2048
+	// +kubebuilder:validation:items:MaxLength=255
 	// +kubebuilder:validation:items:Pattern=`^https://([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(:[0-9]{1,5})?(/[^\s?#@\\*]*)?$`
 	AssertionConsumerServices []string `json:"assertionConsumerServices"`
 

@@ -49,6 +49,8 @@ components:
     in: "/internal/applications"
   applicationbinding:
     in: "/internal/applicationbinding"
+  credentialname:
+    in: "/internal/credentialname"
   organization:
     in: "/internal/organization"
   authorization:
@@ -103,6 +105,7 @@ deps:
       - roles
       - applications
       - applicationbinding
+      - credentialname
       - iamcontract
       - adoption
       - hub
@@ -177,6 +180,7 @@ deps:
     mayDependOn:
       - api_types
       - iamcontract
+      - credentialname
 
   organization:
     anyVendorDeps: true

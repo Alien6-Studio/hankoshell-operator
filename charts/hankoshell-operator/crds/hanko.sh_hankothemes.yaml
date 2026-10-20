@@ -63,6 +63,9 @@ spec:
               buildImage:
                 description: BuildImage is the container image used to build the Keycloakify
                   JAR.
+                maxLength: 2048
+                minLength: 1
+                pattern: ^[^\x00-\x20\x7F]+$
                 type: string
               fontFamily:
                 description: FontFamily is the CSS font-family applied by the generated
@@ -79,6 +82,7 @@ spec:
                 maxLength: 256
                 type: string
               imagePullSecrets:
+                maxItems: 32
                 description: ImagePullSecrets are attached to theme build and cleanup
                   Jobs.
                 items:
@@ -87,6 +91,8 @@ spec:
                     referenced object inside the same namespace.
                   properties:
                     name:
+                      maxLength: 253
+                      pattern: "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
                       default: ""
                       description: |-
                         Name of the referent.
@@ -102,11 +108,15 @@ spec:
                 description: |-
                   JarName is the filename installed in Keycloak's providers directory. When
                   omitted, the operator derives <metadata.name>-theme.jar.
+                maxLength: 255
                 pattern: ^[a-zA-Z0-9._-]+\.jar$
                 type: string
               keycloakPVC:
                 description: KeycloakPVC is the name of the PersistentVolumeClaim
                   where the JAR is placed.
+                maxLength: 253
+                minLength: 1
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
               logoURL:
                 description: LogoURL is the URL of the logo image shown on the login
@@ -139,16 +149,19 @@ spec:
               build.
             properties:
               buildJob:
+                maxLength: 253
                 description: BuildJob is the name of the most recent K8s Job that
                   built this theme.
                 type: string
               conditions:
+                maxItems: 32
                 description: Conditions holds standard Kubernetes condition objects.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
                   properties:
                     lastTransitionTime:
+                      maxLength: 64
                       description: |-
                         lastTransitionTime is the last time the condition transitioned from one status to another.
                         This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -203,11 +216,13 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               installedBuildImage:
+                maxLength: 2048
                 description: |-
                   InstalledBuildImage records the previously validated image that can remove
                   the installed artifact even if the desired build image later changes.
                 type: string
               installedImagePullSecrets:
+                maxItems: 32
                 description: |-
                   InstalledImagePullSecrets records the credentials used by the installed
                   build image so finalizer cleanup does not depend on a later spec revision.
@@ -217,6 +232,7 @@ spec:
                     referenced object inside the same namespace.
                   properties:
                     name:
+                      maxLength: 253
                       default: ""
                       description: |-
                         Name of the referent.
@@ -229,20 +245,24 @@ spec:
                   x-kubernetes-map-type: atomic
                 type: array
               installedPVC:
+                maxLength: 253
                 description: |-
                   InstalledPVC records the claim containing JarPath. It lets cleanup remain
                   correct when spec.keycloakPVC changes after an installation.
                 type: string
               jarPath:
+                maxLength: 1024
                 description: JarPath is the path inside the PVC where the built JAR
                   was placed.
                 type: string
               lastBuilt:
+                maxLength: 64
                 description: LastBuilt is the timestamp when the theme JAR was last
                   successfully built.
                 format: date-time
                 type: string
               lastReconciled:
+                maxLength: 64
                 description: LastReconciled is the timestamp of the last successful
                   reconciliation.
                 format: date-time

@@ -62,6 +62,8 @@ def qualify(system):
     openssl("verify", "-CAfile", ca, "-verify_hostname", "system-operator-metrics.auth.svc", server)
     system.apply(system.secret("metrics-server", {"tls.crt": server.read_text(), "tls.key": server_key.read_text()}),
                  system.secret("metrics-client-ca", {"ca.crt": ca.read_text()}))
+    system.approve_sensitive_writes([{"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoApplication", "metadata": {"namespace": "auth"},
+        "spec": {"clientID": "native-ops-metrics-label-sentinel", "type": "m2m"}}])
     original = yaml.safe_load((system.private / "values.yaml").read_text())
     values = copy.deepcopy(original)
     values.update({"replicaCount": 2, "metrics": {"enabled": True,
@@ -79,7 +81,7 @@ def qualify(system):
         system.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=180s")
     upgrade(enabled)
     checks.append("real Helm upgrade enables mandatory mTLS on two Restricted replicas")
-    system.apply({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoApplication",
+    system.apply_approved({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoApplication",
                   "metadata": {"name": "ops-fixture", "namespace": "auth"},
                   "spec": {"realmRef": "managed", "clientID": "native-ops-metrics-label-sentinel", "type": "m2m"}})
     fixture.wait("operational native client", lambda: system.ready("hankoapplication", "ops-fixture"))
@@ -246,7 +248,7 @@ def main():
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_text(json.dumps({"result": "pass", "scope": "installed operational smoke; not production HA",
                 "revision": args.revision, "image_digest": args.digest, "kubernetes": fixture.KUBERNETES_VERSION,
-                "keycloak": fixture.KEYCLOAK_VERSION, "checks": checks,
+                "keycloak": fixture.KEYCLOAK_VERSION, "checks": checks, "sensitive_write_checks": system.sensitive_write_checks,
                 "harness_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 "system_harness_sha256": hashlib.sha256((ROOT / "scripts/system-test.py").read_bytes()).hexdigest(),
                 "privacy_harness_sha256": hashlib.sha256((ROOT / "scripts/evidence_privacy.py").read_bytes()).hexdigest()}, indent=2) + "\n")

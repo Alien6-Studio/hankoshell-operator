@@ -62,6 +62,8 @@ type HankoRealmSpec struct {
 	// Every application in this realm inherits the resolved authentication policy.
 	// It is mutually exclusive with the legacy inline SecurityProfile.
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
 	IAMProfileRef string `json:"iamProfileRef,omitempty"`
 
 	// SecurityProfile is the legacy inline authentication and security policy.
@@ -111,7 +113,7 @@ type RealmRole struct {
 	Name string `json:"name"`
 
 	// Description is an optional human-readable explanation of the role.
-	// +kubebuilder:validation:MaxLength=1024
+	// +kubebuilder:validation:MaxLength=255
 	Description string `json:"description,omitempty"`
 
 	// Composites lists realm roles included by this role.
@@ -139,6 +141,7 @@ type RealmIdentityProvider struct {
 	// +kubebuilder:validation:MaxLength=255
 	ProviderID string `json:"providerID"`
 
+	// +kubebuilder:validation:MaxLength=255
 	DisplayName string `json:"displayName,omitempty"`
 
 	// Boolean settings use pointers so imported providers preserve explicit
@@ -149,12 +152,19 @@ type RealmIdentityProvider struct {
 	AddReadTokenRoleOnCreate *bool `json:"addReadTokenRoleOnCreate,omitempty"`
 	LinkOnly                 *bool `json:"linkOnly,omitempty"`
 
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
 	FirstBrokerLoginFlowAlias string `json:"firstBrokerLoginFlowAlias,omitempty"`
-	PostBrokerLoginFlowAlias  string `json:"postBrokerLoginFlowAlias,omitempty"`
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
+	PostBrokerLoginFlowAlias string `json:"postBrokerLoginFlowAlias,omitempty"`
 
 	// Config contains non-sensitive provider-specific Keycloak options. Only
 	// declared keys are reconciled; provider defaults and opaque keys survive.
 	// +kubebuilder:validation:MaxProperties=64
+	// +kubebuilder:validation:XValidation:rule="self.all(k, size(k) > 0 && size(k) <= 255)",message="native map keys require 1..255 characters"
 	Config map[string]string `json:"config,omitempty"`
 
 	// ClientSecretRef points to the Kubernetes Secret key injected into
@@ -187,6 +197,7 @@ type RealmIdentityProviderMapper struct {
 	IdentityProviderMapper string `json:"identityProviderMapper"`
 
 	// +kubebuilder:validation:MaxProperties=32
+	// +kubebuilder:validation:XValidation:rule="self.all(k, size(k) > 0 && size(k) <= 255)",message="native map keys require 1..255 characters"
 	Config map[string]string `json:"config,omitempty"`
 }
 
@@ -230,9 +241,15 @@ type RealmSecurityProfile struct {
 	BruteForce *BruteForcePolicy `json:"bruteForce,omitempty"`
 
 	// SessionLifetime is the maximum SSO session duration (Go duration string, e.g. "8h").
+	// +kubebuilder:validation:MaxLength=64
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
 	SessionLifetime string `json:"sessionLifetime,omitempty"`
 
 	// SessionIdleTimeout is the maximum inactive SSO session duration.
+	// +kubebuilder:validation:MaxLength=64
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
 	SessionIdleTimeout string `json:"sessionIdleTimeout,omitempty"`
 
 	// SSLRequired controls TLS enforcement on the Keycloak realm.
@@ -321,6 +338,9 @@ type BruteForcePolicy struct {
 	MaxFailures int `json:"maxFailures,omitempty"`
 
 	// WaitIncrements is the lockout duration (Go duration string, e.g. "30s").
+	// +kubebuilder:validation:MaxLength=64
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]+$`
 	WaitIncrements string `json:"waitIncrements,omitempty"`
 }
 
@@ -373,6 +393,7 @@ type ManagedRealmIdentityProviderReference struct {
 
 	// +listType=map
 	// +listMapKey=name
+	// +listMapKey=keycloakID
 	Mappers []ManagedRealmIdentityProviderMapperReference `json:"mappers,omitempty"`
 }
 

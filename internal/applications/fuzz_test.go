@@ -7,9 +7,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"math/big"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 const fuzzIssuer = "https://provider.example.test/realms/managed"
@@ -64,6 +66,22 @@ func FuzzSAMLMetadata(f *testing.F) {
 		}
 		if CheckXMLBounds(append(append([]byte{}, data...), []byte("<foreign/>")...)) == nil {
 			t.Fatal("accepted multiple XML roots")
+		}
+	})
+}
+
+func FuzzSAMLACS(f *testing.F) {
+	prefix := "https://portal.test/"
+	for _, value := range []string{prefix + "acs", prefix + strings.Repeat("a", 255-len(prefix)), prefix + strings.Repeat("é", 255-len(prefix)), prefix + strings.Repeat("a", 256-len(prefix)), "https://user:password@portal.test/acs", prefix + "%0a", prefix + "%00", prefix + "%09", prefix + "%7f", prefix + "%ff", prefix + "%2a", prefix + "*", string([]byte{0xff}), strings.Repeat("a", 1<<20)} {
+		f.Add(value)
+	}
+	f.Fuzz(func(t *testing.T, value string) {
+		if !ValidACS(value) {
+			return
+		}
+		u, err := url.Parse(value)
+		if err != nil || !utf8.ValidString(value) || utf8.RuneCountInString(value) > 255 || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || !utf8.ValidString(u.Path) || strings.IndexFunc(u.Path, func(r rune) bool { return r < 32 || r == 127 }) >= 0 || strings.ContainsAny(u.Path, "\\*") {
+			t.Fatal("accepted unbounded or non-exact SAML ACS")
 		}
 	})
 }

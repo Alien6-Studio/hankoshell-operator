@@ -3,6 +3,30 @@
 ## 0.1.0 — In development
 
 <!-- release-notes:start -->
+### Bound status and preserve partial mapper checkpoints (#99)
+
+- Close all 294 remaining status size-inventory gaps across the 20 served
+  schemas and reject future unbounded spec/status fields during preflight.
+- Reserve old and desired recovery inventory capacity before native writes;
+  preserve broker child mapper IDs across partial updates and use compound
+  name/ID status list keys so replacement identities can coexist until cleanup.
+- Replace oversized lifecycle diagnostics with a fixed public message and
+  qualify status boundaries and replacement checkpoints on real API servers.
+  Existing over-budget status and field-manager ownership need review before
+  adopting these development CRDs. Independent security acceptance remains open.
+
+### Complete public input size bounds (#99)
+
+- Bound every inventoried spec string, list and typed map across all 20 served
+  schemas, including lifecycle parameters, provider attributes, mapper claims,
+  Kubernetes references, resource quantities and imported resource claims.
+- Preserve imported reference defaults and alpha/beta schema equivalence. Add
+  explicit generation policy for imported fields and reject future unbounded
+  inputs in the security inventory. Existing over-budget manifests need review.
+- Exercise 88 independent boundary fixtures plus native map-key budgets on
+  actual Kubernetes API servers. Status bounds, Secret/Deployment admission
+  isolation and independent security review remain separate work in #99.
+
 ### Delegation recovery authority reads (#71, #96)
 
 - Resolve each unchanged workload identity once per authorization compilation,

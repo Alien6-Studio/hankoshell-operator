@@ -54,6 +54,7 @@ generate:
 manifests:
 	@test "$$($(CONTROLLER_GEN) --version)" = "Version: $(CONTROLLER_GEN_VERSION)"
 	$(CONTROLLER_GEN) crd paths="./api/..." output:crd:artifacts:config=$(CHART)/crds
+	python3 scripts/crd-input-bounds.py
 generated-check: generate manifests
 	git diff --exit-code -- api $(CHART)/crds
 build:
@@ -86,6 +87,7 @@ chart-test:
 	python3 $(CHART)/tests/organization-projection.py
 	python3 $(CHART)/tests/experimental-provider.py
 	python3 $(CHART)/tests/lifecycle.py
+	python3 $(CHART)/tests/sensitive-writes.py
 	python3 $(CHART)/tests/kubernetes-compatibility.py
 	python3 $(CHART)/tests/workload-binding.py
 integration-test: $(GOTESTSUM)

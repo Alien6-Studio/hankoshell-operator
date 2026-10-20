@@ -87,6 +87,8 @@ type WorkloadClusterAnchor struct {
 	KubeSystemNamespaceUID string `json:"kubeSystemNamespaceUID"`
 	// APIServerCAHash identifies the single configured public API CA certificate DER.
 	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
+	// +kubebuilder:validation:MaxLength=71
+	// +kubebuilder:validation:MinLength=71
 	APIServerCAHash string `json:"apiServerCAHash"`
 }
 

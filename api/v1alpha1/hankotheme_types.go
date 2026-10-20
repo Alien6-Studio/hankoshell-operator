@@ -60,15 +60,22 @@ type HankoThemeSpec struct {
 
 	// BuildImage is the container image used to build the Keycloakify JAR.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=2048
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x20\x7F]+$`
 	BuildImage string `json:"buildImage"`
 
 	// KeycloakPVC is the name of the PersistentVolumeClaim where the JAR is placed.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	KeycloakPVC string `json:"keycloakPVC"`
 
 	// JarName is the filename installed in Keycloak's providers directory. When
 	// omitted, the operator derives <metadata.name>-theme.jar.
 	// +kubebuilder:validation:Pattern=`^[a-zA-Z0-9._-]+\.jar$`
+	// +kubebuilder:validation:MaxLength=255
 	JarName string `json:"jarName,omitempty"`
 
 	// ImagePullSecrets are attached to theme build and cleanup Jobs.

@@ -183,7 +183,7 @@ class Fleet(installed.Installed):
     def setup_tenants(self):
         now = datetime.now(timezone.utc)
         for name in self.hub_token:
-            self.apply(self.secret(name + "-hub", {"hub_token": self.hub_token[name], "tenant_id": name,
+            self.apply_approved(self.secret(name + "-hub", {"hub_token": self.hub_token[name], "tenant_id": name,
                 "cluster_id": name + "-cluster", "expires_at": timestamp(now + timedelta(hours=12))}),
                 installed.object_value("HankoTenant", name, {"hubEndpoint": "https://hub.auth.svc:9090", "hubTenantID": name,
                     "hubTokenSecretRef": {"name": name + "-hub"}, "isolationMode": "keycloak",

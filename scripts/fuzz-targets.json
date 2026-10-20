@@ -12,7 +12,8 @@
   ],
   "internal/applications": [
     "FuzzOIDCDiscovery",
-    "FuzzSAMLMetadata"
+    "FuzzSAMLMetadata",
+    "FuzzSAMLACS"
   ],
   "internal/fleetplan": [
     "FuzzFleetEnvelope",

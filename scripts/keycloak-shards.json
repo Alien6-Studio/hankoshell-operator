@@ -1,11 +1,12 @@
 {
   "core": [
-    "TestRealKeycloakConcurrentCredentialBudget",
     "TestKeycloakFixtureRedactsAndDetectsCredentials",
+    "TestRealKeycloakConcurrentCredentialBudget",
     "TestRealKeycloakFleetDisconnectedAuthority",
     "TestRealKeycloakIAMContract",
     "TestRealKeycloakManagedTransport",
     "TestRealKeycloakPortableCorpus",
+    "TestRealKeycloakPublicStorageBudgets",
     "TestRealKeycloakTenantRouting"
   ],
   "adoption": [

@@ -29,7 +29,7 @@ for values, enabled in [([], False), (["hub.enabled=true", "fleetPlanVerificatio
     assert ("HANKO_FLEET_TRUST_CONFIGMAP" in env) == enabled
     if enabled:
         assert env["HANKO_FLEET_TRUST_CONFIGMAP"]["value"] == "hanko-fleet-plan-trust"
-    assert not any(d["kind"].startswith("ValidatingAdmissionPolicy") and "-lifecycle-" not in d["metadata"]["name"] for d in docs)
+    assert not any(d["kind"].startswith("ValidatingAdmissionPolicy") and not any(marker in d["metadata"]["name"] for marker in ("-lifecycle-", "-sensitive-", "-rbac-", "-execution-jobs-")) for d in docs)
     assert not any(d["kind"] == "ConfigMap" and d["metadata"]["name"] == "hanko-fleet-plan-trust" for d in docs)
 
 for values in [["fleetPlanVerification.trustConfigMap=hanko-fleet-plan-trust"],

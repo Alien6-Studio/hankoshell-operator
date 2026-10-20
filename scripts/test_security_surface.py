@@ -17,6 +17,18 @@ def roles(rule):
 
 
 class SecuritySurfaceTests(unittest.TestCase):
+    def test_unbounded_new_inputs_cannot_be_added_to_the_inventory(self):
+        schema = {"Thing/v1": {"nodes": gate.schema_nodes({"type": "object", "properties": {
+            "values": {"type": "array", "maxItems": 2, "items": {"type": "string"}}}}, "spec")}}
+        with self.assertRaisesRegex(ValueError, r"spec.values\[\]"):
+            gate.check_input_bounds(schema)
+        schema["Thing/v1"]["nodes"]["spec.values[]"] = gate.schema_nodes({"type": "string", "maxLength": 10}, "spec.values[]")["spec.values[]"]
+        schema["Thing/v1"]["nodes"].update(gate.schema_nodes({"type": "string"}, "status.legacy"))
+        with self.assertRaisesRegex(ValueError, "status.legacy"):
+            gate.check_input_bounds(schema)
+        schema["Thing/v1"]["nodes"]["status.legacy"] = gate.schema_nodes({"type": "string", "maxLength": 64}, "status.legacy")["status.legacy"]
+        gate.check_input_bounds(schema)
+
     def test_nested_maps_lists_and_enum_bounds_are_inventoried(self):
         schema = {"type": "object", "properties": {
             "list": {"type": "array", "maxItems": 2, "items": {"type": "string", "maxLength": 10}},
@@ -65,6 +77,12 @@ class SecuritySurfaceTests(unittest.TestCase):
             rule = {"apiGroups": [""], "resources": ["secrets"], "verbs": ["get"], **change}
             with self.subTest(change=change), self.assertRaises(ValueError):
                 gate.rbac(roles(rule))
+
+    def test_sensitive_updates_cannot_regain_namespace_wide_authority(self):
+        for resource, group in (("secrets", ""), ("deployments", "apps")):
+            for verb in ("patch", "update"):
+                with self.subTest(resource=resource, verb=verb), self.assertRaisesRegex(ValueError, "exact resourceNames"):
+                    gate.rbac(roles({"apiGroups": [group], "resources": [resource], "verbs": [verb]}))
 
     def test_custom_resource_grants_cannot_restore_the_bulk_writer(self):
         for resource, verb in (("hankoissuers", "patch"), ("hankomeshservices", "create"),

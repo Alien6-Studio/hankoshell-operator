@@ -229,6 +229,9 @@ class Installed(native.Fixture):
             "namespace": "workload", "serviceAccountRef": anchor["account"], "expectedUID": anchor["uid"]}, "expirationSeconds": 600}
 
     def create_hsa(self, name, kubernetes=True):
+        # Independent fixture-administrator authorization also permits the
+        # later explicitly reviewed Secret fallback; it does not activate it.
+        self.approve_sensitive_writes([object_value("HankoServiceAccount", name, {"clientID": name})])
         value = {"realmRef": "managed", "clientID": name,
                  "tokenClaims": [{"name": "resource-audience", "claim": "aud", "value": "installed-api"}]}
         if kubernetes:
@@ -292,7 +295,7 @@ class Installed(native.Fixture):
         self.record("current_runtime_metadata", valid)
 
     def resources(self, principal):
-        self.apply(object_value("HankoApplication", "installed-api", {"realmRef": "managed", "clientID": "installed-api", "type": "m2m"}))
+        self.apply_approved(object_value("HankoApplication", "installed-api", {"realmRef": "managed", "clientID": "installed-api", "type": "m2m"}))
         wait("installed resource application", lambda: self.ready("hankoapplication", "installed-api"), 180)
         self.apply(object_value("HankoResourceServer", "installed-server", {"realmRef": "managed", "applicationRef": "installed-api", "audience": "installed-api",
             "scopes": [{"name": "read"}], "resources": [{"name": name, "scopes": ["read"]} for name in ("allowed", "denied")],

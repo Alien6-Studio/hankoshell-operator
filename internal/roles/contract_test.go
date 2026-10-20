@@ -2,6 +2,8 @@ package roles
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamconformance"
@@ -61,6 +63,34 @@ func TestRoleCapabilitiesAndNativeConflict(t *testing.T) {
 		r.Attributes = map[string][]string{key: {"fixture-secret"}}
 		if _, err := Compile(i, r, KeycloakEvidence(), iamcontract.Preconditions{}); err == nil {
 			t.Fatal("native conflict/credential input accepted")
+		}
+	}
+}
+
+func TestRoleNativeStorageBudgets(t *testing.T) {
+	for _, size := range []int{255, 256} {
+		for _, field := range []string{"name", "description", "attribute-key", "attribute-value", "composite"} {
+			t.Run(fmt.Sprintf("%s/%d", field, size), func(t *testing.T) {
+				i := Intent{RealmRef: "realm", Name: "editor"}
+				r := ResolvedReferences{Realm: "managed", Owner: "uid"}
+				value := strings.Repeat("é", size)
+				switch field {
+				case "name":
+					i.Name = value
+				case "description":
+					i.Description = value
+				case "attribute-key":
+					r.Attributes = map[string][]string{value: {"public"}}
+				case "attribute-value":
+					r.Attributes = map[string][]string{"public": {value}}
+				case "composite":
+					i.Composites = []string{value}
+				}
+				_, err := Compile(i, r, KeycloakEvidence(), iamcontract.Preconditions{})
+				if size == 255 && err != nil || size == 256 && !errors.Is(err, iamcontract.ErrRejected) {
+					t.Fatal("native role column budget not enforced", err)
+				}
+			})
 		}
 	}
 }

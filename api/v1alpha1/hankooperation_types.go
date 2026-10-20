@@ -43,6 +43,9 @@ type HankoOperationSpec struct {
 
 	// InstanceRef is the name of the HankoKeycloakInstance to operate on.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	InstanceRef string `json:"instanceRef"`
 
 	// SnapshotBefore controls whether a HankoSnapshot is created before the operation.
@@ -68,6 +71,9 @@ type HankoOperationSpec struct {
 type UpgradeSpec struct {
 	// ToImage is the target Keycloak container image.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=2048
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x20\x7F]+$`
 	ToImage string `json:"toImage"`
 }
 
@@ -75,10 +81,16 @@ type UpgradeSpec struct {
 type CloneSpec struct {
 	// TargetName is the name for the new HankoKeycloakInstance.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	TargetName string `json:"targetName"`
 
 	// TargetNamespace defaults to the source namespace. Cross-namespace cloning
 	// is refused because administrative and TLS Secret references are local.
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	TargetNamespace string `json:"targetNamespace,omitempty"`
 
 	// IncludeData is retained for API compatibility; true is refused because
@@ -91,6 +103,9 @@ type DBSwitchSpec struct {
 	// NewDatabaseSecretRef is the name of a Secret containing the new DB credentials
 	// (KC_DB, KC_DB_URL, KC_DB_USERNAME, KC_DB_PASSWORD).
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	NewDatabaseSecretRef string `json:"newDatabaseSecretRef"`
 }
 

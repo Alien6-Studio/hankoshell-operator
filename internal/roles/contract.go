@@ -8,6 +8,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Alien6-Studio/hankoshell-operator/internal/adoption"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
@@ -120,7 +121,7 @@ func Compile(i Intent, r ResolvedReferences, e CapabilityEvidence, pre iamcontra
 	return Plan{identity: id, intent: i, resolved: r, evidence: e, preconditions: pre}, nil
 }
 func validate(i Intent, r ResolvedReferences, e CapabilityEvidence) error {
-	if i.Name == "" || i.RealmRef == "" || r.Realm == "" || r.Owner == "" || !e.Supported.RealmRoles {
+	if i.Name == "" || i.RealmRef == "" || r.Realm == "" || r.Owner == "" || !e.Supported.RealmRoles || !validNativeRoleIdentity(i) {
 		return iamcontract.ErrRejected
 	}
 	if (i.Composite || len(i.Composites) > 0) && !e.Supported.Composites {
@@ -129,16 +130,25 @@ func validate(i Intent, r ResolvedReferences, e CapabilityEvidence) error {
 	if len(r.Attributes) > 0 && !e.Supported.NativeAttributes {
 		return iamcontract.ErrRejected
 	}
-	if err := validateNativeAttributes(r.Attributes); err != nil {
-		return err
+	return validateNativeAttributes(r.Attributes)
+}
+
+func validRoleText(value string) bool {
+	return utf8.ValidString(value) && utf8.RuneCountInString(value) <= 255
+}
+
+func validNativeRoleIdentity(i Intent) bool {
+	if !validRoleText(i.Name) || !validRoleText(i.Description) {
+		return false
 	}
-	for _, c := range i.Composites {
-		if c == "" || c == i.Name {
-			return iamcontract.ErrRejected
+	for _, value := range i.Composites {
+		if value == "" || value == i.Name || !validRoleText(value) {
+			return false
 		}
 	}
-	return nil
+	return true
 }
+
 func cloneAttributes(v map[string][]string) map[string][]string {
 	result := maps.Clone(v)
 	if result == nil {
@@ -154,7 +164,15 @@ func validateNativeAttributes(attributes map[string][]string) error {
 	if _, exists := attributes[OwnerAttribute]; exists {
 		return iamcontract.ErrRejected
 	}
-	for k := range attributes {
+	for k, values := range attributes {
+		if k == "" || !validRoleText(k) {
+			return iamcontract.ErrRejected
+		}
+		for _, value := range values {
+			if !validRoleText(value) {
+				return iamcontract.ErrRejected
+			}
+		}
 		if adoption.ReservedAttribute(k) {
 			return iamcontract.ErrRejected
 		}

@@ -141,6 +141,21 @@ func TestServiceAccountRotationPolicyBoundaries(t *testing.T) {
 	if !serviceAccountRotationDue(serviceAccount, policy, &now) {
 		t.Fatal("enabled interval with no prior rotation must rotate")
 	}
+	// Interval initialization and a future force are independent requests.
+	// HA fixtures expecting one operation must use an already-due force.
+	policy.ForceRotateAt = &future
+	if !serviceAccountRotationDue(serviceAccount, policy, &now) {
+		t.Fatal("future force must not defer an unknown initial interval rotation")
+	}
+	serviceAccount.Status.LastRotated = &now
+	later := metav1.NewTime(future.Add(time.Second))
+	if !serviceAccountRotationDue(serviceAccount, policy, &later) {
+		t.Fatal("future force must remain a distinct request after interval initialization")
+	}
+	policy.ForceRotateAt = &past
+	if serviceAccountRotationDue(serviceAccount, policy, &later) {
+		t.Fatal("already-fulfilled force and interval must not rotate a second time")
+	}
 	serviceAccount.Status.LastRotated = &metav1.Time{Time: now.AddDate(0, 0, -31)}
 	if !serviceAccountRotationDue(serviceAccount, policy, &now) {
 		t.Fatal("expired interval must rotate")

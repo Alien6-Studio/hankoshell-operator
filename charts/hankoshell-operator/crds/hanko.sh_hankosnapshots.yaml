@@ -65,13 +65,16 @@ spec:
                   source revision are verified before Job submission. It must run as UID/GID 70
                   with a read-only root filesystem. This separate image is not scanned as part
                   of the operator release; administrators must review its own security evidence.
+                maxLength: 2048
                 pattern: ^[^@\s]+@sha256:[a-f0-9]{64}$
                 type: string
               backupPVC:
                 description: |-
                   BackupPVC is the name of the PersistentVolumeClaim where the pg_dump output
                   is written. Required when includeData is true.
+                maxLength: 253
                 minLength: 1
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
               backupSecretRef:
                 description: |-
@@ -79,7 +82,9 @@ spec:
                   PGDATABASE, PGUSER and PGPASSWORD; PGPORT and PGSSLMODE are optional.
                   Only these keys enter the Job. It must differ from the instance's
                   administrative, managed database and serving TLS Secrets.
+                maxLength: 253
                 minLength: 1
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
               includeData:
                 description: |-
@@ -90,6 +95,9 @@ spec:
               instanceRef:
                 description: InstanceRef is the name of the HankoKeycloakInstance
                   to snapshot.
+                maxLength: 253
+                minLength: 1
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
             required:
             - instanceRef
@@ -102,12 +110,14 @@ spec:
             description: HankoSnapshotStatus describes the observed state of the snapshot.
             properties:
               conditions:
+                maxItems: 32
                 description: Conditions holds standard Kubernetes condition objects.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
                   properties:
                     lastTransitionTime:
+                      maxLength: 64
                       description: |-
                         lastTransitionTime is the last time the condition transitioned from one status to another.
                         This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -162,30 +172,38 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               configHash:
+                maxLength: 71
                 type: string
               configMapRef:
+                maxLength: 253
                 description: ConfigMapRef is the name of the ConfigMap holding the
                   serialized CRD config.
                 type: string
               configMapUID:
+                maxLength: 128
                 description: ConfigMapUID and ConfigHash bind the immutable configuration
                   captured on the first successful create.
                 type: string
               dbJobRef:
+                maxLength: 253
                 description: DBJobRef is the name of the pg_dump Job (set only when
                   includeData=true).
                 type: string
               dbJobUID:
+                maxLength: 128
                 description: DBJobUID prevents replay when a previously accepted backup
                   Job disappears or is replaced.
                 type: string
               instanceUID:
+                maxLength: 128
                 description: InstanceUID identifies the source instance before any
                   child is created.
                 type: string
               intentHash:
+                maxLength: 71
                 type: string
               lastReconciled:
+                maxLength: 64
                 description: LastReconciled is the timestamp of the last reconcile
                   loop.
                 format: date-time
@@ -204,6 +222,7 @@ spec:
                 format: int64
                 type: integer
               takenAt:
+                maxLength: 64
                 description: TakenAt is when the snapshot completed successfully.
                 format: date-time
                 type: string

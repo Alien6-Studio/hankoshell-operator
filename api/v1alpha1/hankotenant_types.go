@@ -27,6 +27,8 @@ type HankoTenantSpec struct {
 	// HubTenantID is the tenant identifier assigned by hankoShell Hub. May be
 	// left empty when HubEnrollSecretRef is set: it is then learned during
 	// enrollment and stored alongside the bounded operator credential.
+	// +kubebuilder:validation:MaxLength=128
+	// +kubebuilder:validation:Pattern=`^[^\x00-\x1F\x7F]*$`
 	HubTenantID string `json:"hubTenantID,omitempty"`
 
 	// ClusterName is the optional human-readable cluster name sent at initial
@@ -39,6 +41,7 @@ type HankoTenantSpec struct {
 	// HubEndpoint is the hankoShell Hub base URL. Must be an HTTPS URL.
 	// +kubebuilder:default="https://hub.hanko.sh"
 	// +kubebuilder:validation:Pattern=`^https://[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?(:[0-9]+)?(/[^\s]*)?$`
+	// +kubebuilder:validation:MaxLength=2048
 	HubEndpoint string `json:"hubEndpoint,omitempty"`
 
 	// HubEnrollmentEndpoint is the public, bootstrap-only Hub base URL used to
@@ -46,6 +49,7 @@ type HankoTenantSpec struct {
 	// for backward compatibility. Bundle and status traffic always use
 	// HubEndpoint, which may therefore be a private Continuum address.
 	// +kubebuilder:validation:Pattern=`^https://[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?(:[0-9]+)?(/[^\s]*)?$`
+	// +kubebuilder:validation:MaxLength=2048
 	HubEnrollmentEndpoint string `json:"hubEnrollmentEndpoint,omitempty"`
 
 	// HubTransport declares the authenticated network transport used for Hub
@@ -62,6 +66,9 @@ type HankoTenantSpec struct {
 	IsolationMode string `json:"isolationMode,omitempty"`
 
 	// RealmRef is the HankoRealm name for realm-mode isolation.
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	RealmRef string `json:"realmRef,omitempty"`
 
 	// KeycloakSecretRef points to a Secret with keys HANKO_KEYCLOAK_URL,

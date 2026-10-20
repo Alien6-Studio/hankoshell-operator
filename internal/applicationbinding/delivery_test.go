@@ -379,3 +379,32 @@ func TestRuntimeReferenceDNSValidation(t *testing.T) {
 		t.Fatal("invalid credential DNS subdomain admitted")
 	}
 }
+
+func TestRuntimeCredentialDeliveryUsesHashedSourceAndRefusesSelfProjection(t *testing.T) {
+	f := runtimeFixture(t, true)
+	ctx := context.Background()
+	source := read(t, f.kube, client.ObjectKey{Namespace: "auth", Name: "hanko-app-worker"}, &corev1.Secret{})
+	if err := f.kube.Delete(ctx, source); err != nil {
+		t.Fatal(err)
+	}
+	const canonical = "hanko-app.016ae890531a67fb98976ebbad48a1ad4fd03ffed3cd769884cb8b844e201cf8"
+	source.Name, source.ResourceVersion = canonical, ""
+	if err := f.kube.Create(ctx, source); err != nil {
+		t.Fatal(err)
+	}
+	f.app.Spec.ClientID, f.proof.ClientID = "urn:example:client", "urn:example:client"
+	if err := f.kube.Update(ctx, f.app); err != nil {
+		t.Fatal(err)
+	}
+	requireDelivery(t, f)
+	target := read(t, f.kube, credentialKey(f.app.Spec.RuntimeBindings[0]), &corev1.Secret{})
+	if string(target.Data[CredentialKey]) != "fixture-credential-first" {
+		t.Fatal("canonical hashed credential was not delivered")
+	}
+	binding := f.app.Spec.RuntimeBindings[0]
+	binding.Workload.Namespace = f.app.Namespace
+	binding.Credentials = &api.ApplicationRuntimeCredentialTarget{SecretRef: canonical}
+	if err := validateCredentialTarget(f.app, binding, map[string]bool{}); Reason(err) != "DuplicateWriter" {
+		t.Fatal("hashed source accepted as its own projection", err)
+	}
+}

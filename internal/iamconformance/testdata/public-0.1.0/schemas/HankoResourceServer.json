@@ -153,6 +153,8 @@
                       "type": "string"
                     },
                     "ref": {
+                      "maxLength": 253,
+                      "minLength": 1,
                       "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$",
                       "type": "string"
                     }
@@ -254,7 +256,9 @@
               },
               "uris": {
                 "items": {
-                  "maxLength": 2048,
+                  "maxLength": 255,
+                  "minLength": 1,
+                  "pattern": "^[^\\x00-\\x1F\\x7F]+$",
                   "type": "string"
                 },
                 "maxItems": 32,
@@ -280,7 +284,7 @@
             "description": "AuthorizationScope is a scope owned by one resource server.",
             "properties": {
               "description": {
-                "maxLength": 1024,
+                "maxLength": 255,
                 "type": "string"
               },
               "name": {
@@ -333,6 +337,7 @@
               "type": "boolean"
             },
             "candidateHash": {
+              "maxLength": 71,
               "pattern": "^sha256:[a-f0-9]{64}$",
               "type": "string"
             },
@@ -457,6 +462,7 @@
               "type": "array"
             },
             "diffHash": {
+              "maxLength": 71,
               "pattern": "^sha256:[a-f0-9]{64}$",
               "type": "string"
             },
@@ -491,6 +497,7 @@
               "type": "array"
             },
             "observationHash": {
+              "maxLength": 71,
               "pattern": "^sha256:[a-f0-9]{64}$",
               "type": "string"
             },
@@ -649,6 +656,7 @@
           "description": "AdoptionReceipt reports provider-journal verification, never ownership authority.",
           "properties": {
             "candidateHash": {
+              "maxLength": 71,
               "pattern": "^sha256:[a-f0-9]{64}$",
               "type": "string"
             },
@@ -683,6 +691,7 @@
         },
         "appliedPlanHash": {
           "description": "AppliedPlanHash identifies the latest Manage plan proven by acceptable\nbounded provider read-back, at AppliedGeneration.\nObserve and external annotations do not authorize an applied plan.",
+          "maxLength": 71,
           "type": "string"
         },
         "authorizationExplanation": {
@@ -692,6 +701,7 @@
               "type": "boolean"
             },
             "explanationHash": {
+              "maxLength": 71,
               "pattern": "^sha256:[a-f0-9]{64}$",
               "type": "string"
             },
@@ -889,10 +899,12 @@
               "type": "integer"
             },
             "sourceObservationHash": {
+              "maxLength": 71,
               "pattern": "^sha256:[a-f0-9]{64}$",
               "type": "string"
             },
             "sourcePlanHash": {
+              "maxLength": 71,
               "pattern": "^sha256:[a-f0-9]{64}$",
               "type": "string"
             },
@@ -987,6 +999,7 @@
               "lastTransitionTime": {
                 "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
                 "format": "date-time",
+                "maxLength": 64,
                 "type": "string"
               },
               "message": {
@@ -1061,6 +1074,7 @@
         },
         "evaluatedPlanHash": {
           "description": "EvaluatedPlanHash identifies the locally compiled provider-bound plan.\nIt is absent for rejected evaluation and is never execution authority.",
+          "maxLength": 71,
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
         },
@@ -1117,11 +1131,13 @@
         },
         "intentHash": {
           "description": "IntentHash identifies normalized portable semantics of EvaluatedGeneration.",
+          "maxLength": 71,
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
         },
         "lastReconciled": {
           "format": "date-time",
+          "maxLength": 64,
           "type": "string"
         },
         "managedObjects": {
@@ -1245,6 +1261,7 @@
           "type": "integer"
         },
         "observationPlanHash": {
+          "maxLength": 71,
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
         },
@@ -1256,6 +1273,7 @@
         },
         "observedStateHash": {
           "description": "ObservedStateHash identifies safe normalized provider semantics, including\nobservation coverage. It is neither an intent/plan identity nor a provider ID.",
+          "maxLength": 71,
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
         },

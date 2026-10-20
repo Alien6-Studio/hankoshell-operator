@@ -32,7 +32,7 @@ func checkIAMInputBudgets(t *testing.T, ctx context.Context, admin client.Client
 		{"HankoApplication", "client-id", "clientID", 255, text},
 		{"HankoServiceAccount", "client-id", "clientID", 255, text},
 		{"HankoRole", "role-name", "name", 255, text},
-		{"HankoRole", "description", "description", 1024, text},
+		{"HankoRole", "description", "description", 255, text},
 		{"HankoOrganization", "name", "name", 255, text},
 		{"HankoOrganization", "slug", "slug", 253, text},
 		{"HankoOrganization", "parent", "parentRef", 253, text},
@@ -50,7 +50,7 @@ func checkIAMInputBudgets(t *testing.T, ctx context.Context, admin client.Client
 	}
 	for _, field := range []string{"redirectURIs", "postLogoutRedirectURIs", "realmRoleScopes"} {
 		maximum := 255
-		if field != "realmRoleScopes" {
+		if field == "postLogoutRedirectURIs" {
 			maximum = 2048
 		}
 		bounds = append(bounds, bound{"HankoApplication", field + "-item", field, maximum, func(n int) any { return []any{strings.Repeat("a", n)} }})
@@ -65,7 +65,7 @@ func checkIAMInputBudgets(t *testing.T, ctx context.Context, admin client.Client
 				return roles
 			}},
 			bound{kind, "role-name-item", "roles", 255, func(n int) any { return []any{map[string]any{"name": strings.Repeat("a", n)}} }},
-			bound{kind, "role-description-item", "roles", 1024, func(n int) any { return []any{map[string]any{"name": "role", "description": strings.Repeat("a", n)}} }})
+			bound{kind, "role-description-item", "roles", 255, func(n int) any { return []any{map[string]any{"name": "role", "description": strings.Repeat("a", n)}} }})
 	}
 	bounds = append(bounds,
 		bound{"HankoApplication", "projection-count", "clientSecretProjections", 32, func(n int) any {

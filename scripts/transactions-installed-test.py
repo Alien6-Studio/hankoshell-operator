@@ -7,7 +7,7 @@ HA evidence, not every-journal, clock-skew or production qualification.
 """
 import argparse
 import copy
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import hashlib
 import importlib.util
 import json
@@ -72,13 +72,40 @@ def native_semantics(value):
     return value
 
 
-def rotation_recovered(value, journal):
+def rotation_recovery_checks(value, journal):
     current = json.loads(value["metadata"].get("annotations", {}).get(ROTATION, "{}"))
     # metav1.Time status uses whole RFC3339 seconds; the durable journal keeps
     # nanoseconds. Compare at status precision without allowing a later rotation.
     at = datetime.fromisoformat(journal["rotatedAt"].replace("Z", "+00:00"))
-    return (ready_current(value) and current.get("step") == "Committed" and current.get("requestID") == journal["requestID"]
-            and value.get("status", {}).get("lastRotated") == fleet.timestamp(at))
+    return {"current_ready_status": ready_current(value), "committed_journal": current.get("step") == "Committed",
+        "same_rotation_request": current.get("requestID") == journal["requestID"],
+        "exact_rotation_status_time": value.get("status", {}).get("lastRotated") == fleet.timestamp(at)}
+
+
+def rotation_recovered(value, journal):
+    return all(rotation_recovery_checks(value, journal).values())
+
+
+def forced_rotation_trigger(value, now):
+    at = now.astimezone(timezone.utc).replace(microsecond=0)
+    previous = value.get("status", {}).get("lastRotated") or value["metadata"].get("creationTimestamp")
+    if previous and at <= datetime.fromisoformat(previous.replace("Z", "+00:00")):
+        return None
+    return fleet.timestamp(at)
+
+
+def acquisition_checks(receipt, expected, before, after, acquired, state, path):
+    reads = state.get("credential_reads")
+    if not isinstance(reads, dict):
+        raise ValueError("Missing target-scoped credential-read observation")
+    # Other managed clients resume their own rotations at the same handoff.
+    # Their legitimate reads cannot stand in for a read of this Observe target.
+    return {"receipt_matches": receipt == expected,
+        "native_semantics_preserved": native_semantics(after) == native_semantics(before),
+        "observe_remains_unmanaged": not acquired["metadata"].get("finalizers") and not acquired.get("status", {}).get("secretRef"),
+        "single_accepted_receipt_write": state["counts"].get("PUT " + path) == 1,
+        "single_attempted_receipt_write": state["attempted_counts"].get("PUT " + path) == 1,
+        "no_target_credential_read": reads.get(path + "/client-secret", 0) == 0}
 
 
 class Transactions(fleet.Fleet):
@@ -202,7 +229,7 @@ class Transactions(fleet.Fleet):
 
     def rotation(self, boundary):
         name = "rotate-" + boundary.replace("_", "-")
-        self.apply(installed.object_value("HankoServiceAccount", name, {"realmRef": "managed", "clientID": name,
+        self.apply_approved(installed.object_value("HankoServiceAccount", name, {"realmRef": "managed", "clientID": name,
             "secretRotationPolicy": {"enabled": False}}, labels=TENANT))
         wait("initial rotation client", lambda: ready_current(self.get("hankoserviceaccount", name)), 180)
         before = self.get("hankoserviceaccount", name)
@@ -212,13 +239,21 @@ class Transactions(fleet.Fleet):
         path = "/admin/realms/managed/clients/" + uuid + "/client-secret"
         secret_path = "/api/v1/namespaces/auth/secrets/hanko-sa-" + name
         root_path = "/apis/hanko.sh/v1alpha1/namespaces/auth/hankoserviceaccounts/" + name
+        # An unknown initial rotation time makes the interval immediately due.
+        # A future force would request a second legitimate rotation afterwards.
+        # Use one already-due trigger, strictly after the initial status time.
+        force = None
+        def trigger_ready():
+            nonlocal force
+            force = forced_rotation_trigger(before, datetime.now(timezone.utc))
+            return force is not None
+        wait("distinct already-due rotation trigger", trigger_ready, 5)
         self.control("api", None, reset=True)
         self.control("keycloak", None, reset=True)
         target, rule = ("keycloak", {"method": "POST", "path": path}) if boundary == "native_rotation" else (
             "api", {"method": "PATCH", "path": secret_path} if boundary == "secret_output" else
             {"method": "PATCH", "path": root_path, "annotation": ROTATION, "step": "Committed"})
         self.control(target, {**rule, "action": "lost-ack"})
-        force = fleet.timestamp(datetime.now(timezone.utc) + timedelta(seconds=2))
         self.patch("hankoserviceaccount", name, {"spec": {"secretRotationPolicy": {
             "enabled": True, "intervalDays": 30, "forceRotateAt": force}}})
         fault = self.await_fault(target)
@@ -234,7 +269,11 @@ class Transactions(fleet.Fleet):
         if (current == old) != (boundary == "native_rotation") or self.native_secret(name) == old:
             raise ValueError("Rotation checkpoint did not preserve the expected credential boundary")
         self.replace_leader()
-        wait("committed rotation recovery", lambda: rotation_recovered(self.get("hankoserviceaccount", name), journal), 180)
+        def recovered():
+            checks = rotation_recovery_checks(self.get("hankoserviceaccount", name), journal)
+            self.report.setdefault("rotation_recovery", {})[boundary] = checks
+            return all(checks.values())
+        wait("committed rotation recovery", recovered, 180)
         state = self.control("keycloak", None)
         api_state = self.control("api", None)
         output = self.get("secret", "hanko-sa-" + name)
@@ -309,11 +348,10 @@ class Transactions(fleet.Fleet):
         receipt = json.loads(raw[0] if role else raw)
         expected = {"contractVersion": "hanko.sh/adoption-contract/v1alpha1", "targetKind": kind,
                     "targetUID": target["metadata"]["uid"], "candidateHash": candidate}
-        if (receipt != expected or native_semantics(after) != native_semantics(before) or acquired["metadata"].get("finalizers")
-                or acquired.get("status", {}).get("secretRef") or state["counts"].get("PUT " + path) != 1
-                or state["attempted_counts"].get("PUT " + path) != 1
-                or state.get("traffic", {}).get("credential_read_requests", 0) != 0):
-            raise ValueError("Acquisition replayed, changed semantics or acquired unapproved authority")
+        checks = acquisition_checks(receipt, expected, before, after, acquired, state, path)
+        self.report.setdefault("acquisition_checks", {})[kind] = checks
+        if not all(checks.values()):
+            raise ValueError("Acquisition invariant failed: " + ", ".join(k for k, passed in checks.items() if not passed))
         secrets = json.loads(self.kubectl("get", "secrets", "-n", "auth", "-o", "json"))["items"]
         if any(ref.get("uid") == target["metadata"]["uid"] for secret in secrets for ref in secret["metadata"].get("ownerReferences", [])):
             raise ValueError("Observe acquisition projected credentials")
@@ -385,7 +423,7 @@ class Transactions(fleet.Fleet):
         self.report.update(complete=True, completed_at=datetime.now(timezone.utc).isoformat())
 
     def public_evidence(self):
-        return {**super().public_evidence(), **{key: self.report[key] for key in ("checkpoints", "limitations", "cleanup_complete", "reader_profile", "plan_counts", "lease_partition") if key in self.report}}
+        return {**super().public_evidence(), **{key: self.report[key] for key in ("checkpoints", "limitations", "cleanup_complete", "reader_profile", "plan_counts", "lease_partition", "acquisition_checks", "rotation_recovery") if key in self.report}}
 
     def cleanup(self):
         if self.scraper:

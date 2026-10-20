@@ -83,6 +83,8 @@ spec:
                       apiServerCAHash:
                         description: APIServerCAHash identifies the single configured
                           public API CA certificate DER.
+                        maxLength: 71
+                        minLength: 71
                         pattern: ^sha256:[a-f0-9]{64}$
                         type: string
                       kubeSystemNamespaceUID:
@@ -181,6 +183,7 @@ spec:
                   approvable:
                     type: boolean
                   candidateHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   complete:
@@ -277,6 +280,7 @@ spec:
                     maxItems: 256
                     type: array
                   diffHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   findings:
@@ -302,6 +306,7 @@ spec:
                     maxItems: 32
                     type: array
                   observationHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   providerIdentity:
@@ -435,6 +440,7 @@ spec:
                   deletion authority. A failed status update can be recovered from the provider.
                 properties:
                   candidateHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   contractVersion:
@@ -454,6 +460,7 @@ spec:
                 - state
                 type: object
               appliedPlanHash:
+                maxLength: 71
                 pattern: ^sha256:[a-f0-9]{64}$
                 type: string
               capabilities:
@@ -497,6 +504,7 @@ spec:
                     state of this API Resource.
                   properties:
                     lastTransitionTime:
+                      maxLength: 64
                       description: |-
                         lastTransitionTime is the last time the condition transitioned from one status to another.
                         This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -555,6 +563,7 @@ spec:
                 maxLength: 64
                 type: string
               dependentInventoryHash:
+                maxLength: 71
                 pattern: ^sha256:[a-f0-9]{64}$
                 type: string
               dependents:
@@ -582,9 +591,11 @@ spec:
                 - owned
                 type: object
               evaluatedPlanHash:
+                maxLength: 71
                 pattern: ^sha256:[a-f0-9]{64}$
                 type: string
               intentHash:
+                maxLength: 71
                 pattern: ^sha256:[a-f0-9]{64}$
                 type: string
               observationComplete:
@@ -594,6 +605,7 @@ spec:
                 minimum: 0
                 type: integer
               observedStateHash:
+                maxLength: 71
                 pattern: ^sha256:[a-f0-9]{64}$
                 type: string
               phase:
@@ -610,6 +622,7 @@ spec:
                 maxLength: 128
                 type: string
               sharedAgeReviewHash:
+                maxLength: 71
                 description: SharedAgeReviewHash is bounded review evidence; approval
                   is explicit metadata, never status.
                 pattern: ^sha256:[a-f0-9]{64}$

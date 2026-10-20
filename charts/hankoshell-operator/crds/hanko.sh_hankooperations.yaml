@@ -67,11 +67,17 @@ spec:
                     type: boolean
                   targetName:
                     description: TargetName is the name for the new HankoKeycloakInstance.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
                   targetNamespace:
                     description: |-
                       TargetNamespace defaults to the source namespace. Cross-namespace cloning
                       is refused because administrative and TLS Secret references are local.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string
                 required:
                 - targetName
@@ -83,6 +89,9 @@ spec:
                     description: |-
                       NewDatabaseSecretRef is the name of a Secret containing the new DB credentials
                       (KC_DB, KC_DB_URL, KC_DB_USERNAME, KC_DB_PASSWORD).
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
                 required:
                 - newDatabaseSecretRef
@@ -95,6 +104,9 @@ spec:
               instanceRef:
                 description: InstanceRef is the name of the HankoKeycloakInstance
                   to operate on.
+                maxLength: 253
+                minLength: 1
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
               snapshotBefore:
                 default: true
@@ -114,6 +126,9 @@ spec:
                 properties:
                   toImage:
                     description: ToImage is the target Keycloak container image.
+                    maxLength: 2048
+                    minLength: 1
+                    pattern: ^[^\x00-\x20\x7F]+$
                     type: string
                 required:
                 - toImage
@@ -127,16 +142,19 @@ spec:
               operation.
             properties:
               completedAt:
+                maxLength: 64
                 description: CompletedAt is when the operation finished (Done or Failed).
                 format: date-time
                 type: string
               conditions:
+                maxItems: 32
                 description: Conditions holds standard Kubernetes condition objects.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
                   properties:
                     lastTransitionTime:
+                      maxLength: 64
                       description: |-
                         lastTransitionTime is the last time the condition transitioned from one status to another.
                         This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -191,15 +209,18 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               instanceUID:
+                maxLength: 128
                 description: InstanceUID prevents a replacement source from inheriting
                   an operation.
                 type: string
               intentHash:
+                maxLength: 71
                 description: IntentHash binds the complete operation specification
                   and tenant.
                 pattern: ^sha256:[a-f0-9]{64}$
                 type: string
               lastReconciled:
+                maxLength: 64
                 description: LastReconciled is the timestamp of the last reconcile
                   loop.
                 format: date-time
@@ -217,10 +238,12 @@ spec:
                 - RolledBack
                 type: string
               snapshotRef:
+                maxLength: 253
                 description: SnapshotRef is the name of the HankoSnapshot created
                   before this operation.
                 type: string
               startedAt:
+                maxLength: 64
                 description: StartedAt is when the operation began.
                 format: date-time
                 type: string
@@ -231,6 +254,7 @@ spec:
                 minimum: 1
                 type: integer
               steps:
+                maxItems: 16
                 description: Steps is the ordered list of operation steps with their
                   current status.
                 items:
@@ -244,24 +268,30 @@ spec:
                       minimum: 1
                       type: integer
                     childUID:
+                      maxLength: 128
                       description: ChildUID binds the exact child accepted by this
                         step.
                       type: string
                     completedAt:
+                      maxLength: 64
                       description: CompletedAt is when this step finished.
                       format: date-time
                       type: string
                     message:
+                      maxLength: 4096
                       description: Message holds a human-readable description or error.
                       type: string
                     name:
+                      maxLength: 253
                       description: Name is the step identifier.
                       type: string
                     startedAt:
+                      maxLength: 64
                       description: StartedAt is when this step began.
                       format: date-time
                       type: string
                     status:
+                      maxLength: 32
                       description: 'Status: Pending | Running | Done | Failed | Skipped'
                       type: string
                   required:

@@ -2,7 +2,9 @@ package authorization
 
 import (
 	"errors"
+	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamconformance"
@@ -101,5 +103,39 @@ func TestAuthorizationPreconditionsAndCapabilitiesFailClosed(t *testing.T) {
 	r.model.Resources[0].Type = "changed"
 	if _, err := Compile(i, r, p.evidence, iamcontract.Preconditions{}); !errors.Is(err, iamcontract.ErrStale) {
 		t.Fatal("resolver changed intent semantics")
+	}
+}
+
+func TestAuthorizationNativeStorageBudgets(t *testing.T) {
+	for _, size := range []int{255, 256} {
+		for _, field := range []string{"scope-name", "scope-description", "resource-name", "resource-display", "resource-type", "uri"} {
+			t.Run(fmt.Sprintf("%s/%d", field, size), func(t *testing.T) {
+				m := Model{Name: "server", Realm: "managed", Audience: "urn:server", ApplicationRef: "app", Scopes: []Scope{{Name: "read"}}, Resources: []Resource{{Name: "resource"}}}
+				value := strings.Repeat("é", size)
+				switch field {
+				case "scope-name":
+					m.Scopes[0].Name = value
+				case "scope-description":
+					m.Scopes[0].Description = value
+				case "resource-name":
+					m.Resources[0].Name = value
+				case "resource-display":
+					m.Resources[0].DisplayName = value
+				case "resource-type":
+					m.Resources[0].Type = value
+				case "uri":
+					m.Resources[0].URIs = []string{value}
+				}
+				i := Normalize(m)
+				r, err := Resolve(i, m)
+				if err != nil {
+					t.Fatal(err)
+				}
+				_, err = Compile(i, r, KeycloakEvidence(Capabilities{ScopeGrants: true, ResourceObjects: true, ResourceURIMatching: true}), iamcontract.Preconditions{})
+				if size == 255 && err != nil || size == 256 && !errors.Is(err, iamcontract.ErrRejected) {
+					t.Fatal("native authorization column budget not enforced", err)
+				}
+			})
+		}
 	}
 }

@@ -53,11 +53,15 @@ type HankoEmailProviderSpec struct {
 type Office365EmailProviderSpec struct {
 	// TenantID is the Microsoft Entra tenant UUID.
 	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`
+	// +kubebuilder:validation:MaxLength=36
+	// +kubebuilder:validation:MinLength=36
 	TenantID string `json:"tenantID"`
 
 	// ClientID is the Entra application UUID granted the Exchange Online
 	// Application Mail.Send role scoped to Mailbox.
 	// +kubebuilder:validation:Pattern=`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`
+	// +kubebuilder:validation:MaxLength=36
+	// +kubebuilder:validation:MinLength=36
 	ClientID string `json:"clientID"`
 
 	// Mailbox is the Microsoft 365 mailbox targeted by Graph sendMail.
@@ -68,6 +72,8 @@ type Office365EmailProviderSpec struct {
 	// KeyVaultSecretName is the Azure Key Vault secret containing the Entra
 	// client secret. Retained only for migration; the operator no longer reads it.
 	// +kubebuilder:validation:Pattern=`^[0-9A-Za-z-]{1,127}$`
+	// +kubebuilder:validation:MaxLength=127
+	// +kubebuilder:validation:MinLength=1
 	KeyVaultSecretName string `json:"keyVaultSecretName"`
 
 	// PreflightRecipient is retained for migration; no message is sent by the operator.

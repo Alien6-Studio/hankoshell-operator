@@ -228,7 +228,9 @@ Start with the [chart configuration](charts/hankoshell-operator/README.md) and
 the [secure deployment steps](docs/secure-deployment.md#configure-an-installation).
 Prepare `operator-values.yaml` for the actual cluster: a verified image digest,
 Keycloak endpoint and existing credentials Secret, authority realm, and exact
-Kubernetes API, DNS and provider destinations.
+Kubernetes API, DNS and provider destinations. Approve exact credential output
+and managed Deployment names through [`sensitiveWrites`](docs/secure-deployment.md#exact-secret-and-deployment-write-authority),
+and configure current Restricted Pod Security admission on the operator namespace.
 
 **Keycloak administrative connections require verified HTTPS by default.** Public
 CA certificates need no CA Secret; private CAs use `keycloak.caSecret` or an

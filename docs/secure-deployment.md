@@ -104,6 +104,70 @@ can exercise its granted Kubernetes and provider permissions; workload hardening
 does not eliminate those privileges. A compromised cluster administrator, Hub
 or provider is outside the protection offered by these client-side controls.
 
+### Exact Secret and Deployment write authority
+
+An installation administrator approves each output before its CR is submitted:
+
+```yaml
+sensitiveWrites:
+  secrets: [hanko-app-orders, hanko-sa-billing-worker]
+  deployments: [reviewed-keycloak]
+  projections:
+    - namespace: orders
+      secrets: [orders-credentials]
+      create: false
+```
+
+The empty defaults grant no Secret or provider Deployment creation. Updates and
+patches use exact `resourceNames`; mandatory `ValidatingAdmissionPolicy` bindings
+also deny other names/namespaces on CREATE, UPDATE and DELETE. Kubernetes
+[RBAC cannot restrict CREATE by resource name](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#referring-to-resources).
+The policies fail closed and cannot be disabled through chart values. The
+operator cannot change them. Labels, owner references, CRs and provider journals
+do not add targets to this administrator list.
+
+Ordinary client IDs keep `hanko-app-<clientID>` or `hanko-sa-<clientID>`. When that
+complete string is not a valid Kubernetes DNS subdomain of at most 253 bytes,
+use `hanko-app.<sha256>` or `hanko-sa.<sha256>`: the full lowercase SHA-256 of the
+exact UTF-8 client ID, without normalization or a trailing newline. These hashed
+names occupy a separate namespace from all previously valid names; valid existing
+Secrets are preserved. The [independent vectors](../internal/credentialname/testdata/names.json)
+include URNs, Unicode and long IDs. SAML and public SPA clients do not need
+credential outputs. Explicit rotation targets must be approved separately;
+referencing an input Secret does not authorize writing it. Enabling Hub approves
+only its configured token Secret automatically.
+
+Cross-namespace projections grant named get/patch only. `create: true` separately
+authorizes creating those exact outputs. Existing application/ServiceAccount UID
+consent and controller ownership checks remain necessary. Workload SA/ConfigMap
+metadata delivery uses the separate `workloadBinding.grants` configuration.
+Credential writes accept only Opaque Secrets and reject ServiceAccount-token
+annotations/types. Transport teardown deletes only configured exact Secrets or
+Helm history matching the configured release namespace, name, type and labels.
+
+Deployment writes require namespace Pod Security labels `enforce=restricted`
+and `enforce-version=latest` or the installed Kubernetes minor (omitting the
+version also selects the current version). The operator cannot change those
+namespace labels. Existing Deployment ServiceAccount bindings are immutable to
+the operator; newly managed providers use default/no account and explicitly
+disable automount and projected ServiceAccount tokens. RBAC adoption may change
+owner references for decommissioning, while rules, subjects, role references,
+aggregation rules/labels, annotations and finalizers remain unchanged.
+Theme/snapshot Jobs keep dynamic checkpoint names, but their mandatory execution
+policy requires the release namespace, current Restricted admission, default/no
+ServiceAccount and no automatic/projected API token. A Job cannot serve as a
+route around the exact Secret/Deployment targets.
+
+Before upgrading an existing development installation, inventory all output
+names, managed Deployments, explicit credential rotation and runtime projections.
+Provision namespace admission and apply the reviewed values/policies before
+resuming reconciliation. A missing grant fails the write and leaves the CR
+unready; do not remove the admission policy to repair configuration. Prune grants
+only after their workloads and unfinished transactions have been reviewed.
+Existing Secret data and provider ownership checkpoints require no renaming.
+Rolling back to a chart with broad writes removes these protections; suspend
+writers and retain independently administered admission if rollback is necessary.
+
 ### OCI delivery evidence
 
 Review the [final-image vulnerability gate and exception policy](../SECURITY.md#final-oci-image-vulnerability-gate)

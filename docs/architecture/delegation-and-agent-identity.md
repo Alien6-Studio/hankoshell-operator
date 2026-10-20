@@ -64,16 +64,22 @@ recorded in [the development contract notice](../go-api-contract.md).
 
 ## Installed qualification gate (#71)
 
-The [d6f7fd6 result packet](../qualification/concurrency/2026-10-19/runtime-d6f7fd6/README.md)
+The [complete CI packet](../qualification/delegation/2026-10-19/runtime-98659a0/README.md)
+records all six installed cells and all six two-replica handoff cells passing:
+528 installed assertions, 240 HA assertions and 48 native-phase recoveries.
+Its scanned image/source tree matches the protected GitHub-Verified squash
+`7ff8086`. It supersedes the earlier failed-cell qualification gaps below;
+subsequent source/chart changes retain their own required exact-image CI.
+
+The earlier [d6f7fd6 result packet](../qualification/concurrency/2026-10-19/runtime-d6f7fd6/README.md)
 records five complete CI cells and a failed Prepared recovery/status-fault wait
-on Keycloak 26.8.0 / Kubernetes 1.35.0. The follow-up corrects renewed request
-admission and guarded-read starvation; the complete installed gate remains open.
+on Keycloak 26.8.0 / Kubernetes 1.35.0. The follow-up corrected renewed request
+admission and guarded-read starvation; the complete CI packet verifies recovery.
 
 The [a65f157 CI audit](../qualification/delegation/2026-10-19/runtime-a65f157/README.md)
 retains four passing cells and two application-update deadlines on Kubernetes
 1.35.0. Both failed cells completed initial delegation successfully. The separate
-fault-proxy watch framing correction requires new installed qualification;
-#71 remains open.
+fault-proxy watch framing correction is covered by the complete CI packet.
 
 `scripts/delegation-installed-test.py` requires the exact clean Operator revision,
 its scanned OCI graph and the matching JAR already built/tested by the same CI run.
@@ -111,9 +117,9 @@ assertions and four native-phase recoveries per cell. Initial convergence ranges
 from 85.274 to 159.354 seconds; withdrawal ranges from 7.680 to 19.000 seconds,
 within the unchanged 600/180-second budgets. The packet binds the scanned OCI,
 extension JARs, source/security results and runner outcomes. CI separately records
-an initial `OwnershipConflict` on 26.7.5 / 1.35.0; its cause remains unresolved,
-so #71 remains open. Local successes do not waive that failed installed cell or
-the required aggregate gate.
+an initial `OwnershipConflict` on 26.7.5 / 1.35.0. That historical failed-cell
+gap is superseded by the complete protected CI packet above, rather than by
+these earlier local successes.
 These fixtures use one Kubernetes node and one Keycloak replica; they do not
 qualify Keycloak cluster failover, signing-key rotation, human delegation or
 production readiness. An offline JWT remains valid until its bounded expiry
@@ -329,5 +335,5 @@ intersection/depth/TTL proof, including composite escalation and replay negative
 [#71](https://github.com/Alien6-Studio/hankoshell-operator/issues/71) then requires
 installed Pod-to-resource proof and recovery/ownership isolation on Kubernetes
 1.35.0, 1.36.2 and 1.37.0 × Keycloak 26.7.5 and 26.8.0. The installed audit above
-records those six local cells. Direct provider tests remain a separate layer;
+records all six installed CI cells and six operator-HA CI cells. Direct provider tests remain a separate layer;
 neither result closes the RFC's protected integration/review gates.

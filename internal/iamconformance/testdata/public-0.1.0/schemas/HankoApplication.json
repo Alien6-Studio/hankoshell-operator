@@ -17,11 +17,18 @@
       "properties": {
         "attributes": {
           "additionalProperties": {
+            "maxLength": 4096,
             "type": "string"
           },
           "description": "Attributes sets arbitrary Keycloak client attributes (single string value per\nkey). The full map is the desired state and replaces unmanaged keys set\ndirectly in Keycloak on every reconcile. Keys reserved by the operator for\nother spec fields (login_theme, post.logout.redirect.uris) are rejected.",
           "maxProperties": 64,
-          "type": "object"
+          "type": "object",
+          "x-kubernetes-validations": [
+            {
+              "message": "native map keys require 1..255 characters",
+              "rule": "self.all(k, size(k) > 0 && size(k) <= 255)"
+            }
+          ]
         },
         "clientID": {
           "description": "ClientID is the Keycloak client identifier.",
@@ -71,22 +78,34 @@
             "properties": {
               "claim": {
                 "description": "Claim is the upstream OIDC claim to inspect or import, for example \"groups\".",
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "^[^\\x00-\\x1F\\x7F]+$",
                 "type": "string"
               },
               "identityProvider": {
                 "description": "IdentityProvider is the Keycloak identity-provider alias, for example \"entra\".",
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "^[^\\x00-\\x1F\\x7F]+$",
                 "type": "string"
               },
               "keycloakName": {
                 "description": "KeycloakName explicitly adopts an existing mapper by name. When omitted,\nthe operator derives an application-namespaced mapper name. Use this only\nfor deliberate migration of a pre-existing mapper.",
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "^[^\\x00-\\x1F\\x7F]+$",
                 "type": "string"
               },
               "matchValue": {
                 "description": "MatchValue is required for role targets and is the exact claim value that\ngrants the role. For array claims, Keycloak matches when the array contains it.\nIt is omitted for userAttribute targets, which import the complete claim value.",
+                "maxLength": 4096,
                 "type": "string"
               },
               "name": {
                 "description": "Name is unique within this application and is used to derive a stable\noperator-owned Keycloak mapper name.",
+                "maxLength": 63,
+                "minLength": 1,
                 "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
                 "type": "string"
               },
@@ -106,6 +125,9 @@
                 "properties": {
                   "clientRole": {
                     "description": "ClientRole grants a role owned by this HankoApplication. The role should\nalso be declared in spec.roles.",
+                    "maxLength": 255,
+                    "minLength": 1,
+                    "pattern": "^[^\\x00-\\x1F\\x7F]+$",
                     "type": "string"
                   },
                   "realmRole": {
@@ -115,6 +137,9 @@
                   },
                   "userAttribute": {
                     "description": "UserAttribute imports the upstream claim into this Keycloak user attribute.\nBecause Keycloak users are realm-scoped, the persisted attribute is global;\nspec.tokenClaims controls which applications receive it in tokens.",
+                    "maxLength": 255,
+                    "minLength": 1,
+                    "pattern": "^[^\\x00-\\x1F\\x7F]+$",
                     "type": "string"
                   }
                 },
@@ -197,7 +222,7 @@
         "redirectURIs": {
           "description": "RedirectURIs is the list of allowed redirect URIs after authentication.",
           "items": {
-            "maxLength": 2048,
+            "maxLength": 255,
             "minLength": 1,
             "pattern": "^[^\\x00-\\x1F\\x7F]+$",
             "type": "string"
@@ -212,7 +237,7 @@
             "properties": {
               "description": {
                 "description": "Description is an optional human-readable description.",
-                "maxLength": 1024,
+                "maxLength": 255,
                 "type": "string"
               },
               "name": {
@@ -315,7 +340,7 @@
             "assertionConsumerServices": {
               "description": "AssertionConsumerServices is the exact set of HTTP-POST ACS destinations.\nHTTPS is required. Wildcards, userinfo, query and fragments are forbidden.",
               "items": {
-                "maxLength": 2048,
+                "maxLength": 255,
                 "pattern": "^https://([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\\.)*[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(:[0-9]{1,5})?(/[^\\s?#@\\\\*]*)?$",
                 "type": "string"
               },
@@ -359,6 +384,7 @@
             "forceRotateAt": {
               "description": "ForceRotateAt, when set, triggers an immediate rotation on the next reconcile.",
               "format": "date-time",
+              "maxLength": 64,
               "type": "string"
             },
             "intervalDays": {
@@ -415,6 +441,9 @@
               },
               "keycloakName": {
                 "description": "KeycloakName explicitly adopts an existing client protocol mapper by name.\nWhen omitted, the operator derives a stable application-scoped name.",
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "^[^\\x00-\\x1F\\x7F]+$",
                 "type": "string"
               },
               "multivalued": {
@@ -423,11 +452,15 @@
               },
               "name": {
                 "description": "Name is unique within this application.",
+                "maxLength": 63,
+                "minLength": 1,
                 "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
                 "type": "string"
               },
               "realmRolePrefix": {
                 "description": "RealmRolePrefix, when set, restricts and strips a prefix from the projected\nrealm-role names. Only meaningful together with realmRoles.",
+                "maxLength": 255,
+                "pattern": "^[^\\x00-\\x1F\\x7F]*$",
                 "type": "string"
               },
               "realmRoles": {
@@ -436,10 +469,14 @@
               },
               "userAttribute": {
                 "description": "UserAttribute reads the value from a Keycloak user attribute.\nExactly one of userAttribute and value must be set.",
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "^[^\\x00-\\x1F\\x7F]+$",
                 "type": "string"
               },
               "value": {
                 "description": "Value emits a fixed application-specific claim value. A pointer allows an\nexplicitly configured empty string to remain distinguishable from omission.",
+                "maxLength": 16384,
                 "type": "string"
               }
             },
@@ -526,6 +563,7 @@
               "type": "boolean"
             },
             "candidateHash": {
+              "maxLength": 71,
               "pattern": "^sha256:[a-f0-9]{64}$",
               "type": "string"
             },
@@ -650,6 +688,7 @@
               "type": "array"
             },
             "diffHash": {
+              "maxLength": 71,
               "pattern": "^sha256:[a-f0-9]{64}$",
               "type": "string"
             },
@@ -684,6 +723,7 @@
               "type": "array"
             },
             "observationHash": {
+              "maxLength": 71,
               "pattern": "^sha256:[a-f0-9]{64}$",
               "type": "string"
             },
@@ -842,6 +882,7 @@
           "description": "AdoptionReceiptStatus reports a live provider checkpoint, never write or\ndeletion authority. A failed status update can be recovered from the provider.",
           "properties": {
             "candidateHash": {
+              "maxLength": 71,
               "pattern": "^sha256:[a-f0-9]{64}$",
               "type": "string"
             },
@@ -876,6 +917,7 @@
         },
         "appliedPlanHash": {
           "description": "AppliedPlanHash identifies the latest Manage plan proven by matching read-back.\nObserve clears applied evidence and cannot claim provider application.",
+          "maxLength": 71,
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
         },
@@ -953,11 +995,13 @@
               "properties": {
                 "key": {
                   "description": "The key of the secret to select from.  Must be a valid secret key.",
+                  "maxLength": 253,
                   "type": "string"
                 },
                 "name": {
                   "default": "",
                   "description": "Name of the referent.\nThis field is effectively required, but due to backwards compatibility is\nallowed to be empty. Instances of this type with an empty value here are\nalmost certainly wrong.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+                  "maxLength": 253,
                   "type": "string"
                 },
                 "optional": {
@@ -985,6 +1029,7 @@
               "lastTransitionTime": {
                 "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
                 "format": "date-time",
+                "maxLength": 64,
                 "type": "string"
               },
               "message": {
@@ -1030,6 +1075,7 @@
             ],
             "type": "object"
           },
+          "maxItems": 32,
           "type": "array",
           "x-kubernetes-list-map-keys": [
             "type"
@@ -1058,6 +1104,7 @@
         },
         "evaluatedPlanHash": {
           "description": "EvaluatedPlanHash identifies the locally compiled provider-bound plan.\nIt is absent for rejected evaluation and is never execution authority.",
+          "maxLength": 71,
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
         },
@@ -1114,17 +1161,20 @@
         },
         "intentHash": {
           "description": "IntentHash identifies normalized portable semantics of EvaluatedGeneration.",
+          "maxLength": 71,
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
         },
         "lastReconciled": {
           "description": "LastReconciled is the timestamp of the last successful reconciliation.",
           "format": "date-time",
+          "maxLength": 64,
           "type": "string"
         },
         "lastRotated": {
           "description": "LastRotated is the timestamp of the last confidential client secret rotation.",
           "format": "date-time",
+          "maxLength": 64,
           "type": "string"
         },
         "managedClientSecretProjections": {
@@ -1153,6 +1203,7 @@
             ],
             "type": "object"
           },
+          "maxItems": 128,
           "type": "array",
           "x-kubernetes-list-map-keys": [
             "namespace",
@@ -1173,6 +1224,7 @@
                     "lastTransitionTime": {
                       "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
                       "format": "date-time",
+                      "maxLength": 64,
                       "type": "string"
                     },
                     "message": {
@@ -1218,6 +1270,7 @@
                   ],
                   "type": "object"
                 },
+                "maxItems": 32,
                 "type": "array",
                 "x-kubernetes-list-map-keys": [
                   "type"
@@ -1225,12 +1278,15 @@
                 "x-kubernetes-list-type": "map"
               },
               "identityProvider": {
+                "maxLength": 255,
                 "type": "string"
               },
               "keycloakID": {
+                "maxLength": 128,
                 "type": "string"
               },
               "name": {
+                "maxLength": 63,
                 "type": "string"
               }
             },
@@ -1241,6 +1297,7 @@
             ],
             "type": "object"
           },
+          "maxItems": 128,
           "type": "array"
         },
         "managedTokenClaims": {
@@ -1256,6 +1313,7 @@
                     "lastTransitionTime": {
                       "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
                       "format": "date-time",
+                      "maxLength": 64,
                       "type": "string"
                     },
                     "message": {
@@ -1301,6 +1359,7 @@
                   ],
                   "type": "object"
                 },
+                "maxItems": 32,
                 "type": "array",
                 "x-kubernetes-list-map-keys": [
                   "type"
@@ -1308,9 +1367,11 @@
                 "x-kubernetes-list-type": "map"
               },
               "keycloakID": {
+                "maxLength": 128,
                 "type": "string"
               },
               "name": {
+                "maxLength": 63,
                 "type": "string"
               }
             },
@@ -1320,11 +1381,13 @@
             ],
             "type": "object"
           },
+          "maxItems": 128,
           "type": "array"
         },
         "nextRotation": {
           "description": "NextRotation is the next scheduled secret rotation, when configured.",
           "format": "date-time",
+          "maxLength": 64,
           "type": "string"
         },
         "observationComplete": {
@@ -1338,6 +1401,7 @@
           "type": "integer"
         },
         "observationPlanHash": {
+          "maxLength": 71,
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
         },
@@ -1348,6 +1412,7 @@
         },
         "observedStateHash": {
           "description": "ObservedStateHash identifies safe normalized provider semantics, including\nobservation coverage. It is neither an intent/plan identity nor a provider ID.",
+          "maxLength": 71,
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
         },
@@ -1355,18 +1420,23 @@
           "description": "OIDCEndpoints holds the Keycloak OIDC endpoint URLs for this application.",
           "properties": {
             "authorization": {
+              "maxLength": 4096,
               "type": "string"
             },
             "issuer": {
+              "maxLength": 4096,
               "type": "string"
             },
             "jwks": {
+              "maxLength": 4096,
               "type": "string"
             },
             "token": {
+              "maxLength": 4096,
               "type": "string"
             },
             "userInfo": {
+              "maxLength": 4096,
               "type": "string"
             }
           },
@@ -1398,6 +1468,7 @@
             "description": "ApplicationRuntimeBindingStatus contains public delivery evidence only.",
             "properties": {
               "bindingRevision": {
+                "maxLength": 71,
                 "pattern": "^sha256:[a-f0-9]{64}$",
                 "type": "string"
               },
@@ -1408,6 +1479,7 @@
                     "lastTransitionTime": {
                       "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
                       "format": "date-time",
+                      "maxLength": 64,
                       "type": "string"
                     },
                     "message": {
@@ -1465,6 +1537,7 @@
                 "type": "string"
               },
               "metadataHash": {
+                "maxLength": 71,
                 "pattern": "^sha256:[a-f0-9]{64}$",
                 "type": "string"
               },
@@ -1489,6 +1562,7 @@
                 "type": "string"
               },
               "sourceAppliedPlanHash": {
+                "maxLength": 71,
                 "pattern": "^sha256:[a-f0-9]{64}$",
                 "type": "string"
               },

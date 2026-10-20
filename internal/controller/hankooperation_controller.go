@@ -410,7 +410,7 @@ func setStepStatus(step *hankoshv1alpha1.OperationStep, status, message string, 
 		step.CompletedAt = now
 	}
 	step.Status = status
-	step.Message = message
+	step.Message = boundedOperationStepMessage(message)
 }
 
 func (r *HankoOperationReconciler) SetupWithManager(mgr ctrl.Manager) error {

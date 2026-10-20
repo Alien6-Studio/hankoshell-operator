@@ -69,6 +69,7 @@ spec:
                 default: https://hub.hanko.sh
                 description: HubEndpoint is the hankoShell Hub base URL. Must be an
                   HTTPS URL.
+                maxLength: 2048
                 pattern: ^https://[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?(:[0-9]+)?(/[^\s]*)?$
                 type: string
               hubEnrollSecretRef:
@@ -79,6 +80,8 @@ spec:
                   for a bounded credential that never leaves the cluster.
                 properties:
                   name:
+                    maxLength: 253
+                    pattern: "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
                     default: ""
                     description: |-
                       Name of the referent.
@@ -95,6 +98,7 @@ spec:
                   exchange a single-use enrollment token. When omitted, HubEndpoint is used
                   for backward compatibility. Bundle and status traffic always use
                   HubEndpoint, which may therefore be a private Continuum address.
+                maxLength: 2048
                 pattern: ^https://[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?(:[0-9]+)?(/[^\s]*)?$
                 type: string
               hubTenantID:
@@ -102,6 +106,8 @@ spec:
                   HubTenantID is the tenant identifier assigned by hankoShell Hub. May be
                   left empty when HubEnrollSecretRef is set: it is then learned during
                   enrollment and stored alongside the bounded operator credential.
+                maxLength: 128
+                pattern: ^[^\x00-\x1F\x7F]*$
                 type: string
               hubTokenSecretRef:
                 description: |-
@@ -112,6 +118,8 @@ spec:
                   also absent. A known identity requires credential recovery, not enrollment.
                 properties:
                   name:
+                    maxLength: 253
+                    pattern: "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
                     default: ""
                     description: |-
                       Name of the referent.
@@ -149,6 +157,8 @@ spec:
                   Required for keycloak and cluster isolation modes.
                 properties:
                   name:
+                    maxLength: 253
+                    pattern: "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
                     default: ""
                     description: |-
                       Name of the referent.
@@ -161,6 +171,9 @@ spec:
                 x-kubernetes-map-type: atomic
               realmRef:
                 description: RealmRef is the HankoRealm name for realm-mode isolation.
+                maxLength: 253
+                minLength: 1
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                 type: string
             required:
             - hubTokenSecretRef
@@ -169,18 +182,22 @@ spec:
             description: HankoTenantStatus describes the observed state of the tenant.
             properties:
               bundleVersion:
+                maxLength: 128
                 description: BundleVersion is the version of the last successfully
                   applied bundle.
                 type: string
               clusterID:
+                maxLength: 128
                 type: string
               conditions:
+                maxItems: 32
                 description: Conditions holds standard Kubernetes condition objects.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
                   properties:
                     lastTransitionTime:
+                      maxLength: 64
                       description: |-
                         lastTransitionTime is the last time the condition transitioned from one status to another.
                         This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -235,6 +252,7 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               connectedHub:
+                maxLength: 2048
                 description: ConnectedHub is the Hub endpoint this tenant is currently
                   syncing from.
                 type: string
@@ -244,6 +262,7 @@ spec:
                   legacy HMAC fallback, including after restart or trust configuration loss.
                 properties:
                   appliedIdentity:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   cache:
@@ -251,9 +270,11 @@ spec:
                       its acknowledged acceptance.
                     properties:
                       acceptedAt:
+                        maxLength: 64
                         format: date-time
                         type: string
                       identity:
+                        maxLength: 71
                         pattern: ^sha256:[a-f0-9]{64}$
                         type: string
                       name:
@@ -278,14 +299,17 @@ spec:
                   expired:
                     type: boolean
                   expiresAt:
+                    maxLength: 64
                     format: date-time
                     type: string
                   hubEndpointHash:
+                    maxLength: 71
                     description: HubEndpointHash pins the last locally accepted credential
                       destination.
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   identity:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   journal:
@@ -295,12 +319,15 @@ spec:
                     items:
                       properties:
                         acceptedAt:
+                          maxLength: 64
                           format: date-time
                           type: string
                         identity:
+                          maxLength: 71
                           pattern: ^sha256:[a-f0-9]{64}$
                           type: string
                         rollbackOf:
+                          maxLength: 71
                           pattern: ^sha256:[a-f0-9]{64}$
                           type: string
                         sequence:
@@ -324,9 +351,11 @@ spec:
                       its acknowledged acceptance.
                     properties:
                       acceptedAt:
+                        maxLength: 64
                         format: date-time
                         type: string
                       identity:
+                        maxLength: 71
                         pattern: ^sha256:[a-f0-9]{64}$
                         type: string
                       name:
@@ -349,6 +378,7 @@ spec:
                     - uid
                     type: object
                   previousIdentity:
+                    maxLength: 71
                     description: |-
                       PreviousIdentity is evidence only; rollback also requires a retained,
                       independently reverified envelope and a new monotonic signed plan.
@@ -359,9 +389,11 @@ spec:
                       its acknowledged acceptance.
                     properties:
                       acceptedAt:
+                        maxLength: 64
                         format: date-time
                         type: string
                       identity:
+                        maxLength: 71
                         pattern: ^sha256:[a-f0-9]{64}$
                         type: string
                       name:
@@ -392,6 +424,7 @@ spec:
                     minLength: 1
                     type: string
                   verifiedAt:
+                    maxLength: 64
                     description: |-
                       VerifiedAt detects wall-clock regression across restarts. Expired is
                       sticky for this identity; moving the clock back cannot revive it.
@@ -440,6 +473,7 @@ spec:
                     - index
                     x-kubernetes-list-type: map
                   identity:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   observedGeneration:
@@ -461,6 +495,7 @@ spec:
                     minimum: 0
                     type: integer
                   selectionHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   sequence:
@@ -487,11 +522,13 @@ spec:
                 - message: rollout evidence exceeds the plan object budget
                   rule: self.applied + self.refused + self.pending <= 200
               lastReconciled:
+                maxLength: 64
                 description: LastReconciled is the timestamp of the last reconciliation
                   attempt.
                 format: date-time
                 type: string
               lastSync:
+                maxLength: 64
                 description: LastSync is the timestamp of the last successful bundle
                   sync.
                 format: date-time
@@ -507,6 +544,7 @@ spec:
                 - Error
                 type: string
               tenantID:
+                maxLength: 128
                 description: |-
                   TenantID and ClusterID are non-secret Hub identities resolved from the
                   bounded operator credential. Mesh registration consumers use them instead

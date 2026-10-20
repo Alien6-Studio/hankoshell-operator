@@ -186,6 +186,8 @@ spec:
                             - organization
                             type: string
                           ref:
+                            maxLength: 253
+                            minLength: 1
                             pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
                             type: string
                         required:
@@ -265,7 +267,9 @@ spec:
                       type: string
                     uris:
                       items:
-                        maxLength: 2048
+                        maxLength: 255
+                        minLength: 1
+                        pattern: ^[^\x00-\x1F\x7F]+$
                         type: string
                       maxItems: 32
                       type: array
@@ -286,7 +290,7 @@ spec:
                     server.
                   properties:
                     description:
-                      maxLength: 1024
+                      maxLength: 255
                       type: string
                     name:
                       maxLength: 255
@@ -328,6 +332,7 @@ spec:
                   approvable:
                     type: boolean
                   candidateHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   complete:
@@ -424,6 +429,7 @@ spec:
                     maxItems: 256
                     type: array
                   diffHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   findings:
@@ -449,6 +455,7 @@ spec:
                     maxItems: 32
                     type: array
                   observationHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   providerIdentity:
@@ -581,6 +588,7 @@ spec:
                   never ownership authority.
                 properties:
                   candidateHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   contractVersion:
@@ -607,6 +615,7 @@ spec:
                 minimum: 0
                 type: integer
               appliedPlanHash:
+                maxLength: 71
                 description: |-
                   AppliedPlanHash identifies the latest Manage plan proven by acceptable
                   bounded provider read-back, at AppliedGeneration.
@@ -619,6 +628,7 @@ spec:
                   complete:
                     type: boolean
                   explanationHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   paths:
@@ -783,9 +793,11 @@ spec:
                     minimum: 0
                     type: integer
                   sourceObservationHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   sourcePlanHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   truncated:
@@ -859,6 +871,7 @@ spec:
                     state of this API Resource.
                   properties:
                     lastTransitionTime:
+                      maxLength: 64
                       description: |-
                         lastTransitionTime is the last time the condition transitioned from one status to another.
                         This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -935,6 +948,7 @@ spec:
                 minimum: 0
                 type: integer
               evaluatedPlanHash:
+                maxLength: 71
                 description: |-
                   EvaluatedPlanHash identifies the locally compiled provider-bound plan.
                   It is absent for rejected evaluation and is never execution authority.
@@ -981,11 +995,13 @@ spec:
                 - code
                 x-kubernetes-list-type: map
               intentHash:
+                maxLength: 71
                 description: IntentHash identifies normalized portable semantics of
                   EvaluatedGeneration.
                 pattern: ^sha256:[a-f0-9]{64}$
                 type: string
               lastReconciled:
+                maxLength: 64
                 format: date-time
                 type: string
               managedObjects:
@@ -1086,6 +1102,7 @@ spec:
                 minimum: 0
                 type: integer
               observationPlanHash:
+                maxLength: 71
                 pattern: ^sha256:[a-f0-9]{64}$
                 type: string
               observedGeneration:
@@ -1096,6 +1113,7 @@ spec:
                 minimum: 0
                 type: integer
               observedStateHash:
+                maxLength: 71
                 description: |-
                   ObservedStateHash identifies safe normalized provider semantics, including
                   observation coverage. It is neither an intent/plan identity nor a provider ID.
@@ -1285,6 +1303,8 @@ spec:
                             - organization
                             type: string
                           ref:
+                            maxLength: 253
+                            minLength: 1
                             pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
                             type: string
                         required:
@@ -1364,7 +1384,9 @@ spec:
                       type: string
                     uris:
                       items:
-                        maxLength: 2048
+                        maxLength: 255
+                        minLength: 1
+                        pattern: ^[^\x00-\x1F\x7F]+$
                         type: string
                       maxItems: 32
                       type: array
@@ -1385,7 +1407,7 @@ spec:
                     server.
                   properties:
                     description:
-                      maxLength: 1024
+                      maxLength: 255
                       type: string
                     name:
                       maxLength: 255
@@ -1427,6 +1449,7 @@ spec:
                   approvable:
                     type: boolean
                   candidateHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   complete:
@@ -1523,6 +1546,7 @@ spec:
                     maxItems: 256
                     type: array
                   diffHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   findings:
@@ -1548,6 +1572,7 @@ spec:
                     maxItems: 32
                     type: array
                   observationHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   providerIdentity:
@@ -1680,6 +1705,7 @@ spec:
                   never ownership authority.
                 properties:
                   candidateHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   contractVersion:
@@ -1706,6 +1732,7 @@ spec:
                 minimum: 0
                 type: integer
               appliedPlanHash:
+                maxLength: 71
                 description: |-
                   AppliedPlanHash identifies the latest Manage plan proven by acceptable
                   bounded provider read-back, at AppliedGeneration.
@@ -1718,6 +1745,7 @@ spec:
                   complete:
                     type: boolean
                   explanationHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   paths:
@@ -1882,9 +1910,11 @@ spec:
                     minimum: 0
                     type: integer
                   sourceObservationHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   sourcePlanHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   truncated:
@@ -1958,6 +1988,7 @@ spec:
                     state of this API Resource.
                   properties:
                     lastTransitionTime:
+                      maxLength: 64
                       description: |-
                         lastTransitionTime is the last time the condition transitioned from one status to another.
                         This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -2034,6 +2065,7 @@ spec:
                 minimum: 0
                 type: integer
               evaluatedPlanHash:
+                maxLength: 71
                 description: |-
                   EvaluatedPlanHash identifies the locally compiled provider-bound plan.
                   It is absent for rejected evaluation and is never execution authority.
@@ -2080,11 +2112,13 @@ spec:
                 - code
                 x-kubernetes-list-type: map
               intentHash:
+                maxLength: 71
                 description: IntentHash identifies normalized portable semantics of
                   EvaluatedGeneration.
                 pattern: ^sha256:[a-f0-9]{64}$
                 type: string
               lastReconciled:
+                maxLength: 64
                 format: date-time
                 type: string
               managedObjects:
@@ -2185,6 +2219,7 @@ spec:
                 minimum: 0
                 type: integer
               observationPlanHash:
+                maxLength: 71
                 pattern: ^sha256:[a-f0-9]{64}$
                 type: string
               observedGeneration:
@@ -2195,6 +2230,7 @@ spec:
                 minimum: 0
                 type: integer
               observedStateHash:
+                maxLength: 71
                 description: |-
                   ObservedStateHash identifies safe normalized provider semantics, including
                   observation coverage. It is neither an intent/plan identity nor a provider ID.

@@ -195,6 +195,7 @@ spec:
                   approvable:
                     type: boolean
                   candidateHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   complete:
@@ -291,6 +292,7 @@ spec:
                     maxItems: 256
                     type: array
                   diffHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   findings:
@@ -316,6 +318,7 @@ spec:
                     maxItems: 32
                     type: array
                   observationHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   providerIdentity:
@@ -449,6 +452,7 @@ spec:
                   to reconcile business state or delete either aggregate member.
                 properties:
                   candidateHash:
+                    maxLength: 71
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   contractVersion:
@@ -468,6 +472,7 @@ spec:
                 - state
                 type: object
               conditions:
+                maxItems: 32
                 description: |-
                   Conditions separates provider Synced from optional platform Projection.
                   Disabled projection is Unknown/Disabled, not a synchronization failure.
@@ -476,6 +481,7 @@ spec:
                     state of this API Resource.
                   properties:
                     lastTransitionTime:
+                      maxLength: 64
                       description: |-
                         lastTransitionTime is the last time the condition transitioned from one status to another.
                         This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -530,12 +536,15 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               groupID:
+                maxLength: 128
                 description: GroupID is the Keycloak UUID of the reconciled group.
                 type: string
               groupPath:
+                maxLength: 16384
                 description: GroupPath is the full Keycloak group path, e.g. "/alien6/demo".
                 type: string
               lastReconciled:
+                maxLength: 64
                 description: LastReconciled is the timestamp of the last successful
                   reconciliation.
                 format: date-time
@@ -547,6 +556,7 @@ spec:
                 format: int64
                 type: integer
               orgID:
+                maxLength: 128
                 description: |-
                   OrgID is the Keycloak Organization UUID reconciled for a tenant root.
                   Empty on internal nodes, which are groups only.
@@ -563,6 +573,7 @@ spec:
                 - Error
                 type: string
               positionID:
+                maxLength: 128
                 description: |-
                   PositionID is the hankoShell API position projected for hankoShell and ADK
                   consumers. It is optional, last-known platform metadata and never provider

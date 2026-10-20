@@ -20,8 +20,9 @@ rules:
     verbs: ["get", "delete"]
   # Helm bookkeeping Secrets of the transport release carry generated
   # versioned names, so this rule cannot be resourceName-pinned. The
-  # dedicated transport namespace bounds the reach instead; listing selects
-  # only owner=helm Secrets labeled with the transport release name.
+  # mandatory admission independently checks namespace, exact release-name
+  # prefix, Secret type and both Helm labels before DELETE. Listing alone is
+  # never the authorization boundary.
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["get", "list", "delete"]

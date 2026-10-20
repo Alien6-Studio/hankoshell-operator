@@ -85,7 +85,7 @@ type AuthorizationScope struct {
 	// +kubebuilder:validation:MaxLength=255
 	Name string `json:"name"`
 
-	// +kubebuilder:validation:MaxLength=1024
+	// +kubebuilder:validation:MaxLength=255
 	Description string `json:"description,omitempty"`
 }
 
@@ -101,7 +101,9 @@ type AuthorizationResource struct {
 
 	// +listType=set
 	// +kubebuilder:validation:MaxItems=32
-	// +kubebuilder:validation:items:MaxLength=2048
+	// +kubebuilder:validation:items:MaxLength=255
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:Pattern=`^[^\x00-\x1F\x7F]+$`
 	URIs []string `json:"uris,omitempty"`
 
 	// +kubebuilder:validation:MaxLength=255
@@ -188,6 +190,8 @@ type AuthorizationPrincipal struct {
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
 	Ref string `json:"ref"`
 
 	// IncludeDescendants explicitly includes current declared and independently
