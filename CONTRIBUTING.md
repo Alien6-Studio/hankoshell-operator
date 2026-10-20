@@ -149,7 +149,7 @@ against the same license/source policy, including operator test dependencies.
 Generation uses these explicit targets on every developer host; commit both
 `THIRD_PARTY_NOTICES` files after reviewing the resulting inventory and texts.
 
-Target public release is 0.1.0; active technical metadata is `0.1.0-dev.0`
+Target version is 1.0.0; active qualification metadata is `1.0.0-rc.1`
 in initial development. No public release has been published yet. The `v1alpha1`
 APIs remain experimental. Keep chart/build/rehearsal metadata, prerelease status
 and curated changelog notes consistent.

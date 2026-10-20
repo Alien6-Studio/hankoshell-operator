@@ -24,7 +24,7 @@ class ReleaseEligibilityTests(unittest.TestCase):
         self.revision = "a" * 40
         self.tag_object = "b" * 40
         # Preserve signature/ancestry tests for the separately reviewed future candidate.
-        for field, value in (("VERSION", "0.1.0"), ("RELEASE_STATUS", "candidate")):
+        for field, value in (("VERSION", "0.1.0"), ("TARGET_VERSION", "0.1.0"), ("RELEASE_STATUS", "candidate")):
             patched = patch.object(eligibility.versioning, field, value)
             patched.start()
             self.addCleanup(patched.stop)

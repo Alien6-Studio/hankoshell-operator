@@ -7,8 +7,8 @@ before increasing it; this setting is not a measured capacity recommendation.
 `reconciliation.maxConcurrentByKind` optionally supplies 1–8 workers for
 `Application`, `Role`, `Organization` or `ResourceServer`; other kinds inherit
 the global value. Every controller still shares its connection's provider budget.
-Target 0.1.0 is in initial development; current chart/app metadata is the
-prerelease `0.1.0-dev.0`. No public release has been published yet.
+Target 1.0.0 remains in initial development; current chart/app metadata is the
+prerelease `1.0.0-rc.1`. No public release has been published yet.
 The source includes the [OIDC/SAML application contract](../../docs/architecture/application-identity.md),
 including explicit migration approval for existing unmarked clients and
 [UID-bound runtime bindings](../../docs/architecture/application-identity.md#runtime-bindings).
@@ -295,7 +295,7 @@ M2M clients require reviewed acquisition. Leaf and
 [aggregate checkpoints](../../docs/architecture/existing-keycloak-adoption.md#implemented-aggregate-acquisition-and-native-preservation-49)
 remain Observe until an administrator explicitly requests Manage and removes the
 imported latch. Exact current ownership and qualified native preservation are
-required; foreign dependencies hold cleanup. Chart/app source metadata is 0.1.0-dev.0;
+required; foreign dependencies hold cleanup. Chart/app source metadata is 1.0.0-rc.1;
 source freeze requires exact-main qualification. Production publication remains
 pending in #21.
 

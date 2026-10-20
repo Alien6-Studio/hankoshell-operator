@@ -176,7 +176,10 @@ func recoverManagedAdoptionStatus(ctx context.Context, kube client.Client, o cli
 	if err != nil {
 		return true, ctrl.Result{}, err
 	}
-	base := o.DeepCopyObject().(client.Object)
+	base, ok := o.DeepCopyObject().(client.Object)
+	if !ok {
+		return true, ctrl.Result{}, errAdoptionIdentity
+	}
 	var receipt **api.AdoptionReceiptStatus
 	var conditions *[]metav1.Condition
 	switch target := o.(type) {

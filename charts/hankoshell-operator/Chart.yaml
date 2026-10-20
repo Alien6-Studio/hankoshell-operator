@@ -2,8 +2,8 @@ apiVersion: v2
 name: hankoshell-operator
 description: Declarative IAM reconciliation for Keycloak and hankoShell platform integrations
 type: application
-version: "0.1.0-dev.0"
-appVersion: "0.1.0-dev.0"
+version: "1.0.0-rc.1"
+appVersion: "1.0.0-rc.1"
 kubeVersion: ">=1.35.0-0 <1.38.0-0"
 keywords:
   - oidc
@@ -25,7 +25,7 @@ annotations:
   artifacthub.io/prerelease: "true"
   artifacthub.io/changes: |
     - kind: changed
-      description: Develop the first public 0.1.0 with prerelease metadata 0.1.0-dev.0; all required capability and qualification work precedes publication.
+      description: Package 1.0.0-rc.1 for qualification, including existing-installation recovery and rotation checkpoint preservation; APIs remain experimental and stable publication remains blocked.
     - kind: fixed
       description: Bind the private Ed25519 signer to its approved public key and canonical Attest identity before publication; qualify TSA structure and adversarial retries without changing IAM behavior.
     - kind: added
@@ -36,7 +36,7 @@ annotations:
       description: Complete reviewed adoption, native preservation and explicit target-realm role-writer authority as the implemented adoption foundation; public distribution remains pending.
   artifacthub.io/images: |
     - name: hankoshell-operator
-      image: ghcr.io/alien6-studio/hankoshell-operator:0.1.0-dev.0
+      image: ghcr.io/alien6-studio/hankoshell-operator:1.0.0-rc.1
       platforms:
         - linux/amd64
         - linux/arm64

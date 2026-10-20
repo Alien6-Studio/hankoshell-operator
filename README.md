@@ -40,7 +40,7 @@ enterprise fleet. Project website: **[hanko.sh](https://hanko.sh)**.
 [Organizational grants and provenance](docs/architecture/organizational-authorization.md)
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-0.1.0--dev.0%20development-blue.svg)](#release-maturity)
+[![Version](https://img.shields.io/badge/version-1.0.0--rc.1%20qualification-blue.svg)](#release-maturity)
 [![Go](https://img.shields.io/badge/go-1.27.2-00ADD8.svg)](go.mod)
 [![Kubernetes](https://img.shields.io/badge/kubernetes-1.35%E2%80%931.37-326CE5.svg)](docs/secure-deployment.md#kubernetes-compatibility-and-hardening)
 [![Delivery](https://img.shields.io/badge/delivery-Continuum%20Attest-blue.svg)](#verified-delivery)
@@ -99,7 +99,7 @@ reviewed deletion/recreation.
 deliver a versioned `identity.json` ConfigMap and optional confidential OIDC Secret
 to preauthorized workload targets. Delivery binds the current ServiceAccount UID,
 requires proven applied provider state and preserves unrelated target data. No SDK
-or automatic pod restart is needed. Source metadata is 0.1.0-dev.0; public packages and
+or automatic pod restart is needed. Source metadata is 1.0.0-rc.1; public packages and
 a GitHub Release remain pending.
 
 `HankoRole` management and deletion require the CR UID ownership marker in
@@ -377,11 +377,11 @@ implemented. Existing installations should follow the
 
 ## Verified delivery
 
-Production publication is blocked while the source is `0.1.0-dev.0`.
+Production publication is blocked while the source is `1.0.0-rc.1`.
 The future first release requires an explicitly prepared stable candidate,
 a GitHub-verified source commit and a GitHub-verified signed annotated
-`v0.1.0` tag bound to that exact commit on protected main. The expected source
-ref is `refs/tags/v0.1.0` and GitHub display name is `v0.1.0`.
+`v1.0.0` tag bound to that exact commit on protected main. The expected source
+ref is `refs/tags/v1.0.0` and GitHub display name is `v1.0.0`.
 The workflow rejects unverified signatures, lightweight tags and conflicting or
 moved references, and checks these identities again before publication.
 It builds Linux AMD64/ARM64 images and the Helm chart from that source.
@@ -429,8 +429,9 @@ Helm signing key through `artifacthub.io/signKey`.
 
 ## Release maturity
 
-**hankoShell Operator 0.1.0 is in initial development. No public release has been
-published yet.** Active chart/app/build metadata is `0.1.0-dev.0` (prerelease).
+**hankoShell Operator remains in initial development.** Active chart/app/build
+metadata is `1.0.0-rc.1`, a [candidate for qualification](docs/qualification/release-candidate.md),
+not a qualified stable release. No public release has been published yet.
 The implemented foundation, IAM contracts, application identity, organizational
 authorization, adoption and canonical Attest hardening remain intact. Workload
 Identity, Delegation & Agent Identity, Provider Portability, Fleet Reconciliation

@@ -27,6 +27,7 @@ class ReleaseResumeTests(unittest.TestCase):
                 "/repos/Alien6-Studio/hankoshell-operator/releases/tags/v0.1.0")
         with patch.object(github, "request") as request, \
                 patch.object(publish.contract.versioning, "VERSION", "0.1.0"), \
+                patch.object(publish.contract.versioning, "TARGET_VERSION", "0.1.0"), \
                 patch.object(publish.contract.versioning, "RELEASE_STATUS", "candidate"):
             github.create("v0.1.0", "a" * 40, "fixture notes")
             method, path, body = request.call_args.args
