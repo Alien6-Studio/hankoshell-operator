@@ -33,7 +33,7 @@ Source qualification and fixture trust do not supply that external evidence.
 | Workflow ref | source CI; nonpublishable rehearsal | refs/tags/v0.1.0 |
 | GitHub Release | none | v0.1.0, initially a verified draft |
 
-`scripts/release-version.py` parses normal `v<SemVer>` tags. Namespace `release/`,
+`tools/release/release_version.py` parses normal `v<SemVer>` tags. Namespace `release/`,
 branch refs, malformed versions and suffix paths are rejected. Parsing alone
 never grants permission to publish. `require_production` fails before external
 identity/API/registry operations while reviewed source status is `development`.
@@ -98,7 +98,7 @@ never production credentials, GHCR writes or public transparency services.
    openssl pkey -pubin -in "$signer_public_path" -outform DER |
      python3 -c 'import sys; d = sys.stdin.buffer.read(); assert len(d) == 44 and d[:12].hex() == "302a300506032b6570032100"; print(d[12:].hex())'
    ```
-3. Install checksum-pinned Attest 0.1.0 with `scripts/install-attest.sh`. In a
+3. Install checksum-pinned Attest 0.1.0 with `tools/bootstrap/install_attest.sh`. In a
    fresh restricted temporary directory, run
    `"$attest_path" keys import --name "approved release signer" "$signer_public_path"`,
    then `"$attest_path" keys list --format json`. Require one trusted entry with
@@ -112,7 +112,7 @@ never production credentials, GHCR writes or public transparency services.
    --repo Alien6-Studio/hankoshell-operator < "$signer_private_path"`.
    Do not print/export its value into logs, issues, PRs or command arguments.
 5. In an approved isolated process, populate the required configuration and run
-   `python3 scripts/attest-release.py --check-config --attest "$attest_path"`.
+   `python3 -m tools.release.attest_release --check-config --attest "$attest_path"`.
    A pass establishes private/public/ID and X.509 consistency only; it does not
    constitute independent administrative approval or a TSA endpoint test.
 

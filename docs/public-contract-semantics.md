@@ -69,7 +69,7 @@ first-release limitation must not be silently converted into a passing path.
 
 ## Running and changing fixtures
 
-`python3 scripts/public-contract.py check` checks selection coverage, frozen schemas
+`python3 -m tools.qualification.checks.public_contract check` checks selection coverage, frozen schemas
 and corpus field coverage; release packaging invokes it. `make test` checks exact
 compiler identities and old ownership readers. `make integration-test` replays the
 stored corpus, and `make system-test` runs its installed behavior within the full

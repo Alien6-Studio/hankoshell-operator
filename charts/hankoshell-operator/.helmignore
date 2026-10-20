@@ -1,0 +1,5 @@
+# Developer checks live in tests/chart, outside the distributable chart.
+tests/
+*.py
+*.pyc
+__pycache__/

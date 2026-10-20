@@ -55,7 +55,7 @@ version/migration fixtures and the review gate together, resolve blockers and
 record the community decision. #104 reuses these criteria; changing a threshold
 requires an explicit RFC amendment explaining its evidence and consequences.
 
-`python3 scripts/stable-contract.py` rejects missing resources/field groups,
+`python3 -m tools.qualification.checks.stable_contract` rejects missing resources/field groups,
 undeclared native boundaries, unsupported portability, maturity inflation,
 missing evidence, and changes to the frozen shared semantics without review.
 The gate runs in preflight and release packaging. It does not invent historical

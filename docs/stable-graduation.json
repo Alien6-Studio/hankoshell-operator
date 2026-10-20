@@ -10,7 +10,7 @@
     },
     "installed": {
       "threshold": "Every supported Kubernetes/Keycloak cell passes the applicable installed scenarios on the candidate or a documented unchanged surface.",
-      "evidence": "scripts/system-test.py"
+      "evidence": "tools/qualification/scenarios/system_test.py"
     },
     "production": {
       "threshold": "At least two independent installations, two public operator releases and one real upgrade/rollback path for this resource; sanitized reports linked.",

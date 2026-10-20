@@ -353,7 +353,7 @@ enforcement follows from this contract.
 
 ## Installed Fleet qualification (#80)
 
-The installed harness is [scripts/fleet-installed-test.py](../../scripts/fleet-installed-test.py).
+The installed harness is [tools/qualification/scenarios/fleet_installed_test.py](../../tools/qualification/scenarios/fleet_installed_test.py).
 The mandatory CI job `installed-fleet` consumes the immutable scanned OCI artifact
 from the same workflow, checks its exact revision/index/archive/evidence, then
 installs the chart in a uniquely owned disposable cluster. All six combinations

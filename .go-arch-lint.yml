@@ -14,13 +14,13 @@ components:
   cmd:
     in: "/cmd/operator"
   fixture_review:
-    in: "/scripts/workload-auth-review"
+    in: "/tools/qualification/fixtures/workload-auth-review"
   fixture_resource:
-    in: "/scripts/delegation-resource-server"
+    in: "/tools/qualification/fixtures/delegation-resource-server"
   api_surface:
-    in: "/scripts/api-surface"
+    in: "/tools/qualification/fixtures/api-surface"
   api_surface_fixture:
-    in: "/scripts/api-surface/testdata/contract"
+    in: "/tools/qualification/fixtures/api-surface/testdata/contract"
   controller:
     in: "/internal/controller"
   keycloak:

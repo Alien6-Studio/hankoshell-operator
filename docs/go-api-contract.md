@@ -1,14 +1,14 @@
 # Executable Go and conversion development contracts
 
 `docs/go-api-contract.json` selects eight exact local packages used by the public
-contract fixtures. `scripts/api-surface` reads compiler export data using the pinned
+contract fixtures. `tools/qualification/fixtures/api-surface` reads compiler export data using the pinned
 Go toolchain. It does not run package initializers. The reviewed development
 snapshot in `docs/contracts/go-api-development.json` contains 1,787 exports,
 including signatures, constant values, named types and aliases, fields/JSON tags,
 interface requirements, generic constraints and value/pointer/promoted methods.
 Names use full import paths so local import aliases cannot conceal a change.
 
-`python3 scripts/go-api-contract.py check` fails with the package, object and exact
+`python3 -m tools.qualification.checks.go_api_contract check` fails with the package, object and exact
 old/new hashes for removed or changed exports. New standalone exports are additive;
 changing a struct or interface is deliberately conservative because fixture users
 can depend on literal layouts and interface implementations. Body-only changes
@@ -20,7 +20,7 @@ development API change requires a migration analysis and an explicit snapshot/ha
 update in the same PR. Generate a candidate outside the reviewed baseline first:
 
 ```sh
-python3 scripts/go-api-contract.py snapshot --output /tmp/go-api-candidate.json
+python3 -m tools.qualification.checks.go_api_contract snapshot --output /tmp/go-api-candidate.json
 diff -u docs/contracts/go-api-development.json /tmp/go-api-candidate.json
 ```
 
@@ -30,7 +30,7 @@ include `go_api`. Public API changes then require the hash-bound notice, migrati
 review, release-count and elapsed-time checks of the shared compatibility policy.
 The development snapshot cannot replace that public baseline.
 
-`scripts/compatibility-gate.py check` separately checks CRD schemas and the version
+`tools/qualification/checks/compatibility_gate.py check` separately checks CRD schemas and the version
 envelope: v1alpha1 remains default storage; exactly three reviewed experimental
 resources also serve v1beta1 with structurally identical schemas and conversion
 None. The [conversion decision](api-conversion.json) freezes all fields/defaults/

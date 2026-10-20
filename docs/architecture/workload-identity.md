@@ -82,7 +82,7 @@ prevent acquisition or authentication changes.
 
 The supported targets are **26.7.5 and 26.8.0**. Qualification uses their pinned
 official images and real Kubernetes **1.35.0, 1.36.2 and 1.37.0**. Run
-`scripts/workload-identity-probe.py`; its uploaded JSON records bounded decisions,
+`tools/qualification/fixtures/workload_identity_probe.py`; its uploaded JSON records bounded decisions,
 counts and fixture versions. It runs the production trust/identity reconcilers
 against native Keycloak, reads actual cluster/workload UIDs, and separately tests
 actual kubelet projections. Hanko CR storage in that native fixture is ephemeral.
@@ -944,8 +944,8 @@ Use Docker, OpenSSL 3, Python 3.12+ and the pinned tools; each invocation owns a
 cleans two uniquely named kind clusters and its Keycloak containers/image:
 
 ```sh
-python3 -m pip install -r scripts/requirements.txt
-python3 scripts/install-system-tools.py /tmp/hankoshell-workload-tools
+python3 -m pip install -r tools/requirements.txt
+python3 -m tools.bootstrap.install_system_tools /tmp/hankoshell-workload-tools
 make workload-identity-probe KEYCLOAK_VERSION=26.7.5 KUBERNETES_VERSION=1.35.0 \
   KIND=/tmp/hankoshell-workload-tools/kind \
   KUBECTL=/tmp/hankoshell-workload-tools/kubectl OPENSSL=/usr/bin/openssl \

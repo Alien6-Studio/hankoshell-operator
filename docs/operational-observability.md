@@ -161,7 +161,7 @@ revocation and invalid trust). `TestMetricsCardinalityAndSecretSentinels`,
 `TestKeycloakErrorsAreTypedAndNeverIncludeNativeDiagnostics` inject sentinels.
 `TestServingAndLeaderReadinessAreIndependent` covers standby/start/stop semantics.
 Chart observability tests check exact mTLS mounts/arguments, ServiceMonitor trust,
-absent annotations and conjunctive ingress. `scripts/observability-installed-test.py`
+absent annotations and conjunctive ingress. `tools/qualification/scenarios/observability_installed_test.py`
 qualifies the scanned OCI under real kind/Helm with authenticated scraping,
 anonymous/wrong-URI refusal, bounded metrics and current lease/standby probes.
 The full installed system fixture also executes that observability scenario.

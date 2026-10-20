@@ -169,7 +169,7 @@ candidate. Changing either setting invalidates approval; set ordering does not.
 
 ### Administrator workflow
 
-For an installation with many existing declarations, `scripts/claim_existing.py`
+For an installation with many existing declarations, `tools/operations/claim_existing.py`
 groups consent into a private, hash-bound batch. It uses the same controller
 transaction; there is no additional CRD or privileged provider bypass.
 Select exact targets in a mode-0600 JSON array:
@@ -181,9 +181,9 @@ Select exact targets in a mode-0600 JSON array:
 After selecting an inventory source and refreshing Observe candidates, run:
 
 ```sh
-python3 scripts/claim_existing.py --context CONTEXT plan --namespace auth \
+python3 -m tools.operations.claim_existing --context CONTEXT plan --namespace auth \
   --source inventory --targets targets.json --output claim.json
-python3 scripts/claim_existing.py --context CONTEXT apply \
+python3 -m tools.operations.claim_existing --context CONTEXT apply \
   --plan claim.json --approve PRINTED-APPROVAL-HASH
 ```
 

@@ -477,6 +477,8 @@ dedicated scoped writer where possible and review the
 
 ## Development
 
+Qualification suites, tooling layout and local artifacts: [tools/README.md](tools/README.md).
+
 The experimental bounded-delegation Java extension is maintained in
 [Alien6-Studio/keycloak-bounded-delegation](https://github.com/Alien6-Studio/keycloak-bounded-delegation),
 a sibling checkout of this repository and `hanko-platform`. The operator keeps
@@ -509,10 +511,10 @@ application. See [status semantics and migration](docs/architecture/iam-contract
 Use Go 1.27.2, Helm 3.17 or later, Python 3, and a C compiler for race tests.
 
 ```sh
-python3 -m pip install -r scripts/requirements.txt
+python3 -m pip install -r tools/requirements.txt
 make install-tools
 make check arch lint generated-check vuln
-python3 -m unittest discover -s scripts -p 'test_*.py'
+python3 -m unittest discover -s tests/tooling -t . -p 'test_*.py'
 make build
 make integration-test KUBERNETES_VERSION=1.37.0
 make keycloak-integration-test KEYCLOAK_VERSION=26.8.0

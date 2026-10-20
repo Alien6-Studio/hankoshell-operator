@@ -228,7 +228,7 @@ Before this new workflow exists on the default branch, invoke it through the
 existing CI workflow on the development ref:
 
 ```sh
-gh workflow run ci.yml --ref feat/1.0.0-dev -f qualify_scale=true
+gh workflow run ci.yml --ref 1.0.0 -f qualify_scale=true
 ```
 
 This opt-in adds the six-cell 1,000-application matrix alongside the full normal

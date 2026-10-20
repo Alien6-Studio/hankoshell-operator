@@ -41,8 +41,8 @@ Reference a decision from relevant Go, YAML or Markdown outside its own file.
 Listing it here or in the template does not count as use. Do not add unrelated
 historical decisions solely to fill numbering gaps.
 
-Run `python3 scripts/check-adr-references.py` and
-`python3 -m unittest discover -s scripts -p 'test_adr_references.py'`.
+Run `python3 -m tools.quality.check_adr_references` and
+`python3 -m unittest discover -s tests/tooling -t . -p 'test_adr_references.py'`.
 The checker scans tracked and new non-ignored `.go`, `.yaml`, `.yml` and `.md`
 files, including hidden configuration and generated manifests. It reports
 dangling references with file/line, duplicate or invalid IDs, incomplete records

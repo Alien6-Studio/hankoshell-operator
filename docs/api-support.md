@@ -95,7 +95,7 @@ engineering requirements. The [migration policy](api-migration-policy.md) record
 the stored-version and rollback boundaries.
 
 Update the inventory and curated CHANGELOG when a field group or classification
-changes. `scripts/api-support.py` and `scripts/release-contract.py` reject missing
+changes. `tools/qualification/checks/api_support.py` and `tools/qualification/checks/release_contract.py` reject missing
 resources, unreviewed spec/status groups, missing evidence references and divergent
 README/chart/release-note classifications. These checks run in preflight through
 the release contract tests; they do not replace conformance or migration fixtures.

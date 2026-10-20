@@ -1,5 +1,7 @@
 # Contributing
 
+Qualification suites, tooling layout and local artifacts: [tools/README.md](tools/README.md).
+
 Use English for issues, pull requests, documentation, and commit messages.
 Participation follows [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 Keep a pull request focused and describe the problem, resulting behavior,
@@ -15,7 +17,7 @@ the author's trailer. A sign-off is a contribution certification; the separate
 protected-branch signature requirement authenticates the commit.
 
 The required CI source gate checks every commit in the PR's base-to-head range,
-including merge commits, with `scripts/check-dco.py`. It checks the actual PR
+including merge commits, with `tools/quality/check_dco.py`. It checks the actual PR
 head, not GitHub's generated test merge. Missing or mismatched author sign-offs
 fail with the affected commit SHAs. Correct contributor commits with
 `git commit --amend -s` or a reviewed history rewrite; preserve other contributors'
@@ -40,7 +42,7 @@ sign-offs and GitHub `Verified` signature as part of integration verification.
 To reproduce the PR check locally after fetching both full commit SHAs:
 
 ```sh
-python3 scripts/check-dco.py --base "$base_sha" --head "$head_sha" \
+python3 -m tools.quality.check_dco --base "$base_sha" --head "$head_sha" \
   --repository Alien6-Studio/hankoshell-operator
 ```
 
@@ -51,15 +53,15 @@ the authenticated `gh` CLI with read access to the repository.
 
 Use Python 3.12, the reviewed Go toolchain and the tools installed by
 `make install-tools`. Activate a project Python environment and install
-`scripts/requirements.txt` before running the hooks:
+`tools/requirements.txt` before running the hooks:
 
 ```sh
-python3 -m venv .tools/dev-python
-. .tools/dev-python/bin/activate
-python -m pip install -r scripts/requirements.txt
+python3 -m venv .tools/venv
+. .tools/venv/bin/activate
+python -m pip install -r tools/requirements.txt
 make install-tools
 make hooks-check
-python3 .tools/hook-tools/pre-commit.pyz install
+python3 .tools/bin/hooks/pre-commit.pyz install
 ```
 
 The final command optionally installs a client-side Git hook. If you use a
@@ -78,7 +80,7 @@ covered by the chart gate. Synthetic private-key markers are assembled in
 tests so every source file remains eligible for raw-key detection.
 
 `go vet` runs once for the changed Go packages; a `go.mod` or `go.sum` change
-selects the complete module. Python tests run only when `scripts/` Python files
+selects the complete module. Python tests run only when `tools/` or `tests/` files
 or their requirements change. Warm-cache ordinary changes target less than
 30 seconds; first-time environment setup and the full Python fixture suite can
 take longer. Full qualification still runs the existing make and CI gates.
@@ -88,10 +90,10 @@ in the runner's temporary directory, so their own secret-detection fixtures are
 not confused with project source. `PRE_COMMIT_HOME` can override the local cache.
 
 Review hook updates weekly alongside Dependabot updates. Use
-`python3 .tools/hook-tools/pre-commit.pyz autoupdate --freeze`, review the exact
+`python3 .tools/bin/hooks/pre-commit.pyz autoupdate --freeze`, review the exact
 upstream commit diff and retain the frozen SHA, then run `make hooks-check` and
 the Python tests. Update runner/Gitleaks versions and official release
-SHA-256 digests in `versions.json`, run `python3 scripts/versions.py sync`,
+SHA-256 digests in `versions.json`, run `python3 -m tools.versions sync`,
 and rerun the gates. Do not replace a SHA with a floating branch or tag.
 
 ## Architecture decisions
@@ -99,7 +101,7 @@ and rerun the gates. Do not replace a SHA with a floating branch or tag.
 The [decisions index](docs/architecture/decisions/README.md) records the accepted
 architecture referenced by code and configuration. Follow its template and
 numbering rule when documenting a decision, and keep links to enforcing code and
-tests current. Run `python3 scripts/check-adr-references.py` before pushing changes
+tests current. Run `python3 -m tools.quality.check_adr_references` before pushing changes
 to Go, YAML or Markdown. CI rejects unresolved references and orphan records.
 
 ## Validation and release workflow
@@ -109,7 +111,7 @@ Run `make check arch lint generated-check vuln` with the pinned tools.
 `make coverage` for the unit suite and its reviewed package/security-function
 floors. Update thresholds explicitly with supporting measurements, never by
 automatically accepting a failing run as the new baseline.
-Run `python3 -m unittest discover -s scripts -p 'test_*.py'`, both real Keycloak
+Run `python3 -m unittest discover -s tests/tooling -t . -p 'test_*.py'`, both real Keycloak
 versions and the three Kubernetes fixtures listed in CI. The final OCI scan
 and [nonpublishing release rehearsal](docs/secure-deployment.md#release-rehearsal-and-publication)
 are required CI checks; a source-only test run is not release qualification.
@@ -125,7 +127,7 @@ of the repository.
 Follow the [API conversion and rollback policy](docs/api-migration-policy.md).
 The [development support inventory](docs/api-support.md) covers every resource
 and spec/status field group; update it explicitly when those groups change.
-Run `python3 scripts/api-support.py` after schema or classification changes.
+Run `python3 -m tools.qualification.checks.api_support` after schema or classification changes.
 
 Develop related issues as one bounded batch. During implementation, run preflight
 and meaningful targeted regression tests, and continue independent work while CI

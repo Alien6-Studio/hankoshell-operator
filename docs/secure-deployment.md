@@ -589,7 +589,7 @@ compatibility contract, not a recommendation to retain a vulnerable patch.
 
 The Keycloak job runs three independent, serial shards per version: `core`,
 `adoption` and `protocols`. The runner compares the compiled tagged and ordinary
-test inventories with [the reviewed partition](../scripts/keycloak-shards.json),
+test inventories with [the reviewed partition](../tools/qualification/config/keycloak-shards.json),
 rejecting missing, duplicate or obsolete assignments. Ordinary controller tests
 remain in `core`, so the partition retains the previous tagged suite in full.
 Each shard has a ten-minute test deadline and a fifteen-minute job deadline.
@@ -598,7 +598,7 @@ KEYCLOAK_SHARD=adoption`; omitting the shard still runs the full suite.
 
 `make test`, `make integration-test` and `make keycloak-integration-test` use
 the pinned gotestsum version from `versions.json` and write JUnit, outcome JSON
-and a Markdown summary under `.tools/test-results/` (`TEST_REPORT_DIR` overrides
+and a Markdown summary under `.tools/runs/tests/` (`TEST_REPORT_DIR` overrides
 the directory). CI uploads these on success or failure and lists failed tests
 in the job summary. Reports do not trigger retries, skips or weaker assertions.
 The outcome JSON contains names, status and timing, without test output payloads.
@@ -1213,7 +1213,7 @@ Keycloak administrative traffic uses verified HTTPS.
 Reproduce with the fresh archive and evidence from the OCI security job:
 
 ```sh
-python3 scripts/install-system-tools.py /tmp/hankoshell-system-tools
+python3 -m tools.bootstrap.install_system_tools /tmp/hankoshell-system-tools
 GOBIN=/tmp/hankoshell-system-tools go install oras.land/oras/cmd/oras@v1.3.4
 make system-test REVISION="$reviewed_revision" DIGEST="$scanned_digest" \
   OCI_ARCHIVE="$archive_path" OCI_EVIDENCE="$evidence_directory" \
@@ -1273,8 +1273,8 @@ test. Conflicting release assets must fail before any publication write.
 To reproduce with the **fresh archive/evidence from the OCI security job**:
 
 ```sh
-bash scripts/install-cosign.sh /tmp/hankoshell-rehearsal-tools/cosign
-bash scripts/install-attest.sh /tmp/hankoshell-rehearsal-tools/attest
+bash tools/bootstrap/install_cosign.sh /tmp/hankoshell-rehearsal-tools/cosign
+bash tools/bootstrap/install_attest.sh /tmp/hankoshell-rehearsal-tools/attest
 GOBIN=/tmp/hankoshell-rehearsal-tools go install oras.land/oras/cmd/oras@v1.3.4
 make release-dry-run REVISION="$reviewed_revision" DIGEST="$scanned_digest" \
   OCI_ARCHIVE="$archive_path" OCI_EVIDENCE="$evidence_directory" \
@@ -1285,7 +1285,7 @@ make release-dry-run REVISION="$reviewed_revision" DIGEST="$scanned_digest" \
 ```
 
 Use OpenSSL 3, pinned Helm 3.17.0 and the Python dependencies in
-`scripts/requirements.txt`. The report is explicitly `publishable: false`; its
+`tools/requirements.txt`. The report is explicitly `publishable: false`; its
 keys, TSA and Artifact Hub ID are fixtures. No private key is retained in its
 artifacts. It writes only to its disposable loopback registry, never creates a tag/GitHub Release or
 changes Artifact Hub. The local signature proves payload binding, **not** GitHub
@@ -1669,7 +1669,7 @@ created. As the independent administrator, first review the spec and source:
 ```sh
 kubectl get hankooperation upgrade -n auth -o yaml
 kubectl get hankokeycloakinstance source -n auth -o yaml
-kubectl get hankooperation upgrade -n auth -o json   | python3 scripts/lifecycle-approval.py > lifecycle-approval.json
+kubectl get hankooperation upgrade -n auth -o json   | python3 -m tools.operations.lifecycle_approval > lifecycle-approval.json
 cat lifecycle-approval.json
 kubectl patch hankooperation upgrade -n auth --type=merge --patch-file=lifecycle-approval.json
 ```
@@ -1696,10 +1696,10 @@ and writes are not a distributed transaction. Re-enable only after reviewing the
 same intent and existing child identities. No bulk approval or checkpoint reset
 is a supported recovery procedure.
 
-Validation: `charts/hankoshell-operator/tests/lifecycle.py` renders opt-out/RBAC;
+Validation: `tests/chart/lifecycle.py` renders opt-out/RBAC;
 `checkLifecycleAdmission` exercises independent admission on all supported real
 API servers; `TestLifecycle*` exercises exact authority/revocation/Secret refusal.
-`scripts/system-test.py::lifecycle_alias` exercises opt-in, approval wait and
+`tools/qualification/scenarios/system_test.py::lifecycle_alias` exercises opt-in, approval wait and
 administrator patch, ConfigMap-create denial, restart and stable child UIDs on a
 real installed configuration-only Clone. These commands are administrator
 procedures; installed managed Upgrade/DBSwitch and portable restore remain

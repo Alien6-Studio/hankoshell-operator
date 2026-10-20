@@ -95,7 +95,8 @@ func checkFinalizerRecovery(t *testing.T, ctx context.Context, admin client.Clie
 		t.Fatal(err)
 	}
 	// #nosec G204 G702 -- Fixed local fixture, private generated configs and reviewed envtest executable; no shell.
-	command := exec.CommandContext(ctx, "python3", filepath.Join("..", "..", "scripts", "finalizer-recovery-fixture.py"), "--executor", executorConfig, "--approver", approverConfig, "--kubectl", filepath.Join(environment.BinaryAssetsDirectory, "kubectl"))
+	command := exec.CommandContext(ctx, "python3", "-m", "tools.qualification.fixtures.finalizer_recovery_fixture", "--executor", executorConfig, "--approver", approverConfig, "--kubectl", filepath.Join(environment.BinaryAssetsDirectory, "kubectl"))
+	command.Dir = filepath.Join("..", "..")
 	output, err := command.CombinedOutput()
 	if err != nil {
 		t.Fatalf("actual recovery CLI fixture: %v\n%s", err, output)

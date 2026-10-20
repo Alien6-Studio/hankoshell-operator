@@ -81,7 +81,7 @@ retains four passing cells and two application-update deadlines on Kubernetes
 1.35.0. Both failed cells completed initial delegation successfully. The separate
 fault-proxy watch framing correction is covered by the complete CI packet.
 
-`scripts/delegation-installed-test.py` requires the exact clean Operator revision,
+`tools/qualification/scenarios/delegation_installed_test.py` requires the exact clean Operator revision,
 its scanned OCI graph and the matching JAR already built/tested by the same CI run.
 The required six-cell Kubernetes/Keycloak matrix runs the reviewed chart with
 constrained credentials and three actual kubelet-bound federated workloads.

@@ -52,7 +52,7 @@ The optimizations retained instead of shrinking the matrix:
 - Fast source preflight gating every expensive job, measured under 4 minutes, so
   obviously broken pushes never start the matrix.
 - Keycloak qualification sharded into core/adoption/protocols jobs per version,
-  each with its own Keycloak container (`scripts/keycloak-shards.json`), splitting
+  each with its own Keycloak container (`tools/qualification/config/keycloak-shards.json`), splitting
   the measured 1,047-second serial integration package; the per-shard CI
   measurement lands with the first full run of that change set.
 - Per-test outcome artifacts with the weekly flaky report and tracking issue, so
@@ -75,9 +75,9 @@ never detect uniquely — and then only together with a merge-queue full run.
 - The qualified surface the matrix exercises on every pull request, for example
   [adoption reconciliation](../../../internal/controller/adoption_apply.go) and
   the [real-Keycloak characterization tests](../../../internal/controller/keycloak_adoption_characterization_test.go)
-  sharded by `scripts/keycloak-shards.json`.
-- [Contract tests](../../../scripts/test_release_contract.py): preflight gating,
+  sharded by `tools/qualification/config/keycloak-shards.json`.
+- [Contract tests](../../../tests/tooling/test_release_contract.py): preflight gating,
   gate completeness and scoped write permissions.
 - [Weekly outcome history](../../../.github/workflows/test-history.yml) with the
-  [flaky report](../../../scripts/flaky-report.py) and
-  [tracking issue](../../../scripts/flaky-issue.py).
+  [flaky report](../../../tools/qualification/reporting/flaky_report.py) and
+  [tracking issue](../../../tools/qualification/reporting/flaky_issue.py).

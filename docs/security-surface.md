@@ -132,7 +132,7 @@ See [configuration and migration](secure-deployment.md#exact-secret-and-deployme
 
 ## Guard workflow
 
-`make preflight` runs `python3 scripts/security-surface.py check`. Any schema,
+`make preflight` runs `python3 -m tools.qualification.checks.security_surface check`. Any schema,
 field-bound, grant or binding drift requires an explicit review. The error names
 schema field paths and/or the affected RBAC profile. Wildcards, runtime token
 minting/review/exec, impersonation/escalation/bind verbs, misleading named CREATE
@@ -140,7 +140,7 @@ rules and leader-lock privilege expansion fail before a snapshot can be made.
 The absence of these permissions does not prove every remaining grant safe.
 
 To review an intended change, run
-`python3 scripts/security-surface.py snapshot --output /tmp/security-surface.json`,
+`python3 -m tools.qualification.checks.security_surface snapshot --output /tmp/security-surface.json`,
 compare it with the committed inventory, assess existing stored objects and
 record the migration/authority rationale. Update the committed inventory only
 as an explicit reviewed source change, with CRD/admission and relevant installed

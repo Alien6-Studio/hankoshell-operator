@@ -29,7 +29,7 @@ review or fixture.
 A maintainer reviews the issue and proposes one record in
 [`compatibility-evidence.json`](compatibility-evidence.json) through a review PR.
 The record uses only the allowlisted categorical fields enforced by
-`scripts/compatibility-evidence.py`. It links the source issue, the review PR,
+`tools/qualification/checks/compatibility_evidence.py`. It links the source issue, the review PR,
 tracked incidents and their resolution PRs. No issue author, raw body or freeform
 native data is copied into the registry. The mandatory `privacy_review` checks
 record human review for:
@@ -48,7 +48,7 @@ source reports are refused. A failed or limited outcome needs a tracked incident
 an open incident cannot claim a resolution. Incidents and limitations remain
 visible when another path passes.
 
-Run `python3 scripts/compatibility-evidence.py render` after the reviewed record
+Run `python3 -m tools.qualification.checks.compatibility_evidence render` after the reviewed record
 changes. This writes the [index and per-release summaries](compatibility-evidence/README.md),
 including an explicit absence of reports for releases with no evidence. The
 `check` command rejects missing, extra or changed summaries and runs in preflight

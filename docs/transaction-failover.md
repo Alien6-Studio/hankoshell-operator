@@ -120,7 +120,7 @@ because this executable was absent; that result is not a measured load failure.
 
 ## Delegation journal handoff
 
-`scripts/delegation-installed-test.py --ha-only` installs two operator replicas
+`tools/qualification/scenarios/delegation_installed_test.py --ha-only` installs two operator replicas
 with four IAM workers, the same scanned exact-source image and the immutable
 version-matched Keycloak extension used by the ordinary delegation fixture.
 The existing single-replica restart/status-loss qualification remains separate.

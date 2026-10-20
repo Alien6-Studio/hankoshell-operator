@@ -50,7 +50,7 @@ recreation, field pruning or forced finalizer removal is an upgrade procedure.
 
 ## Executable guard and current limits
 
-`scripts/compatibility-gate.py` reports `NoPublishedPredecessor` today. It does
+`tools/qualification/checks/compatibility_gate.py` reports `NoPublishedPredecessor` today. It does
 not turn the experimental schema into a stable commitment. Against a future
 reviewed stable baseline it names removed/renamed fields, newly required fields,
 changed defaults, enum narrowing, validation/pattern/CEL tightening, type/format

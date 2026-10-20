@@ -184,17 +184,17 @@
     "WorkloadTrustNotReady"
   ],
   "incident_evidence": {
-    "collector": "scripts/incident-evidence.py",
-    "tests": "scripts/test_incident_evidence.py",
+    "collector": "tools/operations/incident_evidence.py",
+    "tests": "tests/tooling/test_incident_evidence.py",
     "input_bytes": 2097152,
     "objects": 1000,
     "depth": 64
   },
   "finalizer_recovery": {
-    "cli": "scripts/finalizer-recovery.py",
-    "module": "scripts/finalizer_recovery.py",
-    "tests": "scripts/test_finalizer_recovery.py",
-    "fixture": "scripts/finalizer-recovery-fixture.py",
+    "cli": "tools/operations/finalizer_release.py",
+    "module": "tools/operations/finalizer_recovery.py",
+    "tests": "tests/tooling/test_finalizer_recovery.py",
+    "fixture": "tools/qualification/fixtures/finalizer_recovery_fixture.py",
     "api_fixture": "api/v1alpha1/finalizer_recovery_integration_test.go",
     "runbook": "docs/finalizer-recovery.md",
     "profile": {
@@ -287,7 +287,7 @@
         "kubectl -n"
       ],
       "fixtures": [
-        "scripts/system-test.py"
+        "tools/qualification/scenarios/system_test.py"
       ],
       "unqualified": false
     },
@@ -302,8 +302,8 @@
         "get hankotenant"
       ],
       "fixtures": [
-        "charts/hankoshell-operator/tests/keycloak-transport.py",
-        "charts/hankoshell-operator/tests/fleet-plan.py"
+        "tests/chart/keycloak-transport.py",
+        "tests/chart/fleet-plan.py"
       ],
       "unqualified": true
     },
@@ -317,7 +317,7 @@
         "helm upgrade"
       ],
       "fixtures": [
-        "scripts/observability-installed-test.py",
+        "tools/qualification/scenarios/observability_installed_test.py",
         "api/v1alpha1/kubernetes_compatibility_test.go"
       ],
       "unqualified": true
@@ -328,12 +328,12 @@
       "document": "docs/storage-migration.md",
       "heading": "Plan, approve and run",
       "commands": [
-        "storage_migration.py plan",
-        "storage_migration.py run",
-        "storage_migration.py status"
+        "tools.operations.storage_migration plan",
+        "tools.operations.storage_migration run",
+        "tools.operations.storage_migration status"
       ],
       "fixtures": [
-        "scripts/storage-migration-installed-test.py"
+        "tools/qualification/scenarios/storage_migration_installed_test.py"
       ],
       "unqualified": false
     },
@@ -343,11 +343,11 @@
       "document": "docs/storage-migration.md",
       "heading": "Interruption and rollback",
       "commands": [
-        "storage_migration.py status",
-        "storage_migration.py run"
+        "tools.operations.storage_migration status",
+        "tools.operations.storage_migration run"
       ],
       "fixtures": [
-        "scripts/storage-migration-installed-test.py"
+        "tools/qualification/scenarios/storage_migration_installed_test.py"
       ],
       "unqualified": false
     },
@@ -362,8 +362,8 @@
         "rollout status"
       ],
       "fixtures": [
-        "scripts/observability-installed-test.py",
-        "scripts/system-test.py"
+        "tools/qualification/scenarios/observability_installed_test.py",
+        "tools/qualification/scenarios/system_test.py"
       ],
       "unqualified": false
     },
@@ -387,12 +387,12 @@
       "document": "docs/finalizer-recovery.md",
       "heading": "Request, review and execute",
       "commands": [
-        "finalizer-recovery.py",
+        "tools.operations.finalizer_release",
         "--finalizer hanko.sh/role-cleanup",
         "--accept-orphaned-provider-state-and-garbage-collection"
       ],
       "fixtures": [
-        "scripts/test_finalizer_recovery.py",
+        "tests/tooling/test_finalizer_recovery.py",
         "api/v1alpha1/finalizer_recovery_integration_test.go"
       ],
       "unqualified": false
@@ -404,10 +404,10 @@
       "heading": "Fleet plans, lifecycle approval and delegation",
       "commands": [
         "get hankooperation",
-        "lifecycle-approval.py"
+        "tools.operations.lifecycle_approval"
       ],
       "fixtures": [
-        "scripts/fleet-installed-test.py"
+        "tools/qualification/scenarios/fleet_installed_test.py"
       ],
       "unqualified": true
     },
@@ -433,10 +433,10 @@
       "commands": [
         "get deployment",
         "get hankoapplication",
-        "incident-evidence.py"
+        "tools.operations.incident_evidence"
       ],
       "fixtures": [
-        "scripts/test_incident_evidence.py"
+        "tests/tooling/test_incident_evidence.py"
       ],
       "unqualified": false
     }
