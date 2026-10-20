@@ -35,6 +35,11 @@ def archive(report, duplicate=False):
 
 
 class FlakyReportTests(unittest.TestCase):
+    def test_authentik_history_uses_the_actual_runner_suite_identity(self):
+        self.assertEqual(reporter.artifact_suites()["authentik-2026.8.4"], "authentik-2026.8.4")
+        report = outcome(suite="authentik-2026.8.4")
+        self.assertEqual(reporter.read_artifact(archive(report), reporter.artifact_suites()["authentik-2026.8.4"], SHA), report)
+
     def test_mixed_outcomes_require_same_revision_suite_and_identity(self):
         records = [{"run": 1, "attempt": 2, "report": outcome()}, {"run": 1, "attempt": 1, "report": outcome("failed")}]
         result = reporter.aggregate(records)

@@ -153,10 +153,19 @@ release-dry-run:
 		--cosign "$(COSIGN)" --attest "$(ATTEST)" --openssl "$(OPENSSL)" --oras "$(ORAS)"
 
 system-test:
-	python3 -m tools.qualification.scenarios.system_test --archive "$(OCI_ARCHIVE)" --evidence "$(OCI_EVIDENCE)" \
+	python3 -m tools.qualification.reporting.public_release_corpus capture --archive "$(OCI_ARCHIVE)" --evidence "$(OCI_EVIDENCE)" \
 		--digest "$(DIGEST)" --revision "$(REVISION)" --output "$(SYSTEM_OUTPUT)" \
 		--kind "$(KIND)" --kubectl "$(KUBECTL)" --helm "$$(command -v helm)" \
 		--oras "$(ORAS)" --openssl "$(OPENSSL)"
+
+cross-version-installed-test:
+	python3 -m tools.qualification.scenarios.cross_version_installed_test \
+		--archive "$(OCI_ARCHIVE)" --evidence "$(OCI_EVIDENCE)" --digest "$(DIGEST)" --revision "$(REVISION)" \
+		--assets "$(PREDECESSOR_ASSETS)" --trust "$(PREDECESSOR_TRUST)" --capture "$(PREDECESSOR_CAPTURE)" \
+		--reviewed-corpus "$(PREDECESSOR_CORPUS)" --capture-artifact-id "$(PREDECESSOR_ARTIFACT_ID)" \
+		--kubernetes-version "$(KUBERNETES_VERSION)" --keycloak-version "$(KEYCLOAK_VERSION)" \
+		--kind "$(KIND)" --kubectl "$(KUBECTL)" --helm "$$(command -v helm)" \
+		--oras "$(ORAS)" --openssl "$(OPENSSL)" --cosign "$(COSIGN)" --attest "$(ATTEST)" --output "$(COMPATIBILITY_OUTPUT)"
 
 # Native capability qualification only; no new operator production API is installed.
 workload-identity-probe:

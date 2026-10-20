@@ -24,6 +24,11 @@ def require(condition, message):
 
 
 def verify(repository, tag, revision, ref, api, git, expected_tag_object=None):
+    versioning.require_production(versioning.from_tag(tag))
+    return verify_tag(repository, tag, revision, ref, api, git, expected_tag_object)
+
+
+def verify_tag(repository, tag, revision, ref, api, git, expected_tag_object=None):
     """Bind a protected release ref to the exact source qualified by CI.
 
     Callbacks allow adversarial tests without credentials or publication.
@@ -34,7 +39,7 @@ def verify(repository, tag, revision, ref, api, git, expected_tag_object=None):
     """
     require(isinstance(repository, str) and
             re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository), "Invalid repository identity")
-    versioning.require_production(versioning.from_tag(tag))
+    versioning.from_tag(tag)
     require(isinstance(revision, str) and SHA.fullmatch(revision), "Invalid release commit identity")
     require(ref == "refs/tags/" + tag, "Run the workflow from the reviewed tag itself")
     base = "repos/" + repository

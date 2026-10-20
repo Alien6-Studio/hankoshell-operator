@@ -14,7 +14,7 @@ keys for independent publisher trust.
 The same packaging can consume an existing verified OCI job artifact:
 
 ```sh
-python3 scripts/release-candidate.py --archive /path/to/image.tar \
+python3 -m tools.release.release_candidate --archive /path/to/image.tar \
   --evidence /path/to/evidence --digest sha256:ACTUAL_INDEX_DIGEST \
   --revision ACTUAL_FULL_SOURCE_REVISION --output /fresh/candidate --helm /path/to/helm
 cd /fresh/candidate/dist
@@ -32,8 +32,9 @@ records the deployed development image and actual native preservation checks.
 That earlier image is not this candidate. Existing results identify their own
 source revisions; a new version label does not retest them.
 
-Stable acceptance remains open in #21, #87, #88, #89, #93, #95, #96, #101,
-#104, #105, #106, #107 and #110. In particular, the 24-hour continuous endurance
+Stable acceptance is tracked in #21, #95, #96, #106, #107 and #110. Closing the
+compatibility implementation tickets for RC1 does not ratify stable APIs or
+establish historical public upgrade paths. In particular, the 24-hour continuous endurance
 campaign, complete capacity/HA results, public predecessor upgrade corpus and
 independent release approval are not established by candidate packaging.
 The historical 0.1.0 contract selection is an unratified proposal, not a public

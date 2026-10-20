@@ -675,7 +675,7 @@ jobs:
         env:
           DIGEST: ${{ needs.oci.outputs.digest }}
         run: |
-          python3 -m tools.qualification.scenarios.system_test --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
+          python3 -m tools.qualification.reporting.public_release_corpus capture --archive "$RUNNER_TEMP/hankoshell-scanned-oci/image.tar" \
             --evidence "$RUNNER_TEMP/hankoshell-scanned-oci/evidence" --digest "$DIGEST" --revision "$GITHUB_SHA" \
             --output "$RUNNER_TEMP/system-test.json" --kind "$RUNNER_TEMP/system-tools/kind" \
             --kubectl "$RUNNER_TEMP/system-tools/kubectl" --oras "$RUNNER_TEMP/system-tools/oras" \
@@ -683,9 +683,11 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: system-test-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/system-test.json
+          path: |
+            ${{ runner.temp }}/system-test.json
+            ${{ runner.temp }}/system-test.corpus.json
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 90
       - name: Preserve bounded installed system failure diagnostics
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

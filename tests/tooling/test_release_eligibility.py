@@ -84,6 +84,13 @@ class ReleaseEligibilityTests(unittest.TestCase):
         self.assertNotIn(self.object_path, self.api_calls)
         self.assertEqual(self.git_calls, [])
 
+    def test_authenticating_history_does_not_authorize_a_new_publication(self):
+        with patch.object(eligibility.versioning, "RELEASE_STATUS", "development"):
+            identity = eligibility.verify_tag(self.repository, self.tag, self.revision, self.ref, self.api, self.git)
+            self.assertEqual(identity["tag_object"], self.tag_object)
+            with self.assertRaisesRegex(ValueError, "Production publication blocked"):
+                self.verify()
+
     def test_missing_unsigned_invalid_or_unverified_signatures_are_rejected(self):
         for path, description in ((self.commit_path, "Release commit"),
                                   (self.object_path, "Release tag")):

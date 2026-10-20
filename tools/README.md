@@ -72,3 +72,15 @@ checks. Keep private native objects, kubeconfigs and credentials out of Git.
 Only sanitized, explicitly scoped evidence belongs in `docs/qualification/`.
 A failed or interrupted run remains a failure; a local suite never implies a
 successful 24-hour soak or permission to publish a stable release.
+
+`system-test` also captures its synthetic objects in `system-test.corpus.json`.
+After a genuine public release and privacy review, **Public predecessor
+compatibility** runs the six upgrade/rollback cells from that corpus and signed
+artifacts. `make cross-version-installed-test` runs one cell locally; its inputs
+are listed in the target. No public predecessor means no historical guarantee.
+
+For a prepared isolated cluster fixture,
+`python3 -m tools.qualification.runners.cluster_job --help` renders the persistent load,
+leader-loss and 24-hour measurement Job. Apply it with server-side apply; the
+corpus is too large for kubectl's last-applied annotation. Progress and results
+stay on its PVC, and failed campaigns never resume their measured interval.

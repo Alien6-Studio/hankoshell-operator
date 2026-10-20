@@ -32,7 +32,7 @@ def github(endpoint, binary=False):
 
 
 def artifact_suites():
-    suites = {"unit": "unit", "authentik-2026.8.4": "authentik/2026.8.4"}
+    suites = {"unit": "unit", "authentik-2026.8.4": "authentik-2026.8.4"}
     for version in versions.get("kubernetes", "versions"):
         suites["kubernetes-" + version] = "kubernetes/" + version
     for version in versions.get("keycloak", "versions"):

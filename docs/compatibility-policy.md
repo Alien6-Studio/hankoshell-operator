@@ -73,7 +73,8 @@ adversarial tests; push-based implementation tracking follows CONTRIBUTING.md.
 Authentic public baselines and actual cross-release paths remain separate
 qualification under #93/#101/#105 and the initial delivery. None is synthesized
 by the tooling. Candidate beta remains experimental pending resource graduation;
-#87 remains open for publication and community review.
+Publication and community review remain stable-delivery requirements in #106/#107;
+the RC1 implementation tracking for #87 does not imply their completion.
 
 To introduce a future legitimate deprecation, retain the published baseline,
 add the hash-bound announcement and migration note, obtain its recorded review,
