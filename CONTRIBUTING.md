@@ -80,10 +80,7 @@ covered by the chart gate. Synthetic private-key markers are assembled in
 tests so every source file remains eligible for raw-key detection.
 
 `go vet` runs once for the changed Go packages; a `go.mod` or `go.sum` change
-selects the complete module. Python tests run only when `tools/` or `tests/` files
-or their requirements change. Warm-cache ordinary changes target less than
-30 seconds; first-time environment setup and the full Python fixture suite can
-take longer. Full qualification still runs the existing make and CI gates.
+selects the complete module. Full qualification still runs the existing make and CI gates.
 Gitleaks checks the staged diff locally; the existing source-job directory scan
 also checks the complete checkout in CI. CI stores upstream hook repositories
 in the runner's temporary directory, so their own secret-detection fixtures are
@@ -111,8 +108,7 @@ Run `make check arch lint generated-check vuln` with the pinned tools.
 `make coverage` for the unit suite and its reviewed package/security-function
 floors. Update thresholds explicitly with supporting measurements, never by
 automatically accepting a failing run as the new baseline.
-Run `python3 -m unittest discover -s tests/tooling -t . -p 'test_*.py'`, both real Keycloak
-versions and the three Kubernetes fixtures listed in CI. The final OCI scan
+Run both real Keycloak versions and the three Kubernetes fixtures listed in CI. The final OCI scan
 and [nonpublishing release rehearsal](docs/secure-deployment.md#release-rehearsal-and-publication)
 are required CI checks; a source-only test run is not release qualification.
 The installed-system check combines the chart, scanned OCI image, real kind

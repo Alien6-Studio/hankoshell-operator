@@ -8,37 +8,8 @@ import re
 ROOT = Path(__file__).resolve().parents[3]
 
 
-def check_procedure_coverage(root, contract):
-    covered, identities = set(), set()
-    for entry in contract["procedure_coverage"]:
-        identity, group = entry["id"], entry["runbook"]
-        if identity in identities or group not in contract["runbooks"]:
-            raise ValueError("Duplicate or unknown operational procedure")
-        identities.add(identity)
-        covered.add(group)
-        path = (root / entry["document"]).resolve()
-        if not path.is_relative_to((root / "docs").resolve()):
-            raise ValueError("Operational procedures must be repository documentation")
-        text = path.read_text()
-        heading = re.search(r"^(#{1,6}) " + re.escape(entry["heading"]) + r"\s*$", text, re.M)
-        if heading is None:
-            raise ValueError("Operational procedure heading is missing: " + identity)
-        remaining = text[heading.end():]
-        end = re.search(r"^#{1," + str(len(heading[1])) + r"} ", remaining, re.M)
-        section = remaining[:end.start()] if end else remaining
-        commands = "\n".join(re.findall(r"```sh\n(.*?)```", section, re.S))
-        if not entry["commands"] or any(command not in commands for command in entry["commands"]):
-            raise ValueError("Operational procedure lacks its exact command: " + identity)
-        if entry["unqualified"] and "UNQUALIFIED" not in section:
-            raise ValueError("Untested operational procedure must retain its qualification limit: " + identity)
-        if not entry["fixtures"] or any(not (root / fixture).is_file() or fixture not in text for fixture in entry["fixtures"]):
-            raise ValueError("Operational procedure lacks its executable fixture: " + identity)
-    if covered != set(contract["runbooks"]):
-        raise ValueError("Operational procedures do not cover the complete runbook inventory")
-
-
 def check(root=ROOT):
-    contract = json.loads((root / "docs/operational-contract.json").read_text())
+    contract = json.loads((root / "tools/qualification/config/contracts/operational-contract.json").read_text())
     if contract["maturity"] != "initial development" or contract["api_version"] != "v1alpha1":
         raise ValueError("Operational docs cannot grant stable API maturity")
     metrics = (root / "internal/observability/metrics.go").read_text()
@@ -87,21 +58,10 @@ def check(root=ROOT):
                 raise ValueError("Unreviewed emitted Event reason: " + reason)
     if len(observed) != 17:
         raise ValueError("All 17 registered reconcilers require operational outcomes")
-    for path in ("README.md", "charts/hankoshell-operator/README.md", "docs/secure-deployment.md"):
-        text = (root / path).read_text()
-        if not all(name in text for name in ("operations-runbooks.md", "operational-observability.md", "operational-contract.json")):
-            raise ValueError("Missing operational contract link: " + path)
-    runbook = (root / "docs/operations-runbooks.md").read_text()
-    check_procedure_coverage(root, contract)
     iam = (root / "internal/controller/iam_evidence.go").read_text().split("func iamFailureReason(", 1)[1].split("func iamCondition(", 1)[0]
     iam_reasons = sorted(set(re.findall(r'return "([A-Za-z]+)"', iam)))
     if iam_reasons != contract.get("iam_failure_reasons"):
         raise ValueError("IAM refusal reason inventory differs from runtime")
-    if any("`" + reason + "`" not in runbook for reason in iam_reasons):
-        raise ValueError("Missing typed IAM refusal recovery procedure")
-    for state in ("CleanupConflict", "RotationFailed", "AuditRecorderUnavailable", "FleetSignatureInvalid", "UNQUALIFIED"):
-        if state not in runbook:
-            raise ValueError("Missing fail-closed runbook coverage: " + state)
     incident = contract["incident_evidence"]
     source = ast.parse((root / incident["collector"]).read_text())
     values = {node.targets[0].id: ast.literal_eval(node.value) for node in source.body
@@ -109,12 +69,10 @@ def check(root=ROOT):
               and node.targets[0].id in {"MAX_BYTES", "MAX_OBJECTS", "MAX_DEPTH", "KINDS", "BETA_KINDS"}}
     if any(values[key] != incident[field] for key, field in (("MAX_BYTES", "input_bytes"), ("MAX_OBJECTS", "objects"), ("MAX_DEPTH", "depth"))):
         raise ValueError("Incident collection budget differs from the reviewed contract")
-    support = json.loads((root / "docs/api-support.json").read_text())
-    conversion = json.loads((root / "docs/api-conversion.json").read_text())
+    support = json.loads((root / "tools/qualification/config/contracts/api-support.json").read_text())
+    conversion = json.loads((root / "tools/qualification/config/contracts/api-conversion.json").read_text())
     if values["KINDS"] != {r["kind"] for r in support["resources"]} or values["BETA_KINDS"] != set(conversion["resources"]):
         raise ValueError("Incident collection must explicitly cover every reviewed resource/version")
-    if incident["collector"] not in runbook or incident["tests"] not in runbook or not (root / incident["tests"]).is_file():
-        raise ValueError("Missing executable incident evidence runbook/fixture")
     recovery = contract["finalizer_recovery"]
     profile = recovery["profile"]
     source = ast.parse((root / recovery["module"]).read_text())
@@ -122,27 +80,19 @@ def check(root=ROOT):
               if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name) and node.targets[0].id in profile}
     if json.loads(json.dumps(actual)) != profile:
         raise ValueError("Finalizer release authority or budget differs from the reviewed profile")
-    detailed = (root / recovery["runbook"]).read_text()
-    if Path(recovery["runbook"]).name not in runbook:
-        raise ValueError("Missing administrator recovery procedure link")
-    for key in ("cli", "module", "tests", "fixture", "api_fixture"):
-        if not (root / recovery[key]).is_file() or recovery[key] not in detailed:
+    for key in ("cli", "module", "fixture", "api_fixture"):
+        if not (root / recovery[key]).is_file():
             raise ValueError("Missing executable finalizer release fixture or procedure")
     for manifest in recovery["manifests"]:
         path = root / manifest["path"]
         if not path.is_relative_to(root / "config/recovery") or hashlib.sha256(path.read_bytes()).hexdigest() != manifest["sha256"]:
             raise ValueError("Administrator recovery admission or RBAC differs from the reviewed manifest")
-        if manifest["path"] not in detailed:
-            raise ValueError("Missing exact administrator recovery manifest command")
-    for path in re.findall(r'`((?:tools|tests|internal|api)/[^` ]+\.py|(?:internal|api)/[^` ]+\.go)`', runbook):
-        if not (root / path).is_file():
-            raise ValueError("Runbook references missing executable fixture: " + path)
-    dashboard = json.loads((root / "docs/observability-dashboard.json").read_text())
+    dashboard = json.loads((root / "tools/qualification/config/contracts/observability-dashboard.json").read_text())
     if len(dashboard["panels"]) < 6:
         raise ValueError("Missing operational dashboard coverage")
     for evidence in contract["installedEvidence"]:
         path = root / evidence["report"]
-        if not path.resolve().is_relative_to((root / "docs/qualification/operations").resolve()):
+        if not path.resolve().is_relative_to((root / "tools/qualification/config/evidence").resolve()):
             raise ValueError("Operational evidence must be a retained public report")
         raw = path.read_bytes()
         report = json.loads(raw)

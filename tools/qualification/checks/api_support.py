@@ -19,7 +19,7 @@ FEATURES = {"Delegation and agent identity", "Second IAM provider", "Hub and Con
 
 
 def inventory(root=ROOT):
-    data = json.loads((root / "docs/api-support.json").read_text())
+    data = json.loads((root / "tools/qualification/config/contracts/api-support.json").read_text())
     expected = {"schemaVersion": 1, "stage": "development", "apiVersion": "hanko.sh/v1alpha1",
                 "storedVersion": "v1alpha1", "conversion": "None", "compatibility": "experimental",
                 "publicSelectionIssue": 81}
@@ -94,7 +94,7 @@ def render(data):
 def check(root=ROOT):
     data = inventory(root)
     expected = render(data)
-    for name in ("README.md", "charts/hankoshell-operator/README.md", "docs/api-support.md"):
+    for name in ("charts/hankoshell-operator/README.md", "docs/api-support.md"):
         text = (root / name).read_text()
         if text.count(START) != 1 or text.count(END) != 1 or text.index(START) >= text.index(END):
             raise ValueError(f"Missing unique API support classification in {name}")

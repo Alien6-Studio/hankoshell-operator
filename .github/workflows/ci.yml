@@ -252,7 +252,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: python3 -m tools.quality.check_rulesets --live --allow-hidden-bypass
       - name: Validate unit tests, chart, architecture, lint and vulnerabilities
-        run: make test chart-test arch lint vuln
+        run: make test chart-check arch lint vuln
       - name: Enforce package and security function coverage floors
         run: python3 -m tools.quality.check_coverage --profile .tools/runs/tests/unit/coverage.out
       - name: Enforce the dependency license policy and shipped notices
@@ -949,7 +949,7 @@ jobs:
           retention-days: 7
   checks:
     name: Source and chart checks
-    # Pull requests run the full qualification matrix (ADR-048); this required
+    # Pull requests run the full qualification matrix (ADR-009); this required
     # gate must keep representing every qualification job before merge.
     needs: [preflight, source, kubernetes, storage-migration, keycloak, keycloak-ordinary, keycloak-extension, keycloak-static, workload, security-fuzz, security-mutations, oci, rehearsal, system, installed-workload, installed-delegation, installed-portable, installed-fleet, installed-transactions, installed-scale-qualification]
     if: always()

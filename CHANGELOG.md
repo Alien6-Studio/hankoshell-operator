@@ -351,7 +351,7 @@ notice policy requires community review under #87 before public acceptance.
   bound to exact object UID/generation/intent/source UID, protect child provenance
   through admission, recheck approval before effects, and validate DBSwitch Secrets.
   Existing pending work requires explicit review; revocation does not undo effects.
-  Upgrade/DBSwitch and portable restore remain unqualified. See ADR-050 and the
+  Upgrade/DBSwitch and portable restore remain unqualified. See ADR-011 and the
   lifecycle approval procedure before enabling or resuming experimental writers.
 
 

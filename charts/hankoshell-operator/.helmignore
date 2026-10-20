@@ -1,4 +1,4 @@
-# Developer checks live in tests/chart, outside the distributable chart.
+# Keep development programs outside the distributable chart.
 tests/
 *.py
 *.pyc

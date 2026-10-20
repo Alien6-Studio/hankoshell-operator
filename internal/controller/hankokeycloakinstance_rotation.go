@@ -45,7 +45,7 @@ type CredentialRotationAuditor interface {
 }
 
 // ParseServiceAccountMaxAge accepts Go durations and an operator-friendly day
-// suffix (for example 2160h or 90d). Empty values use the ADR-021 default.
+// suffix (for example 2160h or 90d). Empty values use the ADR-004 default.
 func ParseServiceAccountMaxAge(value string) (time.Duration, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {

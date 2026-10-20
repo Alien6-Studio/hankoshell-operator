@@ -4,7 +4,7 @@ Application, Role and ResourceServer serve v1alpha1 and v1beta1 with identical
 schemas. Alpha remains the controller hub and installation default. Migration
 changes Kubernetes encoding only; it does not call Keycloak, rotate credentials,
 change ownership or graduate an API. Public cross-release compatibility remains
-unqualified. See the [conversion decision](api-conversion.json).
+unqualified. See the [conversion decision](../tools/qualification/config/contracts/api-conversion.json).
 
 ## Prerequisites
 
@@ -151,7 +151,6 @@ do not acquire the new guard: always run the explicit preflight before rollback.
 ## Local qualification
 
 ```sh
-python3 -m unittest discover -s tests/tooling -t . -p 'test_*migration*.py'
 python3 -m tools.qualification.scenarios.storage_migration_installed_test \
   --kind /path/to/kind --kubectl /path/to/kubectl \
   --helm /path/to/helm \
@@ -184,6 +183,6 @@ it never substitutes a different patch version and removes that temporary image.
 Executable qualification fixture: [tools/qualification/scenarios/storage_migration_installed_test.py](../tools/qualification/scenarios/storage_migration_installed_test.py).
 
 The `make qualify PROFILE=storage` entry point was requalified after the tooling
-move: [Kubernetes 1.35.0 report](qualification/storage/2026-10-20/tooling-layout-kubernetes-1.35.0.json).
+move: [Kubernetes 1.35.0 report](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/storage/2026-10-20/tooling-layout-kubernetes-1.35.0.json).
 All 16 native migrations passed, including real conflicts and process interruptions
 in both directions; the disposable cluster was removed.

@@ -29,7 +29,7 @@ def repository_files(root):
 
 
 def reference_ids(text):
-    # Retain support for inherited shorthand such as ADR-009/010.
+    # Retain support for inherited shorthand such as ADR-001/010.
     for match in REFERENCE.finditer(text):
         for number in match.group()[4:].split("/"):
             yield f"ADR-{int(number):03d}"

@@ -25,7 +25,7 @@ spec.loader.exec_module(support)
 
 def selection(root=ROOT):
     inventory = support.inventory(root)
-    data = json.loads((root / "docs/public-contract-selection.json").read_text())
+    data = json.loads((root / "tools/qualification/config/contracts/public-contract-selection.json").read_text())
     if (data.get("schemaVersion") != 1 or data.get("targetRelease") != "0.1.0"
             or data.get("state") != "selected-for-qualification" or data.get("published") is not False):
         raise ValueError("Public selection must identify the unpublished qualification candidate")
@@ -95,7 +95,7 @@ def check(root=ROOT):
     data = selection(root)
     corpus(root, data)
     expected = render(data)
-    for name in ("README.md", "charts/hankoshell-operator/README.md", "docs/public-contract-selection.md"):
+    for name in ("charts/hankoshell-operator/README.md", "docs/public-contract-selection.md"):
         text = (root / name).read_text()
         if text.count(START) != 1 or text.count(END) != 1 or text.split(START)[1].split(END)[0].strip() != expected:
             raise ValueError("Public selection documentation drift: " + name)

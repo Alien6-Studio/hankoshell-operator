@@ -6,11 +6,11 @@ public release or production compatibility report exists. **No resource
 graduates in this decision.** The initial 0.1.0 public candidates remain a
 separate prospective selection, not evidence of 1.0 maturity.
 
-The machine-readable [graduation records](stable-graduation.json) cover every
+The machine-readable [graduation records](../tools/qualification/config/contracts/stable-graduation.json) cover every
 top-level spec/status group of all 17 installed resources, including explicit
 native boundaries. Each record names its proposed 1.0 disposition, evidence,
 measurable criteria and unresolved blockers. A group includes nested fields;
-existing [public selection exclusions](public-contract-selection.json) remain.
+existing [public selection exclusions](../tools/qualification/config/contracts/public-contract-selection.json) remain.
 The current development APIs remain experimental. All records retain `v1alpha1`; this decision adds no conversion/storage version.
 
 | Criterion | Minimum required before a resource may graduate | Evidence location |
@@ -45,7 +45,7 @@ resource-specific threshold or automatically prove installation independence.
 | HankoServiceAccount, HankoWorkloadTrust | staying alpha | Authentication transitions, secret/workload authority, source UID/CA/issuer binding, age/replay, refusal and recovery |
 | HankoIssuer | staying alpha | Current routing observation and host changes; no implicit certificate/ingress rollback |
 | HankoKeycloakInstance, HankoImport, HankoTheme | experimental | Infrastructure owner checks, native read coverage, image/Secret/PVC authority, interruption and upgrade rollback |
-| HankoOperation, HankoSnapshot | experimental, excluded from stable 1.0 | [ADR-050](architecture/decisions/ADR-050-experimental-lifecycle-authority.md); each future lifecycle action needs independent authority and installed evidence |
+| HankoOperation, HankoSnapshot | experimental, excluded from stable 1.0 | [ADR-011](architecture/decisions/ADR-011-experimental-lifecycle-authority.md); each future lifecycle action needs independent authority and installed evidence |
 | HankoTenant, HankoMeshService | experimental | Public connected authority and upgrade/rollback; installed Fleet evidence does not qualify a public Hub service or traffic enforcement |
 | HankoEmailProvider | experimental, deprecated no-delivery API | Explicit retirement path preserving readers; no resumed messaging adapter |
 

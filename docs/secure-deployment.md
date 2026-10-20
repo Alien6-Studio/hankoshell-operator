@@ -87,7 +87,7 @@ Use independently reviewed current kube-system UID and the single public API CA
 DER hash in the trust spec. Ensure approved public HTTPS issuer/JWKS discovery is
 reachable without credentials; the controller never configures public access or
 repairs client-authentication flows. See the
-[implemented trust ownership and recovery contract](architecture/workload-identity.md#p62-implemented-trust-ownership).
+[implemented trust ownership and recovery contract](architecture/workload-identity.md#implemented-kubernetes-workload-trust-ownership).
 Trust Ready means configuration only, with no workload binding, token issuance,
 federated HankoServiceAccount activation or mesh authority.
 
@@ -218,7 +218,7 @@ the Hub must implement that protocol before it can be enabled.
 #### Signed fleet plan transition
 
 The [Fleet contract](architecture/fleet-reconciliation.md) and
-[ADR-049](architecture/decisions/ADR-049-locally-approved-fleet-plans.md) define
+[ADR-010](architecture/decisions/ADR-010-locally-approved-fleet-plans.md) define
 the exact Ed25519 signing input, closed JSON, local key scopes, expiry and
 sequence rules. In a reviewed deployment:
 
@@ -610,7 +610,7 @@ writes; production client deadlines are unchanged. Failures preserve the last
 64 fixture HTTP methods/routes/statuses/timings and redacted container logs;
 headers, query values and bodies are excluded from the HTTP trace. Shard timings
 on GitHub runners and twenty consecutive runs of both historically failing
-tests are recorded through the [concurrency and stability qualification](keycloak-concurrency.md).
+tests are recorded through the [concurrency and stability qualification](qualification.md).
 Its independent series stops on the first failure and retains every JUnit; it
 does not replace the required twenty-run `main` history window.
 
@@ -692,7 +692,7 @@ target-realm users; it is not group-only authority or part of the common profile
 Fresh strict group ownership/hierarchy reads precede grant execution. Missing
 authority refuses authorization writes; an old applied UUID snapshot can remain
 active until successful reconciliation or direct provider revocation. See
-[organization permissions and consistency](keycloak-permissions.md#organization-principals-04-unreleased).
+[organization permissions and consistency](keycloak-permissions.md#organization-principals).
 
 Unmanaged clients, roles and brokers survive child reconciliation/deletion.
 Deleting a managed realm is an explicit destructive ownership boundary: once
@@ -733,7 +733,7 @@ and independently observed non-secret state, then explicitly approve both throug
 the migration annotations. A matching clientID, client Secret or status hash alone
 cannot authorize adoption. Review applications before deleting them: client
 cleanup also removes its roles, mappers and credentials. See the
-[exact migration procedure and threat model](architecture/application-identity.md#ownership-and-02-migration).
+[exact migration procedure and threat model](architecture/application-identity.md#ownership-and-legacy-client-migration).
 
 ### Kubernetes compatibility and hardening
 
@@ -867,7 +867,7 @@ helm template hankoshell-operator ./charts/hankoshell-operator \
 ```
 
 After reviewing the render, apply the CRDs and install as described in the
-[README](../README.md#deployment). Verify that the operator can reach its API
+[README](../README.md#install-from-source). Verify that the operator can reach its API
 and provider, and that unauthorized ingress/egress is denied. Test the actual
 CNI, DNS and API endpoint routing on each target cluster; Kubernetes and Cilium
 allow policies are additive when other policies select the same pods.
@@ -889,10 +889,9 @@ Prometheus namespace AND pod labels still constrain ingress on TCP/8080.
 The Pod readiness probe excludes the leader check so healthy standbys remain Ready;
 the full `/readyz` endpoint reports reconciliation readiness.
 
-Operational procedures: [runbooks](operations-runbooks.md), [secure observability](operational-observability.md) and the [machine contract](operational-contract.json).
-
-See the observability guide for complete values, trust rotation, migration,
-label bounds, alerts, dashboard and qualification limits.
+See the [operational runbooks](operations-runbooks.md) and
+[secure metrics configuration](operations-runbooks.md#secure-metrics) for Secrets,
+trust rotation, label bounds, alerts and the dashboard.
 
 ## Enterprise profile
 
@@ -1231,12 +1230,12 @@ configuration, while installation-specific enforcement still needs qualification
 
 ## Release rehearsal and publication
 
-The first public 0.1.0 is in development; no public release has been published.
-Source/chart/app/build/rehearsal metadata is `0.1.0-dev.0`, with Artifact Hub
+The current candidate is `1.0.0-rc.1`; no public release has been published.
+Source/chart/app/build/rehearsal metadata is `1.0.0-rc.1`, with Artifact Hub
 `prerelease: true`. All implemented capabilities and canonical Attest hardening
 remain intact. Workload Identity, Delegation & Agent Identity, Provider Portability, Fleet Reconciliation and Initial Public Contract Stabilization and #21's real trust evidence are required before
 first publication; see the [Release 1.0.0 milestone](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11) and
-[administrator checklist](release-public-0.1.0-preparation.md).
+[release qualification](qualification.md#rc1-and-historical-upgrades).
 
 The parser accepts normal `v<SemVer>` tags and extracts `0.1.0` from `v0.1.0`.
 Parsing is separate from permission to publish: production eligibility and
@@ -1631,7 +1630,7 @@ and deep restart/recovery on the documented matrix; no release/publication is ad
 ## Experimental lifecycle approval
 
 `HankoOperation` / `HankoSnapshot` are excluded from the stable 1.0 contract by
-[ADR-050](architecture/decisions/ADR-050-experimental-lifecycle-authority.md).
+[ADR-011](architecture/decisions/ADR-011-experimental-lifecycle-authority.md).
 They retain their experimental v1alpha1 schemas. The chart defaults to
 `lifecycle.enabled: false`, removes their complete resource/status/finalizer RBAC
 and registers neither controller. Its independent admission guard remains active
@@ -1659,7 +1658,7 @@ Raw installations must provision equivalent fail-closed admission protection
 before enabling the process flag. Namespace Secret writers remain separately
 trusted; DBSwitch accepts only a dedicated PostgreSQL configuration Secret in the
 same namespace/tenant scope with exactly the four reviewed `KC_DB*` fields in
-ADR-050. Backup Jobs retain their dedicated Secret/image/PVC guards. Never put
+ADR-011. Backup Jobs retain their dedicated Secret/image/PVC guards. Never put
 credentials in an approval annotation or diagnostic artifact.
 
 An ordinary author may submit a request; it waits with current
@@ -1696,7 +1695,7 @@ and writes are not a distributed transaction. Re-enable only after reviewing the
 same intent and existing child identities. No bulk approval or checkpoint reset
 is a supported recovery procedure.
 
-Validation: `tests/chart/lifecycle.py` renders opt-out/RBAC;
+Validation: `make chart-check` lints and renders the chart;
 `checkLifecycleAdmission` exercises independent admission on all supported real
 API servers; `TestLifecycle*` exercises exact authority/revocation/Secret refusal.
 `tools/qualification/scenarios/system_test.py::lifecycle_alias` exercises opt-in, approval wait and

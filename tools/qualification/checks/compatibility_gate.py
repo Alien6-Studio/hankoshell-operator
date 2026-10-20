@@ -11,7 +11,7 @@ from tools.qualification.lib import api_conversion_contract as conversion
 
 ROOT = Path(__file__).resolve().parents[3]
 
-POLICY = "docs/compatibility-policy.json"
+POLICY = "tools/qualification/config/contracts/compatibility-policy.json"
 
 
 def digest(value):

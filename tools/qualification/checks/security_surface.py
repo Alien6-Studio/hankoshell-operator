@@ -15,7 +15,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
 
-BASELINE = ROOT / "docs/security-surface.json"
+BASELINE = ROOT / "tools/qualification/config/contracts/security-surface.json"
 LIMITS = ("minLength", "maxLength", "pattern", "format", "enum", "minItems", "maxItems", "minProperties", "maxProperties")
 CUSTOM_RESOURCES = {
     "hankorealms", "hankoiamprofiles", "hankoissuers", "hankoapplications", "hankoroles",

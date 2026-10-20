@@ -2,7 +2,7 @@
 
 Helm chart for declarative Keycloak IAM configuration with hankoShell Operator.
 `reconciliation.maxConcurrent` defaults to 1 and accepts integers 1–8 for the four
-reviewed IAM controllers. See the [concurrency review and scale qualification](../../docs/scale-and-soak.md)
+reviewed IAM controllers. See the [concurrency review and scale qualification](../../docs/qualification.md)
 before increasing it; this setting is not a measured capacity recommendation.
 `reconciliation.maxConcurrentByKind` optionally supplies 1–8 workers for
 `Application`, `Role`, `Organization` or `ResourceServer`; other kinds inherit
@@ -98,7 +98,7 @@ dedicated role writer where possible; see the
 Organization principals require explicitly
 provisioned target `view-users` in addition to `manage-clients`; that read role
 also exposes realm users. No chart flag grants this authority. See the
-[organization-grant contract](../../docs/keycloak-permissions.md#organization-principals-010)
+[organization-grant contract](../../docs/keycloak-permissions.md#organization-principals)
 for direct/descendant semantics, ownership, bounds and the reconciliation window.
 
 Real HTTPS Admin API v1 qualification covers only the exact Keycloak versions in the generated support table below.
@@ -196,10 +196,9 @@ Prometheus namespace AND pod labels still constrain ingress on TCP/8080.
 The Pod readiness probe excludes the leader check so healthy standbys remain Ready;
 the full `/readyz` endpoint reports reconciliation readiness.
 
-Operational procedures: [runbooks](../../docs/operations-runbooks.md), [secure observability](../../docs/operational-observability.md) and the [machine contract](../../docs/operational-contract.json).
-
-See the observability guide for complete values, trust rotation, migration,
-label bounds, alerts, dashboard and qualification limits.
+See the [operational runbooks](../../docs/operations-runbooks.md) and
+[secure metrics configuration](../../docs/operations-runbooks.md#secure-metrics)
+for Secrets, trust rotation, alerts and the dashboard.
 
 For Keycloak in another namespace, set `networkPolicy.keycloakNamespace`,
 `keycloakSelector` and `keycloakPorts` to its actual pod labels and Service/target
@@ -355,7 +354,7 @@ unqualified. Disabling it retains existing cleanup finalizers and refuses writes
 The [1.0 graduation criteria and per-resource records](../../docs/stable-graduation.md)
 and [second-provider contract review](../../docs/stable-provider-review.md) remain
 unratified development inputs. Lifecycle APIs are excluded from the stable 1.0
-contract and disabled by default; see [ADR-050](../../docs/architecture/decisions/ADR-050-experimental-lifecycle-authority.md).
+contract and disabled by default; see [ADR-011](../../docs/architecture/decisions/ADR-011-experimental-lifecycle-authority.md).
 
 Qualification window: [support policy](../../docs/support-window.md), [compatibility proposal](../../docs/compatibility-policy.md).
 

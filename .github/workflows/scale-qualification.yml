@@ -33,7 +33,7 @@ jobs:
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
           python3 -m pip install -r tools/requirements.txt
           make install-preflight-tools
-          make preflight chart-test
+          make preflight chart-check
   oci:
     needs: preflight
     permissions:

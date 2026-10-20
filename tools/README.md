@@ -14,11 +14,10 @@ runtime dependencies and are not shipped inside the Helm chart.
 | `qualification/fixtures/` | Disposable provider servers, pod probes and Go test helpers |
 | `qualification/reporting/` | Test history, flaky-test tracking and scheduled-run reports |
 | `qualification/lib/` | Shared evidence privacy, diagnostics and qualification helpers |
-| `qualification/config/` | Reviewed coverage floors, test shards and fuzz inventory |
+| `qualification/config/` | Coverage floors, shards, contracts and retained reference proofs |
 | `release/` | OCI scanning, signing, packaging and publication |
 | `operations/` | Administrator adoption, storage migration and finalizer recovery tools |
 | `bootstrap/`, `quality/`, `versions.py` | Pinned tool installers, contributor checks and version manifest reader |
-| `../tests/tooling/`, `../tests/chart/` | Tooling unit tests and render/package checks |
 
 ## Run a suite
 
@@ -28,12 +27,11 @@ in [CONTRIBUTING.md](../CONTRIBUTING.md). Existing Make targets remain available
 ```sh
 make qualification-help
 make qualify                         # local source, chart, Go tests and coverage
-make qualify PROFILE=chart           # render and package checks; no cluster
+make qualify PROFILE=chart           # helm lint and template; no cluster
 make qualify PROFILE=keycloak KEYCLOAK_VERSION=26.8.0
-make tooling-test                    # unit tests of this tooling
 ```
 
-`source` runs contracts, tooling tests, generated-file checks, chart checks,
+`source` runs contracts, generated-file checks, native Helm checks,
 architecture and lint. `unit` runs Go unit/race tests and coverage. `kubernetes`
 runs the real API-server suite. `extension` qualifies the pinned Keycloak SPI.
 The `local` default combines source and unit checks; it does not replace the CI
@@ -57,7 +55,7 @@ make qualify PROFILE=installed \
 ```
 
 See [secure deployment](../docs/secure-deployment.md),
-[scale and soak](../docs/scale-and-soak.md) and
+[scale and soak](../docs/qualification.md) and
 [storage migration](../docs/storage-migration.md) for exact campaign inputs.
 To inspect a tool directly, use its package entry point, for example
 `python3 -m tools.operations.storage_migration --help`.
@@ -69,7 +67,8 @@ To inspect a tool directly, use its package entry point, for example
 Go/JUnit reports default to `.tools/runs/tests/`; `TEST_REPORT_DIR` overrides it.
 Installed campaigns retain their fresh-output requirement and immutable image
 checks. Keep private native objects, kubeconfigs and credentials out of Git.
-Only sanitized, explicitly scoped evidence belongs in `docs/qualification/`.
+Keep campaign reports in CI artifacts or `.tools/runs/`. Reviewed contract data
+lives in `tools/qualification/config/`.
 A failed or interrupted run remains a failure; a local suite never implies a
 successful 24-hour soak or permission to publish a stable release.
 

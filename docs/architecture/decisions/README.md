@@ -1,34 +1,31 @@
 # Architecture decisions
 
-These records preserve the accepted decisions already referenced by the extracted
-operator. Their numbers and subjects originate in the platform repository's `adr/`
-directory. Reconstructed on 2026-10-14, they describe the enforcing code and tests
-in this repository, including subsequent hardening and current qualification
-limits. Historical platform API contracts, unimplemented proposals and obsolete
-security claims are not imported as operator guarantees. Accepted architecture
-does not imply public API stability or completed installed-system qualification.
+These decisions use the operator repository's own sequence, starting at 001.
+The initial records were adapted from `hanko-platform`; their current IDs are
+local to this repository. Accepted architecture does not imply public API
+stability or completed installed-system qualification.
 
 | Record | Subject |
 | --- | --- |
-| [ADR-009](ADR-009-kubernetes-operator.md) | Declarative reconciliation and dependency boundaries |
-| [ADR-010](ADR-010-hub-pull-distribution.md) | Optional Hub pull distribution and supervision |
-| [ADR-017](ADR-017-image-supply-chain.md) | Image policy at the workload submission boundary |
-| [ADR-021](ADR-021-administrative-credential-lifecycle.md) | Administrative credential authority and recoverable rotation |
-| [ADR-022](ADR-022-keycloak-url-validation.md) | Keycloak URL validation and metadata endpoint exclusion |
-| [ADR-029](ADR-029-provider-neutral-authorization.md) | Typed, capability-aware provider authorization |
-| [ADR-044](ADR-044-structural-image-trust.md) | Structural OCI registry and repository identity |
-| [ADR-047](ADR-047-signed-workload-approvals.md) | Signed immutable image approvals |
-| [ADR-048](ADR-048-full-pull-request-qualification.md) | Full qualification matrix on pull requests |
-| [ADR-049](ADR-049-locally-approved-fleet-plans.md) | Locally approved signed fleet plans |
-| [ADR-050](ADR-050-experimental-lifecycle-authority.md) | Experimental lifecycle exclusion and independent approval |
+| [ADR-001](ADR-001-kubernetes-operator.md) | Declarative reconciliation and dependency boundaries |
+| [ADR-002](ADR-002-hub-pull-distribution.md) | Optional Hub pull distribution and supervision |
+| [ADR-003](ADR-003-image-supply-chain.md) | Image policy at the workload submission boundary |
+| [ADR-004](ADR-004-administrative-credential-lifecycle.md) | Administrative credential authority and recoverable rotation |
+| [ADR-005](ADR-005-keycloak-url-validation.md) | Keycloak URL validation and metadata endpoint exclusion |
+| [ADR-006](ADR-006-provider-neutral-authorization.md) | Typed, capability-aware provider authorization |
+| [ADR-007](ADR-007-structural-image-trust.md) | Structural OCI registry and repository identity |
+| [ADR-008](ADR-008-signed-workload-approvals.md) | Signed immutable image approvals |
+| [ADR-009](ADR-009-full-pull-request-qualification.md) | Full qualification matrix on pull requests |
+| [ADR-010](ADR-010-locally-approved-fleet-plans.md) | Locally approved signed fleet plans |
+| [ADR-011](ADR-011-experimental-lifecycle-authority.md) | Experimental lifecycle exclusion and independent approval |
+| [ADR-012](ADR-012-audited-finalizer-release.md) | Independently approved and audited finalizer recovery |
 
 ## Adding or updating a decision
 
 Copy [TEMPLATE.md](TEMPLATE.md) to `ADR-NNN-lowercase-title.md`. Use a unique
-positive number padded to at least three digits. Preserve inherited numbers and
-gaps; for a new decision use the next number above the highest existing record.
-Do not renumber or reuse an ID. Write the full ID at each reference, including
-each member of a list. The checker also recognizes inherited slash shorthand.
+positive number padded to at least three digits. For a new decision, use the
+next number above the highest existing record.
+Write the full ID at each reference, including each member of a list.
 
 Document context, decision, consequences and links to the enforcing code and
 regression tests. Explain compatibility and qualification limits. Proposals stay
@@ -38,13 +35,12 @@ relationship with links in both records. Do not erase the original decision.
 Update affected records alongside implementation changes.
 
 Reference a decision from relevant Go, YAML or Markdown outside its own file.
-Listing it here or in the template does not count as use. Do not add unrelated
-historical decisions solely to fill numbering gaps.
+Listing it here or in the template does not count as use. Keep decisions scoped
+to this operator.
 
 Run `python3 -m tools.quality.check_adr_references` and
-`python3 -m unittest discover -s tests/tooling -t . -p 'test_adr_references.py'`.
+`make preflight`.
 The checker scans tracked and new non-ignored `.go`, `.yaml`, `.yml` and `.md`
 files, including hidden configuration and generated manifests. It reports
 dangling references with file/line, duplicate or invalid IDs, incomplete records
-and orphan records. The tests also verify local code/test links. They run in the
-development and CI preflight; CI's required source job runs the checker explicitly.
+and orphan records. CI's required source job runs the checker explicitly.

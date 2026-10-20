@@ -8,7 +8,7 @@ experimental. 0.x does not make a 1.0 SemVer commitment. Existing
 [stable graduation](stable-graduation.md), [support window](support-window.md) and
 [runbook limitations](operations-runbooks.md) retain their narrower meanings.
 
-The [machine registry](compatibility-policy.json) has no public releases,
+The [machine registry](../tools/qualification/config/contracts/compatibility-policy.json) has no public releases,
 compatibility baseline, notices or exceptions yet. Ratification is a separate
 reviewed change; repository documentation is not evidence of community acceptance.
 
@@ -38,7 +38,7 @@ real retained release fixtures reproduce it. Never call same-source Helm
 configuration rollback a public operator/provider/data rollback.
 
 Actual installations and upgrade paths use the [sanitized reporting procedure](production-evidence.md)
-and [per-release evidence summaries](compatibility-evidence/README.md). No public
+and [per-release evidence reporting](production-evidence.md). No public
 release or production report is currently recorded; development qualification
 does not populate that registry.
 

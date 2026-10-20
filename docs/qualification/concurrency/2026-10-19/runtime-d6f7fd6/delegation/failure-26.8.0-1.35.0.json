@@ -1,7 +1,0 @@
-{
-  "publishable": false,
-  "error_type": "DeadlineExceeded",
-  "wait": "external deterministic fault",
-  "elapsed_seconds": 180.872,
-  "deadline_seconds": 180
-}

@@ -1,5 +1,5 @@
 // Package fleetplan verifies locally approved, bounded fleet desired state.
-// It performs no network, Kubernetes or provider operations. See ADR-049.
+// It performs no network, Kubernetes or provider operations. See ADR-010.
 package fleetplan
 
 import (

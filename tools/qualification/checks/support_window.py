@@ -20,7 +20,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[3]
 
 REPOSITORIES = {"kubernetes": "kubernetes/kubernetes", "keycloak": "keycloak/keycloak"}
-POLICY = "docs/compatibility-policy.json"
+POLICY = "tools/qualification/config/contracts/compatibility-policy.json"
 MAX_CATALOG_BYTES = 2 * 1024 * 1024
 
 

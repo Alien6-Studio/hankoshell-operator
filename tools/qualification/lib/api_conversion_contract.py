@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 
-CONTRACT = "docs/api-conversion.json"
+CONTRACT = "tools/qualification/config/contracts/api-conversion.json"
 KINDS = {"HankoApplication", "HankoRole", "HankoResourceServer"}
 VERSIONS = ["v1alpha1", "v1beta1"]
 

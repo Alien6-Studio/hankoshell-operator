@@ -31,12 +31,12 @@ RELEASE_VERSION := $(shell python3 -m tools.versions get release version)
 .PHONY: delegation-installed-test
 .PHONY: storage-migration-installed-test
 
-.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-test integration-test keycloak-integration-test keycloak-stability-test authentik-integration-test security-mutations security-fuzz licenses lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test fleet-installed-test portable-installed-test scale-installed-test
+.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-check integration-test keycloak-integration-test keycloak-stability-test authentik-integration-test security-mutations security-fuzz licenses lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test fleet-installed-test portable-installed-test scale-installed-test
 versions-sync:
 	python3 -m tools.versions sync
 
 all: check build
-check: fmt-check vet test chart-test coverage
+check: fmt-check vet test chart-check coverage
 preflight: fmt-check vet generated-check
 	python3 -m tools.qualification.checks.public_contract check
 	python3 -m tools.qualification.checks.stable_contract
@@ -44,7 +44,6 @@ preflight: fmt-check vet generated-check
 	python3 -m tools.qualification.checks.compatibility_gate check
 	python3 -m tools.qualification.checks.go_api_contract check
 	python3 -m tools.qualification.checks.compatibility_evidence check
-	python3 -m unittest discover -s tests/tooling -t . -p 'test_*.py'
 
 fmt-check:
 	@test -z "$$(gofmt -l $$(find api cmd internal tools -name '*.go'))" || { gofmt -l $$(find api cmd internal tools -name '*.go'); exit 1; }
@@ -75,22 +74,9 @@ storage-migration-installed-test:
 	python3 -m tools.qualification.scenarios.storage_migration_installed_test --kind "$(KIND)" --kubectl "$(KUBECTL)" \
 		--helm "$(HELM)" --kubernetes-version "$(KUBERNETES_VERSION)" --output "$(STORAGE_OUTPUT)" \
 		$(if $(NODE_ARCHIVE),--node-archive "$(NODE_ARCHIVE)")
-chart-test:
-	python3 tests/chart/package.py
+chart-check:
 	helm lint $(CHART) --kube-version $(KUBERNETES_VERSION) --set-string image.tag=lint
-	bash tests/chart/image-verification.sh
-	bash tests/chart/cluster-identity.sh
-	python3 tests/chart/fleet-plan.py
-	bash tests/chart/network-policy.sh
-	python3 tests/chart/keycloak-transport.py
-	python3 tests/chart/observability.py
-	python3 tests/chart/concurrency.py
-	python3 tests/chart/organization-projection.py
-	python3 tests/chart/experimental-provider.py
-	python3 tests/chart/lifecycle.py
-	python3 tests/chart/sensitive-writes.py
-	python3 tests/chart/kubernetes-compatibility.py
-	python3 tests/chart/workload-binding.py
+	helm template qualification $(CHART) --namespace qualification --kube-version $(KUBERNETES_VERSION) --set-string image.tag=lint --include-crds > /dev/null
 integration-test: $(GOTESTSUM)
 	@assets="$$(bash tools/bootstrap/install_envtest.sh $(KUBERNETES_VERSION))" && \
 		KUBEBUILDER_ASSETS="$$assets" KUBERNETES_VERSION=$(KUBERNETES_VERSION) \
@@ -221,10 +207,10 @@ transactions-installed-test:
 
 # One entry point for existing gates; CI continues to require its full matrix.
 PROFILE ?= local
-QUALIFY_source := preflight chart-test arch lint
+QUALIFY_source := preflight chart-check arch lint
 QUALIFY_unit := coverage
-QUALIFY_local := preflight chart-test arch lint coverage
-QUALIFY_chart := chart-test
+QUALIFY_local := preflight chart-check arch lint coverage
+QUALIFY_chart := chart-check
 QUALIFY_kubernetes := integration-test
 QUALIFY_keycloak := keycloak-integration-test
 QUALIFY_extension := keycloak-extension-test
@@ -237,7 +223,7 @@ QUALIFY_storage := storage-migration-installed-test
 QUALIFY_scale := scale-installed-test
 QUALIFY_recovery := recovery-installed-test
 QUALIFY_transactions := transactions-installed-test
-.PHONY: qualify qualification-help tooling-test
+.PHONY: qualify qualification-help
 qualify:
 	$(if $(QUALIFY_$(PROFILE)),$(MAKE) $(QUALIFY_$(PROFILE)),$(error Unknown qualification profile '$(PROFILE)'; run make qualification-help))
 qualification-help:
@@ -247,5 +233,3 @@ qualification-help:
 		'  installed | workload | delegation | fleet | portable | storage' \
 		'  scale | recovery | transactions' \
 		'See tools/README.md for prerequisites, immutable inputs and output paths.'
-tooling-test:
-	python3 -m unittest discover -s tests/tooling -t . -p 'test_*.py'

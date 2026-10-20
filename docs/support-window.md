@@ -4,7 +4,7 @@ This repository policy is active for **initial development qualification**.
 It does not publish a release or grant stable API compatibility. The proposed
 public rules in [compatibility-policy.md](compatibility-policy.md) await #87's
 post-publication community review. Machine rules live in
-[compatibility-policy.json](compatibility-policy.json); exact versions and immutable
+[compatibility-policy.json](../tools/qualification/config/contracts/compatibility-policy.json); exact versions and immutable
 fixture checksums live only in [versions.json](../versions.json).
 
 <!-- support-window:start -->

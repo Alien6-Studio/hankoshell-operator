@@ -75,11 +75,6 @@ package entry without lowering existing thresholds or changing the historical
 baseline. API-server conversion and cross-version field-ownership tests remain
 separate required checks.
 
-The checker regression tests exercise lowered package/function coverage, missing
-packages, renamed functions, ambiguous method names, invalid profiles and policies,
-and failure summaries. Run them with
-`python3 -m unittest discover -s tests/tooling -t . -p 'test_coverage.py'`.
-
 The operational telemetry/TLS leaf added on the development branch has an explicit
 89.5% package floor (measured 104/116 statements, 89.66%, on signed revision
 `019b094df300137abf0cd729e7007f0976cd44a1`). This adds a reviewed package entry;

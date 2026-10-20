@@ -18,8 +18,8 @@ def document(root, name):
 
 
 def check(root=ROOT):
-    inventory = json.loads((root / "docs/api-support.json").read_text())
-    data = json.loads((root / "docs/stable-graduation.json").read_text())
+    inventory = json.loads((root / "tools/qualification/config/contracts/api-support.json").read_text())
+    data = json.loads((root / "tools/qualification/config/contracts/stable-graduation.json").read_text())
     if (data.get("schemaVersion") != 1 or data.get("stage") != "development" or data.get("ratified") is not False
             or set(data.get("criteria", {})) != CRITERIA):
         raise ValueError("graduation must retain measurable unratified development criteria")
@@ -59,7 +59,7 @@ def check(root=ROOT):
 
 
 def provider_review(root):
-    review = json.loads((root / "docs/stable-provider-review.json").read_text())
+    review = json.loads((root / "tools/qualification/config/contracts/stable-provider-review.json").read_text())
     if (review.get("schemaVersion") != 1 or review.get("stage") != "development"
             or review.get("secondProviderStatus") != "experimental" or review.get("approvedLosses") != []):
         raise ValueError("second-provider review cannot imply production support or accepted losses")

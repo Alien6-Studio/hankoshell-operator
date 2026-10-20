@@ -1,5 +1,5 @@
 # go-arch-lint v3 — repository root (module: github.com/Alien6-Studio/hankoshell-operator)
-# Rules derived from ADR-009 and ADR-010.
+# Rules derived from ADR-001 and ADR-002.
 # Run: go-arch-lint check  (from repository root/)
 version: 3
 workdir: .
@@ -89,8 +89,8 @@ deps:
     mayDependOn:
       - workloadauth
 
-  # ADR-009: Reconcilers may use the Keycloak client, Hub client, CRD types,
-  # and the image validator (ADR-017).
+  # ADR-001: Reconcilers may use the Keycloak client, Hub client, CRD types,
+  # and the image validator (ADR-003).
   controller:
     mayDependOn:
       - observability
@@ -118,7 +118,7 @@ deps:
       - selfupdate
       - version
 
-  # ADR-009: HTTP client depends on transport and pure ownership wire contracts.
+  # ADR-001: HTTP client depends on transport and pure ownership wire contracts.
   keycloak:
     anyVendorDeps: true
     mayDependOn:
@@ -139,7 +139,7 @@ deps:
   httpsecurity:
     anyVendorDeps: true
 
-  # ADR-029: Provider-neutral authorization drivers may adapt provider clients.
+  # ADR-006: Provider-neutral authorization drivers may adapt provider clients.
   iamconformance:
     mayDependOn:
       - iamcontract
@@ -191,7 +191,7 @@ deps:
       - keycloak
       - iamcontract
 
-  # ADR-010: Hub client carries the bounded supervision DTO in heartbeats.
+  # ADR-002: Hub client carries the bounded supervision DTO in heartbeats.
   hub:
     mayDependOn:
       - supervision
@@ -202,7 +202,7 @@ deps:
       - httpsecurity
       - iamcontract
 
-  # ADR-009 and ADR-010: CRD type definitions have no runtime project dependencies.
+  # ADR-001 and ADR-002: CRD type definitions have no runtime project dependencies.
   api_types:
     anyVendorDeps: true
 
@@ -226,7 +226,7 @@ deps:
     mayDependOn:
       - httpsecurity
 
-  # ADR-010: decommission and self-update flows report through the Hub client.
+  # ADR-002: decommission and self-update flows report through the Hub client.
   decommission:
     mayDependOn:
       - hub

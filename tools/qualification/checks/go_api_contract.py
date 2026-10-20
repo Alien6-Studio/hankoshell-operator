@@ -13,7 +13,7 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[3]
 
-CONFIG = "docs/go-api-contract.json"
+CONFIG = "tools/qualification/config/contracts/go-api-contract.json"
 spec = importlib.util.spec_from_file_location("go_api_compatibility", ROOT / 'tools/qualification/checks/compatibility_gate.py')
 gate = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gate)

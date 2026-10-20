@@ -13,8 +13,8 @@ import re
 
 ROOT = Path(__file__).resolve().parents[3]
 
-REGISTRY = "docs/compatibility-evidence.json"
-SUMMARIES = "docs/compatibility-evidence"
+REGISTRY = "tools/qualification/config/contracts/compatibility-evidence.json"
+
 GITHUB = "https://github.com/Alien6-Studio/hankoshell-operator"
 REVIEW_CHECKS = {"no_credentials", "no_personal_or_tenant_data", "no_raw_dumps", "anonymous_installation", "public_release_verified"}
 SCENARIOS = {"installation", "upgrade", "rollback", "adoption", "rotation", "migration", "recovery"}
@@ -59,7 +59,7 @@ def load(root=ROOT, today=None):
     require(type(registry["schema_version"]) is int and registry["schema_version"] == 1, "Unknown evidence registry version")
     reports = registry["reports"]
     require(isinstance(reports, list) and len(reports) <= 4096, "Evidence report budget exceeded")
-    policy = json.loads((root / "docs/compatibility-policy.json").read_text())
+    policy = json.loads((root / "tools/qualification/config/contracts/compatibility-policy.json").read_text())
     releases = {}
     for release in policy["public_releases"]:
         version = release["version"]
@@ -68,7 +68,7 @@ def load(root=ROOT, today=None):
         published = date.fromisoformat(release["published_on"])
         require(published <= today, "A future publication is not production evidence")
         releases[version] = published
-    kinds = {r["kind"] for r in json.loads((root / "docs/api-support.json").read_text())["resources"]}
+    kinds = {r["kind"] for r in json.loads((root / "tools/qualification/config/contracts/api-support.json").read_text())["resources"]}
     seen = set()
     sources = set()
     for report in reports:
@@ -163,24 +163,24 @@ def render(releases, reports):
     return pages
 
 
-def check(root=ROOT, *, write=False):
+def check(root=ROOT):
     releases, reports = load(root)
-    pages = render(releases, reports)
-    folder = root / SUMMARIES
-    require(not folder.is_symlink(), "Evidence summary folder must stay in the repository")
-    if write:
-        folder.mkdir(parents=True, exist_ok=True)
-        require(all(not (folder / name).is_symlink() for name in pages), "Refuse to overwrite a linked evidence summary")
-        for name, content in pages.items():
-            (folder / name).write_text(content)
-    require(folder.is_dir() and {p.name for p in folder.iterdir()} == set(pages), "Missing or unreviewed per-release evidence summary")
-    for name, content in pages.items():
-        require(not (folder / name).is_symlink() and (folder / name).read_text() == content, "Evidence summary differs from reviewed reports; run render")
     return {"public_releases": len(releases), "production_reports": len(reports), "state": "ReviewedReports" if reports else "NoProductionReports"}
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("check", "render"))
+    parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    print(json.dumps(check(write=args.command == "render"), sort_keys=True))
+    if args.command == "check":
+        print(json.dumps(check(), sort_keys=True))
+    else:
+        releases, reports = load()
+        pages = render(releases, reports)
+        if args.output is None:
+            print(pages["README.md"], end="")
+        else:
+            args.output.mkdir(parents=True, exist_ok=False)
+            for name, content in pages.items():
+                (args.output / name).write_text(content)

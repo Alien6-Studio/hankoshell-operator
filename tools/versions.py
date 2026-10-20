@@ -113,7 +113,7 @@ def generated(root=ROOT, data=None):
     for family in ("kubernetes", "keycloak"):
         window.append("| " + family + " | " + ", ".join("`" + value + "`" for value in sorted(data[family]["versions"], key=lambda v: tuple(map(int, v.split("."))))) + " | `" + data[family]["default"] + "` |")
     block = "<!-- support-window:start -->\n" + "\n".join(window) + "\n<!-- support-window:end -->"
-    for filename in ("README.md", "SECURITY.md", "charts/hankoshell-operator/README.md", "docs/support-window.md", "docs/version-reference-inventory.md", "docs/secure-deployment.md"):
+    for filename in ("README.md", "SECURITY.md", "charts/hankoshell-operator/README.md", "docs/support-window.md", "docs/secure-deployment.md"):
         original = output.get(filename, (root / filename).read_text())
         if original.count("<!-- support-window:start -->") != 1 or original.count("<!-- support-window:end -->") != 1:
             raise ValueError("Missing unique generated support window in " + filename)

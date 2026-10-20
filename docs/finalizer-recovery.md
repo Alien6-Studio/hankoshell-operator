@@ -1,6 +1,6 @@
 # Audited finalizer release
 
-The administrator boundary is recorded in [ADR-051](architecture/decisions/ADR-051-audited-finalizer-release.md).
+The administrator boundary is recorded in [ADR-012](architecture/decisions/ADR-012-audited-finalizer-release.md).
 
 Use normal reconciliation first. This exceptional administrator command releases
 one selected finalizer from an already terminating Hanko object. Two distinct
@@ -138,11 +138,6 @@ reconcile orphaned native state separately and restore the reviewed replica
 count and GitOps control; this tool does not choose that count or restart workloads.
 
 ## Executable qualification
-
-`tests/tooling/test_finalizer_recovery.py` injects stale UIDs/versions/generations,
-changed finalizers, expired approvals, active operators, changed guards, failed
-audit writes, CAS races and lost acknowledgements. It verifies no target replay,
-foreign-finalizer preservation, bounded parsing and private exclusive files.
 
 `api/v1alpha1/finalizer_recovery_integration_test.go` installs the exact three
 manifests, authenticates distinct executor/approver identities, checks admission

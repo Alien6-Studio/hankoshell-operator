@@ -38,7 +38,7 @@ the complete selection; no planned capability is removed.
 
 ## Complete field review
 
-[public-contract-selection.json](public-contract-selection.json) assigns public,
+[public-contract-selection.json](../tools/qualification/config/contracts/public-contract-selection.json) assigns public,
 alpha or experimental status to every one of the 353 top-level spec/status field
 groups in all 17 resources. A group includes its nested fields except the explicit
 `nestedExclusions`. Every row has a rationale and repository evidence. The

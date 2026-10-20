@@ -120,7 +120,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True, help="New private output file; existing paths are refused")
     args = parser.parse_args()
     try:
-        contract = json.loads((Path(__file__).resolve().parents[2] / "docs/operational-contract.json").read_text())
+        contract = json.loads((Path(__file__).resolve().parents[2] / "tools/qualification/config/contracts/operational-contract.json").read_text())
         report = collect(decode(sys.stdin.buffer.read(MAX_BYTES + 1)), contract)
         report["collected_at"] = datetime.now(timezone.utc).isoformat()
         report["collector_sha256"] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
