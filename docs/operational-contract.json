@@ -157,8 +157,8 @@
   ],
   "installedEvidence": [
     {
-      "report": "docs/qualification/operations/2026-10-19/observability-sensitive-writes-d1afbd4.json",
-      "sha256": "247c472637694e81e64ce907b5a46a0629e4fd6c23453435e1889b984773959c"
+      "report": "docs/qualification/operations/2026-10-20/tooling-layout-26eeb2d.json",
+      "sha256": "e4408992d27990a36f0328626f990a56e17af81ebc1076f1a80e2d925d44fde4"
     }
   ],
   "iam_failure_reasons": [

@@ -12,6 +12,7 @@ runtime dependencies and are not shipped inside the Helm chart.
 | `qualification/runners/` | Go/JUnit, Keycloak, fuzz and mutation runners |
 | `qualification/scenarios/` | Installed operator, migration, recovery, scale and HA campaigns |
 | `qualification/fixtures/` | Disposable provider servers, pod probes and Go test helpers |
+| `qualification/reporting/` | Test history, flaky-test tracking and scheduled-run reports |
 | `qualification/lib/` | Shared evidence privacy, diagnostics and qualification helpers |
 | `qualification/config/` | Reviewed coverage floors, test shards and fuzz inventory |
 | `release/` | OCI scanning, signing, packaging and publication |

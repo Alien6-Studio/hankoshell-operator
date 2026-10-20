@@ -56,7 +56,7 @@ Use Python 3.12, the reviewed Go toolchain and the tools installed by
 `tools/requirements.txt` before running the hooks:
 
 ```sh
-python3 -m venv .tools/venv
+python3.12 -m venv .tools/venv
 . .tools/venv/bin/activate
 python -m pip install -r tools/requirements.txt
 make install-tools

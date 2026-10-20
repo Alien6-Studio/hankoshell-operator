@@ -15,9 +15,6 @@ GO_LICENSES_VERSION := $(shell python3 -m tools.versions get tools go_licenses)
 GO_LICENSES := $(CURDIR)/.tools/bin/go-licenses-$(GO_LICENSES_VERSION)-$(shell GOTOOLCHAIN=local go env GOVERSION)/go-licenses
 TEST_REPORT_DIR ?= $(CURDIR)/.tools/runs/tests
 PRE_COMMIT_HOME ?= $(CURDIR)/.tools/cache/pre-commit
-GOCACHE ?= $(CURDIR)/.tools/cache/go-build
-GOLANGCI_LINT_CACHE ?= $(CURDIR)/.tools/cache/golangci
-export GOCACHE GOLANGCI_LINT_CACHE
 KEYCLOAK_SHARD ?= all
 KEYCLOAK_STABILITY_ROOT ?=
 KEYCLOAK_STABILITY_OUTPUT ?= $(TEST_REPORT_DIR)/keycloak-stability-$(KEYCLOAK_STABILITY_ROOT)

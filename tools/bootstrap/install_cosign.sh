@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build the reviewed verifier with the same patched SDKs as the runtime image.
 set -euo pipefail
-destination="${1:?Usage: install-cosign.sh /absolute/output/path}"
+destination="${1:?Usage: install_cosign.sh /absolute/output/path}"
 [[ "$destination" = /* ]]
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 source "$script_dir/cosign_pins.sh"

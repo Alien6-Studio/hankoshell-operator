@@ -79,7 +79,7 @@ class HookChecksTests(unittest.TestCase):
         self.assertEqual(local_hooks["go-architecture"]["entry"], "make arch")
         self.assertTrue(local_hooks["go-vet"]["require_serial"])
         self.assertTrue(local_hooks["staged-secrets"]["always_run"])
-        self.assertEqual(local_hooks["python-tests"]["files"], r"^(tools/.*\.py|tools/requirements\.txt|tests/(tooling|chart)/.*\.(py|sh))$")
+        self.assertEqual(local_hooks["python-tests"]["files"], r"^(tools/.*\.(py|sh)|tools/requirements\.txt|tests/(tooling|chart)/.*\.(py|sh))$")
         jobs = yaml.safe_load((checks.ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
         hook_step = next(step for step in jobs["source"]["steps"] if step.get("run") == "make hooks-check")
         self.assertNotIn("if", hook_step)

@@ -182,3 +182,8 @@ SHA256 in versions.json before building a temporary node with the pinned base;
 it never substitutes a different patch version and removes that temporary image.
 
 Executable qualification fixture: [tools/qualification/scenarios/storage_migration_installed_test.py](../tools/qualification/scenarios/storage_migration_installed_test.py).
+
+The `make qualify PROFILE=storage` entry point was requalified after the tooling
+move: [Kubernetes 1.35.0 report](qualification/storage/2026-10-20/tooling-layout-kubernetes-1.35.0.json).
+All 16 native migrations passed, including real conflicts and process interruptions
+in both directions; the disposable cluster was removed.

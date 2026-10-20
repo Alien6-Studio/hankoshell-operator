@@ -170,3 +170,8 @@ A report is evidence only for its recorded source/image/harness versions.
 The [retained installed smoke report](qualification/operations/2026-10-16/README.md)
 binds the exact scanned runtime and harness hashes; the release contract rejects
 altered, failed or stale-harness evidence. Full matrix qualification remains CI.
+
+The reorganized qualification harness was exercised again on the scanned RC1
+image at source `26eeb2d`: [installed operational smoke](qualification/operations/2026-10-20/tooling-layout-26eeb2d.json).
+Its nine checks cover mTLS, admission and bounded leader failover; this is not
+production HA or a 24-hour soak. Earlier reports retain their original source hashes.

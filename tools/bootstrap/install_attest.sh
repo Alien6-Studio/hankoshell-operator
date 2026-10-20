@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-destination="${1:?Usage: install-attest.sh DESTINATION}"
+destination="${1:?Usage: install_attest.sh DESTINATION}"
 case "$(uname -s)/$(uname -m)" in
   Linux/x86_64)
     platform=linux-x86_64

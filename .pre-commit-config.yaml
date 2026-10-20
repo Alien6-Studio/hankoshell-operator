@@ -45,8 +45,8 @@ repos:
         always_run: true
         pass_filenames: false
       - id: python-tests
-        name: Python script tests
+        name: Qualification tooling tests
         entry: python3 -m unittest discover -s tests/tooling -t . -p test_*.py
         language: system
-        files: ^(tools/.*\.py|tools/requirements\.txt|tests/(tooling|chart)/.*\.(py|sh))$
+        files: ^(tools/.*\.(py|sh)|tools/requirements\.txt|tests/(tooling|chart)/.*\.(py|sh))$
         pass_filenames: false
