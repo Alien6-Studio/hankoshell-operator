@@ -32,6 +32,17 @@ all-credentials-unchanged result. Theme installation restarted the existing
 single-replica Keycloak through its normal workflow; this is not a zero-downtime
 claim. The temporary CPU quota increase was restored after the builds.
 
+An application login incident subsequently showed that Ready conditions and
+unchanged Secret data do not prove consumer health. The dashboard process still
+held an older OIDC credential in its environment, while its current Kubernetes
+Secret already matched Keycloak. Its failures also triggered a temporary proxy
+lockout. Rolling only that Deployment loaded the current credential without
+changing its image, settings or Secret. Discovery returned 200 from the new Pod;
+an anonymous browser rendered the login form without failed assets, and the public
+token endpoint accepted the client's authentication. No human account session was
+tested. Automatic consumer reload remains an installation prerequisite for
+unattended rotation; this rollout did not install a reload mechanism.
+
 The migration exposed four recovery cases, covered by the accompanying fixes:
 
 - Three legacy M2M clients carry both catalog hints. Preserve the extra true hint

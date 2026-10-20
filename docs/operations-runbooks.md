@@ -228,6 +228,15 @@ decision and preserves the audit failure as history. It does not acknowledge the
 missing rotation receipt or clean/revoke a credential. KeycloakInstance has no
 release profile in that utility; retain its pending state and repair the recorder.
 
+After a successful rotation, verify the consumer as well as the native client and
+output Secret. Kubernetes environment variables retain their startup values when
+a Secret changes. Refresh that workload through its own rolling procedure after
+verifying the current output, or configure a consumer that reloads a projected
+credential file or has explicit rollout automation. Confirm discovery, client
+authentication and the public login journey; Pod/IAM Ready conditions alone do
+not establish successful login. Do not log credentials or reset global lockouts
+to diagnose a single stale consumer.
+
 ## Adoption, cleanup conflicts and finalizers
 
 For `AdoptionRequired`, `AdoptionConflict`, `CleanupConflict`, ownership loss or

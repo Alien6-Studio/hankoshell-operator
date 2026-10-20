@@ -78,6 +78,11 @@ legacy catalog hints, stale managed receipt output after provider outage and the
 claim CLI's finalizer read-back race. Rollback, larger capacity, continuous
 endurance and public release paths remain separate qualifications.
 
+The subsequent dashboard login incident was recovered by rolling its stale
+environment credential consumer. Browser login rendering and public client
+authentication now pass. Upgrade/rotation qualification must also verify runtime
+consumers and their reload mechanism; automatic consumer reload remains pending.
+
 ## Release prerequisites
 
 #87/#89/#104 need actual compatibility/contract decisions and community review.

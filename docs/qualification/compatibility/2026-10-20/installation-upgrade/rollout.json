@@ -182,5 +182,33 @@
       "database_updated_at": "2026-10-20T13:14:22.737606427Z"
     },
     "preflight": "pass including 477 Python tests, 76.913 seconds"
+  },
+  "subsequent_login_incident": {
+    "initial_ready_checks_validated_user_login": false,
+    "root_cause": "The dashboard environment retained an older OIDC credential; the current Kubernetes Secret already matched the native client.",
+    "runtime_matched_canonical_before_rollout": false,
+    "recovered": true,
+    "dashboard_ready": true,
+    "dashboard_restarts": 0,
+    "canonical_matches_native": true,
+    "runtime_matches_canonical_after_rollout": true,
+    "discovery_http_status_from_dashboard": 200,
+    "public_browser_form_rendered": true,
+    "public_token_client_authentication_passed": true,
+    "human_authenticated_session_tested": false,
+    "credential_values_changed_during_incident_recovery": false,
+    "recurring_errors_since_new_pod": {
+      "hanko-dashboard": {
+        "invalid_client_credentials": 0,
+        "CallbackRouteError": 0,
+        "unexpected HTTP status code": 0
+      },
+      "keycloak": {
+        "invalid_client_credentials": 0,
+        "CallbackRouteError": 0,
+        "unexpected HTTP status code": 0
+      }
+    },
+    "automatic_secret_consumer_reload_installed": false
   }
 }
