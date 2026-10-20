@@ -318,7 +318,9 @@ func adoptionResult(ctx context.Context, kube client.Client, o client.Object, ca
 		iamCondition(&t.Status.Conditions, t.Generation, "OwnershipAdopted", condition, reason, message)
 	case *api.HankoServiceAccount:
 		t.Status.AdoptionCandidate, t.Status.AdoptionReceipt = candidate, receipt
-		t.Status.SecretRef, t.Status.LastRotated, t.Status.NextRotation = nil, nil, nil
+		// Retain historical rotation time across the read-only acquisition. Losing
+		// it would make a later explicit Manage resume rotate a retained secret.
+		t.Status.SecretRef, t.Status.NextRotation = nil, nil
 		iamCondition(&t.Status.Conditions, t.Generation, "OwnershipAdopted", condition, reason, message)
 	case *api.HankoOrganization:
 		t.Status.AdoptionCandidate, t.Status.AdoptionReceipt = candidate, receipt

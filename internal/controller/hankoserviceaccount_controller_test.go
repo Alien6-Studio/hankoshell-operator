@@ -518,6 +518,62 @@ func TestImportedServiceAccountIsReadOnly(t *testing.T) {
 	}
 }
 
+func TestServiceAccountObserveThenManagePreservesCredentialAndRotationTime(t *testing.T) {
+	kc := newMockKeycloak(t)
+	kc.addClient("acme", "worker", "client-uuid")
+	checkpoint := metav1.NewTime(time.Now().UTC().Add(-24 * time.Hour).Truncate(time.Second))
+	sa := &hankoshv1alpha1.HankoServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{Name: "worker", Namespace: "default", UID: "worker-uid", Generation: 1},
+		Spec: hankoshv1alpha1.HankoServiceAccountSpec{RealmRef: "acme", ClientID: "worker", Mode: "Observe",
+			SecretRotationPolicy: &hankoshv1alpha1.SecretRotationPolicy{Enabled: true, IntervalDays: 30}},
+		Status: hankoshv1alpha1.HankoServiceAccountStatus{LastRotated: &checkpoint},
+	}
+	kc.ownServiceAccount(sa)
+	controlled := true
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "hanko-sa-worker", Namespace: "default", UID: "retained-secret-uid",
+			OwnerReferences: []metav1.OwnerReference{{APIVersion: "hanko.sh/v1alpha1", Kind: "HankoServiceAccount", Name: sa.Name, UID: sa.UID, Controller: &controlled}}},
+		Data: map[string][]byte{"client_secret": []byte("retained-credential")},
+	}
+	c := newFakeClient(t, sa, secret)
+	r := &controller.HankoServiceAccountReconciler{Client: c, APIReader: c, OwnershipReader: c, Scheme: newScheme(t), Pool: keycloak.NewPool(kc.client()), Recorder: events.NewFakeRecorder(10)}
+	request := ctrl.Request{NamespacedName: client.ObjectKeyFromObject(sa)}
+	for _, mode := range []string{"Observe", "Manage", "Observe", "Manage"} {
+		if err := c.Get(context.Background(), request.NamespacedName, sa); err != nil {
+			t.Fatal(err)
+		}
+		if sa.Spec.Mode != mode {
+			sa.Spec.Mode = mode
+			sa.Generation++
+			if err := c.Update(context.Background(), sa); err != nil {
+				t.Fatal(err)
+			}
+		}
+		// Observe may first remove the previously managed cleanup finalizer.
+		for range 2 {
+			if _, err := r.Reconcile(context.Background(), request); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := c.Get(context.Background(), request.NamespacedName, sa); err != nil {
+			t.Fatal(err)
+		}
+		if sa.Status.Phase != "Ready" || sa.Status.LastRotated == nil || !sa.Status.LastRotated.Equal(&checkpoint) {
+			t.Fatalf("%s lost the retained rotation checkpoint", mode)
+		}
+		if mode == "Observe" && (sa.Status.SecretRef != nil || sa.Status.NextRotation != nil) {
+			t.Fatal("Observe published active credential outputs")
+		}
+		var got corev1.Secret
+		if err := c.Get(context.Background(), client.ObjectKeyFromObject(secret), &got); err != nil || got.UID != secret.UID || string(got.Data["client_secret"]) != "retained-credential" {
+			t.Fatal("mode transition replaced the retained credential", err)
+		}
+	}
+	if kc.count("rotateSecret") != 0 || kc.count("getSecret") != 0 {
+		t.Fatal("mode transition accessed or rotated a credential before its interval")
+	}
+}
+
 func TestImportedServiceAccountDeletionDoesNotDeleteClient(t *testing.T) {
 	kc := newMockKeycloak(t)
 	now := metav1.Now()

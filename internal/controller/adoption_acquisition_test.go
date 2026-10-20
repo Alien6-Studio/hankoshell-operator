@@ -219,6 +219,32 @@ func TestOwnershipAcquisitionLeafTransactions(t *testing.T) {
 	}
 }
 
+func TestServiceAccountAcquisitionRetainsRotationCheckpoint(t *testing.T) {
+	f := newAcquisitionFixture(t, "HankoServiceAccount", "oidc")
+	sa := f.target.(*api.HankoServiceAccount)
+	checkpoint := metav1.NewTime(time.Unix(1_780_000_000, 0))
+	sa.Status.LastRotated = &checkpoint
+	if err := f.kube.Status().Update(context.Background(), sa); err != nil {
+		t.Fatal(err)
+	}
+	f.approve()
+	if err := f.run(); err != nil {
+		t.Fatal(err)
+	}
+	_, _ = f.status()
+	if sa.Status.LastRotated == nil || !sa.Status.LastRotated.Equal(&checkpoint) {
+		t.Fatal("ownership-only acquisition discarded rotation history")
+	}
+	r := &HankoServiceAccountReconciler{Client: f.kube, APIReader: f.kube}
+	if _, err := r.reconcileServiceAccountObserve(context.Background(), sa, f.writer, client.MergeFrom(sa.DeepCopy())); err != nil {
+		t.Fatal(err)
+	}
+	_, _ = f.status()
+	if sa.Status.LastRotated == nil || !sa.Status.LastRotated.Equal(&checkpoint) || sa.Status.SecretRef != nil || sa.Status.NextRotation != nil || f.credentialCalls != 0 || f.puts != 1 {
+		t.Fatal("read-only observation lost the checkpoint or gained credential authority")
+	}
+}
+
 func TestManagedAcquisitionStatusRecoversFromUnavailableNativeRead(t *testing.T) {
 	for _, kind := range []string{"HankoApplication", "HankoRole", "HankoServiceAccount"} {
 		t.Run(kind, func(t *testing.T) {
