@@ -3,7 +3,7 @@
 Decision for #90, reviewed on 2026-10-16. These criteria and per-resource records
 are inputs to #89/#104, not their acceptance or a stable API announcement. No
 public release or production compatibility report exists. **No resource
-graduates in this decision.** The initial 0.1.0 public candidates remain a
+graduates in this decision.** The initial 1.0.0 public candidates remain a
 separate prospective selection, not evidence of 1.0 maturity.
 
 The machine-readable [graduation records](../tools/qualification/config/contracts/stable-graduation.json) cover every

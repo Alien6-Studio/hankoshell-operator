@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 
 import yaml
+from tools import versions
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -26,7 +27,7 @@ spec.loader.exec_module(support)
 def selection(root=ROOT):
     inventory = support.inventory(root)
     data = json.loads((root / "tools/qualification/config/contracts/public-contract-selection.json").read_text())
-    if (data.get("schemaVersion") != 1 or data.get("targetRelease") != "0.1.0"
+    if (data.get("schemaVersion") != 1 or data.get("targetRelease") != versions.DATA["release"]["target"]
             or data.get("state") != "selected-for-qualification" or data.get("published") is not False):
         raise ValueError("Public selection must identify the unpublished qualification candidate")
     resources = data.get("resources", [])
@@ -76,7 +77,7 @@ def selection(root=ROOT):
 
 
 def summary(data):
-    return (f"Initial 0.1.0 selection: {sum(r['classification'] == 'public' for r in data['resources'])} public resource candidates; "
+    return (f"Initial {data['targetRelease']} selection: {sum(r['classification'] == 'public' for r in data['resources'])} public resource candidates; "
             "qualification and first publication remain pending. Current development APIs remain experimental.")
 
 

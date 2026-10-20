@@ -335,7 +335,7 @@ publisher signature with the pinned runtime cosign. It preserves its current
 image repository. Missing approval, revoked approval, failed verification or a
 concurrent Deployment change prevents the patch. Already-pinned images are checked
 again; a version string alone does not authorize an update.
-The Hub reference version must match the reviewed SemVer release, such as the future `0.1.0`. This example is unavailable during development.
+The Hub reference version must match the reviewed SemVer release, such as the future `1.0.0`. This example is unavailable during development.
 
 Configure `imageVerification.policyConfigMap: hanko-image-policy`, the independent
 [admission policy](../config/security/operator-image-policy-admission.yaml) and
@@ -358,8 +358,8 @@ approval. Replace the digest and source placeholders with the reviewed values:
     "purpose": "operator-update",
     "image": "ghcr.io/alien6-studio/hankoshell-operator@sha256:<verified-digest>",
     "revision": "<full-source-revision>",
-    "release_version": "0.1.0",
-    "certificate_identity": "https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.1.0",
+    "release_version": "1.0.0",
+    "certificate_identity": "https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v1.0.0",
     "certificate_oidc_issuer": "https://token.actions.githubusercontent.com"
   }]
 }
@@ -737,7 +737,7 @@ cleanup also removes its roles, mappers and credentials. See the
 
 ### Kubernetes compatibility and hardening
 
-The operator and chart keep their own development SemVer (`0.1.0-dev.0`); they do not share the
+The operator and chart keep their own development SemVer (`1.0.0-rc.1`); they do not share the
 cluster's version number. Kubernetes libraries are upgraded together:
 `k8s.io/{api,apimachinery,client-go,apiextensions-apiserver}` **v0.37.1** and
 `controller-runtime` **v0.25.2**, following its
@@ -1237,7 +1237,7 @@ remain intact. Workload Identity, Delegation & Agent Identity, Provider Portabil
 first publication; see the [Release 1.0.0 milestone](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11) and
 [release qualification](qualification.md#rc1-and-historical-upgrades).
 
-The parser accepts normal `v<SemVer>` tags and extracts `0.1.0` from `v0.1.0`.
+The parser accepts normal `v<SemVer>` tags and extracts `1.0.0` from `v1.0.0`.
 Parsing is separate from permission to publish: production eligibility and
 promotion fail closed while source maturity is development. Only reviewed source
 metadata declaring the target stable candidate can enable the future path.
@@ -1246,7 +1246,7 @@ rehearsal shares retry logic only with a loopback registry and in-memory GitHub
 storage; it cannot publish to GHCR or create a real GitHub Release.
 
 The future normal release requires a GitHub-verified source commit and signed
-annotated `v0.1.0` tag bound to that exact commit on protected main. Eligibility
+annotated `v1.0.0` tag bound to that exact commit on protected main. Eligibility
 checks ancestry, signatures, lightweight tags and moved/conflicting identities;
 these checks run again immediately before publication. Git metadata responses
 remain bounded to 1 MiB without fetching the commit diff. The signed root and
@@ -1290,7 +1290,7 @@ artifacts. It writes only to its disposable loopback registry, never creates a t
 changes Artifact Hub. The local signature proves payload binding, **not** GitHub
 OIDC/Fulcio/Rekor trust. Production image signatures remain keyless Sigstore with
 issuer `https://token.actions.githubusercontent.com` and exact certificate identity
-`https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v0.1.0`.
+`https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v1.0.0`.
 The workflow uses the actual `GITHUB_WORKFLOW_REF` and eligibility requires
 `github.ref == refs/tags/<tag>`; a main-ref run cannot claim this tag identity.
 
@@ -1319,7 +1319,7 @@ Publication consumes the same scanned archive without rebuilding, stages it unde
 a non-release reference, verifies real image/blob Sigstore signatures and strict
 Attest delivery evidence, then promotes the digest, chart and catalog metadata.
 Before promotion it commits the archive, packaged chart, signatures, checksums
-and Attest evidence under `delivery-candidate-0.1.0`, an explicitly non-release
+and Attest evidence under `delivery-candidate-1.0.0`, an explicitly non-release
 OCI checkpoint. Every retry resolves that reference once, restores it by digest
 and reuses its exact bytes rather than rebuilding/repackaging them. A different
 source revision or conflicting candidate is rejected. Do not delete or retag the

@@ -459,8 +459,7 @@ only the public evidence allowlist; they are nonpublishable qualification inputs
 These results qualify this local image/harness cut. Full CI on the final pushed
 revision remains required before merge, including its Linux amd64 installed cells
 and every existing source, CodeQL, OCI, workload, system and rehearsal gate.
-The preceding complete CI run
-[38796511058](https://github.com/Alien6-Studio/hankoshell-operator/actions/runs/38796511058)
-passed on `a6cd98d111b4bf5f672b305fef215cb8c3ab8235`.
+Final candidate qualification is tracked in
+[#106](https://github.com/Alien6-Studio/hankoshell-operator/issues/106).
 No production trust, enterprise topology, network enforcement or release is
 qualified by these disposable local cells.

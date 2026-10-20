@@ -6,7 +6,7 @@ operator, provider and trust boundaries.
 The **Application Identity** source contract resolves
 [RFC #24](https://github.com/Alien6-Studio/hankoshell-operator/issues/24) for protocols
 and [RFC #25](https://github.com/Alien6-Studio/hankoshell-operator/issues/25) for runtime
-bindings. Public artifacts are pending; active development metadata is `0.1.0-dev.0`.
+bindings. Public artifacts are pending; active development metadata is `1.0.0-rc.1`.
 The `hanko.sh/v1alpha1` API is experimental. A future graduated API may group OIDC
 fields differently. Keycloak is the only implemented backend.
 

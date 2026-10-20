@@ -22,7 +22,7 @@ body:
     attributes:
       label: Source operator version
       description: Exact public version, without v. For an initial installation, repeat the target version.
-      placeholder: 0.1.0
+      placeholder: 1.0.0
     validations:
       required: true
   - type: input
@@ -30,7 +30,7 @@ body:
     attributes:
       label: Target operator version
       description: Exact published public version, without v; development builds do not count as production history.
-      placeholder: 0.2.0
+      placeholder: 1.1.0
     validations:
       required: true
   - type: input

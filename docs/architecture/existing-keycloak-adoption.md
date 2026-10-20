@@ -7,7 +7,7 @@ Accepted direction for [RFC #46](https://github.com/Alien6-Studio/hankoshell-ope
 completing **Adopt Existing Keycloak**.
 The source tree implements bounded discovery/diff, explicit reviewed ownership
 acquisition, Organization and ResourceServer checkpoints, and a separate qualified
-transition to Manage. Current source/chart metadata is `0.1.0-dev.0`; source freeze
+transition to Manage. Current source/chart metadata is `1.0.0-rc.1`; source freeze
 requires protected merge and exact-main qualification. The 16 v1alpha1 CRDs remain
 experimental; source completion does not publish production packages.
 
@@ -829,5 +829,5 @@ implementations. The accepted RFC and discovery/diff are #46/#47; leaf acquisiti
 The completed adoption contract is qualified through #49. The next work subject is
 **Workload Identity**. Workload Identity, Delegation & Agent Identity, Provider
 Portability, Fleet Reconciliation and Initial Public Contract Stabilization are
-required before the first public 0.1.0. Transversal first-publication trust/readiness
+required before the first public 1.0.0. Transversal first-publication trust/readiness
 remains open in #21.

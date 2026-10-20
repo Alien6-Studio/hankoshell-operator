@@ -1,9 +1,8 @@
-# Proposed public 0.x compatibility and deprecation policy
+# Compatibility and deprecation policy
 
-Status: **prepublication proposal**, pending community review in #87 after the
-first qualified public release. No review start/end, acceptance, public release,
-stable API or upgrade evidence is fabricated. Current v1alpha1 APIs remain
-experimental. 0.x does not make a 1.0 SemVer commitment. Existing
+This policy is proposed for the first 1.0.0 release. Current v1alpha1 APIs remain
+experimental; approval of the stable commitment is tracked in #106 and #107.
+Existing
 [API migration rules](api-migration-policy.md), [selection](public-contract-selection.md),
 [stable graduation](stable-graduation.md), [support window](support-window.md) and
 [runbook limitations](operations-runbooks.md) retain their narrower meanings.
@@ -30,7 +29,7 @@ A new documentation timestamp or a development build does not satisfy the wait.
 Security/EOL exceptions need an explicit reviewed notice, advisory and limitations;
 there is no automatic compatibility bypass flag.
 
-The latest patch in the latest published public 0.x minor receives security fixes;
+The latest patch in the latest published public minor receives security fixes;
 older minors, prereleases, development builds and forks have no separate backport
 commitment or LTS branch. This matches SECURITY.md. A release's upstream eligibility
 and exact qualification window must be recorded. Rollback is supported only where

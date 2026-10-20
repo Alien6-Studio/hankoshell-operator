@@ -98,7 +98,7 @@ Database updates intentionally remain current, rather than frozen with the tool.
 [The versioned policy](security/oci-vulnerability-policy.json) blocks known
 **HIGH and CRITICAL vulnerabilities with an available fixed version**. It reports
 all severities and unfixed findings without filtering them out of the JSON.
-This 0.1.0 baseline makes actionable upgrades mandatory while retaining visibility
+This delivery baseline makes actionable upgrades mandatory while retaining visibility
 of issues without an upstream fix. Passing does not mean there are no unfixed,
 lower-severity, unknown or undiscovered vulnerabilities; maintainers must review
 those findings and can defer publication independently of the automated threshold.
@@ -139,7 +139,7 @@ After these gates, package promotion and GitHub draft creation are separate
 network operations, not an atomic transaction. A later publication failure may
 leave already verified OCI packages available. Before promotion, the workflow
 commits the complete verified delivery under a non-release
-`delivery-candidate-0.1.0` OCI reference. A retry resolves and restores that
+`delivery-candidate-1.0.0` OCI reference. A retry resolves and restores that
 checkpoint by digest, rescans its exact AMD64/ARM64 archive under the current
 policy, verifies the existing Sigstore signatures and recomputes Attest evidence.
 The original signed scan remains historical evidence; it cannot replace the

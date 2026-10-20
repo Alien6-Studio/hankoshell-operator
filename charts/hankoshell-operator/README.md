@@ -304,7 +304,7 @@ See the [complete candidate review](../../docs/public-contract-selection.md).
 
 <!-- public-selection:start -->
 
-Initial 0.1.0 selection: 3 public resource candidates; qualification and first publication remain pending. Current development APIs remain experimental.
+Initial 1.0.0 selection: 3 public resource candidates; qualification and first publication remain pending. Current development APIs remain experimental.
 
 | Resource | Selected scope | Public spec groups |
 | --- | --- | --- |
