@@ -39,6 +39,29 @@ FIXTURE_REFUSALS = {"FixtureCommandFailed", "StoredObjectNotFound", "UnexpectedI
     "ConcurrentMetadataConflictNotObserved", "ConcurrentMetadataProofInvalid"}
 
 
+class FixtureCommandFailure(RuntimeError):
+    def __init__(self, code, returncode, stderr):
+        super().__init__(code)
+        self.returncode = returncode
+        # Publish only fixed classifications, never command text or stderr.
+        self.diagnostic = "UnclassifiedCommandFailure"
+        if isinstance(stderr, bytes) and len(stderr) <= 65536:
+            value = stderr.lower()
+            for needles, label in (
+                ((b"toomanyrequests", b"too many requests"), "RegistryRateLimited"),
+                ((b"no space left on device",), "StorageExhausted"),
+                ((b"cannot connect to the docker daemon",), "ContainerRuntimeUnavailable"),
+                ((b"error response from daemon",), "ContainerRuntimeRefused"),
+                ((b"connection refused",), "EndpointUnavailable"),
+                ((b"tls handshake timeout", b"i/o timeout", b"context deadline exceeded"), "EndpointDeadline"),
+                ((b"error from server (invalid)",), "KubernetesValidationRefused"),
+                ((b"error from server (forbidden)",), "KubernetesPermissionRefused"),
+            ):
+                if any(needle in value for needle in needles):
+                    self.diagnostic = label
+                    break
+
+
 def execute(command, value=None, *, timeout=120):
     result = subprocess.run([str(v) for v in command], input=None if value is None else json.dumps(value).encode(),
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, check=False)
@@ -52,7 +75,7 @@ def execute(command, value=None, *, timeout=120):
                     code = failure["reason"]
             except (migration.Refused, TypeError, ValueError):
                 pass
-        raise RuntimeError(code)
+        raise FixtureCommandFailure(code, result.returncode, result.stderr)
     return result.stdout
 
 
@@ -60,6 +83,9 @@ def record_failure(report, error):
     report["failure_type"] = type(error).__name__
     code = str(error)
     report["failure_code"] = code if isinstance(error, RuntimeError) and code in CLI_REFUSALS | FIXTURE_REFUSALS else "FixtureOperationFailed"
+    if isinstance(error, FixtureCommandFailure):
+        report["failure_returncode"] = error.returncode
+        report["failure_diagnostic"] = error.diagnostic
 
 
 def run_with_crd_conflict(command, target, report):
@@ -181,21 +207,26 @@ def qualify(kubectl, kubeconfig, control_plane, output, helm, report):
 
     contract = conversion.load()
     crds = ROOT / "charts/hankoshell-operator/crds"
+    report["active_phase"] = "install_crds"
     for entry in contract["resources"].values():
         execute([*command, "create", "-f", crds / ("hanko.sh_" + entry["plural"] + ".yaml")])
         execute([*command, "wait", "--for=condition=Established", "crd/" + entry["plural"] + ".hanko.sh", "--timeout=60s"])
+    report["active_phase"] = "create_namespace"
     kube("create", "-f", "-", value={"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": "migration-fixture"}})
     # This zero-replica deployment models the required stopped controller. It
     # never starts a Pod and cannot touch a provider, Secret or IAM object.
+    report["active_phase"] = "seed_stopped_operator"
     kube("create", "-f", "-", value={"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "stopped-operator", "namespace": "migration-fixture", "labels": {"app.kubernetes.io/name": "hankoshell-operator"}},
         "spec": {"replicas": 0, "selector": {"matchLabels": {"fixture": "stopped"}}, "template": {"metadata": {"labels": {"fixture": "stopped"}}, "spec": {"containers": [{"name": "stopped", "image": "registry.invalid/never-started"}]}}}})
     specs = {"HankoApplication": {"realmRef": "realm", "clientID": "app"}, "HankoRole": {"realmRef": "realm", "name": "role"},
              "HankoResourceServer": {"realmRef": "realm", "applicationRef": "app", "audience": "urn:migration-fixture"}}
     for kind in sorted(contract["resources"]):
+        report.update(active_phase="seed_declaration", active_kind=kind)
         value = kube("create", "-f", "-", value={"apiVersion": "hanko.sh/v1alpha1", "kind": kind,
             "metadata": {"name": "owned", "namespace": "migration-fixture", "annotations": {"fixture.example/approval": "reviewed-uid", "hanko.sh/runtime-bindings-journal": "opaque-checkpoint"},
                 "finalizers": ["fixture.example/preserve"]}, "spec": specs[kind]})
         value["status"] = {"phase": "Ready", "observedGeneration": value["metadata"]["generation"], "appliedGeneration": value["metadata"]["generation"], "observationComplete": True, "driftState": "InSync"}
+        report["active_phase"] = "seed_status"
         kube("replace", "--subresource=status", "-f", "-", value=value)
 
     def snapshot():
@@ -214,7 +245,10 @@ def qualify(kubectl, kubeconfig, control_plane, output, helm, report):
             raise RuntimeError("StoredObjectNotFound")
         return json.loads(base64.b64decode(entries[0]["value"]))["apiVersion"]
 
+    report.pop("active_kind", None)
+    report["active_phase"] = "initial_snapshot"
     before, stages = snapshot(), []
+    report["active_phase"] = "initial_physical_encoding"
     for entry in contract["resources"].values():
         if encoded_version(entry["plural"]) != "hanko.sh/v1alpha1":
             raise RuntimeError("UnexpectedInitialEncoding")
@@ -355,7 +389,7 @@ def main():
     if args.kubernetes_version != "1.37.0":
         config["featureGates"] = {"StorageVersionMigrator": True}
         config["runtimeConfig"] = {"storagemigration.k8s.io/v1beta1": "true"}
-    report = {"complete": False, "kubernetes": args.kubernetes_version, "cleanup": False,
+    report = {"complete": False, "kubernetes": args.kubernetes_version, "cleanup": False, "active_phase": "prepare_node",
         "harness_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "api_contract_sha256": conversion.digest(conversion.load())}
     built_image = None
@@ -378,7 +412,9 @@ def main():
         report["node_image"] = image
         with tempfile.NamedTemporaryFile("w", suffix=".yaml") as stream:
             yaml.safe_dump(config, stream); stream.flush()
+            report["active_phase"] = "create_cluster"
             execute([args.kind, "create", "cluster", "--name", cluster, "--image", image, "--kubeconfig", kubeconfig, "--config", stream.name, "--wait", "60s"], timeout=180)
+        report["active_phase"] = "server_version"
         server = json.loads(execute([args.kubectl, "--kubeconfig", kubeconfig, "version", "-o", "json"]))
         if server["serverVersion"]["gitVersion"] != "v" + args.kubernetes_version:
             raise RuntimeError("UnexpectedKubernetesVersion")

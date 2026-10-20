@@ -219,6 +219,17 @@ func TestRealKeycloakOwnershipAcquisition(t *testing.T) {
 				&api.HankoKeycloakInstance{ObjectMeta: metav1.ObjectMeta{Name: "source", Namespace: meta.Namespace, UID: "source-uid"}, Spec: api.HankoKeycloakInstanceSpec{Mode: "external", AdminRef: corev1.LocalObjectReference{Name: "reader"}, TLSCARef: "ca"}},
 				&corev1.Secret{ObjectMeta: fixtureMeta("reader"), Data: map[string][]byte{"HANKO_KEYCLOAK_URL": []byte(server.URL), "HANKO_KC_CLIENT_ID": []byte("ownership-reader"), "HANKO_KC_CLIENT_SECRET": []byte(readSecret)}},
 				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "ca", Namespace: meta.Namespace, UID: "ca-uid"}, Data: map[string][]byte{"ca.crt": ca}})
+			// An imported Observe declaration may describe the same native client.
+			// Exact target consent must preserve that passive alias, including when
+			// the client is represented by the other supported Kubernetes kind.
+			if capability != "role" {
+				aliasMeta := metav1.ObjectMeta{Name: "passive-client-alias", Namespace: meta.Namespace, UID: "passive-alias-uid", Labels: map[string]string{"hanko.sh/imported-by": "inventory"}}
+				var alias client.Object = &api.HankoServiceAccount{ObjectMeta: aliasMeta, Spec: api.HankoServiceAccountSpec{Mode: "Observe", RealmRef: "managed", ClientID: clientID}}
+				if capability == "m2m" {
+					alias = &api.HankoApplication{ObjectMeta: aliasMeta, Spec: api.HankoApplicationSpec{Mode: "Observe", RealmRef: "managed", ClientID: clientID, Type: "m2m"}}
+				}
+				f.requireNoError(storage.Create(ctx, alias))
+			}
 			failureClient := &ownershipStatusFailureClient{Client: storage}
 			var kube client.Client = failureClient
 			var reconcile func() error

@@ -240,11 +240,16 @@ func importedApplicationSpec(realm string, c keycloak.InventoryClient, roles []k
 func safeSAMLACS(value string) bool { // same qualified URL contract as the adapter
 	return len(value) <= adoption.MaxTextBytes && applications.ValidACS(value)
 }
-func (r *HankoImportReconciler) currentInventoryTarget(ctx context.Context, operation *api.HankoImport, item *adoptionInventoryItem) (adoption.TargetIdentity, []adoption.Fact) {
+func (r *HankoImportReconciler) currentInventoryTarget(ctx context.Context, operation *api.HankoImport, item *adoptionInventoryItem, expected ...client.Object) (adoption.TargetIdentity, []adoption.Fact) {
 	target := adoption.TargetIdentity{Namespace: operation.Namespace, Name: importResourceName(item.realm, item.name)}
 	var obj client.Object
 	switch item.kind {
 	case "application":
+		if len(expected) == 1 {
+			obj = r.explicitClientInventoryTarget(ctx, operation.Namespace, item, expected[0])
+			target.Kind = adoptionTargetKind(expected[0])
+			break
+		}
 		var list api.HankoApplicationList
 		if r.importReader().List(ctx, &list, client.InNamespace(operation.Namespace)) != nil {
 			item.failed("target_read_failed")
@@ -262,6 +267,11 @@ func (r *HankoImportReconciler) currentInventoryTarget(ctx context.Context, oper
 		}
 		target.Kind = "HankoApplication"
 	case "service-account":
+		if len(expected) == 1 {
+			obj = r.explicitClientInventoryTarget(ctx, operation.Namespace, item, expected[0])
+			target.Kind = adoptionTargetKind(expected[0])
+			break
+		}
 		var apps api.HankoApplicationList
 		if r.importReader().List(ctx, &apps, client.InNamespace(operation.Namespace)) != nil {
 			item.failed("target_read_failed")
@@ -350,6 +360,11 @@ func (r *HankoImportReconciler) currentInventoryTarget(ctx context.Context, oper
 	// Get again using the direct reader: cached list/status cannot supply an UID or spec.
 	if err := r.importReader().Get(ctx, client.ObjectKeyFromObject(obj), obj); err != nil {
 		item.failed("target_read_failed")
+		return target, nil
+	}
+	if len(expected) == 1 && (item.kind == "application" || item.kind == "service-account") &&
+		(obj.GetUID() != expected[0].GetUID() || !inventoryClientMatches(obj, item)) {
+		item.failed("target_identity_changed")
 		return target, nil
 	}
 	target.Name = obj.GetName()

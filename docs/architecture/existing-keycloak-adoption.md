@@ -169,6 +169,41 @@ candidate. Changing either setting invalidates approval; set ordering does not.
 
 ### Administrator workflow
 
+For an installation with many existing declarations, `scripts/claim_existing.py`
+groups consent into a private, hash-bound batch. It uses the same controller
+transaction; there is no additional CRD or privileged provider bypass.
+Select exact targets in a mode-0600 JSON array:
+
+```json
+[{"kind":"HankoApplication","namespace":"auth","name":"existing-app","uid":"CURRENT-KUBERNETES-UID"}]
+```
+
+After selecting an inventory source and refreshing Observe candidates, run:
+
+```sh
+python3 scripts/claim_existing.py --context CONTEXT plan --namespace auth \
+  --source inventory --targets targets.json --output claim.json
+python3 scripts/claim_existing.py --context CONTEXT apply \
+  --plan claim.json --approve PRINTED-APPROVAL-HASH
+```
+
+The plan binds the cluster UID, source identity/specification, exact target UIDs,
+generations, specifications, metadata and candidate hashes. Incomplete or blocked
+targets are recorded as deferred. Re-plan dependent resource servers after their
+clients are acquired. Conditional patches preserve unrelated annotations; a stale
+member stops the invocation before its first patch. An interrupted batch is
+resumable, with fresh checks before each remaining patch. This is not an atomic
+transaction across objects.
+
+Acquisition leaves targets in Observe. To authorize a later batch transition to
+Manage, include `--resume-manage` when planning, then run `finish` with the same
+`--plan` and `--approve` after every receipt is Verified. That option refuses
+imported targets and diffs requiring provider configuration changes. The operator
+still verifies native ownership and preservation before reconciliation. A
+successful `apply` reports consent requests, not proof of provider acquisition.
+Passive Observe aliases remain intact; competing managers or pending approvals
+hold acquisition. Whole-import discovery still refuses ambiguous target selection.
+
 1. Set the target's `spec.mode: Observe`. Newly imported applications, roles and
    service accounts explicitly use Observe; `hanko.sh/imported-by` also forces it.
 2. Select a same-namespace HankoKeycloakInstance using only

@@ -394,6 +394,25 @@ class InstalledEvidenceTests(unittest.TestCase):
                 self.assertEqual(str(caught.exception), expected)
                 self.assertNotIn("sentinel", str(caught.exception))
 
+    def test_bootstrap_failure_reports_fixed_phase_diagnostics_without_external_output(self):
+        for stderr, expected in (
+                (b"private-credential: connection refused", "EndpointUnavailable"),
+                (b"private-credential: TLS handshake timeout", "EndpointDeadline"),
+                (b"private-credential: error from server (Invalid)", "KubernetesValidationRefused"),
+                (b"private-credential: too many requests", "RegistryRateLimited"),
+                (b"private-credential: no space left on device", "StorageExhausted"),
+                (b"private-credential", "UnclassifiedCommandFailure"),
+                (b"connection refused" + b" " * 65536, "UnclassifiedCommandFailure"),
+                (None, "UnclassifiedCommandFailure")):
+            with self.subTest(expected=expected):
+                report = {"active_phase": "create_cluster"}
+                error = installed.FixtureCommandFailure("FixtureCommandFailed", 1, stderr)
+                installed.record_failure(report, error)
+                self.assertEqual(report["failure_diagnostic"], expected)
+                self.assertEqual(report["failure_returncode"], 1)
+                self.assertEqual(report["active_phase"], "create_cluster")
+                self.assertNotIn("private", json.dumps(report))
+
     def test_cleanup_failures_retain_bounded_failure_evidence_and_remove_credentials(self):
         for failed_step in (None, "cluster_delete", "image_delete", "cluster_inspect"):
             with self.subTest(failed_step=failed_step), tempfile.TemporaryDirectory() as directory:
