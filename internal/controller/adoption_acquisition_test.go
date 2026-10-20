@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -26,6 +27,7 @@ type acquisitionFixture struct {
 	mappers                               []map[string]any
 	puts, credentialCalls, observerWrites int
 	lostAck, partial                      bool
+	reorderCollections                    bool
 	server                                *httptest.Server
 	kube                                  client.Client
 	writer                                *keycloak.Client
@@ -107,6 +109,13 @@ func (f *acquisitionFixture) serve(w http.ResponseWriter, r *http.Request) {
 			next["serviceAccountsEnabled"] = value
 		}
 		f.document, f.puts = next, f.puts+1
+		if f.reorderCollections {
+			for _, key := range []string{"defaultClientScopes", "optionalClientScopes", "protocolMappers"} {
+				if values, ok := f.document[key].([]any); ok {
+					slices.Reverse(values)
+				}
+			}
+		}
 		if f.partial {
 			f.document["description"] = "concurrent edit"
 			f.document["enabled"] = false
@@ -231,6 +240,52 @@ func TestFederatedServiceAccountClosedOwnershipAcquisition(t *testing.T) {
 	}
 	if f.document["clientAuthenticatorType"] != "federated-jwt" || attrs["jwt.credential.sub"] != "system:serviceaccount:workloads:worker" {
 		t.Fatal("acquisition changed authentication mapping")
+	}
+}
+
+func TestOIDCNativeScopesAndLogoutPreservedThroughAcquisition(t *testing.T) {
+	for _, kind := range []string{"HankoApplication", "HankoServiceAccount"} {
+		t.Run(kind, func(t *testing.T) {
+			f := newAcquisitionFixture(t, kind, "oidc")
+			f.document["defaultClientScopes"] = []any{"profile", "email"}
+			f.document["optionalClientScopes"] = []any{"offline_access", "address"}
+			f.document["frontchannelLogout"] = false
+			f.approve()
+			f.reorderCollections, f.lostAck = true, true
+			if err := f.run(); err != nil {
+				t.Fatal(err)
+			}
+			if err := f.run(); err != nil {
+				t.Fatal(err)
+			}
+			receipt, _ := f.status()
+			if receipt == nil || receipt.State != "Verified" || f.puts != 1 || f.credentialCalls != 0 || f.document["frontchannelLogout"] != false {
+				t.Fatal("native settings or lost-ack recovery were not preserved")
+			}
+		})
+	}
+}
+
+func TestOIDCNativeSettingChangesInvalidateAcquisitionApproval(t *testing.T) {
+	for _, setting := range []string{"defaultClientScopes", "optionalClientScopes", "frontchannelLogout"} {
+		t.Run(setting, func(t *testing.T) {
+			f := newAcquisitionFixture(t, "HankoApplication", "oidc")
+			f.document["defaultClientScopes"], f.document["optionalClientScopes"] = []any{"profile"}, []any{"offline_access"}
+			f.document["frontchannelLogout"] = false
+			f.approve()
+			if setting == "frontchannelLogout" {
+				f.document[setting] = true
+			} else {
+				f.document[setting] = []any{"email"}
+			}
+			if err := f.run(); err != nil {
+				t.Fatal(err)
+			}
+			receipt, conditions := f.status()
+			if receipt == nil || receipt.State != "Conflict" || conditionReason(conditions, "OwnershipAdopted") != "AdoptionObservationChanged" || f.puts != 0 {
+				t.Fatal("changed native settings reused stale approval")
+			}
+		})
 	}
 }
 

@@ -159,9 +159,13 @@ They appear as `keycloakDefault.<attribute>` facts with
 Their values and presence participate in canonical observation and CandidateHash.
 A different, empty, ambiguous or missing value invalidates the previous approval;
 a different value retains the lossy refusal. Other native attributes gain no
-wildcard exception. Nonempty native client-scope collections remain unqualified, including
-Keycloak's automatic `service_account` scope. Qualification fixtures deliberately
-use leaves without those scopes; adoption does not remove them in production.
+wildcard exception. OIDC default/optional scope references use a closed schema:
+at most 64 unique names per collection, each at most 128 characters and matching
+`[a-zA-Z0-9][a-zA-Z0-9._:-]*`, excluding token-shaped names. Acquisition preserves
+these memberships, including `service_account`, without owning or updating the
+referenced scope definitions. Unknown/malformed collections remain refused.
+The native `frontchannelLogout` boolean is preserved and bound to the reviewed
+candidate. Changing either setting invalidates approval; set ordering does not.
 
 ### Administrator workflow
 
@@ -353,7 +357,7 @@ HankoRole Manage retains the documented [§117 credential-authority exception](#
 | Native family | Adoption outcome | Exact boundary |
 | --- | --- | --- |
 | Authentication flows / WebAuthn | Observe-only | Existing realm lifecycle is not acquired; custom client flow overrides block common client adoption. No authentication-flow migration or browser-credential import. |
-| Client scopes | Observe-only / unsupported for parent acquisition | Nonempty default/optional scope collections remain blocking, including `service_account`; acquisition never detaches or owns them. |
+| Client scopes | Qualified OIDC references / definitions remain native | Bounded unique default/optional names are preserved and hash-bound; acquisition never detaches memberships or owns referenced definitions. Unknown collections and custom flow overrides remain blocking. |
 | OIDC protocol mappers | Qualified preserved-native | Foreign user-attribute and realm-role mapper implementations with closed public-reference/type/boolean configuration survive. Keycloak's missing introspection flag is canonicalized only to its qualified access-token default. Unknown implementation/root/configuration stays unqualified. Explicit Manage-created token claims require their own exact UID/kind marker and closed typed schema. |
 | OIDC client native metadata | Qualified preserved-native | Only exact canonical defaults, `locale=en|fr`, safe typed PKCE/logout/theme fields and a typed existing Authorization Services flag qualify. Foreign client roles and the authorization graph remain separate ownership boundaries. Arbitrary attributes are not copied or hashed. |
 | SAML | Qualified manageable / preserved-native subset | Safe existing ACS/name-ID/signature settings and disabled encryption/artifact/ECP are qualified. Native certificate/private material, enabled encryption/artifact/ECP, unknown attributes or foreign SAML mapper forms refuse Manage. No secret export or in-place protocol conversion. |

@@ -67,9 +67,11 @@ HA success does not close these missing acceptance items.
 The [existing-installation preflight](qualification/compatibility/2026-10-20/installation-upgrade/README.md)
 replayed 109 declarations without loss after explicit default normalization and
 preserved the Deployment selector/service account. A targeted native contract
-also passed on legacy Keycloak 26.7.3. However, 44 of the 71 audited declarations
-are Manage objects without current native UID ownership markers. Their reviewed
-acquisition and rollback remain necessary before an in-place operator upgrade;
+also passed on legacy Keycloak 26.7.3. The extended read-only inventory now covers
+84 declarations: 44 client/role/ResourceServer Manage objects and 13 structural
+Organization groups lack current UID ownership markers. The native Organization
+root already has the exact owner. Their reviewed acquisition and rollback remain
+necessary before an in-place operator upgrade;
 schema compatibility alone does not authorize takeover. The live cluster is
 unchanged. These reports do not establish a public predecessor or 24-hour soak.
 

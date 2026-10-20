@@ -49,6 +49,17 @@ func TestRealKeycloakLegacyApplicationMigration(t *testing.T) {
 		credential, err := operator.CreateApp(ctx, "example", keycloak.CreateAppSpec{ClientID: app.Spec.ClientID, Name: app.Spec.ClientID, Type: kind, RedirectURIs: app.Spec.RedirectURIs, PostLogoutRedirectURIs: app.Spec.PostLogoutRedirectURIs})
 		f.requireNoError(err)
 		f.secrets = append(f.secrets, credential)
+		if kind == "m2m" {
+			cl := f.client("example", app.Spec.ClientID)
+			path := "/admin/realms/example/clients/" + cl["id"].(string) + "/default-client-scopes"
+			var scopes []map[string]any
+			f.admin(http.MethodGet, path, nil, &scopes)
+			for _, scope := range scopes {
+				if scope["name"] == "service_account" {
+					f.admin(http.MethodDelete, path+"/"+scope["id"].(string), nil, nil)
+				}
+			}
+		}
 		f.requireNoError(operator.ReconcileClientRealmRoleScopes(ctx, "example", app.Spec.ClientID, app.Spec.RealmRoleScopes))
 		f.requireNoError(operator.CreateClientRole(ctx, "example", app.Spec.ClientID, "viewer", "Existing role"))
 		app.Spec.Roles = []api.ApplicationRole{{Name: "viewer", Description: "Existing role"}}
@@ -113,6 +124,9 @@ func TestRealKeycloakLegacyApplicationMigration(t *testing.T) {
 		}
 		after := f.client("example", app.Spec.ClientID)
 		fixtureEqual(t, "migration retains UUID", after["id"], before["id"])
+		for _, field := range []string{"defaultClientScopes", "optionalClientScopes", "frontchannelLogout"} {
+			fixtureEqual(t, "legacy migration retains native setting: "+field, adoptionClone(t, after)[field], adoptionClone(t, before)[field])
+		}
 		mappers, err := operator.ListClientProtocolMappers(ctx, "example", app.Spec.ClientID)
 		f.requireNoError(err)
 		fixtureEqual(t, "migration retains mapper UUID", mappers[0].ID, mapper.ID)

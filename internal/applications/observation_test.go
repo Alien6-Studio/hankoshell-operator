@@ -1,12 +1,45 @@
 package applications
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
 	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 )
+
+func TestApplicationNativeScopeObservationIsOrderIndependentAndHashBound(t *testing.T) {
+	p := testApplicationPlan(t, Intent{Protocol: "oidc", Pattern: "spa", ClientID: "portal"}, ResolvedReferences{}, iamcontract.Preconditions{})
+	app := desired(p)
+	app.DefaultClientScopes, app.OptionalClientScopes = []string{"profile", "email"}, []string{"address", "offline_access"}
+	logout := false
+	app.FrontchannelLogout = &logout
+	observe := func(app keycloak.Application) iamcontract.Digest {
+		normalized, complete := observedClient(app, p)
+		if !complete {
+			t.Fatal("native client settings made observation incomplete")
+		}
+		data, _ := json.Marshal(normalized)
+		return iamcontract.Hash(iamcontract.Version, "applications", "observation", data)
+	}
+	initial := observe(app)
+	app.DefaultClientScopes, app.OptionalClientScopes = []string{"email", "profile"}, []string{"offline_access", "address"}
+	if observe(app) != initial {
+		t.Fatal("native scope reordering changed migration approval identity")
+	}
+	for _, change := range []func(*keycloak.Application){
+		func(a *keycloak.Application) { a.DefaultClientScopes = []string{"email"} },
+		func(a *keycloak.Application) { a.OptionalClientScopes = []string{"offline_access"} },
+		func(a *keycloak.Application) { enabled := true; a.FrontchannelLogout = &enabled },
+	} {
+		next := app
+		change(&next)
+		if observe(next) == initial {
+			t.Fatal("native setting change did not invalidate migration approval identity")
+		}
+	}
+}
 
 func TestApplicationObservationNormalizesGeneratedStateAndDetectsSemanticDrift(t *testing.T) {
 	p := testApplicationPlan(t, Intent{Protocol: "saml", ClientID: "https://sp.test/entity", SAML: &SAML{ACS: []string{"https://sp.test/a", "https://sp.test/b"}, SignedAssertions: true}, Roles: []Role{{Name: "use", Description: "Use application"}}}, ResolvedReferences{}, iamcontract.Preconditions{})

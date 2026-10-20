@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/Alien6-Studio/hankoshell-operator/internal/adoption"
@@ -97,6 +98,30 @@ func withoutAcquisition(document map[string]any) map[string]any {
 		}
 	}
 	normalizeMapperSnapshotDefaults(result)
+	// These are native sets. Keycloak may reorder them on an owner-only PUT.
+	// Sort copies without deduplicating: additions, removals and duplicates
+	// still change the snapshot and must fail preservation read-back.
+	for _, key := range []string{"defaultClientScopes", "optionalClientScopes"} {
+		if values, ok := result[key].([]any); ok && qualifiedClientScopeCollection(key, values) {
+			slices.SortFunc(values, func(a, b any) int {
+				aa, _ := a.(string) // Already checked by the closed scope schema.
+				bb, _ := b.(string)
+				return strings.Compare(aa, bb)
+			})
+		}
+	}
+	if values, ok := result["protocolMappers"].([]any); ok {
+		slices.SortStableFunc(values, func(a, b any) int {
+			aa, aok := a.(map[string]any)
+			bb, bok := b.(map[string]any)
+			if !aok || !bok {
+				return 0
+			}
+			ai, _ := aa["id"].(string)
+			bi, _ := bb["id"].(string)
+			return strings.Compare(ai, bi)
+		})
+	}
 	return result
 }
 func (s *ClientOwnershipSnapshot) SameSemantics(other *ClientOwnershipSnapshot) bool {
@@ -105,7 +130,8 @@ func (s *ClientOwnershipSnapshot) SameSemantics(other *ClientOwnershipSnapshot) 
 
 // QualifiedLeaf rejects native root settings outside #47's public projection.
 // Known provider defaults are fixed preconditions, not opaque hashed payloads.
-// Nonempty scope collections and custom authentication flows need #49 coverage.
+// Scope references use the bounded closed schema; their native definitions are
+// never acquired. Custom authentication flows remain unqualified.
 func (s *ClientOwnershipSnapshot) QualifiedLeaf() bool {
 	if s == nil {
 		return false
@@ -139,7 +165,7 @@ func (s *ClientOwnershipSnapshot) qualifiedLeafDefault(key string, value any) bo
 	if key == "name" && (value == "" || value == s.Application.ClientID) {
 		return true
 	}
-	if key == "frontchannelLogout" && s.Application.Protocol == "openid-connect" && s.Application.ServiceAccountsEnabled && value == false {
+	if key == "frontchannelLogout" && s.Application.Protocol == "openid-connect" && value == false {
 		return true
 	}
 	if want, ok := defaults[key]; ok && reflect.DeepEqual(value, want) {
@@ -148,7 +174,7 @@ func (s *ClientOwnershipSnapshot) qualifiedLeafDefault(key string, value any) bo
 	if key == "protocolMappers" && qualifiedMapperDocuments(value, s.mappers, &s.Application) {
 		return true
 	}
-	if qualifiedEmptyNativeCollection(key, value) || (s.Application.ServiceAccountsEnabled && qualifiedClientScopeCollection(key, value)) {
+	if qualifiedEmptyNativeCollection(key, value) || (s.Application.Protocol == "openid-connect" && qualifiedClientScopeCollection(key, value)) {
 		return true
 	}
 	return false

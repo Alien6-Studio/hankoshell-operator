@@ -161,7 +161,7 @@ var fields = map[string]bool{
 	"mapperRoles": true, "mapperFlags": true, "providerType": true, "brokerEndpoints": true,
 	"acs": true, "nameID": true, "signedAssertions": true, "signedResponses": true,
 	"nativePresence": true, "credentialPresence": true, "attributes": true,
-	"nativeLocale": true, "authorizationServices": true,
+	"nativeLocale": true, "authorizationServices": true, "frontchannelLogout": true,
 	"keycloakDefault.realm_client":                             true,
 	"keycloakDefault.backchannel.logout.session.required":      true,
 	"keycloakDefault.backchannel.logout.revoke.offline.tokens": true,
@@ -183,7 +183,7 @@ func validFact(f Fact) bool {
 	if !validWorkloadTrustFact(f) {
 		return false
 	}
-	if !validNativeLocaleFact(f) || !validAuthorizationFeatureFact(f) {
+	if !validNativeLocaleFact(f) || !validNativeClientFlagFact(f) {
 		return false
 	}
 	if !validKeycloakDefaultFact(f) {
@@ -499,8 +499,8 @@ func boundEdges(facts []Fact) bool {
 	return truncated
 }
 
-func validAuthorizationFeatureFact(f Fact) bool {
-	if f.Field != "authorizationServices" {
+func validNativeClientFlagFact(f Fact) bool {
+	if f.Field != "authorizationServices" && f.Field != "frontchannelLogout" {
 		return true
 	}
 	return (f.Domain == "application" || f.Domain == "service-account") && f.Value.Flag != nil && f.Value.Text == "" && len(f.Value.Set) == 0 && f.Classification == Preserved && f.RoundTrip == PreservedNative

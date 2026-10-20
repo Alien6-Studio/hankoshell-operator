@@ -146,6 +146,8 @@ func observedClient(got keycloak.Application, p Plan) (keycloak.Application, boo
 	got.ID = ""
 	got.RedirectURIs = stringSet(got.RedirectURIs)
 	got.WebOrigins = stringSet(got.WebOrigins)
+	got.DefaultClientScopes = stringSet(got.DefaultClientScopes)
+	got.OptionalClientScopes = stringSet(got.OptionalClientScopes)
 	delete(got.Attributes, OwnerAttribute)
 	delete(got.Attributes, "hanko.sh/adoption-receipt")
 	delete(got.Attributes, "hanko.sh/resource-server-ownership")

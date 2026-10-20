@@ -19,16 +19,32 @@ release or a completed upgrade/rollback qualification.
   reads examined 71 declarations. All native targets exist; 44 Manage objects
   lack the current UID ownership marker: 30 applications, two service accounts,
   four roles and eight resource servers. The other 27 are Observe/imported.
-  Organization and complete native transaction ownership were not audited.
+  The [extended Organization inventory](organization-ownership.json) additionally
+  checks 13 structural groups: all lack the current markers, while the native
+  Organization root has its exact target owner. This raises the audited
+  declaration count to 84 and the Manage review count to 57. Complete native
+  transaction ownership remains unaudited.
 - [Validation identities](validation.json): the current IAM contract passes with
   race detection against real HTTPS Keycloak 26.7.3 in a local disposable
   container. Only that legacy image pin was added in the private source copy.
   Adoption characterization also passes on that version. These targeted
   experiments do not extend the public support matrix or qualify every deployed
   target for acquisition.
+- [Migration regressions](migration-regressions.json): 72 passing race outcomes
+  across real HTTPS 26.7.3, 26.7.5 and 26.8.0 cover legacy/common client migration
+  and aggregate Organization acquisition, including an already-owned native root.
+  The private 26.7.3 fixture adds its image pin and uses the observed legacy
+  credential-visibility expectation. The first mismatched assertion is retained;
+  no production permission or credential-route restriction was relaxed.
 
 A plain image replacement would leave unmarked Manage resources refused by the
-new ownership checks. Prepare their independent read-only inventory, review
+new ownership checks. The [native settings inventory](native-settings.json)
+finds native scope collections on all 30 Manage applications, disabled
+frontchannel logout on 28 and protocol mappers on 12. These are anonymous counts;
+no native values, identifiers or credentials are published. The migration fixes
+preserve bounded scope references/logout, normalize native set ordering and avoid
+reattaching `service_account` during legacy migration or subsequent updates.
+Prepare the independent read-only inventory, review
 native preservation and exact acquisition candidates, then use the existing
 [adoption workflow](../../../../architecture/existing-keycloak-adoption.md#implemented-reviewed-leaf-acquisition-48).
 Preserve native UUIDs, declaration UIDs, credentials and journals. Do not invent
