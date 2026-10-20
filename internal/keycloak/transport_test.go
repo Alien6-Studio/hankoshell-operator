@@ -4,13 +4,71 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"encoding/pem"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
+
+func TestKeycloakTLSConnectionsAreReusedAtTheFullRequestBudget(t *testing.T) {
+	var connections atomic.Int32
+	arrived := make(chan struct{}, maxKeycloakInFlight)
+	release := make(chan struct{}, maxKeycloakInFlight)
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/token") {
+			writeAuthorizationJSON(w, map[string]any{"access_token": "fixture-token", "expires_in": 300})
+			return
+		}
+		arrived <- struct{}{}
+		select {
+		case <-release:
+			writeAuthorizationJSON(w, Realm{ID: "realm-id", RealmName: "acme"})
+		case <-r.Context().Done():
+		}
+	}))
+	server.Config.ConnState = func(_ net.Conn, state http.ConnState) {
+		if state == http.StateNew {
+			connections.Add(1)
+		}
+	}
+	server.StartTLS()
+	defer server.Close()
+	ca := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw})
+	c, err := NewWithTLS(server.URL, "operator", "fixture", ca)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.httpClient.CloseIdleConnections()
+	for wave := range 2 {
+		outcomes := make(chan error, maxKeycloakInFlight)
+		for range maxKeycloakInFlight {
+			go func() { _, err := c.GetRealm(t.Context(), "acme"); outcomes <- err }()
+		}
+		for range maxKeycloakInFlight {
+			select {
+			case <-arrived:
+			case <-time.After(5 * time.Second):
+				t.Fatal("request budget did not admit the complete concurrent wave")
+			}
+		}
+		for range maxKeycloakInFlight {
+			release <- struct{}{}
+		}
+		for range maxKeycloakInFlight {
+			if err := <-outcomes; err != nil {
+				t.Fatal(err)
+			}
+		}
+		if connections.Load() != maxKeycloakInFlight {
+			t.Fatalf("wave %d opened %d TLS connections for an unchanged %d-request budget", wave, connections.Load(), maxKeycloakInFlight)
+		}
+	}
+}
 
 func TestEndpointContract(t *testing.T) {
 	data, err := os.ReadFile("testdata/endpoints.json")

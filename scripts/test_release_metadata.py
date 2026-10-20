@@ -67,6 +67,7 @@ class ReleaseMetadataTests(unittest.TestCase):
         path.write_text(yaml.safe_dump(chart))
         with patch.object(metadata, "ROOT", source), \
                 patch.object(metadata.versioning, "VERSION", "0.1.0"), \
+                patch.object(metadata.versioning, "TARGET_VERSION", "0.1.0"), \
                 patch.object(metadata.versioning, "RELEASE_STATUS", "candidate"):
             metadata.prepare("0.1.0", self.image, self.chart, self.dist,
                              self.repository_id, self.public_key, "1" * 40)

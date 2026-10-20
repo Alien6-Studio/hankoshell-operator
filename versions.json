@@ -1,7 +1,7 @@
 {
   "release": {
-    "version": "0.1.0-dev.0",
-    "target": "0.1.0",
+    "version": "1.0.0-rc.1",
+    "target": "1.0.0",
     "status": "development"
   },
   "go": {

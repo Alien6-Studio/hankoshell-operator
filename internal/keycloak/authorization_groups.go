@@ -51,11 +51,11 @@ func mergeTypedAuthorizationPolicies(index *authorizationPolicyIndex, policyType
 	seen := map[string]bool{}
 	names := map[string]bool{}
 	for _, item := range typed {
+		generic, exists := index.byID[item.ID]
+		if seen[item.ID] || names[item.Name] || !exists || generic.Name != item.Name || generic.Type != policyType || (item.Type != "" && item.Type != policyType) {
+			return ErrAuthorizationReadLimit
+		}
 		if policyType == "group" {
-			generic, exists := index.byID[item.ID]
-			if seen[item.ID] || names[item.Name] || !exists || generic.Name != item.Name || generic.Type != "group" {
-				return ErrAuthorizationReadLimit
-			}
 			consistent, err := consistentGroupPolicy(generic, item)
 			if err != nil {
 				return err
@@ -71,11 +71,9 @@ func mergeTypedAuthorizationPolicies(index *authorizationPolicyIndex, policyType
 		item.Type = policyType
 		index.byID[item.ID], index.byName[item.Name] = item, item
 	}
-	if policyType == "group" {
-		for id, item := range index.byID {
-			if item.Type == "group" && !seen[id] {
-				return ErrAuthorizationReadLimit
-			}
+	for id, item := range index.byID {
+		if item.Type == policyType && !seen[id] {
+			return ErrAuthorizationReadLimit
 		}
 	}
 	return nil

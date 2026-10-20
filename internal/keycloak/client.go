@@ -77,8 +77,11 @@ func New(baseURL, clientID, clientSecret string, options ...ClientOption) *Clien
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second, CheckRedirect: rejectKeycloakRedirect,
 			Transport: &http.Transport{
-				Proxy:           http.ProxyFromEnvironment,
-				TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12},
+				Proxy:               http.ProxyFromEnvironment,
+				TLSClientConfig:     &tls.Config{MinVersion: tls.VersionTLS12},
+				MaxIdleConns:        maxKeycloakInFlight,
+				MaxIdleConnsPerHost: maxKeycloakInFlight,
+				IdleConnTimeout:     90 * time.Second,
 			},
 		},
 	}
@@ -116,7 +119,10 @@ func NewWithTLS(baseURL, clientID, clientSecret string, caPEM []byte) (*Client, 
 		return nil, fmt.Errorf("keycloak: no valid PEM certificates found in CA bundle")
 	}
 	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12},
+		TLSClientConfig:     &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12},
+		MaxIdleConns:        maxKeycloakInFlight,
+		MaxIdleConnsPerHost: maxKeycloakInFlight,
+		IdleConnTimeout:     90 * time.Second,
 	}
 	return &Client{
 		clientSession: &clientSession{},

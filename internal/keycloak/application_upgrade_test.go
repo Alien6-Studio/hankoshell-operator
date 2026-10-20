@@ -66,7 +66,7 @@ func TestOIDCClientScopePreservationRemainsClosed(t *testing.T) {
 }
 
 func TestLegacyClientOwnerAndManageWritesPreserveRemovedServiceAccountScope(t *testing.T) {
-	document := map[string]any{"id": "native-uuid", "clientId": "legacy", "name": "legacy", "protocol": "openid-connect", "enabled": true, "serviceAccountsEnabled": true, "defaultClientScopes": []any{"profile"}, "optionalClientScopes": []any{"offline_access"}, "frontchannelLogout": false, "secret": "stored-credential-sentinel", "access": map[string]bool{"configure": true}, "attributes": map[string]any{}}
+	document := map[string]any{"id": "native-uuid", "clientId": "legacy", "name": "legacy", "protocol": "openid-connect", "enabled": true, "serviceAccountsEnabled": true, "defaultClientScopes": []any{"profile"}, "optionalClientScopes": []any{"offline_access"}, "frontchannelLogout": false, "secret": "stored-credential-sentinel", "access": map[string]bool{"configure": true}, "attributes": map[string]any{"hanko.app": "true", "hanko.service": "true"}}
 	puts := 0
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -108,10 +108,14 @@ func TestLegacyClientOwnerAndManageWritesPreserveRemovedServiceAccountScope(t *t
 		t.Fatal(err)
 	}
 	app.Attributes[adoption.ApplicationOwnerKey] = "owner-uid"
+	delete(app.Attributes, "hanko.app") // Only the M2M hint is managed by this intent.
 	if err := kc.UpdateApplication(ctx, "managed", *app, adoption.ApplicationOwnerKey, "owner-uid"); err != nil {
 		t.Fatal(err)
 	}
 	if puts != 2 || document["secret"] != "stored-credential-sentinel" || document["frontchannelLogout"] != false || !reflect.DeepEqual(document["defaultClientScopes"], []any{"profile"}) || !reflect.DeepEqual(document["optionalClientScopes"], []any{"offline_access"}) {
 		t.Fatal("legacy migration changed native configuration or credentials")
+	}
+	if document["attributes"].(map[string]any)["hanko.app"] != "true" {
+		t.Fatal("legacy opposite catalog hint was removed during a client write")
 	}
 }

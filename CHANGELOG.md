@@ -1,8 +1,33 @@
 # Changelog
 
-## 0.1.0 — In development
+## 1.0.0-rc.1 — Qualification candidate
 
 <!-- release-notes:start -->
+### Candidate scope and remaining acceptance
+
+- Package the exact scanned Linux AMD64/ARM64 OCI image, digest-pinned Helm chart,
+  source revision, checksums and vulnerability evidence as `1.0.0-rc.1`.
+- Include the Scaleway ownership migration and recovery fixes: preserve native
+  OIDC configuration, repair verified receipts after an outage and retain
+  ServiceAccount rotation checkpoints across Observe/Manage transitions.
+- Keep all APIs experimental and the production publication gate closed. The
+  24-hour endurance campaign, full capacity/HA evidence, public predecessor
+  compatibility and independent release approval remain stable-release blockers.
+- The existing dashboard login was restored by reloading its rotated credential;
+  a Ready Pod alone does not establish consumer authentication health.
+
+### Authorization read-back and connection reuse
+
+- Resolve shared roles and client principals once within each fresh read-only
+  authorization observation, preserving all permission bindings. Query typed
+  policy endpoints only for types present in the complete generic inventory.
+- Refuse duplicate or missing native identities, inconsistent generic/typed
+  policies and permissions, and incomplete or ambiguous policy bindings before
+  treating an authorization graph as synchronized.
+- Reuse verified TLS connections up to the existing eight-request budget and
+  expire idle connections. Credential refresh and provider throttling retain
+  their shared bounds.
+
 ### Preserve existing OIDC settings during operator migration
 
 - Qualify bounded OIDC scope references and the native frontchannel logout flag
@@ -488,8 +513,9 @@ notice policy requires community review under #87 before public acceptance.
 
 ### Release overview
 
-hankoShell Operator 0.1.0-dev.0 is in initial development toward its first public
-release, 0.1.0. No public release has been published yet. It reconciles declarative
+hankoShell Operator 1.0.0-rc.1 is an initial development qualification candidate
+for the 1.0.0 target. No stable release has been published. The historical 0.1.0
+public-contract proposal remains an unratified baseline, not a published predecessor. It reconciles declarative
 Keycloak IAM configuration from Kubernetes; application identity lives beside
 deployment manifests. Hub, hankoShell API and Continuum are optional.
 Project: https://hanko.sh.

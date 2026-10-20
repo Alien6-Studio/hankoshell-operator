@@ -223,6 +223,11 @@ func preserveApplicationSiblingAttributes(current map[string]any, next map[strin
 			next[key] = value
 		}
 	}
+	for _, key := range []string{hankoAppAttribute, hankoServiceAttribute} {
+		if _, managed := next[key]; !managed && current[key] == "true" {
+			next[key] = "true"
+		}
+	}
 	if _, actor := current[BoundedDelegationActorAttribute].(string); actor {
 		if value, ok := current["standard.token.exchange.enabled"].(string); ok {
 			next["standard.token.exchange.enabled"] = value

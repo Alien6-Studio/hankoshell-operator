@@ -1,7 +1,7 @@
 # Development backlog for the 1.0 workstream
 
-Snapshot: 2026-10-20, after protected PR #134 and the Resolutions of #71, #86
-and #99. **13 issues remain open.** The development branch name does not publish
+Snapshot: 2026-10-20, after protected PR #135 and the in-place Scaleway upgrade.
+**13 issues remain open.** The development branch name does not publish
 a version or graduate an API. Current technical metadata is `0.1.0-dev.0`.
 
 | Tracking category | Count | Remaining work |
@@ -64,16 +64,24 @@ and measured sizing. #96 retains arbitrary partition/clock-skew and remaining
 fault coverage, plus #95 prerequisites. Existing six-cell transaction/delegation
 HA success does not close these missing acceptance items.
 
-The [existing-installation preflight](qualification/compatibility/2026-10-20/installation-upgrade/README.md)
-replayed 109 declarations without loss after explicit default normalization and
-preserved the Deployment selector/service account. A targeted native contract
-also passed on legacy Keycloak 26.7.3. The extended read-only inventory now covers
-84 declarations: 44 client/role/ResourceServer Manage objects and 13 structural
-Organization groups lack current UID ownership markers. The native Organization
-root already has the exact owner. Their reviewed acquisition and rollback remain
-necessary before an in-place operator upgrade;
-schema compatibility alone does not authorize takeover. The live cluster is
-unchanged. These reports do not establish a public predecessor or 24-hour soak.
+The [existing-installation upgrade](qualification/compatibility/2026-10-20/installation-upgrade/README.md)
+is deployed on Scaleway. All 109 original declaration UIDs, 16 original CRD UIDs
+and the operator Deployment UID are preserved. All 57 reviewed native targets
+have acquired ownership and resumed Manage, with current-generation Ready status.
+Seven themes are Ready. All 30 native client configurations are preserved. Of 32
+credential output targets, all UIDs and 30 data payloads are preserved; two
+ServiceAccount credentials rotated early after their previous rotation timestamp
+was cleared during Observe/acquisition. Both updated credentials authenticate and
+have no cluster Pod/workload-template consumers. This preservation failure is
+retained. The accompanying fixes cover historical rotation checkpoints, dual
+legacy catalog hints, stale managed receipt output after provider outage and the
+claim CLI's finalizer read-back race. Rollback, larger capacity, continuous
+endurance and public release paths remain separate qualifications.
+
+The subsequent dashboard login incident was recovered by rolling its stale
+environment credential consumer. Browser login rendering and public client
+authentication now pass. Upgrade/rotation qualification must also verify runtime
+consumers and their reload mechanism; automatic consumer reload remains pending.
 
 ## Release prerequisites
 
