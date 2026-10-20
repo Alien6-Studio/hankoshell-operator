@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/adoption"
@@ -28,6 +29,7 @@ type acquisitionFixture struct {
 	puts, credentialCalls, observerWrites int
 	lostAck, partial                      bool
 	reorderCollections                    bool
+	readUnavailable                       bool
 	server                                *httptest.Server
 	kube                                  client.Client
 	writer                                *keycloak.Client
@@ -80,6 +82,10 @@ func (f *acquisitionFixture) serve(w http.ResponseWriter, r *http.Request) {
 	if strings.HasSuffix(r.URL.Path, "/token") {
 		_ = r.ParseForm()
 		_ = json.NewEncoder(w).Encode(map[string]any{"access_token": r.Form.Get("client_id"), "expires_in": 300})
+		return
+	}
+	if f.readUnavailable && r.Method == http.MethodGet {
+		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
 	if strings.Contains(r.URL.Path, "client-secret") || strings.Contains(r.URL.Path, "service-account-user") {
@@ -208,6 +214,78 @@ func TestOwnershipAcquisitionLeafTransactions(t *testing.T) {
 			status, _ := json.Marshal(f.target)
 			if strings.Contains(string(status), "credential-sentinel") {
 				t.Fatal("credential in status")
+			}
+		})
+	}
+}
+
+func TestManagedAcquisitionStatusRecoversFromUnavailableNativeRead(t *testing.T) {
+	for _, kind := range []string{"HankoApplication", "HankoRole", "HankoServiceAccount"} {
+		t.Run(kind, func(t *testing.T) {
+			f := newAcquisitionFixture(t, kind, "oidc")
+			f.approve()
+			if err := f.run(); err != nil {
+				t.Fatal(err)
+			}
+			_, _ = f.status()
+			switch target := f.target.(type) {
+			case *api.HankoApplication:
+				target.Spec.Mode = ModeManage
+			case *api.HankoRole:
+				target.Spec.Mode = ModeManage
+			case *api.HankoServiceAccount:
+				target.Spec.Mode = ModeManage
+			}
+			f.target.SetGeneration(2)
+			if err := f.kube.Update(context.Background(), f.target); err != nil {
+				t.Fatal(err)
+			}
+			f.readUnavailable = true
+			if err := f.run(); err != nil {
+				t.Fatal(err)
+			}
+			receipt, _ := f.status()
+			if receipt == nil || receipt.State != "Conflict" {
+				t.Fatal("unavailable native proof remained verified")
+			}
+			checkpoint := metav1.NewTime(time.Unix(1_780_000_000, 0))
+			switch target := f.target.(type) {
+			case *api.HankoApplication:
+				target.Status.AppliedGeneration, target.Status.AppliedPlanHash = 2, "retained-plan"
+			case *api.HankoRole:
+				target.Status.AppliedGeneration, target.Status.AppliedPlanHash = 2, "retained-plan"
+			case *api.HankoServiceAccount:
+				target.Status.LastRotated = &checkpoint
+				target.Status.SecretRef = &api.SecretReference{SecretRef: corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "retained-credential"}, Key: "client_secret"}}
+			}
+			if err := f.kube.Status().Update(context.Background(), f.target); err != nil {
+				t.Fatal(err)
+			}
+			f.readUnavailable = false
+			if err := f.run(); err != nil {
+				t.Fatal(err)
+			}
+			receipt, conditions := f.status()
+			if receipt == nil || receipt.State != "Verified" || conditionReason(conditions, "OwnershipAdopted") != "AdoptionVerified" {
+				t.Fatal("current native ownership proof did not repair receipt output")
+			}
+			switch target := f.target.(type) {
+			case *api.HankoApplication:
+				if target.Status.AppliedGeneration != 2 || target.Status.AppliedPlanHash != "retained-plan" {
+					t.Fatal("receipt recovery cleared applied evidence")
+				}
+			case *api.HankoRole:
+				if target.Status.AppliedGeneration != 2 || target.Status.AppliedPlanHash != "retained-plan" {
+					t.Fatal("receipt recovery cleared applied evidence")
+				}
+			case *api.HankoServiceAccount:
+				if target.Status.SecretRef == nil || target.Status.LastRotated == nil || !target.Status.LastRotated.Equal(&checkpoint) {
+					t.Fatal("receipt recovery cleared credential checkpoints")
+				}
+			}
+			handled, _, err := reconcileOwnershipAcquisition(context.Background(), f.kube, f.kube, f.target, f.writer, nil)
+			if err != nil || handled || f.puts != 1 || f.credentialCalls != 0 || f.observerWrites != 0 {
+				t.Fatal("verified recovery replayed acquisition, read credentials, or blocked Manage")
 			}
 		})
 	}

@@ -9,6 +9,29 @@ import (
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 )
 
+func TestApplicationLegacyCatalogHintsDoNotChangeAuthorityOrCauseDrift(t *testing.T) {
+	for _, pattern := range []string{"spa", "web", "m2m"} {
+		t.Run(pattern, func(t *testing.T) {
+			p := testApplicationPlan(t, Intent{Protocol: "oidc", Pattern: pattern, ClientID: "legacy"}, ResolvedReferences{}, iamcontract.Preconditions{})
+			app := desired(p)
+			app.Attributes["hanko.app"], app.Attributes["hanko.service"] = "true", "true"
+			canonical, complete := observedClient(app, p)
+			if !complete || applicationDrift(p, observedApplication{Complete: true, Client: canonical}) {
+				t.Fatal("legacy catalog hint requires a semantic client write")
+			}
+			managed := "hanko.app"
+			if pattern == "m2m" {
+				managed = "hanko.service"
+			}
+			app.Attributes[managed] = "false"
+			canonical, complete = observedClient(app, p)
+			if !applicationDrift(p, observedApplication{Complete: complete, Client: canonical}) {
+				t.Fatal("wrong required hint was treated as a harmless sibling")
+			}
+		})
+	}
+}
+
 func TestApplicationNativeScopeObservationIsOrderIndependentAndHashBound(t *testing.T) {
 	p := testApplicationPlan(t, Intent{Protocol: "oidc", Pattern: "spa", ClientID: "portal"}, ResolvedReferences{}, iamcontract.Preconditions{})
 	app := desired(p)

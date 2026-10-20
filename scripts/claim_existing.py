@@ -29,6 +29,13 @@ KINDS = {kind: plural for kind, plural in (
     ("HankoRole", "hankoroles"), ("HankoOrganization", "hankoorganizations"),
     ("HankoResourceServer", "hankoresourceservers"))}
 MAX_TARGETS = 1024
+MANAGED_FINALIZERS = {
+    "HankoApplication": "hanko.sh/client-cleanup",
+    "HankoServiceAccount": "hanko.sh/sa-cleanup",
+    "HankoRole": "hanko.sh/role-cleanup",
+    "HankoOrganization": "hanko.sh/organization-cleanup",
+    "HankoResourceServer": "hanko.sh/resource-server-cleanup",
+}
 HASH = re.compile(r"sha256:[a-f0-9]{64}")
 require = migration.require
 Refused = migration.Refused
@@ -166,8 +173,11 @@ def plan(kube, namespace, source_name, targets, resume=False):
         except Refused as error:
             value["deferred"].append({**target, "reason": str(error)})
             continue
-        value["targets"].append({**target, "binding": binding(obj), "generation": obj["metadata"]["generation"],
-                                 "candidateHash": reviewed_hash})
+        entry = {**target, "binding": binding(obj), "generation": obj["metadata"]["generation"],
+                 "candidateHash": reviewed_hash}
+        if resume:
+            entry["finalizers"] = copy.deepcopy(obj["metadata"].get("finalizers"))
+        value["targets"].append(entry)
     value["approvalHash"] = digest(value)
     return value
 
@@ -195,6 +205,23 @@ def reviewed_object(kube, value, target, *, finish=False):
         require(obj["metadata"]["generation"] == target["generation"] + 1, "ClaimTargetChanged")
         original["spec"]["mode"] = "Observe"
         original["metadata"]["generation"] = target["generation"]
+        if "finalizers" in target:
+            # A controller may append its own cleanup finalizer immediately
+            # after the explicitly consented mode change, before our read-back.
+            # Bind every original finalizer and tolerate only this exact addition;
+            # old plans without the snapshot keep their strict binding behavior.
+            prior = target["finalizers"]
+            require(prior is None or isinstance(prior, list) and all(isinstance(v, str) for v in prior), "InvalidClaimInput")
+            actual = original["metadata"].get("finalizers")
+            if actual != prior:
+                managed = MANAGED_FINALIZERS[target["kind"]]
+                require(isinstance(actual, list) and managed not in (prior or [])
+                        and actual.count(managed) == 1
+                        and [v for v in actual if v != managed] == (prior or []), "ClaimTargetChanged")
+                if prior is None:
+                    original["metadata"].pop("finalizers", None)
+                else:
+                    original["metadata"]["finalizers"] = copy.deepcopy(prior)
     require(binding(original) == target["binding"], "ClaimTargetChanged")
     if finish:
         annotations = obj["metadata"].get("annotations") or {}

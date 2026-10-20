@@ -188,6 +188,57 @@ class ClaimExistingTests(unittest.TestCase):
             path.write_text('{"private":1,"private":2}')
             with self.assertRaisesRegex(claim.Refused, "AmbiguousJSON"): claim.private_read(path)
 
+    def test_manage_readback_accepts_only_the_controller_cleanup_finalizer(self):
+        for kind, finalizer in claim.MANAGED_FINALIZERS.items():
+            for prior in (None, [], ["example/preserve"]):
+                with self.subTest(kind=kind, prior=prior):
+                    cluster = Cluster()
+                    obj = cluster.target(kind)
+                    if prior is not None:
+                        obj["metadata"]["finalizers"] = copy.deepcopy(prior)
+                    value = self.make_plan(cluster, [obj], resume=True)
+                    claim.execute(cluster, value, value["approvalHash"])
+                    obj["status"]["adoptionReceipt"] = {"contractVersion": claim.CONTRACT,
+                        "candidateHash": obj["metadata"]["annotations"][claim.CANDIDATE], "state": "Verified"}
+                    original_patch = cluster.patch
+                    def controller_patch(target, operations):
+                        result = original_patch(target, operations)
+                        obj["metadata"].setdefault("finalizers", []).append(finalizer)
+                        return result
+                    cluster.patch = controller_patch
+                    self.assertEqual(claim.execute(cluster, value, value["approvalHash"], finish=True)["phase"], "ManageRequested")
+                    claim.execute(cluster, value, value["approvalHash"], finish=True)
+                    self.assertEqual(obj["metadata"]["finalizers"], (prior or []) + [finalizer])
+                    self.assertEqual(len(cluster.writes), 2)
+
+    def test_manage_readback_refuses_other_metadata_changes(self):
+        for change in ("foreign-finalizer", "removed-original", "annotation", "before-consent", "old-plan"):
+            with self.subTest(change=change):
+                cluster = Cluster()
+                obj = cluster.target("HankoRole")
+                obj["metadata"]["finalizers"] = ["example/preserve"]
+                value = self.make_plan(cluster, [obj], resume=True)
+                if change == "old-plan":
+                    value["targets"][0].pop("finalizers")
+                    value.pop("approvalHash")
+                    value["approvalHash"] = claim.digest(value)
+                claim.execute(cluster, value, value["approvalHash"])
+                obj["status"]["adoptionReceipt"] = {"contractVersion": claim.CONTRACT,
+                    "candidateHash": obj["metadata"]["annotations"][claim.CANDIDATE], "state": "Verified"}
+                original_patch = cluster.patch
+                def racing_patch(target, operations):
+                    result = original_patch(target, operations)
+                    obj["metadata"]["finalizers"].append(claim.MANAGED_FINALIZERS["HankoRole"])
+                    if change == "foreign-finalizer": obj["metadata"]["finalizers"].append("example/foreign")
+                    if change == "removed-original": obj["metadata"]["finalizers"].remove("example/preserve")
+                    if change == "annotation": obj["metadata"]["annotations"]["example/preserve"] = "changed"
+                    return result
+                cluster.patch = racing_patch
+                if change == "before-consent":
+                    obj["metadata"]["finalizers"].append(claim.MANAGED_FINALIZERS["HankoRole"])
+                with self.assertRaisesRegex(claim.Refused, "ClaimTargetChanged"):
+                    claim.execute(cluster, value, value["approvalHash"], finish=True)
+
     def test_transport_uses_conditional_patch_stdin_and_suppresses_api_error_text(self):
         cluster = Cluster()
         obj = cluster.target()

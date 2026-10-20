@@ -70,6 +70,9 @@ func reconcileOwnershipAcquisition(ctx context.Context, kube client.Client, read
 			if !acquisitionTargetUnchanged(ctx, reader, current) || guard != nil && guard(ctx, current, writer) != nil {
 				return adoptionResult(ctx, kube, current, nil, approval, "Conflict", "AdoptionOwnershipConflict")
 			}
+			if handled, result, err := recoverManagedAdoptionStatus(ctx, kube, current, s); handled || err != nil {
+				return handled, result, err
+			}
 			return false, ctrl.Result{}, nil
 		}
 		if approval.Requested {
@@ -158,6 +161,42 @@ func reconcileOwnershipAcquisition(ctx context.Context, kube client.Client, read
 		return adoptionResult(ctx, kube, current, verified, approval, "Partial", "AdoptionPartial")
 	}
 	return adoptionResult(ctx, kube, current, verified, approval, "Verified", "AdoptionVerified")
+}
+
+// Availability failures can invalidate output without changing the durable
+// native receipt. Recover that output only after the Manage path has freshly
+// verified exact ownership, preservation and the current target/authority guard.
+// Applied evidence and credential checkpoints belong to their own controllers.
+func recoverManagedAdoptionStatus(ctx context.Context, kube client.Client, o client.Object, s *acquisitionSnapshot) (bool, ctrl.Result, error) {
+	values := s.attributes()[adoption.ReceiptKey]
+	if len(values) != 1 {
+		return true, ctrl.Result{}, errAdoptionIdentity
+	}
+	proof, err := adoption.ParseReceipt(values[0])
+	if err != nil {
+		return true, ctrl.Result{}, err
+	}
+	base := o.DeepCopyObject().(client.Object)
+	var receipt **api.AdoptionReceiptStatus
+	var conditions *[]metav1.Condition
+	switch target := o.(type) {
+	case *api.HankoApplication:
+		receipt, conditions = &target.Status.AdoptionReceipt, &target.Status.Conditions
+	case *api.HankoRole:
+		receipt, conditions = &target.Status.AdoptionReceipt, &target.Status.Conditions
+	case *api.HankoServiceAccount:
+		receipt, conditions = &target.Status.AdoptionReceipt, &target.Status.Conditions
+	default:
+		return true, ctrl.Result{}, errAdoptionIdentity
+	}
+	want := &api.AdoptionReceiptStatus{ContractVersion: string(adoption.Version), CandidateHash: proof.CandidateHash, State: "Verified"}
+	if reflect.DeepEqual(*receipt, want) {
+		return false, ctrl.Result{}, nil
+	}
+	*receipt = want
+	iamCondition(conditions, o.GetGeneration(), "OwnershipAdopted", metav1.ConditionTrue, "AdoptionVerified", "current native ownership and preservation proof recovered after an unavailable observation")
+	err = kube.Status().Patch(ctx, o, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{}))
+	return true, ctrl.Result{RequeueAfter: requeueImmediately}, err
 }
 
 func adoptionCandidateFailure(c *api.AdoptionCandidateStatus, a adoption.Approval) string {
