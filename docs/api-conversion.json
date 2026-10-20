@@ -13,7 +13,7 @@
         "v1alpha1",
         "v1beta1"
       ],
-      "schema_sha256": "56d1106c7983c057f2d444f552be2523f831867893b6e593ff81e67ddcb509da"
+      "schema_sha256": "30ca1e5c86af531929fc321d44f6f9e2435832db2ceebc52225505cfd0b5fd85"
     },
     "HankoResourceServer": {
       "plural": "hankoresourceservers",

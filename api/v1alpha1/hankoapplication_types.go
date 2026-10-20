@@ -31,7 +31,7 @@ type HankoApplication struct {
 // +kubebuilder:validation:XValidation:rule="!has(self.clientSecretProjections) || !has(self.mode) || self.mode != 'Observe'",message="clientSecretProjections require Manage mode"
 // +kubebuilder:validation:XValidation:rule="self.clientID.trim() != 'account' && self.clientID.trim() != 'account-console' && self.clientID.trim() != 'admin-cli' && self.clientID.trim() != 'broker' && self.clientID.trim() != 'realm-management' && self.clientID.trim() != 'security-admin-console'",message="built-in Keycloak clients cannot be managed as HankoApplication"
 // +kubebuilder:validation:XValidation:rule="(!has(self.protocol) || self.protocol == 'oidc') ? !has(self.saml) : has(self.saml)",message="saml configuration is required only for protocol saml"
-// +kubebuilder:validation:XValidation:rule="!has(self.protocol) || self.protocol != 'saml' || (!has(self.type) && (!has(self.redirectURIs) || size(self.redirectURIs) == 0) && (!has(self.postLogoutRedirectURIs) || size(self.postLogoutRedirectURIs) == 0) && (!has(self.tokenClaims) || size(self.tokenClaims) == 0) && (!has(self.identityMappings) || size(self.identityMappings) == 0) && !has(self.realmRoleScopes) && !has(self.secretRotationPolicy) && (!has(self.clientSecretProjections) || size(self.clientSecretProjections) == 0))",message="SAML rejects OIDC types, callbacks, claims, mappings, scopes, rotation and secret projections"
+// +kubebuilder:validation:XValidation:rule="!has(self.protocol) || self.protocol != 'saml' || (!has(self.type) && !has(self.webOrigins) && (!has(self.redirectURIs) || size(self.redirectURIs) == 0) && (!has(self.postLogoutRedirectURIs) || size(self.postLogoutRedirectURIs) == 0) && (!has(self.tokenClaims) || size(self.tokenClaims) == 0) && (!has(self.identityMappings) || size(self.identityMappings) == 0) && !has(self.realmRoleScopes) && !has(self.secretRotationPolicy) && (!has(self.clientSecretProjections) || size(self.clientSecretProjections) == 0))",message="SAML rejects OIDC types, callbacks, claims, mappings, scopes, rotation and secret projections"
 // +kubebuilder:validation:XValidation:rule="!has(self.attributes) || self.attributes.all(k, !k.matches('(?i)^(saml|hanko[.]).*') && !k.matches('(?i)^(protocol|login_theme|post[.]logout[.]redirect[.]uris)$') && !k.matches('(?i).*(private|password|secret|credential|access_token|bearer).*'))",message="native attributes cannot override protocol, SAML, ownership or managed theme/logout settings"
 type HankoApplicationSpec struct {
 	// RealmRef references the HankoRealm this application belongs to.
@@ -67,6 +67,18 @@ type HankoApplicationSpec struct {
 	// +kubebuilder:validation:items:MaxLength=255
 	// +kubebuilder:validation:items:Pattern=`^[^\x00-\x1F\x7F]+$`
 	RedirectURIs []string `json:"redirectURIs,omitempty"`
+
+	// WebOrigins explicitly selects the native OIDC CORS entry set. Omission retains
+	// the legacy "+" default, which derives origins from redirect URIs. An
+	// explicit empty array disables CORS origins. HTTP(S) entries and "+"
+	// are accepted, including legacy callback paths and terminal path wildcards.
+	// Credentials, queries, fragments and wildcard authorities are rejected.
+	// +listType=set
+	// +kubebuilder:validation:MaxItems=64
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:MaxLength=255
+	// +kubebuilder:validation:items:Pattern=`^(\+|https?://[^/?#@\s\\*]+(/[^?#@\s\\*]*)?(/\*)?)$`
+	WebOrigins *[]string `json:"webOrigins,omitempty"`
 
 	// PostLogoutRedirectURIs is the list of allowed URIs after logout.
 	// +kubebuilder:validation:MaxItems=64

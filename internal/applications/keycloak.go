@@ -57,6 +57,12 @@ func desired(p Plan) keycloak.Application {
 	result := keycloak.Application{ClientID: i.ClientID, Name: i.ClientID, Protocol: providerProtocol(i.Protocol), Enabled: true,
 		PublicClient: i.Pattern == "spa", StandardFlowEnabled: i.Pattern != "m2m", ServiceAccountsEnabled: i.Pattern == "m2m",
 		RedirectURIs: i.RedirectURIs, WebOrigins: []string{"+"}, Attributes: attrs}
+	if i.WebOrigins != nil {
+		result.WebOrigins = slices.Clone(*i.WebOrigins)
+		if result.WebOrigins == nil {
+			result.WebOrigins = []string{}
+		}
+	}
 	if i.Pattern == "m2m" {
 		attrs["hanko.service"] = "true"
 	} else {

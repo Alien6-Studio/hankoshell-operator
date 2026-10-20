@@ -84,7 +84,7 @@ def render(data):
     for row in data["resources"]:
         fields = ", ".join("`" + f + "`" for f, c in row["spec"].items() if c == "public") or "—"
         rows.append(f"| `{row['kind']}` | {row['classification']} | {fields} |")
-    rows += ["", "Native SAML remains an explicit Keycloak extension. Delegation, organization principals,",
+    rows += ["", "Native SAML and CORS entry policy remain Keycloak extensions. Delegation, organization principals,",
              "connected integrations and every other deferred field retain their named limitations in",
              "the complete selection; no planned capability is removed."]
     return "\n".join(rows)

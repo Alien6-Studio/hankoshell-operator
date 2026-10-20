@@ -178,6 +178,16 @@ func importedTokenClaim(mapper keycloak.ProtocolMapper) (api.ApplicationTokenCla
 }
 func importedApplicationSpec(realm string, c keycloak.InventoryClient, roles []keycloak.RealmRole, mappers []keycloak.ProtocolMapper) (api.HankoApplicationSpec, bool) {
 	spec := api.HankoApplicationSpec{RealmRef: realm, ClientID: c.ClientID, Type: "web", Protocol: "oidc", Mode: ModeObserve, RedirectURIs: c.RedirectURIs}
+	if c.Protocol != "saml" {
+		if !applications.ValidWebOrigins(c.WebOrigins) {
+			return spec, false
+		}
+		origins := slices.Clone(c.WebOrigins)
+		if origins == nil {
+			origins = []string{}
+		}
+		spec.WebOrigins = &origins
+	}
 	if !safeInventoryURLs(c.RedirectURIs) || !safeInventoryURLs(strings.Split(c.Attributes["post.logout.redirect.uris"], "##")) {
 		return spec, false
 	}
@@ -455,7 +465,11 @@ func desiredInventoryFacts(item *adoptionInventoryItem, obj client.Object) []ado
 			add("signedResponses", flagValue(true))
 			add("webOrigins", setValue(nil))
 		} else {
-			add("webOrigins", setValue([]string{"+"}))
+			origins := []string{"+"}
+			if o.Spec.WebOrigins != nil {
+				origins = *o.Spec.WebOrigins
+			}
+			add("webOrigins", setValue(origins))
 		}
 		if len(o.Spec.RuntimeBindings) > 0 {
 			add("runtimeBindings", flagValue(true))

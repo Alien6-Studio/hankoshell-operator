@@ -23,6 +23,7 @@ func checkApplicationProtocols(t *testing.T, ctx context.Context, kube client.Cl
 	if legacy.Spec.Protocol != "oidc" {
 		t.Fatal("legacy protocol was not defaulted to oidc")
 	}
+	checkApplicationWebOrigins(t, ctx, kube)
 	saml := &api.HankoApplication{ObjectMeta: metav1.ObjectMeta{Name: "protocol-saml", Namespace: "auth"}, Spec: api.HankoApplicationSpec{RealmRef: "example", ClientID: "https://sp.test/entity", Protocol: "saml", SAML: &api.ApplicationSAML{AssertionConsumerServices: []string{"https://sp.test/acs"}}}}
 	if err := kube.Create(ctx, saml); err != nil {
 		t.Fatal(err)
@@ -52,6 +53,7 @@ func checkApplicationProtocols(t *testing.T, ctx context.Context, kube client.Cl
 		func(s map[string]any) { s["type"] = "web" },
 		func(s map[string]any) { s["redirectURIs"] = []any{"https://sp.test/callback"} },
 		func(s map[string]any) { s["postLogoutRedirectURIs"] = []any{"https://sp.test/logout"} },
+		func(s map[string]any) { s["webOrigins"] = []any{} },
 		func(s map[string]any) { s["realmRoleScopes"] = []any{} },
 		func(s map[string]any) {
 			s["tokenClaims"] = []any{map[string]any{"name": "claim", "claim": "department", "userAttribute": "department"}}

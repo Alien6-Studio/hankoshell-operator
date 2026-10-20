@@ -35,6 +35,12 @@ def mutation(name, file, before, after, package, test):
 
 
 MUTATIONS = [
+    mutation("application-cors-validation", "internal/applications/web_origins.go",
+             'return origins == nil || ValidWebOrigins(*origins)', 'return true',
+             "internal/applications", "TestExplicitWebOriginsRejectCredentialAndWildcardPoliciesBeforeExecution"),
+    mutation("application-cors-explicit-empty", "internal/applications/web_origins.go",
+             'if origins == nil {', 'if origins == nil || len(*origins) == 0 {',
+             "internal/applications", "TestExplicitWebOriginsPreserveEmptyAndCanonicalReviewedSets"),
     *[mutation("settled-authorization-retire-" + kind.lower(), "internal/keycloak/authorization.go",
                "len(owned." + kind + ") == len(settled.Observation." + kind + ")", "true",
                "internal/keycloak", "TestSettledAuthorizationRetiresEachUnobservedOwnedCategory")

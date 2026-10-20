@@ -295,8 +295,8 @@ the final review and exact-candidate qualification decision.
 
 ## Every public field has an admission fixture
 
-The [frozen corpus](../api/testdata/public-field-budgets.json) has 966 alpha
-field paths, covering all 1,343 served paths through identical alpha/beta
+The [frozen corpus](../api/testdata/public-field-budgets.json) has 968 alpha
+field paths, covering all 1,347 served paths through identical alpha/beta
 versions. A live-schema walk rejects missing/removed fixture paths and never
 supplies their expected bounds. Each fixture submits a valid representative and
 isolated oversized, empty, pattern-breaking or unsupported-enum values where
@@ -306,6 +306,13 @@ pattern/enum error cannot conceal a missing size check. The existing independent
 95 input and 232 status budget cases additionally exercise accepted maxima.
 These checks prove API enforcement, not provider acceptance of every allowed
 configuration. Real provider convergence remains in the native/installed suites.
+
+The explicit CORS entry set adds two paths in each Application version, bounded
+to 64 entries of 255 characters. Upgrades retain the previous `+` default when
+the field is omitted; existing installations can review and declare their native
+entries before ownership migration. The security inventory review retains every
+previous field bound and the exact RBAC profiles. Credentials, URL parameters
+and wildcard authorities remain outside this field's allowed values.
 
 ## Native Keycloak storage ceilings
 

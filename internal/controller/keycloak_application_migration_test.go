@@ -67,6 +67,17 @@ func TestRealKeycloakLegacyApplicationMigration(t *testing.T) {
 		app.Spec.TokenClaims = []api.ApplicationTokenClaim{{Name: "environment", Claim: "deployment_environment", Value: &value}}
 		mapper, err := operator.EnsureClientProtocolMapper(ctx, "example", app.Spec.ClientID, keycloak.ProtocolMapper{Name: "hanko:qualification:" + app.Name + ":claim:environment", Protocol: "openid-connect", ProtocolMapper: "oidc-hardcoded-claim-mapper", Config: map[string]string{"claim.name": "deployment_environment", "claim.value": value, "jsonType.label": "String", "id.token.claim": "true", "access.token.claim": "true", "userinfo.token.claim": "true", "introspection.token.claim": "true"}})
 		f.requireNoError(err)
+		// Existing installations can have explicitly restricted or empty CORS
+		// origins. Review them in the declaration before migrating ownership.
+		longOrigin := "https://legacy.example.test/" + strings.Repeat("a", 255-len("https://legacy.example.test/"))
+		origins := []string{"https://legacy.example.test", "http://localhost:3000", "https://legacy.example.test/auth/callback", "https://legacy.example.test/login/*", longOrigin}
+		if kind == "web" {
+			origins = []string{}
+		}
+		app.Spec.WebOrigins = &origins
+		current := f.client("example", app.Spec.ClientID)
+		current["webOrigins"] = origins
+		f.admin(http.MethodPut, "/admin/realms/example/clients/"+current["id"].(string), current, nil)
 		before := f.client("example", app.Spec.ClientID)
 		if kind != "spa" {
 			last := metav1.NewTime(time.Now().Add(-time.Hour))

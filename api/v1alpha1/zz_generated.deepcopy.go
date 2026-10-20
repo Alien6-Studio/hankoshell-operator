@@ -920,6 +920,15 @@ func (in *HankoApplicationSpec) DeepCopyInto(out *HankoApplicationSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.WebOrigins != nil {
+		in, out := &in.WebOrigins, &out.WebOrigins
+		*out = new([]string)
+		if **in != nil {
+			in, out := *in, *out
+			*out = make([]string, len(*in))
+			copy(*out, *in)
+		}
+	}
 	if in.PostLogoutRedirectURIs != nil {
 		in, out := &in.PostLogoutRedirectURIs, &out.PostLogoutRedirectURIs
 		*out = make([]string, len(*in))
