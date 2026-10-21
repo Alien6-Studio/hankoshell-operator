@@ -6,10 +6,10 @@ import (
 )
 
 func TestStructuralImageTrust(t *testing.T) {
-	v := NewWithPrefixes("alien6registry.azurecr.io", "quay.io/keycloak", "registry.example:5000/team/")
+	v := NewWithPrefixes("registry.example", "quay.io/keycloak", "registry.example:5000/team/")
 	for _, image := range []string{
-		"alien6registry.azurecr.io/hanko/api:latest",
-		"alien6registry.azurecr.io/hanko/api@sha256:" + strings.Repeat("a", 64),
+		"registry.example/hanko/api:latest",
+		"registry.example/hanko/api@sha256:" + strings.Repeat("a", 64),
 		"quay.io/keycloak:26.0", "quay.io/keycloak/keycloak:26.0",
 		"registry.example:5000/team/app:v1",
 	} {
@@ -20,8 +20,8 @@ func TestStructuralImageTrust(t *testing.T) {
 		})
 	}
 	for _, image := range []string{
-		"alien6registry.azurecr.io.attacker.example/hanko/api:latest",
-		"alien6registry.azurecr.io:5000/hanko/api:latest",
+		"registry.example.attacker.example/hanko/api:latest",
+		"registry.example:5000/hanko/api:latest",
 		"quay.io/keycloak-attacker/app:latest", "quay.io/keycloakattacker:latest",
 		"registry.example:50001/team/app:v1", "registry.example:5000/team-other/app:v1",
 		"https://quay.io/keycloak/keycloak:26.0", "user@quay.io/keycloak/keycloak:26.0",

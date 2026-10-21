@@ -139,20 +139,20 @@ func TestRunPinsDigestAndPreservesRepository(t *testing.T) {
 		want  string
 	}{
 		"plain tag": {
-			image: "hankodev.azurecr.io/hanko-operator:0ldbu1ld",
-			want:  "hankodev.azurecr.io/hanko-operator@" + testDigest,
+			image: "registry.example/hanko-operator:0ldbu1ld",
+			want:  "registry.example/hanko-operator@" + testDigest,
 		},
 		"registry with port keeps its port": {
 			image: "registry.example.com:5000/fleet/hanko-operator:0ldbu1ld",
 			want:  "registry.example.com:5000/fleet/hanko-operator@" + testDigest,
 		},
 		"existing digest pin is replaced": {
-			image: "hankodev.azurecr.io/hanko-operator@sha256:" + strings.Repeat("0", 64),
-			want:  "hankodev.azurecr.io/hanko-operator@" + testDigest,
+			image: "registry.example/hanko-operator@sha256:" + strings.Repeat("0", 64),
+			want:  "registry.example/hanko-operator@" + testDigest,
 		},
 		"tag plus digest collapses to the new digest": {
-			image: "hankodev.azurecr.io/hanko-operator:0ldbu1ld@sha256:" + strings.Repeat("0", 64),
-			want:  "hankodev.azurecr.io/hanko-operator@" + testDigest,
+			image: "registry.example/hanko-operator:0ldbu1ld@sha256:" + strings.Repeat("0", 64),
+			want:  "registry.example/hanko-operator@" + testDigest,
 		},
 	}
 	for name, tc := range cases {
@@ -173,9 +173,9 @@ func TestRunPinsDigestAndPreservesRepository(t *testing.T) {
 }
 
 func TestRunIsIdempotentWhenAlreadyPinned(t *testing.T) {
-	engine := engineFor(t, operatorDeployment("hankodev.azurecr.io/hanko-operator@"+testDigest))
+	engine := engineFor(t, operatorDeployment("registry.example/hanko-operator@"+testDigest))
 	pinned, err := engine.Run(context.Background(), &hub.AgentUpdateCommand{Version: "defc534", Digest: testDigest})
-	if err != nil || pinned != "hankodev.azurecr.io/hanko-operator@"+testDigest {
+	if err != nil || pinned != "registry.example/hanko-operator@"+testDigest {
 		t.Fatalf("idempotent run: image=%q err=%v", pinned, err)
 	}
 }
@@ -193,11 +193,11 @@ func TestRunRefusesInvalidCommands(t *testing.T) {
 	}
 	for name, command := range cases {
 		t.Run(name, func(t *testing.T) {
-			engine := engineFor(t, operatorDeployment("hankodev.azurecr.io/hanko-operator:0ldbu1ld"))
+			engine := engineFor(t, operatorDeployment("registry.example/hanko-operator:0ldbu1ld"))
 			if _, err := engine.Run(context.Background(), command); err == nil {
 				t.Fatal("expected an error, got none")
 			}
-			if got := managerImage(t, engine); got != "hankodev.azurecr.io/hanko-operator:0ldbu1ld" {
+			if got := managerImage(t, engine); got != "registry.example/hanko-operator:0ldbu1ld" {
 				t.Fatalf("deployment must stay untouched, image = %q", got)
 			}
 		})
@@ -211,13 +211,13 @@ func TestRunReportsMissingTargets(t *testing.T) {
 		t.Fatal("expected an error for a missing deployment")
 	}
 
-	engine := engineFor(t, operatorDeployment("hankodev.azurecr.io/hanko-operator:0ldbu1ld"))
+	engine := engineFor(t, operatorDeployment("registry.example/hanko-operator:0ldbu1ld"))
 	engine.Config.ContainerName = "sidecar"
 	if _, err := engine.Run(context.Background(), command); err == nil {
 		t.Fatal("expected an error for an unknown container")
 	}
 
-	engine = engineFor(t, operatorDeployment("hankodev.azurecr.io/hanko-operator:0ldbu1ld"))
+	engine = engineFor(t, operatorDeployment("registry.example/hanko-operator:0ldbu1ld"))
 	engine.Config.DeploymentName = " "
 	if _, err := engine.Run(context.Background(), command); err == nil {
 		t.Fatal("expected a validation error for a blank deployment name")
