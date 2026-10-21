@@ -41,7 +41,6 @@ def prepare(version, image, chart_output, dist, repository_id, public_key, revis
         icon_ref = revision
         tag = None
     else:
-        versioning.require_production(version)
         tag = quote(versioning.public_tag(version), safe="")
         icon_ref = tag
     if not re.fullmatch(re.escape(IMAGE) + r"@sha256:[0-9a-f]{64}", image):
