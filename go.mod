@@ -7,7 +7,7 @@ toolchain go1.27.3
 require (
 	github.com/beevik/etree v1.8.1
 	github.com/distribution/reference v0.6.0
-	github.com/go-logr/logr v1.4.3
+	github.com/go-logr/logr v1.4.4
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/prometheus/client_golang v1.24.0
 	github.com/russellhaering/goxmldsig v1.6.1
