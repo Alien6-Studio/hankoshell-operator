@@ -20,6 +20,7 @@ It reconciles application identity and access from Kubernetes into Keycloak.
 - Optional signed fleet plans, local pause and reconnect/rollback support.
 - Namespace-scoped hardening, verified provider TLS and authenticated metrics.
 - Scanned Linux AMD64/ARM64 images and digest-pinned Helm packaging.
+- Operator and embedded verifier rebuilt with Go 1.27.3 for its x509 security fix.
 - Standard Helm parameter validation, concise chart documentation and a shared
   checksum-pinned tool installer. Native Go hooks and GitHub issue commands
   replace custom wrappers; redundant documentation checks are removed.
@@ -50,14 +51,12 @@ See the [API scope](docs/api-support.md), [support window](docs/support-window.m
 
 - Package the exact scanned Linux AMD64/ARM64 OCI image, digest-pinned Helm chart,
   source revision, checksums and vulnerability evidence as `1.0.0-rc.1`.
-- Include the Scaleway ownership migration and recovery fixes: preserve native
+- Include existing-installation ownership migration and recovery fixes: preserve native
   OIDC configuration, repair verified receipts after an outage and retain
   ServiceAccount rotation checkpoints across Observe/Manage transitions.
 - Keep all APIs experimental and the production publication gate closed. The
   24-hour endurance campaign, full capacity/HA evidence, public predecessor
   compatibility and independent release approval remain stable-release blockers.
-- The existing dashboard login was restored by reloading its rotated credential;
-  a Ready Pod alone does not establish consumer authentication health.
 
 ### Authorization read-back and connection reuse
 

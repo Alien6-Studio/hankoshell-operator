@@ -230,7 +230,7 @@ jobs:
           DCO_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          python3 -m tools.quality.check_dco --base "$DCO_BASE_SHA" --head "$DCO_HEAD_SHA" \
+          python3 .github/scripts/check_dco.py --base "$DCO_BASE_SHA" --head "$DCO_HEAD_SHA" \
             --repository "$GITHUB_REPOSITORY"
       - name: Install pinned Helm and test dependencies
         run: |
@@ -248,11 +248,11 @@ jobs:
         if: github.event_name == 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 -m tools.quality.check_rulesets --live --allow-hidden-bypass
+        run: python3 .github/scripts/check_rulesets.py --live --allow-hidden-bypass
       - name: Validate unit tests, chart, architecture, lint and vulnerabilities
         run: make test chart-check arch lint vuln
       - name: Enforce package and security function coverage floors
-        run: python3 -m tools.quality.check_coverage --profile .tools/runs/tests/unit/coverage.out
+        run: python3 -m tools.qualification.checks.check_coverage --profile .tools/runs/tests/unit/coverage.out
       - name: Enforce the dependency license policy and shipped notices
         run: make licenses
       - name: Preserve Go test outcomes

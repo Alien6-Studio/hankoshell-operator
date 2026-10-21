@@ -64,7 +64,7 @@ vet:
 test: $(GOTESTSUM)
 	python3 -m tools.qualification.runners.go_tests unit --gotestsum "$(GOTESTSUM)" --output "$(TEST_REPORT_DIR)/unit"
 coverage: test
-	python3 -m tools.quality.check_coverage --profile "$(TEST_REPORT_DIR)/unit/coverage.out"
+	python3 -m tools.qualification.checks.check_coverage --profile "$(TEST_REPORT_DIR)/unit/coverage.out"
 security-mutations:
 	python3 -m tools.qualification.runners.security_mutations $(if $(MUTATION_OUTPUT),--output "$(MUTATION_OUTPUT)")
 security-fuzz:
@@ -106,7 +106,7 @@ $(GO_LICENSES):
 	@mkdir -p "$(@D)"
 	GOBIN="$(@D)" GOTOOLCHAIN=local go install github.com/google/go-licenses/v2@$(GO_LICENSES_VERSION)
 licenses: $(GO_LICENSES)
-	python3 -m tools.quality.check_licenses --go-licenses "$(GO_LICENSES)"
+	python3 -m tools.qualification.checks.check_licenses --go-licenses "$(GO_LICENSES)"
 	git diff --exit-code -- THIRD_PARTY_NOTICES THIRD_PARTY_NOTICES.cosign
 lint: $(GOLANGCI_LINT)
 	@actual="$$('$(GOLANGCI_LINT)' --version | awk '{print $$4}')"; \

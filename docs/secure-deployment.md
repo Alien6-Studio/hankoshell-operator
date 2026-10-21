@@ -769,7 +769,7 @@ window requires updating and passing the compatibility tests together.
 
 The API fixtures are reproducible compatibility tests, not recommended production
 patches. They have no kubelet, CNI, CSI, provider or Keycloak process. AWS, Google,
-Azure, Scaleway and other installations still need acceptance tests of networking,
+Azure and other installations still need acceptance tests of networking,
 storage, provider lifecycle and restore on their actual patched clusters.
 
 The operator workload is scheduled on Linux nodes. Set `hardening.appArmor: true`

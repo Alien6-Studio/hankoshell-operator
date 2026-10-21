@@ -4,7 +4,7 @@ Declare application identity and access in Kubernetes; keep Keycloak in sync.
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/badge/version-1.0.0--rc.1%20qualification-blue.svg)](#status)
-[![Go](https://img.shields.io/badge/go-1.27.2-00ADD8.svg)](go.mod)
+[![Go](https://img.shields.io/badge/go-1.27.3-00ADD8.svg)](go.mod)
 [![Kubernetes](https://img.shields.io/badge/kubernetes-1.35%E2%80%931.37-326CE5.svg)](docs/support-window.md)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
@@ -117,7 +117,7 @@ See the [support window](docs/support-window.md),
 
 ## Develop and contribute
 
-Use Go 1.27.2, Python 3.12+, Helm and the pinned tools in [CONTRIBUTING.md](CONTRIBUTING.md).
+Use Go 1.27.3, Python 3.12+, Helm and the pinned tools in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```sh
 python3 -m pip install -r tools/requirements.txt

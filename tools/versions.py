@@ -122,6 +122,8 @@ def generated(root=ROOT, data=None):
     minor_values = sorted(tuple(map(int, value.split(".")))[:2] for value in data["kubernetes"]["versions"])
     badge = ".".join(map(str, minor_values[0])) + "%E2%80%93" + ".".join(map(str, minor_values[-1]))
     replace("README.md", r"^(\[!\[Kubernetes\]\(https://img.shields.io/badge/kubernetes-).*?(?=-326CE5\.svg)", badge)
+    replace("README.md", r"^(\[!\[Go\]\(https://img.shields.io/badge/go-).*?(?=-00ADD8\.svg)", data["go"]["toolchain"])
+    replace("README.md", r"^(Use Go )\S+(?=, Python)", data["go"]["toolchain"])
 
     cosign = data["tools"]["cosign"]
     # One generated shell fragment is sourced by both native and image builds.

@@ -1,5 +1,5 @@
 ARG BUILDPLATFORM
-FROM --platform=$BUILDPLATFORM golang:1.27.2-alpine3.23@sha256:9e45f0eb4a63ed37ad6e604950407558b7c738e34e015ae77a5d4ad369cde079 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine3.23@sha256:895e5feab11a4b3774d24ee3c9579028456b82ad37f42a9eb6f82adaf776a201 AS builder
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -13,7 +13,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build -
     -ldflags "-X github.com/Alien6-Studio/hankoshell-operator/internal/version.Agent=${VERSION}" \
     -o /hankoshell-operator ./cmd/operator
 
-FROM --platform=$BUILDPLATFORM golang:1.27.2-alpine3.23@sha256:9e45f0eb4a63ed37ad6e604950407558b7c738e34e015ae77a5d4ad369cde079 AS cosign
+FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine3.23@sha256:895e5feab11a4b3774d24ee3c9579028456b82ad37f42a9eb6f82adaf776a201 AS cosign
 ARG TARGETOS
 ARG TARGETARCH
 ENV GOTOOLCHAIN=local

@@ -35,7 +35,7 @@ The tag ruleset protects `refs/tags/v*` against deletion and rewriting. Both
 exports are active and have empty bypass lists. Tag signature verification is
 performed by release eligibility, not by a tag-signature ruleset.
 
-`python3 -m tools.quality.check_rulesets` checks the exported contract and required gate
+`python3 .github/scripts/check_rulesets.py` checks the exported contract and required gate
 name locally; the same check runs through the preflight unit tests. Changing the
 CI aggregate's name without changing the export fails. The weekly source job
 also runs `--live --allow-hidden-bypass` with its existing read-only GitHub token.
@@ -47,7 +47,7 @@ GitHub only returns `bypass_actors` to callers with write access to the ruleset;
 see the [rules API visibility contract](https://docs.github.com/en/rest/repos/rules#get-a-repository-ruleset).
 When GitHub hides this field, the weekly check emits an explicit **UNVERIFIED**
 warning for bypass lists. It does not interpret an omitted list as empty.
-A complete audit uses `python3 -m tools.quality.check_rulesets --live` from an account
+A complete audit uses `python3 .github/scripts/check_rulesets.py --live` from an account
 that can view the bypass lists; this mode fails if they are hidden. The full
 comparison was performed when recording these exports. Automated bypass auditing
 requires separately provisioned visibility and is not established by the weekly

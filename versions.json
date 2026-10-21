@@ -5,7 +5,7 @@
     "status": "development"
   },
   "go": {
-    "toolchain": "1.27.2"
+    "toolchain": "1.27.3"
   },
   "tools": {
     "helm": {

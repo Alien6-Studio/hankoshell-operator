@@ -17,7 +17,8 @@ import subprocess
 import sys
 import zipfile
 
-from tools import versions
+ROOT = Path(__file__).resolve().parents[2]
+PINS = json.loads((ROOT / "versions.json").read_text())
 
 MAX_ARCHIVE = 32 * 1024 * 1024
 
@@ -33,9 +34,9 @@ def github(endpoint, binary=False):
 
 def artifact_suites():
     suites = {"unit": "unit", "authentik-2026.8.4": "authentik-2026.8.4"}
-    for version in versions.get("kubernetes", "versions"):
+    for version in PINS["kubernetes"]["versions"]:
         suites["kubernetes-" + version] = "kubernetes/" + version
-    for version in versions.get("keycloak", "versions"):
+    for version in PINS["keycloak"]["versions"]:
         for shard in ("core", "adoption", "protocols", "ordinary"):
             suites[f"keycloak-{version}-{shard}"] = f"keycloak/{version}/{shard}"
     return suites

@@ -1,4 +1,10 @@
 /.tools/
+/.qualification/
+/.qualification-artifacts/
+/.kube/
+kubeconfig
+kubeconfig.*
+*.kubeconfig
 /dist/
 /.attest/
 /release-evidence/

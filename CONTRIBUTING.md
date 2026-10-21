@@ -17,7 +17,7 @@ the author's trailer. A sign-off is a contribution certification; the separate
 protected-branch signature requirement authenticates the commit.
 
 The required CI source gate checks every commit in the PR's base-to-head range,
-including merge commits, with `tools/quality/check_dco.py`. It checks the actual PR
+including merge commits, with `.github/scripts/check_dco.py`. It checks the actual PR
 head, not GitHub's generated test merge. Missing or mismatched author sign-offs
 fail with the affected commit SHAs. Correct contributor commits with
 `git commit --amend -s` or a reviewed history rewrite; preserve other contributors'
@@ -42,7 +42,7 @@ sign-offs and GitHub `Verified` signature as part of integration verification.
 To reproduce the PR check locally after fetching both full commit SHAs:
 
 ```sh
-python3 -m tools.quality.check_dco --base "$base_sha" --head "$head_sha" \
+python3 .github/scripts/check_dco.py --base "$base_sha" --head "$head_sha" \
   --repository Alien6-Studio/hankoshell-operator
 ```
 
@@ -116,8 +116,9 @@ publication/retry against a disposable registry and a GitHub storage fixture.
 `make lint` installs and verifies golangci-lint in the ignored `.tools` directory.
 Behavior changes need meaningful regression tests. Changes to CRDs, provider
 ownership, deletion, adoption, or authentication need migration and rollback
-instructions. Use synthetic fixtures and keep credentials and tenant data out
-of the repository.
+instructions. Use synthetic fixtures. Keep live cluster identifiers, endpoints,
+kubeconfigs, credentials, tenant data and raw qualification reports out of the
+repository; local evidence belongs in the ignored `.tools/` directory.
 
 Follow the [API conversion and rollback policy](docs/api-migration-policy.md).
 The [development support inventory](docs/api-support.md) covers every resource
