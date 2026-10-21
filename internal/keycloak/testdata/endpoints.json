@@ -1,0 +1,186 @@
+[
+  {
+    "url": "https://iam.example.com",
+    "valid": true
+  },
+  {
+    "url": "https://keycloak.auth.svc:8443",
+    "valid": true
+  },
+  {
+    "url": "https://localhost:443/auth/",
+    "valid": true
+  },
+  {
+    "url": "https://127.0.0.1:8443",
+    "valid": true
+  },
+  {
+    "url": "https://[::1]:8443/auth",
+    "valid": true
+  },
+  {
+    "url": "https://[2001:db8::1]",
+    "valid": true
+  },
+  {
+    "url": "https://[2001:db8:0:0:0:0:0:1]:443",
+    "valid": true
+  },
+  {
+    "url": "https://IAM.example.com./auth",
+    "valid": true
+  },
+  {
+    "url": "https://iam.example.com:000443/auth/v1",
+    "valid": true
+  },
+  {
+    "url": "http://iam.auth.svc:8080",
+    "valid": true
+  },
+  {
+    "url": "http://localhost/auth",
+    "valid": true
+  },
+  {
+    "url": "",
+    "valid": false
+  },
+  {
+    "url": "not a url",
+    "valid": false
+  },
+  {
+    "url": "iam.example.com",
+    "valid": false
+  },
+  {
+    "url": "//iam.example.com",
+    "valid": false
+  },
+  {
+    "url": "ftp://iam.example.com",
+    "valid": false
+  },
+  {
+    "url": "HTTPS://iam.example.com",
+    "valid": false
+  },
+  {
+    "url": "https://",
+    "valid": false
+  },
+  {
+    "url": "https:///auth",
+    "valid": false
+  },
+  {
+    "url": "https://user:password@iam.example.com",
+    "valid": false
+  },
+  {
+    "url": "https://user@iam.example.com",
+    "valid": false
+  },
+  {
+    "url": "https://iam.example.com#fragment",
+    "valid": false
+  },
+  {
+    "url": "https://iam.example.com#",
+    "valid": false
+  },
+  {
+    "url": "https://iam.example.com?query=x",
+    "valid": false
+  },
+  {
+    "url": "https://iam.example.com?",
+    "valid": false
+  },
+  {
+    "url": "https://iam.example.com:",
+    "valid": false
+  },
+  {
+    "url": "https://iam.example.com:0",
+    "valid": false
+  },
+  {
+    "url": "https://iam.example.com:65536",
+    "valid": false
+  },
+  {
+    "url": "https://iam.example.com:99999999999999999999999999999",
+    "valid": false
+  },
+  {
+    "url": "https://iam.example.com:abc",
+    "valid": false
+  },
+  {
+    "url": "https://iam.example.com /auth",
+    "valid": false
+  },
+  {
+    "url": "https://iam.example.com\\@evil.example",
+    "valid": false
+  },
+  {
+    "url": "https://iam.example.com/%2fadmin",
+    "valid": false
+  },
+  {
+    "url": "https://iam.example.com/%2e%2e",
+    "valid": false
+  },
+  {
+    "url": "https://iam.example.com/auth/../admin",
+    "valid": false
+  },
+  {
+    "url": "https://iam.example.com/./auth",
+    "valid": false
+  },
+  {
+    "url": "https://iam.example.com//auth",
+    "valid": false
+  },
+  {
+    "url": "https://iam.example.com/auth//",
+    "valid": false
+  },
+  {
+    "url": "https://-iam.example.com",
+    "valid": false
+  },
+  {
+    "url": "https://iam..example.com",
+    "valid": false
+  },
+  {
+    "url": "https://[::::]:443",
+    "valid": false
+  },
+  {
+    "url": "https://[::1%25eth0]:443",
+    "valid": false
+  },
+  {
+    "url": "https://[2001:db8:::1]",
+    "valid": false
+  },
+  {
+    "url": "https://iam.example.com/auth;params",
+    "valid": false
+  },
+  {
+    "url": "https://iam.example.com//",
+    "valid": false
+  },
+  {
+    "url": "https://iam.example.com\n",
+    "valid": false
+  }
+]

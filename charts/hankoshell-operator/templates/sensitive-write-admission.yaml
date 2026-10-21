@@ -1,0 +1,112 @@
+{{- $fullname := include "hanko-operator.fullname" . }}
+{{- $operator := printf "system:serviceaccount:%s:%s" .Release.Namespace $fullname }}
+{{- $secrets := include "hanko-operator.sensitiveWriteNames" (dict "root" . "kind" "secrets") | fromJsonArray }}
+{{- $deployments := include "hanko-operator.sensitiveWriteNames" (dict "root" . "kind" "deployments") | fromJsonArray }}
+{{- $transport := .Values.transportDecommission }}
+{{- if and .Values.hub.enabled $transport.release }}
+{{- if or (gt (len $transport.release) 53) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $transport.release)) }}{{ fail "transportDecommission requires an exact Helm release name" }}{{ end }}
+{{- if or (gt (len $transport.namespace) 63) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $transport.namespace)) }}{{ fail "transportDecommission requires an exact namespace" }}{{ end }}
+{{- range $name := $transport.secrets }}
+{{- if or (gt (len $name) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $name)) }}{{ fail "transportDecommission requires exact Secret names" }}{{ end }}
+{{- end }}
+{{- end }}
+{{- range $resource := list "secrets" "deployments" }}
+{{- $name := printf "%s-sensitive-%s-%s" $fullname $resource $.Release.Namespace }}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ $name }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: {{ if eq $resource "secrets" }}[""]{{ else }}[apps]{{ end }}
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE, DELETE]
+        resources: [{{ $resource }}]
+        scope: Namespaced
+  matchConditions:
+    - name: exact-operator-identity
+      expression: request.userInfo.username == {{ $operator | toJson }}
+  variables:
+    - name: target
+      expression: "object != null ? object.metadata.name : oldObject.metadata.name"
+  validations:
+    {{- if eq $resource "secrets" }}
+    - expression: >-
+        request.operation == 'DELETE' ||
+        ((!has(object.type) || object.type == '' || object.type == 'Opaque') &&
+         (!has(object.metadata.annotations) ||
+          !('kubernetes.io/service-account.name' in object.metadata.annotations) &&
+          !('kubernetes.io/service-account.uid' in object.metadata.annotations)))
+      message: Operator credential writes cannot mint service account tokens or change other Secret types
+      reason: Forbidden
+    - expression: >-
+        request.namespace == {{ $.Release.Namespace | toJson }} &&
+        (request.operation == 'DELETE'
+          ? variables.target in {{ list ($.Values.hub.caSecret | default "hanko-hub-tls") "hanko-hub-enroll" | uniq | toJson }}
+          : variables.target in {{ $secrets | toJson }})
+        {{- range $grant := $.Values.sensitiveWrites.projections }}
+        || (request.namespace == {{ $grant.namespace | toJson }} && variables.target in {{ $grant.secrets | toJson }} &&
+            (request.operation == 'UPDATE'{{ if $grant.create }} || request.operation == 'CREATE'{{ end }}))
+        {{- end }}
+        {{- if and $.Values.hub.enabled $transport.release }}
+        || (request.operation == 'DELETE' && request.namespace == {{ $transport.namespace | toJson }} &&
+          (variables.target in {{ $transport.secrets | default list | toJson }} ||
+            (oldObject.type == 'helm.sh/release.v1' &&
+             has(oldObject.metadata.labels) && 'owner' in oldObject.metadata.labels &&
+             'name' in oldObject.metadata.labels && oldObject.metadata.labels['owner'] == 'helm' &&
+             oldObject.metadata.labels['name'] == {{ $transport.release | toJson }} &&
+             variables.target.matches({{ printf "^sh[.]helm[.]release[.]v1[.]%s[.]v[1-9][0-9]*$" (regexQuoteMeta $transport.release) | toJson }}))))
+        {{- end }}
+      message: Secret writes require an administrator-approved exact target; transport deletion requires the exact release identity
+      reason: Forbidden
+    {{- else }}
+    - expression: >-
+        request.namespace == {{ $.Release.Namespace | toJson }} &&
+        (request.operation == 'CREATE' ? variables.target in {{ $deployments | toJson }} :
+          (request.operation == 'DELETE' ? variables.target == {{ $fullname | toJson }} :
+            variables.target in {{ concat (list $fullname) $deployments | uniq | toJson }}))
+      message: Deployment writes require an administrator-approved exact target
+      reason: Forbidden
+    - expression: >-
+        request.operation == 'DELETE' ||
+        (namespaceObject != null && has(namespaceObject.metadata.labels) &&
+         'pod-security.kubernetes.io/enforce' in namespaceObject.metadata.labels &&
+         namespaceObject.metadata.labels['pod-security.kubernetes.io/enforce'] == 'restricted' &&
+         (!('pod-security.kubernetes.io/enforce-version' in namespaceObject.metadata.labels) ||
+          namespaceObject.metadata.labels['pod-security.kubernetes.io/enforce-version'] in
+            ['latest', {{ printf "v%s.%s" $.Capabilities.KubeVersion.Major $.Capabilities.KubeVersion.Minor | toJson }}]))
+      message: Deployment writes require current Restricted Pod Security admission in their namespace
+      reason: Forbidden
+    - expression: >-
+        request.operation != 'UPDATE' ||
+        ((!has(object.spec.template.spec.serviceAccountName) || object.spec.template.spec.serviceAccountName == '') &&
+         (!has(oldObject.spec.template.spec.serviceAccountName) || oldObject.spec.template.spec.serviceAccountName == '')) ||
+        (has(object.spec.template.spec.serviceAccountName) && has(oldObject.spec.template.spec.serviceAccountName) &&
+         object.spec.template.spec.serviceAccountName == oldObject.spec.template.spec.serviceAccountName)
+      message: The operator cannot change a Deployment ServiceAccount binding
+      reason: Forbidden
+    - expression: >-
+        request.operation == 'DELETE' || variables.target == {{ $fullname | toJson }} ||
+        (has(object.spec.template.spec.automountServiceAccountToken) && !object.spec.template.spec.automountServiceAccountToken &&
+         (!has(object.spec.template.spec.volumes) || object.spec.template.spec.volumes.all(v,
+           !has(v.projected) || !has(v.projected.sources) || v.projected.sources.all(s, !has(s.serviceAccountToken)))))
+      message: Managed provider Deployments cannot receive Kubernetes service account tokens
+      reason: Forbidden
+    - expression: >-
+        request.operation != 'CREATE' ||
+        !has(object.spec.template.spec.serviceAccountName) || object.spec.template.spec.serviceAccountName in ['', 'default']
+      message: New managed provider Deployments cannot select another ServiceAccount
+      reason: Forbidden
+    {{- end }}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ $name }}
+spec:
+  policyName: {{ $name }}
+  validationActions: [Deny, Audit]
+{{- end }}

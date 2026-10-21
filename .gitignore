@@ -1,0 +1,15 @@
+/.tools/
+/.qualification/
+/.qualification-artifacts/
+/.kube/
+kubeconfig
+kubeconfig.*
+*.kubeconfig
+/dist/
+/.attest/
+/release-evidence/
+/hanko-operator
+coverage.out
+*.tgz
+.DS_Store
+__pycache__/

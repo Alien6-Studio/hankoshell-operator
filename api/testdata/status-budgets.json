@@ -1,0 +1,3739 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "kind": "HankoApplication",
+      "path": "status.adoptionCandidate.candidateHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionCandidate": {
+          "approvable": false,
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "complete": false,
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "diffHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerIdentity": {
+            "instance": {
+              "kind": "a",
+              "name": "a",
+              "namespace": "a",
+              "uid": "a"
+            },
+            "origin": "a",
+            "realmID": "a",
+            "trust": "public-ca"
+          },
+          "target": {
+            "kind": "a",
+            "name": "a",
+            "namespace": "a",
+            "uid": "a"
+          },
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.adoptionCandidate.diffHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionCandidate": {
+          "approvable": false,
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "complete": false,
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "diffHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerIdentity": {
+            "instance": {
+              "kind": "a",
+              "name": "a",
+              "namespace": "a",
+              "uid": "a"
+            },
+            "origin": "a",
+            "realmID": "a",
+            "trust": "public-ca"
+          },
+          "target": {
+            "kind": "a",
+            "name": "a",
+            "namespace": "a",
+            "uid": "a"
+          },
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.adoptionCandidate.observationHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionCandidate": {
+          "approvable": false,
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "complete": false,
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "diffHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerIdentity": {
+            "instance": {
+              "kind": "a",
+              "name": "a",
+              "namespace": "a",
+              "uid": "a"
+            },
+            "origin": "a",
+            "realmID": "a",
+            "trust": "public-ca"
+          },
+          "target": {
+            "kind": "a",
+            "name": "a",
+            "namespace": "a",
+            "uid": "a"
+          },
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.adoptionReceipt.candidateHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionReceipt": {
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "state": "Pending"
+        }
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.appliedPlanHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "appliedPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.clientSecret.secretRef.key",
+      "type": "string",
+      "maximum": 253,
+      "format": "text",
+      "status": {
+        "clientSecret": {
+          "secretRef": {
+            "key": "a"
+          }
+        }
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.clientSecret.secretRef.name",
+      "type": "string",
+      "maximum": 253,
+      "format": "text",
+      "status": {
+        "clientSecret": {
+          "secretRef": {
+            "key": "a",
+            "name": ""
+          }
+        }
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.conditions",
+      "type": "array",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "conditions": []
+      },
+      "item": {
+        "lastTransitionTime": "2026-10-19T00:00:00Z",
+        "message": "a",
+        "reason": "a",
+        "status": "True",
+        "type": "Ready"
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-19T00:00:00Z",
+            "message": "a",
+            "reason": "a",
+            "status": "True",
+            "type": "Ready"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.evaluatedPlanHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "evaluatedPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.intentHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "intentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.lastReconciled",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastReconciled": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.lastRotated",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastRotated": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedClientSecretProjections",
+      "type": "array",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "managedClientSecretProjections": []
+      },
+      "item": {
+        "name": "a",
+        "namespace": "a"
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedIdentityMappings",
+      "type": "array",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "managedIdentityMappings": []
+      },
+      "item": {
+        "identityProvider": "a",
+        "keycloakID": "a",
+        "name": "a"
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedIdentityMappings[].conditions",
+      "type": "array",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "managedIdentityMappings": [
+          {
+            "identityProvider": "a",
+            "keycloakID": "a",
+            "name": "a",
+            "conditions": []
+          }
+        ]
+      },
+      "item": {
+        "lastTransitionTime": "2026-10-19T00:00:00Z",
+        "message": "a",
+        "reason": "a",
+        "status": "True",
+        "type": "Ready"
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedIdentityMappings[].conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "managedIdentityMappings": [
+          {
+            "identityProvider": "a",
+            "keycloakID": "a",
+            "name": "a",
+            "conditions": [
+              {
+                "lastTransitionTime": "2026-10-19T00:00:00Z",
+                "message": "a",
+                "reason": "a",
+                "status": "True",
+                "type": "Ready"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedIdentityMappings[].identityProvider",
+      "type": "string",
+      "maximum": 255,
+      "format": "text",
+      "status": {
+        "managedIdentityMappings": [
+          {
+            "identityProvider": "a",
+            "keycloakID": "a",
+            "name": "a"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedIdentityMappings[].keycloakID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "managedIdentityMappings": [
+          {
+            "identityProvider": "a",
+            "keycloakID": "a",
+            "name": "a"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedIdentityMappings[].name",
+      "type": "string",
+      "maximum": 63,
+      "format": "text",
+      "status": {
+        "managedIdentityMappings": [
+          {
+            "identityProvider": "a",
+            "keycloakID": "a",
+            "name": "a"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedTokenClaims",
+      "type": "array",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "managedTokenClaims": []
+      },
+      "item": {
+        "keycloakID": "a",
+        "name": "a"
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedTokenClaims[].conditions",
+      "type": "array",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "managedTokenClaims": [
+          {
+            "keycloakID": "a",
+            "name": "a",
+            "conditions": []
+          }
+        ]
+      },
+      "item": {
+        "lastTransitionTime": "2026-10-19T00:00:00Z",
+        "message": "a",
+        "reason": "a",
+        "status": "True",
+        "type": "Ready"
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedTokenClaims[].conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "managedTokenClaims": [
+          {
+            "keycloakID": "a",
+            "name": "a",
+            "conditions": [
+              {
+                "lastTransitionTime": "2026-10-19T00:00:00Z",
+                "message": "a",
+                "reason": "a",
+                "status": "True",
+                "type": "Ready"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedTokenClaims[].keycloakID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "managedTokenClaims": [
+          {
+            "keycloakID": "a",
+            "name": "a"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.managedTokenClaims[].name",
+      "type": "string",
+      "maximum": 63,
+      "format": "text",
+      "status": {
+        "managedTokenClaims": [
+          {
+            "keycloakID": "a",
+            "name": "a"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.nextRotation",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "nextRotation": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.observationPlanHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "observationPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.observedStateHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "observedStateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.oidcEndpoints.authorization",
+      "type": "string",
+      "maximum": 4096,
+      "format": "text",
+      "status": {
+        "oidcEndpoints": {
+          "authorization": "a"
+        }
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.oidcEndpoints.issuer",
+      "type": "string",
+      "maximum": 4096,
+      "format": "text",
+      "status": {
+        "oidcEndpoints": {
+          "issuer": "a"
+        }
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.oidcEndpoints.jwks",
+      "type": "string",
+      "maximum": 4096,
+      "format": "text",
+      "status": {
+        "oidcEndpoints": {
+          "jwks": "a"
+        }
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.oidcEndpoints.token",
+      "type": "string",
+      "maximum": 4096,
+      "format": "text",
+      "status": {
+        "oidcEndpoints": {
+          "token": "a"
+        }
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.oidcEndpoints.userInfo",
+      "type": "string",
+      "maximum": 4096,
+      "format": "text",
+      "status": {
+        "oidcEndpoints": {
+          "userInfo": "a"
+        }
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.runtimeBindings[].bindingRevision",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "runtimeBindings": [
+          {
+            "configMapRef": "a",
+            "name": "a",
+            "namespace": "a",
+            "serviceAccountRef": "a",
+            "bindingRevision": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.runtimeBindings[].conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "runtimeBindings": [
+          {
+            "configMapRef": "a",
+            "name": "a",
+            "namespace": "a",
+            "serviceAccountRef": "a",
+            "conditions": [
+              {
+                "lastTransitionTime": "2026-10-19T00:00:00Z",
+                "message": "a",
+                "reason": "a",
+                "status": "True",
+                "type": "Ready"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.runtimeBindings[].metadataHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "runtimeBindings": [
+          {
+            "configMapRef": "a",
+            "name": "a",
+            "namespace": "a",
+            "serviceAccountRef": "a",
+            "metadataHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoApplication",
+      "path": "status.runtimeBindings[].sourceAppliedPlanHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "runtimeBindings": [
+          {
+            "configMapRef": "a",
+            "name": "a",
+            "namespace": "a",
+            "serviceAccountRef": "a",
+            "sourceAppliedPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoEmailProvider",
+      "path": "status.conditions",
+      "type": "array",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "conditions": []
+      },
+      "item": {
+        "lastTransitionTime": "2026-10-19T00:00:00Z",
+        "message": "a",
+        "reason": "a",
+        "status": "True",
+        "type": "Ready"
+      }
+    },
+    {
+      "kind": "HankoEmailProvider",
+      "path": "status.conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-19T00:00:00Z",
+            "message": "a",
+            "reason": "a",
+            "status": "True",
+            "type": "Ready"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoEmailProvider",
+      "path": "status.credentialVersion",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "credentialVersion": "a"
+      }
+    },
+    {
+      "kind": "HankoEmailProvider",
+      "path": "status.lastPreflight",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastPreflight": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoIAMProfile",
+      "path": "status.conditions",
+      "type": "array",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "conditions": []
+      },
+      "item": {
+        "lastTransitionTime": "2026-10-19T00:00:00Z",
+        "message": "a",
+        "reason": "a",
+        "status": "True",
+        "type": "Ready"
+      }
+    },
+    {
+      "kind": "HankoIAMProfile",
+      "path": "status.conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-19T00:00:00Z",
+            "message": "a",
+            "reason": "a",
+            "status": "True",
+            "type": "Ready"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoIAMProfile",
+      "path": "status.lastValidated",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastValidated": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoIAMProfile",
+      "path": "status.policyHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "text",
+      "status": {
+        "policyHash": "a"
+      }
+    },
+    {
+      "kind": "HankoImport",
+      "path": "status.completedAt",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "completedAt": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoImport",
+      "path": "status.conditions",
+      "type": "array",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "conditions": []
+      },
+      "item": {
+        "lastTransitionTime": "2026-10-19T00:00:00Z",
+        "message": "a",
+        "reason": "a",
+        "status": "True",
+        "type": "Ready"
+      }
+    },
+    {
+      "kind": "HankoImport",
+      "path": "status.conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-19T00:00:00Z",
+            "message": "a",
+            "reason": "a",
+            "status": "True",
+            "type": "Ready"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoImport",
+      "path": "status.coverage.observationHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "coverage": {
+          "candidateCount": 1,
+          "complete": false,
+          "inventoryCount": 1,
+          "truncated": false,
+          "unsupportedCount": 1,
+          "observationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "kind": "HankoImport",
+      "path": "status.inventory[].candidateHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "inventory": [
+          {
+            "approvable": false,
+            "complete": false,
+            "kind": "a",
+            "providerID": "a",
+            "realm": "a",
+            "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoImport",
+      "path": "status.lastReconciled",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastReconciled": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoIssuer",
+      "path": "status.conditions",
+      "type": "array",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "conditions": []
+      },
+      "item": {
+        "lastTransitionTime": "2026-10-19T00:00:00Z",
+        "message": "a",
+        "reason": "a",
+        "status": "True",
+        "type": "Ready"
+      }
+    },
+    {
+      "kind": "HankoIssuer",
+      "path": "status.conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-19T00:00:00Z",
+            "message": "a",
+            "reason": "a",
+            "status": "True",
+            "type": "Ready"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoIssuer",
+      "path": "status.configuredHost",
+      "type": "string",
+      "maximum": 253,
+      "format": "text",
+      "status": {
+        "configuredHost": "a"
+      }
+    },
+    {
+      "kind": "HankoIssuer",
+      "path": "status.lastReconciled",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastReconciled": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "status.adminAPIURL",
+      "type": "string",
+      "maximum": 4096,
+      "format": "text",
+      "status": {
+        "adminAPIURL": "a"
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "status.conditions",
+      "type": "array",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "conditions": []
+      },
+      "item": {
+        "lastTransitionTime": "2026-10-19T00:00:00Z",
+        "message": "a",
+        "reason": "a",
+        "status": "True",
+        "type": "Ready"
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "status.conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-19T00:00:00Z",
+            "message": "a",
+            "reason": "a",
+            "status": "True",
+            "type": "Ready"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "status.keycloakVersion",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "keycloakVersion": "a"
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "status.lastCredentialRotation",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastCredentialRotation": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "status.lastProbed",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastProbed": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "status.lastReconciled",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastReconciled": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "status.managedObservation.deploymentUID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "managedObservation": {
+          "deploymentGeneration": 1,
+          "deploymentUID": "a"
+        }
+      }
+    },
+    {
+      "kind": "HankoKeycloakInstance",
+      "path": "status.nextCredentialRotation",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "nextCredentialRotation": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.audience",
+      "type": "string",
+      "maximum": 255,
+      "format": "text",
+      "status": {
+        "receiverNodeUIDs": [],
+        "audience": "a"
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.clusterID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "receiverNodeUIDs": [],
+        "clusterID": "a"
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.conditions",
+      "type": "array",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "receiverNodeUIDs": [],
+        "conditions": []
+      },
+      "item": {
+        "lastTransitionTime": "2026-10-19T00:00:00Z",
+        "message": "a",
+        "reason": "a",
+        "status": "True",
+        "type": "Ready"
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "receiverNodeUIDs": [],
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-19T00:00:00Z",
+            "message": "a",
+            "reason": "a",
+            "status": "True",
+            "type": "Ready"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.enforcementMode",
+      "type": "string",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "receiverNodeUIDs": [],
+        "enforcementMode": "a"
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.lastResolved",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "receiverNodeUIDs": [],
+        "lastResolved": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.realm",
+      "type": "string",
+      "maximum": 253,
+      "format": "text",
+      "status": {
+        "receiverNodeUIDs": [],
+        "realm": "a"
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.receiverNodeUIDs[]",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "receiverNodeUIDs": [
+          "a"
+        ]
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.resolvedEgress[].namespace",
+      "type": "string",
+      "maximum": 63,
+      "format": "text",
+      "status": {
+        "receiverNodeUIDs": [],
+        "resolvedEgress": [
+          {
+            "namespace": "a",
+            "ports": [],
+            "serviceName": "a",
+            "serviceUID": "a"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.resolvedEgress[].ports",
+      "type": "array",
+      "maximum": 64,
+      "format": "text",
+      "status": {
+        "receiverNodeUIDs": [],
+        "resolvedEgress": [
+          {
+            "namespace": "a",
+            "ports": [],
+            "serviceName": "a",
+            "serviceUID": "a"
+          }
+        ]
+      },
+      "item": {
+        "port": 1,
+        "protocol": "TCP"
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.resolvedEgress[].serviceName",
+      "type": "string",
+      "maximum": 63,
+      "format": "text",
+      "status": {
+        "receiverNodeUIDs": [],
+        "resolvedEgress": [
+          {
+            "namespace": "a",
+            "ports": [],
+            "serviceName": "a",
+            "serviceUID": "a"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.resolvedEgress[].serviceUID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "receiverNodeUIDs": [],
+        "resolvedEgress": [
+          {
+            "namespace": "a",
+            "ports": [],
+            "serviceName": "a",
+            "serviceUID": "a"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.resolvedPorts",
+      "type": "array",
+      "maximum": 64,
+      "format": "text",
+      "status": {
+        "receiverNodeUIDs": [],
+        "resolvedPorts": []
+      },
+      "item": {
+        "port": 1,
+        "protocol": "TCP"
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.selectorSHA256",
+      "type": "string",
+      "maximum": 64,
+      "format": "text",
+      "status": {
+        "receiverNodeUIDs": [],
+        "selectorSHA256": "a"
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.serviceUID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "receiverNodeUIDs": [],
+        "serviceUID": "a"
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.tenantID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "receiverNodeUIDs": [],
+        "tenantID": "a"
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.workloadID",
+      "type": "string",
+      "maximum": 255,
+      "format": "text",
+      "status": {
+        "receiverNodeUIDs": [],
+        "workloadID": "a"
+      }
+    },
+    {
+      "kind": "HankoMeshService",
+      "path": "status.workloadServiceAccountUID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "receiverNodeUIDs": [],
+        "workloadServiceAccountUID": "a"
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.completedAt",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "completedAt": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.conditions",
+      "type": "array",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "conditions": []
+      },
+      "item": {
+        "lastTransitionTime": "2026-10-19T00:00:00Z",
+        "message": "a",
+        "reason": "a",
+        "status": "True",
+        "type": "Ready"
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-19T00:00:00Z",
+            "message": "a",
+            "reason": "a",
+            "status": "True",
+            "type": "Ready"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.instanceUID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "instanceUID": "a"
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.intentHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "intentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.lastReconciled",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastReconciled": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.snapshotRef",
+      "type": "string",
+      "maximum": 253,
+      "format": "text",
+      "status": {
+        "snapshotRef": "a"
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.startedAt",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "startedAt": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.steps",
+      "type": "array",
+      "maximum": 16,
+      "format": "text",
+      "status": {
+        "steps": []
+      },
+      "item": {
+        "name": "a",
+        "status": "a"
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.steps[].childUID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "steps": [
+          {
+            "name": "a",
+            "status": "a",
+            "childUID": "a"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.steps[].completedAt",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "steps": [
+          {
+            "name": "a",
+            "status": "a",
+            "completedAt": "2026-10-19T00:00:00Z"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.steps[].message",
+      "type": "string",
+      "maximum": 4096,
+      "format": "text",
+      "status": {
+        "steps": [
+          {
+            "name": "a",
+            "status": "a",
+            "message": "a"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.steps[].name",
+      "type": "string",
+      "maximum": 253,
+      "format": "text",
+      "status": {
+        "steps": [
+          {
+            "name": "a",
+            "status": "a"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.steps[].startedAt",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "steps": [
+          {
+            "name": "a",
+            "status": "a",
+            "startedAt": "2026-10-19T00:00:00Z"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoOperation",
+      "path": "status.steps[].status",
+      "type": "string",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "steps": [
+          {
+            "name": "a",
+            "status": "a"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.adoptionCandidate.candidateHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionCandidate": {
+          "approvable": false,
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "complete": false,
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "diffHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerIdentity": {
+            "instance": {
+              "kind": "a",
+              "name": "a",
+              "namespace": "a",
+              "uid": "a"
+            },
+            "origin": "a",
+            "realmID": "a",
+            "trust": "public-ca"
+          },
+          "target": {
+            "kind": "a",
+            "name": "a",
+            "namespace": "a",
+            "uid": "a"
+          },
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.adoptionCandidate.diffHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionCandidate": {
+          "approvable": false,
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "complete": false,
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "diffHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerIdentity": {
+            "instance": {
+              "kind": "a",
+              "name": "a",
+              "namespace": "a",
+              "uid": "a"
+            },
+            "origin": "a",
+            "realmID": "a",
+            "trust": "public-ca"
+          },
+          "target": {
+            "kind": "a",
+            "name": "a",
+            "namespace": "a",
+            "uid": "a"
+          },
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.adoptionCandidate.observationHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionCandidate": {
+          "approvable": false,
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "complete": false,
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "diffHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerIdentity": {
+            "instance": {
+              "kind": "a",
+              "name": "a",
+              "namespace": "a",
+              "uid": "a"
+            },
+            "origin": "a",
+            "realmID": "a",
+            "trust": "public-ca"
+          },
+          "target": {
+            "kind": "a",
+            "name": "a",
+            "namespace": "a",
+            "uid": "a"
+          },
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.adoptionReceipt.candidateHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionReceipt": {
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "state": "Pending"
+        }
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.conditions",
+      "type": "array",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "conditions": []
+      },
+      "item": {
+        "lastTransitionTime": "2026-10-19T00:00:00Z",
+        "message": "a",
+        "reason": "a",
+        "status": "True",
+        "type": "Ready"
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-19T00:00:00Z",
+            "message": "a",
+            "reason": "a",
+            "status": "True",
+            "type": "Ready"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.groupID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "groupID": "a"
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.groupPath",
+      "type": "string",
+      "maximum": 16384,
+      "format": "text",
+      "status": {
+        "groupPath": "a"
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.lastReconciled",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastReconciled": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.orgID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "orgID": "a"
+      }
+    },
+    {
+      "kind": "HankoOrganization",
+      "path": "status.positionID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "positionID": "a"
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.appliedMFAPolicy",
+      "type": "string",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "appliedMFAPolicy": "a"
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.conditions",
+      "type": "array",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "conditions": []
+      },
+      "item": {
+        "lastTransitionTime": "2026-10-19T00:00:00Z",
+        "message": "a",
+        "reason": "a",
+        "status": "True",
+        "type": "Ready"
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-19T00:00:00Z",
+            "message": "a",
+            "reason": "a",
+            "status": "True",
+            "type": "Ready"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.effectiveIAMProfile",
+      "type": "string",
+      "maximum": 253,
+      "format": "text",
+      "status": {
+        "effectiveIAMProfile": "a"
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.effectivePolicyHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "text",
+      "status": {
+        "effectivePolicyHash": "a"
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.keycloakRealmID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "keycloakRealmID": "a"
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.lastReconciled",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastReconciled": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.managedIdentityProviders",
+      "type": "array",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "managedIdentityProviders": []
+      },
+      "item": {
+        "alias": "a"
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.managedIdentityProviders[].alias",
+      "type": "string",
+      "maximum": 255,
+      "format": "text",
+      "status": {
+        "managedIdentityProviders": [
+          {
+            "alias": "a"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.managedIdentityProviders[].mappers",
+      "type": "array",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "managedIdentityProviders": [
+          {
+            "alias": "a",
+            "mappers": []
+          }
+        ]
+      },
+      "item": {
+        "keycloakID": "a",
+        "name": "a"
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.managedIdentityProviders[].mappers[].keycloakID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "managedIdentityProviders": [
+          {
+            "alias": "a",
+            "mappers": [
+              {
+                "keycloakID": "a",
+                "name": "a"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoRealm",
+      "path": "status.managedIdentityProviders[].mappers[].name",
+      "type": "string",
+      "maximum": 253,
+      "format": "text",
+      "status": {
+        "managedIdentityProviders": [
+          {
+            "alias": "a",
+            "mappers": [
+              {
+                "keycloakID": "a",
+                "name": "a"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.adoptionCandidate.candidateHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionCandidate": {
+          "approvable": false,
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "complete": false,
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "diffHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerIdentity": {
+            "instance": {
+              "kind": "a",
+              "name": "a",
+              "namespace": "a",
+              "uid": "a"
+            },
+            "origin": "a",
+            "realmID": "a",
+            "trust": "public-ca"
+          },
+          "target": {
+            "kind": "a",
+            "name": "a",
+            "namespace": "a",
+            "uid": "a"
+          },
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.adoptionCandidate.diffHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionCandidate": {
+          "approvable": false,
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "complete": false,
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "diffHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerIdentity": {
+            "instance": {
+              "kind": "a",
+              "name": "a",
+              "namespace": "a",
+              "uid": "a"
+            },
+            "origin": "a",
+            "realmID": "a",
+            "trust": "public-ca"
+          },
+          "target": {
+            "kind": "a",
+            "name": "a",
+            "namespace": "a",
+            "uid": "a"
+          },
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.adoptionCandidate.observationHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionCandidate": {
+          "approvable": false,
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "complete": false,
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "diffHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerIdentity": {
+            "instance": {
+              "kind": "a",
+              "name": "a",
+              "namespace": "a",
+              "uid": "a"
+            },
+            "origin": "a",
+            "realmID": "a",
+            "trust": "public-ca"
+          },
+          "target": {
+            "kind": "a",
+            "name": "a",
+            "namespace": "a",
+            "uid": "a"
+          },
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.adoptionReceipt.candidateHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionReceipt": {
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "state": "Pending"
+        }
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.appliedPlanHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "text",
+      "status": {
+        "appliedPlanHash": "a"
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.authorizationExplanation.explanationHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "authorizationExplanation": {
+          "complete": false,
+          "explanationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "paths": [],
+          "source": "Applied",
+          "sourceGeneration": 1,
+          "sourceObservationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "sourcePlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.authorizationExplanation.sourceObservationHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "authorizationExplanation": {
+          "complete": false,
+          "explanationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "paths": [],
+          "source": "Applied",
+          "sourceGeneration": 1,
+          "sourceObservationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "sourcePlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.authorizationExplanation.sourcePlanHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "authorizationExplanation": {
+          "complete": false,
+          "explanationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "paths": [],
+          "source": "Applied",
+          "sourceGeneration": 1,
+          "sourceObservationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "sourcePlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-19T00:00:00Z",
+            "message": "a",
+            "reason": "a",
+            "status": "True",
+            "type": "Ready"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.evaluatedPlanHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "evaluatedPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.intentHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "intentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.lastReconciled",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastReconciled": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.observationPlanHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "observationPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "kind": "HankoResourceServer",
+      "path": "status.observedStateHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "observedStateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.adoptionCandidate.candidateHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionCandidate": {
+          "approvable": false,
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "complete": false,
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "diffHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerIdentity": {
+            "instance": {
+              "kind": "a",
+              "name": "a",
+              "namespace": "a",
+              "uid": "a"
+            },
+            "origin": "a",
+            "realmID": "a",
+            "trust": "public-ca"
+          },
+          "target": {
+            "kind": "a",
+            "name": "a",
+            "namespace": "a",
+            "uid": "a"
+          },
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.adoptionCandidate.diffHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionCandidate": {
+          "approvable": false,
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "complete": false,
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "diffHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerIdentity": {
+            "instance": {
+              "kind": "a",
+              "name": "a",
+              "namespace": "a",
+              "uid": "a"
+            },
+            "origin": "a",
+            "realmID": "a",
+            "trust": "public-ca"
+          },
+          "target": {
+            "kind": "a",
+            "name": "a",
+            "namespace": "a",
+            "uid": "a"
+          },
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.adoptionCandidate.observationHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionCandidate": {
+          "approvable": false,
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "complete": false,
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "diffHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerIdentity": {
+            "instance": {
+              "kind": "a",
+              "name": "a",
+              "namespace": "a",
+              "uid": "a"
+            },
+            "origin": "a",
+            "realmID": "a",
+            "trust": "public-ca"
+          },
+          "target": {
+            "kind": "a",
+            "name": "a",
+            "namespace": "a",
+            "uid": "a"
+          },
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.adoptionReceipt.candidateHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionReceipt": {
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "state": "Pending"
+        }
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.appliedPlanHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "appliedPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-19T00:00:00Z",
+            "message": "a",
+            "reason": "a",
+            "status": "True",
+            "type": "Ready"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.evaluatedPlanHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "evaluatedPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.intentHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "intentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.lastReconciled",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastReconciled": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.observationPlanHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "observationPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "kind": "HankoRole",
+      "path": "status.observedStateHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "observedStateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.adoptionCandidate.candidateHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionCandidate": {
+          "approvable": false,
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "complete": false,
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "diffHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerIdentity": {
+            "instance": {
+              "kind": "a",
+              "name": "a",
+              "namespace": "a",
+              "uid": "a"
+            },
+            "origin": "a",
+            "realmID": "a",
+            "trust": "public-ca"
+          },
+          "target": {
+            "kind": "a",
+            "name": "a",
+            "namespace": "a",
+            "uid": "a"
+          },
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.adoptionCandidate.diffHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionCandidate": {
+          "approvable": false,
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "complete": false,
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "diffHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerIdentity": {
+            "instance": {
+              "kind": "a",
+              "name": "a",
+              "namespace": "a",
+              "uid": "a"
+            },
+            "origin": "a",
+            "realmID": "a",
+            "trust": "public-ca"
+          },
+          "target": {
+            "kind": "a",
+            "name": "a",
+            "namespace": "a",
+            "uid": "a"
+          },
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.adoptionCandidate.observationHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionCandidate": {
+          "approvable": false,
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "complete": false,
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "diffHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerIdentity": {
+            "instance": {
+              "kind": "a",
+              "name": "a",
+              "namespace": "a",
+              "uid": "a"
+            },
+            "origin": "a",
+            "realmID": "a",
+            "trust": "public-ca"
+          },
+          "target": {
+            "kind": "a",
+            "name": "a",
+            "namespace": "a",
+            "uid": "a"
+          },
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.adoptionReceipt.candidateHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionReceipt": {
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "state": "Pending"
+        }
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.authenticationTransition.bindingRevision",
+      "type": "string",
+      "maximum": 71,
+      "format": "text",
+      "status": {
+        "authenticationTransition": {
+          "bindingRevision": "a",
+          "clientUUID": "a",
+          "desiredMode": "a",
+          "nativeStateHash": "a",
+          "planHash": "a",
+          "previousMode": "a",
+          "requestID": "a",
+          "step": "a"
+        }
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.authenticationTransition.clientUUID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "authenticationTransition": {
+          "bindingRevision": "a",
+          "clientUUID": "a",
+          "desiredMode": "a",
+          "nativeStateHash": "a",
+          "planHash": "a",
+          "previousMode": "a",
+          "requestID": "a",
+          "step": "a"
+        }
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.authenticationTransition.desiredMode",
+      "type": "string",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "authenticationTransition": {
+          "bindingRevision": "a",
+          "clientUUID": "a",
+          "desiredMode": "a",
+          "nativeStateHash": "a",
+          "planHash": "a",
+          "previousMode": "a",
+          "requestID": "a",
+          "step": "a"
+        }
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.authenticationTransition.nativeStateHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "text",
+      "status": {
+        "authenticationTransition": {
+          "bindingRevision": "a",
+          "clientUUID": "a",
+          "desiredMode": "a",
+          "nativeStateHash": "a",
+          "planHash": "a",
+          "previousMode": "a",
+          "requestID": "a",
+          "step": "a"
+        }
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.authenticationTransition.planHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "text",
+      "status": {
+        "authenticationTransition": {
+          "bindingRevision": "a",
+          "clientUUID": "a",
+          "desiredMode": "a",
+          "nativeStateHash": "a",
+          "planHash": "a",
+          "previousMode": "a",
+          "requestID": "a",
+          "step": "a"
+        }
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.authenticationTransition.previousMode",
+      "type": "string",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "authenticationTransition": {
+          "bindingRevision": "a",
+          "clientUUID": "a",
+          "desiredMode": "a",
+          "nativeStateHash": "a",
+          "planHash": "a",
+          "previousMode": "a",
+          "requestID": "a",
+          "step": "a"
+        }
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.authenticationTransition.requestID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "authenticationTransition": {
+          "bindingRevision": "a",
+          "clientUUID": "a",
+          "desiredMode": "a",
+          "nativeStateHash": "a",
+          "planHash": "a",
+          "previousMode": "a",
+          "requestID": "a",
+          "step": "a"
+        }
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.authenticationTransition.step",
+      "type": "string",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "authenticationTransition": {
+          "bindingRevision": "a",
+          "clientUUID": "a",
+          "desiredMode": "a",
+          "nativeStateHash": "a",
+          "planHash": "a",
+          "previousMode": "a",
+          "requestID": "a",
+          "step": "a"
+        }
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.conditions",
+      "type": "array",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "conditions": []
+      },
+      "item": {
+        "lastTransitionTime": "2026-10-19T00:00:00Z",
+        "message": "a",
+        "reason": "a",
+        "status": "True",
+        "type": "Ready"
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-19T00:00:00Z",
+            "message": "a",
+            "reason": "a",
+            "status": "True",
+            "type": "Ready"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.lastReconciled",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastReconciled": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.lastRotated",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastRotated": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.managedTokenClaims",
+      "type": "array",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "managedTokenClaims": []
+      },
+      "item": {
+        "keycloakID": "a",
+        "name": "a"
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.managedTokenClaims[].conditions",
+      "type": "array",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "managedTokenClaims": [
+          {
+            "keycloakID": "a",
+            "name": "a",
+            "conditions": []
+          }
+        ]
+      },
+      "item": {
+        "lastTransitionTime": "2026-10-19T00:00:00Z",
+        "message": "a",
+        "reason": "a",
+        "status": "True",
+        "type": "Ready"
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.managedTokenClaims[].conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "managedTokenClaims": [
+          {
+            "keycloakID": "a",
+            "name": "a",
+            "conditions": [
+              {
+                "lastTransitionTime": "2026-10-19T00:00:00Z",
+                "message": "a",
+                "reason": "a",
+                "status": "True",
+                "type": "Ready"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.managedTokenClaims[].keycloakID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "managedTokenClaims": [
+          {
+            "keycloakID": "a",
+            "name": "a"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.managedTokenClaims[].name",
+      "type": "string",
+      "maximum": 63,
+      "format": "text",
+      "status": {
+        "managedTokenClaims": [
+          {
+            "keycloakID": "a",
+            "name": "a"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.nextRotation",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "nextRotation": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.runtimeMetadata.bindingRevision",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "runtimeMetadata": {
+          "bindingRevision": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "configMapRef": "a",
+          "configMapUID": "a",
+          "metadataHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.runtimeMetadata.metadataHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "runtimeMetadata": {
+          "bindingRevision": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "configMapRef": "a",
+          "configMapUID": "a",
+          "metadataHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.secretRef.secretRef.key",
+      "type": "string",
+      "maximum": 253,
+      "format": "text",
+      "status": {
+        "secretRef": {
+          "secretRef": {
+            "key": "a"
+          }
+        }
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.secretRef.secretRef.name",
+      "type": "string",
+      "maximum": 253,
+      "format": "text",
+      "status": {
+        "secretRef": {
+          "secretRef": {
+            "key": "a",
+            "name": ""
+          }
+        }
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.workloadBinding.apiServerCAHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "workloadBinding": {
+          "apiServerCAHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bindingRevision": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "clusterNamespaceUID": "a",
+          "intentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "planHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerID": "a",
+          "realmID": "a",
+          "sourceGeneration": 1,
+          "trustGeneration": 1,
+          "trustUID": "a",
+          "workload": {
+            "expectedUID": "a",
+            "namespace": "a",
+            "serviceAccountRef": "a"
+          }
+        }
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.workloadBinding.bindingRevision",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "workloadBinding": {
+          "apiServerCAHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bindingRevision": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "clusterNamespaceUID": "a",
+          "intentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "planHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerID": "a",
+          "realmID": "a",
+          "sourceGeneration": 1,
+          "trustGeneration": 1,
+          "trustUID": "a",
+          "workload": {
+            "expectedUID": "a",
+            "namespace": "a",
+            "serviceAccountRef": "a"
+          }
+        }
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.workloadBinding.intentHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "workloadBinding": {
+          "apiServerCAHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bindingRevision": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "clusterNamespaceUID": "a",
+          "intentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "planHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerID": "a",
+          "realmID": "a",
+          "sourceGeneration": 1,
+          "trustGeneration": 1,
+          "trustUID": "a",
+          "workload": {
+            "expectedUID": "a",
+            "namespace": "a",
+            "serviceAccountRef": "a"
+          }
+        }
+      }
+    },
+    {
+      "kind": "HankoServiceAccount",
+      "path": "status.workloadBinding.planHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "workloadBinding": {
+          "apiServerCAHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "bindingRevision": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "clusterNamespaceUID": "a",
+          "intentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "planHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerID": "a",
+          "realmID": "a",
+          "sourceGeneration": 1,
+          "trustGeneration": 1,
+          "trustUID": "a",
+          "workload": {
+            "expectedUID": "a",
+            "namespace": "a",
+            "serviceAccountRef": "a"
+          }
+        }
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.conditions",
+      "type": "array",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "conditions": []
+      },
+      "item": {
+        "lastTransitionTime": "2026-10-19T00:00:00Z",
+        "message": "a",
+        "reason": "a",
+        "status": "True",
+        "type": "Ready"
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-19T00:00:00Z",
+            "message": "a",
+            "reason": "a",
+            "status": "True",
+            "type": "Ready"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.configHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "text",
+      "status": {
+        "configHash": "a"
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.configMapRef",
+      "type": "string",
+      "maximum": 253,
+      "format": "text",
+      "status": {
+        "configMapRef": "a"
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.configMapUID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "configMapUID": "a"
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.dbJobRef",
+      "type": "string",
+      "maximum": 253,
+      "format": "text",
+      "status": {
+        "dbJobRef": "a"
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.dbJobUID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "dbJobUID": "a"
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.instanceUID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "instanceUID": "a"
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.intentHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "text",
+      "status": {
+        "intentHash": "a"
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.lastReconciled",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastReconciled": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoSnapshot",
+      "path": "status.takenAt",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "takenAt": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.bundleVersion",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "bundleVersion": "a"
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.clusterID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "clusterID": "a"
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.conditions",
+      "type": "array",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "conditions": []
+      },
+      "item": {
+        "lastTransitionTime": "2026-10-19T00:00:00Z",
+        "message": "a",
+        "reason": "a",
+        "status": "True",
+        "type": "Ready"
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-19T00:00:00Z",
+            "message": "a",
+            "reason": "a",
+            "status": "True",
+            "type": "Ready"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.connectedHub",
+      "type": "string",
+      "maximum": 2048,
+      "format": "text",
+      "status": {
+        "connectedHub": "a"
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.appliedIdentity",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "fleetPlan": {
+          "expiresAt": "2026-10-19T00:00:00Z",
+          "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "keyID": "a",
+          "sequence": 1,
+          "tenantUID": "a",
+          "appliedIdentity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.cache.acceptedAt",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "fleetPlan": {
+          "expiresAt": "2026-10-19T00:00:00Z",
+          "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "keyID": "a",
+          "sequence": 1,
+          "tenantUID": "a",
+          "cache": {
+            "acceptedAt": "2026-10-19T00:00:00Z",
+            "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "a",
+            "sequence": 1,
+            "uid": "a"
+          }
+        }
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.cache.identity",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "fleetPlan": {
+          "expiresAt": "2026-10-19T00:00:00Z",
+          "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "keyID": "a",
+          "sequence": 1,
+          "tenantUID": "a",
+          "cache": {
+            "acceptedAt": "2026-10-19T00:00:00Z",
+            "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "a",
+            "sequence": 1,
+            "uid": "a"
+          }
+        }
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.expiresAt",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "fleetPlan": {
+          "expiresAt": "2026-10-19T00:00:00Z",
+          "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "keyID": "a",
+          "sequence": 1,
+          "tenantUID": "a"
+        }
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.hubEndpointHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "fleetPlan": {
+          "expiresAt": "2026-10-19T00:00:00Z",
+          "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "keyID": "a",
+          "sequence": 1,
+          "tenantUID": "a",
+          "hubEndpointHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.identity",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "fleetPlan": {
+          "expiresAt": "2026-10-19T00:00:00Z",
+          "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "keyID": "a",
+          "sequence": 1,
+          "tenantUID": "a"
+        }
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.journal[].acceptedAt",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "fleetPlan": {
+          "expiresAt": "2026-10-19T00:00:00Z",
+          "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "keyID": "a",
+          "sequence": 1,
+          "tenantUID": "a",
+          "journal": [
+            {
+              "acceptedAt": "2026-10-19T00:00:00Z",
+              "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "sequence": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.journal[].identity",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "fleetPlan": {
+          "expiresAt": "2026-10-19T00:00:00Z",
+          "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "keyID": "a",
+          "sequence": 1,
+          "tenantUID": "a",
+          "journal": [
+            {
+              "acceptedAt": "2026-10-19T00:00:00Z",
+              "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "sequence": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.journal[].rollbackOf",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "fleetPlan": {
+          "expiresAt": "2026-10-19T00:00:00Z",
+          "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "keyID": "a",
+          "sequence": 1,
+          "tenantUID": "a",
+          "journal": [
+            {
+              "acceptedAt": "2026-10-19T00:00:00Z",
+              "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "sequence": 1,
+              "rollbackOf": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.previousCache.acceptedAt",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "fleetPlan": {
+          "expiresAt": "2026-10-19T00:00:00Z",
+          "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "keyID": "a",
+          "sequence": 1,
+          "tenantUID": "a",
+          "previousCache": {
+            "acceptedAt": "2026-10-19T00:00:00Z",
+            "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "a",
+            "sequence": 1,
+            "uid": "a"
+          }
+        }
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.previousCache.identity",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "fleetPlan": {
+          "expiresAt": "2026-10-19T00:00:00Z",
+          "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "keyID": "a",
+          "sequence": 1,
+          "tenantUID": "a",
+          "previousCache": {
+            "acceptedAt": "2026-10-19T00:00:00Z",
+            "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "a",
+            "sequence": 1,
+            "uid": "a"
+          }
+        }
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.previousIdentity",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "fleetPlan": {
+          "expiresAt": "2026-10-19T00:00:00Z",
+          "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "keyID": "a",
+          "sequence": 1,
+          "tenantUID": "a",
+          "previousIdentity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.rollbackReference.acceptedAt",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "fleetPlan": {
+          "expiresAt": "2026-10-19T00:00:00Z",
+          "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "keyID": "a",
+          "sequence": 1,
+          "tenantUID": "a",
+          "rollbackReference": {
+            "acceptedAt": "2026-10-19T00:00:00Z",
+            "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "a",
+            "sequence": 1,
+            "uid": "a"
+          }
+        }
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.rollbackReference.identity",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "fleetPlan": {
+          "expiresAt": "2026-10-19T00:00:00Z",
+          "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "keyID": "a",
+          "sequence": 1,
+          "tenantUID": "a",
+          "rollbackReference": {
+            "acceptedAt": "2026-10-19T00:00:00Z",
+            "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "a",
+            "sequence": 1,
+            "uid": "a"
+          }
+        }
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetPlan.verifiedAt",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "fleetPlan": {
+          "expiresAt": "2026-10-19T00:00:00Z",
+          "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "keyID": "a",
+          "sequence": 1,
+          "tenantUID": "a",
+          "verifiedAt": "2026-10-19T00:00:00Z"
+        }
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetRollout.identity",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "fleetRollout": {
+          "applied": 1,
+          "observedGeneration": 1,
+          "omitted": 1,
+          "pending": 1,
+          "refused": 1,
+          "state": "Pending",
+          "identity": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.fleetRollout.selectionHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "fleetRollout": {
+          "applied": 1,
+          "observedGeneration": 1,
+          "omitted": 1,
+          "pending": 1,
+          "refused": 1,
+          "state": "Pending",
+          "selectionHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.lastReconciled",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastReconciled": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.lastSync",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastSync": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoTenant",
+      "path": "status.tenantID",
+      "type": "string",
+      "maximum": 128,
+      "format": "text",
+      "status": {
+        "tenantID": "a"
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "status.buildJob",
+      "type": "string",
+      "maximum": 253,
+      "format": "text",
+      "status": {
+        "buildJob": "a"
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "status.conditions",
+      "type": "array",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "conditions": []
+      },
+      "item": {
+        "lastTransitionTime": "2026-10-19T00:00:00Z",
+        "message": "a",
+        "reason": "a",
+        "status": "True",
+        "type": "Ready"
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "status.conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-19T00:00:00Z",
+            "message": "a",
+            "reason": "a",
+            "status": "True",
+            "type": "Ready"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "status.installedBuildImage",
+      "type": "string",
+      "maximum": 2048,
+      "format": "text",
+      "status": {
+        "installedBuildImage": "a"
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "status.installedImagePullSecrets",
+      "type": "array",
+      "maximum": 32,
+      "format": "text",
+      "status": {
+        "installedImagePullSecrets": []
+      },
+      "item": {}
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "status.installedImagePullSecrets[].name",
+      "type": "string",
+      "maximum": 253,
+      "format": "text",
+      "status": {
+        "installedImagePullSecrets": [
+          {
+            "name": ""
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "status.installedPVC",
+      "type": "string",
+      "maximum": 253,
+      "format": "text",
+      "status": {
+        "installedPVC": "a"
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "status.jarPath",
+      "type": "string",
+      "maximum": 1024,
+      "format": "text",
+      "status": {
+        "jarPath": "a"
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "status.lastBuilt",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastBuilt": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "status.lastReconciled",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "lastReconciled": "2026-10-19T00:00:00Z"
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.adoptionCandidate.candidateHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionCandidate": {
+          "approvable": false,
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "complete": false,
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "diffHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerIdentity": {
+            "instance": {
+              "kind": "a",
+              "name": "a",
+              "namespace": "a",
+              "uid": "a"
+            },
+            "origin": "a",
+            "realmID": "a",
+            "trust": "public-ca"
+          },
+          "target": {
+            "kind": "a",
+            "name": "a",
+            "namespace": "a",
+            "uid": "a"
+          },
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.adoptionCandidate.diffHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionCandidate": {
+          "approvable": false,
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "complete": false,
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "diffHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerIdentity": {
+            "instance": {
+              "kind": "a",
+              "name": "a",
+              "namespace": "a",
+              "uid": "a"
+            },
+            "origin": "a",
+            "realmID": "a",
+            "trust": "public-ca"
+          },
+          "target": {
+            "kind": "a",
+            "name": "a",
+            "namespace": "a",
+            "uid": "a"
+          },
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.adoptionCandidate.observationHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionCandidate": {
+          "approvable": false,
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "complete": false,
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "diffHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observationHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "providerIdentity": {
+            "instance": {
+              "kind": "a",
+              "name": "a",
+              "namespace": "a",
+              "uid": "a"
+            },
+            "origin": "a",
+            "realmID": "a",
+            "trust": "public-ca"
+          },
+          "target": {
+            "kind": "a",
+            "name": "a",
+            "namespace": "a",
+            "uid": "a"
+          },
+          "truncated": false
+        }
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.adoptionReceipt.candidateHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "adoptionReceipt": {
+          "candidateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contractVersion": "hanko.sh/adoption-contract/v1alpha1",
+          "state": "Pending"
+        }
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.appliedPlanHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "appliedPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.conditions[].lastTransitionTime",
+      "type": "string",
+      "maximum": 64,
+      "format": "datetime",
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-19T00:00:00Z",
+            "message": "a",
+            "reason": "a",
+            "status": "True",
+            "type": "Ready"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.dependentInventoryHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "dependentInventoryHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.evaluatedPlanHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "evaluatedPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.intentHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "intentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.observedStateHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "observedStateHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "kind": "HankoWorkloadTrust",
+      "path": "status.sharedAgeReviewHash",
+      "type": "string",
+      "maximum": 71,
+      "format": "digest",
+      "status": {
+        "sharedAgeReviewHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    }
+  ]
+}

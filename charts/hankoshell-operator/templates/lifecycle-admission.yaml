@@ -1,0 +1,45 @@
+{{- /* Protect approval metadata even while the experimental writers are off. */}}
+{{- $name := printf "%s-lifecycle-%s" (include "hanko-operator.fullname" .) .Release.Namespace }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ $name }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [hanko.sh]
+        apiVersions: [v1alpha1]
+        operations: [CREATE, UPDATE]
+        resources: [hankooperations, hankosnapshots, hankokeycloakinstances, hankoimports]
+        scope: Namespaced
+  variables:
+    - name: administrator
+      expression: request.userInfo.groups.exists(g, g in {{ concat (list "system:masters") .Values.lifecycle.adminGroups | toJson }})
+    - name: operator
+      expression: request.userInfo.username == {{ printf "system:serviceaccount:%s:%s" .Release.Namespace (include "hanko-operator.fullname" .) | toJson }}
+    - name: approval
+      expression: "has(object.metadata.annotations) && 'hanko.sh/lifecycle-approval' in object.metadata.annotations ? object.metadata.annotations['hanko.sh/lifecycle-approval'] : ''"
+    - name: oldApproval
+      expression: "oldObject != null && has(oldObject.metadata.annotations) && 'hanko.sh/lifecycle-approval' in oldObject.metadata.annotations ? oldObject.metadata.annotations['hanko.sh/lifecycle-approval'] : ''"
+    - name: operationChild
+      expression: >-
+        (has(object.metadata.annotations) && 'hanko.sh/operation-intent' in object.metadata.annotations) ||
+        (has(object.metadata.ownerReferences) && object.metadata.ownerReferences.exists(o, o.kind == 'HankoOperation')) ||
+        (oldObject != null && has(oldObject.metadata.annotations) && 'hanko.sh/operation-intent' in oldObject.metadata.annotations) ||
+        (oldObject != null && has(oldObject.metadata.ownerReferences) && oldObject.metadata.ownerReferences.exists(o, o.kind == 'HankoOperation'))
+  validations:
+    - expression: request.namespace != {{ .Release.Namespace | toJson }} || variables.approval == variables.oldApproval || variables.administrator
+      message: Lifecycle approval requires independent administrator authority
+      reason: Forbidden
+    - expression: request.namespace != {{ .Release.Namespace | toJson }} || !variables.operationChild || variables.administrator || variables.operator
+      message: Lifecycle child provenance requires operator or administrator authority
+      reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ $name }}
+spec:
+  policyName: {{ $name }}
+  validationActions: [Deny, Audit]

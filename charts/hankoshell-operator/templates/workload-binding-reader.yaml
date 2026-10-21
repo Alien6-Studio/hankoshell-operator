@@ -1,0 +1,50 @@
+{{- $fullname := include "hanko-operator.fullname" . }}
+{{- $labels := include "hanko-operator.labels" . }}
+{{- $operatorNamespace := .Release.Namespace }}
+{{- $seen := dict }}
+{{- range $grant := .Values.workloadBinding.grants }}
+{{- $namespace := required "workloadBinding grant requires namespace" $grant.namespace }}
+{{- if or (gt (len $namespace) 63) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $namespace)) }}{{ fail "workloadBinding grant has invalid namespace" }}{{ end }}
+{{- if hasKey $seen $namespace }}{{ fail "workloadBinding grant namespaces must be unique" }}{{ end }}
+{{- $_ := set $seen $namespace true }}
+{{- if not $grant.serviceAccounts }}{{ fail "workloadBinding grant requires named serviceAccounts" }}{{ end }}
+{{- range $name := concat $grant.serviceAccounts ($grant.configMaps | default list) }}
+{{- if or (gt (len $name) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $name)) }}{{ fail "workloadBinding grant requires exact resource names" }}{{ end }}
+{{- end }}
+{{- if has "default" $grant.serviceAccounts }}{{ fail "workloadBinding grant requires dedicated ServiceAccounts" }}{{ end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $fullname }}-workload-binding
+  namespace: {{ $namespace }}
+  labels:
+    {{- $labels | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    resourceNames: {{ $grant.serviceAccounts | toJson }}
+    verbs: ["get"]
+  {{- if $grant.configMaps }}
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: {{ $grant.configMaps | toJson }}
+    verbs: ["get", "patch"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $fullname }}-workload-binding
+  namespace: {{ $namespace }}
+  labels:
+    {{- $labels | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $fullname }}-workload-binding
+subjects:
+  - kind: ServiceAccount
+    name: {{ $fullname }}
+    namespace: {{ $operatorNamespace }}
+{{- end }}

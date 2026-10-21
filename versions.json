@@ -1,0 +1,120 @@
+{
+  "release": {
+    "version": "1.0.0",
+    "status": "development"
+  },
+  "go": {
+    "toolchain": "1.27.3"
+  },
+  "tools": {
+    "helm": {
+      "version": "3.17.0",
+      "sha256": {
+        "linux-amd64": "fb5d12662fde6eeff36ac4ccacbf3abed96b0ee2de07afdde4edb14e613aee24",
+        "darwin-arm64": "5db292c69ba756ddbf139abb623b02860feef15c7f1a4ea69b77715b9165a261"
+      }
+    },
+    "controller_gen": "v0.21.0",
+    "golangci_lint": "v2.14.0",
+    "go_arch_lint": "v1.19.0",
+    "govulncheck": "v1.8.0",
+    "gotestsum": "v1.13.0",
+    "go_licenses": "v2.0.1",
+    "pre_commit": {
+      "version": "4.7.0",
+      "sha256": "393488513aed286d7a5a978a1fe79b2f5a8802927242a2d241ff10c1a8e8c885"
+    },
+    "gitleaks": {
+      "version": "8.30.1",
+      "sha256": {
+        "linux-amd64": "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb",
+        "darwin-arm64": "b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5"
+      }
+    },
+    "oras": "v1.3.4",
+    "cosign": {
+      "version": "v3.1.3",
+      "dependencies": {
+        "golang.org/x/crypto": "v0.58.0",
+        "golang.org/x/mod": "v0.41.0",
+        "golang.org/x/net": "v0.61.0",
+        "golang.org/x/text": "v0.43.0",
+        "google.golang.org/grpc": "v1.83.2",
+        "github.com/klauspost/compress": "v1.19.0"
+      }
+    },
+    "kind": {
+      "version": "v0.33.0",
+      "sha256": {
+        "linux-amd64": "aee6151561422756b764a4ae28e7f44cda5af5a9eead3cc9985112b1de8d8e0d",
+        "darwin-arm64": "0c8c7dbe5e23594a198b786c4bc13dacc101fa6196b0cb0b23a1ca44e61f4b4f"
+      }
+    },
+    "kubectl": {
+      "version": "v1.37.0",
+      "sha256": {
+        "linux-amd64": "6129359f4e1f3848a5572ccb0b26cf28b8ca08cef38c95a765b2f64a2c961a2f",
+        "darwin-arm64": "583beedaebe422e71d3f1a96acef8b1fef86ea2f09a45ad01aa6c9ce287c1380"
+      }
+    },
+    "trivy": {
+      "version": "0.75.0",
+      "sha256": {
+        "linux-amd64": "c6e65abddb348e25f10549df887045629cf28cc72453cd1c63acb717316b3f3f",
+        "darwin-arm64": "4a77108cccf8e55c8d6823e1e759939a622277e66cd0daa3c1fc621ed69e4568"
+      }
+    }
+  },
+  "kubernetes": {
+    "versions": [
+      "1.35.0",
+      "1.36.2",
+      "1.37.0"
+    ],
+    "default": "1.37.0",
+    "deep_migration": "1.37.0",
+    "chart_range": ">=1.35.0-0 <1.38.0-0",
+    "node_images": {
+      "1.35.0": "kindest/node:v1.35.0@sha256:4613778f3cfcd10e615029370f5786704559103cf27bef934597ba562b269661",
+      "1.37.0": "kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5"
+    },
+    "built_node": {
+      "version": "1.36.2",
+      "base_image": "docker.io/kindest/base:v20260820-69b56db7@sha256:8098fa3cae05bc15d9c4b93a566d19e1f8e65a25e26ebeb993b6cb41142cf791",
+      "sha256": {
+        "arm64": "fb072af40057be271d3a7175b7c7689c719b02fb8bb00027b4a03821cd37e9bb",
+        "amd64": "a87298665748685c6ea595f6cb1dd8b437b4148cb7f40ab9dc7d88d2da18e7df"
+      }
+    },
+    "envtest_sha512": {
+      "1.35.0": {
+        "darwin-arm64": "bb5d0bb3975956331b0aa0c039955b4c4dc6c5c288e5af369364c7d2fbeac11a025227dabb127569080b259dd29b697cc77fa77abd27ae26721ddb23e8ee0613",
+        "linux-amd64": "130369c16f076e724d089189afaede960316f5f5dea6cf57be7a4fc6f09c77342893192509790e4056e116e232dff832ed863f5bd55dcb55d38f3ab834828a11"
+      },
+      "1.36.2": {
+        "darwin-arm64": "9278f9e5af556b2f1f2d139769c1f0d717c7b4426917fdebdba898bcb725a916e4910d6160886194ff9be9589ea7c5c32c2b8ae0754703874b7c8ba8ddfc41ce",
+        "linux-amd64": "ea743186c8a799f5cf8faf16969f86189d003cb7d130e0ac4b58789f1e5748dcf30ebe91c837a10d5ac415383da3e10b9e64d65785c938c23e739781cfb76f08"
+      },
+      "1.37.0": {
+        "darwin-arm64": "fb38cfacdd71b5e97a4d4cceac861af5f55069cf783f0e49cf181bfc32eb3e557c2091a534dc5d38f1b92c5ba142bc1979f215a5385b3630ea6a661be6fa161b",
+        "linux-amd64": "1d1c453633b72c161a5d5a886cde7ac850be1a2ac796a9e1d4ffacacc64868295bdd2d57aa66cd0c158f5ce510f5dfe3fbc61ac21bd3dcfb875bd70658aa663a"
+      }
+    }
+  },
+  "keycloak": {
+    "versions": [
+      "26.8.0",
+      "26.7.5"
+    ],
+    "default": "26.8.0",
+    "images": {
+      "26.7.5": "quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85",
+      "26.8.0": "quay.io/keycloak/keycloak:26.8.0@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc"
+    }
+  },
+  "api": {
+    "version": "v1alpha1",
+    "crds": "charts/hankoshell-operator/crds",
+    "types": "api/v1alpha1"
+  }
+}

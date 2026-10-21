@@ -1,0 +1,152 @@
+{
+  "schema": 1,
+  "revision": "a10f2351fedf49ccfbabe200725d2a814c2b0a07",
+  "go": "go1.27.2",
+  "os": "darwin",
+  "arch": "arm64",
+  "command": "go test -race -count=1 -coverprofile=coverage.out ./...",
+  "scope": "unit",
+  "coverage_mode": "atomic",
+  "profile_sha256": "0d75eefd8ce19d860be3ef467caea0164a2b66d0e03148fddfffb22319ef129b",
+  "functions_sha256": "752069570ff7d49df0250ad443bcce864b04fc5f9361ea18592b71255d89e1ce",
+  "global": {
+    "covered": 12136,
+    "statements": 19858,
+    "percent": 61.1139
+  },
+  "packages": {
+    "api/v1alpha1": {
+      "covered": 0,
+      "statements": 1982,
+      "percent": 0.0
+    },
+    "cmd/operator": {
+      "covered": 57,
+      "statements": 169,
+      "percent": 33.7278
+    },
+    "internal/adoption": {
+      "covered": 221,
+      "statements": 258,
+      "percent": 85.6589
+    },
+    "internal/applicationbinding": {
+      "covered": 309,
+      "statements": 390,
+      "percent": 79.2308
+    },
+    "internal/applications": {
+      "covered": 185,
+      "statements": 517,
+      "percent": 35.7834
+    },
+    "internal/authorization": {
+      "covered": 433,
+      "statements": 607,
+      "percent": 71.3344
+    },
+    "internal/controller": {
+      "covered": 7180,
+      "statements": 9645,
+      "percent": 74.4427
+    },
+    "internal/decommission": {
+      "covered": 131,
+      "statements": 160,
+      "percent": 81.875
+    },
+    "internal/hankoapi": {
+      "covered": 113,
+      "statements": 140,
+      "percent": 80.7143
+    },
+    "internal/httpsecurity": {
+      "covered": 23,
+      "statements": 62,
+      "percent": 37.0968
+    },
+    "internal/hub": {
+      "covered": 245,
+      "statements": 271,
+      "percent": 90.4059
+    },
+    "internal/iamconformance": {
+      "covered": 6,
+      "statements": 39,
+      "percent": 15.3846
+    },
+    "internal/iamcontract": {
+      "covered": 42,
+      "statements": 51,
+      "percent": 82.3529
+    },
+    "internal/imagevalidator": {
+      "covered": 141,
+      "statements": 154,
+      "percent": 91.5584
+    },
+    "internal/keycloak": {
+      "covered": 2567,
+      "statements": 4584,
+      "percent": 55.9991
+    },
+    "internal/organization": {
+      "covered": 0,
+      "statements": 7,
+      "percent": 0.0
+    },
+    "internal/roles": {
+      "covered": 95,
+      "statements": 185,
+      "percent": 51.3514
+    },
+    "internal/selfupdate": {
+      "covered": 41,
+      "statements": 43,
+      "percent": 95.3488
+    },
+    "internal/supervision": {
+      "covered": 95,
+      "statements": 108,
+      "percent": 87.963
+    },
+    "internal/workloadauth": {
+      "covered": 30,
+      "statements": 32,
+      "percent": 93.75
+    },
+    "internal/workloadbinding": {
+      "covered": 56,
+      "statements": 231,
+      "percent": 24.2424
+    },
+    "internal/workloadtrust": {
+      "covered": 166,
+      "statements": 198,
+      "percent": 83.8384
+    },
+    "tools/qualification/fixtures/workload-auth-review": {
+      "covered": 0,
+      "statements": 25,
+      "percent": 0.0
+    }
+  },
+  "functions": {
+    "internal/authorization/plan.go:Validate": 80.0,
+    "internal/httpsecurity/client.go:RequireHTTPS": 87.0,
+    "internal/httpsecurity/client.go:RoundTrip": 100.0,
+    "internal/httpsecurity/json.go:ValidateJSON": 0.0,
+    "internal/hub/client.go:VerifyBundle": 85.7,
+    "internal/imagevalidator/approval.go:VerifyImage": 100.0,
+    "internal/imagevalidator/approval.go:VerifyOperatorImage": 100.0,
+    "internal/imagevalidator/approval.go:immutableImage": 100.0,
+    "internal/imagevalidator/approval.go:verifyCurrentApproval": 91.7,
+    "internal/organization/ownership.go:StrictOwnership": 0.0,
+    "internal/selfupdate/selfupdate.go:Run": 96.2,
+    "internal/workloadauth/contract.go:Decode": 92.3,
+    "internal/workloadauth/contract.go:ParseJournal": 100.0,
+    "internal/workloadtrust/contract.go:Compile": 100.0,
+    "internal/workloadtrust/contract.go:ValidHTTPS": 100.0,
+    "internal/workloadtrust/contract.go:Validate": 50.0
+  }
+}

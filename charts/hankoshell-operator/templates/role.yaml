@@ -1,0 +1,231 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "hanko-operator.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hanko-operator.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["hanko.sh"]
+    resources:
+      - hankorealms
+      - hankoiamprofiles
+      - hankoissuers
+      - hankoapplications
+      - hankoroles
+      - hankoorganizations
+      - hankoserviceaccounts
+      - hankoworkloadtrusts
+      - hankothemes
+      - hankotenants
+      - hankokeycloakinstances
+      - hankoimports
+      {{- if .Values.lifecycle.enabled }}
+      - hankooperations
+      {{- end }}
+      {{- if .Values.lifecycle.enabled }}
+      - hankosnapshots
+      {{- end }}
+      - hankoresourceservers
+      - hankomeshservices
+    verbs: ["get", "list", "watch"]
+  # Metadata/finalizer and reviewed Fleet writes. Issuer, MeshService and
+  # Import controllers publish through /status and do not edit their own spec.
+  - apiGroups: ["hanko.sh"]
+    resources:
+      - hankorealms
+      - hankoiamprofiles
+      - hankoapplications
+      - hankoroles
+      - hankoorganizations
+      - hankoserviceaccounts
+      - hankoworkloadtrusts
+      - hankothemes
+      - hankotenants
+      - hankokeycloakinstances
+      - hankoresourceservers
+      {{- if .Values.lifecycle.enabled }}
+      - hankooperations
+      - hankosnapshots
+      {{- end }}
+    verbs: ["update", "patch"]
+  # Fleet delivery and Observe-only import creation have explicit kind sets.
+  - apiGroups: ["hanko.sh"]
+    resources:
+      - hankoiamprofiles
+      - hankorealms
+      - hankoapplications
+      - hankoserviceaccounts
+      - hankothemes
+      - hankoroles
+      {{- if .Values.lifecycle.enabled }}
+      - hankokeycloakinstances
+      - hankoimports
+      - hankosnapshots
+      {{- end }}
+    verbs: ["create"]
+  # Fleet rollback deletes only its five content kinds. Decommission removes
+  # its HankoTenant; no controller deletes arbitrary lifecycle requests.
+  - apiGroups: ["hanko.sh"]
+    resources:
+      - hankoiamprofiles
+      - hankorealms
+      - hankoapplications
+      - hankoserviceaccounts
+      - hankothemes
+      - hankotenants
+    verbs: ["delete"]
+  - apiGroups: ["hanko.sh"]
+    resources:
+      - hankorealms/status
+      - hankoiamprofiles/status
+      - hankoissuers/status
+      - hankoapplications/status
+      - hankoroles/status
+      - hankoorganizations/status
+      - hankoserviceaccounts/status
+      - hankoworkloadtrusts/status
+      - hankothemes/status
+      - hankotenants/status
+      - hankokeycloakinstances/status
+      - hankoimports/status
+      {{- if .Values.lifecycle.enabled }}
+      - hankooperations/status
+      {{- end }}
+      {{- if .Values.lifecycle.enabled }}
+      - hankosnapshots/status
+      {{- end }}
+      - hankoresourceservers/status
+      - hankomeshservices/status
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["hanko.sh"]
+    resources:
+      - hankorealms/finalizers
+      - hankoapplications/finalizers
+      - hankoroles/finalizers
+      - hankoorganizations/finalizers
+      - hankoserviceaccounts/finalizers
+      - hankoworkloadtrusts/finalizers
+      - hankothemes/finalizers
+      - hankotenants/finalizers
+      - hankokeycloakinstances/finalizers
+      {{- if .Values.lifecycle.enabled }}
+      - hankosnapshots/finalizers
+      {{- end }}
+      {{- if .Values.lifecycle.enabled }}
+      - hankooperations/finalizers
+      {{- end }}
+      - hankoresourceservers/finalizers
+    verbs: ["update"]
+  # Legacy email resources are read only except for invalidating obsolete status.
+  - apiGroups: ["hanko.sh"]
+    resources: ["hankoemailproviders"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["hanko.sh"]
+    resources: ["hankoemailproviders/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    # Secret reads bypass the controller-runtime cache. list/watch would copy
+    # every credential in the namespace into the operator process.
+    verbs: ["get"]
+  {{- $secretWrites := include "hanko-operator.sensitiveWriteNames" (dict "root" . "kind" "secrets") | fromJsonArray }}
+  {{- if $secretWrites }}
+  - apiGroups: [""]
+    resources: ["secrets"]
+    # RBAC cannot name-scope CREATE; the mandatory admission policy does.
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: {{ $secretWrites | toJson }}
+    verbs: ["update", "patch"]
+  {{- end }}
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["serviceaccounts", "pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
+  {{- $deploymentWrites := include "hanko-operator.sensitiveWriteNames" (dict "root" . "kind" "deployments") | fromJsonArray }}
+  {{- if $deploymentWrites }}
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["create"]
+  {{- end }}
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: {{ concat (list (include "hanko-operator.fullname" .)) $deploymentWrites | uniq | sortAlpha | toJson }}
+    verbs: ["update", "patch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    # A managed instance scaled down to one replica must remove its stale PDB.
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # client-go's recorder writes the current Events API as well as legacy Events.
+  - apiGroups: ["", "events.k8s.io"]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  # client-go LeaseLock uses Create/Get/Update only. Kubernetes RBAC cannot
+  # restrict create by resourceName; reads and renewals need only this lock.
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["create"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    resourceNames: ["hanko-operator.hanko.sh"]
+    verbs: ["get", "update"]
+  # Hub-driven decommission: every extra verb below is pinned by resourceName
+  # to the exact release-owned objects the operator removes when Hub asks it
+  # to uninstall itself. The Hub credential Secret is deliberately absent.
+  {{- if .Values.networkPolicy.cilium.enabled }}
+  - apiGroups: ["cilium.io"]
+    resources: ["ciliumnetworkpolicies"]
+    resourceNames: ["{{ include "hanko-operator.fullname" . }}"]
+    verbs: ["get", "delete"]
+  {{- end }}
+  - apiGroups: [""]
+    resources: ["services"]
+    resourceNames: ["{{ include "hanko-operator.fullname" . }}-metrics"]
+    verbs: ["delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    resourceNames:
+      - {{ include "hanko-operator.fullname" . }}
+      - {{ include "hanko-operator.fullname" . }}-theme-jobs
+    verbs: ["delete"]
+  - apiGroups: ["monitoring.coreos.com"]
+    resources: ["servicemonitors"]
+    resourceNames: ["{{ include "hanko-operator.fullname" . }}"]
+    verbs: ["get", "delete"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames:
+      - {{ .Values.hub.caSecret | default "hanko-hub-tls" }}
+      - hanko-hub-enroll
+    verbs: ["delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["{{ include "hanko-operator.fullname" . }}"]
+    verbs: ["delete"]
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    resourceNames: ["{{ include "hanko-operator.fullname" . }}"]
+    verbs: ["patch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    resourceNames: ["{{ include "hanko-operator.fullname" . }}"]
+    verbs: ["get", "patch"]

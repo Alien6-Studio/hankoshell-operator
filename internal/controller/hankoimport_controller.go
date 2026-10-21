@@ -1,0 +1,693 @@
+package controller
+
+import (
+	"context"
+	"fmt"
+	"sort"
+	"strings"
+	"time"
+
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	hankoshv1alpha1 "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/iamcontract"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
+)
+
+// keycloakInternalClients holds the built-in Keycloak clients that must never
+// be imported as HankoApplication or HankoServiceAccount objects.
+var keycloakInternalClients = map[string]bool{
+	"account":                true,
+	"account-console":        true,
+	"admin-cli":              true,
+	"broker":                 true,
+	"realm-management":       true,
+	"security-admin-console": true,
+}
+
+type importedRealmIdentityProvider struct {
+	provider keycloak.IdentityProvider
+	mappers  []keycloak.IdentityProviderMapper
+}
+
+// HankoImportReconciler reconciles HankoImport objects (one-shot operation).
+//
+// +kubebuilder:rbac:groups=hanko.sh,resources=hankoimports,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=hanko.sh,resources=hankoimports/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=hanko.sh,resources=hankorealms,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=hanko.sh,resources=hankoapplications,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=hanko.sh,resources=hankoserviceaccounts,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=hanko.sh,resources=hankokeycloakinstances,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get
+// +kubebuilder:rbac:groups=hanko.sh,resources=hankoroles;hankoresourceservers,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=hanko.sh,resources=hankoapplications/status;hankoserviceaccounts/status;hankoroles/status;hankoresourceservers/status,verbs=get;patch
+type HankoImportReconciler struct {
+	client.Client
+	Scheme             *runtime.Scheme
+	ProtectedClientIDs []string
+	ProtectedRealm     string
+	// Pool is retained for Go wiring compatibility and is never used by import.
+	// SourceRef is authoritative, including when a shared writer is configured.
+	Pool *keycloak.Pool
+	// APIReader reads current configuration, named Secrets and adoption targets.
+	// Production initialization supplies mgr.GetAPIReader(), without Secret watches.
+	APIReader    client.Reader
+	RequireHTTPS bool
+}
+
+type importedRealmData struct {
+	realm             keycloak.Realm
+	clients           []keycloak.App
+	accounts          []keycloak.App
+	identityProviders []importedRealmIdentityProvider
+	inventory         *realmAdoptionInventory
+}
+
+type importDiscoveryError struct {
+	reason  string
+	message string
+	cause   error
+}
+
+func (e *importDiscoveryError) Error() string {
+	return e.cause.Error()
+}
+
+func (r *HankoImportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	parent := ctx
+	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
+	var operation hankoshv1alpha1.HankoImport
+	if err := r.importReader().Get(ctx, req.NamespacedName, &operation); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+	if !operation.DeletionTimestamp.IsZero() || operation.Status.Phase == "Done" || operation.Status.Phase == "Failed" {
+		return ctrl.Result{}, nil
+	}
+
+	// A retry performs a new observation. Counts and evidence describe this
+	// attempt, not an accumulation of partially acknowledged previous attempts.
+	operation.Status = hankoshv1alpha1.HankoImportStatus{Phase: "Scanning"}
+	// Persist the full initial status, including required false/zero coverage
+	// fields. A typed merge baseline contains those zero values even when the
+	// API object has no status, so a merge patch would omit their initialization.
+	if err := r.Status().Update(ctx, &operation); err != nil {
+		return ctrl.Result{}, fmt.Errorf("initialize import scanning status: %w", err)
+	}
+	patch := client.MergeFromWithOptions(operation.DeepCopy(), client.MergeFromWithOptimisticLock{})
+
+	kc, err := r.importKeycloakClient(ctx, &operation, patch)
+	if err != nil || kc == nil {
+		return ctrl.Result{}, err
+	}
+	discovered, result, err := r.discoverImport(ctx, &operation, kc, patch)
+	if ctx.Err() != nil {
+		statusCtx, statusCancel := context.WithTimeout(parent, 10*time.Second)
+		defer statusCancel()
+		return ctrl.Result{}, r.failImport(statusCtx, &operation, patch, "DiscoveryDeadlineExceeded", "bounded discovery deadline expired; inventory evidence is incomplete")
+	}
+	if err != nil || discovered == nil {
+		return result, err
+	}
+	operation.Status.Findings = importApplicationProtocolFindings(discovered)
+	if !operation.Spec.DryRun {
+		operation.Status.Phase = "Applying"
+	}
+	// Discovery may take time. This conditional write rejects an import edited,
+	// replaced or deleted meanwhile, before creating targets or publishing their
+	// adoption evidence (including evidence refreshed by a dry-run).
+	if err := r.Status().Patch(ctx, &operation, patch); err != nil {
+		return ctrl.Result{}, fmt.Errorf("checkpoint import discovery: %w", err)
+	}
+	patch = client.MergeFromWithOptions(operation.DeepCopy(), client.MergeFromWithOptimisticLock{})
+	if operation.Spec.DryRun {
+		if err := r.updateImportEvidence(ctx, &operation, discovered, true); err != nil {
+			return ctrl.Result{}, fmt.Errorf("publish import evidence: %w", err)
+		}
+		return r.completeImportDryRun(ctx, &operation, discovered, patch)
+	}
+	applyErrors := r.applyImport(ctx, &operation, discovered)
+	if err := r.updateImportEvidence(ctx, &operation, discovered, true); err != nil {
+		// A concurrent leaf status update or API outage is not terminal partial
+		// inventory. Leave the discovery checkpoint resumable and rescan on retry.
+		return ctrl.Result{}, fmt.Errorf("publish import evidence: %w", err)
+	}
+	return r.completeImport(ctx, &operation, applyErrors, patch)
+}
+
+func (r *HankoImportReconciler) failImport(ctx context.Context, operation *hankoshv1alpha1.HankoImport, patch client.Patch, reason, message string) error {
+	operation.Status.Phase = "Failed"
+	operation.Status.Coverage.Complete = false
+	setCondition(&operation.Status.Conditions, "InventoryComplete", metav1.ConditionFalse, "Incomplete", "required source or discovery read failed")
+	setCondition(&operation.Status.Conditions, "ImportReady", metav1.ConditionFalse, reason, message)
+	if err := r.Status().Patch(ctx, operation, patch); err != nil {
+		return fmt.Errorf("record import failure %s: %w", reason, err)
+	}
+	return nil
+}
+
+func (r *HankoImportReconciler) importKeycloakClient(ctx context.Context, operation *hankoshv1alpha1.HankoImport, patch client.Patch) (*keycloak.Client, error) {
+	var instance hankoshv1alpha1.HankoKeycloakInstance
+	err := r.importReader().Get(ctx, types.NamespacedName{Name: operation.Spec.SourceRef, Namespace: operation.Namespace}, &instance)
+	if err != nil {
+		reason := "SourceError"
+		message := "cannot read the referenced HankoKeycloakInstance"
+		if errors.IsNotFound(err) {
+			reason = "SourceNotFound"
+			message = fmt.Sprintf("HankoKeycloakInstance %q not found in namespace %q", operation.Spec.SourceRef, operation.Namespace)
+		}
+		return nil, r.failImport(ctx, operation, patch, reason, message)
+	}
+	kc, err := buildKCClientForInstance(ctx, r.importReader(), &instance, r.RequireHTTPS)
+	if err != nil {
+		log.FromContext(ctx).Error(iamcontract.SafeError(err), "failed to build Keycloak client from instance")
+		return nil, r.failImport(ctx, operation, patch, "KCClientError", "cannot initialize the sourceRef inventory identity and verified transport")
+	}
+	kc.RestrictToInventory()
+	return kc, nil
+}
+
+func (r *HankoImportReconciler) discoverImport(ctx context.Context, operation *hankoshv1alpha1.HankoImport, kc *keycloak.Client, patch client.Patch) ([]importedRealmData, ctrl.Result, error) {
+	realms, err := kc.ListRealms(ctx)
+	if err != nil {
+		log.FromContext(ctx).Error(iamcontract.SafeError(err), "failed to list realms")
+		return nil, ctrl.Result{}, r.failImport(ctx, operation, patch, "ListRealmsError", "cannot read the authorized realm inventory")
+	}
+	selected := selectImportRealms(realms, operation.Spec.Realms)
+	sort.Slice(selected, func(i, j int) bool { return selected[i].URLName() < selected[j].URLName() })
+	operation.Status.Coverage = hankoshv1alpha1.ImportCoverage{Complete: true}
+	if len(selected) > 16 {
+		selected = selected[:16]
+		operation.Status.Coverage.Complete = false
+		operation.Status.Coverage.Truncated = true
+	}
+	if len(operation.Spec.Realms) > 0 && len(selected) != len(operation.Spec.Realms) {
+		operation.Status.Coverage.Complete = false
+	}
+	includeIdentityProviders := operation.Spec.IncludeIdentityProviders == nil || *operation.Spec.IncludeIdentityProviders
+	discovered := make([]importedRealmData, 0, len(selected))
+	remainingInventory := 1024
+	for _, realm := range selected {
+		if remainingInventory == 0 {
+			operation.Status.Coverage.Complete = false
+			operation.Status.Coverage.Truncated = true
+			break
+		}
+		data, discoverErr := discoverImportedRealm(ctx, kc, realm, includeIdentityProviders)
+		if discoverErr != nil {
+			log.FromContext(ctx).Error(iamcontract.SafeError(discoverErr.cause), "failed to discover realm")
+			if err := r.failImport(ctx, operation, patch, discoverErr.reason, "required realm inventory read failed"); err != nil {
+				return nil, ctrl.Result{}, err
+			}
+			return nil, ctrl.Result{}, iamcontract.SafeError(discoverErr.cause)
+		}
+		data.inventory = r.discoverRealmAdoption(ctx, operation, kc, realm, includeIdentityProviders, remainingInventory)
+		remainingInventory -= len(data.inventory.items)
+		if len(data.inventory.clients) > 0 {
+			apps := []keycloak.App{}
+			for _, c := range data.inventory.clients {
+				apps = append(apps, keycloak.App{ClientID: c.ClientID, Name: c.Name, Enabled: c.Enabled, Protocol: c.Protocol, PublicClient: c.PublicClient, ServiceAccountsEnabled: c.ServiceAccountsEnabled, StandardFlowEnabled: c.StandardFlowEnabled, RedirectURIs: c.RedirectURIs})
+			}
+			data.clients, data.accounts = classifyImportedApplications(apps)
+		}
+		discovered = append(discovered, data)
+	}
+	operation.Status.Discovered = importDiscoveryCounts(discovered)
+	if err := r.updateImportEvidence(ctx, operation, discovered, false); err != nil {
+		return nil, ctrl.Result{}, err
+	}
+	return discovered, ctrl.Result{}, nil
+}
+
+func selectImportRealms(realms []keycloak.Realm, requested []string) []keycloak.Realm {
+	if len(requested) == 0 {
+		return realms
+	}
+	filter := make(map[string]bool, len(requested))
+	for _, name := range requested {
+		filter[name] = true
+	}
+	selected := make([]keycloak.Realm, 0, len(realms))
+	for _, realm := range realms {
+		if filter[realm.URLName()] {
+			selected = append(selected, realm)
+		}
+	}
+	return selected
+}
+
+func discoverImportedRealm(ctx context.Context, kc *keycloak.Client, realm keycloak.Realm, includeIdentityProviders bool) (importedRealmData, *importDiscoveryError) {
+	realmName := realm.URLName()
+	apps, err := kc.ListApps(ctx, realmName)
+	if err != nil {
+		return importedRealmData{}, &importDiscoveryError{
+			reason:  "ListAppsError",
+			message: fmt.Sprintf("cannot list clients in realm %q: %v", realmName, err),
+			cause:   fmt.Errorf("list apps in realm %q: %w", realmName, err),
+		}
+	}
+	clients, accounts := classifyImportedApplications(apps)
+	var providers []importedRealmIdentityProvider
+	if includeIdentityProviders {
+		providers, err = discoverImportedIdentityProviders(ctx, kc, realmName)
+		if err != nil {
+			return importedRealmData{}, &importDiscoveryError{
+				reason:  importIdentityProviderErrorReason(err),
+				message: importIdentityProviderErrorMessage(err),
+				cause:   err,
+			}
+		}
+	}
+	return importedRealmData{realm: realm, clients: clients, accounts: accounts, identityProviders: providers}, nil
+}
+
+func classifyImportedApplications(apps []keycloak.App) ([]keycloak.App, []keycloak.App) {
+	var clients []keycloak.App
+	var accounts []keycloak.App
+	for _, application := range apps {
+		if keycloakInternalClients[application.ClientID] {
+			continue
+		}
+		if application.ServiceAccountsEnabled && (application.Protocol == "openid-connect" || application.Protocol == "") {
+			accounts = append(accounts, application)
+		} else {
+			clients = append(clients, application)
+		}
+	}
+	return clients, accounts
+}
+
+type identityProviderDiscoveryError struct {
+	realm    string
+	provider string
+	cause    error
+}
+
+func (e *identityProviderDiscoveryError) Error() string {
+	if e.provider == "" {
+		return fmt.Sprintf("list identity providers in realm %q: %v", e.realm, e.cause)
+	}
+	return fmt.Sprintf("list mappers for identity provider %q in realm %q: %v", e.provider, e.realm, e.cause)
+}
+
+func discoverImportedIdentityProviders(ctx context.Context, kc *keycloak.Client, realmName string) ([]importedRealmIdentityProvider, error) {
+	providers, err := kc.ListIdentityProviders(ctx, realmName)
+	if err != nil {
+		return nil, &identityProviderDiscoveryError{realm: realmName, cause: err}
+	}
+	sort.Slice(providers, func(i, j int) bool { return providers[i].Alias < providers[j].Alias })
+	discovered := make([]importedRealmIdentityProvider, 0, len(providers))
+	for _, provider := range providers {
+		mappers, err := kc.ListIdentityProviderMappers(ctx, realmName, provider.Alias)
+		if err != nil {
+			return nil, &identityProviderDiscoveryError{realm: realmName, provider: provider.Alias, cause: err}
+		}
+		sort.Slice(mappers, func(i, j int) bool { return mappers[i].Name < mappers[j].Name })
+		discovered = append(discovered, importedRealmIdentityProvider{provider: provider, mappers: mappers})
+	}
+	return discovered, nil
+}
+
+func importIdentityProviderErrorReason(err error) string {
+	if discoveryErr, ok := err.(*identityProviderDiscoveryError); ok && discoveryErr.provider != "" {
+		return "ListIdentityProviderMappersError"
+	}
+	return "ListIdentityProvidersError"
+}
+
+func importIdentityProviderErrorMessage(err error) string {
+	discoveryErr, ok := err.(*identityProviderDiscoveryError)
+	if !ok {
+		return err.Error()
+	}
+	if discoveryErr.provider == "" {
+		return fmt.Sprintf("cannot list identity providers in realm %q: %v", discoveryErr.realm, discoveryErr.cause)
+	}
+	return fmt.Sprintf("cannot list mappers for identity provider %q in realm %q: %v", discoveryErr.provider, discoveryErr.realm, discoveryErr.cause)
+}
+
+func importDiscoveryCounts(discovered []importedRealmData) hankoshv1alpha1.ImportCounts {
+	counts := hankoshv1alpha1.ImportCounts{Realms: len(discovered)}
+	for _, realm := range discovered {
+		if realm.inventory != nil {
+			for _, item := range realm.inventory.items {
+				switch item.kind {
+				case "role":
+					counts.Roles++
+				case "group":
+					counts.Groups++
+				case "organization":
+					counts.Organizations++
+				case "resource-server":
+					counts.ResourceServers++
+					counts.AuthorizationObjects += len(item.ids) - 1
+				}
+			}
+		}
+		counts.Applications += len(realm.clients)
+		counts.ServiceAccounts += len(realm.accounts)
+		counts.IdentityProviders += len(realm.identityProviders)
+		counts.IdentityProviderMappers += importedIdentityProviderMapperCount(realm.identityProviders)
+	}
+	counts.Total = importCountTotal(counts)
+	return counts
+}
+
+func (r *HankoImportReconciler) completeImportDryRun(ctx context.Context, operation *hankoshv1alpha1.HankoImport, discovered []importedRealmData, patch client.Patch) (ctrl.Result, error) {
+	now := metav1.Now()
+	operation.Status.Phase = "Done"
+	operation.Status.CompletedAt = &now
+	setCondition(&operation.Status.Conditions, "ImportReady", metav1.ConditionTrue, "DryRun", "dry-run completed — no CRDs were created")
+	if err := r.Status().Patch(ctx, operation, patch); err != nil {
+		return ctrl.Result{}, fmt.Errorf("patch status after dry-run: %w", err)
+	}
+	counts := operation.Status.Discovered
+	log.FromContext(ctx).Info("HankoImport dry-run completed", "realms", len(discovered), "apps", counts.Applications, "sas", counts.ServiceAccounts,
+		"identityProviders", counts.IdentityProviders, "identityProviderMappers", counts.IdentityProviderMappers)
+	return ctrl.Result{}, nil
+}
+
+func (r *HankoImportReconciler) applyImport(ctx context.Context, operation *hankoshv1alpha1.HankoImport, discovered []importedRealmData) []string {
+	includeClients := operation.Spec.IncludeClients == nil || *operation.Spec.IncludeClients
+	includeAccounts := operation.Spec.IncludeServiceAccounts == nil || *operation.Spec.IncludeServiceAccounts
+	var applyErrors []string
+	for _, realm := range discovered {
+		realmName := realm.realm.URLName()
+		if err := r.applyRealm(ctx, operation, realm.realm, realm.identityProviders); err != nil {
+			applyErrors = append(applyErrors, fmt.Sprintf("realm %s: %v", realmName, err))
+		}
+		if realm.inventory != nil && len(realm.inventory.clients) > 0 {
+			for _, item := range realm.inventory.items {
+				if (item.kind == "application" && !includeClients) || (item.kind == "service-account" && !includeAccounts) {
+					continue
+				}
+				if err := r.applyInventoryTarget(ctx, operation, item); err != nil {
+					applyErrors = append(applyErrors, "Observe inventory target could not be created")
+				}
+			}
+			continue
+		}
+		if includeClients {
+			applyErrors = r.applyImportedApplications(ctx, operation, realmName, realm.clients, applyErrors)
+		}
+		if includeAccounts {
+			applyErrors = r.applyImportedServiceAccounts(ctx, operation, realmName, realm.accounts, applyErrors)
+		}
+	}
+	return applyErrors
+}
+
+func (r *HankoImportReconciler) applyImportedApplications(ctx context.Context, operation *hankoshv1alpha1.HankoImport, realmName string, applications []keycloak.App, applyErrors []string) []string {
+	for _, application := range applications {
+		if err := r.applyApplication(ctx, operation, realmName, application); err != nil {
+			applyErrors = append(applyErrors, fmt.Sprintf("app %s/%s: %v", realmName, application.ClientID, err))
+		}
+	}
+	return applyErrors
+}
+
+func (r *HankoImportReconciler) applyImportedServiceAccounts(ctx context.Context, operation *hankoshv1alpha1.HankoImport, realmName string, accounts []keycloak.App, applyErrors []string) []string {
+	for _, account := range accounts {
+		if err := r.applyServiceAccount(ctx, operation, realmName, account); err != nil {
+			applyErrors = append(applyErrors, fmt.Sprintf("sa %s/%s: %v", realmName, account.ClientID, err))
+		}
+	}
+	return applyErrors
+}
+
+func (r *HankoImportReconciler) completeImport(ctx context.Context, operation *hankoshv1alpha1.HankoImport, applyErrors []string, patch client.Patch) (ctrl.Result, error) {
+	operation.Status.Applied.Total = importCountTotal(operation.Status.Applied)
+	operation.Status.Skipped.Total = importCountTotal(operation.Status.Skipped)
+	now := metav1.Now()
+	operation.Status.Phase = "Done"
+	operation.Status.CompletedAt = &now
+	if len(applyErrors) > 0 {
+		operation.Status.Phase = "Failed"
+		setCondition(&operation.Status.Conditions, "ImportReady", metav1.ConditionFalse, "PartialFailure",
+			fmt.Sprintf("import completed with %d target creation or mapping error(s); inspect bounded inventory findings", len(applyErrors)))
+	} else {
+		setCondition(&operation.Status.Conditions, "ImportReady", metav1.ConditionTrue, "Completed", "import completed successfully")
+	}
+	if err := r.Status().Patch(ctx, operation, patch); err != nil {
+		return ctrl.Result{}, fmt.Errorf("patch status after import: %w", err)
+	}
+	log.FromContext(ctx).Info("HankoImport completed",
+		"applied.realms", operation.Status.Applied.Realms,
+		"applied.apps", operation.Status.Applied.Applications,
+		"applied.sas", operation.Status.Applied.ServiceAccounts,
+		"applied.identityProviders", operation.Status.Applied.IdentityProviders,
+		"applied.identityProviderMappers", operation.Status.Applied.IdentityProviderMappers,
+		"skipped.total", importCountTotal(operation.Status.Skipped),
+		"errors", len(applyErrors))
+	return ctrl.Result{}, nil
+}
+
+// applyRealm creates a HankoRealm for the discovered Keycloak realm if it does not already exist.
+func (r *HankoImportReconciler) applyRealm(ctx context.Context, hi *hankoshv1alpha1.HankoImport, realm keycloak.Realm, providers []importedRealmIdentityProvider) error {
+	log := log.FromContext(ctx)
+
+	realmName := realm.URLName()
+	obj := &hankoshv1alpha1.HankoRealm{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      realmName,
+			Namespace: hi.Namespace,
+			Labels:    map[string]string{importedByLabel: hi.Name},
+		},
+		Spec: hankoshv1alpha1.HankoRealmSpec{
+			DisplayName:       realm.DisplayName,
+			LoginTheme:        realm.LoginTheme,
+			IdentityProviders: importedIdentityProviderSpecs(providers),
+		},
+	}
+
+	var existing hankoshv1alpha1.HankoRealm
+	err := r.Get(ctx, types.NamespacedName{Name: realmName, Namespace: hi.Namespace}, &existing)
+	if errors.IsNotFound(err) {
+		if createErr := r.Create(ctx, obj); createErr != nil {
+			return createErr
+		}
+		log.Info("created HankoRealm (Observe mode)", "realm", realmName)
+		hi.Status.Applied.Realms++
+		hi.Status.Applied.IdentityProviders += len(providers)
+		hi.Status.Applied.IdentityProviderMappers += importedIdentityProviderMapperCount(providers)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	log.Info("realm already exists, skipping", "realm", realmName)
+	hi.Status.Skipped.Realms++
+	hi.Status.Skipped.IdentityProviders += len(providers)
+	hi.Status.Skipped.IdentityProviderMappers += importedIdentityProviderMapperCount(providers)
+	return nil
+}
+
+func importedIdentityProviderSpecs(providers []importedRealmIdentityProvider) []hankoshv1alpha1.RealmIdentityProvider {
+	result := make([]hankoshv1alpha1.RealmIdentityProvider, 0, len(providers))
+	for _, item := range providers {
+		provider := item.provider
+		spec := hankoshv1alpha1.RealmIdentityProvider{
+			Alias: provider.Alias, DisplayName: provider.DisplayName, ProviderID: provider.ProviderID,
+			Enabled: boolPointer(provider.Enabled), TrustEmail: boolPointer(provider.TrustEmail),
+			StoreToken: boolPointer(provider.StoreToken), AddReadTokenRoleOnCreate: boolPointer(provider.AddReadTokenRoleOnCreate),
+			LinkOnly: boolPointer(provider.LinkOnly), FirstBrokerLoginFlowAlias: provider.FirstBrokerLoginFlowAlias,
+			PostBrokerLoginFlowAlias: provider.PostBrokerLoginFlowAlias, Config: sanitizedIdentityProviderConfig(provider.Config),
+		}
+		for _, mapper := range item.mappers {
+			spec.Mappers = append(spec.Mappers, hankoshv1alpha1.RealmIdentityProviderMapper{
+				Name: mapper.Name, IdentityProviderMapper: mapper.IdentityProviderMapper,
+				Config: sanitizedIdentityProviderConfig(mapper.Config),
+			})
+		}
+		result = append(result, spec)
+	}
+	return result
+}
+
+func sanitizedIdentityProviderConfig(config map[string]string) map[string]string {
+	return safeBrokerConfig(config)
+}
+
+func importedIdentityProviderMapperCount(providers []importedRealmIdentityProvider) int {
+	total := 0
+	for _, provider := range providers {
+		total += len(provider.mappers)
+	}
+	return total
+}
+
+func importCountTotal(counts hankoshv1alpha1.ImportCounts) int {
+	return counts.Realms + counts.Applications + counts.ServiceAccounts + counts.IdentityProviders + counts.IdentityProviderMappers + counts.Roles + counts.Groups + counts.Organizations + counts.ResourceServers + counts.AuthorizationObjects
+}
+
+func boolPointer(value bool) *bool { return &value }
+
+// appType maps a Keycloak App to its hankoShell application type.
+func appType(app keycloak.App) string {
+	if app.PublicClient {
+		return "spa"
+	}
+	return "web"
+}
+
+// applyApplication creates a HankoApplication for the discovered client if no object —
+// under any Kubernetes name — already governs this (realmRef, clientID) pair. Dedup is
+// keyed on the logical Keycloak identity, not the generated Kubernetes name, so a
+// pre-existing explicit HankoApplication (e.g. hand-authored before the import ran)
+// is never shadowed by a second, colliding import object. Newly created objects are
+// always Observe-mode: HankoImport must never hand out write authority over a client
+// it did not itself decide to manage.
+func (r *HankoImportReconciler) applyApplication(ctx context.Context, hi *hankoshv1alpha1.HankoImport, realmID string, app keycloak.App) error {
+	log := log.FromContext(ctx)
+	if app.Protocol != "" && app.Protocol != "openid-connect" {
+		hi.Status.Skipped.Applications++
+		return fmt.Errorf("application protocol import unsupported; use a reviewed protocol-aware Observe declaration")
+	}
+
+	var existingForClient hankoshv1alpha1.HankoApplicationList
+	if err := r.List(ctx, &existingForClient,
+		client.InNamespace(hi.Namespace),
+		client.MatchingFields{realmClientIndexKey: realmClientKey(realmID, app.ClientID)},
+	); err != nil {
+		return fmt.Errorf("check existing objects for realm %q client %q: %w", realmID, app.ClientID, err)
+	}
+	if len(existingForClient.Items) > 0 {
+		log.Info("a HankoApplication already governs this client, skipping import",
+			"realm", realmID, "clientID", app.ClientID, "existing", existingForClient.Items[0].Name)
+		hi.Status.Skipped.Applications++
+		return nil
+	}
+
+	name := importResourceName(realmID, app.ClientID)
+	obj := &hankoshv1alpha1.HankoApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: hi.Namespace,
+			Labels:    map[string]string{importedByLabel: hi.Name},
+		},
+		Spec: hankoshv1alpha1.HankoApplicationSpec{
+			RealmRef:     realmID,
+			ClientID:     app.ClientID,
+			Type:         appType(app),
+			RedirectURIs: app.RedirectURIs,
+			Mode:         ModeObserve,
+		},
+	}
+
+	var existing hankoshv1alpha1.HankoApplication
+	err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: hi.Namespace}, &existing)
+	if errors.IsNotFound(err) {
+		if createErr := r.Create(ctx, obj); createErr != nil {
+			return createErr
+		}
+		log.Info("created HankoApplication (Observe mode)", "realm", realmID, "clientID", app.ClientID)
+		hi.Status.Applied.Applications++
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	log.Info("application already exists, skipping", "realm", realmID, "clientID", app.ClientID)
+	hi.Status.Skipped.Applications++
+	return nil
+}
+
+func importApplicationProtocolFindings(realms []importedRealmData) []hankoshv1alpha1.AuthorizationFinding {
+	var findings []iamcontract.Finding
+	for _, realm := range realms {
+		if realm.inventory != nil && len(realm.inventory.clients) > 0 {
+			for _, item := range realm.inventory.items {
+				if item.kind == "application" && item.app == nil {
+					findings = append(findings, iamcontract.Finding{Classification: iamcontract.Unsupported, ObjectKind: "application", ObjectName: item.name, Code: "application_protocol_import_unsupported", Message: "client does not fit the qualified protocol-aware Observe mapping", ReadOnly: true})
+				}
+			}
+			continue
+		}
+		for _, app := range realm.clients {
+			if app.Protocol != "" && app.Protocol != "openid-connect" {
+				findings = append(findings, iamcontract.Finding{Classification: iamcontract.Unsupported, ObjectKind: "application", ObjectName: app.ClientID, Code: "application_protocol_import_unsupported", Message: "client requires a qualified protocol-aware Observe declaration", ReadOnly: true})
+			}
+		}
+	}
+	return findingsStatus(findings)
+}
+
+// applyServiceAccount creates an observe-only HankoServiceAccount inventory item
+// for the discovered M2M client if it does not already exist.
+func (r *HankoImportReconciler) applyServiceAccount(ctx context.Context, hi *hankoshv1alpha1.HankoImport, realmID string, app keycloak.App) error {
+	log := log.FromContext(ctx)
+	if isStaticallyProtectedServiceAccountClient(app.ClientID) ||
+		isProtectedControlPlaneClient(r.ProtectedRealm, r.ProtectedClientIDs, realmID, app.ClientID) {
+		log.Info("protected client cannot be imported as HankoServiceAccount", "realm", realmID, "clientID", app.ClientID)
+		hi.Status.Skipped.ServiceAccounts++
+		return nil
+	}
+
+	var applications hankoshv1alpha1.HankoApplicationList
+	if err := r.List(ctx, &applications, client.InNamespace(hi.Namespace)); err != nil {
+		return fmt.Errorf("check HankoApplication ownership for realm %q client %q: %w", realmID, app.ClientID, err)
+	}
+	for i := range applications.Items {
+		application := &applications.Items[i]
+		if application.Spec.RealmRef == realmID && strings.TrimSpace(application.Spec.ClientID) == strings.TrimSpace(app.ClientID) {
+			log.Info("a HankoApplication already governs this client; skipping service-account import",
+				"realm", realmID, "clientID", app.ClientID, "application", application.Name)
+			hi.Status.Skipped.ServiceAccounts++
+			return nil
+		}
+	}
+
+	name := importResourceName(realmID, app.ClientID)
+	obj := &hankoshv1alpha1.HankoServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: hi.Namespace,
+			Labels:    map[string]string{importedByLabel: hi.Name},
+		},
+		Spec: hankoshv1alpha1.HankoServiceAccountSpec{
+			Mode:     ModeObserve,
+			RealmRef: realmID,
+			ClientID: app.ClientID,
+		},
+	}
+
+	var existing hankoshv1alpha1.HankoServiceAccount
+	err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: hi.Namespace}, &existing)
+	if errors.IsNotFound(err) {
+		if createErr := r.Create(ctx, obj); createErr != nil {
+			return createErr
+		}
+		log.Info("created HankoServiceAccount (Observe mode)", "realm", realmID, "clientID", app.ClientID)
+		hi.Status.Applied.ServiceAccounts++
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	log.Info("service account already exists, skipping", "realm", realmID, "clientID", app.ClientID)
+	hi.Status.Skipped.ServiceAccounts++
+	return nil
+}
+
+// SetupWithManager registers the reconciler. HankoImport owns no child resources.
+func (r *HankoImportReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.APIReader == nil {
+		r.APIReader = mgr.GetAPIReader()
+	}
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&hankoshv1alpha1.HankoImport{}).
+		Complete(observeReconciler("HankoImport", r))
+}
+
+func (r *HankoImportReconciler) importReader() client.Reader {
+	if r.APIReader != nil {
+		return r.APIReader
+	}
+	return r.Client // unit-test clients; production always installs APIReader.
+}

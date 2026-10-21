@@ -1,0 +1,127 @@
+name: Installed scale qualification
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Bounded smoke or 1000-application scale; long soak uses the isolated-worktree CLI
+        type: choice
+        options: [smoke, scale]
+        default: smoke
+permissions:
+  contents: read
+concurrency:
+  group: installed-scale-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Check source and chart before starting disposable clusters
+        run: |
+          python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
+          sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
+          python3 -m pip install -r tools/requirements.txt
+          make install-preflight-tools
+          make preflight chart-check
+  oci:
+    needs: preflight
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/oci-security.yml
+  installed-scale:
+    name: Scale KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
+    needs: [preflight, oci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        keycloak: ["26.7.5", "26.8.0"] # versions:workload-keycloak
+        kubernetes: ["1.35.0", "1.36.2", "1.37.0"] # versions:kubernetes
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.oci.outputs.artifact_id }}
+          path: ${{ runner.temp }}/scale-oci
+          merge-multiple: true
+      - name: Install checksum-pinned fixture tools
+        run: |
+          python3 -m pip install -r tools/requirements.txt
+          python3 -m tools.bootstrap.install kind kubectl --directory "$RUNNER_TEMP/scale-tools"
+          python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
+          GOBIN="$RUNNER_TEMP/scale-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
+      - name: Run measured scale, overload recovery and leader removal
+        env:
+          SCALE_PROFILE: ${{ inputs.profile }}
+          OCI_DIGEST: ${{ needs.oci.outputs.digest }}
+          KEYCLOAK_VERSION: ${{ matrix.keycloak }}
+          KUBERNETES_VERSION: ${{ matrix.kubernetes }}
+        run: |
+          python3 -m tools.qualification.scenarios.scale_installed_test --profile "$SCALE_PROFILE" --workers 4 \
+            --archive "$RUNNER_TEMP/scale-oci/image.tar" --evidence "$RUNNER_TEMP/scale-oci/evidence" \
+            --digest "$OCI_DIGEST" --revision "$GITHUB_SHA" --output "$RUNNER_TEMP/scale-report" \
+            --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
+            --kind "$RUNNER_TEMP/scale-tools/kind" --kubectl "$RUNNER_TEMP/scale-tools/kubectl" \
+            --oras "$RUNNER_TEMP/scale-tools/oras" --helm /tmp/linux-amd64/helm --openssl /usr/bin/openssl
+      - name: Qualify five-minute API outage and owned-realm cleanup
+        if: inputs.profile == 'scale'
+        env:
+          OCI_DIGEST: ${{ needs.oci.outputs.digest }}
+          KEYCLOAK_VERSION: ${{ matrix.keycloak }}
+          KUBERNETES_VERSION: ${{ matrix.kubernetes }}
+        run: |
+          python3 -m tools.qualification.scenarios.recovery_installed_test \
+            --archive "$RUNNER_TEMP/scale-oci/image.tar" --evidence "$RUNNER_TEMP/scale-oci/evidence" \
+            --digest "$OCI_DIGEST" --revision "$GITHUB_SHA" --output "$RUNNER_TEMP/recovery-report" \
+            --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
+            --kind "$RUNNER_TEMP/scale-tools/kind" --kubectl "$RUNNER_TEMP/scale-tools/kubectl" \
+            --oras "$RUNNER_TEMP/scale-tools/oras" --helm /tmp/linux-amd64/helm --openssl /usr/bin/openssl
+      - name: Qualify six transaction checkpoints across actual leader replacement
+        if: inputs.profile == 'scale'
+        env:
+          OCI_DIGEST: ${{ needs.oci.outputs.digest }}
+          KEYCLOAK_VERSION: ${{ matrix.keycloak }}
+          KUBERNETES_VERSION: ${{ matrix.kubernetes }}
+        run: |
+          python3 -m tools.qualification.scenarios.transactions_installed_test \
+            --archive "$RUNNER_TEMP/scale-oci/image.tar" --evidence "$RUNNER_TEMP/scale-oci/evidence" \
+            --digest "$OCI_DIGEST" --revision "$GITHUB_SHA" --output "$RUNNER_TEMP/transactions-report.json" \
+            --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
+            --kind "$RUNNER_TEMP/scale-tools/kind" --kubectl "$RUNNER_TEMP/scale-tools/kubectl" \
+            --oras "$RUNNER_TEMP/scale-tools/oras" --helm /tmp/linux-amd64/helm --openssl /usr/bin/openssl
+      - name: Preserve successful and incomplete measurements
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: NONPUBLISHABLE-scale-${{ matrix.keycloak }}-${{ matrix.kubernetes }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/scale-report/
+            ${{ runner.temp }}/scale-report.diagnostics/
+            ${{ runner.temp }}/recovery-report/
+            ${{ runner.temp }}/recovery-report.diagnostics/
+            ${{ runner.temp }}/transactions-report.json
+            ${{ runner.temp }}/transactions-report.diagnostics/
+          if-no-files-found: error
+          retention-days: 30
