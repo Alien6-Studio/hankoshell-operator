@@ -1,0 +1,63 @@
+{{- $root := . }}
+{{- $seen := dict }}
+{{- if not (kindIs "slice" .Values.sensitiveWrites.projections) }}{{ fail "sensitiveWrites.projections requires a list" }}{{ end }}
+{{- if gt (len .Values.sensitiveWrites.projections) 128 }}{{ fail "sensitiveWrites.projections exceeds the namespace budget" }}{{ end }}
+{{- range $grant := .Values.sensitiveWrites.projections }}
+{{- $namespace := required "sensitiveWrites projection requires namespace" $grant.namespace }}
+{{- if or (gt (len $namespace) 63) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $namespace)) }}{{ fail "sensitiveWrites projection requires exact namespace" }}{{ end }}
+{{- if hasKey $seen $namespace }}{{ fail "sensitiveWrites projection namespaces must be unique" }}{{ end }}
+{{- $_ := set $seen $namespace true }}
+{{- if or (not (kindIs "slice" $grant.secrets)) (not $grant.secrets) (gt (len $grant.secrets) 4096) }}{{ fail "sensitiveWrites projection requires bounded exact Secret names" }}{{ end }}
+{{- if and (hasKey $grant "create") (not (kindIs "bool" $grant.create)) }}{{ fail "sensitiveWrites projection create must be a boolean" }}{{ end }}
+{{- $names := dict }}
+{{- range $name := $grant.secrets }}
+{{- if or (not (kindIs "string" $name)) (gt (len $name) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $name)) }}{{ fail "sensitiveWrites projection requires exact Secret names" }}{{ end }}
+{{- if hasKey $names $name }}{{ fail "sensitiveWrites projection has duplicate Secret names" }}{{ end }}
+{{- $_ := set $names $name true }}
+{{- end }}
+{{- $name := printf "%s-sensitive-projections" (include "hanko-operator.fullname" $root) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "hanko-operator.labels" $root | nindent 4 }}
+  # Preserve release identity when exact grants are prepared before a later
+  # Helm upgrade.
+  annotations:
+    meta.helm.sh/release-name: {{ $root.Release.Name | quote }}
+    meta.helm.sh/release-namespace: {{ $root.Release.Namespace | quote }}
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: {{ $grant.secrets | toJson }}
+    verbs: [get, patch]
+  {{- if $grant.create }}
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [create]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "hanko-operator.labels" $root | nindent 4 }}
+  # Preserve release identity when exact grants are prepared before a later
+  # Helm upgrade.
+  annotations:
+    meta.helm.sh/release-name: {{ $root.Release.Name | quote }}
+    meta.helm.sh/release-namespace: {{ $root.Release.Namespace | quote }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "hanko-operator.fullname" $root }}
+    namespace: {{ $root.Release.Namespace }}
+{{- end }}

@@ -1,0 +1,47 @@
+# Apply separately in each approved TARGET namespace using kubectl -n NAMESPACE.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: hanko-recovery-reader
+rules:
+  - apiGroups: [hanko.sh]
+    resources: [hankoapplications, hankorealms, hankoroles, hankoorganizations, hankoserviceaccounts, hankoworkloadtrusts, hankothemes, hankoresourceservers]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: hanko-recovery-readers
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: hanko-recovery-reader
+subjects:
+  - kind: Group
+    apiGroup: rbac.authorization.k8s.io
+    name: hanko:recovery-executors
+  - kind: Group
+    apiGroup: rbac.authorization.k8s.io
+    name: hanko:recovery-approvers
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: hanko-recovery-executor
+rules:
+  - apiGroups: [hanko.sh]
+    resources: [hankoapplications, hankorealms, hankoroles, hankoorganizations, hankoserviceaccounts, hankoworkloadtrusts, hankothemes, hankoresourceservers]
+    verbs: [patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: hanko-recovery-executors
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: hanko-recovery-executor
+subjects:
+  - kind: Group
+    apiGroup: rbac.authorization.k8s.io
+    name: hanko:recovery-executors

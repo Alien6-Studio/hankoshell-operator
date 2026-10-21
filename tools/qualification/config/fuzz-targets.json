@@ -1,0 +1,49 @@
+{
+  "internal/adoption": [
+    "FuzzAdoptionReceipt",
+    "FuzzAdoptionApproval"
+  ],
+  "internal/applicationbinding": [
+    "FuzzRuntimeCleanupJournal",
+    "FuzzRuntimeTargetAuthorization"
+  ],
+  "internal/applications": [
+    "FuzzOIDCDiscovery",
+    "FuzzSAMLMetadata",
+    "FuzzSAMLACS"
+  ],
+  "internal/fleetplan": [
+    "FuzzFleetEnvelope",
+    "FuzzFleetSignedPayload",
+    "FuzzFleetTrust"
+  ],
+  "internal/httpsecurity": [
+    "FuzzJSONDocument"
+  ],
+  "internal/hub": [
+    "FuzzLegacyBundle",
+    "FuzzHubControlResponse"
+  ],
+  "internal/imagevalidator": [
+    "FuzzImageReference",
+    "FuzzImageApprovalPolicy"
+  ],
+  "internal/keycloak": [
+    "FuzzProviderStatusDecision",
+    "FuzzAuthorizationJournal",
+    "FuzzBoundedDelegationDocument",
+    "FuzzBoundedDelegationActorMarker"
+  ],
+  "internal/workloadauth": [
+    "FuzzAuthenticationJournal",
+    "FuzzAuthenticationApproval"
+  ],
+  "internal/workloadbinding": [
+    "FuzzDeliveryRecord"
+  ],
+  "internal/workloadtrust": [
+    "FuzzPublicDiscovery",
+    "FuzzPublicKeys",
+    "FuzzTrustRecoveryMetadata"
+  ]
+}

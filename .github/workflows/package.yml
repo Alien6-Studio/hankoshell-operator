@@ -1,0 +1,51 @@
+name: Package
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: operator-package-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  oci:
+    uses: ./.github/workflows/oci-security.yml
+    permissions:
+      contents: read
+      packages: read
+  package:
+    needs: oci
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Install reviewed metadata dependencies and Helm
+        run: |
+          python3 -m pip install -r tools/requirements.txt
+          python3 -m tools.bootstrap.install helm --directory "$RUNNER_TEMP"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.oci.outputs.artifact_id }}
+          path: ${{ runner.temp }}/scanned
+          merge-multiple: true
+      - name: Package the scanned image and chart without publication
+        env:
+          DIGEST: ${{ needs.oci.outputs.digest }}
+        run: |
+          python3 -m tools.release.release_bundle --archive "$RUNNER_TEMP/scanned/image.tar" \
+            --evidence "$RUNNER_TEMP/scanned/evidence" --digest "$DIGEST" --revision "$GITHUB_SHA" \
+            --output "$RUNNER_TEMP/delivery" --helm "$RUNNER_TEMP/helm"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: hankoshell-operator-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/delivery/dist
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0

@@ -1,0 +1,6 @@
+hankoShell Operator
+Copyright 2026 Alien6 Studio
+
+This project was extracted from the hankoShell platform operator. The initial
+import preserves the Kubernetes API group hanko.sh and the existing resource
+contracts. hankoShell platform and Hub remain separate projects.

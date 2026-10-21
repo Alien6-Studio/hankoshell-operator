@@ -1,0 +1,31 @@
+{{- if .Values.experimental.authentik.enabled }}
+{{- $name := printf "%s-authentik-%s" (include "hanko-operator.fullname" .) .Release.Namespace }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ $name }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: [CREATE, UPDATE, DELETE]
+        resources: [configmaps]
+        scope: Namespaced
+  validations:
+    - expression: >-
+        request.namespace != {{ .Release.Namespace | toJson }} ||
+        !(request.name in {{ .Values.experimental.authentik.connectionNames | toJson }}) ||
+        request.userInfo.groups.exists(g, g in {{ concat (list "system:masters") .Values.experimental.authentik.adminGroups | toJson }})
+      message: Experimental provider connections require administrator authority
+      reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ $name }}
+spec:
+  policyName: {{ $name }}
+  validationActions: [Deny, Audit]
+{{- end }}

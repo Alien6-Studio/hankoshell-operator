@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "state": "development-fixture-contract",
+  "packages": [
+    "./api/v1alpha1",
+    "./internal/iamcontract",
+    "./internal/adoption",
+    "./internal/applications",
+    "./internal/roles",
+    "./internal/authorization",
+    "./internal/iamconformance"
+  ],
+  "baseline": {
+    "path": "tools/qualification/config/contracts/go-api-development.json",
+    "sha256": "5d90cb26f4d02b5412036d48e59ac632a234fc225daaf74811eb563c8a00a6d3"
+  }
+}

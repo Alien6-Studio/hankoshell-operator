@@ -1,0 +1,107 @@
+[
+  {
+    "clientID": "web",
+    "application": "hanko-app-web",
+    "serviceAccount": "hanko-sa-web",
+    "legacyApplication": true,
+    "legacyServiceAccount": true
+  },
+  {
+    "clientID": "worker.example",
+    "application": "hanko-app-worker.example",
+    "serviceAccount": "hanko-sa-worker.example",
+    "legacyApplication": true,
+    "legacyServiceAccount": true
+  },
+  {
+    "clientID": "a-b",
+    "application": "hanko-app-a-b",
+    "serviceAccount": "hanko-sa-a-b",
+    "legacyApplication": true,
+    "legacyServiceAccount": true
+  },
+  {
+    "clientID": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "application": "hanko-app-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "serviceAccount": "hanko-sa-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "legacyApplication": true,
+    "legacyServiceAccount": true
+  },
+  {
+    "clientID": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "application": "hanko-app.ad5e672a5b109df29b0348a539299d5e1ede6c6bf8de694a6e7dc727f185a4e2",
+    "legacyApplication": false,
+    "serviceAccount": "hanko-sa-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "legacyServiceAccount": true
+  },
+  {
+    "clientID": "urn:example:client",
+    "application": "hanko-app.016ae890531a67fb98976ebbad48a1ad4fd03ffed3cd769884cb8b844e201cf8",
+    "serviceAccount": "hanko-sa.016ae890531a67fb98976ebbad48a1ad4fd03ffed3cd769884cb8b844e201cf8",
+    "legacyApplication": false,
+    "legacyServiceAccount": false
+  },
+  {
+    "clientID": "UPPER",
+    "application": "hanko-app.9cba1c6593a62cf5e44b2d18a7331e5c20f715ca6f0fa66201ccb31392115e98",
+    "serviceAccount": "hanko-sa.9cba1c6593a62cf5e44b2d18a7331e5c20f715ca6f0fa66201ccb31392115e98",
+    "legacyApplication": false,
+    "legacyServiceAccount": false
+  },
+  {
+    "clientID": "a/b",
+    "application": "hanko-app.c14cddc033f64b9dea80ea675cf280a015e672516090a5626781153dc68fea11",
+    "serviceAccount": "hanko-sa.c14cddc033f64b9dea80ea675cf280a015e672516090a5626781153dc68fea11",
+    "legacyApplication": false,
+    "legacyServiceAccount": false
+  },
+  {
+    "clientID": "équipe",
+    "application": "hanko-app.8caf821ef26c06970126a5f3c097da2cb9904122f7b27f9fe77207db30ceb4ee",
+    "serviceAccount": "hanko-sa.8caf821ef26c06970126a5f3c097da2cb9904122f7b27f9fe77207db30ceb4ee",
+    "legacyApplication": false,
+    "legacyServiceAccount": false
+  },
+  {
+    "clientID": "a..b",
+    "application": "hanko-app.f62b42414c514fa689d3e087ba397c602a4ba2c897f0ac2cb32cf770c3442bf2",
+    "serviceAccount": "hanko-sa.f62b42414c514fa689d3e087ba397c602a4ba2c897f0ac2cb32cf770c3442bf2",
+    "legacyApplication": false,
+    "legacyServiceAccount": false
+  },
+  {
+    "clientID": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "application": "hanko-app.d22609da3ae3956ca4877056a8e580eed744a6f7d7cfa5b19dd88d52fcc0d435",
+    "serviceAccount": "hanko-sa.d22609da3ae3956ca4877056a8e580eed744a6f7d7cfa5b19dd88d52fcc0d435",
+    "legacyApplication": false,
+    "legacyServiceAccount": false
+  },
+  {
+    "clientID": ".leading",
+    "application": "hanko-app.9c74491a21e8fc7a9b48d53d4432be058b3ae9771f0d6ce92881805dc8947feb",
+    "serviceAccount": "hanko-sa.9c74491a21e8fc7a9b48d53d4432be058b3ae9771f0d6ce92881805dc8947feb",
+    "legacyApplication": false,
+    "legacyServiceAccount": false
+  },
+  {
+    "clientID": "trailing.",
+    "application": "hanko-app.44c12a4e432eba3f7fa634fd116eef3900ad9166688cb40c3f488ef3a5320316",
+    "serviceAccount": "hanko-sa.44c12a4e432eba3f7fa634fd116eef3900ad9166688cb40c3f488ef3a5320316",
+    "legacyApplication": false,
+    "legacyServiceAccount": false
+  },
+  {
+    "clientID": "-leading",
+    "application": "hanko-app--leading",
+    "serviceAccount": "hanko-sa--leading",
+    "legacyApplication": true,
+    "legacyServiceAccount": true
+  },
+  {
+    "clientID": "trailing-",
+    "application": "hanko-app.b520d72a4f3fce3d32bbaa642cbc284161e7a070b34c4786b521c8fd782bb265",
+    "serviceAccount": "hanko-sa.b520d72a4f3fce3d32bbaa642cbc284161e7a070b34c4786b521c8fd782bb265",
+    "legacyApplication": false,
+    "legacyServiceAccount": false
+  }
+]

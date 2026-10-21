@@ -1,0 +1,9 @@
+.git
+.github
+.tools
+.attest
+.claude
+release-evidence
+dist
+coverage.out
+*.tgz

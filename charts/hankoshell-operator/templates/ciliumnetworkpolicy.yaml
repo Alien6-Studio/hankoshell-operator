@@ -1,0 +1,64 @@
+{{- if .Values.networkPolicy.cilium.enabled }}
+{{- if not .Values.networkPolicy.enabled }}{{ fail "Cilium requires the baseline networkPolicy.enabled" }}{{ end }}
+{{- if not (.Capabilities.APIVersions.Has "cilium.io/v2/CiliumNetworkPolicy") }}
+{{ fail "Cilium requires the installed cilium.io/v2/CiliumNetworkPolicy API; offline rendering needs --api-versions cilium.io/v2/CiliumNetworkPolicy" }}
+{{- end }}
+{{- $cilium := .Values.networkPolicy.cilium }}
+{{- if and (not $cilium.kubernetesAPI) (not $cilium.fqdnEgress) }}{{ fail "Cilium requires kubernetesAPI or fqdnEgress" }}{{ end }}
+{{- if $cilium.fqdnEgress }}
+{{- if .Values.networkPolicy.externalEmailEgress.enabled }}{{ fail "Cilium fqdnEgress requires externalEmailEgress.enabled=false to avoid broad HTTPS egress" }}{{ end }}
+{{- if .Values.networkPolicy.dnsCIDRs }}{{ fail "Cilium fqdnEgress requires pod-selected DNS with a working Cilium DNS proxy; node-local DNS CIDRs are not supported by this profile" }}{{ end }}
+{{- end }}
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ include "hanko-operator.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hanko-operator.labels" . | nindent 4 }}
+spec:
+  endpointSelector:
+    matchLabels:
+      {{- include "hanko-operator.selectorLabels" . | nindent 6 }}
+  # Additive to the baseline Kubernetes policy, never a cluster-wide grant.
+  egress:
+    {{- if $cilium.kubernetesAPI }}
+    - toEntities: [kube-apiserver]
+      toPorts:
+        - ports:
+            {{- range .Values.networkPolicy.kubernetesAPIEndpointPorts }}
+            - port: {{ . | toString | quote }}
+              protocol: TCP
+            {{- end }}
+    {{- end }}
+    {{- range $cilium.fqdnEgress }}
+    {{- if or (gt (len .matchName) 253) (not (regexMatch "^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9]([a-z0-9-]*[a-z0-9])?$" .matchName)) }}
+    {{ fail "Cilium fqdnEgress.matchName must be an exact lowercase DNS name without wildcards" }}
+    {{- end }}
+    {{- if not .ports }}{{ fail "Cilium fqdnEgress requires explicit TCP ports" }}{{ end }}
+    - toFQDNs:
+        - matchName: {{ .matchName | quote }}
+      toPorts:
+        - ports:
+            {{- range .ports }}
+            {{- if or (not (regexMatch "^[0-9]+$" (toString .))) (lt (int .) 1) (gt (int .) 65535) }}{{ fail "Cilium fqdnEgress ports must be between 1 and 65535" }}{{ end }}
+            - port: {{ . | toString | quote }}
+              protocol: TCP
+            {{- end }}
+    {{- end }}
+    {{- if $cilium.fqdnEgress }}
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Values.networkPolicy.dnsNamespace | quote }}
+            {{- range $key, $value := .Values.networkPolicy.dnsSelector }}
+            {{ printf "k8s:%s" $key | quote }}: {{ $value | quote }}
+            {{- end }}
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              - matchPattern: "*"
+    {{- end }}
+{{- end }}

@@ -1,0 +1,138 @@
+name: Public predecessor compatibility
+on:
+  workflow_dispatch:
+    inputs:
+      reviewed_corpus:
+        description: Repository path of the reviewed authentic public predecessor corpus
+        required: true
+        type: string
+      capture_artifact_id:
+        description: Original installed corpus Actions artifact ID
+        required: true
+        type: number
+permissions:
+  contents: read
+jobs:
+  inputs:
+    permissions:
+      contents: read
+      actions: read
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.inputs.outputs.matrix }}
+      capture_run_id: ${{ steps.inputs.outputs.capture_run_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: inputs
+        env:
+          REVIEWED_CORPUS: ${{ inputs.reviewed_corpus }}
+          CAPTURE_ARTIFACT_ID: ${{ inputs.capture_artifact_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, re, subprocess
+          root = pathlib.Path.cwd()
+          path = (root / os.environ['REVIEWED_CORPUS']).resolve()
+          if not path.is_relative_to(root / 'docs') or not path.is_file():
+              raise SystemExit('Expected a retained reviewed corpus under docs/')
+          corpus = json.loads(path.read_text())
+          if corpus.get('state') != 'reviewed-public-predecessor' or corpus.get('published') is not True or not re.fullmatch(r'0\.[0-9]+\.[0-9]+', corpus.get('source_release', '')):
+              raise SystemExit('No authenticated public predecessor; no historical pass is available')
+          identifier = os.environ['CAPTURE_ARTIFACT_ID']
+          if not re.fullmatch(r'[1-9][0-9]*', identifier):
+              raise SystemExit('Invalid installed artifact identity')
+          artifact = json.loads(subprocess.check_output(['gh', 'api', 'repos/' + os.environ['GITHUB_REPOSITORY'] + '/actions/artifacts/' + identifier]))
+          pins = json.loads((root / 'versions.json').read_text())
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('matrix=' + json.dumps({'keycloak': pins['keycloak']['versions'], 'kubernetes': pins['kubernetes']['versions']}) + '\n')
+              output.write('capture_run_id=' + str(artifact['workflow_run']['id']) + '\n')
+          PY
+  oci:
+    needs: inputs
+    uses: ./.github/workflows/oci-security.yml
+    permissions:
+      contents: read
+      packages: read
+  compatibility:
+    permissions:
+      contents: read
+      actions: read
+    name: Public upgrade KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
+    needs: [inputs, oci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.inputs.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.oci.outputs.artifact_id }}
+          path: ${{ runner.temp }}/candidate
+          merge-multiple: true
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ inputs.capture_artifact_id }}
+          run-id: ${{ needs.inputs.outputs.capture_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/predecessor
+          merge-multiple: true
+      - name: Install reviewed fixture and verification tools
+        run: |
+          python3 -m pip install -r tools/requirements.txt
+          python3 -m tools.bootstrap.install kind kubectl --directory "$RUNNER_TEMP/tools"
+          python3 -m tools.bootstrap.install helm --directory "$RUNNER_TEMP/tools"
+          GOBIN="$RUNNER_TEMP/tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
+          bash tools/bootstrap/install_cosign.sh "$RUNNER_TEMP/tools/cosign"
+          bash tools/bootstrap/install_attest.sh "$RUNNER_TEMP/tools/attest"
+      - name: Verify actual public assets, upgrade, compare and roll back
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVIEWED_CORPUS: ${{ inputs.reviewed_corpus }}
+          CAPTURE_ARTIFACT_ID: ${{ inputs.capture_artifact_id }}
+          DIGEST: ${{ needs.oci.outputs.digest }}
+          KEYCLOAK_VERSION: ${{ matrix.keycloak }}
+          KUBERNETES_VERSION: ${{ matrix.kubernetes }}
+          HANKOSHELL_ATTEST_KEY_ID: ${{ vars.HANKOSHELL_ATTEST_KEY_ID }}
+          HANKOSHELL_ATTEST_PUBLIC_KEY: ${{ vars.HANKOSHELL_ATTEST_PUBLIC_KEY }}
+          HANKOSHELL_ATTEST_TSA_CERTIFICATE: ${{ vars.HANKOSHELL_ATTEST_TSA_CERTIFICATE }}
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, subprocess
+          root = pathlib.Path(os.environ['RUNNER_TEMP'])
+          corpus = json.loads(pathlib.Path(os.environ['REVIEWED_CORPUS']).read_text())
+          assets = root / 'assets'
+          assets.mkdir()
+          subprocess.run(['gh', 'release', 'download', 'v' + corpus['source_release'], '--repo', os.environ['GITHUB_REPOSITORY'], '--dir', str(assets)], check=True)
+          (root / 'trust.json').write_text(json.dumps({key: os.environ['HANKOSHELL_ATTEST_' + key] for key in ['KEY_ID', 'PUBLIC_KEY', 'TSA_CERTIFICATE']}))
+          PY
+          python3 -m tools.qualification.scenarios.cross_version_installed_test \
+            --archive "$RUNNER_TEMP/candidate/image.tar" --evidence "$RUNNER_TEMP/candidate/evidence" \
+            --digest "$DIGEST" --revision "$GITHUB_SHA" --assets "$RUNNER_TEMP/assets" --trust "$RUNNER_TEMP/trust.json" \
+            --capture "$RUNNER_TEMP/predecessor/system-test.corpus.json" --capture-artifact-id "$CAPTURE_ARTIFACT_ID" \
+            --reviewed-corpus "$REVIEWED_CORPUS" --keycloak-version "$KEYCLOAK_VERSION" --kubernetes-version "$KUBERNETES_VERSION" \
+            --kind "$RUNNER_TEMP/tools/kind" --kubectl "$RUNNER_TEMP/tools/kubectl" --helm "$RUNNER_TEMP/tools/helm" \
+            --oras "$RUNNER_TEMP/tools/oras" --openssl /usr/bin/openssl --cosign "$RUNNER_TEMP/tools/cosign" \
+            --attest "$RUNNER_TEMP/tools/attest" --output "$RUNNER_TEMP/compatibility.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: public-compatibility-${{ matrix.keycloak }}-${{ matrix.kubernetes }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/compatibility.json
+            ${{ runner.temp }}/compatibility.diagnostics/
+          if-no-files-found: warn
+          retention-days: 90

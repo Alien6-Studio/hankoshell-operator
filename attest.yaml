@@ -1,0 +1,10 @@
+version: "0.1"
+name: hankoshell-operator-release-delivery
+steps:
+  bind-verified-delivery:
+    # Bind files already built and checked by the release workflow.
+    run: "true"
+    inputs: ["delivery/"]
+    outputs: ["delivery/"]
+    attestation:
+      type: verified-release-delivery

@@ -1,0 +1,235 @@
+# go-arch-lint v3 — repository root (module: github.com/Alien6-Studio/hankoshell-operator)
+# Rules derived from ADR-001 and ADR-002.
+# Run: go-arch-lint check  (from repository root/)
+version: 3
+workdir: .
+
+allow:
+  depOnAnyVendor: true
+
+excludeFiles:
+  - ".+_test\\.go"
+
+components:
+  cmd:
+    in: "/cmd/operator"
+  fixture_review:
+    in: "/tools/qualification/fixtures/workload-auth-review"
+  fixture_resource:
+    in: "/tools/qualification/fixtures/delegation-resource-server"
+  api_surface:
+    in: "/tools/qualification/fixtures/api-surface"
+  api_surface_fixture:
+    in: "/tools/qualification/fixtures/api-surface/testdata/contract"
+  controller:
+    in: "/internal/controller"
+  keycloak:
+    in: "/internal/keycloak"
+  authentik:
+    in: "/internal/authentik"
+  observability:
+    in: "/internal/observability"
+  httpsecurity:
+    in: "/internal/httpsecurity"
+  iamconformance:
+    in: "/internal/iamconformance"
+  adoption:
+    in: "/internal/adoption"
+  iamcontract:
+    in: "/internal/iamcontract"
+  roles:
+    in: "/internal/roles"
+  workloadtrust:
+    in: "/internal/workloadtrust"
+  workloadauth:
+    in: "/internal/workloadauth"
+  workloadbinding:
+    in: "/internal/workloadbinding"
+  applications:
+    in: "/internal/applications"
+  applicationbinding:
+    in: "/internal/applicationbinding"
+  credentialname:
+    in: "/internal/credentialname"
+  organization:
+    in: "/internal/organization"
+  authorization:
+    in: "/internal/authorization"
+  hub:
+    in: "/internal/hub"
+  fleetplan:
+    in: "/internal/fleetplan"
+  api_types:
+    in: "/api/v1alpha1"
+  imagevalidator:
+    in: "/internal/imagevalidator"
+  supervision:
+    in: "/internal/supervision"
+  hankoapi:
+    in: "/internal/hankoapi"
+  decommission:
+    in: "/internal/decommission"
+  selfupdate:
+    in: "/internal/selfupdate"
+  version:
+    in: "/internal/version"
+
+deps:
+  observability:
+    anyVendorDeps: true
+  # cmd/ wires everything — no restriction.
+  cmd:
+    anyProjectDeps: true
+  fixture_review:
+    mayDependOn:
+      - workloadauth
+
+  # ADR-001: Reconcilers may use the Keycloak client, Hub client, CRD types,
+  # and the image validator (ADR-003).
+  controller:
+    mayDependOn:
+      - observability
+      - httpsecurity
+      - workloadtrust
+      - workloadbinding
+      - workloadauth
+      - keycloak
+      - authentik
+      - authorization
+      - organization
+      - roles
+      - applications
+      - applicationbinding
+      - credentialname
+      - iamcontract
+      - adoption
+      - hub
+      - fleetplan
+      - api_types
+      - imagevalidator
+      - supervision
+      - hankoapi
+      - decommission
+      - selfupdate
+      - version
+
+  # ADR-001: HTTP client depends on transport and pure ownership wire contracts.
+  keycloak:
+    anyVendorDeps: true
+    mayDependOn:
+      - workloadtrust
+      - workloadauth
+      - observability
+      - httpsecurity
+      - adoption
+      - organization
+
+  authentik:
+    mayDependOn:
+      - observability
+      - httpsecurity
+      - iamcontract
+      - applications
+
+  httpsecurity:
+    anyVendorDeps: true
+
+  # ADR-006: Provider-neutral authorization drivers may adapt provider clients.
+  iamconformance:
+    mayDependOn:
+      - iamcontract
+
+  adoption:
+    mayDependOn:
+      - iamcontract
+
+  iamcontract:
+    anyVendorDeps: true
+
+  roles:
+    mayDependOn:
+      - keycloak
+      - iamcontract
+      - adoption
+
+  workloadtrust:
+    mayDependOn:
+      - iamcontract
+      - httpsecurity
+  workloadauth:
+    mayDependOn:
+      - iamcontract
+  workloadbinding:
+    mayDependOn:
+      - api_types
+      - iamcontract
+
+  applications:
+    mayDependOn:
+      - httpsecurity
+      - keycloak
+      - iamcontract
+      - adoption
+
+  applicationbinding:
+    mayDependOn:
+      - api_types
+      - iamcontract
+      - credentialname
+
+  organization:
+    anyVendorDeps: true
+
+  authorization:
+    mayDependOn:
+      - organization
+      - keycloak
+      - iamcontract
+
+  # ADR-002: Hub client carries the bounded supervision DTO in heartbeats.
+  hub:
+    mayDependOn:
+      - supervision
+      - httpsecurity
+
+  fleetplan:
+    mayDependOn:
+      - httpsecurity
+      - iamcontract
+
+  # ADR-001 and ADR-002: CRD type definitions have no runtime project dependencies.
+  api_types:
+    anyVendorDeps: true
+
+  # Image validation only adds the bounded operational telemetry leaf.
+  imagevalidator:
+    anyVendorDeps: true
+    mayDependOn:
+      - httpsecurity
+      - observability
+
+  # Supervision reads operator CRDs and exposes a bounded transport DTO.
+  supervision:
+    mayDependOn:
+      - api_types
+      - httpsecurity
+      - iamcontract
+
+  # Organization position projector is a pure HTTP client of the hankoShell API.
+  hankoapi:
+    anyVendorDeps: true
+    mayDependOn:
+      - httpsecurity
+
+  # ADR-002: decommission and self-update flows report through the Hub client.
+  decommission:
+    mayDependOn:
+      - hub
+
+  selfupdate:
+    mayDependOn:
+      - hub
+
+  # Build/version metadata is a standalone leaf package.
+  version:
+    anyVendorDeps: true

@@ -1,0 +1,407 @@
+{{- if not (kindIs "bool" .Values.lifecycle.enabled) }}{{ fail "lifecycle.enabled must be a boolean" }}{{ end }}
+{{- if not (kindIs "slice" .Values.lifecycle.adminGroups) }}{{ fail "lifecycle.adminGroups must be a list" }}{{ end }}
+{{- range .Values.lifecycle.adminGroups }}
+{{- if or (not (kindIs "string" .)) (eq . "") (hasPrefix "system:serviceaccounts" .) (eq . "system:authenticated") (eq . "system:unauthenticated") }}{{ fail "lifecycle.adminGroups must name independent administrator groups" }}{{ end }}
+{{- end }}
+{{- include "hanko-operator.validateProfile" . }}
+{{- include "hanko-operator.validateMetrics" . }}
+{{- if or (hasKey .Values.env "HANKO_EXPERIMENTAL_AUTHENTIK_CONNECTIONS") (hasKey .Values.env "HANKO_EXPERIMENTAL_AUTHENTIK_ENABLED") }}{{ fail "experimental provider environment is controlled by experimental.authentik values" }}{{ end }}
+{{- if not (kindIs "bool" .Values.experimental.authentik.enabled) }}{{ fail "experimental.authentik.enabled must be a boolean" }}{{ end }}
+{{- if .Values.experimental.authentik.enabled }}
+{{- if or (not (kindIs "slice" .Values.experimental.authentik.connectionNames)) (eq (len .Values.experimental.authentik.connectionNames) 0) (gt (len .Values.experimental.authentik.connectionNames) 16) }}{{ fail "experimental authentik requires 1 to 16 explicitly protected connectionNames" }}{{ end }}
+{{- range .Values.experimental.authentik.connectionNames }}
+{{- if not (kindIs "string" .) }}{{ fail "experimental authentik connectionNames must be strings" }}{{ end }}
+{{- if or (gt (len .) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$" .)) }}{{ fail "experimental authentik connectionNames must be ConfigMap names" }}{{ end }}
+{{- end }}
+{{- if not (kindIs "slice" .Values.experimental.authentik.adminGroups) }}{{ fail "experimental authentik adminGroups must be a list" }}{{ end }}
+{{- range .Values.experimental.authentik.adminGroups }}{{ if or (not (kindIs "string" .)) (eq . "") }}{{ fail "experimental authentik adminGroups must contain group names" }}{{ end }}{{ end }}
+{{- if not .Values.networkPolicy.enabled }}{{ fail "experimental authentik requires networkPolicy.enabled" }}{{ end }}
+{{- if or (not .Values.experimental.authentik.egress.namespace) (not .Values.experimental.authentik.egress.selector) }}{{ fail "experimental authentik requires an explicit egress namespace and pod selector" }}{{ end }}
+{{- include "hanko-operator.validateMetricsLabels" (dict "name" "experimental.authentik.egress.selector" "labels" .Values.experimental.authentik.egress.selector) }}
+{{- if or (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" .Values.experimental.authentik.egress.namespace)) (gt (len .Values.experimental.authentik.egress.namespace) 63) }}{{ fail "experimental authentik egress namespace is invalid" }}{{ end }}
+{{- if or (not (regexMatch "^[0-9]+$" (toString .Values.experimental.authentik.egress.port))) (lt (int .Values.experimental.authentik.egress.port) 1) (gt (int .Values.experimental.authentik.egress.port) 65535) }}{{ fail "experimental authentik requires a valid TLS port" }}{{ end }}
+{{- end }}
+{{- range $key, $_ := .Values.env }}
+{{- if and (hasPrefix "HANKO_IAM_" $key) (hasSuffix "MAX_CONCURRENT_RECONCILES" $key) }}{{ fail "IAM concurrency is controlled by reconciliation values" }}{{ end }}
+{{- end }}
+{{- if or (not (regexMatch "^[1-8]$" (toString .Values.reconciliation.maxConcurrent))) (kindIs "bool" .Values.reconciliation.maxConcurrent) (kindIs "string" .Values.reconciliation.maxConcurrent) }}{{ fail "reconciliation.maxConcurrent must be an integer from 1 to 8" }}{{ end }}
+{{- if not (kindIs "map" .Values.reconciliation.maxConcurrentByKind) }}{{ fail "reconciliation.maxConcurrentByKind must be a map" }}{{ end }}
+{{- range $kind, $workers := .Values.reconciliation.maxConcurrentByKind }}
+{{- if not (has $kind (list "Application" "Role" "Organization" "ResourceServer")) }}{{ fail "reconciliation.maxConcurrentByKind accepts only the four reviewed IAM controllers" }}{{ end }}
+{{- if or (not (regexMatch "^[1-8]$" (toString $workers))) (kindIs "bool" $workers) (kindIs "string" $workers) }}{{ fail "reconciliation.maxConcurrentByKind values must be integers from 1 to 8" }}{{ end }}
+{{- end }}
+{{- if hasKey .Values.env "HANKO_FLEET_TRUST_CONFIGMAP" }}{{ fail "HANKO_FLEET_TRUST_CONFIGMAP is controlled by fleetPlanVerification values" }}{{ end }}
+{{- if not (kindIs "string" .Values.fleetPlanVerification.trustConfigMap) }}{{ fail "fleetPlanVerification.trustConfigMap must be a string" }}{{ end }}
+{{- if .Values.fleetPlanVerification.trustConfigMap }}
+{{- if or (gt (len .Values.fleetPlanVerification.trustConfigMap) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$" .Values.fleetPlanVerification.trustConfigMap)) }}{{ fail "fleetPlanVerification.trustConfigMap must be a ConfigMap name" }}{{ end }}
+{{- if not .Values.hub.enabled }}{{ fail "signed fleet plans require hub.enabled and independently provisioned trust" }}{{ end }}
+{{- end }}
+{{- if not (kindIs "bool" .Values.leaderElect) }}{{ fail "leaderElect must be a boolean" }}{{ end }}
+{{- if regexMatch "-(alpha|beta|rc)([.-]|$)" .Capabilities.KubeVersion.Version }}
+{{- fail "Kubernetes alpha, beta and release-candidate versions are incompatible with this chart's qualification policy" }}
+{{- end }}
+{{- range $name, $enabled := .Values.hardening }}
+{{- if not (has $name (list "appArmor" "userNamespaces")) }}{{ fail (printf "unknown hardening option %s" $name) }}{{ end }}
+{{- if not (kindIs "bool" $enabled) }}{{ fail (printf "hardening.%s must be a boolean" $name) }}{{ end }}
+{{- end }}
+{{- if and .Values.hardening.userNamespaces (not (semverCompare ">=1.36.0-0" .Capabilities.KubeVersion.Version)) }}
+{{- fail "hardening.userNamespaces requires stable user namespace support in Kubernetes >=1.36 and compatible Linux nodes/runtimes" }}
+{{- end }}
+{{- if not (kindIs "bool" .Values.organizationProjection.enabled) }}{{ fail "organizationProjection.enabled must be a boolean" }}{{ end }}
+{{- if and .Values.organizationProjection.enabled .Values.networkPolicy.enabled }}
+{{- if not .Values.organizationProjection.apiSelector }}{{ fail "organizationProjection.apiSelector must constrain API pods" }}{{ end }}
+{{- include "hanko-operator.validateMetricsLabels" (dict "name" "organizationProjection.apiSelector" "labels" .Values.organizationProjection.apiSelector) }}
+{{- end }}
+{{- range $key := list "HANKO_ORGANIZATION_PROJECTION_ENABLED" "HANKO_API_URL" "HANKO_API_TOKEN" }}
+{{- if hasKey $.Values.env $key }}{{ fail (printf "organization projection environment %s is controlled by organizationProjection values" $key) }}{{ end }}
+{{- end }}
+{{- range $integration := list .Values.organizationProjection .Values.supervision }}
+{{- if $integration.enabled }}
+{{- if not $integration.apiPorts }}{{ fail "enabled API integrations require explicit apiPorts" }}{{ end }}
+{{- range $integration.apiPorts }}
+{{- if or (not (regexMatch "^[0-9]+$" (toString .))) (lt (int .) 1) (gt (int .) 65535) }}
+{{- fail "API integration apiPorts must contain TCP ports between 1 and 65535" }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if or .Values.azureKeyVault.enabled .Values.networkPolicy.externalEmailEgress.enabled }}
+{{- fail "Messaging moved to the hankoShell API: disable azureKeyVault.enabled and networkPolicy.externalEmailEgress.enabled on the operator" }}
+{{- end }}
+{{- range .Values.hub.externalCIDRs }}{{ if not (hasSuffix "/32" .) }}{{ fail (printf "hub external CIDR %s must be an exact /32" .) }}{{ end }}{{ end }}
+{{- if not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" .Values.hub.tokenSecret) }}{{ fail "hub.tokenSecret must be a valid Secret name" }}{{ end }}
+{{- if and .Values.hub.realmRef (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" .Values.hub.realmRef)) }}{{ fail "hub.realmRef must be a valid HankoRealm name" }}{{ end }}
+{{- if .Values.continuum.enabled }}
+{{- if not .Values.hub.enabled }}{{ fail "hub.enabled must be true when continuum.enabled is true" }}{{ end }}
+{{- if not .Values.networkPolicy.enabled }}{{ fail "networkPolicy.enabled must remain true when continuum.enabled is true" }}{{ end }}
+{{- if not .Values.continuum.hubAddress }}{{ fail "continuum.hubAddress is required" }}{{ end }}
+{{- if not .Values.continuum.hubHostname }}{{ fail "continuum.hubHostname is required" }}{{ end }}
+{{- if not (regexMatch "^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$" .Values.continuum.hubAddress) }}{{ fail "continuum.hubAddress must be one valid IPv4 address without a prefix" }}{{ end }}
+{{- if not (regexMatch "^(10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.|100\\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\\.)" .Values.continuum.hubAddress) }}{{ fail "continuum.hubAddress must use RFC1918 or RFC6598 address space" }}{{ end }}
+{{- range .Values.continuum.bootstrap.cidrs }}{{ if not (hasSuffix "/32" .) }}{{ fail (printf "continuum bootstrap CIDR %s must be an exact /32" .) }}{{ end }}{{ end }}
+{{- if and .Values.hub.enrollToken (not .Values.continuum.bootstrap.cidrs) }}{{ fail "continuum.bootstrap.cidrs is required when hub.enrollToken is set" }}{{ end }}
+{{- end }}
+{{- if .Values.meshPolicyAudit.enabled }}
+{{- if not .Values.hub.enabled }}{{ fail "hub.enabled must be true when meshPolicyAudit.enabled is true" }}{{ end }}
+{{- if not .Values.continuum.enabled }}{{ fail "continuum.enabled must be true when meshPolicyAudit.enabled is true" }}{{ end }}
+{{- if not .Values.meshPolicyAudit.configMapName }}{{ fail "meshPolicyAudit.configMapName is required" }}{{ end }}
+{{- if and (eq (default "realm" .Values.hub.isolationMode) "realm") (not .Values.hub.realmRef) }}{{ fail "hub.realmRef is required for realm-isolated mesh policy" }}{{ end }}
+{{- $policyNamespace := default .Release.Namespace .Values.meshPolicyAudit.targetNamespace }}
+{{- if not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $policyNamespace) }}{{ fail "meshPolicyAudit.targetNamespace must be a valid namespace" }}{{ end }}
+{{- end }}
+{{- if and .Values.imageVerification.credentialsSecret (not .Values.imageVerification.policyConfigMap) }}
+{{ fail "imageVerification.credentialsSecret requires a public policy ConfigMap" }}
+{{- end }}
+{{- if and .Values.imageVerification.policyConfigMap (ne .Values.imageVerification.policyConfigMap "hanko-image-policy") }}
+{{ fail "imageVerification.policyConfigMap must use the admission-protected hanko-image-policy name" }}
+{{- end }}
+{{- if and .Values.imageVerification.policyConfigMap .Values.networkPolicy.enabled (not .Values.imageVerification.egressCIDRs) }}
+{{ fail "imageVerification.egressCIDRs must constrain registry and Sigstore HTTPS destinations" }}
+{{- end }}
+{{- if or (hasKey .Values.env "HANKO_IMAGE_POLICY_FILE") (hasKey .Values.env "HANKO_IMAGE_VERIFY_DOCKER_CONFIG") }}
+{{ fail "configure imageVerification instead of overriding verifier environment variables" }}
+{{- end }}
+{{- if or (hasKey .Values.env "HANKO_KEYCLOAK_CA_FILE") (hasKey .Values.env "HANKO_CILIUM_POLICY_ENABLED") }}
+{{ fail "configure keycloak.caSecret and networkPolicy.cilium instead of overriding their environment variables" }}
+{{- end }}
+{{- if .Values.keycloak.caSecret }}
+{{- if or (not .Values.keycloak.enabled) (not (hasPrefix "https://" .Values.keycloak.url)) }}
+{{ fail "keycloak.caSecret requires an enabled HTTPS Keycloak endpoint" }}
+{{- end }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hanko-operator.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hanko-operator.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "hanko-operator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "hanko-operator.selectorLabels" . | nindent 8 }}
+        app: hanko-operator
+    spec:
+      os:
+        name: linux
+      nodeSelector:
+        kubernetes.io/os: linux
+      {{- if .Values.hardening.userNamespaces }}
+      hostUsers: false
+      {{- end }}
+      serviceAccountName: {{ include "hanko-operator.fullname" . }}
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        seccompProfile:
+          type: RuntimeDefault
+        {{- if .Values.hardening.appArmor }}
+        appArmorProfile:
+          type: RuntimeDefault
+        {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.continuum.enabled }}
+      hostAliases:
+        - ip: {{ .Values.continuum.hubAddress | quote }}
+          hostnames:
+            - {{ .Values.continuum.hubHostname | quote }}
+      {{- end }}
+      containers:
+        - name: manager
+          image: {{ if .Values.image.digest }}{{ printf "%s@%s" .Values.image.repository .Values.image.digest | quote }}{{ else }}{{ printf "%s:%s" .Values.image.repository (required "image.tag is required when image.digest is empty" .Values.image.tag | toString) | quote }}{{ end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --health-probe-bind-address=:8081
+            - --metrics-bind-address={{ ternary ":8080" "0" .Values.metrics.enabled }}
+            {{- if .Values.metrics.enabled }}
+            - --metrics-cert-dir=/etc/hanko/metrics-server
+            - --metrics-client-ca=/etc/hanko/metrics-client-ca/ca.crt
+            - --metrics-client-uris={{ join "," .Values.metrics.tls.allowedClientURIs }}
+            {{- end }}
+            - --watch-namespace={{ .Release.Namespace }}
+            - --leader-elect={{ .Values.leaderElect }}
+            - --lifecycle-enabled={{ .Values.lifecycle.enabled }}
+          ports:
+            {{- if .Values.metrics.enabled }}
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+            {{- end }}
+            - name: healthz
+              containerPort: 8081
+              protocol: TCP
+          env:
+            - name: HANKO_IAM_MAX_CONCURRENT_RECONCILES
+              value: {{ .Values.reconciliation.maxConcurrent | quote }}
+            {{- range $kind, $workers := .Values.reconciliation.maxConcurrentByKind }}
+            - name: HANKO_IAM_{{ upper $kind }}_MAX_CONCURRENT_RECONCILES
+              value: {{ $workers | quote }}
+            {{- end }}
+            - name: HANKO_EXPERIMENTAL_AUTHENTIK_CONNECTIONS
+              value: {{ ternary (join "," .Values.experimental.authentik.connectionNames) "" .Values.experimental.authentik.enabled | quote }}
+            - name: HANKO_EXPERIMENTAL_AUTHENTIK_ENABLED
+              value: {{ .Values.experimental.authentik.enabled | quote }}
+            - name: HANKO_SECURITY_PROFILE
+              value: {{ default "standard" .Values.profile | quote }}
+            {{- if eq .Values.profile "enterprise" }}
+            - name: HANKO_ENTERPRISE_HUB_ENDPOINT
+              value: {{ .Values.hub.endpoint | quote }}
+            - name: HANKO_CONTINUUM_HUB_ADDRESS
+              value: {{ .Values.continuum.hubAddress | quote }}
+            {{- with .Values.hub.enrollmentEndpoint }}
+            - name: HANKO_ENTERPRISE_ENROLLMENT_ENDPOINT
+              value: {{ . | quote }}
+            {{- end }}
+            {{- end }}
+            - name: HANKO_CONTROL_PLANE_AUTHORIZED_CLIENTS
+              value: {{ required "controlPlane.authorizedClients is required" (join "," .Values.controlPlane.authorizedClients) | quote }}
+            - name: HANKO_FLEET_AUTHORITY_REALM
+              value: {{ required "controlPlane.fleetAuthorityRealm is required" .Values.controlPlane.fleetAuthorityRealm | quote }}
+            - name: HANKO_CILIUM_POLICY_ENABLED
+              value: {{ .Values.networkPolicy.cilium.enabled | quote }}
+            - name: HANKO_KEYCLOAK_ALLOW_INSECURE_HTTP
+              value: {{ .Values.keycloak.allowInsecureHTTP | quote }}
+            {{- if .Values.keycloak.enabled }}
+            - name: HANKO_KEYCLOAK_URL
+              value: {{ .Values.keycloak.url | quote }}
+            - name: HANKO_KC_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.keycloak.credentialsSecret }}
+                  key: client-id
+            - name: HANKO_KC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.keycloak.credentialsSecret }}
+                  key: client-secret
+            {{- if .Values.keycloak.caSecret }}
+            - name: HANKO_KEYCLOAK_CA_FILE
+              value: /etc/hanko/keycloak-ca/ca.crt
+            {{- end }}
+            {{- else }}
+            - name: HANKO_SPOKE_MODE
+              value: "true"
+            {{- end }}
+            - name: HANKO_ORGANIZATION_PROJECTION_ENABLED
+              value: {{ .Values.organizationProjection.enabled | toString | quote }}
+            {{- if .Values.organizationProjection.enabled }}
+            - name: HANKO_API_URL
+              value: {{ required "organizationProjection.apiURL is required when organization projection is enabled" .Values.organizationProjection.apiURL | quote }}
+            - name: HANKO_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "organizationProjection.tokenSecret is required when organization projection is enabled" .Values.organizationProjection.tokenSecret }}
+                  key: {{ required "organizationProjection.tokenKey is required when organization projection is enabled" .Values.organizationProjection.tokenKey }}
+            {{- end }}
+            {{- if and .Values.hub.enabled (not .Values.hub.publicCA) }}
+            - name: HANKO_HUB_CA_FILE
+              value: /etc/hanko/hub-ca/ca.crt
+            {{- end }}
+            {{- if .Values.supervision.enabled }}
+            - name: HANKO_SUPERVISION_API_URL
+              value: {{ required "supervision.apiURL is required when supervision is enabled" .Values.supervision.apiURL | quote }}
+            - name: HANKO_SUPERVISION_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "supervision.tokenSecret is required when supervision is enabled" .Values.supervision.tokenSecret }}
+                  key: {{ .Values.supervision.tokenKey }}
+            {{- end }}
+            {{- if .Values.hub.enabled }}
+            # Identity of this release for the Hub-driven self-uninstall. The
+            # Hub credential Secret ({{ .Values.hub.tokenSecret }}) is retained.
+            - name: HANKO_DECOMMISSION_RELEASE
+              value: {{ include "hanko-operator.fullname" . | quote }}
+            - name: HANKO_DECOMMISSION_DISPOSABLE_SECRETS
+              value: {{ printf "%s,hanko-hub-enroll" .Values.hub.caSecret | quote }}
+            # Identity of this operator's own Deployment for the Hub-commanded
+            # self-update. The local image policy and publisher verification
+            # must authorize the requested release before any patch.
+            - name: HANKO_AGENT_UPDATE_DEPLOYMENT
+              value: {{ include "hanko-operator.fullname" . | quote }}
+            - name: HANKO_AGENT_UPDATE_CONTAINER
+              value: "manager"
+            {{- if .Values.transportDecommission.release }}
+            # US-65: the Continuum transport release torn down after the Hub
+            # confirms the decommission receipt. Without these a continuum
+            # tenant decommission is refused (DecommissionBlocked).
+            - name: HANKO_DECOMMISSION_TRANSPORT_NAMESPACE
+              value: {{ required "transportDecommission.namespace is required when transportDecommission.release is set" .Values.transportDecommission.namespace | quote }}
+            - name: HANKO_DECOMMISSION_TRANSPORT_RELEASE
+              value: {{ .Values.transportDecommission.release | quote }}
+            {{- with .Values.transportDecommission.secrets }}
+            - name: HANKO_DECOMMISSION_TRANSPORT_SECRETS
+              value: {{ join "," . | quote }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.meshPolicyAudit.enabled }}
+            - name: HANKO_MESH_POLICY_CONFIGMAP_NAME
+              value: {{ .Values.meshPolicyAudit.configMapName | quote }}
+            - name: HANKO_MESH_POLICY_CONFIGMAP_NAMESPACE
+              value: {{ default .Release.Namespace .Values.meshPolicyAudit.targetNamespace | quote }}
+            {{- end }}
+            {{- if .Values.fleetPlanVerification.trustConfigMap }}
+            - name: HANKO_FLEET_TRUST_CONFIGMAP
+              value: {{ .Values.fleetPlanVerification.trustConfigMap | quote }}
+            {{- end }}
+            {{- range $key, $val := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $val | quote }}
+            {{- end }}
+            {{- if .Values.imageVerification.policyConfigMap }}
+            - name: HANKO_IMAGE_POLICY_FILE
+              value: /etc/hanko/image-policy/policy.json
+            {{- end }}
+            {{- if .Values.imageVerification.credentialsSecret }}
+            - name: HANKO_IMAGE_VERIFY_DOCKER_CONFIG
+              value: /etc/hanko/image-pull
+            {{- end }}
+          volumeMounts:
+            {{- if .Values.metrics.enabled }}
+            - name: metrics-server
+              mountPath: /etc/hanko/metrics-server
+              readOnly: true
+            - name: metrics-client-ca
+              mountPath: /etc/hanko/metrics-client-ca
+              readOnly: true
+            {{- end }}
+            - name: verifier-tmp
+              mountPath: /tmp
+            {{- if .Values.keycloak.caSecret }}
+            - name: keycloak-ca
+              mountPath: /etc/hanko/keycloak-ca
+              readOnly: true
+            {{- end }}
+            {{- if .Values.imageVerification.policyConfigMap }}
+            - name: image-policy
+              mountPath: /etc/hanko/image-policy
+              readOnly: true
+            {{- end }}
+            {{- if .Values.imageVerification.credentialsSecret }}
+            - name: image-verification-pull
+              mountPath: /etc/hanko/image-pull
+              readOnly: true
+            {{- end }}
+            {{- if and .Values.hub.enabled (not .Values.hub.publicCA) }}
+            - name: hub-ca
+              mountPath: /etc/hanko/hub-ca
+              readOnly: true
+            {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz?exclude=leader
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        {{- if .Values.metrics.enabled }}
+        - name: metrics-server
+          secret:
+            secretName: {{ .Values.metrics.tls.serverSecret }}
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+        - name: metrics-client-ca
+          secret:
+            secretName: {{ .Values.metrics.tls.clientCASecret }}
+            items:
+              - key: ca.crt
+                path: ca.crt
+        {{- end }}
+        - name: verifier-tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+        {{- if .Values.keycloak.caSecret }}
+        - name: keycloak-ca
+          secret:
+            secretName: {{ .Values.keycloak.caSecret }}
+            items:
+              - key: {{ required "keycloak.caKey is required with keycloak.caSecret" .Values.keycloak.caKey }}
+                path: ca.crt
+        {{- end }}
+        {{- if .Values.imageVerification.policyConfigMap }}
+        - name: image-policy
+          configMap:
+            name: {{ .Values.imageVerification.policyConfigMap }}
+        {{- end }}
+        {{- if .Values.imageVerification.credentialsSecret }}
+        - name: image-verification-pull
+          secret:
+            secretName: {{ .Values.imageVerification.credentialsSecret }}
+            items:
+              - key: .dockerconfigjson
+                path: config.json
+        {{- end }}
+        {{- if and .Values.hub.enabled (not .Values.hub.publicCA) }}
+        - name: hub-ca
+          secret:
+            secretName: {{ .Values.hub.caSecret }}
+            items:
+              - key: {{ .Values.hub.caKey }}
+                path: ca.crt
+        {{- end }}
