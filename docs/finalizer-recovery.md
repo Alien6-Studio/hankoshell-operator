@@ -73,10 +73,10 @@ For a terminating role, the requester runs:
 
 ```sh
 umask 077
-python3 -m tools.operations.finalizer_release --context "$executor_context" plan \
+python3 -m tools.operations.finalizer_recovery --context "$executor_context" plan \
   --kind HankoRole --namespace "$target_namespace" --name "$target_name" \
   --finalizer hanko.sh/role-cleanup --output "$private_plan"
-python3 -m tools.operations.finalizer_release --context "$executor_context" request --plan "$private_plan"
+python3 -m tools.operations.finalizer_recovery --context "$executor_context" request --plan "$private_plan"
 ```
 
 The plan file is exclusively created with mode 0600. It contains private object
@@ -89,14 +89,14 @@ Transfer this private file through an approved channel to the independent
 approver, who reviews the target and external effects before executing:
 
 ```sh
-python3 -m tools.operations.finalizer_release --context "$approver_context" approve --plan "$private_plan" \
+python3 -m tools.operations.finalizer_recovery --context "$approver_context" approve --plan "$private_plan" \
   --accept-orphaned-provider-state-and-garbage-collection
 ```
 
 The original requester then executes:
 
 ```sh
-python3 -m tools.operations.finalizer_release --context "$executor_context" execute --plan "$private_plan" \
+python3 -m tools.operations.finalizer_recovery --context "$executor_context" execute --plan "$private_plan" \
   --accept-orphaned-provider-state-and-garbage-collection
 ```
 
@@ -118,7 +118,7 @@ automatically retries a write. After an intent exists, `execute` refuses another
 target patch; use the original plan for a read-only target observation:
 
 ```sh
-python3 -m tools.operations.finalizer_release --context "$executor_context" observe --plan "$private_plan"
+python3 -m tools.operations.finalizer_recovery --context "$executor_context" observe --plan "$private_plan"
 ```
 
 Observation can run after expiration. It writes an immutable receipt saying
@@ -157,4 +157,4 @@ it does not run provider cleanup, node garbage collection, an external audit
 recorder, a public release upgrade or a connected production recovery scenario.
 Those limits remain **UNQUALIFIED** in the operational contract.
 
-Executable source: [tools/operations/finalizer_release.py](../tools/operations/finalizer_release.py).
+Executable source: [tools/operations/finalizer_recovery.py](../tools/operations/finalizer_recovery.py).

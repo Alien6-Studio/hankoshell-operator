@@ -3,7 +3,6 @@ import argparse
 import csv
 from datetime import date, timedelta
 import hashlib
-import importlib.util
 import io
 import json
 import os
@@ -11,11 +10,10 @@ from pathlib import Path
 import re
 import subprocess
 
+from tools import versions as pins
+
 ROOT = Path(__file__).resolve().parents[2]
 
-spec = importlib.util.spec_from_file_location("versions", ROOT / 'tools/versions.py')
-pins = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(pins)
 
 POLICY = ROOT / "security/dependency-policy.json"
 NOTICES = {"operator": "THIRD_PARTY_NOTICES", "cosign": "THIRD_PARTY_NOTICES.cosign"}

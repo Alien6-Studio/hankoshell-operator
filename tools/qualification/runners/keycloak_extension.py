@@ -1,7 +1,6 @@
 """Build and test the experimental SPI for one reviewed Keycloak SDK, without publishing."""
 
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -11,12 +10,9 @@ import xml.etree.ElementTree as ET
 
 from tools import versions
 from tools.qualification.lib import keycloak_extension_source as extension
+from tools.qualification.runners import go_tests as runner
 
 ROOT = Path(__file__).resolve().parents[3]
-
-spec = importlib.util.spec_from_file_location("go_tests", ROOT / "tools/qualification/runners/go_tests.py")
-runner = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(runner)
 
 
 def build():

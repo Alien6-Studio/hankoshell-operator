@@ -68,7 +68,7 @@ jobs:
         run: |
           python3 -m pip install -r tools/requirements.txt
           GOBIN="$RUNNER_TEMP/hankoshell-release-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
-          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
+          python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
@@ -183,7 +183,7 @@ jobs:
         run: |
           bash tools/bootstrap/install_cosign.sh /tmp/cosign
           bash tools/bootstrap/install_attest.sh "$RUNNER_TEMP/hankoshell-attest/attest"
-          python3 -m tools.bootstrap.install_trivy "$RUNNER_TEMP/trivy"
+          python3 -m tools.bootstrap.install trivy --directory "$RUNNER_TEMP"
           python3 -m tools.release.oci_security scan --archive "$RUNNER_TEMP/hankoshell-delivery/image.tar" \
             --output "$RUNNER_TEMP/fresh-scan" --scanner "$RUNNER_TEMP/trivy" \
             --digest "$DIGEST" --revision "$GITHUB_SHA" --version "$VERSION"

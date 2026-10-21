@@ -1212,7 +1212,7 @@ Keycloak administrative traffic uses verified HTTPS.
 Reproduce with the fresh archive and evidence from the OCI security job:
 
 ```sh
-python3 -m tools.bootstrap.install_system_tools /tmp/hankoshell-system-tools
+python3 -m tools.bootstrap.install kind kubectl --directory /tmp/hankoshell-system-tools
 GOBIN=/tmp/hankoshell-system-tools go install oras.land/oras/cmd/oras@v1.3.4
 make system-test REVISION="$reviewed_revision" DIGEST="$scanned_digest" \
   OCI_ARCHIVE="$archive_path" OCI_EVIDENCE="$evidence_directory" \

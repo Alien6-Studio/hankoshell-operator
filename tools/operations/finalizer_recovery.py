@@ -423,3 +423,7 @@ def main(argv=None):
     except (Refused, OSError, KeyError, TypeError, ValueError) as error:
         print(str(error) if isinstance(error, Refused) else "RecoveryInputOrIORefused", file=sys.stderr)
         return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

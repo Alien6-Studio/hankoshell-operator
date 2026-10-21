@@ -1,0 +1,113 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "hankoShell Operator configuration",
+  "type": "object",
+  "properties": {
+    "nameOverride": {"type": "string"},
+    "profile": {"type": "string", "enum": ["standard", "enterprise"]},
+    "replicaCount": {"type": "integer", "minimum": 0},
+    "leaderElect": {"type": "boolean"},
+    "image": {
+      "type": "object",
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "tag": {"type": "string"},
+        "digest": {"type": "string", "pattern": "^(sha256:[a-f0-9]{64})?$"},
+        "pullPolicy": {"type": "string", "enum": ["Always", "IfNotPresent", "Never"]}
+      }
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {"name": {"type": "string", "minLength": 1}}
+      }
+    },
+    "hardening": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "appArmor": {"type": "boolean"},
+        "userNamespaces": {"type": "boolean"}
+      }
+    },
+    "reconciliation": {
+      "type": "object",
+      "properties": {
+        "maxConcurrent": {"$ref": "#/definitions/workers"},
+        "maxConcurrentByKind": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "Application": {"$ref": "#/definitions/workers"},
+            "Role": {"$ref": "#/definitions/workers"},
+            "Organization": {"$ref": "#/definitions/workers"},
+            "ResourceServer": {"$ref": "#/definitions/workers"}
+          }
+        }
+      }
+    },
+    "keycloak": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "url": {"type": "string"},
+        "allowInsecureHTTP": {"type": "boolean"},
+        "credentialsSecret": {"type": "string"},
+        "caSecret": {"type": "string"},
+        "caKey": {"type": "string"}
+      }
+    },
+    "sensitiveWrites": {
+      "type": "object",
+      "properties": {
+        "secrets": {"$ref": "#/definitions/names"},
+        "deployments": {"$ref": "#/definitions/names"},
+        "projections": {"type": "array", "items": {"type": "object"}}
+      }
+    },
+    "lifecycle": {"$ref": "#/definitions/feature"},
+    "hub": {"$ref": "#/definitions/feature"},
+    "continuum": {"$ref": "#/definitions/feature"},
+    "organizationProjection": {"$ref": "#/definitions/feature"},
+    "meshPolicyAudit": {"$ref": "#/definitions/feature"},
+    "supervision": {"$ref": "#/definitions/feature"},
+    "azureKeyVault": {"$ref": "#/definitions/feature"},
+    "experimental": {
+      "type": "object",
+      "properties": {"authentik": {"$ref": "#/definitions/feature"}}
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "tls": {
+          "type": "object",
+          "properties": {
+            "serverSecret": {"type": "string"},
+            "clientCASecret": {"type": "string"},
+            "allowedClientURIs": {"$ref": "#/definitions/names"}
+          }
+        },
+        "serviceMonitor": {"$ref": "#/definitions/feature"}
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "keycloakSelector": {"type": ["object", "null"]},
+        "cilium": {"$ref": "#/definitions/feature"},
+        "externalEmailEgress": {"$ref": "#/definitions/feature"}
+      }
+    },
+    "env": {"type": "object"},
+    "resources": {"type": "object"}
+  },
+  "definitions": {
+    "workers": {"type": "integer", "minimum": 1, "maximum": 8},
+    "names": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "feature": {"type": "object", "properties": {"enabled": {"type": "boolean"}}}
+  }
+}

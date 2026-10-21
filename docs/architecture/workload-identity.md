@@ -945,7 +945,7 @@ cleans two uniquely named kind clusters and its Keycloak containers/image:
 
 ```sh
 python3 -m pip install -r tools/requirements.txt
-python3 -m tools.bootstrap.install_system_tools /tmp/hankoshell-workload-tools
+python3 -m tools.bootstrap.install kind kubectl --directory /tmp/hankoshell-workload-tools
 make workload-identity-probe KEYCLOAK_VERSION=26.7.5 KUBERNETES_VERSION=1.35.0 \
   KIND=/tmp/hankoshell-workload-tools/kind \
   KUBECTL=/tmp/hankoshell-workload-tools/kubectl OPENSSL=/usr/bin/openssl \

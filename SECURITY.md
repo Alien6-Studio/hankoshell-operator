@@ -87,7 +87,7 @@ missing inventory or mismatched architecture/configuration identity fails closed
 
 The reviewed scanner is **Trivy 0.75.0**, acquired from its fixed
 [upstream release](https://github.com/aquasecurity/trivy/releases/tag/v0.75.0)
-with archive SHA256 values committed in [the installer](tools/bootstrap/install_trivy.py)
+with archive SHA256 values committed in [versions.json](versions.json)
 and a runtime version check. No scanner action/image uses `latest`. Scan failures,
 unavailable databases, malformed reports and missing architectures block delivery.
 A fresh database is downloaded once for both scans; its hash and metadata are

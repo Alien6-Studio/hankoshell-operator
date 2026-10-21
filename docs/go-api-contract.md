@@ -54,9 +54,8 @@ all other admission/SSA/installed/security gates remain mandatory.
 
 Run `make preflight`, `make test` and the full `make integration-test` support
 matrix. Adversarial Go tests mutate signatures, tags, constants, interface methods,
-pointer/promoted methods, generic constraints and alias identity. Python tests
-exercise removed/changed exports, package expansion, baseline tampering, missing
-public API evidence, storage flips, unreviewed webhooks and missing deprecations.
+pointer/promoted methods, generic constraints and alias identity. Compatibility
+checks reject removed/changed exports, baseline drift and unsupported API changes.
 No stable maturity, public history or community acceptance is created by these tools.
 
 ## Delegation development contract change (2026-10-17)

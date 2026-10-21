@@ -43,12 +43,12 @@ review must record upstream support eligibility and exact qualified artifacts.
 
 ## One reviewed change
 
-1. Inspect the bounded official upstream release catalog/review packet. Reject
+1. Review the official Kubernetes and Keycloak release notes. Reject
    prereleases, drafts, future dates, major/minor surprises and unsupported upstream
    branches. Review patch notes, native semantics and security urgency.
 2. In the same reviewed PR, edit `versions.json` and supply actual reviewed image
-   digests, envtest checksums and node fixtures. Never copy checksums from a proposal:
-   proposals deliberately contain no fabricated fixture pins.
+   digests, envtest checksums and node fixtures. Verify checksums against the
+   upstream release assets.
 3. Run `python3 -m tools.versions sync`, then `python3 -m tools.versions check`.
    This updates CI matrices, chart metadata and generated tables in README,
    SECURITY, chart README, this policy and the version-reference inventory.
@@ -60,32 +60,13 @@ review must record upstream support eligibility and exact qualified artifacts.
    candidate. No waiver, automatic retry, matrix shrink or quarantine is added.
    Only a maintainer-reviewed merge can promote the proposed qualification change.
 
-## Discovery and proposals
-
-`tools/qualification/checks/support_window.py propose --revision <full-sha> --output <packet.json>`
-reads only the two fixed official GitHub release APIs, at most 100 entries each.
-It removes release bodies/assets and retains at most 2 MiB. Patch suggestions stay
-inside the current minor window; new minors are separate retirement-review items.
-Dates and version syntax are validated. Unknown upstream support remains a required
-human review, not a guessed support claim. Offline tests use `--catalog`.
-
-The `support-window.yml` workflow publishes a **nonpublishable review artifact**
-weekly and on manual request. It changes no version pins, branches or PRs by default.
-An explicit manual `create_pull_request=true` can create one draft PR with the
-review packet, using a [GitHub-signed commit mutation](https://docs.github.com/en/graphql/reference/mutations#createcommitonbranch),
-DCO attribution and an expected-head check. Repeated identical proposals reuse the existing PR; they do not reopen a
-closed review. The default-branch revision must match the packet. No merge, tag,
-image publication or release is performed. This automation is source/unit qualified;
-no live PR creation was exercised or authorized during this development batch.
-
 ## Weekly qualification and failures
 
 The existing `ci.yml` weekly schedule exercises the entire declared window:
 three Kubernetes API cells, two Keycloak versions with all native shards, and the
 six-cell workload/installed workload/portable/fleet matrices. Fail-fast stays off.
 The existing scheduled-failure tracker opens/updates the scoped tracking issue;
-JUnit/native diagnostics remain available. Adding a proposal workflow does not
-replace, reduce or mark any qualification job optional. `release-contract.py`
+JUnit/native diagnostics remain available. `release_contract.py`
 rejects window/document/matrix divergence through the shared versions checker.
 
 ## Removal and end of support

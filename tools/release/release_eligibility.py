@@ -1,20 +1,17 @@
 """Fail-closed GitHub identity and ancestry checks before release work."""
 
 import json
-import importlib.util
 import os
 from pathlib import Path
 import re
 import subprocess
 from urllib.parse import quote
 
+from tools.release import release_version as versioning
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
-spec = importlib.util.spec_from_file_location(
-    "release_version", ROOT / 'tools/release/release_version.py')
-versioning = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(versioning)
 SHA = re.compile(r"[0-9a-f]{40}")
 
 

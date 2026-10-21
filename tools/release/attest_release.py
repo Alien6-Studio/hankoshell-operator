@@ -3,7 +3,6 @@
 import argparse
 import base64
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -17,14 +16,11 @@ from urllib.parse import urlsplit
 
 import yaml
 
+from tools.release import oci_security
+from tools.qualification.checks import release_contract as contract
+
 ROOT = Path(__file__).resolve().parents[2]
 
-spec = importlib.util.spec_from_file_location("oci_security", ROOT / "tools/release/oci_security.py")
-oci_security = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(oci_security)
-spec = importlib.util.spec_from_file_location("release_contract", ROOT / "tools/qualification/checks/release_contract.py")
-contract = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(contract)
 
 CHECKS = {"schema", "consistency", "signature", "timestamp", "recompute"}
 PUBLIC_KEY_FILE = "hankoshell-operator-attest-public-key.pem"

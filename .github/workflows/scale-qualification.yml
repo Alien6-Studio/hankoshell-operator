@@ -29,7 +29,7 @@ jobs:
           python-version: '3.12'
       - name: Check source and chart before starting disposable clusters
         run: |
-          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
+          python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
           python3 -m pip install -r tools/requirements.txt
           make install-preflight-tools
@@ -69,8 +69,8 @@ jobs:
       - name: Install checksum-pinned fixture tools
         run: |
           python3 -m pip install -r tools/requirements.txt
-          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/scale-tools"
-          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
+          python3 -m tools.bootstrap.install kind kubectl --directory "$RUNNER_TEMP/scale-tools"
+          python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
           GOBIN="$RUNNER_TEMP/scale-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
       - name: Run measured scale, overload recovery and leader removal
         env:

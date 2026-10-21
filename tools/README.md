@@ -12,7 +12,7 @@ runtime dependencies and are not shipped inside the Helm chart.
 | `qualification/runners/` | Go/JUnit, Keycloak, fuzz and mutation runners |
 | `qualification/scenarios/` | Installed operator, migration, recovery, scale and HA campaigns |
 | `qualification/fixtures/` | Disposable provider servers, pod probes and Go test helpers |
-| `qualification/reporting/` | Test history, flaky-test tracking and scheduled-run reports |
+| `qualification/reporting/` | Test history and measurement reports; workflows use `gh` for issue tracking |
 | `qualification/lib/` | Shared evidence privacy, diagnostics and qualification helpers |
 | `qualification/config/` | Coverage floors, shards, contracts and retained reference proofs |
 | `release/` | OCI scanning, signing, packaging and publication |
@@ -22,7 +22,9 @@ runtime dependencies and are not shipped inside the Helm chart.
 ## Run a suite
 
 Use the repository root, Python 3.12+ and the pinned dependencies/tools described
-in [CONTRIBUTING.md](../CONTRIBUTING.md). Existing Make targets remain available.
+in [CONTRIBUTING.md](../CONTRIBUTING.md). Use native `go test ./...`, `go vet ./...`, `helm lint` and `helm template` for
+focused development. Make targets add race detection, coverage, JUnit reports and
+the installed qualification matrix.
 
 ```sh
 make qualification-help
@@ -59,6 +61,16 @@ See [secure deployment](../docs/secure-deployment.md),
 [storage migration](../docs/storage-migration.md) for exact campaign inputs.
 To inspect a tool directly, use its package entry point, for example
 `python3 -m tools.operations.storage_migration --help`.
+
+Install checksum-pinned binaries through one entry point:
+
+```sh
+python3 -m tools.bootstrap.install helm kind kubectl --directory .tools/bin
+make hook-tools
+```
+
+The installer reads versions and checksums from `versions.json` and refuses
+unsupported host assets. Go tools use their pinned native `go install` targets.
 
 ## Local data and evidence
 

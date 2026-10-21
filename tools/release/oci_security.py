@@ -10,16 +10,14 @@ import subprocess
 import tarfile
 import tempfile
 
-import importlib.util
+from tools.release import release_version as versioning
+from tools import versions
 
 ROOT = Path(__file__).resolve().parents[2]
 
-spec = importlib.util.spec_from_file_location("release_version", ROOT / 'tools/release/release_version.py')
-versioning = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(versioning)
 VERSION = versioning.VERSION
 
-SCANNER_VERSION = "0.75.0"
+SCANNER_VERSION = versions.get("tools", "trivy", "version")
 PLATFORMS = ("linux/amd64", "linux/arm64")
 POLICY = ROOT / "security/oci-vulnerability-policy.json"
 REPORTS = {platform: "trivy-" + platform.split("/")[1] + ".json" for platform in PLATFORMS}

@@ -2,7 +2,6 @@
 
 import argparse
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -14,13 +13,12 @@ from urllib.error import HTTPError
 from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
 
+from tools.qualification.checks import release_contract as contract
+from tools.release import attest_release as attest
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
-spec = importlib.util.spec_from_file_location("release_contract", ROOT / "tools/qualification/checks/release_contract.py")
-contract = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(contract)
-attest = contract.module("attest_release", "tools/release/attest_release.py")
 REPOSITORY = "Alien6-Studio/hankoshell-operator"
 IMAGE = contract.metadata.IMAGE
 CHART = "ghcr.io/alien6-studio/charts/hankoshell-operator"

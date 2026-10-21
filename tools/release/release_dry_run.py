@@ -14,21 +14,13 @@ import tempfile
 from threading import Thread
 from types import SimpleNamespace
 
-from importlib.util import module_from_spec, spec_from_file_location
+from tools.qualification.checks import release_contract as contract
+from tools.release import attest_release as attest
+from tools.qualification.scenarios import release_system_test as publication
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def load(name, filename):
-    spec = spec_from_file_location(name, ROOT / filename)
-    result = module_from_spec(spec)
-    spec.loader.exec_module(result)
-    return result
-
-
-contract = load("release_contract", "tools/qualification/checks/release_contract.py")
-attest = load("attest_release", "tools/release/attest_release.py")
-publication = load("release_system_test", "tools/qualification/scenarios/release_system_test.py")
 FIXTURE_REPOSITORY_ID = "8d452bd5-e2f7-47b6-94f1-c3b2ac7b4aac"
 
 

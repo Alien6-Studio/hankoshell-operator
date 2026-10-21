@@ -20,6 +20,10 @@ It reconciles application identity and access from Kubernetes into Keycloak.
 - Optional signed fleet plans, local pause and reconnect/rollback support.
 - Namespace-scoped hardening, verified provider TLS and authenticated metrics.
 - Scanned Linux AMD64/ARM64 images and digest-pinned Helm packaging.
+- Standard Helm parameter validation, concise chart documentation and a shared
+  checksum-pinned tool installer. Native Go hooks and GitHub issue commands
+  replace custom wrappers; redundant documentation checks are removed.
+  Compatibility updates use reviewed changes to the version manifest.
 
 ### Qualification
 

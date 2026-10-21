@@ -93,8 +93,8 @@ jobs:
       - name: Install reviewed fixture and verification tools
         run: |
           python3 -m pip install -r tools/requirements.txt
-          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/tools"
-          python3 -m tools.bootstrap.install_helm "$RUNNER_TEMP/tools/helm"
+          python3 -m tools.bootstrap.install kind kubectl --directory "$RUNNER_TEMP/tools"
+          python3 -m tools.bootstrap.install helm --directory "$RUNNER_TEMP/tools"
           GOBIN="$RUNNER_TEMP/tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
           bash tools/bootstrap/install_cosign.sh "$RUNNER_TEMP/tools/cosign"
           bash tools/bootstrap/install_attest.sh "$RUNNER_TEMP/tools/attest"

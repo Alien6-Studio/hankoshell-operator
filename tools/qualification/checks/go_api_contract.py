@@ -6,17 +6,15 @@ baselines must retain their own go_api snapshot beside their stable CRD schemas.
 import argparse
 from datetime import date
 import hashlib
-import importlib.util
 import json
 from pathlib import Path
 import subprocess
 
+from tools.qualification.checks import compatibility_gate as gate
+
 ROOT = Path(__file__).resolve().parents[3]
 
 CONFIG = "tools/qualification/config/contracts/go-api-contract.json"
-spec = importlib.util.spec_from_file_location("go_api_compatibility", ROOT / 'tools/qualification/checks/compatibility_gate.py')
-gate = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(gate)
 
 
 def capture(root, packages):

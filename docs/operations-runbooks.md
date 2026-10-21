@@ -295,7 +295,7 @@ Controller adoption recovery tests cover current authority re-read before writes
 If normal recovery cannot complete and two administrators explicitly accept
 orphaned provider state and Kubernetes garbage collection, follow the
 [audited finalizer release procedure](finalizer-recovery.md). Its exact manifests
-are in `config/recovery/`; `tools/operations/finalizer_release.py` binds a short-lived plan
+are in `config/recovery/`; `tools/operations/finalizer_recovery.py` binds a short-lived plan
 to the terminating object, admission guard and cluster identities. It records
 independent approval and durable intent before one selective compare-and-swap
 patch. It preserves all other finalizers and never calls a provider. Do not use

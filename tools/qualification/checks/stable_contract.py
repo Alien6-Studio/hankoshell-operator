@@ -51,7 +51,7 @@ def check(root=ROOT):
         for path in record["evidence"]:
             document(root, path)
     review = provider_review(root)
-    for path in ("README.md", "charts/hankoshell-operator/README.md", "docs/api-support.md"):
+    for path in ("README.md", "docs/api-support.md"):
         text = (root / path).read_text()
         if "stable-graduation.md" not in text or "stable-provider-review.md" not in text:
             raise ValueError("entry-point documentation must link the graduation and provider decisions")

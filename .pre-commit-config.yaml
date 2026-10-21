@@ -27,11 +27,12 @@ repos:
         files: \.go$
         pass_filenames: false
       - id: go-vet
-        name: Go vet (changed packages)
-        entry: python3 -m tools.quality.pre_commit_checks vet
+        name: Go vet
+        entry: go vet ./...
         language: system
         files: (\.go$|^go\.(mod|sum)$)
         require_serial: true
+        pass_filenames: false
       - id: go-architecture
         name: Go architecture (make arch)
         entry: make arch
@@ -40,7 +41,7 @@ repos:
         pass_filenames: false
       - id: staged-secrets
         name: Gitleaks (staged changes)
-        entry: python3 -m tools.quality.pre_commit_checks secrets
+        entry: make staged-secrets
         language: system
         always_run: true
         pass_filenames: false

@@ -79,8 +79,8 @@ secrets. Helm templates are excluded only from plain YAML parsing and remain
 covered by the chart gate. Synthetic private-key markers are assembled in
 tests so every source file remains eligible for raw-key detection.
 
-`go vet` runs once for the changed Go packages; a `go.mod` or `go.sum` change
-selects the complete module. Full qualification still runs the existing make and CI gates.
+`go vet ./...` checks the module when Go files or dependencies change.
+Full qualification runs the Make and CI gates.
 Gitleaks checks the staged diff locally; the existing source-job directory scan
 also checks the complete checkout in CI. CI stores upstream hook repositories
 in the runner's temporary directory, so their own secret-detection fixtures are
@@ -88,8 +88,8 @@ not confused with project source. `PRE_COMMIT_HOME` can override the local cache
 
 Review hook updates weekly alongside Dependabot updates. Use
 `python3 .tools/bin/hooks/pre-commit.pyz autoupdate --freeze`, review the exact
-upstream commit diff and retain the frozen SHA, then run `make hooks-check` and
-the Python tests. Update runner/Gitleaks versions and official release
+upstream commit diff and retain the frozen SHA, then run `make hooks-check`.
+Update runner/Gitleaks versions and official release
 SHA-256 digests in `versions.json`, run `python3 -m tools.versions sync`,
 and rerun the gates. Do not replace a SHA with a floating branch or tag.
 
@@ -98,8 +98,7 @@ and rerun the gates. Do not replace a SHA with a floating branch or tag.
 The [decisions index](docs/architecture/decisions/README.md) records the accepted
 architecture referenced by code and configuration. Follow its template and
 numbering rule when documenting a decision, and keep links to enforcing code and
-tests current. Run `python3 -m tools.quality.check_adr_references` before pushing changes
-to Go, YAML or Markdown. CI rejects unresolved references and orphan records.
+tests current. Review affected links when changing or renumbering a decision.
 
 ## Validation and release workflow
 
@@ -123,7 +122,7 @@ of the repository.
 Follow the [API conversion and rollback policy](docs/api-migration-policy.md).
 The [development support inventory](docs/api-support.md) covers every resource
 and spec/status field group; update it explicitly when those groups change.
-Run `python3 -m tools.qualification.checks.api_support` after schema or classification changes.
+Run `make preflight` and the relevant Go conformance/admission tests after schema changes.
 
 Develop related issues as one bounded batch. During implementation, run preflight
 and meaningful targeted regression tests, and continue independent work while CI

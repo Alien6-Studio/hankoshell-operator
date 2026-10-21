@@ -1,6 +1,6 @@
 apiVersion: v2
 name: hankoshell-operator
-description: Declarative IAM reconciliation for Keycloak and hankoShell platform integrations
+description: Manage Keycloak realms, applications and access declaratively from Kubernetes
 type: application
 version: "1.0.0-rc.1"
 appVersion: "1.0.0-rc.1"
@@ -24,16 +24,10 @@ annotations:
   artifacthub.io/operator: "true"
   artifacthub.io/prerelease: "true"
   artifacthub.io/changes: |
-    - kind: changed
-      description: Package 1.0.0-rc.1 for qualification, including existing-installation recovery and rotation checkpoint preservation; APIs remain experimental and stable publication remains blocked.
-    - kind: fixed
-      description: Bind the private Ed25519 signer to its approved public key and canonical Attest identity before publication; qualify TSA structure and adversarial retries without changing IAM behavior.
     - kind: added
-      description: Add reviewed leaf and aggregate adoption with owner-only receipts and selective ResourceServer V2 journals.
-    - kind: added
-      description: Preserve qualified native state during explicit Manage and refuse unsafe foreign/shared cleanup.
+      description: First release candidate for declarative Keycloak identity and access management.
     - kind: changed
-      description: Complete reviewed adoption, native preservation and explicit target-realm role-writer authority as the implemented adoption foundation; public distribution remains pending.
+      description: Standard Helm packaging with parameter validation and digest-pinned operator images. APIs remain experimental during qualification.
   artifacthub.io/images: |
     - name: hankoshell-operator
       image: ghcr.io/alien6-studio/hankoshell-operator:1.0.0-rc.1

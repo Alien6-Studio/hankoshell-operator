@@ -43,7 +43,7 @@ jobs:
       - name: Prepare immutable artifact directory
         run: mkdir -p "$RUNNER_TEMP/hankoshell-oci"
       - name: Acquire checksum-pinned Trivy
-        run: python3 -m tools.bootstrap.install_trivy "$RUNNER_TEMP/trivy"
+        run: python3 -m tools.bootstrap.install trivy --directory "$RUNNER_TEMP"
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         if: inputs.release
         with:

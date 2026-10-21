@@ -36,7 +36,7 @@ def main():
                     time.sleep(0.1)
 
         def invoke(config, phase, *options, refused=None):
-            command = [sys.executable, "-m", "tools.operations.finalizer_release", "--kubectl", str(args.kubectl), "--kubeconfig", str(config), phase, *options]
+            command = [sys.executable, "-m", "tools.operations.finalizer_recovery", "--kubectl", str(args.kubectl), "--kubeconfig", str(config), phase, *options]
             # A timeout must also remove the CLI's short-lived kubectl proxy.
             with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True) as process:
                 try:

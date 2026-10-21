@@ -2,7 +2,6 @@
 
 import argparse
 import base64
-import importlib.util
 import os
 from pathlib import Path
 import re
@@ -12,14 +11,13 @@ from uuid import UUID
 
 import yaml
 
+from tools.release import release_version as versioning
+
 ROOT = Path(__file__).resolve().parents[2]
 
 REPOSITORY = "https://github.com/Alien6-Studio/hankoshell-operator"
 IMAGE = "ghcr.io/alien6-studio/hankoshell-operator"
 PUBLIC_KEY_FILE = "hankoshell-operator-attest-public-key.pem"
-spec = importlib.util.spec_from_file_location("release_version", ROOT / "tools/release/release_version.py")
-versioning = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(versioning)
 
 
 def configuration():

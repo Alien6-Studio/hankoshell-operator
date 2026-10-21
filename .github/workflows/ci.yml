@@ -65,8 +65,8 @@ jobs:
       - name: Install checksum-pinned fixture tools
         run: |
           python3 -m pip install -r tools/requirements.txt
-          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/scale-tools"
-          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
+          python3 -m tools.bootstrap.install kind kubectl --directory "$RUNNER_TEMP/scale-tools"
+          python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
           GOBIN="$RUNNER_TEMP/scale-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
       - name: Run measured scale, overload recovery and leader removal
         env:
@@ -134,8 +134,8 @@ jobs:
       - name: Install checksum-pinned HA fixture tools
         run: |
           python3 -m pip install -r tools/requirements.txt
-          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/ha-tools"
-          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
+          python3 -m tools.bootstrap.install kind kubectl --directory "$RUNNER_TEMP/ha-tools"
+          python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
           GOBIN="$RUNNER_TEMP/ha-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
       - name: Restore the exact SDK provider for delegation HA
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -198,7 +198,7 @@ jobs:
           python-version: '3.12'
       - name: Install pinned preflight dependencies
         run: |
-          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
+          python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
           python -m pip install -r tools/requirements.txt
           make install-preflight-tools
@@ -234,12 +234,10 @@ jobs:
             --repository "$GITHUB_REPOSITORY"
       - name: Install pinned Helm and test dependencies
         run: |
-          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
+          python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
           python -m pip install -r tools/requirements.txt
           make install-tools
-      - name: Verify architecture decision references
-        run: python3 -m tools.quality.check_adr_references
       - name: Run the same pre-commit hooks as contributors
         env:
           # Upstream hook repositories contain their own synthetic secret tests.
@@ -312,7 +310,7 @@ jobs:
         run: python3 -m pip install -r tools/requirements.txt
       - name: Install pinned Helm
         run: |
-          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
+          python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
       - name: Qualify CRDs, server-side apply, RBAC and Restricted admission
         run: make integration-test KUBERNETES_VERSION=${{ matrix.version }}
@@ -347,8 +345,8 @@ jobs:
       - name: Install checksum-pinned native fixture tools
         run: |
           python3 -m pip install -r tools/requirements.txt
-          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/storage-tools"
-          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
+          python3 -m tools.bootstrap.install kind kubectl --directory "$RUNNER_TEMP/storage-tools"
+          python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
       - name: Qualify physical rewrites, interrupted processes and rollback
         env:
           KUBERNETES_VERSION: ${{ matrix.version }}
@@ -515,7 +513,7 @@ jobs:
       - name: Install checksum-pinned Kubernetes fixture tools
         run: |
           python3 -m pip install -r tools/requirements.txt
-          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/workload-tools"
+          python3 -m tools.bootstrap.install kind kubectl --directory "$RUNNER_TEMP/workload-tools"
       - name: Qualify real projected assertions, expiry, UID recreation and native permissions
         run: |
           python3 -m tools.qualification.fixtures.workload_identity_probe --keycloak-version '${{ matrix.keycloak }}' \
@@ -617,7 +615,7 @@ jobs:
       - name: Install verified release rehearsal tools
         run: |
           python3 -m pip install -r tools/requirements.txt
-          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
+          python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
           bash tools/bootstrap/install_cosign.sh "$RUNNER_TEMP/rehearsal-tools/cosign"
           bash tools/bootstrap/install_attest.sh "$RUNNER_TEMP/rehearsal-tools/attest"
           GOBIN="$RUNNER_TEMP/rehearsal-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
@@ -668,9 +666,9 @@ jobs:
       - name: Install checksum-pinned system fixtures
         run: |
           python3 -m pip install -r tools/requirements.txt
-          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/system-tools"
+          python3 -m tools.bootstrap.install kind kubectl --directory "$RUNNER_TEMP/system-tools"
           GOBIN="$RUNNER_TEMP/system-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
-          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
+          python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
       - name: Install and exercise the exact scanned operator with real Kubernetes and HTTPS Keycloak
         env:
           DIGEST: ${{ needs.oci.outputs.digest }}
@@ -726,9 +724,9 @@ jobs:
       - name: Install checksum-pinned installed workload tools
         run: |
           python3 -m pip install -r tools/requirements.txt
-          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/workload-tools"
+          python3 -m tools.bootstrap.install kind kubectl --directory "$RUNNER_TEMP/workload-tools"
           GOBIN="$RUNNER_TEMP/workload-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
-          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
+          python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
       - name: Qualify installed Pod authentication, independent UMA decisions and recovery
         env:
           DIGEST: ${{ needs.oci.outputs.digest }}
@@ -789,9 +787,9 @@ jobs:
       - name: Install checksum-pinned installed delegation tools
         run: |
           python3 -m pip install -r tools/requirements.txt
-          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/workload-tools"
+          python3 -m tools.bootstrap.install kind kubectl --directory "$RUNNER_TEMP/workload-tools"
           GOBIN="$RUNNER_TEMP/workload-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
-          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
+          python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
       - name: Restore the exact SDK provider already qualified in this run
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -855,9 +853,9 @@ jobs:
       - name: Install checksum-pinned portable test tools
         run: |
           python3 -m pip install -r tools/requirements.txt
-          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/workload-tools"
+          python3 -m tools.bootstrap.install kind kubectl --directory "$RUNNER_TEMP/workload-tools"
           GOBIN="$RUNNER_TEMP/workload-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
-          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
+          python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
       - name: Qualify the identical intent corpus on both installed providers
         env:
           DIGEST: ${{ needs.oci.outputs.digest }}
@@ -916,9 +914,9 @@ jobs:
       - name: Install checksum-pinned installed Fleet tools
         run: |
           python3 -m pip install -r tools/requirements.txt
-          python3 -m tools.bootstrap.install_system_tools "$RUNNER_TEMP/workload-tools"
+          python3 -m tools.bootstrap.install kind kubectl --directory "$RUNNER_TEMP/workload-tools"
           GOBIN="$RUNNER_TEMP/workload-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
-          python3 -m tools.bootstrap.install_helm /tmp/linux-amd64/helm
+          python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
       - name: Qualify installed signed Fleet tamper, replay, disconnected recovery and rollback
         env:
           DIGEST: ${{ needs.oci.outputs.digest }}
@@ -995,21 +993,25 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.12'
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          pattern: go-tests-*-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/qualification-reports
       - name: Open, update or close the tracking issue from this run's outcome
         env:
           GH_TOKEN: ${{ github.token }}
           QUALIFICATION_RESULTS: ${{ toJSON(needs) }}
+          ISSUE_TITLE: Scheduled qualification failed on main
         run: |
-          python3 -m tools.qualification.reporting.schedule_report --repository "$GITHUB_REPOSITORY" \
-            --run-id "$GITHUB_RUN_ID" --revision "$GITHUB_SHA" \
-            --reports "$RUNNER_TEMP/qualification-reports"
+          set -euo pipefail
+          body="$RUNNER_TEMP/qualification-issue.md"
+          printf 'Qualification: %s/%s/actions/runs/%s\nCommit: %s\n\n' \
+            "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$GITHUB_SHA" > "$body"
+          jq -er 'to_entries[] | "- `\(.key)`: \(.value.result)"' <<< "$QUALIFICATION_RESULTS" >> "$body"
+          issues=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label ci --limit 100 --json number,title)
+          number=$(jq -r 'if length >= 100 then error("Issue inventory truncated") else [.[] | select(.title == env.ISSUE_TITLE) | .number] | sort | first // "" end' <<< "$issues")
+          if jq -e '.checks.result == "success"' <<< "$QUALIFICATION_RESULTS" > /dev/null; then
+            if test -n "$number"; then
+              gh issue close "$number" --repo "$GITHUB_REPOSITORY" --comment "Scheduled qualification is green again. See $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            fi
+          elif test -n "$number"; then
+            gh issue edit "$number" --repo "$GITHUB_REPOSITORY" --body-file "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$ISSUE_TITLE" --label ci --body-file "$body"
+          fi

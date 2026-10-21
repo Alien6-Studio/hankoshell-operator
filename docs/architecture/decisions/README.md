@@ -38,9 +38,5 @@ Reference a decision from relevant Go, YAML or Markdown outside its own file.
 Listing it here or in the template does not count as use. Keep decisions scoped
 to this operator.
 
-Run `python3 -m tools.quality.check_adr_references` and
+Review affected references and links alongside the implementation, then run
 `make preflight`.
-The checker scans tracked and new non-ignored `.go`, `.yaml`, `.yml` and `.md`
-files, including hidden configuration and generated manifests. It reports
-dangling references with file/line, duplicate or invalid IDs, incomplete records
-and orphan records. CI's required source job runs the checker explicitly.

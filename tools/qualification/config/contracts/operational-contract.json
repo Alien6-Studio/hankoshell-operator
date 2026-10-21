@@ -190,7 +190,7 @@
     "depth": 64
   },
   "finalizer_recovery": {
-    "cli": "tools/operations/finalizer_release.py",
+    "cli": "tools/operations/finalizer_recovery.py",
     "module": "tools/operations/finalizer_recovery.py",
     "fixture": "tools/qualification/fixtures/finalizer_recovery_fixture.py",
     "api_fixture": "api/v1alpha1/finalizer_recovery_integration_test.go",

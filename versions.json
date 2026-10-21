@@ -11,7 +11,8 @@
     "helm": {
       "version": "3.17.0",
       "sha256": {
-        "linux-amd64": "fb5d12662fde6eeff36ac4ccacbf3abed96b0ee2de07afdde4edb14e613aee24"
+        "linux-amd64": "fb5d12662fde6eeff36ac4ccacbf3abed96b0ee2de07afdde4edb14e613aee24",
+        "darwin-arm64": "5db292c69ba756ddbf139abb623b02860feef15c7f1a4ea69b77715b9165a261"
       }
     },
     "controller_gen": "v0.21.0",
@@ -55,6 +56,13 @@
       "sha256": {
         "linux-amd64": "6129359f4e1f3848a5572ccb0b26cf28b8ca08cef38c95a765b2f64a2c961a2f",
         "darwin-arm64": "583beedaebe422e71d3f1a96acef8b1fef86ea2f09a45ad01aa6c9ce287c1380"
+      }
+    },
+    "trivy": {
+      "version": "0.75.0",
+      "sha256": {
+        "linux-amd64": "c6e65abddb348e25f10549df887045629cf28cc72453cd1c63acb717316b3f3f",
+        "darwin-arm64": "4a77108cccf8e55c8d6823e1e759939a622277e66cd0daa3c1fc621ed69e4568"
       }
     }
   },

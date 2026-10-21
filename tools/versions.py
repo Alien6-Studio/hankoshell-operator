@@ -155,11 +155,15 @@ def check(root=ROOT, data=None):
 
 
 def validate(data):
-    for family in ("kubernetes", "keycloak"):
+    for family, count in (("kubernetes", 3), ("keycloak", 2)):
         values = data[family]["versions"]
-        if (not values or len(values) != len(set(values)) or data[family]["default"] not in values
+        if (len(values) != count or len(values) != len(set(values)) or data[family]["default"] not in values
                 or any(not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", value) for value in values)):
             raise ValueError("Invalid qualification versions for " + family)
+        ordered = sorted(tuple(map(int, value.split("."))) for value in values)
+        if (data[family]["default"] != ".".join(map(str, ordered[-1]))
+                or any(b[:2] != (a[0], a[1] + 1) for a, b in zip(ordered, ordered[1:]))):
+            raise ValueError("Qualification requires consecutive minors and the newest default: " + family)
     kubernetes = data["kubernetes"]
     if (kubernetes["deep_migration"] not in kubernetes["versions"]
             or set(kubernetes["node_images"]) | {kubernetes["built_node"]["version"]} != set(kubernetes["versions"])
@@ -172,7 +176,7 @@ def validate(data):
             if not re.fullmatch(re.escape(prefix + version) + r"@sha256:[0-9a-f]{64}", image):
                 raise ValueError("Fixture image version or checksum differs: " + version)
     hashes = [(values, 128) for values in kubernetes["envtest_sha512"].values()]
-    hashes += [(data["tools"][tool]["sha256"], 64) for tool in ("helm", "kind", "kubectl", "gitleaks")]
+    hashes += [(data["tools"][tool]["sha256"], 64) for tool in ("helm", "kind", "kubectl", "gitleaks", "trivy")]
     hashes += [({"pyz": data["tools"]["pre_commit"]["sha256"]}, 64)]
     hashes += [(kubernetes["built_node"]["sha256"], 64)]
     for values, length in hashes:
@@ -211,7 +215,6 @@ def check_consumers(root):
     # build/install pins cannot be replaced by literal constants in a consumer.
     consumers = {
         "tools/release/release_version.py": ("VERSION", "TARGET_VERSION", "RELEASE_STATUS"),
-        "tools/bootstrap/install_system_tools.py": ("KIND", "KUBECTL", "KIND_HASHES", "KUBECTL_HASHES"),
         "tools/qualification/scenarios/system_test.py": ("VERSION", "KUBERNETES_VERSION", "KEYCLOAK_VERSION", "NODE", "KEYCLOAK", "KIND_VERSION"),
         "tools/qualification/fixtures/workload_identity_probe.py": ("KEYCLOAK_IMAGES", "NODE_IMAGES", "BUILT_NODE", "NODE_BASE", "NODE_ARCHIVES"),
     }

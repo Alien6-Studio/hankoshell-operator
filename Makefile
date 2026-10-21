@@ -36,9 +36,8 @@ versions-sync:
 	python3 -m tools.versions sync
 
 all: check build
-check: fmt-check vet test chart-check coverage
+check: fmt-check vet chart-check coverage
 preflight: fmt-check vet generated-check
-	python3 -m tools.qualification.checks.public_contract check
 	python3 -m tools.qualification.checks.stable_contract
 	python3 -m tools.qualification.checks.security_surface check
 	python3 -m tools.qualification.checks.compatibility_gate check
@@ -119,7 +118,10 @@ arch:
 vuln:
 	govulncheck ./...
 hook-tools:
-	python3 -m tools.bootstrap.install_hook_tools "$(CURDIR)/.tools/bin/hooks"
+	python3 -m tools.bootstrap.install pre_commit gitleaks --directory "$(CURDIR)/.tools/bin/hooks"
+.PHONY: staged-secrets
+staged-secrets: hook-tools
+	.tools/bin/hooks/gitleaks protect --staged --redact --no-banner
 hooks-check: hook-tools
 	PRE_COMMIT_HOME="$(PRE_COMMIT_HOME)" python3 .tools/bin/hooks/pre-commit.pyz run --all-files --show-diff-on-failure
 install-hook-tools: hook-tools

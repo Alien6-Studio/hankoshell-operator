@@ -69,9 +69,8 @@ first-release limitation must not be silently converted into a passing path.
 
 ## Running and changing fixtures
 
-`python3 -m tools.qualification.checks.public_contract check` checks selection coverage, frozen schemas
-and corpus field coverage; release packaging invokes it. `make test` checks exact
-compiler identities and old ownership readers. `make integration-test` replays the
+`make test` checks exact compiler identities and old ownership readers.
+`make integration-test` checks field admission, served-version schemas and replays the
 stored corpus, and `make system-test` runs its installed behavior within the full
 existing system gate. Full #86 qualification binds these gates to the final image
 and source revision before publication.

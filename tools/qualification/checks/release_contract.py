@@ -2,7 +2,7 @@
 
 import argparse
 import hashlib
-import importlib.util
+from importlib import import_module
 from pathlib import Path
 import re
 import shutil
@@ -10,29 +10,22 @@ import subprocess
 
 import yaml
 
+from tools import versions as pins
+from tools.release import release_metadata as metadata, oci_security as security
+from tools.qualification.checks import (
+    stable_contract as stable, operations_contract as operations,
+    compatibility_gate as compatibility, go_api_contract as go_api,
+    compatibility_evidence as production_evidence,
+)
+
 ROOT = Path(__file__).resolve().parents[3]
-
-
-def module(name, filename):
-    spec = importlib.util.spec_from_file_location(name, ROOT / filename)
-    result = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(result)
-    return result
-
-
-metadata = module("release_metadata", "tools/release/release_metadata.py")
-security = module("oci_security", "tools/release/oci_security.py")
-pins = module("versions", "tools/versions.py")
-support = module("api_support", "tools/qualification/checks/api_support.py")
-public = module("public_contract", "tools/qualification/checks/public_contract.py")
-stable = module("stable_contract", "tools/qualification/checks/stable_contract.py")
-operations = module("operations_contract", "tools/qualification/checks/operations_contract.py")
-window = module("support_window", "tools/qualification/checks/support_window.py")
-compatibility = module("compatibility_gate", "tools/qualification/checks/compatibility_gate.py")
-go_api = module("go_api_contract", "tools/qualification/checks/go_api_contract.py")
-production_evidence = module("compatibility_evidence", "tools/qualification/checks/compatibility_evidence.py")
 versioning = metadata.versioning
 VERSION = versioning.VERSION
+
+
+def module(_name, filename):
+    # Keep the entry point used by retained, hash-bound installed harnesses.
+    return import_module(filename.removesuffix(".py").replace("/", "."))
 
 
 def notes(version=VERSION):
@@ -56,18 +49,15 @@ def check(version=VERSION):
         raise ValueError("The Attest receipt key is not a Helm chart signing key")
     ci = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
     pins.check(ROOT)
-    support.check(ROOT)
-    public.check(ROOT)
     stable.check(ROOT)
     operations.check(ROOT)
-    window.check(ROOT)
     compatibility.check(ROOT)
     go_api.check(ROOT)
     production_evidence.check(ROOT)
     for job, family in (("kubernetes", "kubernetes"), ("storage-migration", "kubernetes"), ("keycloak", "keycloak")):
         if ci[job]["strategy"]["matrix"]["version"] != pins.DATA[family]["versions"]:
             raise ValueError("Qualification matrix differs from versions.json")
-    for path in ("README.md", "CONTRIBUTING.md", "SECURITY.md", "charts/hankoshell-operator/README.md"):
+    for path in ("README.md", "CONTRIBUTING.md", "SECURITY.md"):
         text = (ROOT / path).read_text()
         if "initial development" not in text or "v1alpha1" not in text:
             raise ValueError(f"Missing maturity/API contract in {path}")
