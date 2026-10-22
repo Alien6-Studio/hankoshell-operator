@@ -372,6 +372,11 @@ public `.pub` key, omitting both certificate fields. It still needs the exact
 version, digest and source revision. Remove old approvals to withdraw update or
 rollback authorization. Protect the policy independently of Helm and Hub access.
 
+For a private registry signature intentionally absent from a public transparency
+log, an administrator can add `"registry_only": true` to that exact keyed approval.
+The pinned public key, digest, source revision and revocation checks remain required.
+The default requires transparency verification; keyless approvals cannot opt out.
+
 Remote decommission requires nonzero `requestedAt` and `deadline`, with
 `requestedAt <= now < deadline` and `requestedAt < deadline`. Missing, future,
 reversed or expired windows are rejected before cleanup. Keep operator and Hub
