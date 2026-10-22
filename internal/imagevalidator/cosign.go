@@ -21,6 +21,12 @@ func (v *CosignVerifier) Verify(ctx context.Context, image, keyFile, revision st
 	return v.run(ctx, "verify", "--key", keyFile, "-a", "hanko.git.revision="+revision, image)
 }
 
+// VerifyRegistrySignature retains key, digest and revision verification without
+// requiring a public transparency entry. Only an exact local approval can use it.
+func (v *CosignVerifier) VerifyRegistrySignature(ctx context.Context, image, keyFile, revision string) error {
+	return v.run(ctx, "verify", "--key", keyFile, "--insecure-ignore-tlog=true", "-a", "hanko.git.revision="+revision, image)
+}
+
 // VerifyKeyless keeps certificate-chain and transparency verification enabled.
 // Exact identity/issuer and source revision come from the administrator's policy.
 func (v *CosignVerifier) VerifyKeyless(ctx context.Context, image, identity, issuer, revision string) error {

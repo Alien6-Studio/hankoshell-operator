@@ -50,6 +50,29 @@ func TestCosignCancellationDeniesExecution(t *testing.T) {
 	}
 }
 
+func TestCosignRegistrySignatureKeepsExactKeyDigestAndRevision(t *testing.T) {
+	t.Setenv("AZURE_CLIENT_SECRET", "signing-secret")
+	t.Setenv("COSIGN_REPOSITORY", "attacker.example/signatures")
+	binary := filepath.Join(t.TempDir(), "cosign")
+	script := `#!/bin/sh
+test "$#" -eq 7 || exit 2
+test "$1" = verify && test "$2" = --key && test "$3" = /policy/publisher.pub || exit 3
+test "$4" = --insecure-ignore-tlog=true && test "$5" = -a || exit 4
+test "$6" = hanko.git.revision=1111111111111111111111111111111111111111 || exit 5
+test "$7" = registry.example/hanko/theme-builder@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa || exit 6
+test -z "${AZURE_CLIENT_SECRET:-}${COSIGN_REPOSITORY:-}" || exit 7
+test "$DOCKER_CONFIG" = /pull-only || exit 8
+`
+	// #nosec G306 -- Owner-only executable fixture in the test's private directory.
+	if err := os.WriteFile(binary, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	v := &CosignVerifier{Binary: binary, DockerConfig: "/pull-only"}
+	if err := v.VerifyRegistrySignature(context.Background(), approvedImage, "/policy/publisher.pub", "1111111111111111111111111111111111111111"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestCosignKeylessPinsExactIdentityIssuerRevisionAndDigest(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "ambient-secret")
 	t.Setenv("SIGSTORE_ROOT_FILE", "/attacker/root")

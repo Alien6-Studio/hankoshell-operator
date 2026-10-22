@@ -57,6 +57,12 @@ type KeylessSignatureVerifier interface {
 	VerifyKeyless(context.Context, string, string, string, string) error
 }
 
+// RegistrySignatureVerifier checks a pinned public-key signature stored only
+// in the registry, when the administrator explicitly approves that mode.
+type RegistrySignatureVerifier interface {
+	VerifyRegistrySignature(context.Context, string, string, string) error
+}
+
 // Approval binds a release-reviewed immutable image to its purpose and publisher.
 // KeyFile is a public PEM key filename relative to the policy directory.
 type Approval struct {
@@ -64,6 +70,9 @@ type Approval struct {
 	Image    string  `json:"image"`
 	Revision string  `json:"revision"`
 	KeyFile  string  `json:"key_file,omitempty"`
+	// RegistryOnly permits private signatures without a public transparency log.
+	// It applies only to this exact keyed image approval, never keyless signatures.
+	RegistryOnly bool `json:"registry_only,omitempty"`
 	// ReleaseVersion binds an operator approval to the Hub's requested version.
 	ReleaseVersion        string `json:"release_version,omitempty"`
 	CertificateIdentity   string `json:"certificate_identity,omitempty"`
@@ -148,6 +157,13 @@ func (v *Validator) verifyApproval(ctx context.Context, approval Approval) error
 		return nil
 	}
 	key := filepath.Join(filepath.Dir(v.policyFile), approval.KeyFile)
+	if approval.RegistryOnly {
+		verifier, ok := v.verifier.(RegistrySignatureVerifier)
+		if !ok || verifier.VerifyRegistrySignature(ctx, approval.Image, key, approval.Revision) != nil {
+			return ErrVerificationDenied
+		}
+		return nil
+	}
 	if v.verifier.Verify(ctx, approval.Image, key, approval.Revision) != nil {
 		return ErrVerificationDenied
 	}
@@ -228,7 +244,7 @@ func decodePolicy(data []byte) (approvalPolicy, error) {
 
 func validApproval(approval Approval) bool {
 	if approval.Purpose == OperatorUpdate && approval.KeyFile == "" {
-		return immutableImage(approval.Image) && revisionPattern.MatchString(approval.Revision) &&
+		return !approval.RegistryOnly && immutableImage(approval.Image) && revisionPattern.MatchString(approval.Revision) &&
 			releaseVersionPattern.MatchString(approval.ReleaseVersion) &&
 			approval.CertificateIdentity == releaseIdentityPrefix+approval.ReleaseVersion &&
 			approval.CertificateOIDCIssuer == releaseOIDCIssuer
