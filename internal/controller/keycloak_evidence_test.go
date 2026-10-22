@@ -69,8 +69,10 @@ func checkRealKeycloakEvidenceRecovery(t *testing.T, f *keycloakFixture, kc *key
 			if domain == "role" {
 				obj = &api.HankoRole{ObjectMeta: fixtureMeta("evidence-role"), Spec: api.HankoRoleSpec{RealmRef: "managed", Name: "evidence-role", Description: "desired"}}
 			} else {
-				f.admin(http.MethodPost, "/admin/realms/managed/clients", map[string]any{"clientId": "evidence-api", "enabled": true, "publicClient": false, "serviceAccountsEnabled": true}, nil)
-				objects = append(objects, &api.HankoApplication{ObjectMeta: fixtureMeta("evidence-app"), Spec: api.HankoApplicationSpec{RealmRef: "managed", ClientID: "evidence-api"}})
+				app := &api.HankoApplication{ObjectMeta: fixtureMeta("evidence-app"), Spec: api.HankoApplicationSpec{RealmRef: "managed", ClientID: "evidence-api"}, Status: fixtureApplicationReadBack(1)}
+				f.admin(http.MethodPost, "/admin/realms/managed/clients", map[string]any{"clientId": "evidence-api", "enabled": true, "publicClient": false, "serviceAccountsEnabled": true,
+					"attributes": map[string]string{"hanko.sh/application-owner": string(app.UID)}}, nil)
+				objects = append(objects, app)
 				obj = &api.HankoResourceServer{ObjectMeta: fixtureMeta("evidence-server"), Spec: api.HankoResourceServerSpec{RealmRef: "managed", ApplicationRef: "evidence-app", Audience: "urn:evidence", Scopes: []api.AuthorizationScope{{Name: "read", Description: "desired"}}, Resources: []api.AuthorizationResource{{Name: "document", Scopes: []string{"read"}, URIs: []string{"/document"}}}, Permissions: []api.AuthorizationPermission{{Name: "allow", Scopes: []string{"read"}, Principals: []api.AuthorizationPrincipal{{Kind: "application", Ref: "evidence-app"}}}}}}
 			}
 			objects = append(objects, obj)

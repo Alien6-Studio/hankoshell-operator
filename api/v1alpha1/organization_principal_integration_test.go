@@ -117,6 +117,13 @@ func checkOrganizationDependencyWatch(t *testing.T, ctx context.Context, c clien
 		if err := c.Create(ctx, object); err != nil {
 			t.Fatal(err)
 		}
+		if app, ok := object.(*api.HankoApplication); ok {
+			app.Status = api.HankoApplicationStatus{Phase: "Ready", ObservedGeneration: app.Generation, AppliedGeneration: app.Generation,
+				Conditions: []metav1.Condition{{Type: "Synced", Status: metav1.ConditionTrue, Reason: "FixtureOwned", ObservedGeneration: app.Generation, LastTransitionTime: metav1.Now()}}}
+			if err := c.Status().Update(ctx, app); err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
 	createOrg := func(name, parent, path string) *api.HankoOrganization {
 		t.Helper()
