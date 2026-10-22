@@ -96,6 +96,9 @@ type HankoTenantReconciler struct {
 	// on Hub and the operator untouched.
 	AgentUpdate    *selfupdate.Config
 	ImageValidator *imagevalidator.Validator
+	// ThemeKeycloakDeploymentName binds artifact installation to the local
+	// deployment's existing providers mount; remote plans cannot select it.
+	ThemeKeycloakDeploymentName string
 
 	// degradedMu guards degradedDetail.
 	degradedMu sync.Mutex

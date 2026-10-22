@@ -98,6 +98,7 @@ func validMinimumVersion(value string) bool {
 // Objects derives mandatory capabilities from actual typed intent. Omitting
 // signed requirements never disables the local permission/capability gate.
 type objectSpec struct {
+	ArtifactSHA256    string            `json:"artifactSHA256"`
 	RealmRef          string            `json:"realmRef"`
 	IAMProfileRef     string            `json:"iamProfileRef"`
 	Protocol          string            `json:"protocol"`
@@ -157,6 +158,9 @@ func requiredCapabilities(kind string, s objectSpec) []string {
 		required = []string{"service-account.manage"}
 	case "HankoTheme":
 		required = []string{"theme.build"}
+		if s.ArtifactSHA256 != "" {
+			required = []string{"theme.install"}
+		}
 	}
 	if len(s.IdentityProviders)+len(s.IdentityMappings) > 0 {
 		required = append(required, "realm.identity-providers")

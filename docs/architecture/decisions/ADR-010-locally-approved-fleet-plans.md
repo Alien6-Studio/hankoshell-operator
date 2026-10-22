@@ -38,8 +38,10 @@ Current execution derives capability requirements from the finite bundle kinds,
 checks qualified provider/native permission evidence and honours independent local
 pause/refuse controls. Partial selection is explicit and retains every signature,
 tenant and field-ownership guard. Theme builds and realm creation are outside the
-current conservative rollout profile. Retain immutable signed envelopes, recover
-without Hub and reverify local authority immediately before each native mutation.
+current conservative rollout profile. Precompiled theme installation is separately
+permitted only with independent local image approval and the existing Keycloak
+providers mount; it grants no build authority. Retain immutable signed envelopes,
+recover without Hub and reverify local authority immediately before each native mutation.
 Strict/sticky expiry and clock regression fence disconnected writes. Rollback is
 a new monotonic signed plan bound to reverified historical content and journaled
 locally; it never prunes provider objects. Provider portability and installed

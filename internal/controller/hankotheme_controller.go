@@ -113,6 +113,10 @@ func (r *HankoThemeReconciler) prepareThemeBuild(ctx context.Context, theme *han
 		result, failErr := r.failTheme(ctx, theme, "InvalidJarName", err)
 		return nil, result, failErr
 	}
+	if err := validateThemeArtifact(theme.Spec); err != nil {
+		result, failErr := r.failTheme(ctx, theme, "InvalidArtifact", err)
+		return nil, result, failErr
+	}
 	if err := r.ImageValidator.ValidateWorkloadImage(imagevalidator.ThemeBuilder, theme.Spec.BuildImage); err != nil {
 		result, failErr := r.failTheme(ctx, theme, "UntrustedImageRef", err)
 		return nil, result, failErr
@@ -526,6 +530,15 @@ func (r *HankoThemeReconciler) reconcilePruneJob(
 
 func (r *HankoThemeReconciler) buildJob(theme *hankoshv1alpha1.HankoTheme, name string) *batchv1.Job {
 	jarName, _ := themeJarName(theme)
+	if theme.Spec.ArtifactSHA256 != "" {
+		job := r.themeJob(theme, name, theme.Spec.KeycloakPVC, theme.Spec.ImagePullSecrets, corev1.Container{
+			Name: "installer", Image: theme.Spec.BuildImage,
+			Command: []string{"/bin/sh", "-ec", themeArtifactInstallScript},
+			Env:     []corev1.EnvVar{{Name: "THEME_JAR_NAME", Value: jarName}, {Name: "THEME_JAR_SHA256", Value: theme.Spec.ArtifactSHA256}},
+		})
+		job.Spec.Template.Spec.Containers[0].SecurityContext.ReadOnlyRootFilesystem = boolPtr(true)
+		return job
+	}
 	env := []corev1.EnvVar{
 		{Name: "THEME_SLUG", Value: theme.Name},
 		{Name: "THEME_PRIMARY_COLOR", Value: defaultString(theme.Spec.PrimaryColor, "#22d3ee")},

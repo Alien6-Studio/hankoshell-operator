@@ -7,7 +7,7 @@ rule, binding and mandatory admission policy on six reviewed chart profiles,
 including configured sensitive outputs and projection creation. It is not stable-contract
 acceptance or an independent security audit.
 
-The inventory contains **1,343 declared fields/collections across 20 served schemas**.
+The inventory covers the 17 served CRD schemas and their fields and collections.
 **No inventoried string, list or typed map lacks an explicit maximum** (finite
 string enums count as bounded). These size controls are not an independent
 security review or proof of provider convergence. Opaque provider extensions,
@@ -20,6 +20,13 @@ baseline. Integer-or-string resource quantities also have a 64-character bound,
 and native attribute/configuration map keys require 1..255 characters.
 
 ## Admission changes and migration notice
+
+HankoTheme accepts an optional `artifactSHA256`: exactly 64 lowercase hexadecimal
+characters identify a precompiled JAR. This mode refuses build-time appearance
+inputs and verifies the copied bytes before replacing the installed file. Existing
+builder manifests remain valid without that field. The image approval, namespaced
+storage and workload permissions are unchanged; Fleet installation additionally
+requires an existing providers mount on the locally configured Keycloak deployment.
 
 This unpublished alpha contract now enforces 1..253-character Kubernetes-name
 references on `spec.realmRef` in HankoApplication, HankoRole,

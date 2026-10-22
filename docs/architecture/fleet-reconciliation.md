@@ -190,6 +190,7 @@ there is no fallback to another tenant or an unregistered shared connection.
 | application.client-roles, application.token-claims | Qualified client-role/mapper capabilities plus manage-clients. Realm role-scope mappings additionally require realm.manage in this conservative profile. |
 | service-account.manage | Qualified version and manage-clients. Token claims add their own requirement. |
 | theme.build | Unsupported by this Fleet rollout profile; operational image/build authority is not inferred from provider roles. |
+| theme.install | Precompiled JAR only, with its SHA-256, independently approved image and an existing providers PVC mounted by the locally configured Keycloak deployment. No compilation or image entrypoint runs. |
 
 The native snapshot comes directly from a newly acquired client-credentials
 response over the configured, verified HTTPS Keycloak connection. It is not an

@@ -18,6 +18,7 @@ not been published.
 - Bounded delegation through the dedicated Keycloak extension.
 - Discovery, observation and explicit adoption of existing Keycloak objects.
 - Optional signed fleet plans, local pause and reconnect support.
+- Precompiled Keycloak theme installation with JAR integrity checks and local image approval.
 - Namespace-scoped permissions, provider TLS verification and authenticated metrics.
 - Linux AMD64/ARM64 images and Helm installation using immutable image digests.
 

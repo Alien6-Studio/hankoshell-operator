@@ -41,7 +41,7 @@ func (r *HankoTenantReconciler) evaluateFleetRollout(ctx context.Context, tenant
 	}
 	for i, o := range objects {
 		if o.Kind == "HankoTheme" {
-			support[i] = fleetplan.Support{}
+			support[i] = r.themeArtifactSupport(ctx, tenant.Namespace, o)
 			continue
 		}
 		realm := o.RealmRef

@@ -271,6 +271,7 @@ func setupControllers(
 		Recorder:               observability.SafeRecorder(mgr.GetEventRecorder(operatorRecorderName)),
 	}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoTheme")
 	fatalIfError((&controller.HankoTenantReconciler{
+		ThemeKeycloakDeploymentName:  keycloakDeploymentName(),
 		Recorder:                     observability.SafeRecorder(mgr.GetEventRecorder(operatorRecorderName)),
 		Client:                       mgr.GetClient(),
 		ClusterIdentityReader:        mgr.GetAPIReader(),
