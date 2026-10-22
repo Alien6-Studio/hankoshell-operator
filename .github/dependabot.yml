@@ -9,6 +9,9 @@ updates:
         patterns:
           - k8s.io/*
           - sigs.k8s.io/controller-runtime
+      go-dependencies:
+        patterns:
+          - '*'
   - package-ecosystem: github-actions
     directory: /
     schedule:
