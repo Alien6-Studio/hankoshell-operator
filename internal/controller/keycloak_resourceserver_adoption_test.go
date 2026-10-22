@@ -204,6 +204,10 @@ func TestRealKeycloakResourceServerAggregateAcquisition(t *testing.T) {
 				mu.Unlock()
 				server.Spec.Mode = "Manage"
 				f.requireNoError(kube.Update(ctx, server))
+				application.Spec.Mode = "Manage"
+				f.requireNoError(kube.Update(ctx, application))
+				application.Status = fixtureApplicationReadBack(application.Generation)
+				f.requireNoError(kube.Status().Update(ctx, application))
 				// Status loss cannot discard or replace the provider-owned set.
 				server.Status = api.HankoResourceServerStatus{}
 				f.requireNoError(kube.Status().Update(ctx, server))

@@ -35,7 +35,8 @@ func TestSettledAuthorizationUsesOneFreshObservationAndRecoversLostStatus(t *tes
 		state, err := c.ReconcileAuthorization(context.Background(), model, AuthorizationManagedObjects{})
 		reads := authorizationRequests(f) - before
 		if err != nil || !state.Observation.Complete || state.Drifted ||
-			!reflect.DeepEqual(state.ManagedObjects, first.ManagedObjects) || reads > observationReads || f.mutationCount() != mutations {
+			// One additional read independently establishes current application ownership.
+			!reflect.DeepEqual(state.ManagedObjects, first.ManagedObjects) || reads > observationReads+1 || f.mutationCount() != mutations {
 			t.Fatalf("settled recovery: err=%v complete=%t drift=%t reads=%d observation=%d", err, state.Observation.Complete, state.Drifted, reads, observationReads)
 		}
 	}

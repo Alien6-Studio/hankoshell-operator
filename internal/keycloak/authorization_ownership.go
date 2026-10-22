@@ -17,7 +17,8 @@ const authorizationOwnerAttribute = "hanko.sh/resource-server-ownership"
 const maxAuthorizationJournalBytes = 512 * 1024
 
 // This operational journal recovers ownership after a Kubernetes status write
-// fails. It carries no executable plan or application proof. Keycloak admins
+// fails. V3 binds managed graphs to an exact application UID, without carrying
+// an executable plan. V2 retains its reviewed adoption receipt. Keycloak admins
 // are trusted for ownership markers, just as for the realm-role owner marker.
 type authorizationJournal struct {
 	Version         int                         `json:"version"`
@@ -34,6 +35,9 @@ func validAuthorizationJournal(j authorizationJournal, owner, clientID string) b
 	}
 	if j.Version == 1 {
 		return j.AdoptionReceipt == nil && j.RealmID == "" && j.ApplicationUID == ""
+	}
+	if j.Version == 3 {
+		return j.AdoptionReceipt == nil && j.RealmID == "" && j.ApplicationUID != "" && len(j.ApplicationUID) <= 128
 	}
 	return validAuthorizationAdoptionJournal(j, owner)
 }
@@ -96,17 +100,17 @@ func parseAuthorizationJournal(representation map[string]any, owner, clientID st
 	if len(value) > maxAuthorizationJournalBytes || httpsecurity.ValidateJSON([]byte(value)) != nil || json.Unmarshal([]byte(value), &j) != nil || !validAuthorizationJournal(j, owner, clientID) {
 		return AuthorizationManagedObjects{}, false, ErrAuthorizationOwnershipConflict
 	}
-	if !closedAuthorizationAdoptionJournal(value, j) {
+	if !closedAuthorizationJournal(value, j) {
 		return AuthorizationManagedObjects{}, false, ErrAuthorizationOwnershipConflict
 	}
-	if j.Version == 2 && !authorizationJournalApplicationOwned(representation, j) {
+	if j.Version != 1 && !authorizationJournalApplicationOwned(representation, j) {
 		return AuthorizationManagedObjects{}, false, ErrAuthorizationOwnershipConflict
 	}
 	return j.Objects, true, nil
 }
 
-func closedAuthorizationAdoptionJournal(value string, journal authorizationJournal) bool {
-	if journal.Version != 2 {
+func closedAuthorizationJournal(value string, journal authorizationJournal) bool {
+	if journal.Version == 1 {
 		return true
 	}
 	decoder := json.NewDecoder(strings.NewReader(value))
@@ -152,6 +156,11 @@ func (c *Client) readAuthorizationOwnership(ctx context.Context, model Authoriza
 	if err != nil || !found {
 		return objects, found, err
 	}
+	if model.ApplicationUID != "" {
+		if err := authorizationJournalMatchesApplication(representation, model.ApplicationUID); err != nil {
+			return AuthorizationManagedObjects{}, false, err
+		}
+	}
 	return objects, true, c.verifyAuthorizationJournalRealm(ctx, model.Realm, representation)
 }
 func authorizationClientPath(realm, clientID string) string {
@@ -179,9 +188,17 @@ func (c *Client) saveAuthorizationOwnership(ctx context.Context, model Authoriza
 	if _, _, err := parseAuthorizationJournal(representation, model.OwnerUID, objects.ResourceServerID); err != nil {
 		return err
 	}
-	journal := authorizationJournal{Version: 1, OwnerUID: model.OwnerUID}
+	if err := c.requireAuthorizationApplication(ctx, model, objects.ResourceServerID); err != nil {
+		return err
+	}
+	journal := authorizationJournal{Version: 3, OwnerUID: model.OwnerUID, ApplicationUID: model.ApplicationUID}
 	if raw := journalValue(representation); raw != "" && json.Unmarshal([]byte(raw), &journal) != nil {
 		return ErrAuthorizationOwnershipConflict
+	}
+	// V1 recovery requires fresh exact application ownership before binding it.
+	// Adopted V2 keeps its existing receipt and graph boundary.
+	if journal.Version == 1 {
+		journal.Version, journal.ApplicationUID = 3, model.ApplicationUID
 	}
 	if err := c.verifyAuthorizationJournalRealm(ctx, model.Realm, representation); err != nil {
 		return err

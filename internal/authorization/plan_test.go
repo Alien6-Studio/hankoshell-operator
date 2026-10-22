@@ -70,6 +70,21 @@ func TestAuthorizationIdentityCanonicalizationAndIsolation(t *testing.T) {
 	}
 	iamconformance.NoSecrets(t, []string{"fixture-client-secret", "fixture-bearer-token"}, p, p.Identity())
 }
+
+func TestAuthorizationPlanBindsBackingApplicationWithoutChangingIntent(t *testing.T) {
+	model := contractModel()
+	model.ApplicationUID = "application-a"
+	first := contractPlan(t, model, iamcontract.Preconditions{ResourceUID: "resource-server"})
+	model.ApplicationUID = "application-b"
+	next := contractPlan(t, model, iamcontract.Preconditions{ResourceUID: "resource-server"})
+	if first.Identity().Intent != next.Identity().Intent || first.Identity().Plan == next.Identity().Plan || !errors.Is(first.Validate(next), iamcontract.ErrStale) {
+		t.Fatal("backing application substitution was not confined to execution identity")
+	}
+	native, err := modelForPlan(first)
+	if err != nil || native.ApplicationUID != "application-a" || native.OwnerUID != "resource-server" {
+		t.Fatal("adapter discarded the exact backing application binding", err)
+	}
+}
 func TestAuthorizationPreconditionsAndCapabilitiesFailClosed(t *testing.T) {
 	p := contractPlan(t, contractModel(), iamcontract.Preconditions{ResourceUID: "one", Generation: 1})
 	for _, pre := range []iamcontract.Preconditions{{ResourceUID: "two", Generation: 1}, {ResourceUID: "one", Generation: 2}, {ResourceUID: "one", Generation: 1, References: "changed"}, {ResourceUID: "one", Generation: 1, Authority: "changed"}, {ResourceUID: "one", Generation: 1, Ownership: "changed"}} {

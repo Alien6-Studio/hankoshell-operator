@@ -34,11 +34,13 @@ type Capabilities struct {
 
 // Model is the portable desired state passed to a provider driver.
 type Model struct {
-	Name              string
-	Realm             string
-	Audience          string
-	DisplayName       string
-	ApplicationRef    string
+	Name           string
+	Realm          string
+	Audience       string
+	DisplayName    string
+	ApplicationRef string
+	// ApplicationUID binds execution to the exact backing object, never portable intent.
+	ApplicationUID    string `json:",omitempty"`
 	Scopes            []Scope
 	Resources         []Resource
 	Permissions       []Permission
@@ -56,8 +58,8 @@ type DelegationPlanner interface {
 	PrepareDelegation(context.Context, Model, string) (Model, error)
 }
 
-type DelegationMutationGuard interface {
-	WithDelegationMutationGuard(func(context.Context) error) Driver
+type MutationGuard interface {
+	WithMutationGuard(func(context.Context) error) Driver
 }
 
 type Scope struct {

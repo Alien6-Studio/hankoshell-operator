@@ -215,6 +215,15 @@ func (r *HankoResourceServerReconciler) reconcileResourceServerAcquisition(ctx c
 	if err != nil {
 		return adoptionResult(ctx, r.Client, current, nil, approval, "Conflict", "AdoptionApprovalRequired")
 	}
+	if writer != nil && (targetAdoptionMode(current) == ModeManage || approval.Requested) {
+		var app api.HankoApplication
+		if err := reader.Get(ctx, client.ObjectKey{Namespace: current.Namespace, Name: current.Spec.ApplicationRef}, &app); err != nil {
+			return true, ctrl.Result{}, err
+		}
+		if r.protectedBackingApplication(current, &app, writer) {
+			return adoptionResult(ctx, r.Client, current, nil, approval, "Conflict", "ProtectedClient")
+		}
+	}
 	if targetAdoptionMode(current) == ModeManage {
 		return r.resourceServerManageGate(ctx, current, writer, approval)
 	}

@@ -63,7 +63,8 @@ func TestApplicationReconciliationPreservesAuthorizationOwnership(t *testing.T) 
 		t.Fatal(err)
 	}
 	journal := f.attributes[authorizationOwnerAttribute]
-	if err := c.UpdateApp(context.Background(), "acme", CreateAppSpec{ClientID: "billing-api", Type: "m2m", Attributes: map[string]string{authorizationOwnerAttribute: "forged-journal", "team": "platform"}}); err != nil {
+	if err := c.UpdateApplication(context.Background(), "acme", Application{ID: "client-uuid", ClientID: "billing-api", Protocol: "openid-connect", ServiceAccountsEnabled: true,
+		Attributes: map[string]string{"hanko.sh/application-owner": model.ApplicationUID, authorizationOwnerAttribute: "forged-journal", "team": "platform"}}, "hanko.sh/application-owner", model.ApplicationUID); err != nil {
 		t.Fatal(err)
 	}
 	if f.attributes[authorizationOwnerAttribute] != journal || !f.enabled {

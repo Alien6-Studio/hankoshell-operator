@@ -93,6 +93,11 @@ func (c *Client) ApplyBoundedDelegation(ctx context.Context, model Authorization
 	if !validBoundedRevision(revision) || prepared.Document.OwnerUID != model.OwnerUID || prepared.Document.Audience.ID == "" {
 		return AuthorizationState{}, ErrBoundedDelegationUnsupported
 	}
+	writer, err := c.authorizationWriter(ctx, model, prepared.Document.Audience.ID)
+	if err != nil {
+		return AuthorizationState{}, err
+	}
+	c = writer
 	release, err := c.beginBoundedDelegation(ctx)
 	if err != nil {
 		return AuthorizationState{}, err

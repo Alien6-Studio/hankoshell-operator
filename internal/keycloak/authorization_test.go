@@ -40,7 +40,7 @@ func newAuthorizationTestServer(t *testing.T) *authorizationTestServer {
 	state := &authorizationTestServer{
 		scopes: map[string]authorizationScopeRepresentation{}, resources: map[string]authorizationResourceRepresentation{},
 		policies: map[string]authorizationPolicyRepresentation{}, permissions: map[string]authorizationPermissionRepresentation{},
-		serviceAccountEnabled: true, attributes: map[string]any{},
+		serviceAccountEnabled: true, attributes: map[string]any{"hanko.sh/application-owner": "application-uid"},
 	}
 	state.server = httptest.NewServer(state)
 	t.Cleanup(state.server.Close)
@@ -83,6 +83,7 @@ func (s *authorizationTestServer) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		case http.MethodGet:
 			writeAuthorizationJSON(w, map[string]any{
 				"id": "client-uuid", "clientId": "billing-api",
+				"protocol": "openid-connect", "enabled": true,
 				"authorizationServicesEnabled": s.enabled,
 				"serviceAccountsEnabled":       s.serviceAccountEnabled,
 				"attributes":                   s.attributes,
@@ -289,7 +290,7 @@ func filterPolicies(values map[string]authorizationPolicyRepresentation, policyT
 
 func authorizationTestModel() AuthorizationModel {
 	return AuthorizationModel{
-		Name: "billing", Realm: "acme", ApplicationRef: "billing-api", Audience: "https://api.example/billing",
+		Name: "billing", Realm: "acme", ApplicationRef: "billing-api", ApplicationUID: "application-uid", Audience: "https://api.example/billing",
 		Scopes:    []AuthorizationScope{{Name: "invoices:read", Description: "Read invoices"}},
 		Resources: []AuthorizationResource{{Name: "invoices", DisplayName: "Invoices", URIs: []string{"/invoices/*"}, Scopes: []string{"invoices:read"}}},
 		Permissions: []AuthorizationPermission{{

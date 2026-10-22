@@ -25,6 +25,7 @@ type AuthorizationModel struct {
 	Audience       string
 	DisplayName    string
 	ApplicationRef string
+	ApplicationUID string
 	Scopes         []AuthorizationScope
 	Resources      []AuthorizationResource
 	Permissions    []AuthorizationPermission
@@ -193,6 +194,10 @@ func (c *Client) ReconcileAuthorization(ctx context.Context, model Authorization
 	if err != nil {
 		return AuthorizationState{}, err
 	}
+	c, err = c.authorizationWriter(ctx, model, clientID)
+	if err != nil {
+		return AuthorizationState{}, err
+	}
 	if !enabled && !serviceAccountEnabled {
 		return AuthorizationState{}, fmt.Errorf("backing application %q must enable a service account; use HankoApplication type m2m", model.ApplicationRef)
 	}
@@ -315,6 +320,10 @@ func (c *Client) DeleteAuthorizationOwned(ctx context.Context, model Authorizati
 	}
 	if resourceServerID == "" {
 		return nil
+	}
+	c, err = c.authorizationWriter(ctx, model, resourceServerID)
+	if err != nil {
+		return err
 	}
 	if owned.ResourceServerID != resourceServerID {
 		return fmt.Errorf("%w: resource server ID is not owned", ErrAuthorizationOwnershipConflict)

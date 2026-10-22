@@ -109,7 +109,7 @@ func TestBoundedPreparationConvertsIntentWithoutMutatingUnavailableProvider(t *t
 	if !errors.Is(err, ErrCapabilityUnsupported) || discoveries != 1 || mutations != 0 {
 		t.Fatal("unavailable realm did not refuse before mutation")
 	}
-	clone := driver.WithDelegationMutationGuard(func(context.Context) error { return errors.New("revoked") }).(*KeycloakDriver)
+	clone := driver.WithMutationGuard(func(context.Context) error { return errors.New("revoked") }).(*KeycloakDriver)
 	if !clone.boundedDelegation || clone.client == driver.client {
 		t.Fatal("guard changed shared driver state or removed the profile")
 	}

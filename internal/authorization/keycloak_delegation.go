@@ -9,7 +9,7 @@ import (
 	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloak"
 )
 
-func (d *KeycloakDriver) WithDelegationMutationGuard(guard func(context.Context) error) Driver {
+func (d *KeycloakDriver) WithMutationGuard(guard func(context.Context) error) Driver {
 	return &KeycloakDriver{client: d.client.WithMutationGuard(guard), boundedDelegation: d.boundedDelegation}
 }
 

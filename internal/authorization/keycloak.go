@@ -160,7 +160,7 @@ func toKeycloakModel(model Model) (keycloak.AuthorizationModel, error) {
 	}
 	result := keycloak.AuthorizationModel{
 		Name: model.Name, Realm: model.Realm, Audience: model.Audience,
-		DisplayName: model.DisplayName, ApplicationRef: model.ApplicationRef,
+		DisplayName: model.DisplayName, ApplicationRef: model.ApplicationRef, ApplicationUID: model.ApplicationUID,
 	}
 	for _, scope := range model.Scopes {
 		result.Scopes = append(result.Scopes, keycloak.AuthorizationScope{Name: scope.Name, Description: scope.Description})
