@@ -2,6 +2,7 @@
 
 import argparse
 from datetime import datetime, timezone
+import errno
 import hashlib
 import http.client
 import ipaddress
@@ -12,6 +13,7 @@ import socket
 import ssl
 import time
 from urllib.parse import urlencode
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from tools.qualification.reporting import scale_evidence as measure
@@ -79,7 +81,41 @@ class Observer:
                             "does not replace burst, transaction failover, native preservation or public predecessor tests",
                             "no Secret data, native tenant data or raw metrics retained"]}
 
+    def read(self, component, operation):
+        """Retry only idempotent reads; the unchanged 45s sample bound still applies."""
+        for attempt in range(3):
+            try:
+                return operation()
+            except (OSError, HTTPError, URLError) as error:
+                cause = error.reason if isinstance(error, URLError) else error
+                code = error.code if isinstance(error, HTTPError) else None
+                number = getattr(cause, "errno", None)
+                transient = (code in {429, 500, 502, 503, 504} if code else
+                    isinstance(cause, (TimeoutError, ConnectionError)) or
+                    number in {errno.ECONNRESET, errno.ECONNREFUSED, errno.EHOSTUNREACH, errno.ENETUNREACH, errno.ETIMEDOUT, socket.EAI_AGAIN})
+                diagnostic = {"component": component, "exception": type(cause).__name__,
+                    "attempt": attempt + 1, "at": datetime.now(timezone.utc).isoformat()}
+                if code is not None:
+                    diagnostic["http_status"] = code
+                if type(number) is int:
+                    diagnostic["errno"] = number
+                errors = self.report.setdefault("transport_errors", {})
+                errors[component] = errors.get(component, 0) + 1
+                self.report["last_transport_error"] = diagnostic
+                if not transient or attempt == 2:
+                    self.report["transport_failure"] = diagnostic
+                    self.persist()
+                    raise
+                self.report["transport_retries"] = self.report.get("transport_retries", 0) + 1
+                self.persist()
+                time.sleep(0.25 * (2 ** attempt))
+
     def api(self, path):
+        def perform():
+            return self.api_read(path)
+        return json.loads(self.read("kubernetes", perform))
+
+    def api_read(self, path):
         # Projected service-account credentials rotate independently of this process.
         token = (SERVICE_ACCOUNT / "token").read_text().strip()
         request = Request("https://kubernetes.default.svc" + path, headers={"Authorization": "Bearer " + token})
@@ -88,7 +124,7 @@ class Observer:
             raw = response.read(16 * 1024**2 + 1)
         if len(raw) > 16 * 1024**2:
             raise ValueError("Qualification API response exceeded its budget")
-        return json.loads(raw)
+        return raw
 
     def items(self, group, resource, selector):
         prefix = "/api/v1" if not group else "/apis/" + group
@@ -144,17 +180,18 @@ class Observer:
             if pod["spec"].get("hostNetwork") or len(pod["spec"]["containers"]) != 1:
                 raise ValueError("Qualification requires isolated operator Pods")
             uid = pod["metadata"]["uid"]
-            connection = PodConnection(self.args.metrics_hostname, pod["status"]["podIP"], context)
-            try:
-                connection.request("GET", "/metrics", headers={"Accept": "text/plain; version=0.0.4"})
-                response = connection.getresponse()
-                if response.status != 200:
-                    raise ValueError("Verified metrics endpoint is unavailable")
-                raw = response.read(2 * 1024**2 + 1).decode()
-                frames[uid] = measure.metrics(raw)
-                names[uid] = pod["metadata"]["name"]
-            finally:
-                connection.close()
+            def scrape():
+                connection = PodConnection(self.args.metrics_hostname, pod["status"]["podIP"], context)
+                try:
+                    connection.request("GET", "/metrics", headers={"Accept": "text/plain; version=0.0.4"})
+                    response = connection.getresponse()
+                    if response.status != 200:
+                        raise HTTPError("metrics", response.status, "Metrics endpoint unavailable", None, None)
+                    return response.read(2 * 1024**2 + 1).decode()
+                finally:
+                    connection.close()
+            frames[uid] = measure.metrics(self.read("metrics", scrape))
+            names[uid] = pod["metadata"]["name"]
         leader = [uid for uid, frame in frames.items() if frame["leader"]]
         lease = self.api(f"/apis/coordination.k8s.io/v1/namespaces/{self.args.namespace}/leases/hanko-operator.hanko.sh")
         holder = lease.get("spec", {}).get("holderIdentity", "").rsplit("_", 1)[0]

@@ -61,6 +61,11 @@ It reads its rotating projected service-account token on every API call.
 Interrupted sampling, replaced processes or lost readiness invalidate the run;
 failed Jobs do not resume an earlier interval.
 
+Transient API/metrics GET failures have at most three attempts, each bounded by
+five seconds. Retries and numeric transport diagnostics are recorded; the
+45-second sampling limit still invalidates any longer gap. Writes and OAuth
+token exchanges are never replayed automatically.
+
 Progress, numeric samples and the final report remain on the Job's PVC under
 `/evidence/campaign/`. Collect them before removing the dedicated namespace.
 The report states its source/digest, actual scope and remaining HA limitations.
