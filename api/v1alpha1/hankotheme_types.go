@@ -58,12 +58,21 @@ type HankoThemeSpec struct {
 	// +kubebuilder:validation:MaxLength=256
 	FontFamily string `json:"fontFamily,omitempty"`
 
-	// BuildImage is the container image used to build the Keycloakify JAR.
+	// BuildImage contains either the approved builder or a precompiled theme
+	// artifact. Artifact mode does not execute the image entrypoint or build tools.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MaxLength=2048
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Pattern=`^[^\x00-\x20\x7F]+$`
 	BuildImage string `json:"buildImage"`
+
+	// ArtifactSHA256 selects precompiled installation from /theme/theme.jar in
+	// BuildImage. The operator verifies these bytes before an atomic PVC write.
+	// Omit it only for explicit local legacy builds. Visual settings are runtime
+	// profile data and cannot be combined with artifact installation.
+	// +kubebuilder:validation:Pattern=`^[a-f0-9]{64}$`
+	// +kubebuilder:validation:MaxLength=64
+	ArtifactSHA256 string `json:"artifactSHA256,omitempty"`
 
 	// KeycloakPVC is the name of the PersistentVolumeClaim where the JAR is placed.
 	// +kubebuilder:validation:Required

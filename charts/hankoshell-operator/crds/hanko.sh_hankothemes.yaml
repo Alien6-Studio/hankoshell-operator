@@ -55,14 +55,24 @@ spec:
           spec:
             description: HankoThemeSpec defines the desired theme configuration.
             properties:
+              artifactSHA256:
+                description: |-
+                  ArtifactSHA256 selects precompiled installation from /theme/theme.jar in
+                  BuildImage. The operator verifies these bytes before an atomic PVC write.
+                  Omit it only for explicit local legacy builds. Visual settings are runtime
+                  profile data and cannot be combined with artifact installation.
+                maxLength: 64
+                pattern: ^[a-f0-9]{64}$
+                type: string
               backgroundColor:
                 description: BackgroundColor is the CSS color used for the dark-mode
                   page background.
                 maxLength: 128
                 type: string
               buildImage:
-                description: BuildImage is the container image used to build the Keycloakify
-                  JAR.
+                description: |-
+                  BuildImage contains either the approved builder or a precompiled theme
+                  artifact. Artifact mode does not execute the image entrypoint or build tools.
                 maxLength: 2048
                 minLength: 1
                 pattern: ^[^\x00-\x20\x7F]+$
