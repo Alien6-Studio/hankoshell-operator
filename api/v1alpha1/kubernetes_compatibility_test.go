@@ -103,6 +103,7 @@ func TestKubernetesCompatibility(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	t.Run("mesh receiver revocation", func(t *testing.T) { checkMeshReceiverRevocation(t, ctx, admin) })
 	t.Run("condition ownership across all CRDs", func(t *testing.T) { checkConditionApply(t, ctx, admin, environment.CRDs) })
 	t.Run("frozen public contract corpus", func(t *testing.T) { checkPublicContractCorpus(t, ctx, admin) })
 	t.Run("typed reader round-trip contract", func(t *testing.T) { checkTypedRoundTrip(t, ctx, admin, environment.CRDs) })

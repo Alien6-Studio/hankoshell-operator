@@ -265,7 +265,7 @@ func TestMeshServiceFailsClosedWhenReadyPodNodeCannotBeAttested(t *testing.T) {
 			}
 
 			actual, err := reconcileMeshService(t, objects...)
-			if err == nil || actual.Status.Phase != "Error" || actual.Status.ReceiverNodeUIDs != nil {
+			if err == nil || actual.Status.Phase != "Error" || actual.Status.ReceiverNodeUIDs == nil || len(actual.Status.ReceiverNodeUIDs) != 0 {
 				t.Fatalf("unattested receiver node accepted: status=%#v err=%v", actual.Status, err)
 			}
 		})

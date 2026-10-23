@@ -429,7 +429,7 @@ func (r *HankoMeshServiceReconciler) statusError(ctx context.Context, registrati
 	registration.Status.WorkloadServiceAccountUID = ""
 	registration.Status.SelectorSHA256 = ""
 	registration.Status.EnforcementMode = ""
-	registration.Status.ReceiverNodeUIDs = nil
+	registration.Status.ReceiverNodeUIDs = []string{}
 	registration.Status.ResolvedPorts = nil
 	registration.Status.ResolvedEgress = nil
 	registration.Status.LastResolved = nil
