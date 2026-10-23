@@ -36,13 +36,14 @@ func newReconciledOrganizationFixture(t *testing.T) *reconciledOrganizationFixtu
 	f := newKeycloakFixture(t)
 	e := &organizationAuthorizationExperiment{f: f, groups: map[string]string{}, users: map[string]string{}, passwords: map[string]string{}, policies: map[string]string{}, client: fixtureSecret(t)}
 	f.secrets = append(f.secrets, e.client)
-	f.admin(http.MethodPost, "/admin/realms/managed/clients", map[string]any{"clientId": "orgauth-billing", "secret": e.client, "enabled": true, "publicClient": false, "serviceAccountsEnabled": true, "directAccessGrantsEnabled": true}, nil)
+	app := &api.HankoApplication{ObjectMeta: fixtureMeta("billing-app"), Spec: api.HankoApplicationSpec{RealmRef: "managed", ClientID: "orgauth-billing"}, Status: fixtureApplicationReadBack(1)}
+	f.admin(http.MethodPost, "/admin/realms/managed/clients", map[string]any{"clientId": "orgauth-billing", "secret": e.client, "enabled": true, "publicClient": false, "serviceAccountsEnabled": true, "directAccessGrantsEnabled": true,
+		"attributes": map[string]string{"hanko.sh/application-owner": string(app.UID)}}, nil)
 	cid := f.client("managed", "orgauth-billing")["id"].(string)
 	e.base = "/admin/realms/managed/clients/" + cid + "/authz/resource-server"
 	actor, actorSecret := f.serviceClient("organization-grant-operator")
 	f.grantClientRoles("organization-grant-operator", "managed", []string{"manage-clients", "view-users"})
 	realm := &api.HankoRealm{ObjectMeta: fixtureMeta("managed")}
-	app := &api.HankoApplication{ObjectMeta: fixtureMeta("billing-app"), Spec: api.HankoApplicationSpec{RealmRef: "managed", ClientID: "orgauth-billing"}}
 	rs := &api.HankoResourceServer{ObjectMeta: fixtureMeta("organization-billing"), Spec: api.HankoResourceServerSpec{RealmRef: "managed", Audience: "urn:organization-billing", ApplicationRef: app.Name, Scopes: []api.AuthorizationScope{{Name: "read"}, {Name: "write"}}, Resources: []api.AuthorizationResource{{Name: "invoice", Scopes: []string{"read", "write"}}}, Permissions: []api.AuthorizationPermission{{Name: "invoice-read", Resources: []string{"invoice"}, Scopes: []string{"read"}, Principals: []api.AuthorizationPrincipal{{Kind: "organization", Ref: "europe"}}}}}}
 	c := fake.NewClientBuilder().WithScheme(newScheme(t)).WithObjects(realm, app, rs).WithStatusSubresource(&api.HankoResourceServer{}, &api.HankoOrganization{}).Build()
 	q := &reconciledOrganizationFixture{experiment: e, client: c, server: rs, nodes: map[string]*api.HankoOrganization{}, actor: actor, actorSecret: actorSecret}
@@ -143,6 +144,28 @@ func (q *reconciledOrganizationFixture) requireGroupSet(refs ...string) {
 
 func TestRealKeycloakReconciledOrganizationPrincipals(t *testing.T) {
 	q := newReconciledOrganizationFixture(t)
+	f := q.experiment.f
+	// An Observe reference to an unowned M2M client cannot acquire a graph in an ordinary realm.
+	var app api.HankoApplication
+	f.requireNoError(q.client.Get(context.Background(), client.ObjectKey{Namespace: q.server.Namespace, Name: q.server.Spec.ApplicationRef}, &app))
+	app.Spec.Mode = "Observe"
+	f.requireNoError(q.client.Update(context.Background(), &app))
+	native := f.client("managed", app.Spec.ClientID)
+	attrs := native["attributes"].(map[string]any)
+	attrs["hanko.sh/application-owner"] = nil
+	f.admin(http.MethodPut, "/admin/realms/managed/clients/"+native["id"].(string), native, nil)
+	before := q.writes()
+	if err := q.reconcile(); err == nil || q.writes() != before {
+		t.Fatal("Observe application acquired a foreign authorization graph")
+	}
+	app.Spec.Mode = "Manage"
+	f.requireNoError(q.client.Update(context.Background(), &app))
+	// Manage alone is insufficient; provider ownership must also match freshly.
+	if err := q.reconcile(); err == nil || q.writes() != before {
+		t.Fatal("Manage application acquired an unmarked client")
+	}
+	attrs["hanko.sh/application-owner"] = string(app.UID)
+	f.admin(http.MethodPut, "/admin/realms/managed/clients/"+native["id"].(string), native, nil)
 	checkOrganizationSharedConformance(t, q)
 	checkReconciledOrganizationUMA(t, q)
 	checkOrganizationGraphAndReadOnlyRecovery(t, q)
@@ -394,6 +417,8 @@ func checkOrganizationSharedConformance(t *testing.T, q *reconciledOrganizationF
 	t.Helper()
 	f := q.experiment.f
 	ctx := context.Background()
+	var app api.HankoApplication
+	f.requireNoError(q.client.Get(ctx, client.ObjectKey{Namespace: q.server.Namespace, Name: q.server.Spec.ApplicationRef}, &app))
 	driver := authorization.NewKeycloakDriver(q.actor)
 	groups := []authorization.OrganizationGroup{}
 	for _, ref := range []string{"europe", "france", "paris", "germany"} {
@@ -402,7 +427,7 @@ func checkOrganizationSharedConformance(t *testing.T, q *reconciledOrganizationF
 		f.requireNoError(err)
 		groups = append(groups, g)
 	}
-	model := authorization.Model{Name: q.server.Name, Realm: "managed", Audience: q.server.Spec.Audience, ApplicationRef: "orgauth-billing", Scopes: []authorization.Scope{{Name: "read"}}, Resources: []authorization.Resource{{Name: "invoice", Scopes: []string{"read"}}}, Permissions: []authorization.Permission{{Name: "conformance", Resources: []string{"invoice"}, Scopes: []string{"read"}, Principals: []authorization.Principal{{Kind: "organization", Ref: "europe", IncludeDescendants: true, Organization: &authorization.ResolvedOrganizationPrincipal{Groups: groups, Graph: iamcontract.Hash(iamcontract.Version, "conformance", "graph", nil)}}}}}}
+	model := authorization.Model{Name: q.server.Name, Realm: "managed", Audience: q.server.Spec.Audience, ApplicationRef: "orgauth-billing", ApplicationUID: string(app.UID), Scopes: []authorization.Scope{{Name: "read"}}, Resources: []authorization.Resource{{Name: "invoice", Scopes: []string{"read"}}}, Permissions: []authorization.Permission{{Name: "conformance", Resources: []string{"invoice"}, Scopes: []string{"read"}, Principals: []authorization.Principal{{Kind: "organization", Ref: "europe", IncludeDescendants: true, Organization: &authorization.ResolvedOrganizationPrincipal{Groups: groups, Graph: iamcontract.Hash(iamcontract.Version, "conformance", "graph", nil)}}}}}}
 	compile := func(reverse bool, owner string) authorization.Plan {
 		m := model
 		m.Permissions = append([]authorization.Permission{}, model.Permissions...)

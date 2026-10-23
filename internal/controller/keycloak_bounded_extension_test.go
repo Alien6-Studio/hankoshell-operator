@@ -82,7 +82,7 @@ func TestRealKeycloakBoundedDelegationExtension(t *testing.T) {
 	writer, writerSecret := f.serviceClient("delegation-writer")
 	f.grantClientRoles("delegation-writer", "managed", []string{"view-realm", "view-users", "manage-clients"})
 	model := keycloak.AuthorizationModel{
-		OwnerUID: "extension-test", Name: "extension-test", Realm: "managed", Audience: e.api.name, ApplicationRef: e.api.name,
+		OwnerUID: "extension-test", Name: "extension-test", Realm: "managed", Audience: e.api.name, ApplicationRef: e.api.name, ApplicationUID: "uid-" + e.api.name,
 		Scopes:    []keycloak.AuthorizationScope{{Name: "read"}, {Name: "write"}},
 		Resources: []keycloak.AuthorizationResource{{Name: "document", URIs: []string{"https://api.example.test/document"}, Scopes: []string{"read", "write"}}},
 		Permissions: []keycloak.AuthorizationPermission{{Name: "base-access", Resources: []string{"document"}, Scopes: []string{"read", "write"},
@@ -555,7 +555,7 @@ func qualifyBoundedDelegationController(f *keycloakFixture, e *exchangeExperimen
 		client exchangeClient
 	}{{"api", e.api}, {"actor", e.actor}, {"subject", e.subject}} {
 		objects = append(objects, &api.HankoApplication{ObjectMeta: meta(identity.ref, "uid-"+identity.client.name),
-			Spec: api.HankoApplicationSpec{RealmRef: "managed", ClientID: identity.client.name, Type: "m2m", Protocol: "oidc"}})
+			Spec: api.HankoApplicationSpec{RealmRef: "managed", ClientID: identity.client.name, Type: "m2m", Protocol: "oidc"}, Status: fixtureApplicationReadBack(1)})
 	}
 	depth, ttl := int32(2), int32(30)
 	principals := []api.AuthorizationPrincipal{{Kind: "application", Ref: "actor"}, {Kind: "application", Ref: "subject"}}

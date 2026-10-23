@@ -20,6 +20,7 @@ not been published.
 - Optional signed fleet plans, local pause and reconnect support.
 - Precompiled Keycloak theme installation with JAR integrity checks and local image approval.
 - Namespace-scoped permissions, provider TLS verification and authenticated metrics.
+- Resource-server writes require a current managed application and its exact Keycloak ownership marker.
 - Linux AMD64/ARM64 images and Helm installation using immutable image digests.
 
 ### Qualification

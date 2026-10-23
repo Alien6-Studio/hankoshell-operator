@@ -140,7 +140,7 @@ jobs:
       - name: Restore the exact SDK provider for delegation HA
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: keycloak-extension-java-${{ matrix.keycloak }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: keycloak-extension-java-${{ matrix.keycloak }}-${{ github.run_id }}
           path: .tools/cache/keycloak-bounded-delegation/
       - name: Qualify transaction recovery and live-holder API partition
         env:
@@ -419,7 +419,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: keycloak-extension-java-${{ matrix.version }}-${{ github.run_id }}-${{ github.run_attempt }}
+          # Dependents may be rerun without rebuilding the successful provider job.
+          name: keycloak-extension-java-${{ matrix.version }}-${{ github.run_id }}
+          overwrite: true
           path: |
             .tools/cache/keycloak-bounded-delegation/*/target/${{ matrix.version }}/build.json
             .tools/cache/keycloak-bounded-delegation/*/target/${{ matrix.version }}/bounded-delegation-keycloak-${{ matrix.version }}.jar
@@ -749,7 +751,7 @@ jobs:
       - name: Restore the exact SDK provider already qualified in this run
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: keycloak-extension-java-${{ matrix.keycloak }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: keycloak-extension-java-${{ matrix.keycloak }}-${{ github.run_id }}
           path: .tools/cache/keycloak-bounded-delegation/
       - name: Qualify installed delegation, independent HTTPS resource access and native recovery
         env:

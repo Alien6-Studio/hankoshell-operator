@@ -32,6 +32,11 @@ func fixtureMeta(name string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{Name: name, Namespace: "qualification", UID: types.UID(name), Generation: 1}
 }
 
+func fixtureApplicationReadBack(generation int64) hanko.HankoApplicationStatus {
+	return hanko.HankoApplicationStatus{Phase: "Ready", ObservedGeneration: generation, AppliedGeneration: generation,
+		Conditions: []metav1.Condition{{Type: "Synced", Status: metav1.ConditionTrue, Reason: "FixtureOwned", ObservedGeneration: generation}}}
+}
+
 func fixtureEqual(t *testing.T, label string, actual, expected any) {
 	t.Helper()
 	if !reflect.DeepEqual(actual, expected) {

@@ -165,6 +165,8 @@ func TestReferenceOnlyChangeProducesNewPlanEvidence(t *testing.T) {
 		t.Fatal(err)
 	}
 	app.Generation++
+	app.Status.ObservedGeneration, app.Status.AppliedGeneration = app.Generation, app.Generation
+	app.Status.Conditions[0].ObservedGeneration = app.Generation
 	if err := c.Update(context.Background(), &app); err != nil {
 		t.Fatal(err)
 	}

@@ -17,6 +17,7 @@ type ResolvedReferences struct{ model Model }
 func Normalize(model Model) Intent {
 	model = canonicalModel(model)
 	model.DelegationContext = nil
+	model.ApplicationUID = ""
 	for i := range model.Permissions {
 		if d := model.Permissions[i].Delegation; d != nil {
 			portableDelegationReferences(d)
@@ -52,6 +53,7 @@ func relationshipModel(model Model) Model {
 	m := canonicalModel(model)
 	m.Realm = ""
 	m.ApplicationRef = ""
+	m.ApplicationUID = ""
 	m.DelegationContext = nil
 	for i := range m.Permissions {
 		if d := m.Permissions[i].Delegation; d != nil {

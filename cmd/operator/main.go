@@ -251,7 +251,7 @@ func setupControllers(
 		organizationReconciler.Positions = projection.Client
 	}
 	fatalIfError(organizationReconciler.SetupWithManager(mgr), controllerSetupError, "controller", "HankoOrganization")
-	fatalIfError((&controller.HankoResourceServerReconciler{Client: mgr.GetClient(), WorkloadTrust: workloadTrust, Scheme: mgr.GetScheme(), Pool: pool, Recorder: observability.SafeRecorder(mgr.GetEventRecorder(operatorRecorderName))}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoResourceServer")
+	fatalIfError((&controller.HankoResourceServerReconciler{Client: mgr.GetClient(), WorkloadTrust: workloadTrust, Scheme: mgr.GetScheme(), Pool: pool, ProtectedRealm: protectedRealm, ProtectedClientIDs: protectedClientIDs, Recorder: observability.SafeRecorder(mgr.GetEventRecorder(operatorRecorderName))}).SetupWithManager(mgr), controllerSetupError, "controller", "HankoResourceServer")
 	fatalIfError((&controller.HankoMeshServiceReconciler{
 		APIReader: mgr.GetAPIReader(), WorkloadTrust: workloadTrust,
 		Client: mgr.GetClient(), NodeReader: mgr.GetAPIReader(), EgressReader: mgr.GetAPIReader(),

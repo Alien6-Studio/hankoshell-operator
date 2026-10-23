@@ -83,8 +83,10 @@ func supportedAuthorizationCapabilities() authorization.Capabilities {
 func validResourceServerObjects(mode string) (*hankoshv1alpha1.HankoResourceServer, []client.Object) {
 	realm := &hankoshv1alpha1.HankoRealm{ObjectMeta: metav1.ObjectMeta{Name: "acme", Namespace: "default"}}
 	app := &hankoshv1alpha1.HankoApplication{
-		ObjectMeta: metav1.ObjectMeta{Name: "billing-api", Namespace: "default"},
+		ObjectMeta: metav1.ObjectMeta{Name: "billing-api", Namespace: "default", UID: "application-uid", Generation: 1},
 		Spec:       hankoshv1alpha1.HankoApplicationSpec{RealmRef: "acme", ClientID: "billing-api"},
+		Status: hankoshv1alpha1.HankoApplicationStatus{Phase: "Ready", ObservedGeneration: 1, AppliedGeneration: 1,
+			Conditions: []metav1.Condition{{Type: "Synced", Status: metav1.ConditionTrue, Reason: "Reconciled", ObservedGeneration: 1}}},
 	}
 	role := &hankoshv1alpha1.HankoRole{
 		ObjectMeta: metav1.ObjectMeta{Name: "billing-reader", Namespace: "default"},

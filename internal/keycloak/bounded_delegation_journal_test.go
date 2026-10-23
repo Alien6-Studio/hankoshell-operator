@@ -119,6 +119,7 @@ func (f *boundedJournalFixture) serve(w http.ResponseWriter, r *http.Request) {
 func boundedJournalModel() (AuthorizationModel, BoundedDelegationPreparation) {
 	model := authorizationTestModel()
 	model.OwnerUID = "resource-server-uid"
+	model.ApplicationUID = "api-uid"
 	document := boundedTestDocument()
 	document.Phase = "Prepared"
 	document.Grants[0].Authority.Permissions = map[string][]string{"invoices": {"invoices:read"}}

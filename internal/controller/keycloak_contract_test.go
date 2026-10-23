@@ -134,8 +134,9 @@ func TestRealKeycloakIAMContract(t *testing.T) {
 	f.run("authorization shared conformance", func(t *testing.T) {
 		driver := authorization.NewKeycloakDriver(kc)
 		reader := authorization.NewKeycloakDriver(observer)
-		f.admin(http.MethodPost, "/admin/realms/managed/clients", map[string]any{"clientId": "contract-api", "enabled": true, "publicClient": false, "serviceAccountsEnabled": true}, nil)
-		model := authorization.Model{Name: "contract-auth", Realm: "managed", Audience: "urn:contract-api", ApplicationRef: "contract-api", Scopes: []authorization.Scope{{Name: "read", Description: "desired"}, {Name: "write"}}, Resources: []authorization.Resource{{Name: "document", Scopes: []string{"read", "write"}, URIs: []string{"/b", "/a"}}}, Permissions: []authorization.Permission{{Name: "access", Scopes: []string{"read"}, Resources: []string{"document"}, Principals: []authorization.Principal{{Kind: "realm_role", Ref: "contract-child-a"}}}}}
+		f.admin(http.MethodPost, "/admin/realms/managed/clients", map[string]any{"clientId": "contract-api", "enabled": true, "publicClient": false, "serviceAccountsEnabled": true,
+			"attributes": map[string]string{"hanko.sh/application-owner": "contract-app-uid"}}, nil)
+		model := authorization.Model{Name: "contract-auth", Realm: "managed", Audience: "urn:contract-api", ApplicationRef: "contract-api", ApplicationUID: "contract-app-uid", Scopes: []authorization.Scope{{Name: "read", Description: "desired"}, {Name: "write"}}, Resources: []authorization.Resource{{Name: "document", Scopes: []string{"read", "write"}, URIs: []string{"/b", "/a"}}}, Permissions: []authorization.Permission{{Name: "access", Scopes: []string{"read"}, Resources: []string{"document"}, Principals: []authorization.Principal{{Kind: "realm_role", Ref: "contract-child-a"}}}}}
 		compile := func(reverse bool) authorization.Plan {
 			m := model
 			m.Scopes = append([]authorization.Scope{}, m.Scopes...)
@@ -298,7 +299,8 @@ func qualifySettledAuthorizationBudget(t *testing.T, f *keycloakFixture, credent
 	// validated native journal, with every configuration write denied.
 	state, err := driver.Reconcile(t.Context(), plan, authorization.ManagedObjects{})
 	f.requireNoError(err)
-	if reads.Load() > budget || writes.Load() != 0 || !state.Observation.Complete || state.Drifted ||
+	// One extra read establishes exact current backing-application ownership.
+	if reads.Load() > budget+1 || writes.Load() != 0 || !state.Observation.Complete || state.Drifted ||
 		state.Structure == nil || !state.Structure.Complete || len(state.RealmRoleIDs) == 0 || !reflect.DeepEqual(owned, state.ManagedObjects) {
 		t.Fatal("settled native reconciliation exceeded one complete observation or lost recovery evidence")
 	}
