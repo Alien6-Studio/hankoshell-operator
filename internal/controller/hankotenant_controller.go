@@ -131,6 +131,24 @@ func (r *HankoTenantReconciler) degradedReason(tenant *hankoshv1alpha1.HankoTena
 	return reason, exists
 }
 
+// reportConvergedStatus keeps a failed command degraded until the Hub stops
+// delivering it. Once the bundle and registrations converge and no command is
+// pending, refresh the snapshot before fetching the policy: the Hub requires a
+// healthy snapshot and cannot clear an old local error for us.
+func (r *HankoTenantReconciler) reportConvergedStatus(ctx context.Context, hubClient *hub.Client, tenant *hankoshv1alpha1.HankoTenant, status hub.OperatorStatus) (*hub.StatusAck, error) {
+	ack, err := hubClient.ReportStatus(ctx, status)
+	if err != nil || status.Phase != "Error" || status.Detail == "FleetPlanPartial" ||
+		(ack != nil && (ack.Decommission != nil || ack.AgentUpdate != nil)) {
+		return ack, err
+	}
+	status.Phase, status.Health, status.Detail = "Synced", "healthy", ""
+	ack, err = hubClient.ReportStatus(ctx, status)
+	if err == nil {
+		r.clearDegraded(tenant)
+	}
+	return ack, err
+}
+
 // meshPolicyAuditReason reports whether a reconcile failure belongs to the
 // audit-only mesh policy projection. Those failures happen after the Hub
 // heartbeat, and the Hub refuses to serve the mesh policy to an operator whose
@@ -351,7 +369,7 @@ func (r *HankoTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		// the Hub keeps the last summary with its own received timestamp.
 		status.Supervision = r.Supervision.Collect(ctx)
 	}
-	ack, reportErr := hubClient.ReportStatus(ctx, status)
+	ack, reportErr := r.reportConvergedStatus(ctx, hubClient, &tenant, status)
 	if reportErr != nil && signed {
 		reportErr = fleetplan.Refusal("FleetHubStatusUnavailable")
 	}
