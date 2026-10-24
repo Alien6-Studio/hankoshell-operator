@@ -12,7 +12,7 @@ import (
 )
 
 func TestFleetRolloutControllerDecisionsAndOverrideRace(t *testing.T) {
-	for _, boundary := range []string{"partial", "atomic", "permission", "version", "provider-version", "pinned-version", "pin-mismatch", "scope", "pause", "pause-race", "refuse", "invalid-policy"} {
+	for _, boundary := range []string{"partial", "atomic", "permission", "version", "provider-version", "older-minor", "next-patch", "next-minor", "next-patch-denied", "pinned-version", "pin-mismatch", "scope", "pause", "pause-race", "refuse", "invalid-policy"} {
 		t.Run(boundary, func(t *testing.T) {
 			f := newFleetUnitFixture(t)
 			reason := "FleetCapabilityRefused"
@@ -30,6 +30,13 @@ func TestFleetRolloutControllerDecisionsAndOverrideRace(t *testing.T) {
 				reason = "FleetOperatorVersionUnsupported"
 			case "provider-version":
 				f.nativeVersion = "99.0.0"
+			case "older-minor", "next-patch", "next-minor", "next-patch-denied":
+				f.nativeVersion = map[string]string{"older-minor": "26.0.0", "next-patch": "26.8.2", "next-minor": "26.10.0", "next-patch-denied": "26.8.2"}[boundary]
+				reason = "FleetPlanApplied"
+				if boundary == "next-patch-denied" {
+					f.nativeRoles = []string{"view-realm"}
+					reason = "FleetCapabilityRefused"
+				}
 			case "pinned-version", "pin-mismatch":
 				cm := &corev1.ConfigMap{}
 				if err := f.client.Get(context.Background(), client.ObjectKey{Name: "fleet-trust", Namespace: "auth"}, cm); err != nil {
@@ -106,7 +113,7 @@ func TestFleetRolloutControllerDecisionsAndOverrideRace(t *testing.T) {
 				if f.client.writes != 1 {
 					t.Fatal("current partial replay created another object")
 				}
-			} else if boundary == "pinned-version" {
+			} else if reason == "FleetPlanApplied" {
 				if f.client.writes != 1 || f.tenant.Status.FleetPlan == nil {
 					t.Fatal("local version approval did not permit compatible content")
 				}

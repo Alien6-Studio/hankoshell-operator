@@ -16,6 +16,8 @@ experimental `v1alpha1` API.
 - Roles, composites, API permissions and organization grants.
 - Credential rotation, workload federation and authorized Secret delivery.
 - Bounded delegation through the dedicated Keycloak extension.
+- Feature-based Keycloak version eligibility across stable 26.x upgrades, with
+  exact tested patches recorded separately and native safety checks preserved.
 - Discovery, observation and explicit adoption of existing Keycloak objects.
 - Optional signed fleet plans, local pause and reconnect support.
 - Precompiled Keycloak theme installation with JAR integrity checks and local image approval.

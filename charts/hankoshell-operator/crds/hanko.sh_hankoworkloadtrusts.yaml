@@ -97,8 +97,8 @@ spec:
                     - kubeSystemNamespaceUID
                     type: object
                   discoveryURL:
-                    description: DiscoveryURL is a source override qualified only
-                      on explicit 26.8.0/26.8.1 sources.
+                    description: DiscoveryURL requires an explicit stable 26.8+ source
+                      within the 26.x family.
                     maxLength: 2048
                     pattern: ^https://[a-z0-9\[\]:.-]+(/[A-Za-z0-9._~!$&'()*+,;=:@/-]*)?$
                     type: string
@@ -129,12 +129,17 @@ spec:
                 description: |-
                   QualifiedKeycloakVersion is explicit administrator source qualification,
                   never copied from diagnostic status. Common behavior needs no version disclosure.
-                  Discovery override additionally requires native resolved-source read-back.
-                enum:
-                - 26.7.5
-                - 26.8.0
-                - 26.8.1
+                  Stable 26.x versions from 26.7.5 are eligible; exact tested patches are separate.
+                  Discovery override additionally requires 26.8+ and native resolved-source read-back.
+                maxLength: 23
+                minLength: 6
+                pattern: ^26\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})$
                 type: string
+                x-kubernetes-validations:
+                - message: workload identity requires stable Keycloak 26.7.5 or later
+                    26.x
+                  rule: int(self.split('.')[1]) > 7 || (int(self.split('.')[1]) ==
+                    7 && int(self.split('.')[2]) >= 5)
               realmRef:
                 description: RealmRef selects an existing HankoRealm in this namespace,
                   including Observe realms.
@@ -171,10 +176,10 @@ spec:
               rule: self.sourceRef == oldSelf.sourceRef
             - message: keycloakAlias is immutable; create a separately reviewed trust
               rule: self.keycloakAlias == oldSelf.keycloakAlias
-            - message: discovery override requires explicit qualified 26.8 source
-                qualification
+            - message: discovery override requires an explicit stable Keycloak 26.8
+                or later 26.x source
               rule: '!has(self.kubernetes.discoveryURL) || (has(self.qualifiedKeycloakVersion)
-                && self.qualifiedKeycloakVersion in [''26.8.0'', ''26.8.1''])'
+                && int(self.qualifiedKeycloakVersion.split(''.'')[1]) >= 8)'
           status:
             properties:
               adoptionCandidate:

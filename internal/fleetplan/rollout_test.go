@@ -171,4 +171,12 @@ func TestFleetRolloutSchemaVersionAndOverrides(t *testing.T) {
 	if _, err := fleetplan.ProviderVersion([]byte(`{}`), f.plan.Target, "https://provider.example.test"); err == nil {
 		t.Fatal("malformed local version approval accepted")
 	}
+	for _, version := range []string{"26.0.0", "26.7.6", "26.8.2", "26.10.0", "27.0.0", "26.8.1-rc.1", "26.08.1", ""} {
+		policy := marshal(t, map[string]any{"version": "hanko.sh/fleet-rollout/v1alpha1", "providers": []any{map[string]any{"target": f.plan.Target, "endpoint": "https://provider.example.test", "version": version}}})
+		got, err := fleetplan.ProviderVersion(policy, f.plan.Target, "https://provider.example.test")
+		accept := version == "26.0.0" || version == "26.7.6" || version == "26.8.2" || version == "26.10.0"
+		if accept && (err != nil || got != version) || !accept && err == nil {
+			t.Fatal("local provider version eligibility differs", version, err)
+		}
+	}
 }

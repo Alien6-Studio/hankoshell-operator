@@ -24,6 +24,28 @@ workload declarations remain readable; new installations should use the patched 
 
 ## Window rules
 
+The table records **exact tests**, not a runtime patch allowlist. Core fleet
+rollout accepts canonical stable `26.x` versions. Kubernetes workload federation
+and bounded delegation are eligible from `26.7.5` within that major; discovery
+overrides require `26.8.0` or later `26.x`. New patches and minors do not require
+an operator rebuild merely to pass a version check. Unmeasured versions are not
+reported as qualified. Prereleases, vendor suffixes and new major versions are
+excluded from these feature declarations until reviewed.
+
+Version eligibility never grants permissions or bypasses native ownership,
+discovery or resolved-source read-back. Bounded delegation additionally requires
+the exact enabled extension contract and its depth/TTL limits. Missing optional
+capabilities refuse that feature, rather than disabling ordinary reconciliation.
+Core reconciliation and the experimental managed `Upgrade` operation do not
+impose a global server-version allowlist. An older server is not thereby qualified.
+
+An accepted version is also not a guarantee of a rolling or reversible upgrade.
+Use Keycloak's [update compatibility check](https://www.keycloak.org/server/update-compatibility)
+and [migration guide](https://www.keycloak.org/docs/latest/upgrading/): even bug or
+security fixes may change behavior, and database migrations can require restoring
+a backup to return to the old server. The operator's existing backup, readiness
+and observation checks remain in force.
+
 Qualify three consecutive Kubernetes minors and two consecutive Keycloak minors,
 with one reviewed exact patch per minor and the newest qualified version as default.
 Every exact version needs its existing immutable image/node/envtest fixture pins.

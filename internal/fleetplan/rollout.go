@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloakversion"
 	utilversion "k8s.io/apimachinery/pkg/util/version"
 )
 
@@ -343,7 +344,7 @@ func localConfiguration(data []byte) (localConfig, error) {
 func validLocalProviders(providers []localProvider) bool {
 	seen := map[Target]bool{}
 	for _, p := range providers {
-		if !validTarget(p.Target) || seen[p.Target] || !strings.HasPrefix(p.Endpoint, "https://") || len(p.Endpoint) > 256 || !slices.Contains([]string{"26.7.5", "26.8.0", "26.8.1"}, p.Version) {
+		if !validTarget(p.Target) || seen[p.Target] || !strings.HasPrefix(p.Endpoint, "https://") || len(p.Endpoint) > 256 || !keycloakversion.Core(p.Version) {
 			return false
 		}
 		seen[p.Target] = true

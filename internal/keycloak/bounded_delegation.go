@@ -15,7 +15,7 @@ import (
 
 	"github.com/Alien6-Studio/hankoshell-operator/internal/adoption"
 	"github.com/Alien6-Studio/hankoshell-operator/internal/httpsecurity"
-	"github.com/Alien6-Studio/hankoshell-operator/internal/workloadtrust"
+	"github.com/Alien6-Studio/hankoshell-operator/internal/keycloakversion"
 )
 
 const BoundedDelegationAttribute = "oauth.bounded-delegation.v1"
@@ -78,7 +78,7 @@ func (c *Client) BoundedDelegationCapability(ctx context.Context, realm string) 
 func validBoundedCapability(capability BoundedDelegationCapability) bool {
 	return capability.Contract == "bounded-delegation/software-v1" &&
 		capability.ExtensionVersion == "0.1.0-SNAPSHOT" && capability.Experimental && capability.Enabled && capability.MaxDepth == 4 && capability.MaxTTLSeconds == 600 &&
-		(capability.KeycloakVersion == "26.7.5" || workloadtrust.SupportsDiscoveryOverride(capability.KeycloakVersion))
+		keycloakversion.BoundedDelegation(capability.KeycloakVersion)
 }
 
 type BoundedDelegationBinding struct {

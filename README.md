@@ -114,6 +114,10 @@ establish production compatibility.
 | keycloak | `26.7.5`, `26.8.1` | `26.8.1` |
 <!-- support-window:end -->
 
+Keycloak upgrades are not tied to this exact patch list. Fleet rollout accepts
+stable `26.x`; workload federation starts at `26.7.5`, and discovery overrides at
+`26.8.0`. Native capability, permission and read-back checks still apply.
+
 See the [support window](docs/support-window.md),
 [compatibility policy](docs/compatibility-policy.md), [API contract](docs/api-support.md),
 [graduation criteria](docs/stable-graduation.md) and

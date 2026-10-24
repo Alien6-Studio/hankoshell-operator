@@ -496,8 +496,8 @@ func TestWorkloadTrustUncertainCreateAndReadbackDriftRemainBlocked(t *testing.T)
 	}
 }
 
-func TestWorkloadTrustQualifiedPatchesPreserveNativeReadback(t *testing.T) {
-	for _, version := range []string{"26.8.0", "26.8.1"} {
+func TestWorkloadTrustCompatibleVersionsPreserveNativeReadback(t *testing.T) {
+	for _, version := range []string{"26.8.0", "26.8.1", "26.8.2", "26.10.0"} {
 		t.Run(version, func(t *testing.T) {
 			hash := workloadtrust.Digest("fixture", 1)
 			intent := workloadtrust.Intent{RealmRef: "managed", Alias: "cluster", Issuer: "https://current.example.test", DiscoveryURL: "https://override.example.test", QualifiedVersion: version, NamespaceUID: "namespace-uid", CAHash: hash, MaxAge: 600}
