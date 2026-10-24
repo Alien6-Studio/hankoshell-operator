@@ -32,7 +32,18 @@ kubectl --kubeconfig .tools/kind-demo/kubeconfig -n auth get hankoapplication,ha
 ```
 
 Edit [identities.yaml](identities.yaml), apply it using that same kubeconfig and
-inspect the resulting status. The declared callback hosts are illustrative; this
+inspect the resulting status. For a controlled callback change:
+
+```sh
+kubectl --kubeconfig .tools/kind-demo/kubeconfig -n auth \
+  patch hankoapplication customer-portal --type merge \
+  --patch '{"spec":{"redirectURIs":["https://portal.example.com/oidc/callback"]}}'
+./examples/kind/demo.sh verify
+```
+
+Verification waits for the current generation and compares the declared callback
+with the actual Keycloak client. Repeat the patch with the initial callback
+`https://portal.example.com/callback` to restore it. The declared hosts are illustrative; this
 example verifies client registration rather than hosting a browser application.
 
 ```sh

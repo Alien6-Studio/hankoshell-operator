@@ -130,8 +130,10 @@ ready() {
 verify() {
   login
   ready hankoapplication/customer-portal
-  client example customer-portal | jq -e \
-    '.publicClient and .protocol == "openid-connect" and .redirectUris == ["https://portal.example.com/callback"]' >/dev/null
+  local redirects
+  redirects="$(k get hankoapplication customer-portal -o json | jq -ec .spec.redirectURIs)"
+  client example customer-portal | jq -e --argjson redirects "$redirects" \
+    '.publicClient and .protocol == "openid-connect" and .redirectUris == $redirects' >/dev/null
   echo "PASS: OIDC SPA client and callback are reconciled in Keycloak."
 
   ready hankoapplication/existing-portal
