@@ -27,6 +27,7 @@ RELEASE_VERSION := $(shell python3 -m tools.versions get release version)
 .DEFAULT_GOAL := all
 .PHONY: keycloak-extension-build keycloak-extension-test
 .PHONY: delegation-installed-test
+.PHONY: keycloak-fixture-image
 
 .PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-check integration-test keycloak-integration-test authentik-integration-test security-mutations security-fuzz licenses lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test fleet-installed-test portable-installed-test scale-installed-test
 versions-sync:
@@ -73,6 +74,14 @@ integration-test: $(GOTESTSUM)
 	@assets="$$(bash tools/bootstrap/install_envtest.sh $(KUBERNETES_VERSION))" && \
 		KUBEBUILDER_ASSETS="$$assets" KUBERNETES_VERSION=$(KUBERNETES_VERSION) \
 		python3 -m tools.qualification.runners.go_tests kubernetes --gotestsum "$(GOTESTSUM)" --output "$(TEST_REPORT_DIR)/kubernetes-$(KUBERNETES_VERSION)"
+# Retry only an immutable public download, before any build or scenario starts.
+keycloak-fixture-image:
+	@set -eu; image="$$(python3 -m tools.versions get keycloak images "$(KEYCLOAK_VERSION)")"; \
+		if docker image inspect "$$image" >/dev/null 2>&1; then exit 0; fi; \
+		for attempt in 1 2 3; do \
+			if docker pull "$$image"; then exit 0; fi; \
+			if test "$$attempt" -lt 3; then sleep 5; fi; \
+		done; exit 1
 keycloak-integration-test: $(GOTESTSUM)
 	KEYCLOAK_VERSION=$(KEYCLOAK_VERSION) python3 -m tools.qualification.runners.go_tests keycloak --shard "$(KEYCLOAK_SHARD)" \
 		--gotestsum "$(GOTESTSUM)" --output "$(TEST_REPORT_DIR)/keycloak-$(KEYCLOAK_VERSION)-$(KEYCLOAK_SHARD)"

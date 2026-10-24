@@ -3,6 +3,7 @@
 Declare application identity and access in Kubernetes; keep Keycloak in sync.
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml)
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/hankoshell-operator)](https://artifacthub.io/packages/search?repo=hankoshell-operator)
 [![Version](https://img.shields.io/badge/version-1.0.0%20unreleased-blue.svg)](#status)
 [![Go](https://img.shields.io/badge/go-1.27.3-00ADD8.svg)](go.mod)
 [![Kubernetes](https://img.shields.io/badge/kubernetes-1.35%E2%80%931.37-326CE5.svg)](docs/support-window.md)

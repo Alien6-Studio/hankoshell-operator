@@ -125,14 +125,18 @@ def qualify(output, archive, evidence, image, revision, oras, helm, attest, conf
                 raise ValueError("Checkpoint from another source revision was accepted")
             releases = Releases(None)
             transport = InterruptedRegistry(registry, releases)
+            ready = publish.contract.versioning.RELEASE_STATUS == "ready"
             try:
                 publish.promote(transport, releases, restored, image_repository=local + "/operator",
                                 chart_repository=local + "/charts/hankoshell-operator", fresh_evidence=evidence)
             except ValueError as error:
-                if "blocked" not in str(error) or releases.writes:
+                if ready or "blocked" not in str(error) or releases.writes:
                     raise
             else:
-                raise ValueError("Development checkpoint was accepted by production promotion")
+                if not ready:
+                    raise ValueError("Development checkpoint was accepted by production promotion")
+                if releases.current["draft"] is not True or releases.current["tag_name"] != TAG:
+                    raise ValueError("Ready-source rehearsal did not create the expected isolated draft")
             # Native ORAS/Helm writes plus every GitHub fixture write. Inject a
             # loss AFTER each write, then retry and require zero repeated writes.
             count = 4 + len(list((root / "dist").iterdir())) + len(list((root / "release-evidence").iterdir()))
@@ -248,13 +252,14 @@ def qualify(output, archive, evidence, image, revision, oras, helm, attest, conf
             "native_registry_and_helm": "pass", "checkpoint_restore_and_attest_recompute": "pass",
             "lost_acknowledgement_points": count, "idempotent_retries": "pass", "conflict_rejection": "pass",
             "empty_starter_upload_and_interrupted_deletion_recovery": "pass",
-            "release_identity": {"product_version": VERSION, "fixture_tag": TAG, "prerelease": True,
+            "release_identity": {"product_version": VERSION, "fixture_tag": TAG, "prerelease": "-" in VERSION,
                                  "target_public_version": publish.contract.versioning.VERSION,
                                  "future_git_ref": "refs/tags/" + publish.contract.versioning.public_tag(publish.contract.versioning.VERSION),
                                  "github_release_name": releases.current["name"], "chart_version": VERSION,
                                  "image_tag": VERSION},
             "release_identity_conflict_rejection": "pass",
-            "production_development_rejection": "pass",
+            "source_readiness": publish.contract.versioning.RELEASE_STATUS,
+            "production_readiness_gate": "pass",
             "limitations": ["loopback OCI fixture; no public registry or Artifact Hub indexing",
                             "GitHub release/asset storage fixture; no production API or OIDC qualification"],
         }, indent=2) + "\n")
