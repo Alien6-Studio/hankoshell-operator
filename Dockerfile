@@ -26,6 +26,9 @@ RUN . /cosign_pins.sh \
     && go mod init hankoshell.local/cosign-build \
     && go get "github.com/sigstore/cosign/v3/cmd/cosign@$COSIGN_VERSION" \
     && go get $COSIGN_DEPENDENCIES \
+    && test "$(go list -m -f '{{.Version}}' github.com/sigstore/cosign/v3)" = "$COSIGN_VERSION" \
+    && packages="$(CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go list -deps github.com/sigstore/cosign/v3/cmd/cosign)" \
+    && ! printf '%s\n' "$packages" | grep -Eq '^golang.org/x/crypto/openpgp(/|$)' \
     && CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build -trimpath \
         -ldflags "-s -w -X sigs.k8s.io/release-utils/version.gitVersion=$COSIGN_VERSION" \
         -o /cosign github.com/sigstore/cosign/v3/cmd/cosign

@@ -107,7 +107,7 @@ def rehearse(args):
         raise ValueError("The RFC 3161 fixture requires OpenSSL 3")
     version_info = run([args.cosign, "version", "--json"]).stdout
     if json.loads(version_info)["gitVersion"] != contract.pins.DATA["tools"]["cosign"]["version"]:
-        raise ValueError("Expected the pinned cosign 3.1.3 tool")
+        raise ValueError("Expected the pinned Cosign tool version")
     args.output.mkdir(parents=True)
     args.output.chmod(0o700)
     dist = args.output / "dist"

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Update the embedded Cosign verifier to 3.1.4 and chi to 5.4.0
+  (CVE-2026-114437). The updated Rekor dependency uses maintained OpenPGP
+  packages instead of the deprecated `golang.org/x/crypto/openpgp` packages
+  reported by GO-2026-5932.
+- Reject verifier builds that silently downgrade Cosign or reintroduce the
+  deprecated OpenPGP packages.
+
 ## 1.0.0
 
 <!-- release-notes:start -->
