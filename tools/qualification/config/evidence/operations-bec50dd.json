@@ -1,8 +1,8 @@
 {
   "result": "pass",
   "scope": "installed operational smoke; not production HA",
-  "revision": "26eeb2dc66b16fb38afcf4451f995c89042b669b",
-  "image_digest": "sha256:dccc68814ef3f9e72f4711c6fcfcdc46394a2be793429c39dac272cb955aafe2",
+  "revision": "bec50ddee39bca741bcdd4ea581322a4a783b524",
+  "image_digest": "sha256:96267964d9bba475cfb27a8015823a42d67410bd8e0270e109d07a8e007ea8c5",
   "kubernetes": "1.37.0",
   "keycloak": "26.8.0",
   "checks": [
@@ -43,6 +43,6 @@
     "projection_create_refused": true
   },
   "harness_sha256": "55b445a125f773f33f66a909cb490a61e2321b307a21c9e562c606e9934e7b02",
-  "system_harness_sha256": "d609a6a26af7e8f9c97a8359abe8eae4a64d78346fea79cb391b77f2059a2310",
+  "system_harness_sha256": "cb44b7acb40a47c60d439fb929ff33bcafe92e4e105e03dffd6c9546b16da8e1",
   "privacy_harness_sha256": "ee97e808453939efc2a48a62807330b879ec5b777c1b4636aa8fadc56e44ef8b"
 }

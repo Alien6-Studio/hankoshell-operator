@@ -90,6 +90,10 @@ class Registry:
                 metadata = json.loads(payload.read_text())
                 if metadata.get("name") != "hankoshell-operator" or metadata.get("version") != contract.VERSION or metadata.get("appVersion") != contract.VERSION:
                     return False
+            elif (manifest["config"]["mediaType"] != "application/vnd.cncf.artifacthub.config.v1+yaml"
+                  or manifest["config"]["size"] != 0
+                  or manifest["config"]["digest"] != "sha256:" + hashlib.sha256(b"").hexdigest()):
+                return False
         return True
 
 

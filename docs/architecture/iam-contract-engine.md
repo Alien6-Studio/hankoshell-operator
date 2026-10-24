@@ -322,11 +322,13 @@ HMAC bundle authentication and Continuum transport/enforcement remain unchanged.
 
 The [support inventory](../api-support.md) records every CRD spec/status field
 group and native extension boundary. It is checked against the generated CRDs;
-new groups require review. It does not freeze public normalization or ownership
-semantics before #81 selects the public contract and #82 supplies its goldens.
+new groups require review. The [selected contract](../public-contract-selection.md) and
+[semantic corpus](../public-contract-semantics.md) define the reviewed
+normalization and ownership behavior.
 
 All status Conditions use type-keyed map semantics, including nested mapper
 Conditions. The real API fixtures verify independent SSA writers, same-type
-conflicts and duplicate rejection on every CRD. Existing atomic-list field
-ownership requires the explicit [migration procedure](../api-migration-policy.md#conditions-list-migration);
-these tests do not establish an installed topology upgrade/downgrade.
+conflicts and duplicate rejection on every CRD. Review
+[persisted state](../api-migration-policy.md#persisted-state) before changing
+list topology; these tests do not establish an installed topology upgrade or
+downgrade.

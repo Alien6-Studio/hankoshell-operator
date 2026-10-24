@@ -96,8 +96,11 @@ machine and SAML clients, runtime bindings and migration.
 This project remains in **initial development**. All 17 `hanko.sh/v1alpha1`
 resources use one experimental API: `hanko.sh/v1alpha1`.
 
-Version 1.0.0 is under qualification. Publication requires completed endurance, HA and
-independent release verification. Managed Upgrade, Clone and DBSwitch remain
+Version 1.0.0 is under final qualification.
+[Endurance](https://github.com/Alien6-Studio/hankoshell-operator/issues/95) and
+[HA/recovery](https://github.com/Alien6-Studio/hankoshell-operator/issues/96) are complete;
+publication still requires final-candidate and independent release verification.
+Managed Upgrade, Clone and DBSwitch remain
 experimental and disabled by default. Track [remaining work](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11)
 and [qualification](docs/qualification.md); passing source checks alone does not
 establish production compatibility.
