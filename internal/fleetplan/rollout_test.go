@@ -161,8 +161,8 @@ func TestFleetRolloutSchemaVersionAndOverrides(t *testing.T) {
 	if err := fleetplan.LocalOverride(nil, f.plan.Target); err != nil {
 		t.Fatal(err)
 	}
-	raw := marshal(t, map[string]any{"version": "hanko.sh/fleet-rollout/v1alpha1", "providers": []any{map[string]any{"target": f.plan.Target, "endpoint": "https://provider.example.test", "version": "26.8.0"}}})
-	if v, err := fleetplan.ProviderVersion(raw, f.plan.Target, "https://provider.example.test"); err != nil || v != "26.8.0" {
+	raw := marshal(t, map[string]any{"version": "hanko.sh/fleet-rollout/v1alpha1", "providers": []any{map[string]any{"target": f.plan.Target, "endpoint": "https://provider.example.test", "version": "26.8.1"}}})
+	if v, err := fleetplan.ProviderVersion(raw, f.plan.Target, "https://provider.example.test"); err != nil || v != "26.8.1" {
 		t.Fatal("local version approval was not read")
 	}
 	if v, err := fleetplan.ProviderVersion(raw, f.plan.Target, "https://other.example.test"); err != nil || v != "" {

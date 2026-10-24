@@ -1,7 +1,7 @@
 {
   "release": {
     "version": "1.0.0",
-    "status": "development"
+    "status": "ready"
   },
   "go": {
     "toolchain": "1.27.3"
@@ -110,13 +110,13 @@
   },
   "keycloak": {
     "versions": [
-      "26.8.0",
+      "26.8.1",
       "26.7.5"
     ],
-    "default": "26.8.0",
+    "default": "26.8.1",
     "images": {
       "26.7.5": "quay.io/keycloak/keycloak:26.7.5@sha256:37dbaf6f0722c9ec246335f36e1ef8b2e6cb960f7c27e0d8c615121a3d475a85",
-      "26.8.0": "quay.io/keycloak/keycloak:26.8.0@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc"
+      "26.8.1": "quay.io/keycloak/keycloak:26.8.1@sha256:a78d6b79572168cb25886b80a8b5b8d4ed4390743e3eecb810538683e209dd6b"
     }
   },
   "api": {

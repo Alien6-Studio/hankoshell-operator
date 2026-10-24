@@ -35,7 +35,7 @@ func TestFleetRolloutControllerDecisionsAndOverrideRace(t *testing.T) {
 				if err := f.client.Get(context.Background(), client.ObjectKey{Name: "fleet-trust", Namespace: "auth"}, cm); err != nil {
 					t.Fatal(err)
 				}
-				raw, _ := json.Marshal(map[string]any{"version": "hanko.sh/fleet-rollout/v1alpha1", "providers": []any{map[string]any{"target": f.plan.Target, "endpoint": f.tenant.Spec.HubEndpoint, "version": "26.8.0"}}})
+				raw, _ := json.Marshal(map[string]any{"version": "hanko.sh/fleet-rollout/v1alpha1", "providers": []any{map[string]any{"target": f.plan.Target, "endpoint": f.tenant.Spec.HubEndpoint, "version": "26.8.1"}}})
 				cm.Data["rollout.json"] = string(raw)
 				if err := f.client.Update(context.Background(), cm); err != nil {
 					t.Fatal(err)

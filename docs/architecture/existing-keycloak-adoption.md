@@ -785,14 +785,14 @@ are unchanged. An invalid source never falls back to the writer identity.
 
 Committed [characterization fixture](../../internal/controller/keycloak_adoption_characterization_test.go)
 uses the existing digest-pinned, verified private-CA HTTPS Keycloak **26.7.5 and
-26.8.0**. Bootstrap provisions disposable objects/roles only. Dedicated inventory
+26.8.1**. Bootstrap provisions disposable objects/roles only. Dedicated inventory
 and isolated per-domain writer service accounts perform observations and probes.
 Inventory PUTs are denied. Its TLS route recorder rejects every Admin mutation
 and client-secret path while exercising actual HankoImport.
 
 ```sh
 make keycloak-integration-test KEYCLOAK_VERSION=26.7.5
-make keycloak-integration-test KEYCLOAK_VERSION=26.8.0
+make keycloak-integration-test KEYCLOAK_VERSION=26.8.1
 ```
 
 The focused test is `TestRealKeycloakAdoptionCharacterization`; existing

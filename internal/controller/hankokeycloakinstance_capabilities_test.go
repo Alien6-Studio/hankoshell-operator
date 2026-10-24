@@ -29,7 +29,7 @@ func TestInstanceUsesOnlyExplicitlyRequestedCapabilities(t *testing.T) {
 				case req.URL.Path == "/realms/master/protocol/openid-connect/token":
 					_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "privileged", "expires_in": 300})
 				case req.Method == http.MethodGet && req.URL.Path == "/admin/serverinfo":
-					_ = json.NewEncoder(w).Encode(map[string]any{"systemInfo": map[string]string{"version": "26.8.0"}})
+					_ = json.NewEncoder(w).Encode(map[string]any{"systemInfo": map[string]string{"version": "26.8.1"}})
 				case req.Method == http.MethodGet && req.URL.Path == "/admin/realms":
 					_ = json.NewEncoder(w).Encode([]any{})
 				default:
@@ -97,7 +97,7 @@ func TestExplicitMasterHardeningMustSucceedBeforeReady(t *testing.T) {
 				case "/realms/master/protocol/openid-connect/token":
 					_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "token", "expires_in": 300})
 				case "/admin/serverinfo":
-					_ = json.NewEncoder(w).Encode(map[string]any{"systemInfo": map[string]string{"version": "26.8.0"}})
+					_ = json.NewEncoder(w).Encode(map[string]any{"systemInfo": map[string]string{"version": "26.8.1"}})
 				case "/admin/realms":
 					_ = json.NewEncoder(w).Encode([]any{})
 				case "/admin/realms/master":

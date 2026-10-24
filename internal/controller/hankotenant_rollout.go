@@ -17,7 +17,7 @@ import (
 
 func fleetNativeSupport(p keycloak.FleetPermissions) fleetplan.Support {
 	apps := applications.KeycloakEvidence().Supported
-	qualified := p.Version == "26.7.5" || p.Version == "26.8.0"
+	qualified := p.Version == "26.7.5" || p.Version == "26.8.0" || p.Version == "26.8.1"
 	return fleetplan.Support{Capabilities: map[string]bool{"iam.policy": qualified, "realm.manage": qualified, "realm.identity-providers": qualified, "application.oidc": qualified && apps.OIDC, "application.saml": qualified && apps.SAML && apps.SAMLAssertionSigning, "application.client-roles": qualified && apps.ClientRoles, "application.token-claims": qualified && apps.ProtocolMappers, "service-account.manage": qualified}, Permissions: map[string]bool{"iam.policy": p.ManageRealm && p.ManageEvents, "realm.manage": p.ManageRealm && p.ManageEvents, "realm.identity-providers": p.ManageIdentityProviders, "application.oidc": p.ManageClients, "application.saml": p.ManageClients, "application.client-roles": p.ManageClients, "application.token-claims": p.ManageClients, "service-account.manage": p.ManageClients}}
 }
 

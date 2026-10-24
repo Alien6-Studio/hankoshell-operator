@@ -15,9 +15,9 @@ Review upstream security patches before deployment; an end-of-life or provider-e
 does not receive additional project qualification. See the
 [Kubernetes compatibility and hardening matrix](docs/secure-deployment.md#kubernetes-compatibility-and-hardening).
 
-Version 1.0.0 remains in initial development. No public release exists. The `v1alpha1` APIs remain
-experimental. Reports against `main` are welcome; the published-release support
-policy above applies once a public release exists.
+The `v1alpha1` APIs remain experimental and in initial development, independently
+of the operator's release version. Reports against `main` are welcome; the support
+policy above applies to artifacts available under GitHub Releases.
 
 ## Repository protection audit
 
@@ -195,5 +195,5 @@ Qualification window: [support policy](docs/support-window.md), [compatibility p
 | Component | Exact qualification versions | Default |
 | --- | --- | --- |
 | kubernetes | `1.35.0`, `1.36.2`, `1.37.0` | `1.37.0` |
-| keycloak | `26.7.5`, `26.8.0` | `26.8.0` |
+| keycloak | `26.7.5`, `26.8.1` | `26.8.1` |
 <!-- support-window:end -->

@@ -48,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        keycloak: ["26.7.5", "26.8.0"] # versions:workload-keycloak
+        keycloak: ["26.7.5", "26.8.1"] # versions:workload-keycloak
         kubernetes: ["1.35.0", "1.36.2", "1.37.0"] # versions:kubernetes
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

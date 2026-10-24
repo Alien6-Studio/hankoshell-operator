@@ -495,3 +495,27 @@ func TestWorkloadTrustUncertainCreateAndReadbackDriftRemainBlocked(t *testing.T)
 		t.Fatal("changed read-back was blindly repaired")
 	}
 }
+
+func TestWorkloadTrustQualifiedPatchesPreserveNativeReadback(t *testing.T) {
+	for _, version := range []string{"26.8.0", "26.8.1"} {
+		t.Run(version, func(t *testing.T) {
+			hash := workloadtrust.Digest("fixture", 1)
+			intent := workloadtrust.Intent{RealmRef: "managed", Alias: "cluster", Issuer: "https://current.example.test", DiscoveryURL: "https://override.example.test", QualifiedVersion: version, NamespaceUID: "namespace-uid", CAHash: hash, MaxAge: 600}
+			refs := workloadtrust.References{Owner: "trust-uid", Generation: 1, RealmID: "realm-uuid", ProviderID: "provider-uuid", SourceHash: hash, FreshReferencesHash: hash, FlowHash: hash, DependenciesHash: hash}
+			plan, err := workloadtrust.Compile(intent, refs)
+			if err != nil {
+				t.Fatal(err)
+			}
+			snapshot := &workloadSnapshot{plan: plan, trust: api.HankoWorkloadTrust{ObjectMeta: metav1.ObjectMeta{UID: "trust-uid"}, Spec: api.HankoWorkloadTrustSpec{KeycloakAlias: "cluster"}}, discovery: workloadtrust.DiscoveryEvidence{JWKSURL: "https://current.example.test/jwks"}}
+			provider := desiredWorkloadProvider(snapshot)
+			snapshot.provider = &provider
+			if !workloadConfigurationMatches(snapshot) {
+				t.Fatal("qualified native read-back would cause repeated writes")
+			}
+			provider.Config.JWKSURL = "https://foreign.example.test/jwks"
+			if workloadConfigurationMatches(snapshot) {
+				t.Fatal("foreign resolved keys were accepted as current")
+			}
+		})
+	}
+}

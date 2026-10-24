@@ -114,7 +114,7 @@ func newFleetAPIFixture(t *testing.T, ctx context.Context, kube client.Client, n
 	f := &fleetAPIFixture{kube: kube}
 	roles := []string{"manage-realm", "manage-events", "manage-clients", "manage-identity-providers"}
 	f.nativeRoles.Store(&roles)
-	nativeVersion := "26.8.0"
+	nativeVersion := "26.8.1"
 	f.nativeVersion.Store(&nativeVersion)
 	public, private, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {

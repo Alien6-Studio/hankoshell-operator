@@ -95,7 +95,7 @@ type CapabilityEvidence struct {
 }
 
 func KeycloakEvidence(caps Capabilities) CapabilityEvidence {
-	return CapabilityEvidence{Supported: caps, Qualified: true, Source: "adapter-and-real-qualification", Window: "26.7.5,26.8.0"}
+	return CapabilityEvidence{Supported: caps, Qualified: true, Source: "adapter-and-real-qualification", Window: "26.7.5,26.8.1"}
 }
 
 // Plan is an in-process sealed snapshot. JSON exposes identity only; it cannot

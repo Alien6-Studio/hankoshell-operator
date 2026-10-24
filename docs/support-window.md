@@ -1,17 +1,25 @@
 # Kubernetes and Keycloak qualification/support window
 
-This repository policy is active for **initial development qualification**.
+The `v1alpha1` API remains in **initial development**; this policy defines its qualification window.
 It does not publish a release or grant stable API compatibility. The proposed
 public rules in [compatibility-policy.md](compatibility-policy.md) await #87's
 post-publication community review. Machine rules live in
 [compatibility-policy.json](../tools/qualification/config/contracts/compatibility-policy.json); exact versions and immutable
 fixture checksums live only in [versions.json](../versions.json).
 
+Upstream review, 2026-10-24: Kubernetes 1.35, 1.36 and 1.37 are maintained
+[release series](https://kubernetes.io/releases/). Their fixture patches are
+compatibility samples; deploy current upstream security patches. Keycloak
+[26.8.1](https://www.keycloak.org/2026/10/keycloak-2681-released) supplies security
+fixes and replaces 26.8.0 in the current matrix. The retained 26.7.5 cell measures
+older-minor compatibility, not an upstream backport commitment. Existing 26.8.0
+workload declarations remain readable; new installations should use the patched provider.
+
 <!-- support-window:start -->
 | Component | Exact qualification versions | Default |
 | --- | --- | --- |
 | kubernetes | `1.35.0`, `1.36.2`, `1.37.0` | `1.37.0` |
-| keycloak | `26.7.5`, `26.8.0` | `26.8.0` |
+| keycloak | `26.7.5`, `26.8.1` | `26.8.1` |
 <!-- support-window:end -->
 
 ## Window rules

@@ -186,7 +186,7 @@ func TestOperationCompletionNeedsCurrentProviderObservation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := instanceReconciler.completeKeycloakInstance(ctx, instance, keycloak.New("https://provider.invalid", "", ""), client.MergeFrom(instance.DeepCopy()), "26.8.0", 1, observation); err != nil {
+	if _, err := instanceReconciler.completeKeycloakInstance(ctx, instance, keycloak.New("https://provider.invalid", "", ""), client.MergeFrom(instance.DeepCopy()), "26.8.1", 1, observation); err != nil {
 		t.Fatal(err)
 	}
 	if err := backend.Get(ctx, client.ObjectKeyFromObject(instance), instance); err != nil {

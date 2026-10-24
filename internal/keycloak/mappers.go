@@ -33,7 +33,7 @@ type ProtocolMapper struct {
 	Config         map[string]string `json:"config"`
 }
 
-// CanonicalProtocolMapper normalizes only defaults qualified on 26.7.5/26.8.0.
+// CanonicalProtocolMapper normalizes only defaults qualified on 26.7.5/26.8.1.
 // Keycloak drops an empty audience/role prefix and inserts the audience mapper's
 // userinfo=false default. Explicit non-default values remain observable drift.
 func CanonicalProtocolMapper(mapper ProtocolMapper) ProtocolMapper {

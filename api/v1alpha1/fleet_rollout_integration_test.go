@@ -48,7 +48,7 @@ func checkFleetCapabilityRollout(t *testing.T, ctx context.Context, kube client.
 		if err := kube.Get(ctx, client.ObjectKeyFromObject(f.trust), cm); err != nil {
 			t.Fatal(err)
 		}
-		raw, _ := json.Marshal(map[string]any{"version": "hanko.sh/fleet-rollout/v1alpha1", "providers": []any{map[string]any{"target": f.plan.Target, "endpoint": f.tenant.Spec.HubEndpoint, "version": "26.8.0"}}})
+		raw, _ := json.Marshal(map[string]any{"version": "hanko.sh/fleet-rollout/v1alpha1", "providers": []any{map[string]any{"target": f.plan.Target, "endpoint": f.tenant.Spec.HubEndpoint, "version": "26.8.1"}}})
 		cm.Data["rollout.json"] = string(raw)
 		if err := kube.Update(ctx, cm); err != nil {
 			t.Fatal(err)

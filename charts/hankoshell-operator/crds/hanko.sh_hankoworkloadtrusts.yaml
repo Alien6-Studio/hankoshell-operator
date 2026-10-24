@@ -98,7 +98,7 @@ spec:
                     type: object
                   discoveryURL:
                     description: DiscoveryURL is a source override qualified only
-                      on explicit 26.8.0 sources.
+                      on explicit 26.8.0/26.8.1 sources.
                     maxLength: 2048
                     pattern: ^https://[a-z0-9\[\]:.-]+(/[A-Za-z0-9._~!$&'()*+,;=:@/-]*)?$
                     type: string
@@ -133,6 +133,7 @@ spec:
                 enum:
                 - 26.7.5
                 - 26.8.0
+                - 26.8.1
                 type: string
               realmRef:
                 description: RealmRef selects an existing HankoRealm in this namespace,
@@ -170,9 +171,10 @@ spec:
               rule: self.sourceRef == oldSelf.sourceRef
             - message: keycloakAlias is immutable; create a separately reviewed trust
               rule: self.keycloakAlias == oldSelf.keycloakAlias
-            - message: discovery override requires explicit 26.8.0 source qualification
+            - message: discovery override requires explicit qualified 26.8 source
+                qualification
               rule: '!has(self.kubernetes.discoveryURL) || (has(self.qualifiedKeycloakVersion)
-                && self.qualifiedKeycloakVersion == ''26.8.0'')'
+                && self.qualifiedKeycloakVersion in [''26.8.0'', ''26.8.1''])'
           status:
             properties:
               adoptionCandidate:

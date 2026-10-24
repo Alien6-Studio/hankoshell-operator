@@ -57,7 +57,7 @@ func TestFleetPermissionEvidenceComesFromProviderTLS(t *testing.T) {
 						w.WriteHeader(http.StatusForbidden)
 						return
 					}
-					_, _ = w.Write([]byte(`{"systemInfo":{"version":"26.8.0"}}`))
+					_, _ = w.Write([]byte(`{"systemInfo":{"version":"26.8.1"}}`))
 				case "/admin/realms/target":
 					if boundary == "realm-denied" {
 						w.WriteHeader(http.StatusForbidden)
@@ -80,7 +80,7 @@ func TestFleetPermissionEvidenceComesFromProviderTLS(t *testing.T) {
 			}
 			p, err := c.FleetPermissions(context.Background(), "target")
 			if boundary == "allowed" || boundary == "missing-role" || boundary == "other-realm" {
-				if err != nil || p.Version != "26.8.0" || p.ManageClients != (boundary == "allowed") {
+				if err != nil || p.Version != "26.8.1" || p.ManageClients != (boundary == "allowed") {
 					t.Fatal("native effective permissions were not scoped")
 				}
 			} else if err == nil || strings.Contains(err.Error(), server.URL) {

@@ -184,7 +184,7 @@ there is no fallback to another tenant or an unregistered shared connection.
 
 | Capability | Current conservative support/permission boundary |
 | --- | --- |
-| iam.policy, realm.manage | Existing target realm on Keycloak 26.7.5/26.8.0; manage-realm and manage-events. Realm creation is outside this rollout profile. |
+| iam.policy, realm.manage | Existing target realm on Keycloak 26.7.5/26.8.1; manage-realm and manage-events. Realm creation is outside this rollout profile. |
 | realm.identity-providers | Same qualified versions; manage-identity-providers. Derived when broker configuration/mappings are present. |
 | application.oidc, application.saml | Qualified application adapter support plus manage-clients. SAML includes the adapter's assertion-signing capability. |
 | application.client-roles, application.token-claims | Qualified client-role/mapper capabilities plus manage-clients. Realm role-scope mappings additionally require realm.manage in this conservative profile. |
@@ -358,7 +358,7 @@ The installed harness is [tools/qualification/scenarios/fleet_installed_test.py]
 The mandatory CI job `installed-fleet` consumes the immutable scanned OCI artifact
 from the same workflow, checks its exact revision/index/archive/evidence, then
 installs the chart in a uniquely owned disposable cluster. All six combinations
-of Kubernetes 1.35.0/1.36.2/1.37.0 and HTTPS Keycloak 26.7.5/26.8.0 must pass.
+of Kubernetes 1.35.0/1.36.2/1.37.0 and HTTPS Keycloak 26.7.5/26.8.1 must pass.
 The aggregate source/chart check and scheduled reporting include this job; no
 continue-on-error or partial matrix is accepted.
 

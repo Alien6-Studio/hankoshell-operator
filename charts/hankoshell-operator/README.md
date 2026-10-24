@@ -3,7 +3,7 @@
 Manage Keycloak realms, applications, roles and API permissions from Kubernetes.
 Standalone installations need neither hankoShell Hub nor Continuum.
 
-Version `1.0.0` remains in **initial development** and has not been published. All 17 `hanko.sh/v1alpha1` CRDs are
+The `1.0.0` operator retains the API in **initial development**. All 17 `hanko.sh/v1alpha1` CRDs are
 experimental and use `v1alpha1` for both serving and storage. See the [API inventory](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/api-support.md)
 and [selected 1.0 contract](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/public-contract-selection.md).
 
@@ -16,15 +16,18 @@ credential Secret and exact Kubernetes API/provider egress destinations.
 Use the [Keycloak permission model](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/keycloak-permissions.md)
 to provision that credential. Keep credentials outside committed values.
 
-From a source checkout:
+Install a published chart from GHCR:
 
 ```sh
-helm upgrade --install hankoshell-operator ./charts/hankoshell-operator \
+helm upgrade --install hankoshell-operator \
+  oci://ghcr.io/alien6-studio/charts/hankoshell-operator --version 1.0.0 \
   --namespace auth --create-namespace \
   --values operator-values.yaml --wait --timeout 5m
 ```
 
-The operator watches its release namespace. Helm installs the CRDs on first
+For a source checkout, use `./charts/hankoshell-operator` instead of the OCI
+reference and omit `--version`. The operator watches its release namespace.
+Helm installs the CRDs on first
 installation but **does not upgrade them**. Before updating an existing
 installation, follow the [API migration policy](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/api-migration-policy.md).
 
@@ -60,5 +63,5 @@ for the scope and limits of these results.
 | Component | Exact qualification versions | Default |
 | --- | --- | --- |
 | kubernetes | `1.35.0`, `1.36.2`, `1.37.0` | `1.37.0` |
-| keycloak | `26.7.5`, `26.8.0` | `26.8.0` |
+| keycloak | `26.7.5`, `26.8.1` | `26.8.1` |
 <!-- support-window:end -->

@@ -111,7 +111,7 @@ func (r *HankoWorkloadTrustReconciler) workloadSnapshot(ctx context.Context, key
 	if t.UID == "" || t.Spec.Provider != "Kubernetes" || t.Spec.Mode != "" && t.Spec.Mode != ModeManage && t.Spec.Mode != ModeObserve || len(validation.IsDNS1123Subdomain(t.Spec.KeycloakAlias)) != 0 || t.Spec.RealmRef == "master" || !workloadtrust.ValidHTTPS(i.Issuer) {
 		return s, trustFailure("UnsupportedNativeState")
 	}
-	if i.DiscoveryURL != "" && i.QualifiedVersion != "26.8.0" {
+	if i.DiscoveryURL != "" && !workloadtrust.SupportsDiscoveryOverride(i.QualifiedVersion) {
 		return s, trustFailure("UnsupportedDiscoveryOverride")
 	}
 	if r.validateWorkloadCluster(ctx, t.Spec.Kubernetes.ClusterAnchor) != nil {
@@ -494,7 +494,7 @@ func workloadConfigurationMatches(s *workloadSnapshot) bool {
 	}
 	p := s.provider
 	i := s.plan.Intent()
-	return p.Alias == i.Alias && p.Enabled && p.Config.Issuer == i.Issuer && p.Config.DiscoveryURL == i.DiscoveryURL && p.Config.ClockSkew == "0" && p.Config.MaxAge == i.MaxAge && (i.DiscoveryURL == "" && p.Config.JWKSURL == "" || i.QualifiedVersion == "26.8.0" && p.Config.JWKSURL == s.discovery.JWKSURL)
+	return p.Alias == i.Alias && p.Enabled && p.Config.Issuer == i.Issuer && p.Config.DiscoveryURL == i.DiscoveryURL && p.Config.ClockSkew == "0" && p.Config.MaxAge == i.MaxAge && (i.DiscoveryURL == "" && p.Config.JWKSURL == "" || workloadtrust.SupportsDiscoveryOverride(i.QualifiedVersion) && p.Config.JWKSURL == s.discovery.JWKSURL)
 }
 func desiredWorkloadProvider(s *workloadSnapshot) keycloak.KubernetesTrust {
 	p := keycloak.KubernetesTrust{InternalID: s.plan.References().ProviderID, Alias: s.trust.Spec.KeycloakAlias, ProviderID: "kubernetes", Enabled: true, Qualified: true}
@@ -585,8 +585,8 @@ func (r *HankoWorkloadTrustReconciler) workloadStatus(ctx context.Context, t *ap
 			t.Status.DependentInventoryHash = s.plan.References().DependenciesHash
 			t.Status.Dependents = &s.dependentCounts
 		}
-		t.Status.CapabilityEvidence = api.IAMCapabilityEvidence{Source: "adapter-and-real-qualification", QualificationWindow: "26.7.5,26.8.0"}
-		t.Status.Capabilities = &api.WorkloadTrustCapabilities{KubernetesWorkloadIdentity: true, FederatedClientAuthentication: true, ShortLivedClientAssertion: true, IssuerDiscoveryOverride: s.plan.Intent().QualifiedVersion == "26.8.0"}
+		t.Status.CapabilityEvidence = api.IAMCapabilityEvidence{Source: "adapter-and-real-qualification", QualificationWindow: "26.7.5,26.8.1"}
+		t.Status.Capabilities = &api.WorkloadTrustCapabilities{KubernetesWorkloadIdentity: true, FederatedClientAuthentication: true, ShortLivedClientAssertion: true, IssuerDiscoveryOverride: workloadtrust.SupportsDiscoveryOverride(s.plan.Intent().QualifiedVersion)}
 		if s.provider != nil {
 			t.Status.ProviderID = s.provider.InternalID
 			t.Status.ObservedStateHash = nativeWorkloadStateHash(*s.provider)

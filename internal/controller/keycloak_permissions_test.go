@@ -254,7 +254,7 @@ func TestRealKeycloakPermissionProfiles(t *testing.T) {
 			f.requireNoError(readErr)
 			fixtureEqual(t, "26.7.5 view-clients includes secret reads; documented residual authority", readSecret, actualSecret)
 		} else if !keycloak.IsForbidden(readErr) {
-			t.Fatal("26.8.0 observer secret-read boundary changed; review permission contract")
+			t.Fatal("26.8.1 observer secret-read boundary changed; review permission contract")
 		}
 		fixtureEqual(t, "observer cannot rotate secrets on either version", f.identityStatus("observer", credential, http.MethodPost, "/admin/realms/managed/clients/"+app["id"].(string)+"/client-secret", nil), http.StatusForbidden)
 	})
