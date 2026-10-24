@@ -34,6 +34,8 @@ jobs:
     permissions:
       contents: read
       packages: read
+      # Required by reusable CI's scheduled reporter, even when that job is skipped.
+      issues: write
     uses: ./.github/workflows/ci.yml
     with:
       release: true
