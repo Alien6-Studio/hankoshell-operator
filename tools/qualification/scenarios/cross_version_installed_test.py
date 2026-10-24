@@ -32,7 +32,7 @@ def fingerprint(value):
 
 def predecessor(capture, reviewed, proof):
     if (proof.get("verified") is not True or proof.get("published") is not True
-            or not versioning.is_stable(capture.get("source_release", ""))
+            or not versioning.is_predecessor(capture.get("source_release", ""), system.VERSION)
             or reviewed.get("state") != "reviewed-public-predecessor" or reviewed.get("published") is not True
             or capture.get("state") != "captured-for-review" or capture.get("published") is not False
             or reviewed.get("captured_sha256") != hashlib.sha256(capture.raw).hexdigest()):

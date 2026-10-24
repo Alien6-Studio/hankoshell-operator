@@ -33,13 +33,13 @@ jobs:
         run: |
           python3 - <<'PY'
           import json, os, pathlib, re, subprocess
-          from tools.release.release_version import is_stable
+          from tools.release.release_version import VERSION, is_predecessor
           root = pathlib.Path.cwd()
           path = (root / os.environ['REVIEWED_CORPUS']).resolve()
           if not path.is_relative_to(root / 'docs') or not path.is_file():
               raise SystemExit('Expected a retained reviewed corpus under docs/')
           corpus = json.loads(path.read_text())
-          if corpus.get('state') != 'reviewed-public-predecessor' or corpus.get('published') is not True or not is_stable(corpus.get('source_release', '')):
+          if corpus.get('state') != 'reviewed-public-predecessor' or corpus.get('published') is not True or not is_predecessor(corpus.get('source_release', ''), VERSION):
               raise SystemExit('No authenticated public predecessor; no historical pass is available')
           identifier = os.environ['CAPTURE_ARTIFACT_ID']
           if not re.fullmatch(r'[1-9][0-9]*', identifier):
