@@ -13,7 +13,7 @@ import (
 const publicTestKeys = `{"keys":[{"kty":"RSA","kid":"public-key","n":"AQAB","e":"AQAB"}]}`
 
 func TestPublicDiscoveryIsBoundedUnauthenticatedAndMatchesCurrentCluster(t *testing.T) {
-	for _, name := range []string{"qualified", "redirect", "oversized", "malformed", "duplicate", "issuer mismatch", "keys mismatch", "unexpected authority", "26.7 override", "26.8 override", "legacy override", "future override"} {
+	for _, name := range []string{"qualified", "redirect", "oversized", "malformed", "duplicate", "issuer mismatch", "keys mismatch", "unexpected authority", "26.7 override", "26.8 override", "legacy override", "future override", "future minor override", "unsupported major override"} {
 		t.Run(name, func(t *testing.T) {
 			var origin string
 			s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -65,10 +65,14 @@ func TestPublicDiscoveryIsBoundedUnauthenticatedAndMatchesCurrentCluster(t *test
 					i.QualifiedVersion = "26.8.0"
 				case "future override":
 					i.QualifiedVersion = "26.8.2"
+				case "future minor override":
+					i.QualifiedVersion = "26.10.0"
+				case "unsupported major override":
+					i.QualifiedVersion = "27.0.0"
 				}
 			}
 			_, err := ValidateDiscovery(context.Background(), s.Client(), i, current)
-			want := name == "qualified" || name == "26.8 override" || name == "legacy override"
+			want := name == "qualified" || name == "26.8 override" || name == "legacy override" || name == "future override" || name == "future minor override"
 			if (err == nil) != want {
 				t.Fatalf("qualified=%t, expected %t", err == nil, want)
 			}

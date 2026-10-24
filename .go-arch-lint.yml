@@ -25,6 +25,8 @@ components:
     in: "/internal/controller"
   keycloak:
     in: "/internal/keycloak"
+  keycloakversion:
+    in: "/internal/keycloakversion"
   authentik:
     in: "/internal/authentik"
   observability:
@@ -94,6 +96,7 @@ deps:
       - workloadbinding
       - workloadauth
       - keycloak
+      - keycloakversion
       - authentik
       - authorization
       - organization
@@ -117,6 +120,7 @@ deps:
   keycloak:
     anyVendorDeps: true
     mayDependOn:
+      - keycloakversion
       - workloadtrust
       - workloadauth
       - observability
@@ -154,6 +158,7 @@ deps:
 
   workloadtrust:
     mayDependOn:
+      - keycloakversion
       - iamcontract
       - httpsecurity
   workloadauth:
@@ -194,6 +199,7 @@ deps:
 
   fleetplan:
     mayDependOn:
+      - keycloakversion
       - httpsecurity
       - iamcontract
 

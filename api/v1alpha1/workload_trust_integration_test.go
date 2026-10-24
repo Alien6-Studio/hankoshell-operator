@@ -4,6 +4,7 @@ package v1alpha1_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -41,6 +42,31 @@ func checkWorkloadTrustAdmission(t *testing.T, ctx context.Context, kube client.
 	age, _, _ := unstructured.NestedInt64(obj.Object, "spec", "kubernetes", "assertionMaxAgeSeconds")
 	if mode != "Manage" || age != 600 {
 		t.Fatal("trust defaults differ")
+	}
+	// Real admission must agree with runtime eligibility, including future patches
+	// and minors. Version eligibility alone must not admit an older override.
+	for index, tc := range []struct {
+		version          string
+		override, accept bool
+	}{
+		{"26.7.5", false, true}, {"26.7.6", false, true},
+		{"26.8.0", true, true}, {"26.8.1", true, true},
+		{"26.8.2", true, true}, {"26.10.0", true, true},
+		{"26.7.5", true, false}, {"26.7.10", true, false},
+		{"26.7.4", false, false}, {"26.0.0", false, false},
+		{"27.0.0", true, false}, {"26.8.2-rc.1", false, false},
+		{"26.08.1", false, false}, {"26.8.01", false, false},
+		{"26.8", false, false}, {"", false, false},
+	} {
+		candidate := makeTrust(fmt.Sprintf("trust-version-%d", index))
+		_ = unstructured.SetNestedField(candidate.Object, tc.version, "spec", "qualifiedKeycloakVersion")
+		if tc.override {
+			_ = unstructured.SetNestedField(candidate.Object, "https://override.test", "spec", "kubernetes", "discoveryURL")
+		}
+		err := kube.Create(ctx, candidate)
+		if tc.accept && err != nil || !tc.accept && !apierrors.IsInvalid(err) {
+			t.Fatalf("version %q override=%t accept=%t: %v", tc.version, tc.override, tc.accept, err)
+		}
 	}
 	for _, field := range []string{"realmRef", "sourceRef", "keycloakAlias"} {
 		copy := obj.DeepCopy()

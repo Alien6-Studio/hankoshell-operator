@@ -56,7 +56,7 @@ func TestPlanRejectsUnqualifiedInputsAndStaleAuthority(t *testing.T) {
 	if _, err := Compile(i, p.References()); err == nil {
 		t.Fatal("26.7 override accepted")
 	}
-	for _, version := range []string{"26.8.0", "26.8.1"} {
+	for _, version := range []string{"26.8.0", "26.8.1", "26.8.2", "26.9.0", "26.10.0"} {
 		i.QualifiedVersion = version
 		qualified, err := Compile(i, p.References())
 		if err != nil {
@@ -71,9 +71,11 @@ func TestPlanRejectsUnqualifiedInputsAndStaleAuthority(t *testing.T) {
 			t.Fatal("qualified patch lost existing journal authority", version, err)
 		}
 	}
-	i.QualifiedVersion = "26.8.2"
-	if _, err := Compile(i, p.References()); err == nil {
-		t.Fatal("unknown future patch accepted without qualification")
+	for _, version := range []string{"26.7.4", "27.0.0", "26.8.1-rc.1", "26.08.1", "26.8.01"} {
+		i.QualifiedVersion = version
+		if _, err := Compile(i, p.References()); err == nil {
+			t.Fatal("unsupported workload source accepted", version)
+		}
 	}
 	for _, change := range []func(*References){func(r *References) { r.Generation++ }, func(r *References) { r.Owner = "replaced" }, func(r *References) { r.ProviderID = "replaced" }, func(r *References) { r.RealmID = "replaced" }, func(r *References) { r.SourceHash = Digest("changed", 1) }, func(r *References) { r.DependenciesHash = Digest("changed", 1) }, func(r *References) { r.FreshReferencesHash = Digest("changed", 1) }, func(r *References) { r.FlowHash = Digest("changed", 1) }} {
 		r := p.References()

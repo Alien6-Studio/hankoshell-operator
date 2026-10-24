@@ -20,6 +20,7 @@
     "internal/iamcontract": 81.3,
     "internal/imagevalidator": 90.5,
     "internal/keycloak": 54.9,
+    "internal/keycloakversion": 100,
     "internal/observability": 89.5,
     "internal/organization": 100,
     "internal/roles": 50.3,
