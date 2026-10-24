@@ -39,6 +39,18 @@ def notes(version=VERSION):
     return body + "\n"
 
 
+def check_qualification_permissions(release, ci):
+    allowed = release["jobs"]["quality"].get("permissions", release.get("permissions", {}))
+    levels = {"none": 0, "read": 1, "write": 2}
+    for name, job in ci["jobs"].items():
+        requested = job.get("permissions", ci.get("permissions", {}))
+        if not isinstance(allowed, dict) or not isinstance(requested, dict):
+            raise ValueError("Release qualification requires explicit scoped permission maps")
+        for scope, level in requested.items():
+            if levels.get(allowed.get(scope, "none"), -1) < levels[level]:
+                raise ValueError(f"Release qualification must allow {scope}: {level} for CI job {name}, including skipped jobs")
+
+
 def check(version=VERSION):
     chart = yaml.safe_load((ROOT / "charts/hankoshell-operator/Chart.yaml").read_text())
     if version != VERSION or chart["version"] != version or chart["appVersion"] != version:
@@ -47,7 +59,10 @@ def check(version=VERSION):
         raise ValueError("Artifact Hub prerelease status must match source maturity")
     if "artifacthub.io/signKey" in chart["annotations"]:
         raise ValueError("The Attest receipt key is not a Helm chart signing key")
-    ci = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())["jobs"]
+    ci_workflow = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())
+    release_workflow = yaml.safe_load((ROOT / ".github/workflows/release.yml").read_text())
+    check_qualification_permissions(release_workflow, ci_workflow)
+    ci = ci_workflow["jobs"]
     pins.check(ROOT)
     stable.check(ROOT)
     operations.check(ROOT)
