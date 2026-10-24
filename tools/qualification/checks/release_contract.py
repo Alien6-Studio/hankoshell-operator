@@ -11,7 +11,7 @@ import subprocess
 import yaml
 
 from tools import versions as pins
-from tools.release import release_metadata as metadata, oci_security as security
+from tools.release import release_metadata as metadata, oci_security as security, release_eligibility as eligibility
 from tools.qualification.checks import (
     stable_contract as stable, operations_contract as operations,
     compatibility_gate as compatibility, go_api_contract as go_api,
@@ -51,6 +51,32 @@ def check_qualification_permissions(release, ci):
                 raise ValueError(f"Release qualification must allow {scope}: {level} for CI job {name}, including skipped jobs")
 
 
+def check_qualification_profiles(ci):
+    jobs = ci["jobs"]
+    if set(jobs["checks"]["needs"]) != eligibility.QUALIFICATION_JOBS:
+        raise ValueError("Required gate and qualification profiles disagree")
+    for name in eligibility.SOURCE_JOBS:
+        if jobs[name].get("if") != "github.event_name != 'push' && inputs.release != true":
+            raise ValueError("Source-only checks must run on PRs, never repeat on main or release")
+    for name in ("source", "keycloak-extension", "oci"):
+        if jobs[name].get("if") != "github.event_name != 'push'":
+            raise ValueError("Delivery qualification must not repeat on main")
+    for mode, required in (("full", eligibility.QUALIFICATION_JOBS - {"installed-scale-qualification"}),
+                           ("integration", {"preflight"}),
+                           ("release", eligibility.DELIVERY_JOBS | {"preflight"})):
+        results = {name: {"result": "success" if name in required else "skipped"}
+                   for name in eligibility.QUALIFICATION_JOBS}
+        eligibility.check_jobs(results, mode)
+        for name in required:
+            for bad in ("skipped", "failure", "cancelled"):
+                try:
+                    eligibility.check_jobs(dict(results, **{name: {"result": bad}}), mode)
+                except ValueError:
+                    pass
+                else:
+                    raise ValueError("Required qualification failure was accepted: " + name)
+
+
 def check(version=VERSION):
     chart = yaml.safe_load((ROOT / "charts/hankoshell-operator/Chart.yaml").read_text())
     if version != VERSION or chart["version"] != version or chart["appVersion"] != version:
@@ -62,6 +88,7 @@ def check(version=VERSION):
     ci_workflow = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())
     release_workflow = yaml.safe_load((ROOT / ".github/workflows/release.yml").read_text())
     check_qualification_permissions(release_workflow, ci_workflow)
+    check_qualification_profiles(ci_workflow)
     ci = ci_workflow["jobs"]
     pins.check(ROOT)
     stable.check(ROOT)

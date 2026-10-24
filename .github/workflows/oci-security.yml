@@ -70,6 +70,8 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: false
+          cache-from: type=gha,scope=operator-image,timeout=2m
+          cache-to: type=gha,mode=max,scope=operator-image,timeout=2m,ignore-error=true
           outputs: type=oci,dest=${{ runner.temp }}/hankoshell-oci/image.tar
           build-args: VERSION=${{ steps.versions.outputs.version }}
           labels: |
@@ -112,5 +114,5 @@ jobs:
           name: verified-oci-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/hankoshell-oci
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
           compression-level: 0

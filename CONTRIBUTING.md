@@ -128,7 +128,11 @@ Run `make preflight` and the relevant Go conformance/admission tests after schem
 Develop related issues as one bounded batch. During implementation, run preflight
 and meaningful targeted regression tests, and continue independent work while CI
 runs. Run the full qualification matrix on the final batch revision before
-integration; it remains mandatory on every pull request.
+integration; it remains mandatory on every pull request. After squash merge,
+main verifies the successful qualification proof against the exact integrated
+Git tree instead of repeating the matrix. Release reuses the source proof and
+qualifies the final scanned image across every installed-image cell before
+publication. See [ADR-009](docs/architecture/decisions/ADR-009-full-pull-request-qualification.md).
 
 Close an implementation issue when its implementation is complete and pushed to
 the development branch. Add a Resolution comment with the exact commit, delivered
