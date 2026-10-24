@@ -17,13 +17,13 @@ Use it with an existing Keycloak, including one managed by the official Keycloak
 operator, or let it provision a provider instance. Standalone use requires neither
 hankoShell Hub nor Continuum. [hanko.sh](https://hanko.sh) describes the wider platform.
 
-## What it does
+## Start with your use case
 
-- **Application login:** OIDC SPA, web and machine clients, plus a bounded SAML subset.
-- **Access control:** roles, composites, organization grants and API permissions.
-- **Shared policies:** MFA, password rules, sessions and upstream identity providers.
-- **Machine identity:** credential rotation, workload federation and authorized Secret delivery.
-- **Existing installations:** observe and import supported configuration before explicitly adopting it.
+| You want to… | Follow this journey | Outcome |
+| --- | --- | --- |
+| Add login to an application | [Connect an OIDC client](#1-connect-an-oidc-client) | A client with reviewed callback and logout URLs, managed from Git. |
+| Bring an existing client under declarative management | [Adopt existing configuration](#2-adopt-existing-configuration) | Review the live configuration, acquire ownership, then explicitly enable management. |
+| Authenticate a backend or worker | [Give a service its own identity](#3-give-a-service-its-own-identity) | A machine client and a Kubernetes Secret with scheduled credential rotation. |
 
 Keycloak handles user login and token issuance. The operator manages only the
 fields and objects it owns. Use one writer per provider object; deleting a managed
@@ -56,20 +56,13 @@ Helm installs CRDs on first installation but does not upgrade them: use the
 [API migration policy](docs/api-migration-policy.md) before applying reviewed CRD
 changes to an existing installation. Metrics are off by default; [enabling them requires mTLS](docs/operations-runbooks.md#secure-metrics).
 
-## Declare an application
+## 1. Connect an OIDC client
 
-After installation, save this as `portal-identity.yaml`. Creating a realm requires
-an explicitly authorized provider credential; see the permission model above.
+Your SPA needs user login through Keycloak. These examples use the operator's
+`auth` namespace and an existing realm named `example`; replace the URLs and names
+with your own. Save this as `portal-identity.yaml`:
 
 ```yaml
-apiVersion: hanko.sh/v1alpha1
-kind: HankoRealm
-metadata:
-  name: example
-  namespace: auth
-spec:
-  displayName: Example
----
 apiVersion: hanko.sh/v1alpha1
 kind: HankoApplication
 metadata:
@@ -78,6 +71,8 @@ metadata:
 spec:
   realmRef: example
   clientID: customer-portal
+  mode: Manage
+  protocol: oidc
   type: spa
   redirectURIs:
     - https://portal.example.com/callback
@@ -87,12 +82,82 @@ spec:
 
 ```sh
 kubectl apply -f portal-identity.yaml
-kubectl get hankorealm,hankoapplication --namespace auth
+kubectl get hankoapplication customer-portal --namespace auth
 ```
 
-Replace the URLs with your own. Your SPA still implements its OIDC login flow.
-See the [application guide](docs/architecture/application-identity.md) for web,
-machine and SAML clients, runtime bindings and migration.
+Once reconciliation succeeds, Keycloak contains the `customer-portal` public
+client with those callback and logout URLs. Your SPA uses it in its OIDC login
+flow; later Git changes update the declared configuration. For server-side web
+clients, SAML and runtime bindings, see the [application guide](docs/architecture/application-identity.md).
+
+## 2. Adopt existing configuration
+
+Your application already authenticates through Keycloak. Start with its actual
+settings in `Observe` mode. Configure the read-only `inventory-keycloak` source
+using the [adoption guide](docs/architecture/existing-keycloak-adoption.md#administrator-workflow),
+then save a matching declaration as `existing-portal.yaml`:
+
+```yaml
+apiVersion: hanko.sh/v1alpha1
+kind: HankoApplication
+metadata:
+  name: existing-portal
+  namespace: auth
+  annotations:
+    hanko.sh/adoption-source: inventory-keycloak
+spec:
+  realmRef: example
+  clientID: existing-portal
+  mode: Observe
+  type: spa
+  redirectURIs:
+    - https://existing.example.com/callback
+```
+
+```sh
+kubectl apply -f existing-portal.yaml
+kubectl get hankoapplication existing-portal --namespace auth \
+  -o jsonpath='{.status.adoptionCandidate}{"\n"}'
+```
+
+Review the candidate's diff, identity and findings. The operator leaves the client
+unchanged in Observe. Follow the guide to approve that exact candidate and wait
+for a `Verified` adoption receipt. Acquisition preserves the client UUID and
+configuration; switching to `Manage` is a separate, explicit action. Existing
+unmarked or foreign-owned clients are never claimed just because their names match.
+
+## 3. Give a service its own identity
+
+Your backend or scheduled worker needs tokens without a user session. Authorize
+the exact output Secret `hanko-sa-report-worker` in your installation's
+`sensitiveWrites.secrets`, then save this as `worker-identity.yaml`:
+
+```yaml
+apiVersion: hanko.sh/v1alpha1
+kind: HankoServiceAccount
+metadata:
+  name: report-worker
+  namespace: auth
+spec:
+  realmRef: example
+  clientID: report-worker
+  authentication:
+    mode: Secret
+  secretRotationPolicy:
+    enabled: true
+    intervalDays: 30
+```
+
+```sh
+kubectl apply -f worker-identity.yaml
+kubectl get hankoserviceaccount report-worker --namespace auth
+```
+
+Once Ready, the worker can use OAuth `client_credentials` with client ID
+`report-worker` and the `client_secret` key from the owned Secret. Configure its
+access separately through roles and API permissions. The application must reload
+rotated credentials. For secretless Kubernetes authentication and its prerequisites,
+follow the [workload identity guide](docs/architecture/workload-identity.md).
 
 ## Status
 
