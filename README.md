@@ -161,6 +161,10 @@ follow the [workload identity guide](docs/architecture/workload-identity.md).
 
 ## Status
 
+Start with the [measured results and limits](docs/qualification.md#measured-results-and-limits)
+for endurance, memory, request rates and fault recovery, with the tested revisions
+and links to the underlying evidence.
+
 All 17 resources use one experimental API: `hanko.sh/v1alpha1`. The API remains
 in **initial development**; the operator's `1.0.0` version does not graduate it.
 
