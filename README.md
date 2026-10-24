@@ -33,6 +33,15 @@ currently covers a limited OIDC registration experiment.
 
 ## Install
 
+For a first hands-on run, use the [disposable kind demonstration](examples/kind/README.md):
+
+```sh
+./examples/kind/demo.sh up
+```
+
+It prepares a test Keycloak, installs the published chart and verifies all three
+journeys. Run `./examples/kind/demo.sh down` to remove the demo cluster.
+
 Check [Releases](https://github.com/Alien6-Studio/hankoshell-operator/releases) for published versions.
 Prepare `operator-values.yaml` with a reviewed image digest, Keycloak HTTPS endpoint,
 a dedicated credential Secret, private CA if needed, and exact API/provider egress.
