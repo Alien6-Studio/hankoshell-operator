@@ -347,8 +347,17 @@ func (e *organizationAuthorizationExperiment) permissionUpdate(permission, pid, 
 		status, _ := organizationRequest(f, e.denied, http.MethodPost, e.base+route, map[string]any{"name": "denied"})
 		fixtureEqual(f.t, "missing manage-clients "+route, status, http.StatusForbidden)
 	}
-	status, _ := organizationRequest(f, e.actor, http.MethodPost, e.base+"/policy/evaluate", map[string]any{"userId": e.users["europe"], "clientId": strings.Split(e.base, "/")[5], "resources": []any{map[string]any{"_id": rid, "scopes": []any{map[string]any{"id": sid}}}}})
-	fixtureEqual(f.t, "constrained Admin evaluation", status, http.StatusOK)
+	evaluation := map[string]any{"userId": e.users["europe"], "clientId": strings.Split(e.base, "/")[5], "resources": []any{map[string]any{"_id": rid, "scopes": []any{map[string]any{"id": sid}}}}}
+	status, _ := organizationRequest(f, e.actor, http.MethodPost, e.base+"/policy/evaluate", evaluation)
+	want := http.StatusOK
+	if f.version == "26.8.1" {
+		// The patched endpoint also requires authority to view the subject.
+		// Preserve this denial without broadening the policy writer's grants.
+		want = http.StatusForbidden
+	}
+	fixtureEqual(f.t, "policy writer Admin evaluation", status, want)
+	status, _ = organizationRequest(f, e.reader, http.MethodPost, e.base+"/policy/evaluate", evaluation)
+	fixtureEqual(f.t, "subject reader Admin evaluation", status, http.StatusOK)
 }
 
 func TestRealKeycloakOrganizationalAuthorizationCharacterization(t *testing.T) {

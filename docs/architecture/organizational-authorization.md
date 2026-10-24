@@ -81,12 +81,12 @@ authority would need a separate RFC; a noun alone does not justify a 17th CRD.
 
 The committed
 [real-server experiment](../../internal/controller/keycloak_organizational_authorization_test.go)
-uses the existing digest-pinned HTTPS fixtures for **26.7.5 and 26.8.0**. It is
+uses the existing digest-pinned HTTPS fixtures for **26.7.5 and 26.8.1**. It is
 included in the full real Keycloak suite, including race checking:
 
 ```sh
 make keycloak-integration-test KEYCLOAK_VERSION=26.7.5
-make keycloak-integration-test KEYCLOAK_VERSION=26.8.0
+make keycloak-integration-test KEYCLOAK_VERSION=26.8.1
 ```
 
 To run just this characterization, set the version and use
@@ -97,9 +97,12 @@ exercise UMA `response_mode=decision`, proving successful allow responses and
 HTTP 403 denials, rather than relying on an administrative simulation alone.
 Tokens/passwords remain in memory and are redacted; no real user is provisioned.
 
-Both versions produced the following results; no material difference was found:
+The original characterization covered 26.7.5 and 26.8.0. The current matrix
+retains its authorization semantics and checks the additional subject-read
+restriction introduced in
+[26.8.1](https://github.com/keycloak/keycloak/blob/26.8.1/services/src/main/java/org/keycloak/authorization/admin/PolicyEvaluationService.java):
 
-| Characterization | 26.7.5 | 26.8.0 |
+| Characterization | 26.7.5 | 26.8.1 |
 | --- | --- | --- |
 | Typed policy `policy/group` | groups[{id: UUID, extendChildren: boolean}], groupsClaim unset | Same |
 | Generic `policy/{id}` | Group definitions serialized in config.groups | Same |
@@ -119,6 +122,8 @@ Both versions produced the following results; no material difference was found:
 | Same-name policy create | HTTP 409; existing identity retained | Same |
 | Grant deletion | Permission/group policy removed; organization/group, resource, foreign policy and role-based access survived | Same |
 | Missing client authority | Policy/resource/scope/permission mutation and Admin evaluation denied | Same |
+| Admin evaluation with manage-clients alone | Allowed | HTTP 403 without subject-read authority |
+| Admin evaluation with manage-clients + view-users | Allowed | Same |
 
 The sibling-prefix regression is deliberate: Keycloak's
 [CVE-2026-18203 report](https://github.com/keycloak/keycloak/issues/51280)
@@ -143,7 +148,7 @@ management grants. The roles/routes tested are:
 | --- | --- | --- |
 | Client/resource-server reads, scopes/resources, policy/group CRUD, scope-permission CRUD | manage-clients | All clients/resource servers in the target realm, not a single client. |
 | GET groups/{id}, group-by-path/{path}, complete non-brief groups list with owner attributes | view-users | Users/groups throughout the target realm; not group-only read authority. |
-| POST authz/resource-server/policy/evaluate for a known fixture subject | manage-clients | Administrative client authorization evaluation; not a proposed public per-user API. |
+| POST authz/resource-server/policy/evaluate for a known fixture subject | manage-clients + view-users on 26.8.1; manage-clients on 26.7.5 | Administrative simulation requires subject-read authority on the patched server; not an operator reconciliation call or public per-user API. |
 | Real UMA request | Subject's own bearer token | Runtime provider membership and the requested audience/resource/scope; no admin role. |
 | Fixture creation, membership, role mapping, rename/reparent and native Organization setup | Bootstrap only | Provisioning is not new ResourceServer authority. |
 
