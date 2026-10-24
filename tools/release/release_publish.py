@@ -11,7 +11,7 @@ import tarfile
 import tempfile
 from urllib.error import HTTPError
 from urllib.parse import quote, urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
 from tools.qualification.checks import release_contract as contract
 from tools.release import attest_release as attest
@@ -219,7 +219,7 @@ def verify_attest(root, tool, config):
         (trust / "tsa/issuer.crt").write_text(config["TSA_CERTIFICATE"])
         receipt = workspace / "receipt.yaml"
         verdict = json.loads(run([tool, "verify", receipt, "--recompute", "--workspace", workspace,
-                                  "--trust-store", trust, "--offline", "--format", "json"]))
+                                  "--trust-store", trust, "--offline", "--require", attest.REQUIRED, "--format", "json"]))
         attest.validate_verdict(verdict, config["PUBLIC_KEY"], receipt)
 
 
@@ -445,6 +445,7 @@ def main():
         save(registry, reference, args.root, args.version, args.revision, args.image)
     elif args.mode == "verify-attest":
         config = {name: os.environ["HANKOSHELL_ATTEST_" + name] for name in ("KEY_ID", "PUBLIC_KEY", "TSA_CERTIFICATE")}
+        attest.validate_publisher_trust(config)
         verify_attest(args.root, args.attest, config)
     else:
         promote(registry, GitHub(os.environ["GH_TOKEN"]), args.root)

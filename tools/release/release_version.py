@@ -37,6 +37,11 @@ def public_tag(version):
     return tag
 
 
+def is_stable(version):
+    return (isinstance(version, str) and SEMVER.fullmatch(version) is not None
+            and "-" not in version and "+" not in version)
+
+
 def require_production(version):
     # Readiness is a reviewed source decision, never an environment/CLI override.
     if (RELEASE_STATUS != "ready" or version != VERSION or "-" in version or "+" in version):

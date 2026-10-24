@@ -52,7 +52,7 @@ func ReadPublicCorpus(name string) (PublicCorpus, error) {
 	if decoder.Decode(new(any)) != io.EOF {
 		return PublicCorpus{}, errors.New("public corpus has trailing input")
 	}
-	if result.SchemaVersion != 1 || result.Release != "0.1.0-candidate" || result.OwnerUID == "" || len(result.Fixtures) == 0 ||
+	if result.SchemaVersion != 1 || result.Release != "1.0.0" || result.OwnerUID == "" || len(result.Fixtures) == 0 ||
 		(result.Predecessor == "" && result.Limitation != "NoPublishedPredecessor") {
 		return PublicCorpus{}, errors.New("public corpus lacks a reviewed release/rollback boundary")
 	}

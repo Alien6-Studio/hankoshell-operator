@@ -89,9 +89,8 @@ production evidence; exclusion does not authorize silent removal.
 - [Independent admission protection](../../../charts/hankoshell-operator/templates/lifecycle-admission.yaml)
   and [real API tests](../../../api/v1alpha1/lifecycle_authority_integration_test.go)
   on the full Kubernetes window.
-- [Chart opt-out/RBAC tests](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/tests/chart/lifecycle.py),
-  [approval patch preparation](../../../tools/operations/lifecycle_approval.py) and
-  [negative tests](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/tests/tooling/test_lifecycle_approval.py).
+- [Live RBAC checks](../../../api/v1alpha1/custom_rbac_integration_test.go) and
+  [approval patch preparation](../../../tools/operations/lifecycle_approval.py).
 - [Installed Clone qualification](../../../tools/qualification/scenarios/system_test.py): explicit
   opt-in, approval wait, independent administrator patch, real RBAC interruption,
   restart and the same durable child UIDs. This remains the bounded Clone case.

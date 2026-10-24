@@ -16,6 +16,7 @@ from urllib.parse import urlsplit
 
 import yaml
 
+from tools import versions
 from tools.release import oci_security
 from tools.qualification.checks import release_contract as contract
 
@@ -23,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 CHECKS = {"schema", "consistency", "signature", "timestamp", "recompute"}
+REQUIRED = "signature,timestamp,recompute,success"
 PUBLIC_KEY_FILE = "hankoshell-operator-attest-public-key.pem"
 
 
@@ -52,7 +54,16 @@ def configuration():
     if len(config["TSA_CERTIFICATE"]) > 32768:
         raise ValueError("TSA certificate is too large")
     ssl.PEM_cert_to_DER_cert(config["TSA_CERTIFICATE"])
+    validate_publisher_trust(config)
     return config
+
+
+def validate_publisher_trust(config):
+    policy = contract.metadata.publisher()["attest"]
+    if (config["KEY_ID"] != policy["key_id"] or config["PUBLIC_KEY"] != policy["public_key"]
+            or ("TSA_URL" in config and config["TSA_URL"] != policy["tsa_url"])
+            or hashlib.sha256(ssl.PEM_cert_to_DER_cert(config["TSA_CERTIFICATE"])).hexdigest() != policy["tsa_certificate_sha256"]):
+        raise ValueError("Release trust differs from the reviewed publisher identity")
 
 
 def trust_output(command, message, **kwargs):
@@ -71,8 +82,8 @@ def key_id(tool, public_key):
     """Let pinned Attest derive its canonical ID from public material only."""
     if not re.fullmatch(r"[0-9a-f]{64}", public_key):
         raise ValueError("Invalid Attest public key")
-    if trust_output([tool, "--version"], "Cannot validate the pinned Attest tool").strip() != b"attest 0.1.0":
-        raise ValueError("Expected Attest 0.1.0")
+    if trust_output([tool, "--version"], "Cannot validate the pinned Attest tool").strip() != ("attest " + versions.get("tools", "attest", "version")).encode():
+        raise ValueError("Expected the pinned Attest version")
     with tempfile.TemporaryDirectory(prefix="hankoshell-public-trust-") as directory:
         workspace = Path(directory)
         public = workspace / "signer.pem"
@@ -109,8 +120,21 @@ def validate_configuration(config, tool, openssl):
 
 
 def validate_verdict(report, signer, receipt):
-    if not isinstance(report, dict) or set(report) != {"receipt", "verdict", "checks", "signed_by", "warnings"}:
+    if not isinstance(report, dict) or set(report) != {"receipt", "verdict", "checks", "signed_by", "warnings",
+                                                          "trust_material", "execution", "policy"}:
         raise ValueError("Invalid native Attest verdict")
+    if report["execution"] != {"outcome": "success", "failed_steps": 0}:
+        raise ValueError("The attested delivery pipeline must have succeeded")
+    policy = report["policy"]
+    if (not isinstance(policy, dict) or set(policy) != {"required", "unmet"}
+            or not isinstance(policy["required"], list)
+            or len(policy["required"]) != len(REQUIRED.split(","))
+            or set(policy["required"]) != set(REQUIRED.split(",")) or policy["unmet"] != []):
+        raise ValueError("Attest must enforce signature, timestamp, recompute and success")
+    trust = report["trust_material"]
+    if trust != {"state": "none", "issuer": None, "sequence": None,
+                 "valid_until": None, "judged_by": "local clock"}:
+        raise ValueError("Expected the configured local publisher trust store")
     checks = report["checks"]
     if (report["receipt"] != str(receipt) or report["verdict"] != "pass"
             or report["signed_by"] != signer or report["warnings"] != []
@@ -162,8 +186,8 @@ def delivery_files(dist, version, revision, image, *, fresh_scan=True):
 
 
 def sign_delivery(args, config):
-    if subprocess.check_output([str(args.attest), "--version"], text=True).strip() != "attest 0.1.0":
-        raise ValueError("Expected Attest 0.1.0")
+    if subprocess.check_output([str(args.attest), "--version"], text=True).strip() != "attest " + versions.get("tools", "attest", "version"):
+        raise ValueError("Expected the pinned Attest version")
     files = delivery_files(args.dist, args.version, args.revision, args.image)
     if files[PUBLIC_KEY_FILE].read_text() != public_key_pem(config["PUBLIC_KEY"]):
         raise ValueError("Published Attest key must match the independently trusted delivery signer")
@@ -212,7 +236,7 @@ def sign_delivery(args, config):
     shutil.copyfile(receipts[0], receipt)
     result = subprocess.run([str(args.attest), "verify", str(receipt), "--recompute",
                              "--workspace", str(workspace), "--trust-store", str(trust),
-                             "--offline", "--format", "json"],
+                             "--offline", "--require", REQUIRED, "--format", "json"],
                             capture_output=True, text=True, check=True, timeout=120)
     report = json.loads(result.stdout)
     validate_verdict(report, config["PUBLIC_KEY"], receipt)

@@ -429,38 +429,15 @@ transitions. Synced conditions carry the observed tenant generation. The manager
 ignores its own status-only updates while retaining explicit local generation,
 annotation and label changes plus the existing requeue cadence.
 
-### Qualification audit
+### Qualification
 
-On 2026-10-15 all six local installed cells completed with 69/69 assertions each
-(414 assertions). Each cell used a real Linux arm64 Kubernetes API, HTTPS
-Keycloak and Hub, and the installed chart/operator. The committed reports contain
-only the public evidence allowlist; they are nonpublishable qualification inputs.
+The [required CI matrix](../../.github/workflows/ci.yml) installs the reviewed
+chart and scanned operator image against all supported Kubernetes/Keycloak pairs.
+The [Fleet scenario](../../tools/qualification/scenarios/fleet_installed_test.py)
+checks reconciliation, transport, owned rollback, refusal events and decommission.
+Reports contain only allowlisted public evidence and bind the source and OCI digest.
 
-| Kubernetes | Keycloak 26.7.5 | Keycloak 26.8.0 |
-| --- | --- | --- |
-| 1.35.0 | [69/69](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/fleet/2026-10-15/kubernetes-1.35.0-keycloak-26.7.5.json) | [69/69](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/fleet/2026-10-15/kubernetes-1.35.0-keycloak-26.8.0.json) |
-| 1.36.2 | [69/69](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/fleet/2026-10-15/kubernetes-1.36.2-keycloak-26.7.5.json) | [69/69](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/fleet/2026-10-15/kubernetes-1.36.2-keycloak-26.8.0.json) |
-| 1.37.0 | [69/69](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/fleet/2026-10-15/kubernetes-1.37.0-keycloak-26.7.5.json) | [69/69](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/fleet/2026-10-15/kubernetes-1.37.0-keycloak-26.8.0.json) |
-
-- Image source: `248395147d5170d28ac12aca486c48b00ad3d7ba`.
-- Exact OCI index: `sha256:72ae648871a524c36fd2642b3fff808f4f7f2ed7faf69a04097495f218ee9e61`.
-- Archive SHA-256: `886e670e3cf4e25bbdbccb037c01c79a5c91501af37972af018789a9f9be6869`.
-- Harness revision: `de3f760af7f4b931a63ef34b6311c043e700e5bf`;
-  Fleet script SHA-256: `2a39cb170c072b53d22db492c3e35568c48df8513b2bb2d5dfd4b136d48d651a`.
-  This revision changes only the external fixture relative to the image source;
-  binary, chart and OCI build inputs are unchanged.
-- Trivy 0.75.0 scans passed for both linux/amd64 and linux/arm64 with the reviewed
-  policy and database updated on 2026-10-15. Scan evidence stays in the local
-  `.tools/fleet-installed-qualified-oci/evidence` directory.
-- Source regression: 2,173 Go tests, 264 script tests, 63.36% statement coverage
-  with every reviewed floor met. The preceding API qualification passed 231 cases
-  on each supported Kubernetes version; only command-log redaction changed
-  production code afterward, and its regression/mutation tests passed.
-
-These results qualify this local image/harness cut. Full CI on the final pushed
-revision remains required before merge, including its Linux amd64 installed cells
-and every existing source, CodeQL, OCI, workload, system and rehearsal gate.
 Final candidate qualification is tracked in
 [#106](https://github.com/Alien6-Studio/hankoshell-operator/issues/106).
-No production trust, enterprise topology, network enforcement or release is
-qualified by these disposable local cells.
+Disposable local cells do not qualify enterprise topology or production network
+isolation. Earlier runs do not qualify a changed candidate.

@@ -16,8 +16,6 @@ GO_LICENSES := $(CURDIR)/.tools/bin/go-licenses-$(GO_LICENSES_VERSION)-$(shell G
 TEST_REPORT_DIR ?= $(CURDIR)/.tools/runs/tests
 PRE_COMMIT_HOME ?= $(CURDIR)/.tools/cache/pre-commit
 KEYCLOAK_SHARD ?= all
-KEYCLOAK_STABILITY_ROOT ?=
-KEYCLOAK_STABILITY_OUTPUT ?= $(TEST_REPORT_DIR)/keycloak-stability-$(KEYCLOAK_STABILITY_ROOT)
 SCALE_PROFILE ?= smoke
 SCALE_WORKERS ?= 4
 SCALE_SECONDS ?=
@@ -30,7 +28,7 @@ RELEASE_VERSION := $(shell python3 -m tools.versions get release version)
 .PHONY: keycloak-extension-build keycloak-extension-test
 .PHONY: delegation-installed-test
 
-.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-check integration-test keycloak-integration-test keycloak-stability-test authentik-integration-test security-mutations security-fuzz licenses lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test fleet-installed-test portable-installed-test scale-installed-test
+.PHONY: versions-sync all check preflight fmt-check generate manifests generated-check build vet test coverage chart-check integration-test keycloak-integration-test authentik-integration-test security-mutations security-fuzz licenses lint arch vuln hook-tools hooks-check install-hook-tools install-preflight-tools install-tools release-dry-run system-test workload-identity-probe workload-installed-test fleet-installed-test portable-installed-test scale-installed-test
 versions-sync:
 	python3 -m tools.versions sync
 
@@ -83,9 +81,6 @@ keycloak-extension-build:
 keycloak-extension-test: keycloak-extension-build $(GOTESTSUM)
 	KEYCLOAK_VERSION=$(KEYCLOAK_VERSION) KEYCLOAK_EXTENSION_JAR="$$(python3 -m tools.qualification.lib.keycloak_extension_source $(KEYCLOAK_VERSION))" \
 		python3 -m tools.qualification.runners.go_tests keycloak-extension --gotestsum "$(GOTESTSUM)" --output "$(TEST_REPORT_DIR)/keycloak-extension-$(KEYCLOAK_VERSION)"
-keycloak-stability-test: $(GOTESTSUM)
-	KEYCLOAK_VERSION=26.7.5 python3 -m tools.qualification.runners.keycloak_stability --root "$(KEYCLOAK_STABILITY_ROOT)" \
-		--gotestsum "$(GOTESTSUM)" --output "$(KEYCLOAK_STABILITY_OUTPUT)"
 authentik-integration-test: $(GOTESTSUM)
 	python3 -m tools.qualification.fixtures.authentik_fixture --gotestsum "$(GOTESTSUM)" --output "$(TEST_REPORT_DIR)/authentik-2026.8.4"
 

@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "artifacthub_repository_id": "d9eb6933-fcab-4eca-8b88-1377b60d9053",
+  "attest": {
+    "key_id": "24218440ece9fce77e6da58c62954f16",
+    "public_key": "d0b3e474579d9c42e9e4e8d7dfa0f0bce92d746781fcff5ace77d4fdfb5155d2",
+    "tsa_url": "http://timestamp.digicert.com",
+    "tsa_certificate_sha256": "ca0b1554ecd901ea19dcad8749e9f2648c8d6dfcea1add9d2c2109415bb82ccd"
+  }
+}

@@ -168,7 +168,7 @@ def validate(data):
             if not re.fullmatch(re.escape(prefix + version) + r"@sha256:[0-9a-f]{64}", image):
                 raise ValueError("Fixture image version or checksum differs: " + version)
     hashes = [(values, 128) for values in kubernetes["envtest_sha512"].values()]
-    hashes += [(data["tools"][tool]["sha256"], 64) for tool in ("helm", "kind", "kubectl", "gitleaks", "trivy")]
+    hashes += [(data["tools"][tool]["sha256"], 64) for tool in ("helm", "kind", "kubectl", "gitleaks", "trivy", "attest")]
     hashes += [({"pyz": data["tools"]["pre_commit"]["sha256"]}, 64)]
     hashes += [(kubernetes["built_node"]["sha256"], 64)]
     for values, length in hashes:

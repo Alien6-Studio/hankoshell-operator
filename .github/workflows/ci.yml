@@ -575,7 +575,7 @@ jobs:
           python3 -m pip install -r tools/requirements.txt
           python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
           bash tools/bootstrap/install_cosign.sh "$RUNNER_TEMP/rehearsal-tools/cosign"
-          bash tools/bootstrap/install_attest.sh "$RUNNER_TEMP/rehearsal-tools/attest"
+          python3 -m tools.bootstrap.install attest --directory "$RUNNER_TEMP/rehearsal-tools"
           GOBIN="$RUNNER_TEMP/rehearsal-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
       - name: Rehearse the exact scanned delivery without publication
         env:

@@ -17,7 +17,7 @@ from tools import versions
 
 LIMIT = 128 * 1024**2
 BINARY_LIMIT = 512 * 1024**2
-TOOLS = ("helm", "kind", "kubectl", "trivy", "gitleaks", "pre_commit")
+TOOLS = ("helm", "kind", "kubectl", "trivy", "gitleaks", "pre_commit", "attest")
 
 
 def asset(name, target):
@@ -43,6 +43,11 @@ def asset(name, target):
         url = f"https://github.com/aquasecurity/trivy/releases/download/v{version}/trivy_{version}_{flavor}.tar.gz"
         member = name
         command, expected = ["--version", "--format", "json"], version
+    elif name == "attest":
+        flavor = {"linux-amd64": "linux-x86_64", "darwin-arm64": "macos-aarch64"}[target]
+        url = f"https://github.com/Alien6-Studio/continuum-attest/releases/download/v{version}/attest-v{version}-{flavor}.tar.gz"
+        member = name
+        command, expected = ["--version"], "attest " + version
     elif name == "gitleaks":
         flavor = {"linux-amd64": "linux_x64", "darwin-arm64": "darwin_arm64"}[target]
         url = f"https://github.com/gitleaks/gitleaks/releases/download/v{version}/gitleaks_{version}_{flavor}.tar.gz"

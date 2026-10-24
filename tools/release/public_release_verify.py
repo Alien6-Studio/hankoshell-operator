@@ -13,7 +13,7 @@ import zipfile
 
 import yaml
 
-from tools.release import release_eligibility as eligibility, attest_release as attestation
+from tools.release import release_eligibility as eligibility, attest_release as attestation, release_version as versioning
 
 ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY = "Alien6-Studio/hankoshell-operator"
@@ -58,9 +58,9 @@ def capture_identity(capture_path, artifact_id, revision, fetch=github):
 
 
 def verify(version, revision, image, assets, trust, cosign, attest, *, fetch=github, git=None):
-    if (not re.fullmatch(r"0\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", version)
+    if (not versioning.is_stable(version)
             or not re.fullmatch(r"ghcr\.io/alien6-studio/hankoshell-operator@sha256:[0-9a-f]{64}", image)):
-        raise ValueError("Historical qualification requires a real stable public 0.x release")
+        raise ValueError("Historical qualification requires a real stable public release")
     tag = "v" + version
     release = fetch(f"repos/{REPOSITORY}/releases/tags/{tag}")
     if (not isinstance(release, dict) or release.get("draft") is not False or release.get("prerelease") is not False
@@ -142,7 +142,7 @@ def verify(version, revision, image, assets, trust, cosign, attest, *, fetch=git
         (store / "tsa/issuer.crt").write_text(public["TSA_CERTIFICATE"])
         receipt = workspace / "receipt.yaml"
         verdict = json.loads(run([attest, "verify", receipt, "--recompute", "--workspace", workspace,
-                                 "--trust-store", store, "--offline", "--format", "json"]))
+                                 "--trust-store", store, "--offline", "--require", attestation.REQUIRED, "--format", "json"]))
         attestation.validate_verdict(verdict, public["PUBLIC_KEY"], receipt)
     return {"version": version, "revision": revision, "image": image, "published": True, "verified": True,
             "tag_object": identity["tag_object"], "cosign_identity": expected_identity,

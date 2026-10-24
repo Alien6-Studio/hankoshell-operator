@@ -8,6 +8,8 @@ from pathlib import Path
 import re
 import tempfile
 
+from tools.release import release_version as versioning
+
 from tools.qualification.lib.evidence_privacy import contains_jwt
 
 MAX_BYTES = 512 * 1024
@@ -78,8 +80,8 @@ def approve(capture_path, verification_path, reports, review):
     captured, verified = json.loads(raw), json.loads(verification_path.read_text())
     if (captured.get("published") is not False or captured.get("state") != "captured-for-review"
             or captured.get("scope") != "synthetic-installed-public-contract"
-            or not re.fullmatch(r"0\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", captured.get("source_release", ""))):
-        raise ValueError("Only actual public 0.x predecessors can enter the historical corpus")
+            or not versioning.is_stable(captured.get("source_release", ""))):
+        raise ValueError("Only authentic published stable versions can enter the historical corpus")
     expected = {"version": captured["source_release"], "revision": captured["revision"], "image": captured["image"]}
     if (any(verified.get(key) != value for key, value in expected.items()) or verified.get("verified") is not True
             or verified.get("published") is not True or verified.get("fixture_sha256") != hashlib.sha256(raw).hexdigest()):
@@ -99,7 +101,7 @@ def capture_installed(args):
     class CapturedSystem(system.System):
         def public_contract_corpus(self):
             super().public_contract_corpus()
-            source = json.loads((system.ROOT / "internal/iamconformance/testdata/public-0.1.0/corpus.json").read_text())
+            source = json.loads((system.ROOT / "internal/iamconformance/testdata/public-initial/corpus.json").read_text())
             selected = [(item["kind"], "public-" + item["name"]) for item in source["fixtures"]]
             selected += [("HankoRole", "public-writer"), ("HankoRole", "public-viewer")]
             objects = []

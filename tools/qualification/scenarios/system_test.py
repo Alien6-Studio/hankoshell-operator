@@ -1334,7 +1334,7 @@ class System:
             raise ValueError("Child cleanup replaced the client or changed the external realm")
 
     def public_contract_corpus(self):
-        path = ROOT / "internal/iamconformance/testdata/public-0.1.0/corpus.json"
+        path = ROOT / "internal/iamconformance/testdata/public-initial/corpus.json"
         corpus = json.loads(path.read_text())
         aliases = {"portal": "public-application-oidc", "api": "public-application-m2m", "reader": "public-role-composite"}
         for name in ("writer", "viewer"):

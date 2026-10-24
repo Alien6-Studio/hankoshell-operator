@@ -3,7 +3,7 @@
 This is the #82/#84 baseline for the [selected 1.0.0 candidate](public-contract-selection.md).
 It covers the selected application, role and resource-server field groups. Current
 development maturity, native extensions and deferred nested authority remain as
-classified there. The [machine-readable corpus](../internal/iamconformance/testdata/public-0.1.0/corpus.json)
+classified there. The [machine-readable corpus](../internal/iamconformance/testdata/public-initial/corpus.json)
 contains synthetic declarations, stored/defaulted objects, public status and exact
 compiled identities. It contains no credentials or captured production objects.
 
@@ -30,7 +30,7 @@ topology fails with the named resource/diff.
 
 ## Ownership and reader compatibility
 
-[ownership.json](../internal/iamconformance/testdata/public-0.1.0/ownership.json)
+[ownership.json](../internal/iamconformance/testdata/public-initial/ownership.json)
 freezes the existing UID marker names and a non-secret version-1 authorization
 journal. Current readers must recover that journal unchanged, reject another UID
 and reject an unknown newer format. An unmarked legacy object is not owned.

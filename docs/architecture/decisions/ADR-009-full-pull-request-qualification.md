@@ -76,8 +76,5 @@ never detect uniquely — and then only together with a merge-queue full run.
   [adoption reconciliation](../../../internal/controller/adoption_apply.go) and
   the [real-Keycloak characterization tests](../../../internal/controller/keycloak_adoption_characterization_test.go)
   sharded by `tools/qualification/config/keycloak-shards.json`.
-- [Contract tests](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/tests/tooling/test_release_contract.py): preflight gating,
-  gate completeness and scoped write permissions.
-- [Weekly outcome history](../../../.github/workflows/test-history.yml) with the
-  [flaky report](../../../.github/scripts/flaky_report.py) and native
-  GitHub CLI tracking in that workflow.
+- [Release contract](../../../tools/qualification/checks/release_contract.py) validates
+  the source, chart, supported-version matrix and qualification inventories.

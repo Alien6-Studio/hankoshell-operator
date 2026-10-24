@@ -2,6 +2,7 @@
 
 import argparse
 import base64
+import json
 import os
 from pathlib import Path
 import re
@@ -20,6 +21,10 @@ IMAGE = "ghcr.io/alien6-studio/hankoshell-operator"
 PUBLIC_KEY_FILE = "hankoshell-operator-attest-public-key.pem"
 
 
+def publisher():
+    return json.loads((ROOT / "security/publisher.json").read_text())
+
+
 def configuration():
     repository_id = os.environ.get("HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID", "")
     try:
@@ -31,6 +36,9 @@ def configuration():
     public_key = os.environ.get("HANKOSHELL_ATTEST_PUBLIC_KEY", "")
     if not re.fullmatch(r"[0-9a-f]{64}", public_key):
         raise ValueError("Expected the trusted Ed25519 Attest public key as lowercase hex")
+    policy = publisher()
+    if repository_id != policy["artifacthub_repository_id"] or public_key != policy["attest"]["public_key"]:
+        raise ValueError("Release metadata differs from the reviewed publisher identity")
     return repository_id, public_key
 
 

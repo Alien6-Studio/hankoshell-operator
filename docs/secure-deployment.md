@@ -608,26 +608,11 @@ the directory). CI uploads these on success or failure and lists failed tests
 in the job summary. Reports do not trigger retries, skips or weaker assertions.
 The outcome JSON contains names, status and timing, without test output payloads.
 
-The 2026-10-11 application flow and 2026-10-12 adoption failures exhausted the
-fixture's five-second bootstrap HTTP deadline on client-creation POSTs. Fixture
-HTTP calls now have a bounded fifteen-second budget, with no retry of ambiguous
-writes; production client deadlines are unchanged. Failures preserve the last
-64 fixture HTTP methods/routes/statuses/timings and redacted container logs;
-headers, query values and bodies are excluded from the HTTP trace. Shard timings
-on GitHub runners and twenty consecutive runs of both historically failing
-tests are recorded through the [concurrency and stability qualification](qualification.md).
-Its independent series stops on the first failure and retains every JUnit; it
-does not replace the required twenty-run `main` history window.
-
-The weekly `Go test history` workflow reads the last twenty completed `main` CI
-runs and compares outcomes only for the same commit, test and suite/version.
-Earlier attempts remain visible when a job is manually rerun; a successful retry
-cannot erase a recorded failure. Reports from modified local checkouts are marked
-as such and are refused by the history collector.
-Its artifact and job summary distinguish mixed pass/fail results from missing or
-expired reports. It has read-only permissions and does not publish issue comments;
-tracking-issue automation is handled separately in #111. Historical runs without
-JUnit outcome artifacts cannot count toward a twenty-run stability qualification.
+Fixture HTTP calls have bounded deadlines and preserve redacted diagnostics on
+failure. Writes with ambiguous outcomes are not replayed. Required CI checks run
+the complete supported matrix on the selected source; successful reruns do not
+replace investigation of a failed test. There is no release requirement to
+accumulate an arbitrary number of historical CI runs.
 
 | Version | Current qualification |
 | --- | --- |
@@ -1277,7 +1262,7 @@ To reproduce with the **fresh archive/evidence from the OCI security job**:
 
 ```sh
 bash tools/bootstrap/install_cosign.sh /tmp/hankoshell-rehearsal-tools/cosign
-bash tools/bootstrap/install_attest.sh /tmp/hankoshell-rehearsal-tools/attest
+python3 -m tools.bootstrap.install attest --directory /tmp/hankoshell-rehearsal-tools
 GOBIN=/tmp/hankoshell-rehearsal-tools go install oras.land/oras/cmd/oras@v1.3.4
 make release-dry-run REVISION="$reviewed_revision" DIGEST="$scanned_digest" \
   OCI_ARCHIVE="$archive_path" OCI_EVIDENCE="$evidence_directory" \
@@ -1297,6 +1282,12 @@ issuer `https://token.actions.githubusercontent.com` and exact certificate ident
 `https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/v1.0.0`.
 The workflow uses the actual `GITHUB_WORKFLOW_REF` and eligibility requires
 `github.ref == refs/tags/<tag>`; a main-ref run cannot claim this tag identity.
+
+The reviewed public identity and Artifact Hub repository UUID are pinned in
+[`security/publisher.json`](../security/publisher.json). Environment configuration
+must match this file; key or TSA rotation requires a reviewed source change.
+The publisher uses Attest 0.2.0 and requires signature, timestamp, recomputation
+and successful execution, with all five native checks passing.
 
 Before publication, maintainers must configure the real Attest signing secret,
 trusted public key/ID, RFC 3161 endpoint and pinned TSA certificate in the

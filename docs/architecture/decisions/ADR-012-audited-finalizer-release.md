@@ -51,7 +51,6 @@ external audit recovery and connected production operation remain unqualified.
 
 - [Normal Role cleanup and finalizer ownership](../../../internal/controller/hankorole_controller.go)
 - [CLI state machine](../../../tools/operations/finalizer_recovery.py)
-- [Failure and concurrency fixtures](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/tests/tooling/test_finalizer_recovery.py)
 - [Admission policy](../../../config/recovery/approval-policy.yaml)
 - [Independent administrator audit access](../../../config/recovery/audit-access.yaml)
 - [Target namespace access](../../../config/recovery/target-access.yaml)

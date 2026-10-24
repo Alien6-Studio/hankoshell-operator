@@ -63,6 +63,13 @@
         "linux-amd64": "c6e65abddb348e25f10549df887045629cf28cc72453cd1c63acb717316b3f3f",
         "darwin-arm64": "4a77108cccf8e55c8d6823e1e759939a622277e66cd0daa3c1fc621ed69e4568"
       }
+    },
+    "attest": {
+      "version": "0.2.0",
+      "sha256": {
+        "linux-amd64": "88bcf45bf86f629b04fa259f08426f13b30e35ce56f332df3ff794961081a8f7",
+        "darwin-arm64": "27a9fef8ec063d10199fa0bad7928861a7723ac5f184af4fc6a9c15f4b93c639"
+      }
     }
   },
   "kubernetes": {
