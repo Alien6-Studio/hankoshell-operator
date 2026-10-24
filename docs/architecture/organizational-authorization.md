@@ -418,7 +418,7 @@ Unit/adversarial tests cover observed resource/action intersection, exact scope-
 coverage, overlapping alternatives, native/unknown gaps, deterministic order and
 truncation, graph cycles/depth, forged and historical status and missing optional
 reads. Kubernetes 1.35.0/1.36.2/1.37.0 qualifies bounded status admission/round-trip
-and the existing quiescent dependency watcher. HTTPS Keycloak 26.7.5/26.8.0 qualifies
+and the existing quiescent dependency watcher. HTTPS Keycloak 26.7.5/26.8.1 qualifies
 production-controller direct/descendant paths against actual UMA decisions,
 realm/client mapping/composite origins, privilege failure, Observe, native-policy
 preservation, rename/reparent and cleanup. The scanned-image installed system

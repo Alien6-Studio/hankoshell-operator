@@ -1529,7 +1529,7 @@ Reproduce a single cell using a fresh OCI archive and evidence from its CI run:
 
 ```sh
 make workload-installed-test \
-  KEYCLOAK_VERSION=26.8.0 KUBERNETES_VERSION=1.37.0 \
+  KEYCLOAK_VERSION=26.8.1 KUBERNETES_VERSION=1.37.0 \
   OCI_ARCHIVE="$archive_path" OCI_EVIDENCE="$evidence_directory" \
   DIGEST="$scanned_digest" REVISION="$source_revision"
 ```

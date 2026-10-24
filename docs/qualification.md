@@ -13,7 +13,7 @@ make qualify                         # source checks, Helm, Go tests and coverag
 make qualify PROFILE=unit            # Go tests and coverage
 make qualify PROFILE=chart           # helm lint and helm template
 make qualify PROFILE=kubernetes      # real API server and etcd
-make qualify PROFILE=keycloak KEYCLOAK_VERSION=26.8.0
+make qualify PROFILE=keycloak KEYCLOAK_VERSION=26.8.1
 ```
 
 The supported versions and image/tool digests come from [versions.json](../versions.json).

@@ -28,7 +28,7 @@ installed qualification:
 make qualification-help
 make qualify                       # local source, Helm, Go/race and coverage
 make qualify PROFILE=chart         # Helm only; no cluster
-make qualify PROFILE=keycloak KEYCLOAK_VERSION=26.8.0
+make qualify PROFILE=keycloak KEYCLOAK_VERSION=26.8.1
 python3 -m tools.bootstrap.install helm kind kubectl --directory .tools/bin
 ```
 
