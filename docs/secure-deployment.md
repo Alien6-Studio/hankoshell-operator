@@ -1327,9 +1327,14 @@ OCI checkpoint. Every retry resolves that reference once, restores it by digest
 and reuses its exact bytes rather than rebuilding/repackaging them. A different
 source revision or conflicting candidate is rejected. Do not delete or retag the
 checkpoint to force a different delivery through.
-Release qualification restores that same archive before the OCI scan, installed
-system test and rehearsal, so a retry tests the committed image rather than a
-newly built substitute. Ordinary PR CI still builds and scans its own image.
+Release verifies the successful full-CI source proof against the exact Git tree
+of the signed integrated commit, including after squash merge. It does not
+repeat Go/source-only suites. It qualifies every installed-image matrix cell,
+the matching delegation extension and rehearsal on the final archive. A complete
+workflow retry restores the committed archive before those checks; a publication
+failure should instead rerun only the publish job. Ordinary PR CI retains the
+complete matrix and builds its own non-release image. Source proofs are retained
+for 30 days and OCI archives for seven days; unavailable evidence fails closed.
 
 Every attempt performs a fresh Trivy scan of the committed AMD64/ARM64 archive
 under the current policy, re-verifies the existing image and checksum Sigstore

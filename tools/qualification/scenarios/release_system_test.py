@@ -5,11 +5,16 @@ Signing, timestamping and vulnerability evidence come from the native rehearsal.
 """
 
 import copy
+import hashlib
+import io
 import json
 from pathlib import Path
 import shutil
 import tempfile
 import uuid
+import zipfile
+
+from tools.release import release_eligibility as eligibility
 
 from importlib.util import module_from_spec, spec_from_file_location
 
@@ -23,6 +28,91 @@ diagnostics = publish.contract.module("qualification_diagnostics", "tools/qualif
 VERSION = publish.contract.VERSION
 TAG = publish.contract.versioning.public_tag(VERSION)
 REGISTRY_IMAGE = "registry:3.0.0@sha256:6c5666b861f3505b116bb9aa9b25175e71210414bd010d92035ff64018f9457e"
+
+
+def qualify_source_reuse():
+    """Exercise the read-only GitHub proof protocol before any publication."""
+    repository = "fixture/operator"
+    revision, head, tested, tree = (c * 40 for c in "abcd")
+    base = "repos/" + repository
+    run = {"id": 12, "run_attempt": 2, "workflow_id": 7, "path": ".github/workflows/ci.yml",
+           "head_sha": head, "event": "pull_request", "repository": {"full_name": repository},
+           "status": "completed", "conclusion": "success"}
+    proof = {"schema": 1, "repository": repository, "revision": tested, "tree": tree,
+             "head_sha": head, "event": "pull_request", "ref": "refs/pull/3/merge",
+             "pull_request": 3, "run_id": 12, "run_attempt": 1}
+    artifact = {"id": 9, "name": "qualified-source-12-1", "expired": False,
+                "workflow_run": {"id": 12, "head_sha": head}}
+    documents = {
+        base + "/git/commits/" + revision: {"sha": revision, "tree": {"sha": tree}, "verification": {"verified": True}},
+        base + "/git/commits/" + tested: {"sha": tested, "tree": {"sha": tree}, "parents": [{"sha": head}]},
+        base + "/actions/workflows/ci.yml": {"id": 7, "path": ".github/workflows/ci.yml"},
+        base + "/commits/" + revision + "/pulls?per_page=100": [{"number": 3, "merged_at": "fixture",
+            "merge_commit_sha": revision, "base": {"ref": "main", "repo": {"full_name": repository}}, "head": {"sha": head}}],
+        base + f"/actions/workflows/ci.yml/runs?head_sha={head}&status=success&per_page=20": {"workflow_runs": [run]},
+        base + f"/actions/workflows/ci.yml/runs?head_sha={revision}&status=success&per_page=20": {"workflow_runs": []},
+        base + "/actions/runs/12/artifacts?name=qualified-source-12-2&per_page=2": {"total_count": 0, "artifacts": []},
+        base + "/actions/runs/12/artifacts?name=qualified-source-12-1&per_page=2": {"total_count": 1, "artifacts": [artifact]},
+    }
+
+    def exercise(change=None, manual=False):
+        docs, record = copy.deepcopy(documents), copy.deepcopy(proof)
+        current_run = docs[base + f"/actions/workflows/ci.yml/runs?head_sha={head}&status=success&per_page=20"]["workflow_runs"][0]
+        current_artifact = docs[base + "/actions/runs/12/artifacts?name=qualified-source-12-1&per_page=2"]["artifacts"][0]
+        if manual:
+            current_run.update(head_sha=revision, event="workflow_dispatch")
+            record.update(head_sha=revision, revision=revision, event="workflow_dispatch", ref="refs/heads/main", pull_request=None)
+            current_artifact["workflow_run"]["head_sha"] = revision
+            docs[base + f"/actions/workflows/ci.yml/runs?head_sha={head}&status=success&per_page=20"]["workflow_runs"] = []
+            docs[base + f"/actions/workflows/ci.yml/runs?head_sha={revision}&status=success&per_page=20"]["workflow_runs"] = [current_run]
+        if change:
+            change(docs, record, current_run, current_artifact)
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as package:
+            package.writestr("qualified-source.json", json.dumps(record))
+        raw = buffer.getvalue()
+        current_artifact.update(size_in_bytes=len(raw), digest="sha256:" + hashlib.sha256(raw).hexdigest())
+        if change == corrupt_transport:
+            raw += b"changed"
+        def git(*args):
+            return {("rev-parse", "HEAD"): revision, ("rev-parse", "HEAD^{tree}"): tree,
+                    ("merge-base", "--is-ancestor", revision, "origin/main"): ""}[args]
+        def download(path):
+            if path != base + "/actions/artifacts/9/zip":
+                raise AssertionError("Unexpected artifact download")
+            return raw
+        return eligibility.verify_qualification(repository, revision, docs.__getitem__, git, download)
+
+    def corrupt_transport(*_args):
+        pass
+
+    if exercise()["qualified_revision"] != tested or exercise(manual=True)["qualified_revision"] != revision:
+        raise ValueError("PR squash or exact-revision source renewal was not verified")
+    mutations = [corrupt_transport,
+        lambda d, p, r, a: p.update(tree="e" * 40),
+        lambda d, p, r, a: p.update(pull_request=4),
+        lambda d, p, r, a: p.update(ref="refs/pull/4/merge"),
+        lambda d, p, r, a: p.update(repository="other/operator"),
+        lambda d, p, r, a: p.update(run_id=13),
+        lambda d, p, r, a: p.update(head_sha="e" * 40),
+        lambda d, p, r, a: r.update(conclusion="failure"),
+        lambda d, p, r, a: r.update(status="in_progress"),
+        lambda d, p, r, a: r.update(event="pull_request_target"),
+        lambda d, p, r, a: r.update(workflow_id=8),
+        lambda d, p, r, a: r.update(repository={"full_name": "other/operator"}),
+        lambda d, p, r, a: a.update(expired=True),
+        lambda d, p, r, a: a.update(workflow_run={"id": 13, "head_sha": head}),
+        lambda d, p, r, a: d[base + "/git/commits/" + tested].update(tree={"sha": "e" * 40}),
+        lambda d, p, r, a: d[base + "/git/commits/" + tested].update(parents=[{"sha": "e" * 40}]),
+        lambda d, p, r, a: d[base + "/git/commits/" + revision].update(verification={"verified": False}),
+    ]
+    for change in mutations:
+        try:
+            exercise(change)
+        except ValueError:
+            pass
+        else:
+            raise ValueError("Invalid source qualification evidence was accepted")
 
 
 class Releases(publish.NonpublishableGitHubFixture):
