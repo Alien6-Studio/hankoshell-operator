@@ -37,6 +37,18 @@ def public_tag(version):
     return tag
 
 
+def is_stable(version):
+    return (isinstance(version, str) and SEMVER.fullmatch(version) is not None
+            and "-" not in version and "+" not in version)
+
+
+def is_predecessor(version, candidate):
+    if not is_stable(version) or not isinstance(candidate, str) or not SEMVER.fullmatch(candidate):
+        return False
+    core = re.split(r"[-+]", candidate, maxsplit=1)[0]
+    return tuple(map(int, version.split("."))) < tuple(map(int, core.split(".")))
+
+
 def require_production(version):
     # Readiness is a reviewed source decision, never an environment/CLI override.
     if (RELEASE_STATUS != "ready" or version != VERSION or "-" in version or "+" in version):

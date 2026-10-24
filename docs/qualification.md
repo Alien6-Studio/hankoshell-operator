@@ -89,8 +89,9 @@ runs upgrade/rollback cells from that authentic corpus and signed artifacts.
 `make cross-version-installed-test` runs one such cell locally. With no public
 predecessor there is no historical upgrade guarantee to claim.
 
-Stable delivery still requires completed endurance/HA, actual compatibility
-proofs, ratification and independent publisher trust. These are tracked in
+Endurance and HA/recovery are complete in #95 and #96 for their stated scope.
+First publication still requires final-candidate qualification and independent
+publisher verification; it does not graduate the experimental API. These are tracked in
 [#106](https://github.com/Alien6-Studio/hankoshell-operator/issues/106) and
 [#107](https://github.com/Alien6-Studio/hankoshell-operator/issues/107).
 Machine-consumed contracts and retained synthetic proofs live under

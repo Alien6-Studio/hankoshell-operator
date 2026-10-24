@@ -220,8 +220,8 @@ def rehearse(args):
         if list(args.output.rglob("*.key")):
             raise ValueError("Private signing material leaked into rehearsal artifacts")
     report = {
-        "publishable": False, "version": args.version, "maturity": "initial development; prerelease",
-        "target_public_version": contract.versioning.VERSION, "production_publication": "blocked",
+        "publishable": False, "version": args.version, "maturity": "nonpublishable rehearsal; v1alpha1 API",
+        "target_public_version": contract.versioning.VERSION, "production_publication": "not attempted",
         "revision": args.revision, "image": image,
         "signing_intent": {"oidc_issuer": "https://token.actions.githubusercontent.com",
                            "certificate_identity": f"https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/{contract.versioning.public_tag(contract.versioning.VERSION)}"},

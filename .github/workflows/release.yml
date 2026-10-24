@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing GitHub-verified signed annotated public release tag on verified main (for example v0.1.0)
+        description: Existing GitHub-verified signed annotated public release tag on verified main (for example v1.0.0)
         required: true
         type: string
 permissions:
@@ -84,7 +84,7 @@ jobs:
           HANKOSHELL_ATTEST_TSA_CERTIFICATE: ${{ vars.HANKOSHELL_ATTEST_TSA_CERTIFICATE }}
           HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID: ${{ vars.HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID }}
         run: |
-          bash tools/bootstrap/install_attest.sh "$RUNNER_TEMP/hankoshell-attest/attest"
+          python3 -m tools.bootstrap.install attest --directory "$RUNNER_TEMP/hankoshell-attest"
           python3 -m tools.release.attest_release --check-config --attest "$RUNNER_TEMP/hankoshell-attest/attest"
           python3 -m tools.release.release_metadata --check-config
           version="$(python3 -m tools.release.release_version "$TAG")"
@@ -160,7 +160,7 @@ jobs:
           HANKOSHELL_ATTEST_TSA_URL: ${{ vars.HANKOSHELL_ATTEST_TSA_URL }}
           HANKOSHELL_ATTEST_TSA_CERTIFICATE: ${{ vars.HANKOSHELL_ATTEST_TSA_CERTIFICATE }}
         run: |
-          bash tools/bootstrap/install_attest.sh "$RUNNER_TEMP/hankoshell-attest/attest"
+          python3 -m tools.bootstrap.install attest --directory "$RUNNER_TEMP/hankoshell-attest"
           python3 -m tools.release.attest_release --attest "$RUNNER_TEMP/hankoshell-attest/attest" \
             --dist "$RUNNER_TEMP/hankoshell-delivery/dist" --workspace "$RUNNER_TEMP/hankoshell-attest-delivery" \
             --output "$RUNNER_TEMP/hankoshell-delivery/release-evidence" --revision "$GITHUB_SHA" --version "$VERSION" \
@@ -182,7 +182,7 @@ jobs:
           HANKOSHELL_ATTEST_TSA_CERTIFICATE: ${{ vars.HANKOSHELL_ATTEST_TSA_CERTIFICATE }}
         run: |
           bash tools/bootstrap/install_cosign.sh /tmp/cosign
-          bash tools/bootstrap/install_attest.sh "$RUNNER_TEMP/hankoshell-attest/attest"
+          python3 -m tools.bootstrap.install attest --directory "$RUNNER_TEMP/hankoshell-attest"
           python3 -m tools.bootstrap.install trivy --directory "$RUNNER_TEMP"
           python3 -m tools.release.oci_security scan --archive "$RUNNER_TEMP/hankoshell-delivery/image.tar" \
             --output "$RUNNER_TEMP/fresh-scan" --scanner "$RUNNER_TEMP/trivy" \

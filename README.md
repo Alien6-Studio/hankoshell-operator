@@ -3,6 +3,7 @@
 Declare application identity and access in Kubernetes; keep Keycloak in sync.
 
 [![CI](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Alien6-Studio/hankoshell-operator/actions/workflows/ci.yml)
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/hankoshell-operator)](https://artifacthub.io/packages/search?repo=hankoshell-operator)
 [![Version](https://img.shields.io/badge/version-1.0.0%20unreleased-blue.svg)](#status)
 [![Go](https://img.shields.io/badge/go-1.27.3-00ADD8.svg)](go.mod)
 [![Kubernetes](https://img.shields.io/badge/kubernetes-1.35%E2%80%931.37-326CE5.svg)](docs/support-window.md)
@@ -96,8 +97,11 @@ machine and SAML clients, runtime bindings and migration.
 This project remains in **initial development**. All 17 `hanko.sh/v1alpha1`
 resources use one experimental API: `hanko.sh/v1alpha1`.
 
-Version 1.0.0 is under qualification. Publication requires completed endurance, HA and
-independent release verification. Managed Upgrade, Clone and DBSwitch remain
+Version 1.0.0 is under final qualification.
+[Endurance](https://github.com/Alien6-Studio/hankoshell-operator/issues/95) and
+[HA/recovery](https://github.com/Alien6-Studio/hankoshell-operator/issues/96) are complete;
+publication still requires final-candidate and independent release verification.
+Managed Upgrade, Clone and DBSwitch remain
 experimental and disabled by default. Track [remaining work](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11)
 and [qualification](docs/qualification.md); passing source checks alone does not
 establish production compatibility.

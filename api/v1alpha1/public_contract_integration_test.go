@@ -30,7 +30,7 @@ func samePublicJSON(t *testing.T, a, b any) bool {
 func checkPublicContractCorpus(t *testing.T, ctx context.Context, kube client.Client) {
 	t.Helper()
 	checkPortableCorpusAdmission(t, ctx, kube)
-	corpus, err := iamconformance.ReadPublicCorpus("public-0.1.0")
+	corpus, err := iamconformance.ReadPublicCorpus("public-initial")
 	if err != nil {
 		t.Fatal(err)
 	}

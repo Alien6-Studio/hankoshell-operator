@@ -1,4 +1,4 @@
-"""Upgrade and roll back authentic public 0.x artifacts in a disposable kind cluster.
+"""Upgrade and roll back authentic published artifacts in a disposable kind cluster.
 
 The captured predecessor objects and signed published chart are inputs, never
 synthesized from the candidate. No public predecessor means no compatibility pass.
@@ -9,11 +9,13 @@ import copy
 import hashlib
 import json
 from pathlib import Path
-import re
 import secrets
+import subprocess
 import tempfile
 
 import yaml
+
+from tools.release import release_version as versioning
 
 from tools.qualification.scenarios import system_test as system
 from tools.release import public_release_verify as authentic
@@ -30,7 +32,7 @@ def fingerprint(value):
 
 def predecessor(capture, reviewed, proof):
     if (proof.get("verified") is not True or proof.get("published") is not True
-            or not re.fullmatch(r"0\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", capture.get("source_release", ""))
+            or not versioning.is_predecessor(capture.get("source_release", ""), system.VERSION)
             or reviewed.get("state") != "reviewed-public-predecessor" or reviewed.get("published") is not True
             or capture.get("state") != "captured-for-review" or capture.get("published") is not False
             or reviewed.get("captured_sha256") != hashlib.sha256(capture.raw).hexdigest()):

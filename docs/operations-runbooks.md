@@ -180,12 +180,13 @@ specified in [observability](qualification.md).
 holder, verifies standby probe semantics, removes that leader and observes a new
 holder with the same native managed client and credential. This is a bounded
 single-node smoke test. The separate
-[transaction packet](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/transactions/2026-10-19/runtime-dcee6b6/README.md)
+[transaction qualification](https://github.com/Alien6-Studio/hankoshell-operator/issues/96)
 retains six real Kubernetes/Keycloak cells, including the caller-scoped live-leader
 API partition. The [realm recovery fixture](qualification.md)
 tests a five-minute operator API outage and interrupted owned-realm deletion.
 These exact-runtime reports do not qualify arbitrary partitions, split brain,
-clock skew, every transaction or a 24-hour soak (#96/#95).
+clock skew or every transaction. The separate [endurance campaign](https://github.com/Alien6-Studio/hankoshell-operator/issues/95)
+records its own 24-hour interval and workload.
 
 Fixture commands (the labels identify this Helm release):
 

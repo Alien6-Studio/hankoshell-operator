@@ -24,7 +24,6 @@ ROOT = Path(__file__).resolve().parents[3]
 
 ROOT_NAME = re.compile(r"(?:Test|Example|Fuzz)[A-Za-z0-9_]+")
 SHARDS = ("core", "adoption", "protocols")
-STABILITY_ROOTS = ("TestRealKeycloakAdoptionCharacterization", "TestRealKeycloakApplicationProtocolsAndFlows")
 EXTENSION_ROOTS = ("TestRealKeycloakBoundedDelegationExtension",)
 
 
@@ -162,9 +161,7 @@ def write_summary(output, label, returncode, selected=None, source=None, require
     return changed
 
 
-def run(suite, gotestsum, output, shard="all", root=None):
-    if root is not None and (suite != "keycloak" or root not in STABILITY_ROOTS or shard != "all"):
-        raise ValueError("Only reviewed Keycloak stability roots can be selected individually")
+def run(suite, gotestsum, output, shard="all"):
     output.mkdir(parents=True, exist_ok=True)
     # Never publish stale success from an earlier local invocation.
     for name in ("junit.xml", "results.json", "summary.md", "coverage.out", "coverage-functions.txt", "coverage-summary.md", "coverage.json"):
@@ -196,14 +193,10 @@ def run(suite, gotestsum, output, shard="all", root=None):
             selected = extension_selection()
             label += "/" + version
         else:
-            label += "/" + version + "/" + ("stability/" + root if root else shard)
+            label += "/" + version + "/" + shard
             selected = keycloak_selection(shard)
-        if root:
-            if root not in selected:
-                raise ValueError("Stability root is absent from the complete shard inventory")
-            selected = [root]
         expression = "^(" + "|".join(selected) + ")$"
-        deadline = "8m" if suite == "keycloak-extension" else "3m" if root else "25m" if shard == "all" else "10m"
+        deadline = "8m" if suite == "keycloak-extension" else "25m" if shard == "all" else "10m"
         tags = "keycloak_integration,keycloak_extension_integration" if suite == "keycloak-extension" else "keycloak_integration"
         args += ["-tags=" + tags, "-timeout=" + deadline, "-run", expression, "./internal/controller"]
     result = subprocess.run([gotestsum, "--format=standard-verbose", "--junitfile", str(output / "junit.xml"), "--", *args], cwd=ROOT, check=False)

@@ -10,7 +10,7 @@ import (
 )
 
 func TestReviewedPublicCorpusCarriesFrozenNonSecretEvidence(t *testing.T) {
-	corpus, err := ReadPublicCorpus("public-0.1.0")
+	corpus, err := ReadPublicCorpus("public-initial")
 	if err != nil {
 		t.Fatal(err)
 	}

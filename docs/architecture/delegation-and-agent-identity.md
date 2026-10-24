@@ -64,22 +64,11 @@ recorded in [the development contract notice](../go-api-contract.md).
 
 ## Installed qualification gate (#71)
 
-The [complete CI packet](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/delegation/2026-10-19/runtime-98659a0/README.md)
-records all six installed cells and all six two-replica handoff cells passing:
-528 installed assertions, 240 HA assertions and 48 native-phase recoveries.
-Its scanned image/source tree matches the protected GitHub-Verified squash
-`7ff8086`. It supersedes the earlier failed-cell qualification gaps below;
-subsequent source/chart changes retain their own required exact-image CI.
-
-The earlier [d6f7fd6 result packet](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/concurrency/2026-10-19/runtime-d6f7fd6/README.md)
-records five complete CI cells and a failed Prepared recovery/status-fault wait
-on Keycloak 26.8.0 / Kubernetes 1.35.0. The follow-up corrected renewed request
-admission and guarded-read starvation; the complete CI packet verifies recovery.
-
-The [a65f157 CI audit](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/delegation/2026-10-19/runtime-a65f157/README.md)
-retains four passing cells and two application-update deadlines on Kubernetes
-1.35.0. Both failed cells completed initial delegation successfully. The separate
-fault-proxy watch framing correction is covered by the complete CI packet.
+The [required CI matrix](../../.github/workflows/ci.yml) runs all six supported
+Kubernetes/Keycloak cells, including installed delegation and two-replica recovery.
+The [recovery qualification](https://github.com/Alien6-Studio/hankoshell-operator/issues/96)
+records the reviewed results. Every candidate source and chart change requires
+its own exact-image CI; earlier runs cannot qualify a later binary.
 
 `tools/qualification/scenarios/delegation_installed_test.py` requires the exact clean Operator revision,
 its scanned OCI graph and the matching JAR already built/tested by the same CI run.
@@ -101,7 +90,8 @@ The fault selects only the verified `Ready` patch, allowing transient error repo
 while native recovery progresses; the native `Committed` phase is still asserted.
 The initial delegated graph has a measured 600-second convergence budget because
 each native mutation rechecks live references. Grant withdrawal retains its
-180-second bound. Production throughput and scale remain separate in #95.
+180-second bound. The [endurance report](https://github.com/Alien6-Studio/hankoshell-operator/issues/95)
+records the separate measured workload and capacity observations.
 The offline withdrawal comparison uses a declared 300-second token so it remains
 valid throughout that budget; a separate 8-second token proves actual expiry.
 An application metadata update must preserve the active delegation journal and
@@ -111,15 +101,6 @@ An interrupted deletion retains foreign objects and blocks on incoming foreign
 dependencies. The final scan covers current/retired logs and Kubernetes objects;
 Hub is disabled and its payload count is explicitly zero.
 
-The [2026-10-18 installed audit](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/docs/qualification/delegation/2026-10-18/runtime-e29b3d5/README.md)
-records all six passing local cells on clean runtime `e29b3d5`, with 88 fixed
-assertions and four native-phase recoveries per cell. Initial convergence ranges
-from 85.274 to 159.354 seconds; withdrawal ranges from 7.680 to 19.000 seconds,
-within the unchanged 600/180-second budgets. The packet binds the scanned OCI,
-extension JARs, source/security results and runner outcomes. CI separately records
-an initial `OwnershipConflict` on 26.7.5 / 1.35.0. That historical failed-cell
-gap is superseded by the complete protected CI packet above, rather than by
-these earlier local successes.
 These fixtures use one Kubernetes node and one Keycloak replica; they do not
 qualify Keycloak cluster failover, signing-key rotation, human delegation or
 production readiness. An offline JWT remains valid until its bounded expiry

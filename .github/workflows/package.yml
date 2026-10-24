@@ -1,6 +1,11 @@
 name: Package
 on:
   workflow_dispatch:
+    inputs:
+      publisher_access:
+        description: Initialize image-by-digest and Artifact Hub metadata access (no version tag or release)
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -49,3 +54,49 @@ jobs:
           if-no-files-found: error
           retention-days: 30
           compression-level: 0
+
+  publisher-access:
+    if: inputs.publisher_access && github.ref == 'refs/heads/main'
+    needs: oci
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.oci.outputs.artifact_id }}
+          path: ${{ runner.temp }}/scanned
+          merge-multiple: true
+      - name: Initialize publisher packages without a version tag or release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DIGEST: ${{ needs.oci.outputs.digest }}
+        run: |
+          GOBIN="$RUNNER_TEMP/publisher-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
+          export PATH="$RUNNER_TEMP/publisher-tools:$PATH"
+          python3 -m tools.release.oci_security verify --archive "$RUNNER_TEMP/scanned/image.tar" \
+            --output "$RUNNER_TEMP/scanned/evidence" --digest "$DIGEST" --revision "$GITHUB_SHA" \
+            --version "$(python3 -m tools.versions get release version)"
+          printf '%s' "$GH_TOKEN" | oras login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          oras cp --from-oci-layout "$RUNNER_TEMP/scanned/image.tar@$DIGEST" \
+            "ghcr.io/alien6-studio/hankoshell-operator@$DIGEST"
+          cd "$RUNNER_TEMP"
+          python3 - <<'PYTHON'
+          import json, os
+          from pathlib import Path
+          policy = json.loads((Path(os.environ["GITHUB_WORKSPACE"]) / "security/publisher.json").read_text())
+          Path("artifacthub-repo.yml").write_text("repositoryID: " + policy["artifacthub_repository_id"] + "\n")
+          PYTHON
+          oras push ghcr.io/alien6-studio/charts/hankoshell-operator:artifacthub.io \
+            --annotation org.opencontainers.image.source=https://github.com/Alien6-Studio/hankoshell-operator \
+            --config /dev/null:application/vnd.cncf.artifacthub.config.v1+yaml \
+            artifacthub-repo.yml:application/vnd.cncf.artifacthub.repository-metadata.layer.v1.yaml
+          echo 'Publisher packages initialized. Verify anonymous image access and Artifact Hub ownership before closing #21.' >> "$GITHUB_STEP_SUMMARY"

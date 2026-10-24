@@ -39,5 +39,6 @@ proved safe by these literal checks. Deployment network controls remain separate
   and [metadata rejection tests](../../../internal/controller/helpers_test.go).
 - [Endpoint and operator transport policy](../../../internal/keycloak/transport.go)
   and [syntax, credential, CA and enterprise tests](../../../internal/keycloak/transport_test.go).
-- [Chart transport validation](https://github.com/Alien6-Studio/hankoshell-operator/blob/fb9c6e60037a69bb6bde719c73a1b6592606466b/tests/chart/keycloak-transport.py).
+- [Chart transport validation](../../../charts/hankoshell-operator/templates/_helpers.tpl) and
+  [rendering checks](../../../Makefile).
 - [Transport and network deployment contract](../../secure-deployment.md).

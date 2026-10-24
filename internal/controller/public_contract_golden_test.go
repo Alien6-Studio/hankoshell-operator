@@ -17,7 +17,7 @@ import (
 	"github.com/Alien6-Studio/hankoshell-operator/internal/roles"
 )
 
-const publicCorpusPath = "../iamconformance/testdata/public-0.1.0/corpus.json"
+const publicCorpusPath = "../iamconformance/testdata/public-initial/corpus.json"
 
 func decodePublicSpec(t *testing.T, data []byte, value any) {
 	t.Helper()
@@ -85,7 +85,7 @@ func publicFixtureIdentity(t *testing.T, fixture iamconformance.PublicFixture, o
 }
 
 func TestPublicContractPlanGoldens(t *testing.T) {
-	corpus, err := iamconformance.ReadPublicCorpus("public-0.1.0")
+	corpus, err := iamconformance.ReadPublicCorpus("public-initial")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +162,7 @@ func TestPublicCanonicalizationPreservesAuthorityDistinctions(t *testing.T) {
 }
 
 func TestPublicLeafOwnershipMarkersRemainReadable(t *testing.T) {
-	data, err := os.ReadFile("../iamconformance/testdata/public-0.1.0/ownership.json")
+	data, err := os.ReadFile("../iamconformance/testdata/public-initial/ownership.json")
 	if err != nil {
 		t.Fatal(err)
 	}

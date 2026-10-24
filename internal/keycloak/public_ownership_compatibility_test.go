@@ -9,7 +9,7 @@ import (
 )
 
 func TestPublicAuthorizationJournalBackwardReadability(t *testing.T) {
-	data, err := os.ReadFile("../iamconformance/testdata/public-0.1.0/ownership.json")
+	data, err := os.ReadFile("../iamconformance/testdata/public-initial/ownership.json")
 	if err != nil {
 		t.Fatal(err)
 	}
