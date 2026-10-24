@@ -19,7 +19,7 @@ go get $COSIGN_DEPENDENCIES
 # Overrides must never silently select an older verifier or reintroduce legacy PGP.
 test "$(go list -m -f '{{.Version}}' github.com/sigstore/cosign/v3)" = "$COSIGN_VERSION"
 packages="$(CGO_ENABLED=0 go list -deps github.com/sigstore/cosign/v3/cmd/cosign)"
-if printf '%s\n' "$packages" | grep -Eq '^golang.org/x/crypto/openpgp(/|$)'; then
+if printf '%s\n' "$packages" | grep -E '^golang.org/x/crypto/openpgp(/|$)' > /dev/null; then
   echo 'Deprecated OpenPGP packages are forbidden in the verifier' >&2
   exit 1
 fi
