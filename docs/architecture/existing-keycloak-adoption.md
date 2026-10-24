@@ -7,9 +7,10 @@ Accepted direction for [RFC #46](https://github.com/Alien6-Studio/hankoshell-ope
 completing **Adopt Existing Keycloak**.
 The source tree implements bounded discovery/diff, explicit reviewed ownership
 acquisition, Organization and ResourceServer checkpoints, and a separate qualified
-transition to Manage. Current source/chart metadata is `1.0.0`; source freeze
-requires protected merge and exact-main qualification. The 16 v1alpha1 CRDs remain
-experimental; source completion does not publish production packages.
+transition to Manage. This implementation ships in
+[v1.0.0](https://github.com/Alien6-Studio/hankoshell-operator/releases/tag/v1.0.0).
+All 17 v1alpha1 CRDs remain experimental. Subsequent deliveries still require
+protected integration and exact-candidate qualification.
 
 ## Implemented discovery and diff (#47)
 
@@ -824,10 +825,8 @@ transport or Continuum change is introduced.
 2. [#48 — explicit provider ownership adoption](https://github.com/Alien6-Studio/hankoshell-operator/issues/48): annotation approval and leaf owner-only transitions, kind-safe SA marker, legacy application compatibility, separate Manage, fault/replacement/tamper qualification.
 3. [#49 — aggregate adoption, native preservation and adopt-to-manage](https://github.com/Alien6-Studio/hankoshell-operator/issues/49): organizations/ResourceServer checkpoints and foreign dependencies, selected children in external realms, native preservation during Manage and exact-image end-to-end qualification.
 
-The source freeze requires exact protected-main qualification after these
-implementations. The accepted RFC and discovery/diff are #46/#47; leaf acquisition is #48.
-The completed adoption contract is qualified through #49. The next work subject is
-**Workload Identity**. Workload Identity, Delegation & Agent Identity, Provider
-Portability, Fleet Reconciliation and Initial Public Contract Stabilization are
-required before the first public 1.0.0. Transversal first-publication trust/readiness
-remains open in #21.
+The accepted RFC and discovery/diff are #46/#47; leaf acquisition is #48.
+The adoption contract is qualified through #49 and ships in public v1.0.0.
+Workload identity, delegation, provider portability and fleet reconciliation
+retain their own contracts and qualification boundaries. Initial publication and
+publisher trust are recorded in #21/#106/#107; they do not graduate the API.

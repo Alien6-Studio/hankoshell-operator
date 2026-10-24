@@ -3,14 +3,15 @@
 See the [accepted architecture decisions](decisions/README.md) for the underlying
 operator, provider and trust boundaries.
 
-This document defines Workload Identity for the first public `1.0.0`.
-The technical version remains `1.0.0`, development. Kubernetes workload
+This document defines Workload Identity shipped in
+[v1.0.0](https://github.com/Alien6-Studio/hankoshell-operator/releases/tag/v1.0.0),
+the first public operator release. The APIs remain experimental. Kubernetes workload
 trust ownership implements the shared native trust; Workload binding and mesh
 coherence adds UID validation and public metadata delivery. HankoServiceAccount
 federated authentication implements native activation and reviewed authentication
 transitions. Installed-system runtime and deep migration/recovery are qualified
 within the supported scope described below.
-Production publication remains in #21.
+Initial publication and publisher trust are recorded in #21/#106/#107.
 Disposable qualification fixtures do not change production infrastructure.
 
 ## 1. Problem statement
@@ -902,8 +903,8 @@ freshness/containment, runtime metadata consent and mesh coherence **before**
 [HankoServiceAccount federated authentication #62](https://github.com/Alien6-Studio/hankoshell-operator/issues/62) enables
 federated activation. HankoServiceAccount federated authentication uses the binding API and adds native activation, durable credential/mode transitions and explicit fallback.
 [Installed-system and migration qualification #63](https://github.com/Alien6-Studio/hankoshell-operator/issues/63) proves
-the complete installed/migration system. Workload Identity remains open until
-all implementation and installed proofs pass; the roadmap retains every other work subject required for the first public 1.0.0.
+the complete installed/migration system. These implementations and their bounded
+qualification are included in public v1.0.0; the limitations below still apply.
 
 Apply the binding schemas before upgraded controllers; old manifests retain Secret
 mode. Inventory/review existing opaque `kubernetes` brokers and generic federated
@@ -1151,6 +1152,5 @@ containment is asynchronous with polling/outage windows. Same-client cutover has
 no atomic pre-authentication proof or zero-downtime guarantee. No TokenReview
 based authenticator, remote-cluster binding, SPIFFE, delegation/token exchange or
 Pod injection is implemented. Single-node/dev-file fixtures do not qualify cloud,
-CNI policy enforcement, production databases or disaster recovery. Version stays
-`1.0.0`; #21 and the other functional roadmap subjects still block initial
-public release preparation.
+CNI policy enforcement, production databases or disaster recovery. Publication of
+v1.0.0 does not extend these fixture boundaries or graduate the API.

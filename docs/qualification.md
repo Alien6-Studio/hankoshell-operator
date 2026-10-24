@@ -88,16 +88,20 @@ python3 -m tools.release.release_bundle --archive /path/to/image.tar \
   --output /fresh/delivery --helm /path/to/helm
 ```
 
-The installed suite also captures its synthetic objects and schemas. After an
-actual public release and privacy review, **Public predecessor compatibility**
-runs upgrade/rollback cells from that authentic corpus and signed artifacts.
-`make cross-version-installed-test` runs one such cell locally. With no public
-predecessor there is no historical upgrade guarantee to claim.
+The installed suite also captures its synthetic objects and schemas.
+[v1.0.0](https://github.com/Alien6-Studio/hankoshell-operator/releases/tag/v1.0.0)
+is the first public release. For subsequent deliveries, **Public predecessor
+compatibility** needs the retained, privacy-reviewed corpus and authenticated
+artifacts of the supported public predecessor before running upgrade/rollback
+cells. `make cross-version-installed-test` runs one such cell locally. The initial
+v1.0.0 corpus's `NoPublishedPredecessor` limitation does not qualify a later upgrade.
 
 Endurance and HA/recovery are complete in #95 and #96 for their stated scope.
-First publication still requires final-candidate qualification and independent
-publisher verification; it does not graduate the experimental API. These are tracked in
+The initial publication completed final-candidate qualification and independent
+publisher verification, tracked in
 [#106](https://github.com/Alien6-Studio/hankoshell-operator/issues/106) and
 [#107](https://github.com/Alien6-Studio/hankoshell-operator/issues/107).
+Each subsequent delivery requires its own qualification and independent approval;
+publication does not graduate the experimental API.
 Machine-consumed contracts and retained synthetic proofs live under
 [`tools/qualification/config/`](../tools/qualification/config/).

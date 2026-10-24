@@ -1,14 +1,15 @@
 # API support and qualification inventory
 
-This is the current development inventory for #82, #83 and #85. It does not
-ratify the initial public surface selected by #81 or close its prerequisites.
-No public release has been published. All planned capabilities remain in the
-backlog; an experimental classification is not removal from the roadmap.
+This inventory describes the experimental APIs shipped in
+[v1.0.0](https://github.com/Alien6-Studio/hankoshell-operator/releases/tag/v1.0.0),
+published on 2026-10-24. Operator publication does not graduate an API or ratify
+the candidate stable surface selected by #81. An experimental classification
+is not removal from the roadmap.
 
 The separate [candidate selection](public-contract-selection.md) reviews all
 resource/field groups for #81. Its [frozen semantics and corpus](public-contract-semantics.md)
-feed #82/#84 qualification; they do not change the current development maturity
-table or authorize first publication.
+feed conformance qualification; they do not change the API maturity table or
+authorize a later publication.
 
 The reviewed [machine-readable inventory](../tools/qualification/config/contracts/api-support.json) lists every top-level
 spec/status field group for every CRD, plus explicit provider-native spec groups.
@@ -77,10 +78,11 @@ All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibili
   core. Mesh registration is audit/projection, not traffic enforcement.
   `HankoEmailProvider` is retained as a deprecated API; its controller does not
   provide email delivery.
-- Delegation accepts typed intent and returns unsupported capability findings;
-  [native counterexamples](architecture/delegation-and-agent-identity.md) prevent
-  enabling bounded delegation on either reviewed Keycloak version. The second
-  provider and signed, replay-resistant enterprise fleet remain separate work.
+- Bounded delegation requires the
+  [dedicated extension and its qualification](architecture/delegation-and-agent-identity.md).
+  Stock Keycloak retains the documented native counterexamples; missing extension
+  capabilities refuse delegation. The second adapter and connected fleet retain
+  their own experimental scope and installed evidence.
 
 These are fixture and installed-test boundaries, not evidence of public production
 use. The inventory links each resource to its enforcing contract or limitation.

@@ -1,10 +1,11 @@
 # Resource graduation criteria for 1.0
 
 Decision for #90, reviewed on 2026-10-16. These criteria and per-resource records
-are inputs to #89/#104, not their acceptance or a stable API announcement. No
-public release or production compatibility report exists. **No resource
-graduates in this decision.** The initial 1.0.0 public candidates remain a
-separate prospective selection, not evidence of 1.0 maturity.
+are inputs to #89/#104, not a stable API announcement.
+[v1.0.0](https://github.com/Alien6-Studio/hankoshell-operator/releases/tag/v1.0.0)
+is public, with experimental APIs. No reviewed public production compatibility
+report is recorded. **No resource graduates in this decision.** The candidate
+stable contract remains a separate selection requiring its own evidence.
 
 The machine-readable [graduation records](../tools/qualification/config/contracts/stable-graduation.json) cover every
 top-level spec/status group of all 17 installed resources, including explicit

@@ -101,11 +101,10 @@ rejects window/document/matrix divergence through the shared versions checker.
 
 ## Removal and end of support
 
-Before first publication, qualification changes remain reviewed development
-changes and must describe lost coverage in CHANGELOG. No nonexistent public
-upgrade path or community approval may be manufactured. After publication,
-announce a minor removal under the proposed compatibility rules: at least two
-subsequent public minor releases and 90 calendar days, plus a migration note and
+The first public release is v1.0.0. Qualification changes must describe lost
+coverage in CHANGELOG. No unmeasured public upgrade path or community approval
+may be claimed. Announce a minor removal under the proposed compatibility rules:
+at least two subsequent public minor releases and 90 calendar days, plus a migration note and
 upstream EOL reference. Both thresholds apply; #87 must ratify them first.
 
 Record the announcement in the machine notice registry and release notes. Confirm
@@ -113,4 +112,5 @@ available upgrade/rollback evidence, then retire the pin and all derived matrix
 entries in one reviewed PR. Upstream EOL or an urgent security condition cannot
 be overridden by project grace: record the shortened-support exception and the
 safe migration/containment advice. Historical evidence stays preserved. No
-production-support promise is active while publication and review are pending.
+additional production-support promise follows from publication alone; the API
+remains experimental and the proposed stable commitment requires its own review.

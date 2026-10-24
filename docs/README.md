@@ -11,5 +11,7 @@ Start with the guide for the task you are doing:
 - [Understand the API contract](api-support.md) and [compatibility policy](compatibility-policy.md).
 - [Read the architecture decisions](architecture/decisions/README.md).
 
+[v1.0.0](https://github.com/Alien6-Studio/hankoshell-operator/releases/tag/v1.0.0)
+is the first public release, with 17 experimental `v1alpha1` CRDs.
 Release progress belongs in [GitHub issues](https://github.com/Alien6-Studio/hankoshell-operator/issues).
 Campaign logs and results are CI artifacts or local `.tools/runs/` data.

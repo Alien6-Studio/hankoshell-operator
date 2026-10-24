@@ -78,8 +78,8 @@ the approval annotation is not an authorization mechanism.
 Any future removal or incompatible experimental change must be announced in
 CHANGELOG and the API support inventory at least one public minor release before
 removal, with a migration/retirement path preserving journals and child ownership.
-There is no removal date and no published predecessor today. A later stable
-selection requires a fresh graduation review, installed upgrade/rollback and
+There is no removal date. The initial public v1.0.0 had no earlier public
+predecessor. A later stable selection requires a fresh graduation review, installed upgrade/rollback and
 production evidence; exclusion does not authorize silent removal.
 
 ## Enforcement

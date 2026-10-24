@@ -23,5 +23,6 @@ reject unknown fields and conflicting SSA writers, while preserving concurrent
 independently owned annotations.
 
 Run `make preflight`, `make test` and `make integration-test` for the supported
-Kubernetes versions. No public predecessor exists; these checks qualify the
-initial implementation without inventing a release migration history.
+Kubernetes versions. These checks qualify exported types and API behavior.
+The first public v1.0.0 had no earlier public predecessor; qualification of later
+cross-release migrations must additionally use the actual published artifacts.

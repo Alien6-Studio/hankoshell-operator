@@ -5,8 +5,9 @@ operator, provider and trust boundaries.
 
 This is the implemented **Organizational Authorization** source contract,
 accepted in [RFC #40](https://github.com/Alien6-Studio/hankoshell-operator/issues/40),
-with grants in #41 and bounded explanation in #42. Current packaging metadata is `1.0.0`; first-publication readiness
-remains transversal in #21 and Initial Public Contract Stabilization.
+with grants in #41 and bounded explanation in #42. It is included in
+[v1.0.0](https://github.com/Alien6-Studio/hankoshell-operator/releases/tag/v1.0.0).
+The API remains experimental; publication does not graduate the candidate stable contract.
 
 ## Decision
 
@@ -14,7 +15,7 @@ Extend the existing **HankoResourceServer authorization aggregate** with an
 organization principal, explicit direct-only/descendant semantics and a Keycloak
 group-policy adapter. Preserve role composition. Do not add HankoEntitlement,
 HankoUser or another CRD. The additive organization principal and bounded status projection retain the
-16 experimental v1alpha1 CRDs.
+17 experimental v1alpha1 CRDs shipped in v1.0.0.
 
 Descendants mean **declared, current, owned HankoOrganization descendants**.
 Compile their bounded UUID set as direct-only group definitions. Do not translate
