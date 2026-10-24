@@ -82,8 +82,12 @@ def provider_review(root):
             raise ValueError("semantic requires an explicit bounded review decision")
         if row["decision"] == "portable-candidate" and (set(expected.values()) != {"lossless"} or not row["intentIdentity"]):
             raise ValueError("unsupported or lossy semantics cannot become portable candidates")
-    pins = json.loads((root / "versions.json").read_text())
-    cells = set(itertools.product(pins["kubernetes"]["versions"], pins["keycloak"]["versions"]))
+    window = review.get("qualificationWindow", {})
+    if (set(window) != {"kubernetes", "keycloak"}
+            or len(window["kubernetes"]) != 3 or len(set(window["kubernetes"])) != 3
+            or len(window["keycloak"]) != 2 or len(set(window["keycloak"])) != 2):
+        raise ValueError("historical provider review needs its explicit six-cell window")
+    cells = set(itertools.product(window["kubernetes"], window["keycloak"]))
     seen = set()
     if set(review.get("reportHashes", {})) != set(review.get("installedEvidence", [])):
         raise ValueError("every retained report must have its reviewed byte digest")
@@ -94,7 +98,7 @@ def provider_review(root):
         report = json.loads(report_path.read_text())
         cell = report.get("kubernetes_version"), report.get("keycloak_version")
         if cell in seen or cell not in cells or report.get("complete") is not True or report.get("publishable") is not False:
-            raise ValueError("provider review needs complete unique nonpublishable supported cells")
+            raise ValueError("provider review needs complete unique nonpublishable reviewed cells")
         seen.add(cell)
         if (report.get("revision") != review.get("reviewedRevision") or report.get("corpus_sha256") != digest
                 or report.get("image_digest") != review.get("reviewedImageDigest") or report.get("fixture_sha256") != review.get("fixtureSha256")
@@ -105,7 +109,7 @@ def provider_review(root):
         if len(differences) != len(expected) or {(d["fixture"], d["provider"]): d["classification"] for d in differences} != expected or any(d.get("observed") is not True for d in differences):
             raise ValueError("provider evidence omits or changes an observed semantic")
     if seen != cells:
-        raise ValueError("provider review needs the full supported installed window")
+        raise ValueError("provider review needs the full historical installed window")
     return review
 
 

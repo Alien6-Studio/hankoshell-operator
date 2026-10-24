@@ -73,9 +73,10 @@ Do not treat a running Job or a completed setup as a completed soak.
 
 ## Packaging and historical upgrades
 
-Version `1.0.0` has not been published. The API remains `v1alpha1` for both serving and storage. The **Package** workflow
+The API remains `v1alpha1` for both serving and storage. The **Package** workflow
 packages the scanned image, digest-pinned chart, scan results and checksums. It
-creates no tag, registry publication or public release.
+creates no product tag or public release. Its explicit `publisher_access` option
+initializes the image by digest and catalog metadata for first-time publisher setup.
 
 ```sh
 python3 -m tools.release.release_bundle --archive /path/to/image.tar \

@@ -335,7 +335,8 @@ publisher signature with the pinned runtime cosign. It preserves its current
 image repository. Missing approval, revoked approval, failed verification or a
 concurrent Deployment change prevents the patch. Already-pinned images are checked
 again; a version string alone does not authorize an update.
-The Hub reference version must match the reviewed SemVer release, such as the future `1.0.0`. This example is unavailable during development.
+The Hub reference version must match a reviewed published SemVer release, such as `1.0.0`.
+Check GitHub Releases before using this example.
 
 Configure `imageVerification.policyConfigMap: hanko-image-policy`, the independent
 [admission policy](../config/security/operator-image-policy-admission.yaml) and
@@ -1220,21 +1221,21 @@ configuration, while installation-specific enforcement still needs qualification
 
 ## Release rehearsal and publication
 
-Version `1.0.0` has not been published. Source, chart and build metadata use
-the same version; the development status in `versions.json` blocks publication. All implemented capabilities and canonical Attest hardening
-remain intact. Workload Identity, Delegation & Agent Identity, Provider Portability, Fleet Reconciliation and Initial Public Contract Stabilization and #21's real trust evidence are required before
-first publication; see the [Release 1.0.0 milestone](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11) and
+Source, chart and build metadata use the same version. The reviewed `ready` status
+in `versions.json` permits release eligibility; `development` blocks it. Final
+qualification, publisher trust and independent approval remain required before
+publication; see the [Release 1.0.0 milestone](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11) and
 [release qualification](qualification.md#packaging-and-historical-upgrades).
 
 The parser accepts normal `v<SemVer>` tags and extracts `1.0.0` from `v1.0.0`.
 Parsing is separate from permission to publish: production eligibility and
 promotion fail closed while source maturity is development. Only reviewed source
-metadata declaring the release ready can enable the future path.
+metadata declaring the release ready can enable the publication path.
 No environment variable or CLI option overrides that decision. Development
 rehearsal shares retry logic only with a loopback registry and in-memory GitHub
 storage; it cannot publish to GHCR or create a real GitHub Release.
 
-The future normal release requires a GitHub-verified source commit and signed
+A release requires a GitHub-verified source commit and signed
 annotated `v1.0.0` tag bound to that exact commit on protected main. Eligibility
 checks ancestry, signatures, lightweight tags and moved/conflicting identities;
 these checks run again immediately before publication. Git metadata responses
@@ -1289,11 +1290,13 @@ must match this file; key or TSA rotation requires a reviewed source change.
 The publisher uses Attest 0.2.0 and requires signature, timestamp, recomputation
 and successful execution, with all five native checks passing.
 
-Before publication, maintainers must configure the real Attest signing secret,
-trusted public key/ID, RFC 3161 endpoint and pinned TSA certificate in the
-reviewed `release` environment, register the OCI chart in Artifact Hub and set
-its assigned repository UUID, and verify public registry access. See the README
-release configuration. The rehearsal does not qualify these external settings.
+The publisher configuration established in #21 includes a dedicated Attest signer,
+its public key/ID, a verified RFC 3161 endpoint and pinned TSA certificate,
+and the registered Artifact Hub repository UUID. Both GHCR packages are public;
+anonymous downloads and Artifact Hub Verified Publisher were checked. Public
+values are pinned in `security/publisher.json`; the signing secret belongs only
+to the protected release environment.
+The rehearsal does not qualify these external settings.
 For the first setup, run **Package** on `main` with `publisher_access=true`.
 It initializes the scanned image by digest and the `artifacthub.io` metadata
 only; it publishes no version tag, versioned chart or GitHub Release. Set the
@@ -1712,7 +1715,7 @@ snapshots and must be reviewed before promoting new pins. See [support policy](s
 | Component | Exact qualification versions | Default |
 | --- | --- | --- |
 | kubernetes | `1.35.0`, `1.36.2`, `1.37.0` | `1.37.0` |
-| keycloak | `26.7.5`, `26.8.0` | `26.8.0` |
+| keycloak | `26.7.5`, `26.8.1` | `26.8.1` |
 <!-- support-window:end -->
 
 ## Executable CRD and RBAC review inventory

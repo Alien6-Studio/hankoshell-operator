@@ -56,7 +56,7 @@ it neither overwrites nor merges Hanko's configuration. Enabling `declarative-ui
 is an explicit server choice, independent of operator reconciliation. See the
 [extension administration guide](https://github.com/Alien6-Studio/keycloak-bounded-delegation/blob/d9423db16e2bbe31bfb1dcc83c9a9441a18a6075/docs/administration.md)
 for native permissions, writer conflicts and safe withdrawal. The extension's
-26.8.1 native qualification does not expand Hanko's reviewed 26.7.5/26.8.0 window.
+Hanko's current matrix includes 26.7.5 and 26.8.1; existing 26.8.0 capability replies remain readable. The operator and extension retain separate qualification reports.
 
 Public status adds observed portable delegation origin and bounds, not token
 subjects or native user IDs. This additive unpublished-alpha schema change is
@@ -186,7 +186,7 @@ Run the focused tests locally for each version:
 
 ```sh
 KEYCLOAK_VERSION=26.7.5 go test -tags=keycloak_integration -race -count=1 -timeout=6m -run '^TestRealKeycloak(StandardTokenExchange|DelegationPreview)$' -v ./internal/controller
-KEYCLOAK_VERSION=26.8.0 go test -tags=keycloak_integration -race -count=1 -timeout=6m -run '^TestRealKeycloak(StandardTokenExchange|DelegationPreview)$' -v ./internal/controller
+KEYCLOAK_VERSION=26.8.1 go test -tags=keycloak_integration -race -count=1 -timeout=6m -run '^TestRealKeycloak(StandardTokenExchange|DelegationPreview)$' -v ./internal/controller
 ```
 
 The existing `make keycloak-integration-test` and its two-version CI matrix
@@ -315,6 +315,6 @@ the unsupported capability result until provider enforcement is proven;
 intersection/depth/TTL proof, including composite escalation and replay negatives.
 [#71](https://github.com/Alien6-Studio/hankoshell-operator/issues/71) then requires
 installed Pod-to-resource proof and recovery/ownership isolation on Kubernetes
-1.35.0, 1.36.2 and 1.37.0 × Keycloak 26.7.5 and 26.8.0. The installed audit above
+1.35.0, 1.36.2 and 1.37.0 × Keycloak 26.7.5 and 26.8.1. The installed audit above
 records all six installed CI cells and six operator-HA CI cells. Direct provider tests remain a separate layer;
 neither result closes the RFC's protected integration/review gates.

@@ -83,7 +83,7 @@ func TestBoundedPreparationConvertsIntentWithoutMutatingUnavailableProvider(t *t
 		switch r.URL.Path {
 		case "/realms/acme/bounded-delegation":
 			discoveries++
-			_ = json.NewEncoder(w).Encode(keycloak.BoundedDelegationCapability{Contract: "bounded-delegation/software-v1", ExtensionVersion: "0.1.0-SNAPSHOT", KeycloakVersion: "26.8.0", Experimental: true, Enabled: true, MaxDepth: 4, MaxTTLSeconds: 600})
+			_ = json.NewEncoder(w).Encode(keycloak.BoundedDelegationCapability{Contract: "bounded-delegation/software-v1", ExtensionVersion: "0.1.0-SNAPSHOT", KeycloakVersion: "26.8.1", Experimental: true, Enabled: true, MaxDepth: 4, MaxTTLSeconds: 600})
 		case "/realms/master/protocol/openid-connect/token":
 			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "synthetic-test-token", "expires_in": 300})
 		case "/admin/realms/acme":

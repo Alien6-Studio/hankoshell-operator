@@ -46,7 +46,7 @@ func (e iamEvidence) evaluate(generation int64, identity iamcontract.PlanIdentit
 	*e.backend = string(identity.Backend)
 	*e.intent = string(identity.Intent)
 	*e.evaluatedPlan = string(identity.Plan)
-	*e.qualification = api.IAMCapabilityEvidence{Source: "adapter-and-real-qualification", QualificationWindow: "26.7.5,26.8.0"}
+	*e.qualification = api.IAMCapabilityEvidence{Source: "adapter-and-real-qualification", QualificationWindow: "26.7.5,26.8.1"}
 }
 func (e iamEvidence) observe(generation int64, identity iamcontract.PlanIdentity, observation iamcontract.Observation) {
 	if !iamcontract.ValidDigest(string(observation.StateHash)) {

@@ -164,7 +164,7 @@ type fleetUnitFixture struct {
 
 func newFleetUnitFixture(t *testing.T) *fleetUnitFixture {
 	t.Helper()
-	f := &fleetUnitFixture{nativeRoles: []string{"manage-realm", "manage-events", "manage-clients", "manage-identity-providers"}, nativeVersion: "26.8.0"}
+	f := &fleetUnitFixture{nativeRoles: []string{"manage-realm", "manage-events", "manage-clients", "manage-identity-providers"}, nativeVersion: "26.8.1"}
 	public, private, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)

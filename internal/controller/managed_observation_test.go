@@ -95,7 +95,7 @@ func TestManagedProbeRequiresStableDeployment(t *testing.T) {
 				case "/realms/master/protocol/openid-connect/token":
 					_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "synthetic", "expires_in": 300})
 				case "/admin/serverinfo":
-					_ = json.NewEncoder(w).Encode(map[string]any{"systemInfo": map[string]string{"version": "26.8.0"}})
+					_ = json.NewEncoder(w).Encode(map[string]any{"systemInfo": map[string]string{"version": "26.8.1"}})
 				case "/admin/realms":
 					if boundary == "changed-during-probe" {
 						var changed appsv1.Deployment

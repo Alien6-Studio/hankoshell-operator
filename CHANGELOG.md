@@ -1,13 +1,13 @@
 # Changelog
 
-## 1.0.0 — Unreleased
+## 1.0.0
 
 <!-- release-notes:start -->
 ### Release overview
 
 hankoShell Operator 1.0.0 reconciles application identity and access from
-Kubernetes into Keycloak. This initial version is under qualification and has
-not been published.
+Kubernetes into Keycloak. This is the initial operator delivery, with an
+experimental `v1alpha1` API.
 
 ### Features
 
@@ -25,11 +25,14 @@ not been published.
 
 ### Qualification
 
-The project remains in initial development. All 17 `hanko.sh/v1alpha1` resources
+The API remains in initial development. All 17 `hanko.sh/v1alpha1` resources
 use the experimental `v1alpha1` API for both serving and storage.
 
-Publication requires completed endurance, HA qualification and independent
-release approval. Advanced lifecycle operations, portable restore, the second
+Endurance and HA/recovery qualification are complete for their recorded scope.
+Publication also requires final-candidate qualification and independent
+release approval. The current provider window includes the Keycloak 26.8.1
+security patch; existing 26.8.0 workload declarations remain readable.
+Advanced lifecycle operations, portable restore, the second
 provider and connected integrations retain their documented limitations.
 
 See [remaining work](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11),

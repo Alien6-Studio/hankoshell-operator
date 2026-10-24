@@ -332,7 +332,7 @@ class Transactions(fleet.Fleet):
         # These are measured pinned-provider behaviours, not interchangeable
         # successful authorization outcomes. 26.7.5's view-clients profile can
         # read credentials; do not claim provider-level separation on that cell.
-        expected = {"26.7.5": 200, "26.8.0": 403}[self.args.keycloak_version]
+        expected = {"26.7.5": 200, "26.8.1": 403}[self.args.keycloak_version]
         response = self.api("GET", path + "/client-secret", token=self.reader_token, expected=(expected,))
         if expected == 200 and response.get("value") != credential:
             raise ValueError("Reader credential response did not prove the observed provider permission")

@@ -80,7 +80,7 @@ prevent acquisition or authentication changes.
 
 ## 4. Native Keycloak capability and qualification boundary
 
-The supported targets are **26.7.5 and 26.8.0**. Qualification uses their pinned
+The current qualification targets are **26.7.5 and 26.8.1**. Existing 26.8.0 declarations remain readable. Qualification uses their pinned
 official images and real Kubernetes **1.35.0, 1.36.2 and 1.37.0**. Run
 `tools/qualification/fixtures/workload_identity_probe.py`; its uploaded JSON records bounded decisions,
 counts and fixture versions. It runs the production trust/identity reconcilers
@@ -291,7 +291,7 @@ spec:
   dependentReaderRef: dependent-client-reader # mandatory distinct inventory identity
   keycloakAlias: cluster-one
   provider: Kubernetes
-  qualifiedKeycloakVersion: "26.8.0" # explicit source qualification for override
+  qualifiedKeycloakVersion: "26.8.1" # explicit source qualification for override
   kubernetes:
     issuer: https://approved-kubernetes-issuer.example
     discoveryURL: https://approved-discovery.example # optional, native 26.8 only
@@ -603,7 +603,7 @@ they do not create native identities or role grants. Default mode is Manage,
 default age is 600 and the range is 600–3,600. Imported-by always forces Observe.
 QualifiedKeycloakVersion is explicit administrator input, never status or a
 request for server-info privilege. Both common versions qualify; a discovery
-override requires 26.8.0 and matching resolved native issuer/JWKS read-back.
+override requires explicit 26.8.0/26.8.1 qualification and matching resolved native issuer/JWKS read-back.
 
 The production controller uses uncached APIReader reads for the target UID,
 generation/spec, realm UID/generation, imported source, connection UID/mode,
@@ -1113,12 +1113,12 @@ separate explicit Manage transition. Names and matching mappings confer no owner
 ### Installed-system and migration qualification
 
 Workload Identity is qualified for Kubernetes **1.35.0 / 1.36.2 / 1.37.0** and
-Keycloak **26.7.5 / 26.8.0** within these separate required layers:
+Keycloak **26.7.5 / 26.8.1** within these separate required layers:
 
 | Layer | Cells | Proof |
 |---|---|---|
 | Native capability | Both Keycloak versions × all three Kubernetes versions, 57 checks per cell | Native assertion, authenticator, permission and controller contract behavior |
-| General installed regression | Kubernetes 1.37.0 / Keycloak 26.8.0, 20 checks | Existing full Helm/scanned-image regression plus configuration-only Clone checkpoint restart/failure |
+| General installed regression | Kubernetes 1.37.0 / Keycloak 26.8.1, 20 checks | Existing full Helm/scanned-image regression plus configuration-only Clone checkpoint restart/failure |
 | Installed workload runtime | Both Keycloak versions × all three Kubernetes versions | Real Pod projection, controller trust/binding, live client_assertion token grant, same-token native UMA resource ALLOW/DENY, kubelet rotation, real expiry, SA UID replacement, owned-client containment, no automatic reactivation and leakage inspection |
 | Deep installed migration/recovery | Kubernetes 1.37.0 with each Keycloak version | Reviewed same-client cutover, unchanged UUID/credential, Secret fallback, return, all five journal checkpoints and external fault recovery |
 

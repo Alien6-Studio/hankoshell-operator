@@ -60,5 +60,5 @@ for the scope and limits of these results.
 | Component | Exact qualification versions | Default |
 | --- | --- | --- |
 | kubernetes | `1.35.0`, `1.36.2`, `1.37.0` | `1.37.0` |
-| keycloak | `26.7.5`, `26.8.0` | `26.8.0` |
+| keycloak | `26.7.5`, `26.8.1` | `26.8.1` |
 <!-- support-window:end -->

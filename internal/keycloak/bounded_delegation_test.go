@@ -24,7 +24,9 @@ func TestBoundedDelegationCapabilityIsStrictReadOnlyDiscovery(t *testing.T) {
 		accept     bool
 	}{
 		{"qualified deployment profile", string(encoded), 200, true},
-		{"other supported version", strings.Replace(string(encoded), "26.7.5", "26.8.0", 1), 200, true},
+		{"other supported version", strings.Replace(string(encoded), "26.7.5", "26.8.1", 1), 200, true},
+		{"legacy deployment remains readable", strings.Replace(string(encoded), "26.7.5", "26.8.0", 1), 200, true},
+		{"unqualified future patch", strings.Replace(string(encoded), "26.7.5", "26.8.2", 1), 200, false},
 		{"stock provider", "", 404, false},
 		{"disabled server feature", strings.Replace(string(encoded), `"enabled":true`, `"enabled":false`, 1), 200, false},
 		{"unknown version", strings.Replace(string(encoded), "26.7.5", "99.0.0", 1), 200, false},

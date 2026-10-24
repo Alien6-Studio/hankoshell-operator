@@ -86,7 +86,7 @@ type CapabilityEvidence struct {
 }
 
 func KeycloakEvidence() CapabilityEvidence {
-	return CapabilityEvidence{Supported: Capabilities{true, true, true, true, true, true, true, true, true, true}, Source: "adapter-and-real-qualification", Window: "26.7.5,26.8.0"}
+	return CapabilityEvidence{Supported: Capabilities{true, true, true, true, true, true, true, true, true, true}, Source: "adapter-and-real-qualification", Window: "26.7.5,26.8.1"}
 }
 
 type State struct {

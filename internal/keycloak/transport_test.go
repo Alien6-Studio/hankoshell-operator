@@ -111,14 +111,14 @@ func TestHTTPDefaultCannotSendAdministrativeCredentials(t *testing.T) {
 			_, _ = w.Write([]byte(`{"access_token":"fixture-token","expires_in":60}`))
 			return
 		}
-		_, _ = w.Write([]byte(`{"systemInfo":{"version":"26.8.0"}}`))
+		_, _ = w.Write([]byte(`{"systemInfo":{"version":"26.8.1"}}`))
 	}))
 	t.Cleanup(server.Close)
 	if _, err := New(server.URL, "operator", "sensitive-fixture").ServerVersion(context.Background()); err == nil || requests.Load() != 0 {
 		t.Fatal("default client dispatched administrative credentials over HTTP")
 	}
 	client := New(server.URL, "operator", "sensitive-fixture", WithInsecureHTTP())
-	if version, err := client.ServerVersion(context.Background()); err != nil || version != "26.8.0" || requests.Load() != 2 {
+	if version, err := client.ServerVersion(context.Background()); err != nil || version != "26.8.1" || requests.Load() != 2 {
 		t.Fatalf("acknowledged HTTP fixture failed: version=%q err=%v requests=%d", version, err, requests.Load())
 	}
 	if err := client.RequireHTTPS(); err == nil {

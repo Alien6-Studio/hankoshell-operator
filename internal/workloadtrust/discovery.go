@@ -124,7 +124,7 @@ func validPublicKey(key map[string]string) bool {
 func ValidateDiscovery(ctx context.Context, c *http.Client, i Intent, current DiscoveryEvidence) (DiscoveryEvidence, error) {
 	base := i.Issuer
 	if i.DiscoveryURL != "" {
-		if i.QualifiedVersion != "26.8.0" {
+		if !SupportsDiscoveryOverride(i.QualifiedVersion) {
 			return DiscoveryEvidence{}, ErrDiscovery
 		}
 		base = i.DiscoveryURL

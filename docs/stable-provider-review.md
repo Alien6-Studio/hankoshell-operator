@@ -46,6 +46,9 @@ each cell: **168 observed outcomes and 270 assertions**. They bind revision
 `sha256:3139618f528fe373f4f351d753beb265199910de67d63da6157f1c3d1693835b`,
 corpus/harness hashes and provider pins. These are historical laboratory
 evidence, not qualification of later modified surfaces or production reports.
+Their explicit `qualificationWindow` remains frozen with the reports. Current
+CI separately runs the versions in `versions.json`, including Keycloak 26.8.1;
+rotating a fixture never relabels the historical observations.
 Each cell has 15 lossless and 13 unsupported outcomes. The reports preserve
 negative/restart/cleanup checks and explicit operational bindings; Hub is off.
 

@@ -22,7 +22,7 @@ type HankoWorkloadTrust struct {
 // +kubebuilder:validation:XValidation:rule="self.realmRef == oldSelf.realmRef",message="realmRef is immutable; create a separately reviewed trust"
 // +kubebuilder:validation:XValidation:rule="self.sourceRef == oldSelf.sourceRef",message="sourceRef is immutable; create a separately reviewed trust"
 // +kubebuilder:validation:XValidation:rule="self.keycloakAlias == oldSelf.keycloakAlias",message="keycloakAlias is immutable; create a separately reviewed trust"
-// +kubebuilder:validation:XValidation:rule="!has(self.kubernetes.discoveryURL) || (has(self.qualifiedKeycloakVersion) && self.qualifiedKeycloakVersion == '26.8.0')",message="discovery override requires explicit 26.8.0 source qualification"
+// +kubebuilder:validation:XValidation:rule="!has(self.kubernetes.discoveryURL) || (has(self.qualifiedKeycloakVersion) && self.qualifiedKeycloakVersion in ['26.8.0', '26.8.1'])",message="discovery override requires explicit qualified 26.8 source qualification"
 type HankoWorkloadTrustSpec struct {
 	// Imported-by always forces Observe. Explicit adoption is an ownership-only transaction.
 	// +kubebuilder:validation:Enum=Manage;Observe
@@ -58,7 +58,7 @@ type HankoWorkloadTrustSpec struct {
 	// QualifiedKeycloakVersion is explicit administrator source qualification,
 	// never copied from diagnostic status. Common behavior needs no version disclosure.
 	// Discovery override additionally requires native resolved-source read-back.
-	// +kubebuilder:validation:Enum="26.7.5";"26.8.0"
+	// +kubebuilder:validation:Enum="26.7.5";"26.8.0";"26.8.1"
 	QualifiedKeycloakVersion string                      `json:"qualifiedKeycloakVersion,omitempty"`
 	Kubernetes               KubernetesWorkloadTrustSpec `json:"kubernetes"`
 }
@@ -69,7 +69,7 @@ type KubernetesWorkloadTrustSpec struct {
 	// +kubebuilder:validation:MaxLength=2048
 	// +kubebuilder:validation:Pattern=`^https://[a-z0-9\[\]:.-]+(/[A-Za-z0-9._~!$&'()*+,;=:@/-]*)?$`
 	Issuer string `json:"issuer"`
-	// DiscoveryURL is a source override qualified only on explicit 26.8.0 sources.
+	// DiscoveryURL is a source override qualified only on explicit 26.8.0/26.8.1 sources.
 	// +kubebuilder:validation:MaxLength=2048
 	// +kubebuilder:validation:Pattern=`^https://[a-z0-9\[\]:.-]+(/[A-Za-z0-9._~!$&'()*+,;=:@/-]*)?$`
 	DiscoveryURL  string                `json:"discoveryURL,omitempty"`

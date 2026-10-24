@@ -36,7 +36,7 @@ var adminOperations = []AdminOperation{
 	{"realm-roles", "GET", "/admin/realms/{realm}/roles/{role}/composites/realm", "view-realm or manage-realm"},
 	{"clients", "GET,POST", "/admin/realms/{realm}/clients", "view-clients / manage-clients"},
 	{"clients", "GET,PUT,DELETE", "/admin/realms/{realm}/clients/{client}", "view-clients / manage-clients"},
-	{"credentials", "GET", "/admin/realms/{realm}/clients/{client}/client-secret", "26.8.0: manage-clients; 26.7.5: view-clients also exposes secrets"},
+	{"credentials", "GET", "/admin/realms/{realm}/clients/{client}/client-secret", "26.8.1: manage-clients; 26.7.5: view-clients also exposes secrets"},
 	{"credentials", "POST", "/admin/realms/{realm}/clients/{client}/client-secret", "manage-clients"},
 	{"client-roles", "GET,POST", "/admin/realms/{realm}/clients/{client}/roles", "view-clients / manage-clients"},
 	{"client-roles", "GET,PUT,DELETE", "/admin/realms/{realm}/clients/{client}/roles/{role}", "view-clients / manage-clients"},

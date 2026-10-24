@@ -1,7 +1,7 @@
 # Keycloak administrative permissions
 
 This is the permission contract for **the current development operator**, verified against
-real Keycloak **26.8.0 and 26.7.5** over verified HTTPS with `client_credentials`.
+real Keycloak **26.8.1 and 26.7.5** over verified HTTPS with `client_credentials`.
 It covers the Admin REST API used by the operator. Kubernetes permissions and
 Hub/Continuum credentials are separate; see [secure deployment](secure-deployment.md).
 
@@ -66,7 +66,7 @@ See [runtime target RBAC and consent](architecture/application-identity.md#runti
 behavior. The first #69 implementation adds typed intent and a refusal before
 provider execution, with no additional operator grant. Manage, Observe and import
 refusals leave native client state and Admin Event counts unchanged on both pinned
-versions, including the isolated 26.8.0 preview profile. The standard exchange
+versions, including the isolated 26.8.1 preview profile. The standard exchange
 fixture qualifies these operations for characterization only:
 
 | Operation | Endpoint in `/admin/realms/{realm}` | Qualified authority |
@@ -140,7 +140,7 @@ It must resolve to the writer's exact endpoint, public CA and native realm.
 The controller never invokes that route, but a stolen credential can; it is not
 a credential-confidential identity. The real-provider qualification must prove
 native secret-read authority and application route denial separately. On
-26.8.0, the native client-secret endpoint instead requires `manage-clients`.
+26.8.1, the native client-secret endpoint instead requires `manage-clients`.
 These application restrictions do not reduce the credential's native powers.
 The existing single-manager architecture loads these distinct credentials in
 one process/pod: compromise gives their practical union, together with any
@@ -196,11 +196,11 @@ versions. **Both versions omit `systemInfo.version`** without master realm manag
 `status.keycloakVersion` can therefore be empty. An unprivileged service account
 is denied discovery on both.
 Do not grant master management simply to populate a diagnostic field.
-**26.7.5 also allows `view-clients` to read real client secrets**, while 26.8.0
+**26.7.5 also allows `view-clients` to read real client secrets**, while 26.8.1
 requires `manage-clients`. The suite verifies the returned value against the real
 secret without printing it, and rejects secret rotation for the read account on
 both versions. On 26.7.5, the built-in-role import profile is read-only for writes
-but **is not a credential-confidential identity**. Use 26.8.0 for the tested secret
+but **is not a credential-confidential identity**. Use 26.8.1 for the tested secret
 read boundary, or separately qualify a finer administration policy; do not assume
 a `view-*` role excludes secrets. Import/Observe still omits credentials from CRDs,
 logs, events and Kubernetes Secrets on both versions.
@@ -271,7 +271,7 @@ the organization writer. Use one writer for each Kubernetes/provider object.
 Existing client, resource, scope, permission and journal routes are unchanged and
 listed in the operation inventory below. `query-groups` can list groups but
 cannot supply the exact individual ownership reads: it is not a substitute for
-`view-users`. Real HTTPS tests on 26.7.5 and 26.8.0 prove this profile succeeds
+`view-users`. Real HTTPS tests on 26.7.5 and 26.8.1 prove this profile succeeds
 and that user creation/modification, group creation/hierarchy/membership writes,
 impersonation, realm creation and master-client administration are denied.
 
@@ -490,7 +490,7 @@ not undo deleted realms or secret rotations.
 Reproduce the required CI qualification (Docker required):
 
 ```sh
-make keycloak-integration-test KEYCLOAK_VERSION=26.8.0
+make keycloak-integration-test KEYCLOAK_VERSION=26.8.1
 make keycloak-integration-test KEYCLOAK_VERSION=26.7.5
 ```
 
@@ -510,8 +510,8 @@ production database/cluster tests or proof of fine-grained admin-policy support.
 See the [qualification limits](secure-deployment.md#keycloak-compatibility).
 The observed differences are consistent with the official client-secret checks
 in [26.7.5](https://github.com/keycloak/keycloak/blob/26.7.5/services/src/main/java/org/keycloak/services/resources/admin/ClientResource.java)
-and [26.8.0](https://github.com/keycloak/keycloak/blob/26.8.0/services/src/main/java/org/keycloak/services/resources/admin/ClientResource.java),
-and native [creator grants](https://github.com/keycloak/keycloak/blob/26.8.0/services/src/main/java/org/keycloak/services/resources/admin/RealmsAdminResource.java).
+and [26.8.1](https://github.com/keycloak/keycloak/blob/26.8.1/services/src/main/java/org/keycloak/services/resources/admin/ClientResource.java),
+and native [creator grants](https://github.com/keycloak/keycloak/blob/26.8.1/services/src/main/java/org/keycloak/services/resources/admin/RealmsAdminResource.java).
 Real CI assertions, not documentation alone, define the qualified contract.
 
 ## Complete Admin API operation inventory
@@ -544,7 +544,7 @@ using the dedicated client's credentials.
 | realm-roles | GET | `/admin/realms/{realm}/roles/{role}/composites/realm` | view-realm or manage-realm |
 | clients | GET,POST | `/admin/realms/{realm}/clients` | view-clients / manage-clients |
 | clients | GET,PUT,DELETE | `/admin/realms/{realm}/clients/{client}` | view-clients / manage-clients |
-| credentials | GET | `/admin/realms/{realm}/clients/{client}/client-secret` | 26.8.0: manage-clients; 26.7.5: view-clients also exposes secrets |
+| credentials | GET | `/admin/realms/{realm}/clients/{client}/client-secret` | 26.8.1: manage-clients; 26.7.5: view-clients also exposes secrets |
 | credentials | POST | `/admin/realms/{realm}/clients/{client}/client-secret` | manage-clients |
 | client-roles | GET,POST | `/admin/realms/{realm}/clients/{client}/roles` | view-clients / manage-clients |
 | client-roles | GET,PUT,DELETE | `/admin/realms/{realm}/clients/{client}/roles/{role}` | view-clients / manage-clients |
@@ -633,7 +633,7 @@ independently prove zero provider writes.
 
 Read-only means mutation authority is absent, not credential confidentiality:
 **Keycloak 26.7.5 view-clients can read the client-secret endpoint**, while the
-qualified 26.8.0 behavior requires manage-clients there. The operator never calls
+qualified 26.8.1 behavior requires manage-clients there. The operator never calls
 that endpoint in inventory and cannot make 26.7.5's role narrower. view-users also
 has broader visibility than the structural subset the operator actually reads.
 These are explicit native permission limitations, not extra operator behavior.
@@ -658,7 +658,7 @@ after normalized endpoint and realm UUID match the reviewed source.
 
 This is the leaf profile, not the full-family HankoImport profile above. CI tests
 actual production acquisition with separate reader/client-writer/role-writer clients
-on HTTPS 26.7.5/26.8.0. Bootstrap administration only provisions fixtures and roles.
+on HTTPS 26.7.5/26.8.1. Bootstrap administration only provisions fixtures and roles.
 Every ownership PUT is client or role metadata; no credential retrieval/rotation
 or child mutation is part of acquisition. Reader PUT and unrelated writer realm
 creation/user mutation are denied. The native 26.7.5 view-clients credential-read
@@ -688,7 +688,7 @@ explicit qualified client/ServiceAccount Manage, not during acquisition.
 | Adopted realm-role definitions/composites | view-realm, view-clients for client-composite visibility | manage-realm | Broader target-realm security/lifecycle authority is inseparable from this legacy role-definition permission. This profile cannot honestly claim target-realm DELETE/security PUT denial. It has no global realm creation or other-realm authority. |
 
 `view-clients` on the Organization profile is necessary to observe foreign client
-role mappings consistently through both reader and writer on 26.8.0; without it,
+role mappings consistently through both reader and writer on 26.8.1; without it,
 caller-dependent provider representations fail the acquisition comparison.
 It does not authorize the operator to modify those clients. The native 26.7.5
 credential-visibility limitation of view-clients remains: the inventory transport
@@ -703,7 +703,7 @@ does not use user/member reads; destructive Organization safety uses only bounde
 
 ### Dedicated HankoRole writer: target-realm exception
 
-**Adopted HankoRole Manage remains enabled.** On Keycloak 26.7.5 and 26.8.0,
+**Adopted HankoRole Manage remains enabled.** On Keycloak 26.7.5 and 26.8.1,
 `manage-realm` is the currently qualified built-in authority for creating,
 updating, deleting and composing realm-role definitions. Keycloak does not
 currently provide a qualified built-in role-definition-only permission.
@@ -760,7 +760,7 @@ from the trust writer (`manage-identity-providers` plus `view-realm`) and the
 read-only dependent inventory identity. No `manage-realm`, `manage-users`,
 `realm-admin`, impersonation, master authority or unrelated-realm authority is
 required. Real HTTPS qualification checks those excluded boundaries on 26.7.5 and
-26.8.0. The separate installed matrix exercises these identities on all six
+26.8.1. The separate installed matrix exercises these identities on all six
 supported Kubernetes/Keycloak combinations; deep migration/recovery runs on
 Kubernetes 1.37.0 with each Keycloak version. Runtime workloads obtain tokens
 without a client secret, and independent native UMA resource decisions prove
@@ -778,7 +778,7 @@ The separate `view-clients` dependent reader remains application-read-only on
 necessary metadata list/get routes and explicitly refuses credential endpoints.
 On **26.7.5 its credential can nevertheless read target-realm client secrets**;
 it is not credential-confidential. Compromising that reader can expose those
-secrets. The stricter native 26.8.0 boundary is separately qualified. No additional
+secrets. The stricter native 26.8.1 boundary is separately qualified. No additional
 role is granted to the trust writer for inventory.
 
 The existing manager shares these separate credentials in one process/pod. A

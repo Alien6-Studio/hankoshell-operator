@@ -684,7 +684,7 @@ except urllib.error.HTTPError as e:
             self.api("PUT", path, payload)
             self.report["external_discovery_override"] = self.api("GET", path)
             self.check("external_discovery_override", self.assertion(foreign_token),
-                       200 if self.args.keycloak_version == "26.8.0" else (400, 401))
+                       200 if self.args.keycloak_version == "26.8.1" else (400, 401))
             logs = run(["docker", "logs", self.external_name], include_stderr=True)
             safe_report({"fixture_logs": logs}, self.sensitive)
         finally:

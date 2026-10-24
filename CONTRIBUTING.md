@@ -147,8 +147,8 @@ against the same license/source policy, including operator test dependencies.
 Generation uses these explicit targets on every developer host; commit both
 `THIRD_PARTY_NOTICES` files after reviewing the resulting inventory and texts.
 
-Version 1.0.0 is in initial development and has not been published. The
-`v1alpha1` APIs remain experimental. Keep source, chart and build versions aligned
+The `v1alpha1` APIs remain experimental and in initial development.
+Keep source, chart and build versions aligned
 with `versions.json`.
 
 Changes use protected, signed squash merges. Publication requires the complete

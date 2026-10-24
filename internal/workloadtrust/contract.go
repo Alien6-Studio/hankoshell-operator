@@ -111,10 +111,10 @@ func validIntent(i Intent) bool {
 	if i.MaxAge < 600 || i.MaxAge > 3600 || i.Alias == "" || i.RealmRef == "" || !ValidHTTPS(i.Issuer) || i.NamespaceUID == "" || !iamcontract.ValidDigest(i.CAHash) {
 		return false
 	}
-	if i.QualifiedVersion != "" && i.QualifiedVersion != "26.7.5" && i.QualifiedVersion != "26.8.0" {
+	if i.QualifiedVersion != "" && i.QualifiedVersion != "26.7.5" && !SupportsDiscoveryOverride(i.QualifiedVersion) {
 		return false
 	}
-	return i.DiscoveryURL == "" || (ValidHTTPS(i.DiscoveryURL) && i.QualifiedVersion == "26.8.0")
+	return i.DiscoveryURL == "" || (ValidHTTPS(i.DiscoveryURL) && SupportsDiscoveryOverride(i.QualifiedVersion))
 }
 
 func validReferences(r References) bool {
@@ -259,3 +259,9 @@ func (p Plan) ApproveAge(value string, before int64) error {
 var safeID = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
 
 func ValidOwner(value string) bool { return safeID.MatchString(value) }
+
+// SupportsDiscoveryOverride accepts only explicitly characterized Keycloak patches.
+// Keep 26.8.0 readable for existing declarations; unknown future patches fail closed.
+func SupportsDiscoveryOverride(version string) bool {
+	return version == "26.8.0" || version == "26.8.1"
+}

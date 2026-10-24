@@ -194,5 +194,16 @@
     "tools/qualification/config/evidence/portable-KC-26.8.0-K8s-1.35.0.json": "6796d832950b6839b07a951bf7daf1e2659f186d83b1b3230fe0091043ad78fb",
     "tools/qualification/config/evidence/portable-KC-26.8.0-K8s-1.36.2.json": "1d0605f6ca39bc7300dadf6fa9bba3f129a0766da2f3f6fe1fbc88eaa495788f",
     "tools/qualification/config/evidence/portable-KC-26.8.0-K8s-1.37.0.json": "9798e9ce259072ae7dabdc0b8f3b3eb6902920a31de846fb3662501a8cd05ad8"
+  },
+  "qualificationWindow": {
+    "kubernetes": [
+      "1.35.0",
+      "1.36.2",
+      "1.37.0"
+    ],
+    "keycloak": [
+      "26.7.5",
+      "26.8.0"
+    ]
   }
 }
