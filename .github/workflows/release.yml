@@ -33,6 +33,8 @@ jobs:
     needs: eligibility
     permissions:
       contents: read
+      actions: read
+      pull-requests: read
       packages: read
       # Required by reusable CI's scheduled reporter, even when that job is skipped.
       issues: write
@@ -46,6 +48,8 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: write
+      actions: read
+      pull-requests: read
       packages: write
       id-token: write
     steps:
@@ -59,7 +63,9 @@ jobs:
           TAG: ${{ inputs.tag }}
           REF: ${{ github.ref }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 -m tools.release.release_eligibility
+        run: |
+          python3 -m tools.release.release_eligibility
+          python3 -m tools.release.release_eligibility --qualified-source
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod

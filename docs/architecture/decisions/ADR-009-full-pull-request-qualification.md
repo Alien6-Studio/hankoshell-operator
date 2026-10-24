@@ -6,42 +6,46 @@ Status: Accepted
 
 The operator supports several Kubernetes and Keycloak versions. A passing test
 on one pair does not establish compatibility on the other supported pairs.
-Protected merges need a consistent meaning for the required qualification gate.
+Repeating the complete matrix on PR, main and release adds cost without changing
+the reviewed source. A squash merge does change the commit identity and image provenance.
 
 ## Decision
 
-Pull requests, `main`, scheduled CI and release qualification keep the complete
-supported matrix. Documentation-only changes and dependency updates use the same
-required gate. A future reduction requires a full-matrix merge-candidate run
-before merge, such as a protected merge queue.
+Every PR, including documentation and dependency updates, runs the complete
+supported matrix before protected merge. Scheduled and explicitly requested CI
+retain that complete profile.
 
-Keep costs bounded through implementation choices:
+After merge, main runs a lightweight integration gate. It verifies the signed
+commit and the successful PR's immutable source proof against the exact Git tree.
+The proof records the actual tested merge revision, PR head, workflow run and
+attempt. A deliberate complete CI run on the exact integrated revision can renew
+expired evidence. Partial, foreign, missing or mismatched proofs cannot pass.
 
-- Run source preflight before expensive jobs.
-- Partition native Keycloak tests into reviewed core/adoption/protocol shards,
-  while verifying that every compiled test root is covered.
-- Cancel superseded automatic runs. Manual qualification waits behind an active
-  run on the same ref so a new request does not interrupt an ongoing campaign.
-- Publish per-test outcomes and failure summaries. Investigate failures rather
-  than automatically replaying tests or ambiguous provider writes.
+Release qualification reuses that source proof. It builds one final AMD64/ARM64
+image, scans it and runs every installed-image matrix cell and the release
+rehearsal on its immutable digest. The matching delegation extension is qualified
+for those cells. Go/source-only suites are not repeated. Publishing consumes the
+same archive without rebuilding; signatures, fresh vulnerability checks and the
+protected release approval remain mandatory.
 
-There is no requirement to accumulate an arbitrary historical run count, and
-no separate weekly flaky-report or tracking-issue workflow.
+Keep source proofs for 30 days and OCI archives for seven days. Expired evidence
+stops the affected path explicitly. On a publication failure, rerun only publish;
+do not restart qualification or replace committed versioned content. BuildKit
+caching accelerates builds but never serves as qualification evidence.
 
 ## Consequences
 
-Every integration PR pays the complete matrix latency. Accumulate a coherent
-batch and run local checks before pushing. The required gate retains the same
-meaning across PRs, `main` and release qualification. Review matrix cost and
-regression coverage when the support window or merge strategy changes.
+PR qualification remains complete. Main verifies integration rather than running
+another matrix. Release separately qualifies the final image's exact provenance.
+Accumulate a coherent development batch before pushing. Investigate test failures;
+never automatically replay tests or ambiguous provider writes.
 
 ## Enforcement
 
-- [Qualification matrix and required gate](../../../.github/workflows/ci.yml):
-  `preflight` blocks every expensive job and `checks` requires all of them.
-- The qualified surface the matrix exercises on every pull request, for example
-  [adoption reconciliation](../../../internal/controller/adoption_apply.go) and
-  the [real-Keycloak characterization tests](../../../internal/controller/keycloak_adoption_characterization_test.go)
-  sharded by `tools/qualification/config/keycloak-shards.json`.
-- [Release contract](../../../tools/qualification/checks/release_contract.py) validates
-  the source, chart, supported-version matrix and qualification inventories.
+- [CI profiles and required gate](../../../.github/workflows/ci.yml) declare which
+  jobs must succeed or be skipped; an unexpected result fails the gate.
+- [Source proof verification](../../../tools/release/release_eligibility.py)
+  binds GitHub run/artifact identities, transport hashes and actual tested Git trees.
+- [Release contract](../../../tools/qualification/checks/release_contract.py)
+  checks profile inventories and permissions. The existing release rehearsal
+  exercises proof substitution, failed runs and expired artifacts.

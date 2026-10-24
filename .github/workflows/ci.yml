@@ -186,7 +186,11 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   preflight:
-    name: Fast source preflight
+    name: Source qualification gate
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -195,42 +199,64 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+          fetch-depth: 0
+      - if: github.event_name != 'push' && inputs.release != true
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: true
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
+      - name: Verify the complete qualification of the integrated source
+        if: github.event_name == 'push' || inputs.release == true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -m tools.release.release_eligibility --qualified-source
       - name: Install pinned preflight dependencies
+        if: github.event_name != 'push' && inputs.release != true
         run: |
           python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
           python -m pip install -r tools/requirements.txt
           make install-preflight-tools
       - name: Validate formatting, vet, generated schemas and delivery contracts
-        run: make preflight
+        if: github.event_name != 'push' && inputs.release != true
+        run: |
+          make preflight
+          python3 -m tools.qualification.checks.release_contract check
+          python3 - <<'PY'
+          from tools.qualification.scenarios.release_system_test import qualify_source_reuse
+          qualify_source_reuse()
+          PY
   source:
     name: Source checks
     needs: [preflight]
+    if: github.event_name != 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
+      - name: Reuse verified source qualification for the delivery image
+        if: inputs.release == true
+        run: echo 'The source qualification gate verified the full CI evidence and exact Git tree.'
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: inputs.release != true
         with:
           persist-credentials: false
           fetch-depth: 0
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        if: inputs.release != true
         with:
           go-version-file: go.mod
           cache: true
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        if: inputs.release != true
         with:
           python-version: '3.12'
       - name: Verify DCO on every pull-request commit
-        if: github.event_name == 'pull_request'
+        if: inputs.release != true && (github.event_name == 'pull_request')
         env:
           DCO_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           DCO_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -239,30 +265,35 @@ jobs:
           python3 .github/scripts/check_dco.py --base "$DCO_BASE_SHA" --head "$DCO_HEAD_SHA" \
             --repository "$GITHUB_REPOSITORY"
       - name: Install pinned Helm and test dependencies
+        if: inputs.release != true
         run: |
           python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
           python -m pip install -r tools/requirements.txt
           make install-tools
       - name: Run the same pre-commit hooks as contributors
+        if: inputs.release != true
         env:
           # Upstream hook repositories contain their own synthetic secret tests.
           # Keep dependency caches outside the source checkout scanned below.
           PRE_COMMIT_HOME: ${{ runner.temp }}/hankoshell-pre-commit
         run: make hooks-check
       - name: Compare visible GitHub protections with reviewed exports
-        if: github.event_name == 'schedule'
+        if: inputs.release != true && (github.event_name == 'schedule')
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 .github/scripts/check_rulesets.py --live --allow-hidden-bypass
       - name: Validate unit tests, chart, architecture, lint and vulnerabilities
+        if: inputs.release != true
         run: make test chart-check arch lint vuln
       - name: Enforce package and security function coverage floors
+        if: inputs.release != true
         run: python3 -m tools.qualification.checks.check_coverage --profile .tools/runs/tests/unit/coverage.out
       - name: Enforce the dependency license policy and shipped notices
+        if: inputs.release != true
         run: make licenses
       - name: Preserve Go test outcomes
-        if: always()
+        if: inputs.release != true && (always())
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: go-tests-unit-${{ github.run_id }}-${{ github.run_attempt }}
@@ -271,28 +302,32 @@ jobs:
           if-no-files-found: error
           retention-days: 30
       - name: Qualify the real experimental authentik adapter and portable corpus
+        if: inputs.release != true
         id: authentik
         run: |
           make authentik-integration-test
           go vet -tags=authentik_integration ./internal/controller
           make lint LINT_BUILD_TAGS=authentik_integration
       - name: Preserve real experimental provider outcomes
-        if: always() && steps.authentik.outcome != 'skipped'
+        if: inputs.release != true && (always() && steps.authentik.outcome != 'skipped')
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: go-tests-authentik-2026.8.4-${{ github.run_id }}-${{ github.run_attempt }}
           path: .tools/runs/tests/authentik-2026.8.4/
           if-no-files-found: error
       - name: Cross-compile both Linux architectures
+        if: inputs.release != true
         run: |
           make build GOARCH=amd64
           make build GOARCH=arm64
       - name: Check for exposed credentials
+        if: inputs.release != true
         run: |
           docker run --rm -v "$PWD:/src:ro" \
             zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
             dir /src --no-banner --redact
   kubernetes:
+    if: github.event_name != 'push' && inputs.release != true
     name: Kubernetes ${{ matrix.version }} API and security
     needs: [preflight]
     runs-on: ubuntu-24.04
@@ -333,6 +368,7 @@ jobs:
         if: matrix.version == '1.37.0' # versions:kubernetes-lint
         run: make lint LINT_BUILD_TAGS=integration
   keycloak:
+    if: github.event_name != 'push' && inputs.release != true
     name: Keycloak ${{ matrix.version }} / ${{ matrix.shard }} Admin API and security
     needs: [preflight]
     runs-on: ubuntu-24.04
@@ -365,6 +401,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   keycloak-ordinary:
+    if: github.event_name != 'push' && inputs.release != true
     name: Keycloak ${{ matrix.version }} tagged ordinary race tests
     needs: [preflight]
     runs-on: ubuntu-24.04
@@ -393,6 +430,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   keycloak-extension:
+    if: github.event_name != 'push'
     name: Bounded delegation extension KC ${{ matrix.version }}
     needs: [preflight]
     runs-on: ubuntu-24.04
@@ -442,6 +480,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   keycloak-static:
+    if: github.event_name != 'push' && inputs.release != true
     name: Keycloak tagged vet and lint
     needs: [preflight]
     runs-on: ubuntu-24.04
@@ -459,6 +498,7 @@ jobs:
           go vet -tags=keycloak_integration,keycloak_extension_integration ./...
           make lint LINT_BUILD_TAGS=keycloak_integration,keycloak_extension_integration
   workload:
+    if: github.event_name != 'push' && inputs.release != true
     name: Workload identity KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
     needs: [preflight]
     runs-on: ubuntu-24.04
@@ -508,6 +548,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
   security-fuzz:
+    if: github.event_name != 'push' && inputs.release != true
     name: Security parser fuzzing
     needs: [preflight]
     runs-on: ubuntu-24.04
@@ -531,6 +572,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   security-mutations:
+    if: github.event_name != 'push' && inputs.release != true
     name: Security mutation checks
     needs: [preflight]
     runs-on: ubuntu-24.04
@@ -558,6 +600,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   oci:
+    if: github.event_name != 'push'
     needs: [preflight]
     permissions:
       contents: read
@@ -935,41 +978,32 @@ jobs:
           retention-days: 7
   checks:
     name: Source and chart checks
-    # Pull requests run the full qualification matrix (ADR-009); this required
-    # gate must keep representing every qualification job before merge.
+    # PRs require the complete matrix. Integration and release reuse its source
+    # proof; every installed-image cell remains mandatory for a release.
     needs: [preflight, source, kubernetes, keycloak, keycloak-ordinary, keycloak-extension, keycloak-static, workload, security-fuzz, security-mutations, oci, rehearsal, system, installed-workload, installed-delegation, installed-portable, installed-fleet, installed-transactions, installed-scale-qualification]
     if: always()
     runs-on: ubuntu-24.04
+    env:
+      CI_NEEDS: ${{ toJSON(needs) }}
+      PIPELINE_MODE: ${{ github.event_name == 'push' && 'integration' || inputs.release == true && 'release' || 'full' }}
+      QUALIFY_SCALE: ${{ github.event_name == 'workflow_dispatch' && inputs.qualify_scale == true }}
     steps:
-      - name: Require preflight, source, Kubernetes, Keycloak, final OCI, installed system and release rehearsal checks
-        env:
-          PREFLIGHT_RESULT: ${{ needs.preflight.result }}
-          SOURCE_RESULT: ${{ needs.source.result }}
-          KUBERNETES_RESULT: ${{ needs.kubernetes.result }}
-          KEYCLOAK_RESULT: ${{ needs.keycloak.result }}
-          KEYCLOAK_ORDINARY_RESULT: ${{ needs.keycloak-ordinary.result }}
-          KEYCLOAK_EXTENSION_RESULT: ${{ needs.keycloak-extension.result }}
-          KEYCLOAK_STATIC_RESULT: ${{ needs.keycloak-static.result }}
-          WORKLOAD_RESULT: ${{ needs.workload.result }}
-          FUZZ_RESULT: ${{ needs.security-fuzz.result }}
-          MUTATIONS_RESULT: ${{ needs.security-mutations.result }}
-          OCI_RESULT: ${{ needs.oci.result }}
-          REHEARSAL_RESULT: ${{ needs.rehearsal.result }}
-          SYSTEM_RESULT: ${{ needs.system.result }}
-          INSTALLED_WORKLOAD_RESULT: ${{ needs.installed-workload.result }}
-          INSTALLED_DELEGATION_RESULT: ${{ needs.installed-delegation.result }}
-          INSTALLED_PORTABLE_RESULT: ${{ needs.installed-portable.result }}
-          INSTALLED_FLEET_RESULT: ${{ needs.installed-fleet.result }}
-          INSTALLED_TRANSACTIONS_RESULT: ${{ needs.installed-transactions.result }}
-          INSTALLED_SCALE_RESULT: ${{ needs.installed-scale-qualification.result }}
-          QUALIFY_SCALE: ${{ github.event_name == 'workflow_dispatch' && inputs.qualify_scale == true }}
-        run: |
-          test "$PREFLIGHT_RESULT" = success && test "$SOURCE_RESULT" = success && test "$KUBERNETES_RESULT" = success && test "$KEYCLOAK_RESULT" = success && test "$KEYCLOAK_ORDINARY_RESULT" = success && test "$KEYCLOAK_EXTENSION_RESULT" = success && test "$KEYCLOAK_STATIC_RESULT" = success && test "$WORKLOAD_RESULT" = success && test "$FUZZ_RESULT" = success && test "$MUTATIONS_RESULT" = success && test "$OCI_RESULT" = success && test "$REHEARSAL_RESULT" = success && test "$SYSTEM_RESULT" = success && test "$INSTALLED_WORKLOAD_RESULT" = success && test "$INSTALLED_DELEGATION_RESULT" = success && test "$INSTALLED_PORTABLE_RESULT" = success && test "$INSTALLED_FLEET_RESULT" = success && test "$INSTALLED_TRANSACTIONS_RESULT" = success || exit 1
-          if test "$QUALIFY_SCALE" = true; then
-            test "$INSTALLED_SCALE_RESULT" = success
-          else
-            test "$INSTALLED_SCALE_RESULT" = skipped
-          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Require every job declared by this qualification profile
+        run: python3 -m tools.release.release_eligibility --check-jobs
+      - name: Record the exact source after complete qualification
+        if: env.PIPELINE_MODE == 'full'
+        run: python3 -m tools.release.release_eligibility --record-source "$RUNNER_TEMP/qualified-source.json"
+      - name: Preserve the complete source qualification proof
+        if: env.PIPELINE_MODE == 'full'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: qualified-source-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/qualified-source.json
+          if-no-files-found: error
+          retention-days: 30
   schedule-report:
     name: Scheduled qualification tracking issue
     needs: [preflight, source, kubernetes, keycloak, keycloak-ordinary, keycloak-extension, keycloak-static, workload, security-fuzz, security-mutations, oci, rehearsal, system, installed-workload, installed-delegation, installed-portable, installed-fleet, installed-transactions, installed-scale-qualification, checks]

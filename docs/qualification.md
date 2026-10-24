@@ -17,8 +17,12 @@ make qualify PROFILE=keycloak KEYCLOAK_VERSION=26.8.1
 ```
 
 The supported versions and image/tool digests come from [versions.json](../versions.json).
-The PR workflow runs the complete supported matrix. Reports and JUnit files are
-CI artifacts; local reports belong in `.tools/runs/`.
+The PR workflow runs the complete supported matrix. Main verifies its successful
+source proof after integration; release reuses that proof and qualifies the final
+image across every installed-image cell. Source proofs remain available for
+30 days and OCI archives for seven days. If evidence expires, explicitly run
+complete CI on the exact intended revision. Reports and JUnit files are CI
+artifacts; local reports belong in `.tools/runs/`.
 
 ## Exercise an installed operator
 

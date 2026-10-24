@@ -100,6 +100,7 @@ def timestamp_authority(openssl, private):
 
 
 def rehearse(args):
+    publication.qualify_source_reuse()
     if args.output.exists():
         raise ValueError("Rehearsal output must be fresh")
     if not run([args.openssl, "version"]).stdout.decode().startswith("OpenSSL 3."):
@@ -226,6 +227,7 @@ def rehearse(args):
         "signing_intent": {"oidc_issuer": "https://token.actions.githubusercontent.com",
                            "certificate_identity": f"https://github.com/Alien6-Studio/hankoshell-operator/.github/workflows/release.yml@refs/tags/{contract.versioning.public_tag(contract.versioning.VERSION)}"},
         "checks": {"archive_sbom_provenance_scan_binding": "pass", "chart_and_checksums": "pass",
+                   "source_qualification_reuse_and_rejections": "pass",
                    "cosign_local_signature_and_tamper": "pass", "attest_five_checks_and_tamper": "pass",
                    "attest_trust_mismatch_and_failed_tsa_cleanup": "pass"},
         "artifacts": sorted(path.name for path in dist.iterdir()),
