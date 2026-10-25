@@ -2,21 +2,42 @@
 
 ## Unreleased
 
-- Add a disposable kind demonstration for OIDC registration, reviewed adoption
-  of an existing client and machine authentication, including verification of
-  callback changes against the current declared generation.
-- Align documentation with the public 1.0.0 release and its 17 experimental
-  CRDs; distinguish API graduation and historical upgrade evidence from publication.
-- Update the embedded Cosign verifier to 3.1.4 and chi to 5.4.0
-  (CVE-2026-114437). The updated Rekor dependency uses maintained OpenPGP
-  packages instead of the deprecated `golang.org/x/crypto/openpgp` packages
-  reported by GO-2026-5932.
-- Reject verifier builds that silently downgrade Cosign or reintroduce the
-  deprecated OpenPGP packages.
+## 1.0.1
+
+<!-- release-notes:start -->
+### Release overview
+
+hankoShell Operator 1.0.1 updates the embedded image verifier and improves the
+standalone onboarding path. The 17 `hanko.sh/v1alpha1` APIs remain experimental;
+this patch does not change their schema or enable lifecycle operations.
+
+### Security
+
+- Update embedded Cosign to 3.1.4 and chi to 5.4.0, addressing CVE-2026-114437.
+- Use maintained OpenPGP dependencies instead of the deprecated
+  `golang.org/x/crypto/openpgp` packages reported by GO-2026-5932. The module-level
+  UNKNOWN report can remain in scanners; this is not a claim of an empty report.
+- Reject verifier builds that downgrade Cosign or reintroduce those packages.
+
+### Onboarding
+
+- Add a disposable kind demonstration for OIDC registration, explicit adoption
+  with a preserved client UUID, and real machine authentication.
+- Verify callback changes against the current declared generation and the actual
+  Keycloak client, with isolated kubeconfig and owned-cluster cleanup.
+- Organize the README around three usage journeys and publish the qualification
+  measurements with their limits.
+- Align documentation with the public release and the 17-resource API inventory.
+
+See the [standalone chart guide](charts/hankoshell-operator/README.md),
+[API scope](docs/api-support.md), [support window](docs/support-window.md) and
+[qualification](docs/qualification.md). Historical endurance results retain their
+recorded revisions; the patch has its own final-image qualification.
+<!-- release-notes:end -->
 
 ## 1.0.0
 
-<!-- release-notes:start -->
+
 ### Release overview
 
 hankoShell Operator 1.0.0 reconciles application identity and access from
@@ -54,4 +75,3 @@ provider and connected integrations retain their documented limitations.
 See [remaining work](https://github.com/Alien6-Studio/hankoshell-operator/milestone/11),
 [API scope](docs/api-support.md), [support window](docs/support-window.md) and
 [qualification](docs/qualification.md).
-<!-- release-notes:end -->
