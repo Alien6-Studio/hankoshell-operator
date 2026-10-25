@@ -60,12 +60,12 @@ identity plus role/resource-server UID ownership. The generated public report bi
 the corpus hash and fixture count. Private client credentials remain ephemeral
 fixture inputs and join the existing log/Event/CR inspection canaries.
 
-There is **no published predecessor**. The corpus and installed report therefore
-record `NoPublishedPredecessor`; no development restart is reported as N-1 → N or
-cross-release rollback. Unknown newer journals and unknown stored fields fail
-closed in the present corpus. Real predecessor upgrade/rollback qualification
-must be added from actual published artifacts when one exists (#93/#105); the
-first-release limitation must not be silently converted into a passing path.
+The initial v1.0.0 corpus has **no earlier public predecessor**. Its
+`NoPublishedPredecessor` limitation remains historical evidence; publication of
+v1.0.0 does not turn its development restarts into N-1 → N upgrades or cross-release
+rollback. Unknown newer journals and unknown stored fields fail closed in this
+corpus. Subsequent releases must add upgrade/rollback qualification using the
+actual published artifacts (#93/#105), preserving the initial corpus's limitation.
 
 ## Running and changing fixtures
 

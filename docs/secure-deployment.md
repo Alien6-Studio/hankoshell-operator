@@ -1497,8 +1497,9 @@ TokenReview. Workload binding and mesh coherence therefore uses explicit SA UID 
 and fresh local containment, with a documented residual revocation interval.
 Use the contract's two-client migration when authentication proof must precede
 secret deactivation. The operator will configure trust/metadata without storing
-workload JWTs or injecting PodSpec projections. #21 production trust and the
-first-publication release gate remain unchanged.
+workload JWTs or injecting PodSpec projections. Publisher trust and independent
+release approval remain required for each delivery; the initial publication is
+recorded in #21/#106/#107.
 
 ## Installed workload identity qualification
 
@@ -1552,7 +1553,7 @@ revoke them. Polling and outages extend asynchronous containment. Same-client
 cutover has no zero-downtime guarantee. This adds no TokenReview authenticator,
 remote binding, SPIFFE, delegation/token exchange or Pod injection, and does not
 qualify production CNI/database/cloud recovery. Development version/status and #21
-initial-publication trust requirements remain unchanged.
+publisher trust requirements remain mandatory for subsequent releases.
 
 ## Workload binding configuration
 

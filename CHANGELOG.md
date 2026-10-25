@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- Add a disposable kind demonstration for OIDC registration, reviewed adoption
+  of an existing client and machine authentication, including verification of
+  callback changes against the current declared generation.
+- Align documentation with the public 1.0.0 release and its 17 experimental
+  CRDs; distinguish API graduation and historical upgrade evidence from publication.
+- Update the embedded Cosign verifier to 3.1.4 and chi to 5.4.0
+  (CVE-2026-114437). The updated Rekor dependency uses maintained OpenPGP
+  packages instead of the deprecated `golang.org/x/crypto/openpgp` packages
+  reported by GO-2026-5932.
+- Reject verifier builds that silently downgrade Cosign or reintroduce the
+  deprecated OpenPGP packages.
+
 ## 1.0.0
 
 <!-- release-notes:start -->

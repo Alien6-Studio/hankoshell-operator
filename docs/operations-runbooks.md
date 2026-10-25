@@ -1,9 +1,11 @@
 # Operator operational runbooks
 
-This is an **initial development** runbook for the v1alpha1 API, before the first
-public release. No predecessor-to-public upgrade, production HA, production storage migration,
-complete installed delegation matrix or connected installation is qualified. Do not infer
-those capabilities from a documented command. [Stable graduation](stable-graduation.md)
+This runbook covers the experimental v1alpha1 API shipped in
+[v1.0.0](https://github.com/Alien6-Studio/hankoshell-operator/releases/tag/v1.0.0).
+Release qualification covers the recorded installed, endurance and HA/recovery
+scenarios. General production HA, provider-data migrations and live connected
+installations require their own evidence. Do not infer those capabilities from
+a documented command. [Stable graduation](stable-graduation.md)
 and [lifecycle authority](architecture/decisions/ADR-011-experimental-lifecycle-authority.md)
 retain their exclusions. Nothing here authorizes publication or bypasses approval.
 
@@ -123,8 +125,10 @@ tenant enrollment, a verified plan or successful audit delivery.
 
 ## Upgrade, rollback and storage
 
-**UNQUALIFIED: supported public upgrade/rollback paths.** There is no published
-predecessor. All 17 resources serve and store the experimental v1alpha1 API. HankoOperation and
+**UNQUALIFIED: supported public upgrade/rollback paths.** The initial public
+v1.0.0 had no earlier public predecessor. Later releases need installed evidence
+using the actual published source and target artifacts. All 17 resources serve
+and store the experimental v1alpha1 API. HankoOperation and
 HankoSnapshot are outside stable 1.0 graduation. Managed Upgrade and DBSwitch are
 not qualified. Do not use those CRs as a substitute for a tested migration.
 

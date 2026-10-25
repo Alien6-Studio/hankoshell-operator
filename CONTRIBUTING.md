@@ -156,7 +156,7 @@ Keep source, chart and build versions aligned
 with `versions.json`.
 
 Changes use protected, signed squash merges. Publication requires the complete
-qualification, independent release approval and a signed annotated `v1.0.0` tag
+qualification, independent release approval and a signed annotated version tag
 on protected main. Production publication stays blocked while the manifest status
 is `development`; there is no CLI or environment override.
 

@@ -59,8 +59,8 @@ for native permissions, writer conflicts and safe withdrawal. The extension's
 Hanko's current matrix includes 26.7.5 and 26.8.1; existing 26.8.0 capability replies remain readable. The operator and extension retain separate qualification reports.
 
 Public status adds observed portable delegation origin and bounds, not token
-subjects or native user IDs. This additive unpublished-alpha schema change is
-recorded in [the development contract notice](../go-api-contract.md).
+subjects or native user IDs. These experimental fields ship in v1.0.0 and are
+covered by [the Go API contract](../go-api-contract.md).
 
 ## Installed qualification gate (#71)
 

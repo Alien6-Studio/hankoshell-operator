@@ -57,8 +57,9 @@ Before changing CRDs, assess saved manifests and stored spec **and status**.
 Dry-run manifests against the candidate API; a spec-only dry run does not
 validate stored status. Correct desired configuration through its responsible
 writer. Do not truncate identities, remove finalizers, discard recovery records
-or recreate provider objects to bypass validation. There is no published
-predecessor to migrate in this initial release.
+or recreate provider objects to bypass validation. The initial public v1.0.0 had
+no earlier public predecessor; later releases must assess the actual published
+schemas and stored objects before migration.
 
 ## Rendered grants and their review rationale
 
@@ -150,5 +151,5 @@ leader-lock privilege expansion are rejected before snapshot creation.
 [installed qualification](../.github/workflows/ci.yml) and
 [finalizer recovery](finalizer-recovery.md) exercise the separate enforcement
 boundaries. [Incident collection](operations-runbooks.md#incident-evidence-without-secrets)
-exports only allowlisted evidence. Final release acceptance remains tracked in
+exports only allowlisted evidence. The initial release acceptance is recorded in
 [#106](https://github.com/Alien6-Studio/hankoshell-operator/issues/106).

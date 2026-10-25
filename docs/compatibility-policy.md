@@ -1,15 +1,20 @@
 # Compatibility and deprecation policy
 
-This policy is proposed for the first 1.0.0 release. Current v1alpha1 APIs remain
-experimental; approval of the stable commitment is tracked in #106 and #107.
+The operator's first public release is
+[v1.0.0](https://github.com/Alien6-Studio/hankoshell-operator/releases/tag/v1.0.0),
+published on 2026-10-24. Its `v1alpha1` APIs remain experimental. The stable API
+commitment below remains a proposal; release approval does not ratify it.
 Existing
 [API migration rules](api-migration-policy.md), [selection](public-contract-selection.md),
 [stable graduation](stable-graduation.md), [support window](support-window.md) and
 [runbook limitations](operations-runbooks.md) retain their narrower meanings.
 
-The [machine registry](../tools/qualification/config/contracts/compatibility-policy.json) has no public releases,
-compatibility baseline, notices or exceptions yet. Ratification is a separate
-reviewed change; repository documentation is not evidence of community acceptance.
+The [machine registry](../tools/qualification/config/contracts/compatibility-policy.json)
+tracks proposed stable compatibility baselines and their release/notice history.
+No stable baseline, associated release history, notices or exceptions have been
+activated there. It is not the operator's publication catalog; published versions
+are listed in [Releases](https://github.com/Alien6-Studio/hankoshell-operator/releases).
+Ratification requires a separate reviewed change.
 
 ## Proposed rules for published public fields
 
@@ -37,9 +42,9 @@ real retained release fixtures reproduce it. Never call same-source Helm
 configuration rollback a public operator/provider/data rollback.
 
 Actual installations and upgrade paths use the [sanitized reporting procedure](production-evidence.md)
-and [per-release evidence reporting](production-evidence.md). No public
-release or production report is currently recorded; development qualification
-does not populate that registry.
+and [per-release evidence reporting](production-evidence.md). No reviewed public
+production compatibility report is recorded. Release qualification and private
+installations do not automatically populate that registry.
 
 Helm does not migrate CRDs. A served/storage version change needs a conversion
 decision, lossless round-trip fixtures, resumable migration, storedVersions review
@@ -49,8 +54,11 @@ recreation, field pruning or forced finalizer removal is an upgrade procedure.
 
 ## Executable guard and current limits
 
-`tools/qualification/checks/compatibility_gate.py` reports `NoPublishedPredecessor` today. It does
-not turn the experimental schema into a stable commitment. Against a future
+With no activated stable baseline,
+`tools/qualification/checks/compatibility_gate.py` still reports
+`NoPublishedPredecessor`. This describes the retained compatibility evidence,
+not the availability of v1.0.0. It does not turn the experimental schema into a
+stable commitment. Against a future
 reviewed stable baseline it names removed/renamed fields, newly required fields,
 changed defaults, enum narrowing, validation/pattern/CEL tightening, type/format
 changes, list/map topology and unknown-field preservation changes. Exceptions
@@ -66,12 +74,13 @@ concurrent SSA, defaulted specs/status, ownership/finalizers and strict
 unknown-field rejection. Future served/storage changes and deprecations require
 explicit review.
 
-Authentic public baselines become applicable after the first publication.
-Publication and independent review remain requirements in #106/#107.
+The published v1.0.0 artifacts are the starting point for subsequent cross-release
+qualification. Retaining and reviewing that baseline remains separate from
+publishing the operator or graduating its API. Each later delivery still requires
+final-candidate qualification and independent release approval.
 
 To introduce a future legitimate deprecation, retain the published baseline,
 add the hash-bound announcement and migration note, obtain its recorded review,
 wait for both notice thresholds, then let the gate compare the proposed schema.
 Do not update a baseline to the candidate just to suppress a failure. Publish and
-review authentic historical artifacts through the existing release process;
-this batch neither activates nor runs production publication.
+review authentic historical artifacts through the existing release process.

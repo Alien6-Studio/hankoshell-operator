@@ -13,9 +13,9 @@ registration subset; its installed qualification remains separate. Public eviden
 with matching application semantics in #24; other controllers retain their implementation.
 
 The [organizational authorization design](organizational-authorization.md)
-defines the next extension of this engine. Its real Keycloak characterization
-is committed; organization principals and bounded explanation are implementation
-backlog, with no public API or production adapter change in the RFC phase.
+extends this engine with implemented organization principals and bounded
+explanation. Its real Keycloak characterization and explicit native boundaries
+remain part of that contract.
 
 ## Vocabulary and lifecycle
 
@@ -207,10 +207,11 @@ The exact-image installed-system suite also reconciles a HankoRole through the
 running manager and checks the ownership marker, description and finalizer cleanup.
 All existing Kubernetes, provider, OCI, supply-chain and release rehearsal gates
 remain mandatory. The IAM Contract Engine is complete for the qualified Keycloak surface.
-Current chart/app metadata is `1.0.0`; first-publication readiness includes
-Workload Identity, Delegation & Agent Identity, Provider Portability, Fleet
-Reconciliation, Initial Public Contract Stabilization and transversal trust
-evidence in #21.
+The engine ships in public
+[v1.0.0](https://github.com/Alien6-Studio/hankoshell-operator/releases/tag/v1.0.0).
+Workload identity, delegation, provider portability and fleet reconciliation
+retain their separate qualification boundaries. Publisher trust and initial
+release approval are recorded in #21/#106/#107; the APIs remain experimental.
 
 [#28](https://github.com/Alien6-Studio/hankoshell-operator/issues/28) completes
 standalone organization readiness versus configured optional projection. Provider

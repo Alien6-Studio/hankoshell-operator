@@ -4,7 +4,8 @@ Report real installations and upgrades using the
 [compatibility issue form](../.github/ISSUE_TEMPLATE/compatibility_evidence.yml).
 Include exact operator, Kubernetes and Keycloak versions, the installation mode,
 resources used, upgrade/rollback path and any incident. The operator collects no
-telemetry. No public release or production report is currently recorded.
+telemetry. [v1.0.0](https://github.com/Alien6-Studio/hankoshell-operator/releases/tag/v1.0.0)
+is public; no reviewed public production compatibility report is recorded yet.
 
 Use an anonymous installation reference: `installation-` followed by 16 random
 hexadecimal digits. Reuse it for later reports from that installation. Do not

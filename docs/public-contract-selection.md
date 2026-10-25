@@ -1,14 +1,15 @@
 # Initial public IAM contract selection
 
-This review selects the **candidate** 1.0.0 contract for #81, its frozen semantics
-in #82 and its reusable fixtures in #84. It does not announce a public release.
-Activation requires #86 qualification and the separately authorized #21 delivery.
-The current development API remains experimental. The 1.0 selection and graduation
-review in #89/#90 may expand this initial surface after evidence is available.
+This review selects a **candidate stable API contract** for #81, its frozen
+semantics in #82 and its reusable fixtures in #84. The operator was published as
+[v1.0.0](https://github.com/Alien6-Studio/hankoshell-operator/releases/tag/v1.0.0)
+with experimental APIs. Its publication does not activate this stable contract.
+The selection and graduation reviews may expand the surface after the required
+evidence is available.
 
 <!-- public-selection:start -->
 
-Initial 1.0.0 selection: 3 public resource candidates; qualification and first publication remain pending. Current development APIs remain experimental.
+Initial selection: 3 candidate public resource contracts. Operator v1.0.0 is published; all current APIs remain experimental pending a separate graduation decision.
 
 | Resource | Selected scope | Public spec groups |
 | --- | --- | --- |
@@ -82,19 +83,20 @@ than implying a public connected service contract. Upgrade/DBSwitch, managed-sou
 Clone, portable database restore, traffic enforcement and cloud/CNI/CSI support
 remain unqualified where already documented.
 
-The unfinished #69–#71 prerequisites remain explicit: bounded delegation has
-native counterexamples. #72–#75 now qualify an experimental second adapter and
-the shared installed corpus; a second production adapter has not been delivered. They are deferred from this initial public selection, not removed
-from the roadmap or considered complete. No planned 1.0 capability is dropped to
-publish 1.0.0. Promoting one requires its own qualified implementation, selection
-update, fixtures and migration review.
+Stock Keycloak's bounded delegation counterexamples remain explicit. The
+[dedicated extension and installed qualification](architecture/delegation-and-agent-identity.md)
+provide the experimental implementation; they do not graduate this field group.
+#72–#75 qualify an experimental second adapter and the shared installed corpus;
+a second production adapter has not been delivered. Promoting a deferred field
+group requires qualified implementation, a selection update, fixtures and migration
+review.
 
 ## Compatibility and rollback
 
 The candidate contract covers the selected field groups and documented execution
 meaning, including capability refusal and UID ownership. It is not a 1.0 SemVer,
 provider parity or cross-release guarantee. See the [migration policy](api-migration-policy.md)
-for stored `v1alpha1`, CRD ordering, journal readability, condition topology and
-the absence of a public predecessor. A fixture against one development image must
-not be described as N-1 public-release rollback. #84 records this initial-release
-limitation explicitly; a later published predecessor must supply real artifacts.
+for stored `v1alpha1`, CRD ordering, journal readability and condition topology.
+The initial v1.0.0 had no earlier public predecessor. A fixture against one
+development image must not be described as N-1 public-release rollback.
+Subsequent releases must use authentic published artifacts for those checks.

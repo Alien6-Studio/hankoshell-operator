@@ -1,8 +1,10 @@
 # API changes and rollback
 
-Version 1.0.0 is the initial, unpublished version. All 17 resources use
-`hanko.sh/v1alpha1` for serving and storage. There is no conversion webhook or
-public predecessor to migrate from.
+[Version 1.0.0](https://github.com/Alien6-Studio/hankoshell-operator/releases/tag/v1.0.0)
+is the first public release, published on 2026-10-24. All 17 resources use
+`hanko.sh/v1alpha1` for serving and storage, without a conversion webhook.
+There was no earlier public version to migrate from. Subsequent versions must
+qualify upgrades from actual published artifacts.
 
 ## Schema changes
 
@@ -13,8 +15,8 @@ and security inventory only after reviewing the actual difference.
 
 The [Go contract](go-api-contract.md) checks exported types. Native Kubernetes
 tests verify admission, typed read-back, status, field ownership and unknown-field
-rejection for every CRD. These checks do not establish compatibility with a
-hypothetical previous public release.
+rejection for every CRD. Cross-release compatibility requires separate installed
+tests using the published source and target artifacts.
 
 Helm does not update existing CRDs during an upgrade. Apply the reviewed CRDs
 before changing the operator image, and verify that existing resources remain
@@ -35,7 +37,7 @@ roll back when the operator image changes.
 
 ## Future public versions
 
-After publication, retain authentic schemas and conformance fixtures for each
-supported release. Changes then follow the [compatibility policy](compatibility-policy.md).
+Retain authentic schemas and conformance fixtures for each supported public
+release. Changes follow the [compatibility policy](compatibility-policy.md).
 A second API version will require a demonstrated need, semantic round-trip tests
 and a qualified storage transition before it is introduced.

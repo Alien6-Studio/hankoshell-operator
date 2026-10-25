@@ -16,6 +16,13 @@ go get "github.com/sigstore/cosign/v3/cmd/cosign@$COSIGN_VERSION"
 # Intentional splitting: the generated fragment contains validated module@version words.
 # shellcheck disable=SC2086
 go get $COSIGN_DEPENDENCIES
+# Overrides must never silently select an older verifier or reintroduce legacy PGP.
+test "$(go list -m -f '{{.Version}}' github.com/sigstore/cosign/v3)" = "$COSIGN_VERSION"
+packages="$(CGO_ENABLED=0 go list -deps github.com/sigstore/cosign/v3/cmd/cosign)"
+if printf '%s\n' "$packages" | grep -E '^golang.org/x/crypto/openpgp(/|$)' > /dev/null; then
+  echo 'Deprecated OpenPGP packages are forbidden in the verifier' >&2
+  exit 1
+fi
 CGO_ENABLED=0 go build -trimpath \
   -ldflags "-s -w -X sigs.k8s.io/release-utils/version.gitVersion=$COSIGN_VERSION" \
   -o "$destination" github.com/sigstore/cosign/v3/cmd/cosign

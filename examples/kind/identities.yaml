@@ -1,0 +1,39 @@
+apiVersion: hanko.sh/v1alpha1
+kind: HankoApplication
+metadata: {name: customer-portal}
+spec:
+  realmRef: example
+  clientID: customer-portal
+  type: spa
+  redirectURIs: [https://portal.example.com/callback]
+  postLogoutRedirectURIs: [https://portal.example.com/]
+---
+apiVersion: hanko.sh/v1alpha1
+kind: HankoKeycloakInstance
+metadata: {name: inventory-keycloak}
+spec:
+  mode: external
+  adminRef: {name: inventory-credentials}
+  tlsCARef: operator-ca
+---
+apiVersion: hanko.sh/v1alpha1
+kind: HankoApplication
+metadata:
+  name: existing-portal
+  annotations:
+    hanko.sh/adoption-source: inventory-keycloak
+spec:
+  realmRef: example
+  clientID: existing-portal
+  mode: Observe
+  type: spa
+  redirectURIs: [https://existing.example.com/callback]
+---
+apiVersion: hanko.sh/v1alpha1
+kind: HankoServiceAccount
+metadata: {name: report-worker}
+spec:
+  realmRef: example
+  clientID: report-worker
+  authentication: {mode: Secret}
+  secretRotationPolicy: {enabled: true, intervalDays: 30}

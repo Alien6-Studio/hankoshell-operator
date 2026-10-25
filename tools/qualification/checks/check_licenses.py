@@ -193,7 +193,7 @@ def render(title, modules, licenses):
         record = modules[path]
         references = []
         for relative in license_files(record["dir"]):
-            content = (record["dir"] / relative).read_bytes().decode("utf-8", "backslashreplace")
+            content = (record["dir"] / relative).read_bytes().decode("utf-8", "backslashreplace").replace("\r\n", "\n")
             digest = hashlib.sha256(content.encode()).hexdigest()
             if digest not in texts:
                 order.append(digest)
