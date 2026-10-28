@@ -332,6 +332,18 @@ def qualify(fixture, wait):
     fixture.patch("hankoresourceserver", "agent-mcp-api", {"spec": original})
     for name in ("agent-mcp-api", "agent-business-api"):
         wait("current recreated agent authorization", lambda name=name: fixture.iam_reconciled("hankoresourceserver", name), 180)
+    def backend_rebound():
+        # Recreating a referenced identity does not change this CR's generation.
+        # Its previous Ready condition can still describe the old client UUID.
+        current = fixture.get("hankoresourceserver", "agent-business-api")
+        owned = {value["id"] for value in current.get("status", {}).get("managedObjects", {}).get("policies", [])
+                 if value.get("name") == "independent-backend#clients"}
+        policies = fixture.api("GET", f'/admin/realms/managed/clients/{backend["id"]}/authz/resource-server/policy/client?first=0&max=129')
+        if not isinstance(policies, list) or len(policies) >= 129:
+            raise ValueError("Agent backend policy read-back is unbounded")
+        return len(owned) == 1 and any(value.get("id") in owned and value.get("clients") == [current_actor["id"]] for value in policies)
+    wait("backend policy bound to recreated agent UUID", backend_rebound, 180)
+    fixture.record("backend_policy_has_current_agent_identity", backend_rebound())
     refused = probe("exchange", client="agent-b", audience="agent-mcp-api", actor=old_actor,
                     subject=input_token("agent-a", "agent-mcp-api", "invoice#read"), private_secret=fixture.secret_value("agent-b"))
     fixture.record("recreated_agent_cannot_reuse_old_signed_input", 400 <= refused["http_status"] < 500 and not refused["issued"])
