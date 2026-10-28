@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -33,6 +34,30 @@ func TestBundleRetainsChartSecurityAndOLMOwnership(t *testing.T) {
 	output := filepath.Join(t.TempDir(), "bundle")
 	if err := run([]string{"bundle", "--chart", opts.chart, "--output", output, "--image", opts.image}); err != nil {
 		t.Fatal(err)
+	}
+	// Registry clients discover the bundle from OCI labels before unpacking
+	// annotations.yaml. Directory-only SDK validation cannot catch their absence.
+	dockerfile, err := os.ReadFile(filepath.Join(output, "bundle.Dockerfile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadata, err := os.ReadFile(filepath.Join(output, "metadata", "annotations.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var annotations struct {
+		Annotations map[string]string `json:"annotations"`
+	}
+	if err := yaml.Unmarshal(metadata, &annotations); err != nil {
+		t.Fatal(err)
+	}
+	if len(annotations.Annotations) != 6 || strings.Count(string(dockerfile), "\nLABEL ") != 6 {
+		t.Fatal("bundle image discovery metadata omitted")
+	}
+	for key, value := range annotations.Annotations {
+		if !strings.Contains(string(dockerfile), "\nLABEL "+key+"="+strconv.Quote(value)+"\n") {
+			t.Fatalf("bundle image discovery label differs from metadata: %s", key)
+		}
 	}
 	files, err := filepath.Glob(filepath.Join(output, "manifests", "*.yaml"))
 	if err != nil || len(files) != 18 {

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -52,6 +54,14 @@ func writeBundle(directory string, chart *chartSource, opts options) error {
 		return err
 	}
 	dockerfile := "FROM scratch\nCOPY manifests /manifests/\nCOPY metadata /metadata/\nCOPY tests /tests/\n"
+	keys := make([]string, 0, len(annotations))
+	for key := range annotations {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		dockerfile += "LABEL " + key + "=" + strconv.Quote(annotations[key]) + "\n"
+	}
 	if err := os.WriteFile(filepath.Join(directory, "bundle.Dockerfile"), []byte(dockerfile), 0o644); err != nil { // #nosec G306 -- Public bundle metadata, readable by OLM's non-root unpacker; no administrator values are accepted.
 		return fmt.Errorf("write bundle Dockerfile: %w", err)
 	}

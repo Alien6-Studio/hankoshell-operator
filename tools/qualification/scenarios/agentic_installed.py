@@ -14,6 +14,12 @@ ROOT = Path(__file__).resolve().parents[3]
 BASE = "https://delegation-resource.auth.svc:8445"
 
 
+class AgentProbeFailure(ValueError):
+    def __init__(self, kind):
+        self.kind = kind
+        super().__init__("Private agent protocol probe failed: " + kind)
+
+
 def qualify(fixture, wait):
     manifests = list(yaml.safe_load_all((ROOT / "examples/agent-authority/identities.yaml").read_text()))
     for value in manifests:
@@ -66,8 +72,17 @@ def qualify(fixture, wait):
         fixture.kubectl("delete", "pod", "delegation-resource", "-n", "auth", "--wait=true")
         fixture.apply({"apiVersion": "v1", "kind": "Pod", "metadata": {"name": "delegation-resource", "namespace": "auth", "labels": {"app": "delegation-resource"}}, "spec": spec})
         fixture.kubectl("wait", "--for=condition=Ready", "pod/delegation-resource", "-n", "auth", "--timeout=180s")
-
-    restart_fixture()
+        # Pod Ready does not wait for Service routing to converge. Only retry
+        # this unauthenticated, side-effect-free TLS discovery request; the
+        # task/exchange requests below retain their single-attempt semantics.
+        def reachable():
+            try:
+                return probe("ready", endpoint=BASE).get("ready") is True
+            except AgentProbeFailure as error:
+                if error.kind in ("connection", "timeout"):
+                    return False
+                raise
+        wait("agent HTTPS service routing", reachable, 60)
 
     def probe(action, **private):
         anchor = fixture.workload_anchors["delegation-actor"]
@@ -76,14 +91,22 @@ def qualify(fixture, wait):
         wrapper = "import sys,io\nsys.stdin=io.StringIO(" + repr(json.dumps(settings)) + ")\n" + script
         command = [str(fixture.args.kubectl), "--kubeconfig", str(fixture.config), "exec", "-i", "-n", "workload", anchor["pod"], "--", "python", "-"]
         result = subprocess.run(command, input=wrapper.encode(), capture_output=True, timeout=60, check=False)
-        if result.returncode or len(result.stdout) > 65536:
-            raise ValueError("Private agent protocol probe failed")
-        value = json.loads(result.stdout)
-        if value.get("probe_failed"):
-            raise ValueError("Private agent protocol probe refused inputs")
+        if len(result.stdout) > 65536:
+            raise AgentProbeFailure("output_limit")
+        try:
+            value = json.loads(result.stdout)
+        except ValueError:
+            raise AgentProbeFailure("exec") from None
+        if result.returncode or value.get("probe_failed"):
+            kind = value.get("failure_kind")
+            if kind not in ("tls", "timeout", "connection", "http_protocol", "response_json", "input", "unknown"):
+                kind = "exec"
+            raise AgentProbeFailure(kind)
         if value.get("access_token"):
             fixture.sensitive.append(value["access_token"])
         return value
+
+    restart_fixture()
 
     def input_token(client, audience, permission):
         value = probe("input", client=client, audience=audience, permissions=[permission], private_secret=fixture.secret_value(client))
@@ -213,15 +236,21 @@ def qualify(fixture, wait):
 
     # Task authorization is opt-in. The trusted issuer and recipient have
     # separate credentials; neither identity is selected from an A2A payload.
+    task_audience = {"name": "task-endpoint", "claim": "aud", "value": "bounded-delegation-task-context",
+                     "addToIDToken": False, "addToAccessToken": True, "addToUserInfo": False}
     authority = {"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoServiceAccount", "metadata": {"name": "task-authority", "namespace": "auth"},
-                 "spec": {"realmRef": "managed", "clientID": "task-authority", "authentication": {"mode": "Secret"}}}
+                 "spec": {"realmRef": "managed", "clientID": "task-authority", "authentication": {"mode": "Secret"},
+                          "tokenClaims": [task_audience]}}
     fixture.apply_approved(authority)
     wait("trusted task authority", lambda: fixture.ready("hankoserviceaccount", "task-authority"), 180)
     authority_native = fixture.client("managed", "task-authority")
-    for client in (authority_native, fixture.client("managed", "agent-mcp-api")):
-        fixture.api("POST", f'/admin/realms/managed/clients/{client["id"]}/protocol-mappers/models',
-                    {"name": "qualification-task-endpoint", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper",
-                     "config": {"included.custom.audience": "bounded-delegation-task-context", "access.token.claim": "true"}})
+    # Configure the recipient through its typed contract. An administrator
+    # mapper outside that contract makes the managed application's observation
+    # incomplete and invalidates later authorization plans.
+    application = fixture.get("hankoapplication", "agent-mcp-api")
+    claims = application["spec"].get("tokenClaims", []) + [task_audience]
+    fixture.patch("hankoapplication", "agent-mcp-api", {"spec": {"tokenClaims": claims}})
+    wait("task recipient audience mapper", lambda: fixture.iam_reconciled("hankoapplication", "agent-mcp-api"), 180)
     native_realm = fixture.api("GET", "/admin/realms/managed")
     task_attributes = {"oauth.bounded-delegation.task.profile": "task-bound-software",
                        "oauth.bounded-delegation.task.issuer": json.dumps({"id": authority_native["id"], "attribute": "@keycloak.client.uuid", "value": authority_native["id"]})}

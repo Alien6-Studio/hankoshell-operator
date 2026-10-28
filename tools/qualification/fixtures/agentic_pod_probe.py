@@ -1,12 +1,32 @@
 """Private installed A2A/MCP client. OAuth material travels only over stdin/TLS."""
+import http.client
 import json
 import os
 import ssl
 import sys
 import time
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+
+
+def failure_kind(error):
+    # Fixed categories only: exception text can include credentials or URLs.
+    if isinstance(error, URLError):
+        error = error.reason
+    if isinstance(error, ssl.SSLError):
+        return "tls"
+    if isinstance(error, TimeoutError):
+        return "timeout"
+    if isinstance(error, OSError):
+        return "connection"
+    if isinstance(error, http.client.HTTPException):
+        return "http_protocol"
+    if isinstance(error, json.JSONDecodeError):
+        return "response_json"
+    if isinstance(error, (ValueError, KeyError, TypeError)):
+        return "input"
+    return "unknown"
 
 
 def execute(settings):
@@ -25,7 +45,8 @@ def execute(settings):
             headers["Content-Type"] = "application/json"
         started = time.monotonic()
         try:
-            with urlopen(Request(url, data=data, headers=headers, method=method), context=context, timeout=45) as response:
+            with urlopen(Request(url, data=data, headers=headers, method=method), context=context,
+                         timeout=5 if settings["action"] == "ready" else 45) as response:
                 status, raw = response.status, response.read(65537)
         except HTTPError as error:
             status, raw = error.code, error.read(65537)
@@ -33,6 +54,10 @@ def execute(settings):
             raise ValueError("response limit")
         return status, json.loads(raw) if raw else {}, round((time.monotonic() - started) * 1000, 3)
 
+    if settings["action"] == "ready":
+        status, body, _ = request(settings["endpoint"] + "/.well-known/oauth-protected-resource/mcp", method="GET")
+        return {"ready": status == 200 and body.get("resource") == settings["endpoint"] + "/mcp"
+                and body.get("authorization_servers") == [settings["issuer"]]}
     if settings["action"] == "input":
         endpoint = settings["issuer"] + "/protocol/openid-connect/token"
         status, body, _ = request(endpoint, {"grant_type": "client_credentials", "client_id": settings["client"],
@@ -69,6 +94,6 @@ if __name__ == "__main__":
                 _, status = os.waitpid(child, 0)
                 sys.exit(os.waitstatus_to_exitcode(status))
         print(json.dumps(execute(settings)), flush=True)
-    except Exception:
-        print(json.dumps({"probe_failed": True}))
+    except Exception as error:
+        print(json.dumps({"probe_failed": True, "failure_kind": failure_kind(error)}))
         sys.exit(1)
