@@ -112,7 +112,9 @@ jobs:
     name: HA transactions KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
     needs: [source, oci, keycloak-extension]
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    # Transaction recovery and native delegation handoff run serially here.
+    # Keep room for both suites and their tools; scenario deadlines stay bounded.
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
