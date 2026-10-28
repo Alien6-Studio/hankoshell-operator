@@ -24,7 +24,7 @@ func TestResourceVerifiesSignatureAndExactAuthority(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v := verifier{configuration{"https://fixture/realms/software", "api", map[string]string{"/allowed": "one", "/denied": "two"}}, map[string]*rsa.PublicKey{"current": &key.PublicKey}}
+	v := verifier{configuration{Issuer: "https://fixture/realms/software", Audience: "api", Resources: map[string]string{"/allowed": "one", "/denied": "two"}}, map[string]*rsa.PublicKey{"current": &key.PublicKey}}
 	for _, tc := range []struct {
 		name, path string
 		status     int

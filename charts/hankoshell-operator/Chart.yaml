@@ -2,8 +2,8 @@ apiVersion: v2
 name: hankoshell-operator
 description: Manage Keycloak realms, applications and access declaratively from Kubernetes
 type: application
-version: "1.0.1"
-appVersion: "1.0.1"
+version: "1.1.0"
+appVersion: "1.1.0"
 kubeVersion: ">=1.35.0-0 <1.38.0-0"
 keywords:
   - oidc
@@ -24,15 +24,13 @@ annotations:
   artifacthub.io/operator: "true"
   artifacthub.io/prerelease: "false"
   artifacthub.io/changes: |
-    - kind: security
-      description: Update embedded Cosign and chi, remove deprecated OpenPGP packages and reject dependency downgrades.
     - kind: added
-      description: Disposable local demonstration for OIDC clients, explicit adoption and machine authentication, including callback changes.
-    - kind: changed
-      description: Clarify usage journeys, public release status and qualification measurements. All 17 v1alpha1 APIs remain experimental.
+      description: Chart-derived OLM packaging and administrator preparation for the OperatorHub alpha channel.
+    - kind: security
+      description: Verify approved admission and network protections before an OLM installation starts; retain exclusive deployment ownership.
   artifacthub.io/images: |
     - name: hankoshell-operator
-      image: ghcr.io/alien6-studio/hankoshell-operator:1.0.1
+      image: ghcr.io/alien6-studio/hankoshell-operator:1.1.0
       platforms:
         - linux/amd64
         - linux/arm64

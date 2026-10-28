@@ -100,6 +100,7 @@ type BoundedDelegationPermission struct {
 	Resources, Scopes       []string
 	Principals              []BoundedDelegationPrincipal
 	MaxDepth, MaxTTLSeconds int32
+	TaskAuthorization       string
 }
 
 type BoundedDelegationCondition struct {
@@ -128,6 +129,7 @@ type BoundedDelegationGrant struct {
 
 type BoundedDelegationDocument struct {
 	Version       int                        `json:"version"`
+	Profile       string                     `json:"profile,omitempty"`
 	Phase         string                     `json:"phase"`
 	OwnerUID      string                     `json:"ownerUID"`
 	Revision      string                     `json:"revision"`
@@ -228,6 +230,13 @@ func (c *Client) PrepareBoundedDelegation(ctx context.Context, model Authorizati
 	}
 	result.Document = BoundedDelegationDocument{Version: 1, Phase: "Prepared", OwnerUID: model.OwnerUID, RealmID: realm.ID,
 		Audience: audience.binding, Grants: []BoundedDelegationGrant{}}
+	taskCapability, err := c.requestedTaskCapability(ctx, model.Realm, permissions)
+	if err != nil {
+		return result, err
+	}
+	if taskCapability != nil {
+		result.Document.Version, result.Document.Profile = 2, "task-bound-software"
+	}
 	members := map[BoundedDelegationIdentity]boundedDelegationMember{}
 	resolve := func(identity BoundedDelegationIdentity) (boundedDelegationMember, error) {
 		if member, found := members[identity]; found {
@@ -265,7 +274,7 @@ func (c *Client) PrepareBoundedDelegation(ctx context.Context, model Authorizati
 		return result, err
 	}
 	data, _ := json.Marshal([]any{capability, realm, boundedMemberSnapshots(members), conditions, closures, result.Document})
-	result.Runtime = boundedDigest(data)
+	result.Runtime = boundedTaskRuntime(data, taskCapability)
 	return result, nil
 }
 
@@ -318,6 +327,7 @@ func (c *Client) prepareBoundedGrant(ctx context.Context, model AuthorizationMod
 
 func validBoundedPermission(permission BoundedDelegationPermission, realmTTL int32) bool {
 	return permission.Name != "" && permission.Actor != permission.Subject && len(permission.Resources) > 0 && len(permission.Scopes) > 0 &&
+		(permission.TaskAuthorization == "" || permission.TaskAuthorization == "required" && permission.MaxDepth == 1) &&
 		permission.MaxDepth >= 1 && permission.MaxDepth <= 4 && permission.MaxTTLSeconds >= 1 && permission.MaxTTLSeconds <= 600 && permission.MaxTTLSeconds <= realmTTL
 }
 

@@ -19,6 +19,7 @@ from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 from tools.qualification.lib import keycloak_extension_source as extension
+from tools.qualification.scenarios import agentic_installed
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -155,7 +156,7 @@ class Delegation(installed.Installed):
         extension.verify_artifact(self.args.keycloak_version, jar)
         shutil.copyfile(jar, build / "bounded-delegation.jar")
         dockerfile = build / "Dockerfile"
-        dockerfile.write_text(f"FROM {image}\nCOPY --chown=keycloak:keycloak bounded-delegation.jar /opt/keycloak/providers/\nRUN /opt/keycloak/bin/kc.sh build --db=dev-file --health-enabled=true\n")
+        dockerfile.write_text(f"FROM {image}\nCOPY --chown=keycloak:keycloak bounded-delegation.jar /opt/keycloak/providers/\nRUN /opt/keycloak/bin/kc.sh build --db=dev-file --health-enabled=true --features=stateless\n")
         self.report["extension"] = {**extension.pin(), "jar_sha256": hashlib.sha256(jar.read_bytes()).hexdigest()}
         return dockerfile
 
@@ -570,6 +571,8 @@ class Delegation(installed.Installed):
             self.report["active_phase"] = "deletion_recovery"
             self.deletion_recovery()
             self.record("all_native_phases_recovered", [r["phase"] for r in self.report["recovery"]] == list(PHASES))
+        self.report["active_phase"] = "agentic_exchanges"
+        agentic_installed.qualify(self, wait)
         self.report["active_phase"] = "leak_scan"
         self.leak_scan()
         self.report.update(complete=True, completed_at=datetime.now(timezone.utc).isoformat(), active_phase="complete")
@@ -577,7 +580,7 @@ class Delegation(installed.Installed):
     def public_evidence(self):
         keys = ("schema_version", "layer", "revision", "image_digest", "extension", "resource_verifier_sha256", "fixture_sha256", "node_image", "node_build", "keycloak_image",
                 "keycloak_version", "kubernetes_version", "complete", "publishable", "started_at", "completed_at", "checks", "recovery", "ha_recovery", "initial_convergence_seconds", "revocation_seconds", "keycloak_profiles", "hub_payloads_inspected", "limits", "active_phase", "failure_ownership")
-        return {key: self.report[key] for key in keys if key in self.report}
+        return {key: self.report[key] for key in (*keys, "agentic") if key in self.report}
 
     def capture_ownership_failure(self):
         # Best effort, read-only, <=25 seconds plus a final token/read pair

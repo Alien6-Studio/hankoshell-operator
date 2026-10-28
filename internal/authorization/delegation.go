@@ -14,10 +14,11 @@ const (
 // Delegation restricts one existing permission to two explicit software
 // identities. The containing ResourceServer supplies the only target audience.
 type Delegation struct {
-	Actor         Principal
-	Subject       Principal
-	MaxDepth      int32
-	MaxTTLSeconds int32
+	Actor             Principal
+	Subject           Principal
+	MaxDepth          int32
+	MaxTTLSeconds     int32
+	TaskAuthorization string `json:",omitempty"`
 }
 
 // DelegationError carries a fixed local finding, never provider response data.
@@ -53,7 +54,7 @@ func validateDelegation(permission Permission) error {
 	if d == nil {
 		return nil
 	}
-	if len(permission.Resources) == 0 || d.MaxDepth < 1 || d.MaxDepth > 4 || d.MaxTTLSeconds < 1 || d.MaxTTLSeconds > 600 {
+	if len(permission.Resources) == 0 || !validDelegationBounds(d) {
 		return iamcontract.ErrRejected
 	}
 	for _, identity := range []Principal{d.Actor, d.Subject} {
@@ -65,4 +66,9 @@ func validateDelegation(permission Permission) error {
 		return iamcontract.ErrRejected
 	}
 	return nil
+}
+
+func validDelegationBounds(d *Delegation) bool {
+	return d.MaxDepth >= 1 && d.MaxDepth <= 4 && d.MaxTTLSeconds >= 1 && d.MaxTTLSeconds <= 600 &&
+		(d.TaskAuthorization == "" || d.TaskAuthorization == "required" && d.MaxDepth == 1)
 }

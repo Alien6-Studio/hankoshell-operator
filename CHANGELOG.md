@@ -2,9 +2,44 @@
 
 ## Unreleased
 
+<!-- release-notes:start -->
+### Release overview
+
+hankoShell Operator 1.1.0 prepares an OLM distribution for OperatorHub and an
+installed A2A/MCP bounded-authority qualification path. The 17
+`hanko.sh/v1alpha1` APIs remain experimental. Helm remains available for all
+existing profiles; this release keeps experimental lifecycle operations opt-in.
+
+### Security and agent authority
+
+- Bind the embedded Cosign package inventory to the compiled binary SHA-256 and
+  check it in both final-image architectures. Deprecated OpenPGP packages remain
+  forbidden; raw module-level Trivy results are preserved.
+- Use separate A2A, MCP and business API audiences with current software-v1 CRDs.
+  The trusted qualification fixture authenticates A2A assignments, obtains fresh
+  actor evidence and enforces signed-token resource/tool boundaries at MCP.
+- Obtain independent downstream credentials and refuse direct gateway bypasses.
+  Trace only allowlisted decisions and per-run opaque identity correlators.
+- Add explicit `delegation.taskAuthorization: required`, strict native capability
+  gating and legacy-refusal journal encoding. The trusted fixture registers
+  exact-input approvals, enforces native online MCP decisions, and tests
+  cancellation, approval replay, authority loss and controlled opt-out.
+- Default software delegation remains compatible. Human delegation, general
+  child-agent execution and production readiness require their own evidence.
+
+### OperatorHub
+
+- Prepare OperatorHub distribution from the Helm chart, with an alpha channel,
+  all 17 CRDs, digest-pinned images and installation in one namespace.
+- Verify administrator-approved admission policies, network policies, Pod
+  Security and CRD storage before starting an OLM installation. OLM alone owns
+  the operator deployment; connected and experimental profiles still use Helm.
+- Add reproducible bundle generation and official Operator Framework validation.
+  OperatorHub publication remains pending upstream review.
+<!-- release-notes:end -->
+
 ## 1.0.1
 
-<!-- release-notes:start -->
 ### Release overview
 
 hankoShell Operator 1.0.1 updates the embedded image verifier and improves the
@@ -33,7 +68,6 @@ See the [standalone chart guide](charts/hankoshell-operator/README.md),
 [API scope](docs/api-support.md), [support window](docs/support-window.md) and
 [qualification](docs/qualification.md). Historical endurance results retain their
 recorded revisions; the patch has its own final-image qualification.
-<!-- release-notes:end -->
 
 ## 1.0.0
 

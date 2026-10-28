@@ -56,7 +56,7 @@ func checkEveryPublicField(t *testing.T, ctx context.Context, admin client.Clien
 		SchemaVersion int
 		Cases         []publicFieldBudget
 	}
-	if err := json.Unmarshal(data, &corpus); err != nil || corpus.SchemaVersion != 1 || len(corpus.Cases) != 969 {
+	if err := json.Unmarshal(data, &corpus); err != nil || corpus.SchemaVersion != 1 || len(corpus.Cases) != 971 {
 		t.Fatal("incomplete frozen public-field admission corpus", err)
 	}
 	expected := map[string]bool{}

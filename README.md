@@ -65,6 +65,8 @@ Helm installs CRDs on first installation but does not upgrade them: use the
 [API migration policy](docs/api-migration-policy.md) before applying reviewed CRD
 changes to an existing installation. Metrics are off by default; [enabling them requires mTLS](docs/operations-runbooks.md#secure-metrics).
 
+An [OperatorHub/OLM installation](docs/operatorhub.md) is being prepared for 1.0.2.
+
 ## 1. Connect an OIDC client
 
 Your SPA needs user login through Keycloak. These examples use the operator's

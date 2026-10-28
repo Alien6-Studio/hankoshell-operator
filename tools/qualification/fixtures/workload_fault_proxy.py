@@ -70,6 +70,17 @@ def matches(rule, method, path, body):
     actual = path.split("?")[0]
     if not (actual.startswith(rule["path"]) if rule.get("path_prefix") else actual == rule["path"]):
         return False
+    if "oauth_grant" in rule:
+        # Match a bounded discriminator only; never retain form values/tokens.
+        grant = rule["oauth_grant"]
+        if grant not in ("client_credentials", "urn:ietf:params:oauth:grant-type:uma-ticket",
+                         "urn:ietf:params:oauth:grant-type:token-exchange"):
+            return False
+        try:
+            if parse_qs(body.decode("utf-8"), max_num_fields=24).get("grant_type") != [grant]:
+                return False
+        except (UnicodeError, ValueError):
+            return False
     if "step" in rule:
         try:
             value = json.loads(body).get("metadata", {}).get("annotations", {}).get(
@@ -137,7 +148,7 @@ class Proxy(BaseHTTPRequestHandler):
             with LOCK:
                 if self.command == "POST":
                     value = json.loads(body)
-                    STATE.update({"rule": value.get("rule"), "blocked": False, "triggered": False, "upstream_status": None})
+                    STATE.update({"rule": value.get("rule"), "blocked": False, "triggered": False, "upstream_status": None, "fault_matches": 0})
                     if value.get("reset_counts"):
                         STATE["counts"] = {}
                         STATE["attempted_counts"] = {}
@@ -168,7 +179,10 @@ class Proxy(BaseHTTPRequestHandler):
                 reads = STATE.setdefault("credential_reads", {})
                 reads[path] = reads.get(path, 0) + 1
             rule = STATE["rule"]
-            selected = source_matches(rule, peer) and matches(rule, self.command, self.path, body) and not STATE["triggered"]
+            matched = source_matches(rule, peer) and matches(rule, self.command, self.path, body)
+            if matched:
+                STATE["fault_matches"] = STATE.get("fault_matches", 0) + 1
+            selected = matched and not STATE["triggered"]
             blocked = STATE["blocked"] and source_matches(rule, peer)
             if selected and rule["action"] in ("deny", "conflict", "http-status"):
                 STATE["triggered"] = True

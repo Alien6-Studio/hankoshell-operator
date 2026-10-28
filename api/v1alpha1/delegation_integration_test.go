@@ -4,17 +4,22 @@ package v1alpha1_test
 
 import (
 	"context"
+	"io"
+	"os"
 	"testing"
 
 	api "github.com/Alien6-Studio/hankoshell-operator/api/v1alpha1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func checkDelegationAdmission(t *testing.T, ctx context.Context, c client.Client) {
 	t.Helper()
+	t.Run("agent authority examples use current schemas", func(t *testing.T) { checkAgentAuthorityExamples(t, ctx, c) })
 	base := &api.HankoResourceServer{ObjectMeta: metav1.ObjectMeta{Namespace: "auth"}, Spec: api.HankoResourceServerSpec{
 		RealmRef: "realm", ApplicationRef: "api", Scopes: []api.AuthorizationScope{{Name: "read"}},
 		Resources: []api.AuthorizationResource{{Name: "invoice", Scopes: []string{"read"}}},
@@ -31,6 +36,11 @@ func checkDelegationAdmission(t *testing.T, ctx context.Context, c client.Client
 		{"defaults", false, func(*api.AuthorizationPermission) {}},
 		{"explicit", false, func(p *api.AuthorizationPermission) {
 			p.Delegation.MaxDepth, p.Delegation.MaxTTLSeconds = ptr(4), ptr(600)
+		}},
+		{"task-authorized", false, func(p *api.AuthorizationPermission) { p.Delegation.TaskAuthorization = "required" }},
+		{"task-option-unknown", true, func(p *api.AuthorizationPermission) { p.Delegation.TaskAuthorization = "unverified" }},
+		{"task-multi-hop", true, func(p *api.AuthorizationPermission) {
+			p.Delegation.TaskAuthorization, p.Delegation.MaxDepth = "required", ptr(2)
 		}},
 		{"zero-depth", true, func(p *api.AuthorizationPermission) { p.Delegation.MaxDepth = ptr(0) }},
 		{"depth-overflow", true, func(p *api.AuthorizationPermission) { p.Delegation.MaxDepth = ptr(5) }},
@@ -84,5 +94,50 @@ func checkDelegationAdmission(t *testing.T, ctx context.Context, c client.Client
 				t.Fatal("update bypassed delegation bounds", err)
 			}
 		})
+	}
+}
+
+func checkAgentAuthorityExamples(t *testing.T, ctx context.Context, c client.Client) {
+	t.Helper()
+	file, err := os.Open("../../examples/agent-authority/identities.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	decoder := yaml.NewYAMLOrJSONDecoder(file, 4096)
+	count := 0
+	audiences := map[string]bool{}
+	for {
+		var object unstructured.Unstructured
+		if err := decoder.Decode(&object); err == io.EOF {
+			break
+		} else if err != nil {
+			t.Fatal(err)
+		}
+		object.SetNamespace("auth")
+		if err := c.Create(ctx, &object); err != nil {
+			t.Fatalf("agent example %s/%s is not admitted: %v", object.GetKind(), object.GetName(), err)
+		}
+		count++
+		if object.GetKind() == "HankoResourceServer" {
+			var server api.HankoResourceServer
+			if err := c.Get(ctx, client.ObjectKeyFromObject(&object), &server); err != nil {
+				t.Fatal(err)
+			}
+			if server.Spec.Audience == "" || audiences[server.Spec.Audience] {
+				t.Fatal("protected agent audiences overlap")
+			}
+			audiences[server.Spec.Audience] = true
+			for _, permission := range server.Spec.Permissions {
+				if permission.Delegation != nil && (permission.Delegation.MaxDepth == nil || permission.Delegation.MaxTTLSeconds == nil ||
+					*permission.Delegation.MaxDepth != 1 || *permission.Delegation.MaxTTLSeconds != 30 ||
+					permission.Delegation.Actor.Ref != "agent-b" || permission.Delegation.Subject.Ref != "agent-a") {
+					t.Fatal("example delegated authority widened or lost its explicit binding")
+				}
+			}
+		}
+	}
+	if count != 8 || len(audiences) != 3 {
+		t.Fatal("incomplete agent authority example graph")
 	}
 }

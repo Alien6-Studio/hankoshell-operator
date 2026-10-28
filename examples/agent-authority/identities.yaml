@@ -1,0 +1,97 @@
+# Synthetic same-realm qualification graph. Apply to the operator's own watched
+# namespace after declaring the managed realm and approving named Secret writes.
+apiVersion: hanko.sh/v1alpha1
+kind: HankoServiceAccount
+metadata: {name: agent-a}
+spec:
+  realmRef: managed
+  clientID: agent-a
+  authentication: {mode: Secret}
+---
+apiVersion: hanko.sh/v1alpha1
+kind: HankoServiceAccount
+metadata: {name: agent-b}
+spec:
+  realmRef: managed
+  clientID: agent-b
+  authentication: {mode: Secret}
+---
+apiVersion: hanko.sh/v1alpha1
+kind: HankoApplication
+metadata: {name: agent-b-ingress}
+spec: {realmRef: managed, clientID: agent-b-ingress, type: m2m}
+---
+apiVersion: hanko.sh/v1alpha1
+kind: HankoApplication
+metadata: {name: agent-mcp-api}
+spec: {realmRef: managed, clientID: agent-mcp-api, type: m2m}
+---
+apiVersion: hanko.sh/v1alpha1
+kind: HankoApplication
+metadata: {name: agent-business-api}
+spec: {realmRef: managed, clientID: agent-business-api, type: m2m}
+---
+apiVersion: hanko.sh/v1alpha1
+kind: HankoResourceServer
+metadata: {name: agent-b-ingress}
+spec:
+  realmRef: managed
+  applicationRef: agent-b-ingress
+  audience: agent-b-ingress
+  scopes: [{name: invoke}]
+  resources:
+    - name: tasks
+      uris: [https://delegation-resource.auth.svc:8445/message:send]
+      scopes: [invoke]
+  permissions:
+    - name: assigned-task
+      resources: [tasks]
+      scopes: [invoke]
+      principals: [{kind: service_account, ref: agent-a}]
+---
+apiVersion: hanko.sh/v1alpha1
+kind: HankoResourceServer
+metadata: {name: agent-mcp-api}
+spec:
+  realmRef: managed
+  applicationRef: agent-mcp-api
+  audience: agent-mcp-api
+  scopes: [{name: read}, {name: write}]
+  resources:
+    - name: invoice
+      uris: [https://delegation-resource.auth.svc:8445/mcp]
+      scopes: [read, write]
+    - name: foreign-invoice
+      scopes: [read, write]
+  permissions:
+    - name: independent-inputs
+      resources: [invoice]
+      scopes: [read]
+      principals: [{kind: service_account, ref: agent-a}, {kind: service_account, ref: agent-b}]
+    - name: delegated-read
+      resources: [invoice]
+      scopes: [read]
+      principals: [{kind: service_account, ref: agent-a}, {kind: service_account, ref: agent-b}]
+      delegation:
+        actor: {kind: service_account, ref: agent-b}
+        subject: {kind: service_account, ref: agent-a}
+        maxDepth: 1
+        maxTTLSeconds: 30
+---
+apiVersion: hanko.sh/v1alpha1
+kind: HankoResourceServer
+metadata: {name: agent-business-api}
+spec:
+  realmRef: managed
+  applicationRef: agent-business-api
+  audience: agent-business-api
+  scopes: [{name: read}]
+  resources:
+    - name: invoice
+      uris: [https://delegation-resource.auth.svc:8445/downstream]
+      scopes: [read]
+  permissions:
+    - name: independent-backend
+      resources: [invoice]
+      scopes: [read]
+      principals: [{kind: service_account, ref: agent-b}]

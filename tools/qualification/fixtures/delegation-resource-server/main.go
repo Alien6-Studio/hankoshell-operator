@@ -22,9 +22,10 @@ import (
 )
 
 type configuration struct {
-	Issuer    string            `json:"issuer"`
-	Audience  string            `json:"audience"`
-	Resources map[string]string `json:"resources"`
+	Issuer    string              `json:"issuer"`
+	Audience  string              `json:"audience"`
+	Resources map[string]string   `json:"resources"`
+	Agentic   *agentConfiguration `json:"agentic,omitempty"`
 }
 
 type verifier struct {
@@ -161,8 +162,15 @@ func serve(path string) error {
 	if err != nil {
 		return err
 	}
-	server := &http.Server{Addr: ":8445", Handler: verifier{config, keys}, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second,
-		WriteTimeout: 10 * time.Second, IdleTimeout: 15 * time.Second, MaxHeaderBytes: 32768, TLSConfig: &tls.Config{MinVersion: tls.VersionTLS13}}
+	var handler http.Handler = verifier{config, keys}
+	if config.Agentic != nil {
+		handler, err = newAgentFixture(verifier{config, keys}, client)
+		if err != nil {
+			return err
+		}
+	}
+	server := &http.Server{Addr: ":8445", Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second,
+		WriteTimeout: 45 * time.Second, IdleTimeout: 15 * time.Second, MaxHeaderBytes: 32768, TLSConfig: &tls.Config{MinVersion: tls.VersionTLS13}}
 	return server.ListenAndServeTLS("/tls/tls.crt", "/tls/tls.key")
 }
 

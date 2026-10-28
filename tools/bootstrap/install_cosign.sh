@@ -26,3 +26,5 @@ fi
 CGO_ENABLED=0 go build -trimpath \
   -ldflags "-s -w -X sigs.k8s.io/release-utils/version.gitVersion=$COSIGN_VERSION" \
   -o "$destination" github.com/sigstore/cosign/v3/cmd/cosign
+printf '%s\n' "$packages" | go run "$script_dir/verifier-evidence/main.go" \
+  --binary "$destination" --version "$COSIGN_VERSION" > "$destination.evidence.json"

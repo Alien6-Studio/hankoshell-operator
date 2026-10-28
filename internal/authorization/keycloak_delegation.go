@@ -57,7 +57,7 @@ func (d *KeycloakDriver) prepareBoundedDelegation(ctx context.Context, model Mod
 		delegation := permission.Delegation
 		permissions = append(permissions, keycloak.BoundedDelegationPermission{Name: permission.Name, Resources: permission.Resources, Scopes: permission.Scopes,
 			Actor: boundedIdentity(delegation.Actor), Subject: boundedIdentity(delegation.Subject), Principals: principals,
-			MaxDepth: delegation.MaxDepth, MaxTTLSeconds: delegation.MaxTTLSeconds})
+			MaxDepth: delegation.MaxDepth, MaxTTLSeconds: delegation.MaxTTLSeconds, TaskAuthorization: delegation.TaskAuthorization})
 	}
 	prepared, err = d.client.PrepareBoundedDelegation(ctx, native, model.DelegationContext.AudienceUID, permissions, ordinary)
 	if err != nil {

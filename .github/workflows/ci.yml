@@ -631,7 +631,8 @@ jobs:
       - name: Install verified release rehearsal tools
         run: |
           python3 -m pip install -r tools/requirements.txt
-          python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
+          python3 -m tools.bootstrap.install helm operator_sdk --directory /tmp/linux-amd64
+          echo /tmp/linux-amd64 >> "$GITHUB_PATH"
           bash tools/bootstrap/install_cosign.sh "$RUNNER_TEMP/rehearsal-tools/cosign"
           python3 -m tools.bootstrap.install attest --directory "$RUNNER_TEMP/rehearsal-tools"
           GOBIN="$RUNNER_TEMP/rehearsal-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"

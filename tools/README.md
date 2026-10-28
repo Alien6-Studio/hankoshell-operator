@@ -15,6 +15,7 @@ The operator runtime depends on none of these Python or shell programs.
 | `bootstrap/`, `versions.py` | Pinned build tools and version manifest |
 | `release/` | OCI scanning, signing, packaging and publication |
 | `operations/` | Administrator adoption and recovery commands |
+| `olm/` | Go generator for chart-derived OperatorHub bundles and administrator preparation |
 | [`.github/scripts/`](../.github/scripts/) | GitHub DCO/protection checks and run-history reporting |
 
 ## Run

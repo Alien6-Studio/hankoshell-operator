@@ -1,7 +1,7 @@
 {
   "release": {
-    "version": "1.0.1",
-    "status": "ready"
+    "version": "1.1.0",
+    "status": "development"
   },
   "go": {
     "toolchain": "1.27.3"
@@ -71,6 +71,13 @@
         "linux-amd64": "88bcf45bf86f629b04fa259f08426f13b30e35ce56f332df3ff794961081a8f7",
         "darwin-arm64": "27a9fef8ec063d10199fa0bad7928861a7723ac5f184af4fc6a9c15f4b93c639"
       }
+    },
+    "operator_sdk": {
+      "version": "v1.42.3",
+      "sha256": {
+        "linux-amd64": "887a3bb0d63ccc4ca47a522d0c8ffac56d9d5246f6a2bd886b4ed23eb2e2672f",
+        "darwin-arm64": "098ae8b9dbe7dfd557e8e7ed0f1996736922dd4b984621df2aa033f225cae161"
+      }
     }
   },
   "kubernetes": {
@@ -124,5 +131,8 @@
     "version": "v1alpha1",
     "crds": "charts/hankoshell-operator/crds",
     "types": "api/v1alpha1"
+  },
+  "olm": {
+    "version": "v0.46.0"
   }
 }
