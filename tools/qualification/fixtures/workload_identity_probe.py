@@ -36,7 +36,9 @@ spec.loader.exec_module(system)
 KEYCLOAK_IMAGES = system.PINS["keycloak"]["images"]
 NODE_IMAGES = system.PINS["kubernetes"]["node_images"]
 BUILT_NODE = system.PINS["kubernetes"]["built_node"]
-POD_IMAGE = "python:3.12-alpine@sha256:1b668429b3511ab407d8e00648891631b0b1a4d7e15e3ca70f38ab5b91ad4ab4"
+# Avoid Docker Hub's anonymous pull quota during disposable cluster startup.
+# The official ECR mirror serves the same digest and platform manifests.
+POD_IMAGE = "public.ecr.aws/docker/library/python:3.12-alpine@sha256:1b668429b3511ab407d8e00648891631b0b1a4d7e15e3ca70f38ab5b91ad4ab4"
 NODE_BASE = BUILT_NODE["base_image"]
 NODE_ARCHIVES = BUILT_NODE["sha256"]
 ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
