@@ -86,7 +86,7 @@ Agent A (software subject)
 
 The A2A ingress MUST not use an MCP-audience token; the MCP server MUST not accept a token issued to the A2A recipient. The adapter MUST prevent credentials from flowing through LLM messages, untrusted agent storage, generic tool parameters or observability payloads. Use synthetic service accounts and read-only resources in the initial conformance case.
 
-**Second slice (new, not implemented):** design a separate, explicitly selected **task-bound software profile**, tentatively `task-bound-software`. A trusted issuer must bind a task authorization decision to authentic actor/subject identities, target resource, operations, expiry and policy revision. Candidate forms are (a) a signed issuer-bound, audience-limited token context or (b) protected online state coupled to an unforgeable token/reference. The team MUST threat-model both, including context spoofing, replay, confused deputy, task cancellation, approval substitution and bypass through direct APIs. The decision is **open**; do not invent a private claim and treat it as a security guarantee.
+**Optional task-authorization slice:** the selected Hanko 1.1.0 implementation contract is [issuer-controlled task authorization](RFC-0002-task-authorization.md). It uses a trusted issuer, exact native input bindings, single-use approval, cancellation and mandatory online recipient checks. Default software-v1 remains compatible. The profile is named `task-bound-software`; no separately named product “v2” is required. Full native and consumer qualification still gate release claims.
 
 ## 5. Current contracts and compatibility
 
