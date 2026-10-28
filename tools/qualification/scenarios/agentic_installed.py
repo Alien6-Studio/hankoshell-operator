@@ -114,11 +114,18 @@ def qualify(fixture, wait):
         fixture.record("untrusted_trace_parent_is_not_authority", all(value["trace_id"] != untrusted_trace for value in records))
         return records
     measurements = []
+    exchange_measurements = []
     for _ in range(3):
         body["message"]["messageId"] = secrets.token_hex(16)
         result = probe("request", endpoint=BASE + "/message:send", bearer=sender, headers=headers, body=body)
         fixture.record("a2a_native_exchange_mcp_backend_allowed", result["http_status"] == 200 and result["completed"] is True)
         measurements.append(result["elapsed_ms"])
+        exchange = probe("exchange", client="agent-b", audience="agent-mcp-api",
+                         actor=input_token("agent-b", "agent-mcp-api", "invoice#read"),
+                         subject=input_token("agent-a", "agent-mcp-api", "invoice#read"),
+                         private_secret=fixture.secret_value("agent-b"))
+        fixture.record("fresh_native_exchange_latency_sample_issued", exchange["http_status"] == 200 and exchange["issued"])
+        exchange_measurements.append(exchange["elapsed_ms"])
     observed = traces()
     completed_traces = {value["trace_id"] for value in observed if value["stage"] == "task" and value["decision"] == "allow"}
     fixture.record("each_success_has_a_complete_trace", len(completed_traces) == 3)
@@ -310,5 +317,7 @@ def qualify(fixture, wait):
     fixture.record("agent_flow_recovers_after_operator_restart", invoke()["completed"] is True)
     fixture.report["agentic"] = {"a2a": "1.0", "mcp": "2025-11-25", "profile": "software-v1", "task_bound_jwt": True, "profiles": ["software-v1", "task-bound-software"],
         "samples": len(measurements), "e2e_ms": {"p50": statistics.median(measurements), "p95": max(measurements)},
+        "exchange_samples": len(exchange_measurements),
+        "exchange_ms": {"p50": statistics.median(exchange_measurements), "p95": max(exchange_measurements)},
         "audiences": 3, "telemetry": "OTLP JSON over verified TLS; process-local test sink; allowlisted decision spans",
         "limitations": ["three sequential synthetic samples are not load qualification", "single Keycloak node", "gateway-local task records", "no production collector or child-agent execution coverage claim"]}

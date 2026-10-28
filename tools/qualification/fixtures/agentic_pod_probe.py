@@ -43,12 +43,12 @@ def execute(settings):
             "audience": settings["audience"], "permission": settings["permissions"]}, body["access_token"])
         return {"http_status": status, "access_token": body.get("access_token")}
     if settings["action"] == "exchange":
-        status, body, _ = request(settings["issuer"] + "/protocol/openid-connect/token", {
+        status, body, elapsed = request(settings["issuer"] + "/protocol/openid-connect/token", {
             "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange", "client_id": settings["client"],
             "client_secret": settings["private_secret"], "actor_token": settings["actor"],
             "subject_token": settings["subject"], "actor_token_type": "urn:ietf:params:oauth:token-type:access_token",
             "subject_token_type": "urn:ietf:params:oauth:token-type:access_token", "audience": settings["audience"]})
-        return {"http_status": status, "issued": bool(body.get("access_token"))}
+        return {"http_status": status, "issued": bool(body.get("access_token")), "elapsed_ms": elapsed}
     if settings["action"] != "request":
         raise ValueError("unknown action")
     status, body, elapsed = request(settings["endpoint"], bearer=settings.get("bearer"), body=settings.get("body"),
