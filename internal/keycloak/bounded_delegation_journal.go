@@ -372,7 +372,7 @@ func boundedDelegationJSON(document BoundedDelegationDocument) ([]byte, error) {
 	names, pairs := map[string]bool{}, map[string]bool{}
 	for _, grant := range document.Grants {
 		pair := grant.Actor.ID + "\x00" + grant.Subject.ID
-		if names[grant.Name] || pairs[pair] || !validBoundedGrant(grant, document.Audience.ID) {
+		if names[grant.Name] || pairs[pair] || !validBoundedGrant(grant, document.Audience.ID) || document.Version == 2 && grant.MaxDepth != 1 {
 			return nil, ErrBoundedDelegationUnsupported
 		}
 		names[grant.Name], pairs[pair] = true, true
@@ -390,7 +390,8 @@ func boundedDelegationJSON(document BoundedDelegationDocument) ([]byte, error) {
 }
 
 func validBoundedDocumentHeader(document BoundedDelegationDocument) bool {
-	return document.Version == 1 && boundedPhase(document.Phase) != 0 && validBoundedName(document.OwnerUID, 128) &&
+	return (document.Version == 1 && document.Profile == "" || document.Version == 2 && document.Profile == "task-bound-software") &&
+		boundedPhase(document.Phase) != 0 && validBoundedName(document.OwnerUID, 128) &&
 		validBoundedName(document.RealmID, 128) && validBoundedRevision(document.Revision) && len(document.Grants) > 0 && len(document.Grants) <= 128 &&
 		len(document.RetiredActors) <= 128 && validBoundedBinding(document.Audience) && document.Audience.Attribute == adoption.ApplicationOwnerKey
 }

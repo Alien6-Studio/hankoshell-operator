@@ -9,6 +9,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -39,14 +40,19 @@ const (
 )
 
 type runtimeConfig struct {
-	metricsAddr          string
-	metricsCertDir       string
-	metricsClientCA      string
-	metricsClientURIs    string
-	probeAddr            string
-	watchNamespace       string
-	enableLeaderElection bool
-	enableLifecycle      bool
+	metricsAddr           string
+	metricsCertDir        string
+	metricsClientCA       string
+	metricsClientURIs     string
+	probeAddr             string
+	watchNamespace        string
+	enableLeaderElection  bool
+	enableLifecycle       bool
+	installationContract  string
+	installationDigest    string
+	installationCheckOnly bool
+	installationConfigMap string
+	installationRequired  bool
 }
 
 func init() { //nolint:gochecknoinits // controller-runtime requires scheme registration before manager startup.
@@ -55,6 +61,7 @@ func init() { //nolint:gochecknoinits // controller-runtime requires scheme regi
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(batchv1.AddToScheme(scheme))
 	utilruntime.Must(appsv1.AddToScheme(scheme))
+	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 }
 
 // spokeMode reports whether the operator runs on a spoke cluster that only
@@ -65,6 +72,10 @@ func spokeMode() bool {
 
 func main() {
 	config := parseRuntimeConfig()
+	fatalIfError(verifyInstallation(config), "installation protections are not ready")
+	if config.installationCheckOnly {
+		return
+	}
 	projection, err := newPositionProjector()
 	fatalIfError(err, "invalid organization projection configuration")
 	hubPolicy, err := enterprisePolicyFromEnv()
@@ -129,6 +140,11 @@ func parseRuntimeConfig() runtimeConfig {
 	flag.BoolVar(&config.enableLeaderElection, "leader-elect", true, "Enable leader election for controller manager.")
 	flag.BoolVar(&config.enableLifecycle, "lifecycle-enabled", false, "Enable experimental operations and snapshots; requires independent approval admission protection.")
 	flag.StringVar(&config.watchNamespace, "watch-namespace", os.Getenv("WATCH_NAMESPACE"), "Required namespace watched and managed by the operator.")
+	flag.StringVar(&config.installationContract, "installation-contract", "", "Administrator-prepared OLM installation contract file.")
+	flag.StringVar(&config.installationDigest, "installation-contract-sha256", "", "Independently approved installation contract SHA-256 from the Subscription.")
+	flag.BoolVar(&config.installationCheckOnly, "installation-check-only", false, "Verify installation protections and exit before initializing provider clients.")
+	flag.StringVar(&config.installationConfigMap, "installation-configmap", "", "Immutable administrator-prepared OLM contract ConfigMap in the watched namespace.")
+	flag.BoolVar(&config.installationRequired, "require-installation-contract", false, "Require independently approved installation protection verification before startup.")
 	opts := zap.Options{Development: os.Getenv("HANKO_LOG_DEV") == "true"}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()

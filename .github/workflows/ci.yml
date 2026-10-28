@@ -112,7 +112,9 @@ jobs:
     name: HA transactions KC ${{ matrix.keycloak }} / K8s ${{ matrix.kubernetes }}
     needs: [source, oci, keycloak-extension]
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    # Transaction recovery and native delegation handoff run serially here.
+    # Keep room for both suites and their tools; scenario deadlines stay bounded.
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -631,7 +633,8 @@ jobs:
       - name: Install verified release rehearsal tools
         run: |
           python3 -m pip install -r tools/requirements.txt
-          python3 -m tools.bootstrap.install helm --directory /tmp/linux-amd64
+          python3 -m tools.bootstrap.install helm operator_sdk --directory /tmp/linux-amd64
+          echo /tmp/linux-amd64 >> "$GITHUB_PATH"
           bash tools/bootstrap/install_cosign.sh "$RUNNER_TEMP/rehearsal-tools/cosign"
           python3 -m tools.bootstrap.install attest --directory "$RUNNER_TEMP/rehearsal-tools"
           GOBIN="$RUNNER_TEMP/rehearsal-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"

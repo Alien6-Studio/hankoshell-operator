@@ -73,6 +73,12 @@ components:
     in: "/internal/decommission"
   selfupdate:
     in: "/internal/selfupdate"
+  installation:
+    in: "/internal/installation"
+  olm:
+    in: "/tools/olm"
+  verifier_evidence:
+    in: "/tools/bootstrap/verifier-evidence"
   version:
     in: "/internal/version"
 
@@ -82,9 +88,19 @@ deps:
   # cmd/ wires everything — no restriction.
   cmd:
     anyProjectDeps: true
+  olm:
+    mayDependOn:
+      - installation
+  verifier_evidence:
+    anyVendorDeps: true
+  installation:
+    anyVendorDeps: true
   fixture_review:
     mayDependOn:
       - workloadauth
+  fixture_resource:
+    mayDependOn:
+      - httpsecurity
 
   # ADR-001: Reconcilers may use the Keycloak client, Hub client, CRD types,
   # and the image validator (ADR-003).

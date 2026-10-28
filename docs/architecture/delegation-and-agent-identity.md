@@ -18,7 +18,8 @@ The extension was explicitly authorized on 2026-10-17. Its generic Java kernel
 is independent of Kubernetes; the operator adapter separately resolves local
 actor/subject/audience references, verifies UID/tenant ownership and seals current
 realm, effective memberships and composite closures into execution identity.
-Only the exact advertised profile on the two reviewed SDKs is accepted.
+Only the advertised contract with the declared SDK eligibility is accepted;
+task authorization additionally requires the exact independently qualified SDK.
 
 Delegated permissions must be contained in ordinary declared grants to **both**
 software identities. Excess findings identify the permission/resource/scope.
@@ -54,9 +55,28 @@ documents: manage those grants through their Kubernetes resources. The extension
 refuses console/API grant creation for an audience with an external document;
 it neither overwrites nor merges Hanko's configuration. Enabling `declarative-ui`
 is an explicit server choice, independent of operator reconciliation. See the
-[extension administration guide](https://github.com/Alien6-Studio/keycloak-bounded-delegation/blob/d9423db16e2bbe31bfb1dcc83c9a9441a18a6075/docs/administration.md)
-for native permissions, writer conflicts and safe withdrawal. The extension's
+[extension administration guide](https://github.com/Alien6-Studio/keycloak-bounded-delegation/blob/v0.1.0-rc.2/docs/administration.md)
+for native permissions, writer conflicts and safe withdrawal.
 Hanko's current matrix includes 26.7.5 and 26.8.1; existing 26.8.0 capability replies remain readable. The operator and extension retain separate qualification reports.
+
+## Provider rollout
+
+Operator 1.1.0 requires extension **0.1.0-rc.2** for bounded profiles. Earlier
+SNAPSHOT builds share a version identifier across different implementations,
+including builds preceding the signed-subject correction, so they are refused.
+The software-v1 grant format remains unchanged; task authorization stays explicit.
+
+Choose the candidate JAR matching the exact Keycloak SDK and verify its checksums
+and provenance using the [extension installation guide](https://github.com/Alien6-Studio/keycloak-bounded-delegation/blob/v0.1.0-rc.2/docs/installation.md).
+Use a coordinated maintenance window: pause operator reconciliation, preserve
+the native database, identities and journals, and replace/rebuild the provider on
+the Keycloak nodes. Then install operator 1.1.0 and resume reconciliation after
+the new native capability and current resource status have been observed.
+
+No custom resource recreation or grant-format conversion is needed. Keep the
+resource's online enforcement active during task-enabled provider outages.
+The qualified provider lifecycle uses coordinated restarts; mixed-version
+rolling upgrades and uninterrupted availability are not established by that proof.
 
 Public status adds observed portable delegation origin and bounds, not token
 subjects or native user IDs. These experimental fields ship in v1.0.0 and are
@@ -125,7 +145,46 @@ An agent is software using an existing `HankoServiceAccount` or
 `service_account` and `organization` principals. An organization principal means
 the already qualified direct/descendant membership semantics, not a new tenant
 identifier inferred from token claims. No agent registry, parallel IAM hierarchy,
-new token format, SPIFFE identity or agent communication protocol is introduced.
+SPIFFE identity or agent communication protocol is introduced. Optional task
+authorization adds an issuer-controlled signed context and online decision as
+described below; default software delegation keeps its existing token shape.
+
+## Optional task authorization in 1.1.0
+
+Set `spec.permissions[].delegation.taskAuthorization: required` for an audience
+that requires issuer-controlled task approval. Use `maxDepth: 1`. All delegated
+permissions on that audience must use the same mode. The operator probes the
+separate strict native task capability before any new grant is applied, and
+seals it into plan identity. Missing or incompatible capability refuses the
+intent. Omission keeps the existing software-v1 journal bytes and behavior.
+
+The administrator explicitly enables the native task option and binds a trusted
+task authority. Native single-use state must use the independently qualified
+database topology and matching SDK JAR. This realm setup is not performed by
+reconciliation or inferred from a desired task name. The
+[task contract](../rfcs/RFC-0002-task-authorization.md) describes the exact API,
+authority separation, approved input bindings, cancellation and recipient check.
+
+Task-required journals use wire version 2 and `profile: task-bound-software` in
+the existing protected attribute. Legacy parsers refuse that discriminator;
+actor guards also prevent an omitted actor from selecting ordinary exchange.
+This is an explicit wire guard, not a product profile named “v2”. Native console
+components keep their existing domain and refuse externally owned audiences.
+
+The [installed fixture](../../examples/agent-authority/README.md) exercises
+separate A2A/MCP/backend audiences, real registration and native token exchange,
+and a mandatory online check at MCP before its operation. The recipient
+authenticates independently from the actor. The downstream API receives a
+separate audience token. Approval is single-use for issuance; business execution
+is not an exactly-once distributed transaction. An already admitted operation
+can finish concurrently with cancellation; offline JWTs retain residual expiry.
+
+For opt-out or downgrade, withdraw task-required grants, cancel contexts, retain
+actor guards and wait the remaining token/context lifetime before changing the
+PEP or restoring an older provider/schema. Never reinterpret a remaining task
+journal as ordinary delegation. The installed scenario tests withdrawal and
+explicit opt-out; clean full-matrix CI and final-image validation remain release
+gates. No task material is written to CRD spec/status or controller telemetry.
 
 The **subject** supplies the authority being delegated. The **actor** is the
 authenticated software exercising it. The requesting client, actor identity,

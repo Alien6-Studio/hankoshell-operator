@@ -150,11 +150,17 @@ type AuthorizationPermission struct {
 // AuthorizationDelegation declares bounded software delegation within this
 // ResourceServer's audience, resources, scopes and existing principal grants.
 // +kubebuilder:validation:XValidation:rule="self.actor.kind != self.subject.kind || self.actor.ref != self.subject.ref",message="delegation actor and subject must be different identities"
+// +kubebuilder:validation:XValidation:rule="!has(self.taskAuthorization) || !has(self.maxDepth) || self.maxDepth == 1",message="task authorization supports one hop"
 type AuthorizationDelegation struct {
 	// Actor is the software identity acting on behalf of Subject.
 	Actor AuthorizationDelegationIdentity `json:"actor"`
 	// Subject is the software identity whose authority is delegated.
 	Subject AuthorizationDelegationIdentity `json:"subject"`
+
+	// TaskAuthorization requires issuer-created approval and online recipient checks.
+	// Omission preserves existing software delegation. No task reference is stored here.
+	// +kubebuilder:validation:Enum=required
+	TaskAuthorization string `json:"taskAuthorization,omitempty"`
 
 	// MaxDepth bounds the complete delegation chain, including this actor.
 	// +kubebuilder:default=1

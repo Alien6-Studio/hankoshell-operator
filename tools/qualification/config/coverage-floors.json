@@ -19,6 +19,7 @@
     "internal/iamconformance": 14.3,
     "internal/iamcontract": 81.3,
     "internal/imagevalidator": 90.5,
+    "internal/installation": 85,
     "internal/keycloak": 54.9,
     "internal/keycloakversion": 100,
     "internal/observability": 89.5,
@@ -30,8 +31,10 @@
     "internal/workloadbinding": 23.2,
     "internal/workloadtrust": 85,
     "tools/qualification/fixtures/workload-auth-review": 0,
+    "tools/olm": 80,
     "tools/qualification/fixtures/api-surface": 77.5,
-    "tools/qualification/fixtures/delegation-resource-server": 70
+    "tools/qualification/fixtures/delegation-resource-server": 70,
+    "tools/bootstrap/verifier-evidence": 65
   },
   "functions": {
     "internal/authorization/plan.go:Validate": 100,

@@ -3,7 +3,7 @@
 Manage Keycloak realms, applications, roles and API permissions from Kubernetes.
 Standalone installations need neither hankoShell Hub nor Continuum.
 
-The `1.0.1` operator retains the API in **initial development**. All 17 `hanko.sh/v1alpha1` CRDs are
+The `1.1.0` operator retains the API in **initial development**. All 17 `hanko.sh/v1alpha1` CRDs are
 experimental and use `v1alpha1` for both serving and storage. See the [API inventory](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/api-support.md)
 and [selected 1.0 contract](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/public-contract-selection.md).
 
@@ -20,7 +20,7 @@ Install a published chart from GHCR:
 
 ```sh
 helm upgrade --install hankoshell-operator \
-  oci://ghcr.io/alien6-studio/charts/hankoshell-operator --version 1.0.1 \
+  oci://ghcr.io/alien6-studio/charts/hankoshell-operator --version 1.1.0 \
   --namespace auth --create-namespace \
   --values operator-values.yaml --wait --timeout 5m
 ```

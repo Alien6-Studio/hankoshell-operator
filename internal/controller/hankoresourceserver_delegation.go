@@ -31,9 +31,10 @@ func portableDelegation(value *api.AuthorizationDelegation) *authorization.Deleg
 		return nil
 	}
 	d := &authorization.Delegation{
-		Actor:    authorization.Principal{Kind: value.Actor.Kind, Ref: value.Actor.Ref},
-		Subject:  authorization.Principal{Kind: value.Subject.Kind, Ref: value.Subject.Ref},
-		MaxDepth: authorization.DefaultDelegationDepth, MaxTTLSeconds: authorization.DefaultDelegationTTLSeconds,
+		Actor:             authorization.Principal{Kind: value.Actor.Kind, Ref: value.Actor.Ref},
+		Subject:           authorization.Principal{Kind: value.Subject.Kind, Ref: value.Subject.Ref},
+		TaskAuthorization: value.TaskAuthorization,
+		MaxDepth:          authorization.DefaultDelegationDepth, MaxTTLSeconds: authorization.DefaultDelegationTTLSeconds,
 	}
 	if value.MaxDepth != nil {
 		d.MaxDepth = *value.MaxDepth
@@ -51,6 +52,9 @@ func validatePortableDelegation(permission api.AuthorizationPermission) error {
 	}
 	if len(permission.Resources) == 0 || d.MaxDepth < 1 || d.MaxDepth > 4 || d.MaxTTLSeconds < 1 || d.MaxTTLSeconds > 600 {
 		return errors.New("delegation requires explicit resources, depth 1..4 and lifetime 1..600 seconds")
+	}
+	if d.TaskAuthorization != "" && (d.TaskAuthorization != "required" || d.MaxDepth != 1) {
+		return errors.New("task authorization requires an explicit supported capability and one hop")
 	}
 	for _, identity := range []authorization.Principal{d.Actor, d.Subject} {
 		if (identity.Kind != "application" && identity.Kind != "service_account") || len(validation.IsDNS1123Subdomain(identity.Ref)) > 0 {

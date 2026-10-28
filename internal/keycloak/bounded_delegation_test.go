@@ -12,7 +12,7 @@ import (
 )
 
 func TestBoundedDelegationCapabilityIsStrictReadOnlyDiscovery(t *testing.T) {
-	valid := BoundedDelegationCapability{Contract: "bounded-delegation/software-v1", ExtensionVersion: "0.1.0-SNAPSHOT",
+	valid := BoundedDelegationCapability{Contract: "bounded-delegation/software-v1", ExtensionVersion: "0.1.0-rc.2",
 		KeycloakVersion: "26.7.5", Experimental: true, Enabled: true, MaxDepth: 4, MaxTTLSeconds: 600}
 	encoded, err := json.Marshal(valid)
 	if err != nil {
@@ -24,6 +24,9 @@ func TestBoundedDelegationCapabilityIsStrictReadOnlyDiscovery(t *testing.T) {
 		accept     bool
 	}{
 		{"qualified deployment profile", string(encoded), 200, true},
+		{"ambiguous snapshot", strings.Replace(string(encoded), "0.1.0-rc.2", "0.1.0-SNAPSHOT", 1), 200, false},
+		{"unpublished candidate", strings.Replace(string(encoded), "0.1.0-rc.2", "0.1.0-rc.1", 1), 200, false},
+		{"unreviewed candidate", strings.Replace(string(encoded), "0.1.0-rc.2", "0.1.0-rc.3", 1), 200, false},
 		{"other supported version", strings.Replace(string(encoded), "26.7.5", "26.8.1", 1), 200, true},
 		{"legacy deployment remains readable", strings.Replace(string(encoded), "26.7.5", "26.8.0", 1), 200, true},
 		{"compatible patch with full contract", strings.Replace(string(encoded), "26.7.5", "26.8.2", 1), 200, true},
@@ -32,7 +35,7 @@ func TestBoundedDelegationCapabilityIsStrictReadOnlyDiscovery(t *testing.T) {
 		{"prerelease", strings.Replace(string(encoded), "26.7.5", "26.8.2-rc.1", 1), 200, false},
 		{"changed contract on newer patch", strings.Replace(strings.Replace(string(encoded), "26.7.5", "26.8.2", 1), "software-v1", "software-v2", 1), 200, false},
 		{"changed bounds on newer patch", strings.Replace(strings.Replace(string(encoded), "26.7.5", "26.8.2", 1), `"maxDepth":4`, `"maxDepth":5`, 1), 200, false},
-		{"changed extension on newer patch", strings.Replace(strings.Replace(string(encoded), "26.7.5", "26.8.2", 1), "0.1.0-SNAPSHOT", "0.2.0", 1), 200, false},
+		{"changed extension on newer patch", strings.Replace(strings.Replace(string(encoded), "26.7.5", "26.8.2", 1), "0.1.0-rc.2", "0.2.0", 1), 200, false},
 		{"stock provider", "", 404, false},
 		{"disabled server feature", strings.Replace(string(encoded), `"enabled":true`, `"enabled":false`, 1), 200, false},
 		{"unknown version", strings.Replace(string(encoded), "26.7.5", "99.0.0", 1), 200, false},

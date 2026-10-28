@@ -34,10 +34,11 @@ type ExplanationPath struct {
 }
 
 type DelegationOrigin struct {
-	Actor         DelegationOriginIdentity `json:"actor"`
-	Subject       DelegationOriginIdentity `json:"subject"`
-	MaxDepth      int32                    `json:"maxDepth"`
-	MaxTTLSeconds int32                    `json:"maxTTLSeconds"`
+	Actor             DelegationOriginIdentity `json:"actor"`
+	Subject           DelegationOriginIdentity `json:"subject"`
+	MaxDepth          int32                    `json:"maxDepth"`
+	MaxTTLSeconds     int32                    `json:"maxTTLSeconds"`
+	TaskAuthorization string                   `json:"taskAuthorization,omitempty"`
 }
 
 type DelegationOriginIdentity struct {
@@ -192,7 +193,7 @@ func (b *explanationBuilder) delegation(permission Permission, verified []string
 				SourceKind: delegation.Actor.Kind, SourceRef: delegation.Actor.PortableRef, Relationship: "delegated",
 				Delegation: &DelegationOrigin{Actor: DelegationOriginIdentity{Kind: delegation.Actor.Kind, Ref: delegation.Actor.PortableRef},
 					Subject:  DelegationOriginIdentity{Kind: delegation.Subject.Kind, Ref: delegation.Subject.PortableRef},
-					MaxDepth: delegation.MaxDepth, MaxTTLSeconds: delegation.MaxTTLSeconds}})
+					MaxDepth: delegation.MaxDepth, MaxTTLSeconds: delegation.MaxTTLSeconds, TaskAuthorization: delegation.TaskAuthorization}})
 		}
 	}
 }

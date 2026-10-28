@@ -22,6 +22,8 @@ SCALE_SECONDS ?=
 CHART := charts/hankoshell-operator
 KUBERNETES_VERSION ?= $(shell python3 -m tools.versions get kubernetes default)
 KEYCLOAK_VERSION ?= $(shell python3 -m tools.versions get keycloak default)
+OPERATOR_SDK ?= operator-sdk
+OLM_OUTPUT ?= dist/olm
 RELEASE_VERSION := $(shell python3 -m tools.versions get release version)
 
 .DEFAULT_GOAL := all
@@ -36,6 +38,9 @@ versions-sync:
 all: check build
 check: fmt-check vet chart-check coverage
 preflight: fmt-check vet generated-check
+	python3 -m unittest tools.release.verifier_evidence_test
+	python3 -m unittest tools.release.oci_security_test
+	python3 -m unittest tools.qualification.fixtures.workload_fault_proxy_test
 	python3 -m tools.qualification.checks.stable_contract
 	python3 -m tools.qualification.checks.security_surface check
 	python3 -m tools.qualification.checks.compatibility_gate check
@@ -70,6 +75,14 @@ security-fuzz:
 chart-check:
 	helm lint $(CHART) --kube-version $(KUBERNETES_VERSION) --set-string image.tag=lint
 	helm template qualification $(CHART) --namespace qualification --kube-version $(KUBERNETES_VERSION) --set-string image.tag=lint --include-crds > /dev/null
+.PHONY: olm-bundle olm-install
+# IMAGE must identify the corresponding qualified operator release by digest.
+olm-bundle:
+	go run ./tools/olm bundle --output "$(OLM_OUTPUT)" --image "$(IMAGE)" --kube-version "$(KUBERNETES_VERSION)" $(if $(REPLACES),--replaces "$(REPLACES)")
+	$(OPERATOR_SDK) bundle validate "$(OLM_OUTPUT)" --select-optional suite=operatorframework --optional-values=k8s-version=$(KUBERNETES_VERSION)
+# Local administrator output may contain site addresses; never commit it.
+olm-install:
+	go run ./tools/olm install --output "$(OLM_OUTPUT)" --namespace "$(NAMESPACE)" --kube-version "$(KUBERNETES_VERSION)" --values "$(VALUES)"
 integration-test: $(GOTESTSUM)
 	@assets="$$(bash tools/bootstrap/install_envtest.sh $(KUBERNETES_VERSION))" && \
 		KUBEBUILDER_ASSETS="$$assets" KUBERNETES_VERSION=$(KUBERNETES_VERSION) \

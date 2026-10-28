@@ -58,6 +58,7 @@ func TestDelegationIntentSealsIdentitiesBoundsAndReferences(t *testing.T) {
 		{"subject", func(d *Delegation) { d.Subject.Ref = "another-subject" }},
 		{"depth", func(d *Delegation) { d.MaxDepth = 2 }},
 		{"lifetime", func(d *Delegation) { d.MaxTTLSeconds = 60 }},
+		{"task authorization", func(d *Delegation) { d.TaskAuthorization = "required" }},
 	} {
 		t.Run(change.name, func(t *testing.T) {
 			model := delegationModel()

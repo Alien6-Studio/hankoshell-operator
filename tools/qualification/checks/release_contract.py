@@ -2,11 +2,14 @@
 
 import argparse
 import hashlib
+import os
 from importlib import import_module
 from pathlib import Path
 import re
 import shutil
 import subprocess
+import tarfile
+import tempfile
 
 import yaml
 
@@ -21,6 +24,22 @@ from tools.qualification.checks import (
 ROOT = Path(__file__).resolve().parents[3]
 versioning = metadata.versioning
 VERSION = versioning.VERSION
+
+
+def package_olm(image, dist, helm):
+    """Derive the public bundle from the same reviewed source and image."""
+    with tempfile.TemporaryDirectory(prefix="hankoshell-olm-") as temporary:
+        bundle = Path(temporary) / "bundle"
+        subprocess.run(["go", "run", "./tools/olm", "bundle", "--output", bundle,
+                        "--image", image, "--helm", helm], cwd=ROOT, check=True, timeout=180)
+        subprocess.run([os.environ.get("OPERATOR_SDK", "operator-sdk"), "bundle", "validate", bundle,
+                        "--select-optional", "name in (operatorhubv2,capabilities,categories,alpha-deprecated-apis,good-practices)",
+                        "--optional-values=k8s-version=" + pins.DATA["kubernetes"]["default"]],
+                       cwd=ROOT, check=True, timeout=180)
+        with tarfile.open(dist / f"hankoshell-operator-olm-{VERSION}.tar.gz", "w:gz") as archive:
+            for file in sorted(bundle.rglob("*")):
+                if file.is_file():
+                    archive.add(file, arcname=str(file.relative_to(bundle)), recursive=False)
 
 
 def module(_name, filename):
@@ -130,6 +149,7 @@ def prepare(version, image, revision, archive, evidence, chart_output, dist, hel
     (dist / "image-digest.txt").write_text(image + "\n")
     (dist / "source-revision.txt").write_text(revision + "\n")
     (dist / "release-notes.md").write_text(notes(version))
+    package_olm(image, dist, helm)
     (dist / "checksums.txt").write_text("".join(
         hashlib.sha256(path.read_bytes()).hexdigest() + "  " + path.name + "\n"
         for path in sorted(dist.iterdir())))

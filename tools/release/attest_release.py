@@ -151,7 +151,8 @@ def delivery_files(dist, version, revision, image, *, fresh_scan=True):
                 "source-revision.txt", "checksums.txt", "checksums.sigstore.json",
                 "artifacthub-repo.yml", PUBLIC_KEY_FILE, "oci-security.json",
                 "trivy-amd64.json", "trivy-arm64.json", "oci-vulnerability-policy.json", "release-notes.md",
-                "THIRD_PARTY_NOTICES", "THIRD_PARTY_NOTICES.cosign", "dependency-policy.json"}
+                "THIRD_PARTY_NOTICES", "THIRD_PARTY_NOTICES.cosign", "dependency-policy.json",
+                f"hankoshell-operator-olm-{version}.tar.gz"}
     files = {path.name: path for path in dist.iterdir()}
     if set(files) != expected or any(path.is_symlink() or not path.is_file() for path in files.values()):
         raise ValueError("Expected only the exact operator release artifacts")
@@ -182,6 +183,26 @@ def delivery_files(dist, version, revision, image, *, fresh_scan=True):
     if (values["image"]["repository"] + "@" + values["image"]["digest"] != image or values["image"].get("tag")
             or metadata["version"] != version or metadata["appVersion"] != version):
         raise ValueError("Packaged chart must select the scanned image digest and release version")
+    with tarfile.open(files[f"hankoshell-operator-olm-{version}.tar.gz"]) as bundle:
+        entries = bundle.getmembers()
+        names = {entry.name for entry in entries}
+        # The generator names CRDs after their Kubernetes identity, not the
+        # chart filename. Compare the actual API inventory instead.
+        expected_owned = {yaml.safe_load(path.read_text())["metadata"]["name"] for path in (contract.ROOT / "charts/hankoshell-operator/crds").glob("*.yaml")}
+        expected_names = {"manifests/" + name + ".yaml" for name in expected_owned} | {
+            "manifests/hankoshell-operator.clusterserviceversion.yaml", "metadata/annotations.yaml",
+            "tests/scorecard/config.yaml", "bundle.Dockerfile"}
+        if names != expected_names or len(names) != len(entries) or any(not entry.isfile() or entry.size > 2 * 1024**2 for entry in entries):
+            raise ValueError("Packaged OLM bundle has an unexpected inventory")
+        crds = [yaml.safe_load(bundle.extractfile(entry)) for entry in entries if entry.name.startswith("manifests/")]
+        owned = {doc["metadata"]["name"] for doc in crds if doc.get("kind") == "CustomResourceDefinition"}
+        csvs = [doc for doc in crds if doc.get("kind") == "ClusterServiceVersion"]
+        if owned != expected_owned or len(csvs) != 1:
+            raise ValueError("Packaged OLM bundle has an unexpected inventory")
+        csv = csvs[0]
+        operator = csv["spec"]["install"]["spec"]["deployments"][0]["spec"]["template"]["spec"]["containers"][0]
+        if csv["spec"]["version"] != version or operator["image"] != image:
+            raise ValueError("Packaged OLM bundle must select the scanned image and release version")
     return files
 
 

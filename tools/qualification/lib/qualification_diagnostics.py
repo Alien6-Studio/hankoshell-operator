@@ -175,6 +175,10 @@ def capture(fixture, error):
         writers = set(fixture.scanned_operators) | {("auth", "keycloak")}
         selected = [pod for pod in pods if any(pod["metadata"].get("namespace") == namespace and
                     pod["metadata"]["name"].startswith(deployment + "-") for namespace, deployment in writers)]
+        # Standalone, known fixture writer: its bounded audit/error output is
+        # needed to distinguish a recipient refusal from a transport failure.
+        selected += [pod for pod in pods if pod["metadata"].get("namespace") == "auth"
+                     and pod["metadata"]["name"] == "delegation-resource"]
         for index, pod in enumerate(selected[:8]):
             metadata = pod["metadata"]
             for previous in (False, True):

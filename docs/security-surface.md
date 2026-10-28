@@ -7,6 +7,23 @@ bindings and mandatory admission policies across six chart profiles.
 Finite string enums count as bounded. This inventory supports review; it does
 not replace provider qualification or an independent security audit.
 
+## Embedded verifier package evidence
+
+The final image carries `usr/share/hankoshell-operator/verifier-evidence.json`.
+The Cosign build generates it from the package graph for the target architecture
+and the exact compiled binary. Final-image qualification verifies the binary
+SHA-256, toolchain, architecture, Cosign version and reviewed dependency pins,
+and rejects missing evidence or any deprecated `golang.org/x/crypto/openpgp`
+package. The native installer emits the same evidence beside its executable.
+
+`GO-2026-5932` concerns the abandoned OpenPGP packages within `x/crypto`.
+Other packages from that module remain legitimate dependencies.
+Artifact Hub uses Trivy, which reads the binary's module metadata. Its
+module-level alert can therefore remain after OpenPGP imports have been removed.
+Removing an import does not promise that a third-party module-level report will
+be empty. Raw reports remain in delivery evidence without suppression; the
+package inventory is additional evidence tied to the actual image.
+
 ## Admission bounds
 
 Go validation markers and the [imported-field policy](../api/schema-input-bounds.json)
@@ -146,6 +163,14 @@ authority changes and migration needs before updating the baseline. The command
 never changes the baseline or cluster RBAC implicitly. Wildcards, token minting,
 review/exec, impersonation/escalation/bind, misleading named CREATE rules and
 leader-lock privilege expansion are rejected before snapshot creation.
+
+The 1.1.0 task-authorization review adds only the optional `required` enum in
+delegation spec and its bounded explanation projection, plus the one-hop rule.
+Existing objects omit the field and keep their previous semantics. The separate
+public capability GET introduces no administrative role or write permission.
+Independent admission cases cover both paths. Before restoring an older schema,
+withdraw task grants and follow the [task rollback sequence](rfcs/RFC-0002-task-authorization.md);
+an older schema must not silently prune an active task requirement.
 
 [API authorization tests](../api/v1alpha1/custom_rbac_integration_test.go),
 [installed qualification](../.github/workflows/ci.yml) and

@@ -11,7 +11,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/prometheus/client_golang v1.25.0
 	github.com/russellhaering/goxmldsig v1.6.1
-	golang.org/x/net v0.61.0
+	golang.org/x/net v0.62.0
 	golang.org/x/time v0.16.0
 	k8s.io/api v0.37.1
 	k8s.io/apiextensions-apiserver v0.37.1

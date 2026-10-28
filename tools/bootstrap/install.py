@@ -17,7 +17,7 @@ from tools import versions
 
 LIMIT = 128 * 1024**2
 BINARY_LIMIT = 512 * 1024**2
-TOOLS = ("helm", "kind", "kubectl", "trivy", "gitleaks", "pre_commit", "attest")
+TOOLS = ("helm", "kind", "kubectl", "trivy", "gitleaks", "pre_commit", "attest", "operator_sdk")
 
 
 def asset(name, target):
@@ -32,6 +32,10 @@ def asset(name, target):
         member = target + "/helm"
         command = ["version", "--template", "{{.Version}}"]
         expected = "v" + version
+    elif name == "operator_sdk":
+        url = f"https://github.com/operator-framework/operator-sdk/releases/download/{version}/operator-sdk_{system}_{arch}"
+        executable = "operator-sdk"
+        command, expected = ["version"], version
     elif name == "kind":
         url = f"https://github.com/kubernetes-sigs/kind/releases/download/{version}/kind-{target}"
         command, expected = ["version"], "kind " + version
@@ -98,6 +102,9 @@ def install(name, destination, spec):
             actual = json.loads(actual)["Version"]
         elif name == "kind":
             actual = " ".join(actual.split()[:2])
+        elif name == "operator_sdk":
+            match = re.search(r'operator-sdk version: "([^"]+)"', actual)
+            actual = match.group(1) if match else actual
         if actual != expected:
             raise ValueError("Unexpected installed version: " + name)
         binary.replace(destination / executable)

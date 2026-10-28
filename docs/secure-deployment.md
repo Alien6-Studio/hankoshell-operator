@@ -184,7 +184,8 @@ scanner version/binary hash, database hash/metadata, scan time, policy hash,
 report hashes and decision. The complete reports and policy are checksum-signed
 and included in the Attest delivery receipt. A scan is a point-in-time database
 assessment; new vulnerabilities may be discovered after release. The fixable-only
-threshold retains unfixed and lower-severity findings for review and does not
+threshold blocks UNKNOWN advisories with a published fix as well as fixable HIGH
+and CRITICAL findings. It retains unfixed and lower-severity findings for review and does not
 certify an image as vulnerability-free.
 
 BuildKit's SBOM is inventory and its provenance is producer build evidence.

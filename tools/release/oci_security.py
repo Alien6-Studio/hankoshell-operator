@@ -11,6 +11,7 @@ import tarfile
 import tempfile
 
 from tools.release import release_version as versioning
+from tools.release import verifier_evidence
 from tools import versions
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -35,7 +36,7 @@ def sha256(path):
 def read_policy(path=POLICY, today=None):
     policy = json.loads(path.read_text())
     if (set(policy) != {"schema_version", "fail_severities", "only_fixable", "exceptions"}
-            or policy["schema_version"] != 1 or policy["fail_severities"] != ["HIGH", "CRITICAL"]
+            or policy["schema_version"] != 1 or policy["fail_severities"] != ["UNKNOWN", "HIGH", "CRITICAL"]
             or policy["only_fixable"] is not True or not isinstance(policy["exceptions"], list)):
         raise ValueError("Invalid OCI vulnerability policy")
     today = today or datetime.now(timezone.utc).date()
@@ -186,7 +187,8 @@ def evaluate(report, config_digest, policy):
                        "installed_version": vulnerability["InstalledVersion"],
                        "severity": severity, "fixed_version": vulnerability.get("FixedVersion", "")}
             if not finding["fixed_version"]:
-                unfixed.append(finding)
+                if severity in ("HIGH", "CRITICAL"):
+                    unfixed.append(finding)
                 continue
             exception = next((entry for entry in policy["exceptions"] if all(entry[key] == finding[key] for key in ("cve", "package", "target", "installed_version"))), None)
             if severity == "HIGH" and exception:
@@ -245,6 +247,7 @@ def scan(args):
                            check=True, env=scanner_env(), timeout=600)
             verdict = evaluate(json.loads(output.read_text()), record["config_digest"], policy)
             summary["platforms"][platform] = dict(record, report_sha256=sha256(output), **verdict)
+            summary["platforms"][platform]["verifier"] = verifier_evidence.inspect(layout, record["digest"], platform)
             summary["licenses_sha256"] = shipped_licenses(layout, record["digest"])
         summary["verdict"] = "fail" if any(p["blocked"] for p in summary["platforms"].values()) else "pass"
         (args.output / SUMMARY).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
@@ -276,6 +279,19 @@ def verify(evidence, revision, version, digest, archive=None, *, fresh=True):
         verdict = evaluate(json.loads(report.read_text()), record["config_digest"], policy)
         if record["report_sha256"] != sha256(report) or verdict["blocked"] or any(record[key] != verdict[key] for key in verdict):
             raise ValueError("OCI scanner report or verdict changed")
+        verifier = record.get("verifier", {})
+        if (verifier.get("deprecated_openpgp_absent") is not True or not isinstance(verifier.get("package_count"), int)
+                or verifier["package_count"] < 100
+                or any(not re.fullmatch(r"[0-9a-f]{64}", verifier.get(key, "")) for key in ("binary_sha256", "evidence_sha256"))):
+            raise ValueError("Compiled verifier package evidence is absent or invalid")
+    if archive:
+        with tempfile.TemporaryDirectory() as directory:
+            layout = Path(directory)
+            with tarfile.open(archive) as package:
+                package.extractall(layout, filter="data")
+            for platform, record in summary["platforms"].items():
+                if verifier_evidence.inspect(layout, record["digest"], platform) != record["verifier"]:
+                    raise ValueError("Compiled verifier evidence changed after image qualification")
     return summary
 
 

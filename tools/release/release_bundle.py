@@ -52,6 +52,7 @@ def prepare(archive, evidence, digest, revision, output, helm):
     for source in (contract.security.POLICY, ROOT / "LICENSE", ROOT / "NOTICE", ROOT / "THIRD_PARTY_NOTICES", ROOT / "THIRD_PARTY_NOTICES.cosign"):
         shutil.copyfile(source, dist / source.name)
     (dist / "release-notes.md").write_text(contract.notes())
+    contract.package_olm(image, dist, helm)
     (dist / "delivery.json").write_text(json.dumps({
         "schemaVersion": 1, "version": version,
         "state": "ready-for-qualification", "productionQualified": False,

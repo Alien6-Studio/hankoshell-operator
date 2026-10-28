@@ -154,6 +154,13 @@ spec:
                           - kind
                           - ref
                           type: object
+                        taskAuthorization:
+                          description: |-
+                            TaskAuthorization requires issuer-created approval and online recipient checks.
+                            Omission preserves existing software delegation. No task reference is stored here.
+                          enum:
+                          - required
+                          type: string
                       required:
                       - actor
                       - subject
@@ -162,6 +169,9 @@ spec:
                       - message: delegation actor and subject must be different identities
                         rule: self.actor.kind != self.subject.kind || self.actor.ref
                           != self.subject.ref
+                      - message: task authorization supports one hop
+                        rule: '!has(self.taskAuthorization) || !has(self.maxDepth)
+                          || self.maxDepth == 1'
                     name:
                       maxLength: 255
                       pattern: ^[A-Za-z0-9][A-Za-z0-9:._/-]*$
@@ -704,6 +714,13 @@ spec:
                               - kind
                               - ref
                               type: object
+                            taskAuthorization:
+                              description: |-
+                                TaskAuthorization requires issuer-created approval and online recipient checks.
+                                Omission preserves existing software delegation. No task reference is stored here.
+                              enum:
+                              - required
+                              type: string
                           required:
                           - actor
                           - subject
@@ -713,6 +730,9 @@ spec:
                               identities
                             rule: self.actor.kind != self.subject.kind || self.actor.ref
                               != self.subject.ref
+                          - message: task authorization supports one hop
+                            rule: '!has(self.taskAuthorization) || !has(self.maxDepth)
+                              || self.maxDepth == 1'
                         organizationRef:
                           maxLength: 255
                           type: string

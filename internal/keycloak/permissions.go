@@ -297,7 +297,7 @@ func inventoryOperation(path string) bool {
 }
 
 func isPublicProtocolDocument(method, path string) bool {
-	return method == http.MethodGet && (matchAdminPath("/realms/{realm}/.well-known/openid-configuration", path) || matchAdminPath("/realms/{realm}/protocol/saml/descriptor", path) || matchAdminPath("/realms/{realm}/bounded-delegation", path))
+	return method == http.MethodGet && (matchAdminPath("/realms/{realm}/.well-known/openid-configuration", path) || matchAdminPath("/realms/{realm}/protocol/saml/descriptor", path) || matchAdminPath("/realms/{realm}/bounded-delegation", path) || matchAdminPath("/realms/{realm}/bounded-delegation/task-context", path))
 }
 
 func isBootstrapTokenRequest(method, path string) bool {
