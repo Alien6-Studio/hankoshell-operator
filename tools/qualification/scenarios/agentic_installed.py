@@ -312,6 +312,9 @@ def qualify(fixture, wait):
     restart_fixture()
     fixture.record("fresh_agent_evidence_works_after_explicit_rebind", invoke()["completed"] is True)
 
+    if fixture.ha_only:
+        fixture.agentic_leader_turnover()
+        fixture.record("agent_flow_survives_actual_operator_leader_turnover", invoke()["completed"] is True)
     fixture.stop_operator()
     fixture.record("operator_is_not_a_runtime_token_broker", invoke()["completed"] is True)
     fixture.start_operator()

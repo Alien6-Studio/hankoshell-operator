@@ -160,6 +160,13 @@ class Delegation(installed.Installed):
         self.report["extension"] = {**extension.pin(), "jar_sha256": hashlib.sha256(jar.read_bytes()).hexdigest()}
         return dockerfile
 
+    def keycloak_start_arguments(self):
+        # The database-backed stateless feature requires an explicit embedded
+        # cluster name starting with 26.8. Each disposable fixture owns its name.
+        if tuple(map(int, self.args.keycloak_version.split("."))) >= (26, 8, 0):
+            return ["--cache-embedded-cluster-name=" + self.name]
+        return []
+
     def server_ready(self, timeout=180):
         self.resource_ready(timeout=timeout)
         value = self.get("hankoresourceserver", "installed-server")
@@ -323,8 +330,22 @@ class Delegation(installed.Installed):
         self.kubectl("wait", "--for=delete", "pods", "-n", "auth", "-l", "app.kubernetes.io/instance=system", "--timeout=90s")
 
     def start_operator(self):
-        self.kubectl("scale", "deployment/system-operator", "-n", "auth", "--replicas=1")
+        self.kubectl("scale", "deployment/system-operator", "-n", "auth", "--replicas=" + ("2" if self.ha_only else "1"))
         self.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=180s")
+        self.start_log_capture()
+
+    def agentic_leader_turnover(self):
+        if not self.ha_only:
+            raise ValueError("Agent leader turnover requires the two-replica fixture")
+        scale.Scale.await_leader(self)
+        holder = self.get("lease", "hanko-operator.hanko.sh")["spec"]["holderIdentity"]
+        self.stop_log_capture()
+        self.kubectl("delete", "pod", holder.rsplit("_", 1)[0], "-n", "auth", "--wait=true", "--timeout=90s")
+        self.scraper.close()
+        self.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=180s")
+        scale.Scale.await_leader(self)
+        current = self.get("lease", "hanko-operator.hanko.sh")["spec"].get("holderIdentity")
+        self.record("agentic_actual_lease_holder_replaced", bool(current) and current != holder)
         self.start_log_capture()
 
     def native_inventory(self):
@@ -580,7 +601,7 @@ class Delegation(installed.Installed):
     def public_evidence(self):
         keys = ("schema_version", "layer", "revision", "image_digest", "extension", "resource_verifier_sha256", "fixture_sha256", "node_image", "node_build", "keycloak_image",
                 "keycloak_version", "kubernetes_version", "complete", "publishable", "started_at", "completed_at", "checks", "recovery", "ha_recovery", "initial_convergence_seconds", "revocation_seconds", "keycloak_profiles", "hub_payloads_inspected", "limits", "active_phase", "failure_ownership")
-        return {key: self.report[key] for key in (*keys, "agentic") if key in self.report}
+        return {key: self.report[key] for key in (*keys, "agentic", "child_execution_coverage") if key in self.report}
 
     def capture_ownership_failure(self):
         # Best effort, read-only, <=25 seconds plus a final token/read pair

@@ -169,6 +169,9 @@ class Fixture(system.System):
         dockerfile.write_text(f"FROM {image}\nRUN /opt/keycloak/bin/kc.sh build --db=dev-file --health-enabled=true\n")
         return dockerfile
 
+    def keycloak_start_arguments(self):
+        return []
+
     def keycloak(self):
         build = self.private / "keycloak-build"
         build.mkdir()
@@ -201,7 +204,7 @@ class Fixture(system.System):
                     "automountServiceAccountToken": True,
                     "containers": [{"name": "keycloak", "image": self.keycloak_image, "imagePullPolicy": "IfNotPresent", "args": ["start", "--optimized",
                         "--http-enabled=false", "--http-management-scheme=http", "--hostname=https://keycloak.auth.svc:8443", "--https-protocols=TLSv1.3",
-                        "--https-certificate-file=/tls/tls.crt", "--https-certificate-key-file=/tls/tls.key"],
+                        "--https-certificate-file=/tls/tls.crt", "--https-certificate-key-file=/tls/tls.key", *self.keycloak_start_arguments()],
                         "securityContext": {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True, "capabilities": {"drop": ["ALL"]}},
                         "env": [{"name": name, "valueFrom": {"secretKeyRef": {"name": "keycloak-bootstrap", "key": key}}}
                                 for name, key in [("KC_BOOTSTRAP_ADMIN_USERNAME", "username"), ("KC_BOOTSTRAP_ADMIN_PASSWORD", "password")]],
