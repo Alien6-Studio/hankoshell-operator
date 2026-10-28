@@ -67,7 +67,7 @@ changes to an existing installation. Metrics are off by default; [enabling them 
 
 An [OperatorHub/OLM installation](docs/operatorhub.md) is being prepared for 1.1.0.
 Bounded software and agent delegation require the qualified Keycloak extension
-0.1.0-rc.1; follow the [coordinated provider rollout](docs/architecture/delegation-and-agent-identity.md#provider-rollout).
+0.1.0-rc.2; follow the [coordinated provider rollout](docs/architecture/delegation-and-agent-identity.md#provider-rollout).
 
 ## 1. Connect an OIDC client
 

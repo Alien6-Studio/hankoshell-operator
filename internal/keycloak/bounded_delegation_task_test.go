@@ -10,13 +10,14 @@ import (
 )
 
 func TestTaskCapabilityCannotBeInferredOrWeakened(t *testing.T) {
-	valid := taskDelegationCapability{Contract: "bounded-delegation/task-reference-v1", ExtensionVersion: "0.1.0-rc.1",
+	valid := taskDelegationCapability{Contract: "bounded-delegation/task-reference-v1", ExtensionVersion: "0.1.0-rc.2",
 		KeycloakVersion: "26.8.1", Enabled: true, Experimental: true, StateStore: "database", OnlineRequired: true, SingleUseApproval: true,
 		MaxDepth: 1, MaxTTLSeconds: 600}
 	data, _ := json.Marshal(valid)
 	for _, body := range []string{string(data), `{}`, strings.Replace(string(data), `"enabled":true`, `"enabled":false`, 1),
-		strings.Replace(string(data), "0.1.0-rc.1", "0.1.0-SNAPSHOT", 1),
-		strings.Replace(string(data), "0.1.0-rc.1", "0.1.0-rc.2", 1),
+		strings.Replace(string(data), "0.1.0-rc.2", "0.1.0-SNAPSHOT", 1),
+		strings.Replace(string(data), "0.1.0-rc.2", "0.1.0-rc.1", 1),
+		strings.Replace(string(data), "0.1.0-rc.2", "0.1.0-rc.3", 1),
 		strings.Replace(string(data), `"stateStore":"database"`, `"stateStore":"cache"`, 1),
 		strings.Replace(string(data), `"onlineRequired":true`, `"onlineRequired":false`, 1),
 		strings.Replace(string(data), `"singleUseApproval":true`, `"singleUseApproval":false`, 1),
