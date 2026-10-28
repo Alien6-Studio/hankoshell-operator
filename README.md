@@ -54,7 +54,7 @@ Install the versioned OCI chart:
 
 ```sh
 helm upgrade --install hankoshell-operator \
-  oci://ghcr.io/alien6-studio/charts/hankoshell-operator --version 1.0.1 \
+  oci://ghcr.io/alien6-studio/charts/hankoshell-operator --version 1.1.0 \
   --namespace auth --create-namespace \
   --values operator-values.yaml --wait --timeout 5m
 ```
@@ -177,7 +177,7 @@ for endurance, memory, request rates and fault recovery, with the tested revisio
 and links to the underlying evidence.
 
 All 17 resources use one experimental API: `hanko.sh/v1alpha1`. The API remains
-in **initial development**; the operator's `1.0.1` version does not graduate it.
+in **initial development**; the operator's `1.1.0` version does not graduate it.
 
 [Endurance](https://github.com/Alien6-Studio/hankoshell-operator/issues/95) and
 [HA/recovery](https://github.com/Alien6-Studio/hankoshell-operator/issues/96) are complete;

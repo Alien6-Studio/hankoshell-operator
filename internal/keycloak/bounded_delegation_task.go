@@ -53,7 +53,7 @@ func (c *Client) taskDelegationCapability(ctx context.Context, realm string) (ta
 }
 
 func validTaskDelegationCapability(capability taskDelegationCapability) bool {
-	return capability.Contract == "bounded-delegation/task-reference-v1" && capability.ExtensionVersion == "0.1.0-SNAPSHOT" &&
+	return capability.Contract == "bounded-delegation/task-reference-v1" &&
 		slices.Contains([]string{"26.7.5", "26.8.0", "26.8.1"}, capability.KeycloakVersion) &&
 		capability.Enabled && capability.Experimental && capability.StateStore == "database" && capability.OnlineRequired &&
 		capability.SingleUseApproval && capability.MaxDepth == 1 && capability.MaxTTLSeconds == 600 &&

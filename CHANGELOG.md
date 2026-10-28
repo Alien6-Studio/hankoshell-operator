@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0
 
 <!-- release-notes:start -->
 ### Release overview
@@ -29,6 +29,8 @@ existing profiles; this release keeps experimental lifecycle operations opt-in.
   cancellation, approval replay, authority loss and controlled opt-out.
 - Default software delegation remains compatible. Human delegation, general
   child-agent execution and production readiness require their own evidence.
+- Accept the independently versioned Keycloak extension 0.1.0-rc.1 while retaining
+  the qualified 0.1.0-SNAPSHOT software contract; reject unreviewed candidate versions.
 
 ### OperatorHub
 
