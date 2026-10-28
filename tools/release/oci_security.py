@@ -36,7 +36,7 @@ def sha256(path):
 def read_policy(path=POLICY, today=None):
     policy = json.loads(path.read_text())
     if (set(policy) != {"schema_version", "fail_severities", "only_fixable", "exceptions"}
-            or policy["schema_version"] != 1 or policy["fail_severities"] != ["HIGH", "CRITICAL"]
+            or policy["schema_version"] != 1 or policy["fail_severities"] != ["UNKNOWN", "HIGH", "CRITICAL"]
             or policy["only_fixable"] is not True or not isinstance(policy["exceptions"], list)):
         raise ValueError("Invalid OCI vulnerability policy")
     today = today or datetime.now(timezone.utc).date()
@@ -187,7 +187,8 @@ def evaluate(report, config_digest, policy):
                        "installed_version": vulnerability["InstalledVersion"],
                        "severity": severity, "fixed_version": vulnerability.get("FixedVersion", "")}
             if not finding["fixed_version"]:
-                unfixed.append(finding)
+                if severity in ("HIGH", "CRITICAL"):
+                    unfixed.append(finding)
                 continue
             exception = next((entry for entry in policy["exceptions"] if all(entry[key] == finding[key] for key in ("cve", "package", "target", "installed_version"))), None)
             if severity == "HIGH" and exception:

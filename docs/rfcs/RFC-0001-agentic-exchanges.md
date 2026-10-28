@@ -2,9 +2,9 @@
 
 | Field | Value |
 | --- | --- |
-| Status | **Proposed** — design and qualification only; no new production feature claimed |
-| Revision | `0.1.0-draft.1` |
-| Date | 2026-10-27 |
+| Status | Selected implementation scope for Hanko 1.1.0; experimental; full qualification pending |
+| Revision | `0.1.0-draft.2` |
+| Date | 2026-10-28 |
 | Scope | Single Keycloak realm; software-to-software authority; A2A 1.0; MCP HTTP tools |
 | Hanko review | [Alien6-Studio/hankoshell-operator#165](https://github.com/Alien6-Studio/hankoshell-operator/issues/165) |
 | Provider review | [Alien6-Studio/keycloak-bounded-delegation#12](https://github.com/Alien6-Studio/keycloak-bounded-delegation/issues/12) |
@@ -18,7 +18,7 @@ An agent A can delegate a task to agent B over A2A; B can call a protected MCP t
 
 Today the Hanko operator can declare `HankoApplication` / `HankoServiceAccount` identities and `HankoResourceServer` resource/scope grants with `spec.permissions[].delegation`. The dedicated Keycloak extension supports **experimental `software-v1`**: authenticated software actor and subject, one resource-server audience, the intersection of their existing effective UMA rights and the declared grant, limited TTL and delegation depth, and actor-token replay protection. These mechanisms are real but **do not prove task-specific authorization or A2A/MCP interoperability on their own**.
 
-The first goal is an end-to-end demonstration of **bounded authority at a real MCP resource**, not another agent runtime or a new LLM framework. The longer-term goal is an opt-in task-bound authorization extension, provided it survives threat-model review and native multi-node qualification.
+The selected 1.1.0 scope demonstrates **bounded authority at a real MCP resource** and adds optional issuer-controlled task authorization under [RFC-AGENT-AUTH-002](RFC-0002-task-authorization.md). Native and installed qualification remain separate release gates.
 
 ## 2. Normative terms
 
@@ -110,7 +110,7 @@ Before claims of horizontal scale, prove the replay and chain evidence on at lea
 | Owner | Must implement/prove | Must not implement |
 | --- | --- | --- |
 | Hanko operator | Portable software and API identity intent; distinct A2A/MCP resource audiences; ownership and tenant checks; provider feature gates; strict reconciliation/read-back; conformance fixture and release pin | Per-task Kubernetes objects, model orchestration, per-request token issuance, privileged credentials in status |
-| Keycloak extension | Authenticated actor/subject, exact audience, native grant intersection, expiration/depth, replay/chain continuity, explicit opt-in v2 if justified, native multi-node evidence | A2A/MCP protocol endpoints, agent runtime, uncontrolled scope/role mappers, human impersonation |
+| Keycloak extension | Authenticated actor/subject, exact audience, native grant intersection, expiration/depth, replay/chain continuity, explicit task-authorization opt-in, native multi-node evidence | A2A/MCP protocol endpoints, agent runtime, uncontrolled scope/role mappers, human impersonation |
 | Trusted adapter / task PEP | A2A caller/task authentication; credential mediation; token-exchange orchestration; enforced task scope; MCP tool permission mapping; downstream exchange and audit | Trust arbitrary task IDs or tool descriptions; token passthrough; unrestricted direct backend routes |
 | Consumers | Validate correct audience/issuer/current permissions; enforce business action; propagate failures and audit outcome | Treat `act` history as union grants; infer permission from discovery metadata |
 
@@ -136,7 +136,7 @@ Qualified evidence MUST link source commit, Keycloak SDK/cluster/cache versions,
 1. **RFC/design gate:** joint ownership of this RFC, A2A and MCP resource/audience map, gateway trust boundaries, attacker capabilities, error semantics and rejected alternatives. Current implementations remain unchanged.
 2. **Interop gate:** one real A2A software task and one real MCP tool using existing software-v1 tokens with **mandatory** gateway/PEP checks. Document expressly what is *not* task-cryptographically bound.
 3. **Provider safety gate:** multi-node atomic replay and chain-state behavior, stale/expired context, failover and quota/load characterization under immutable qualification artifacts.
-4. **Task-bound authority gate:** separately versioned provider capability, issuer-validated context, explicit consent/approval semantics **if ever in scope**, migration/rollback and complete denial/bypass matrix.
+4. **Task-bound authority gate:** explicit provider capability, issuer-validated context, single-use software approval, migration/rollback and complete denial/bypass matrix under RFC-AGENT-AUTH-002. Human consent remains outside this scope.
 5. **Consumer scale gate:** installed Kubernetes/KC matrix, repeated child/fan-out tasks, A2A/MCP interoperability across supported SDKs, privacy-safe telemetry and operational evidence.
 
 Each gate requires code and allowed/denied/failure-path tests to close its implementation issue. Documentation alone does not qualify a product capability.
@@ -145,13 +145,13 @@ Each gate requires code and allowed/denied/failure-path tests to close its imple
 
 Human-on-behalf-of/consent, direct Entra-to-Keycloak token exchange, cross-realm/cross-organization trust, a new universal agent directory, A2A task scheduler, LLM evaluation, arbitrary executable skill discovery, semantic prompt authorization, gateway product launch, multi-cloud federation and native upstream Keycloak acceptance. Each would require a separate reviewed contract and tests.
 
-## 11. Open questions for joint review
+## 11. Selected implementation decisions
 
-1. Where is the trusted A2A task assignment proven, and how do we make direct MCP bypass impossible without requiring a proprietary deployment topology?
-2. Does a task-bound v2 need an issuer-signed context claim, token binding/sender constraint or an online authorization record? What are the revocation, scaling and privacy costs?
-3. How should a broker authorize concurrent child branches while retaining software-v1 actor-JTI single-use?
-4. Which exact receiver proof and error semantics are required if an MCP gateway brokers a token to an independent business API?
-5. Which Keycloak cluster topology supports the required single-use/chain persistence guarantees with measured behavior during partitions?
+1. The narrow fixture creates assignments after authenticated A2A ingress and requires an independently held gateway proof at MCP. Caller task IDs cannot select authority. Deployment qualification must demonstrate direct-bypass refusal.
+2. RFC-AGENT-AUTH-002 selects issuer-created native references, exact input-JTI binding, single-use approval and mandatory online resource checks. Cancellation, residual offline-JWT lifetime and check-to-business-operation races are explicit; no separate product named v2 is required.
+3. Concurrent branches require fresh actor evidence and independently authorized task approvals. Child processes inherit no authority from task names or trace parents; arbitrary child execution instrumentation is not claimed.
+4. The business API receives its own audience-specific token. An MCP bearer is never forwarded as downstream authorization. Lost exchange responses fail closed and cannot trigger a retry with consumed actor evidence.
+5. The selected two-node qualification topology uses shared PostgreSQL and Keycloak's database-backed single-use state, with a separate JGroups network for cache partitions. Exact SDK/source/JAR/image proofs are required. Cache-only recovery and mixed-version rolling upgrades remain unqualified.
 
 ## 12. References
 
@@ -161,4 +161,4 @@ Human-on-behalf-of/consent, direct Entra-to-Keycloak token exchange, cross-realm
 - [Hanko: Delegation and agent authority](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/architecture/delegation-and-agent-identity.md).
 - [Keycloak extension: software-v1 architecture](https://github.com/Alien6-Studio/keycloak-bounded-delegation/blob/main/docs/architecture.md), native qualification and cluster-readiness limits.
 
-**Review decision requested:** agree to a protocol-neutral bounded authority architecture and its evidence gates. No automatic approval of a new Keycloak profile or Kubernetes API surface is requested.
+The selected scope is implemented through coordinated operator/provider PRs. Merging a document does not activate native realm configuration or task-required Kubernetes intent; runtime and release qualification remain mandatory.

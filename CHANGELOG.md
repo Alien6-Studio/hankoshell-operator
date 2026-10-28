@@ -12,6 +12,9 @@ existing profiles; this release keeps experimental lifecycle operations opt-in.
 
 ### Security and agent authority
 
+- Update `golang.org/x/net` to 0.62.0 in the operator and embedded Cosign for
+  CVE-2026-78661 and CVE-2026-97045. Block fixable UNKNOWN findings while their
+  severity is awaiting scoring.
 - Bind the embedded Cosign package inventory to the compiled binary SHA-256 and
   check it in both final-image architectures. Deprecated OpenPGP packages remain
   forbidden; raw module-level Trivy results are preserved.

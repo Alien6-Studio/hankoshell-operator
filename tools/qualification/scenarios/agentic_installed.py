@@ -158,6 +158,7 @@ def qualify(fixture, wait):
             fixture.record("mcp_task_is_exercised_once", sum(value["stage"] == "downstream" and value["decision"] == "allow" for value in events) == 1)
 
     restart_fixture()
+    mcp_input = input_token("agent-b", "agent-mcp-api", "invoice#read")
     child = probe("request", endpoint=BASE + "/mcp", bearer=mcp_input, body=rpc,
                   headers={"MCP-Protocol-Version": "2025-11-25", "traceparent": headers["traceparent"], "X-Fixture-Task": "parent-task-is-not-authority"}, fork=True)
     fixture.record("forked_child_cannot_inherit_gateway_authority", child["http_status"] == 403 and not child["completed"])

@@ -95,7 +95,8 @@ than 24 hours old and match the current source revision, policy and image digest
 Database updates intentionally remain current, rather than frozen with the tool.
 
 [The versioned policy](security/oci-vulnerability-policy.json) blocks known
-**HIGH and CRITICAL vulnerabilities with an available fixed version**. It reports
+**UNKNOWN, HIGH and CRITICAL vulnerabilities with an available fixed version**. Unrated
+advisories with a published fix must not bypass the gate while awaiting scoring. It reports
 all severities and unfixed findings without filtering them out of the JSON.
 This delivery baseline makes actionable upgrades mandatory while retaining visibility
 of issues without an upstream fix. Passing does not mean there are no unfixed,
