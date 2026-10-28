@@ -55,9 +55,28 @@ documents: manage those grants through their Kubernetes resources. The extension
 refuses console/API grant creation for an audience with an external document;
 it neither overwrites nor merges Hanko's configuration. Enabling `declarative-ui`
 is an explicit server choice, independent of operator reconciliation. See the
-[extension administration guide](https://github.com/Alien6-Studio/keycloak-bounded-delegation/blob/d9423db16e2bbe31bfb1dcc83c9a9441a18a6075/docs/administration.md)
-for native permissions, writer conflicts and safe withdrawal. The extension's
+[extension administration guide](https://github.com/Alien6-Studio/keycloak-bounded-delegation/blob/v0.1.0-rc.1/docs/administration.md)
+for native permissions, writer conflicts and safe withdrawal.
 Hanko's current matrix includes 26.7.5 and 26.8.1; existing 26.8.0 capability replies remain readable. The operator and extension retain separate qualification reports.
+
+## Provider rollout
+
+Operator 1.1.0 requires extension **0.1.0-rc.1** for bounded profiles. Earlier
+SNAPSHOT builds share a version identifier across different implementations,
+including builds preceding the signed-subject correction, so they are refused.
+The software-v1 grant format remains unchanged; task authorization stays explicit.
+
+Choose the candidate JAR matching the exact Keycloak SDK and verify its checksums
+and provenance using the [extension installation guide](https://github.com/Alien6-Studio/keycloak-bounded-delegation/blob/v0.1.0-rc.1/docs/installation.md).
+Use a coordinated maintenance window: pause operator reconciliation, preserve
+the native database, identities and journals, and replace/rebuild the provider on
+the Keycloak nodes. Then install operator 1.1.0 and resume reconciliation after
+the new native capability and current resource status have been observed.
+
+No custom resource recreation or grant-format conversion is needed. Keep the
+resource's online enforcement active during task-enabled provider outages.
+The qualified provider lifecycle uses coordinated restarts; mixed-version
+rolling upgrades and uninterrupted availability are not established by that proof.
 
 Public status adds observed portable delegation origin and bounds, not token
 subjects or native user IDs. These experimental fields ship in v1.0.0 and are

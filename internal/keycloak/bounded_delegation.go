@@ -77,7 +77,7 @@ func (c *Client) BoundedDelegationCapability(ctx context.Context, realm string) 
 
 func validBoundedCapability(capability BoundedDelegationCapability) bool {
 	return capability.Contract == "bounded-delegation/software-v1" &&
-		slices.Contains([]string{"0.1.0-SNAPSHOT", "0.1.0-rc.1"}, capability.ExtensionVersion) && capability.Experimental && capability.Enabled && capability.MaxDepth == 4 && capability.MaxTTLSeconds == 600 &&
+		capability.ExtensionVersion == "0.1.0-rc.1" && capability.Experimental && capability.Enabled && capability.MaxDepth == 4 && capability.MaxTTLSeconds == 600 &&
 		keycloakversion.BoundedDelegation(capability.KeycloakVersion)
 }
 

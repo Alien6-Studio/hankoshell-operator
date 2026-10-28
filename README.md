@@ -65,7 +65,9 @@ Helm installs CRDs on first installation but does not upgrade them: use the
 [API migration policy](docs/api-migration-policy.md) before applying reviewed CRD
 changes to an existing installation. Metrics are off by default; [enabling them requires mTLS](docs/operations-runbooks.md#secure-metrics).
 
-An [OperatorHub/OLM installation](docs/operatorhub.md) is being prepared for 1.0.2.
+An [OperatorHub/OLM installation](docs/operatorhub.md) is being prepared for 1.1.0.
+Bounded software and agent delegation require the qualified Keycloak extension
+0.1.0-rc.1; follow the [coordinated provider rollout](docs/architecture/delegation-and-agent-identity.md#provider-rollout).
 
 ## 1. Connect an OIDC client
 
