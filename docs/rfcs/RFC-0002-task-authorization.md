@@ -58,7 +58,9 @@ unsupported SDK/store, mixed audience profiles and multi-hop task intent refuse.
 All private operations require verified HTTPS and a native confidential software
 access token whose sole audience is `bounded-delegation-task-context`. No realm
 management role is needed. Native expiry, enabled-user/client and service-account
-checks apply. Authentication and operation errors return bounded reasons without
+checks apply. The signed `sub` must equal the current service-account user UUID;
+reusing a client name cannot rebind an old bearer through username fallback.
+Authentication and operation errors return bounded reasons without
 request bodies or token material. Responses carry `Cache-Control: no-store`.
 
 `GET bounded-delegation/task-context` is separate public discovery. Its strict
