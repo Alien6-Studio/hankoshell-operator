@@ -104,6 +104,7 @@ func clusterServiceVersion(chart *chartSource, opts options) (map[string]any, er
 	}
 	annotations := map[string]string{
 		"capabilities": "Basic Install", "categories": "Security", "containerImage": opts.image,
+		"operatorhub.io/ui-metadata-max-k8s-version": "1.37",
 		"repository": "https://github.com/Alien6-Studio/hankoshell-operator", "support": "Alien6 Studio",
 		"alm-examples": string(examples), "operatorframework.io/suggested-namespace": defaultNamespace,
 		"operators.operatorframework.io/arch.amd64": "supported", "operators.operatorframework.io/arch.arm64": "supported",
