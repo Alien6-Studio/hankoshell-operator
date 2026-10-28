@@ -50,9 +50,8 @@ No preparation command reads credentials or changes Keycloak.
 
 Supply the approved Subscription configuration before approving its InstallPlan.
 In the OLM 0.41.0 qualification, a CSV stalled during installation did not receive
-a later environment override. To retry a first installation missing approval,
-correct the Subscription configuration and recreate its Subscription and CSV;
-retain the CRDs and administrator preparation resources.
+a later environment override. The supported installation procedure supplies the
+complete approval before the CSV is installed.
 
 ## Upgrade and removal
 
