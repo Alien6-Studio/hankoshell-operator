@@ -9,6 +9,12 @@ Linux amd64 or arm64, with an existing Keycloak and a NetworkPolicy-enforcing
 CNI. All 17 APIs remain `v1alpha1`. Lifecycle, connected Hub and experimental
 provider profiles require Helm.
 
+Local data-plane qualification uses Cilium 1.20.4 with
+`policyCIDRMatchMode: [nodes]`: this lets the declared API-server `ipBlock` rules
+match node addresses. Cilium excludes these addresses by default; see its
+[NetworkPolicy behavior](https://docs.cilium.io/en/stable/network/kubernetes/policy/).
+Verify required API/Keycloak connections and denied egress on your actual CNI.
+
 ## Prepare before subscribing
 
 OLM cannot install the chart's ValidatingAdmissionPolicies. An administrator
@@ -41,6 +47,12 @@ The verification runs before provider clients or controllers start. It is a
 startup check, not a continuous admission-policy monitor or proof that the CNI
 enforces traffic. Administrators retain ownership of the preparation resources.
 No preparation command reads credentials or changes Keycloak.
+
+Supply the approved Subscription configuration before approving its InstallPlan.
+In the OLM 0.41.0 qualification, a CSV stalled during installation did not receive
+a later environment override. To retry a first installation missing approval,
+correct the Subscription configuration and recreate its Subscription and CSV;
+retain the CRDs and administrator preparation resources.
 
 ## Upgrade and removal
 
