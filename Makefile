@@ -41,6 +41,7 @@ preflight: fmt-check vet generated-check
 	python3 -m unittest tools.release.verifier_evidence_test
 	python3 -m unittest tools.release.oci_security_test
 	python3 -m unittest tools.qualification.fixtures.workload_fault_proxy_test
+	python3 -m unittest tools.qualification.fixtures.python_image_test
 	python3 -m tools.qualification.checks.stable_contract
 	python3 -m tools.qualification.checks.security_surface check
 	python3 -m tools.qualification.checks.compatibility_gate check

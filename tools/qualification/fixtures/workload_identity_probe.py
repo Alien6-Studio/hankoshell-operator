@@ -26,6 +26,7 @@ from urllib.request import Request, urlopen
 import yaml
 
 from tools.qualification.lib.evidence_privacy import contains_jwt
+from tools.qualification.fixtures import python_image
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -36,9 +37,7 @@ spec.loader.exec_module(system)
 KEYCLOAK_IMAGES = system.PINS["keycloak"]["images"]
 NODE_IMAGES = system.PINS["kubernetes"]["node_images"]
 BUILT_NODE = system.PINS["kubernetes"]["built_node"]
-# Avoid Docker Hub's anonymous pull quota during disposable cluster startup.
-# The official ECR mirror serves the same digest and platform manifests.
-POD_IMAGE = "public.ecr.aws/docker/library/python:3.12-alpine@sha256:1b668429b3511ab407d8e00648891631b0b1a4d7e15e3ca70f38ab5b91ad4ab4"
+POD_IMAGE = python_image.LOCAL_IMAGE
 NODE_BASE = BUILT_NODE["base_image"]
 NODE_ARCHIVES = BUILT_NODE["sha256"]
 ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
@@ -125,6 +124,7 @@ class Fixture(system.System):
         self.reserve_cluster(self.name)
         run([self.args.kind, "create", "cluster", "--name", self.name,
              "--image", node, "--kubeconfig", self.config, "--wait", "120s"])
+        self.report["python_fixture"] = python_image.load(self.args.kind, self.name)
         actual = json.loads(self.kubectl("version", "-o", "json"))["serverVersion"]["gitVersion"]
         if actual != "v" + self.args.kubernetes_version:
             raise ValueError("The real Kubernetes server version differs from the requested qualification")
@@ -239,7 +239,7 @@ class Fixture(system.System):
                 "serviceAccountName": account, "automountServiceAccountToken": False,
                 "securityContext": {"runAsNonRoot": True, "runAsUser": 1000, "runAsGroup": 1000, "fsGroup": 1000,
                                     "seccompProfile": {"type": "RuntimeDefault"}},
-                "containers": [{"name": "probe", "image": POD_IMAGE, "command": ["python", "-c", "import time; time.sleep(1800)"],
+                "containers": [{"name": "probe", "image": POD_IMAGE, "imagePullPolicy": "Never", "command": ["python", "-c", "import time; time.sleep(1800)"],
                     "securityContext": {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True, "capabilities": {"drop": ["ALL"]}},
                     "volumeMounts": [{"name": "tokens", "mountPath": "/tokens", "readOnly": True},
                                      {"name": "ca", "mountPath": "/ca", "readOnly": True}]}],

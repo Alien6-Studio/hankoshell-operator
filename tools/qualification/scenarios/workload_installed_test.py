@@ -252,7 +252,7 @@ class Installed(native.Fixture):
             {"apiVersion": "v1", "kind": "Pod", "metadata": {"name": name, "namespace": "workload"}, "spec": {
                 "serviceAccountName": account, "automountServiceAccountToken": False,
                 "securityContext": {"runAsNonRoot": True, "runAsUser": 1000, "runAsGroup": 1000, "fsGroup": 1000, "seccompProfile": {"type": "RuntimeDefault"}},
-                "containers": [{"name": "probe", "image": native.POD_IMAGE, "command": ["python", "-c", "import time; time.sleep(10800)"],
+                "containers": [{"name": "probe", "image": native.POD_IMAGE, "imagePullPolicy": "Never", "command": ["python", "-c", "import time; time.sleep(10800)"],
                     "securityContext": {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True, "capabilities": {"drop": ["ALL"]}},
                     "volumeMounts": [{"name": "assertion", "mountPath": "/var/run/hanko", "readOnly": True},
                                      {"name": "ca", "mountPath": "/ca", "readOnly": True}, {"name": "code", "mountPath": "/probe", "readOnly": True}]}],
@@ -796,7 +796,7 @@ class Installed(native.Fixture):
             "proxy.py": (ROOT / "tools/qualification/fixtures/workload_fault_proxy.py").read_text(), "settings.json": json.dumps(settings), "ca.crt": ca}},
             {"apiVersion": "v1", "kind": "Pod", "metadata": {"name": name, "namespace": "auth", "labels": labels}, "spec": {
                 "automountServiceAccountToken": False, "securityContext": {"runAsNonRoot": True, "runAsUser": 1000, "fsGroup": 1000, "seccompProfile": {"type": "RuntimeDefault"}},
-                "containers": [{"name": "proxy", "image": native.POD_IMAGE, "command": ["python", "/fixture/proxy.py"],
+                "containers": [{"name": "proxy", "image": native.POD_IMAGE, "imagePullPolicy": "Never", "command": ["python", "/fixture/proxy.py"],
                     "securityContext": {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True, "capabilities": {"drop": ["ALL"]}},
                     "volumeMounts": [{"name": "fixture", "mountPath": "/fixture", "readOnly": True}, {"name": "tls", "mountPath": "/tls", "readOnly": True}]}],
                 "volumes": [{"name": "fixture", "configMap": {"name": name}}, {"name": "tls", "secret": {"secretName": tls_secret, "defaultMode": 288}}]}},

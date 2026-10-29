@@ -136,7 +136,7 @@ class Fleet(installed.Installed):
                         "automountServiceAccountToken": False,
                         "securityContext": {"runAsNonRoot": True, "runAsUser": 1000, "fsGroup": 1000,
                                             "seccompProfile": {"type": "RuntimeDefault"}},
-                        "containers": [{"name": "hub", "image": native.POD_IMAGE, "command": ["python", "/fixture/hub.py"],
+                        "containers": [{"name": "hub", "image": native.POD_IMAGE, "imagePullPolicy": "Never", "command": ["python", "/fixture/hub.py"],
                             "securityContext": {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True,
                                                 "capabilities": {"drop": ["ALL"]}},
                             "volumeMounts": [{"name": "code", "mountPath": "/fixture", "readOnly": True},
