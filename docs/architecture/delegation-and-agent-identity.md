@@ -66,6 +66,13 @@ SNAPSHOT builds share a version identifier across different implementations,
 including builds preceding the signed-subject correction, so they are refused.
 The software-v1 grant format remains unchanged; task authorization stays explicit.
 
+Source after 1.1.0 also accepts the qualified extension **0.1.0**, alongside
+rc.2, with the same initial-development contract marker and every existing
+capability guard. Other versions, including 0.1.1, are refused until reviewed.
+The published operator 1.1.0 remains pinned to rc.2; use a consumer build that
+explicitly supports 0.1.0 before replacing its provider. The extension's default
+qualification source remains independently pinned in `extensions/keycloak-bounded-delegation.json`.
+
 Choose the candidate JAR matching the exact Keycloak SDK and verify its checksums
 and provenance using the [extension installation guide](https://github.com/Alien6-Studio/keycloak-bounded-delegation/blob/v0.1.0-rc.2/docs/installation.md).
 Use a coordinated maintenance window: pause operator reconciliation, preserve

@@ -14,7 +14,9 @@ func TestTaskCapabilityCannotBeInferredOrWeakened(t *testing.T) {
 		KeycloakVersion: "26.8.1", Enabled: true, Experimental: true, StateStore: "database", OnlineRequired: true, SingleUseApproval: true,
 		MaxDepth: 1, MaxTTLSeconds: 600}
 	data, _ := json.Marshal(valid)
-	for _, body := range []string{string(data), `{}`, strings.Replace(string(data), `"enabled":true`, `"enabled":false`, 1),
+	stable := strings.Replace(string(data), "0.1.0-rc.2", "0.1.0", 1)
+	for _, body := range []string{string(data), stable, `{}`, strings.Replace(string(data), `"enabled":true`, `"enabled":false`, 1),
+		strings.Replace(string(data), "0.1.0-rc.2", "0.1.1", 1),
 		strings.Replace(string(data), "0.1.0-rc.2", "0.1.0-SNAPSHOT", 1),
 		strings.Replace(string(data), "0.1.0-rc.2", "0.1.0-rc.1", 1),
 		strings.Replace(string(data), "0.1.0-rc.2", "0.1.0-rc.3", 1),
@@ -35,7 +37,7 @@ func TestTaskCapabilityCannotBeInferredOrWeakened(t *testing.T) {
 		client.httpClient = server.Client()
 		_, err := client.taskDelegationCapability(context.Background(), "managed")
 		server.Close()
-		if (err == nil) != (body == string(data)) {
+		if (err == nil) != (body == string(data) || body == stable) {
 			t.Fatal("task capability accepted a missing or weakened invariant")
 		}
 	}
