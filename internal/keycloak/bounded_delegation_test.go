@@ -24,6 +24,9 @@ func TestBoundedDelegationCapabilityIsStrictReadOnlyDiscovery(t *testing.T) {
 		accept     bool
 	}{
 		{"qualified deployment profile", string(encoded), 200, true},
+		{"stable 0.1.0 preserves the initial contract", strings.Replace(string(encoded), "0.1.0-rc.2", "0.1.0", 1), 200, true},
+		{"unreviewed stable patch", strings.Replace(string(encoded), "0.1.0-rc.2", "0.1.1", 1), 200, false},
+		{"stable release cannot erase the initial contract marker", strings.Replace(strings.Replace(string(encoded), "0.1.0-rc.2", "0.1.0", 1), `"experimental":true`, `"experimental":false`, 1), 200, false},
 		{"ambiguous snapshot", strings.Replace(string(encoded), "0.1.0-rc.2", "0.1.0-SNAPSHOT", 1), 200, false},
 		{"unpublished candidate", strings.Replace(string(encoded), "0.1.0-rc.2", "0.1.0-rc.1", 1), 200, false},
 		{"unreviewed candidate", strings.Replace(string(encoded), "0.1.0-rc.2", "0.1.0-rc.3", 1), 200, false},
