@@ -90,6 +90,12 @@ spec:
                     pattern: ^[^\r\n]*$
                     type: string
                 type: object
+              emailTheme:
+                description: |-
+                  EmailTheme opts into management of the realm email theme. Nil preserves
+                  the existing Keycloak setting; an explicit empty string restores its default.
+                maxLength: 255
+                type: string
               frontendURL:
                 description: |-
                   FrontendURL is the canonical public URL Keycloak uses for browser-facing

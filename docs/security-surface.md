@@ -178,3 +178,31 @@ an older schema must not silently prune an active task requirement.
 boundaries. [Incident collection](operations-runbooks.md#incident-evidence-without-secrets)
 exports only allowlisted evidence. The initial release acceptance is recorded in
 [#106](https://github.com/Alien6-Studio/hankoshell-operator/issues/106).
+
+## Studio composition migration (2026-10-30)
+
+The Studio compiler adds three optional bounded inputs: `HankoTheme.spec.projectGzip`
+(base64 gzip, at most 900,000 characters), `projectSHA256` (64 lowercase hex
+characters), and `HankoRealm.spec.emailTheme` (optional theme name). The controller
+checks both source fields together, limits decompression to 40 MiB, verifies the
+source digest and rejects mixing a project with legacy design tokens or an
+artifact installer. The reviewed compiler validates the complete JSON contract;
+project data cannot select executable plugins or dependencies.
+
+An immutable source ConfigMap is initially owned by the Theme and transferred to
+its verified build Job. Job TTL and Kubernetes garbage collection remove this
+input. The existing ConfigMap patch permission is sufficient; this change adds
+no delete grant, role, credential or admission-policy change in any of the six
+reviewed profiles. Build containers retain read-only project mounts and no
+service-account token. Existing image approval/signature checks remain required.
+
+Existing objects omit these fields and retain their prior path. An omitted
+`emailTheme` leaves the native setting unmanaged; an explicit empty value clears
+it. Email references participate in readiness and deletion protection, like login
+references. Before restoring an older operator/schema, stop Studio builds and
+restore or detach their assignments, including email. Older schemas must reject
+project writes using strict field validation rather than silently dropping the
+snapshot. Keep published images and compatibility baselines unchanged; the
+updated inventory and Go fixture snapshot describe these source additions only.
+
+See [Studio project builds](theme-studio-projects.md) for rollout and qualification.
