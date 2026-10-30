@@ -308,6 +308,9 @@ func (r *HankoThemeReconciler) submitThemeBuild(ctx context.Context, theme *hank
 	if err := r.ImageValidator.VerifyImage(ctx, imagevalidator.ThemeBuilder, theme.Spec.BuildImage); err != nil {
 		return r.failTheme(ctx, theme, "UntrustedImageRef", err)
 	}
+	if err := r.validateThemeRuntime(ctx, theme.Namespace); err != nil {
+		return r.failTheme(ctx, theme, "UnsupportedThemeRuntime", err)
+	}
 	if err := r.ensureThemeProject(ctx, theme); err != nil {
 		return r.failTheme(ctx, theme, "ProjectSourceFailed", err)
 	}
