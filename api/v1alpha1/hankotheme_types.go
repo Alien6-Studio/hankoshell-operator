@@ -24,6 +24,17 @@ type HankoTheme struct {
 
 // HankoThemeSpec defines the desired theme configuration.
 type HankoThemeSpec struct {
+	// ProjectGzip is a base64-encoded gzip snapshot of a declarative Studio project.
+	// It is mounted read-only for the approved builder, never executed as source code.
+	// +kubebuilder:validation:MaxLength=900000
+	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9+/]+={0,2}$`
+	ProjectGzip string `json:"projectGzip,omitempty"`
+
+	// ProjectSHA256 identifies the uncompressed JSON bytes in ProjectGzip.
+	// +kubebuilder:validation:MaxLength=64
+	// +kubebuilder:validation:Pattern=`^[a-f0-9]{64}$`
+	ProjectSHA256 string `json:"projectSHA256,omitempty"`
+
 	// RebuildNonce requests a fresh build when its value changes, even if the
 	// visual configuration is otherwise identical.
 	// +kubebuilder:validation:MaxLength=128

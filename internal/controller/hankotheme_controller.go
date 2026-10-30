@@ -47,6 +47,7 @@ const (
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;patch
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;patch
 type HankoThemeReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
@@ -85,6 +86,9 @@ func (r *HankoThemeReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		if verifyErr := r.ImageValidator.VerifyImage(ctx, imagevalidator.ThemeBuilder, theme.Spec.BuildImage); verifyErr != nil {
 			return r.failTheme(ctx, &theme, "UntrustedImageRef", verifyErr)
 		}
+		if err := r.bindThemeProject(ctx, &theme, &job); err != nil {
+			return r.failTheme(ctx, &theme, "ProjectSourceFailed", err)
+		}
 		return r.reconcileExistingThemeBuild(ctx, &theme, &job, build)
 	}
 	if themeBuildInstalled(&theme, build) {
@@ -108,6 +112,10 @@ type themeBuildState struct {
 }
 
 func (r *HankoThemeReconciler) prepareThemeBuild(ctx context.Context, theme *hankoshv1alpha1.HankoTheme) (*themeBuildState, ctrl.Result, error) {
+	if _, err := validateThemeProject(theme.Spec); err != nil {
+		result, failErr := r.failTheme(ctx, theme, "InvalidProject", err)
+		return nil, result, failErr
+	}
 	jarName, err := themeJarName(theme)
 	if err != nil {
 		result, failErr := r.failTheme(ctx, theme, "InvalidJarName", err)
@@ -300,12 +308,21 @@ func (r *HankoThemeReconciler) submitThemeBuild(ctx context.Context, theme *hank
 	if err := r.ImageValidator.VerifyImage(ctx, imagevalidator.ThemeBuilder, theme.Spec.BuildImage); err != nil {
 		return r.failTheme(ctx, theme, "UntrustedImageRef", err)
 	}
+	if err := r.validateThemeRuntime(ctx, theme.Namespace); err != nil {
+		return r.failTheme(ctx, theme, "UnsupportedThemeRuntime", err)
+	}
+	if err := r.ensureThemeProject(ctx, theme); err != nil {
+		return r.failTheme(ctx, theme, "ProjectSourceFailed", err)
+	}
 	job := r.buildJob(theme, build.jobName)
 	if err := controllerutil.SetControllerReference(theme, job, r.Scheme); err != nil {
 		return ctrl.Result{}, err
 	}
 	if err := r.Create(ctx, job); err != nil {
 		return r.failTheme(ctx, theme, "JobCreateFailed", err)
+	}
+	if err := r.bindThemeProject(ctx, theme, job); err != nil {
+		return r.failTheme(ctx, theme, "ProjectSourceFailed", err)
 	}
 	now := metav1.NewTime(r.now().UTC())
 	patch := client.MergeFrom(theme.DeepCopy())
@@ -388,7 +405,7 @@ func (r *HankoThemeReconciler) themeUsers(ctx context.Context, theme *hankoshv1a
 		return nil, fmt.Errorf("list realms using theme %q: %w", theme.Name, err)
 	}
 	for _, realm := range realms.Items {
-		if realm.Spec.LoginTheme == theme.Name && realm.DeletionTimestamp.IsZero() {
+		if (realm.Spec.LoginTheme == theme.Name || realm.Spec.EmailTheme != nil && *realm.Spec.EmailTheme == theme.Name) && realm.DeletionTimestamp.IsZero() {
 			users = append(users, "HankoRealm/"+realm.Name)
 		}
 	}
@@ -530,6 +547,16 @@ func (r *HankoThemeReconciler) reconcilePruneJob(
 
 func (r *HankoThemeReconciler) buildJob(theme *hankoshv1alpha1.HankoTheme, name string) *batchv1.Job {
 	jarName, _ := themeJarName(theme)
+	if theme.Spec.ProjectGzip != "" {
+		job := r.themeJob(theme, name, theme.Spec.KeycloakPVC, theme.Spec.ImagePullSecrets, corev1.Container{
+			Name: "builder", Image: theme.Spec.BuildImage, Command: []string{"/bin/sh", "/build-theme.sh"},
+			Env: []corev1.EnvVar{{Name: "THEME_SLUG", Value: theme.Name}, {Name: "THEME_JAR_NAME", Value: jarName}, {Name: "THEME_PROJECT_FILE", Value: "/input/project.json.gz"}, {Name: "THEME_PROJECT_SHA256", Value: theme.Spec.ProjectSHA256}},
+		})
+		mode := int32(0644)
+		job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{Name: "theme-project", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{LocalObjectReference: corev1.LocalObjectReference{Name: themeProjectName(theme)}, DefaultMode: &mode, Items: []corev1.KeyToPath{{Key: "project.json.gz", Path: "project.json.gz"}}}}})
+		job.Spec.Template.Spec.Containers[0].VolumeMounts = append(job.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{Name: "theme-project", MountPath: "/input", ReadOnly: true})
+		return job
+	}
 	if theme.Spec.ArtifactSHA256 != "" {
 		job := r.themeJob(theme, name, theme.Spec.KeycloakPVC, theme.Spec.ImagePullSecrets, corev1.Container{
 			Name: "installer", Image: theme.Spec.BuildImage,
@@ -707,6 +734,7 @@ func (r *HankoThemeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&hankoshv1alpha1.HankoTheme{}).
 		Owns(&batchv1.Job{}).
+		Owns(&corev1.ConfigMap{}).
 		Complete(observeReconciler("HankoTheme", r))
 }
 

@@ -26,3 +26,10 @@ Run `make preflight`, `make test` and `make integration-test` for the supported
 Kubernetes versions. These checks qualify exported types and API behavior.
 The first public v1.0.0 had no earlier public predecessor; qualification of later
 cross-release migrations must additionally use the actual published artifacts.
+
+The 2026-10-30 Studio review updates only `HankoThemeSpec` (two optional source
+fields) and `HankoRealmSpec` (optional email-theme pointer). Existing field tags
+and all other captured exports are unchanged. Keyed Go initializers continue to
+work; consumers using unkeyed public struct literals must add the new fields or
+move to keyed literals. This is a reviewed development snapshot update, with no
+published cross-release baseline replaced.

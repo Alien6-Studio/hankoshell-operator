@@ -227,7 +227,7 @@ func TestThemeReconcileMissingPVCReportsErrorWithoutJob(t *testing.T) {
 func TestThemeReconcileCreatesBuildJob(t *testing.T) {
 	theme := testTheme()
 	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: theme.Spec.KeycloakPVC, Namespace: theme.Namespace}}
-	c := newThemeClient(t, theme, pvc)
+	c := newThemeClient(t, theme, pvc, testKeycloakDeployment(theme.Namespace))
 	r := &HankoThemeReconciler{
 		Client:         c,
 		Scheme:         newThemeScheme(t),
@@ -266,7 +266,7 @@ func TestThemeSpecChangeStopsStaleBuildBeforeStartingNext(t *testing.T) {
 		Namespace: theme.Namespace,
 		Labels:    map[string]string{"hanko.sh/theme": theme.Name},
 	}}
-	c := newThemeClient(t, theme, pvc, stale)
+	c := newThemeClient(t, theme, pvc, stale, testKeycloakDeployment(theme.Namespace))
 	r := &HankoThemeReconciler{
 		Client:         c,
 		Scheme:         newThemeScheme(t),

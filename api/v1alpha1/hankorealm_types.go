@@ -40,6 +40,11 @@ type HankoRealmSpec struct {
 	// +kubebuilder:validation:MaxLength=255
 	LoginTheme string `json:"loginTheme,omitempty"`
 
+	// EmailTheme opts into management of the realm email theme. Nil preserves
+	// the existing Keycloak setting; an explicit empty string restores its default.
+	// +kubebuilder:validation:MaxLength=255
+	EmailTheme *string `json:"emailTheme,omitempty"`
+
 	// Roles lists realm-scoped roles managed additively by the operator.
 	// Existing roles not declared here are preserved.
 	// +listType=map

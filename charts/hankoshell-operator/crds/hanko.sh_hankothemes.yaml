@@ -139,6 +139,19 @@ spec:
                   hex value or oklch()).
                 maxLength: 128
                 type: string
+              projectGzip:
+                description: |-
+                  ProjectGzip is a base64-encoded gzip snapshot of a declarative Studio project.
+                  It is mounted read-only for the approved builder, never executed as source code.
+                maxLength: 900000
+                pattern: ^[A-Za-z0-9+/]+={0,2}$
+                type: string
+              projectSHA256:
+                description: ProjectSHA256 identifies the uncompressed JSON bytes
+                  in ProjectGzip.
+                maxLength: 64
+                pattern: ^[a-f0-9]{64}$
+                type: string
               rebuildNonce:
                 description: |-
                   RebuildNonce requests a fresh build when its value changes, even if the

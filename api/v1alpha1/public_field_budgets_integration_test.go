@@ -59,6 +59,19 @@ func checkEveryPublicField(t *testing.T, ctx context.Context, admin client.Clien
 	if err := json.Unmarshal(data, &corpus); err != nil || corpus.SchemaVersion != 1 || len(corpus.Cases) != 971 {
 		t.Fatal("incomplete frozen public-field admission corpus", err)
 	}
+	// Preserve the published baseline; qualify the new Studio fields separately.
+	studioData, err := os.ReadFile(filepath.Join("..", "testdata", "public-field-budgets-studio.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var studio struct {
+		SchemaVersion int
+		Cases         []publicFieldBudget
+	}
+	if err := json.Unmarshal(studioData, &studio); err != nil || studio.SchemaVersion != 1 || len(studio.Cases) != 3 {
+		t.Fatal("incomplete Studio public-field admission corpus", err)
+	}
+	corpus.Cases = append(corpus.Cases, studio.Cases...)
 	expected := map[string]bool{}
 	for _, c := range corpus.Cases {
 		key := c.Kind + "/" + c.Path
