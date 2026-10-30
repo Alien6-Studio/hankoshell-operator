@@ -549,7 +549,8 @@ func (r *HankoThemeReconciler) buildJob(theme *hankoshv1alpha1.HankoTheme, name 
 			Name: "builder", Image: theme.Spec.BuildImage, Command: []string{"/bin/sh", "/build-theme.sh"},
 			Env: []corev1.EnvVar{{Name: "THEME_SLUG", Value: theme.Name}, {Name: "THEME_JAR_NAME", Value: jarName}, {Name: "THEME_PROJECT_FILE", Value: "/input/project.json.gz"}, {Name: "THEME_PROJECT_SHA256", Value: theme.Spec.ProjectSHA256}},
 		})
-		job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{Name: "theme-project", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{LocalObjectReference: corev1.LocalObjectReference{Name: themeProjectName(theme)}, Items: []corev1.KeyToPath{{Key: "project.json.gz", Path: "project.json.gz"}}}}})
+		mode := int32(0644)
+		job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{Name: "theme-project", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{LocalObjectReference: corev1.LocalObjectReference{Name: themeProjectName(theme)}, DefaultMode: &mode, Items: []corev1.KeyToPath{{Key: "project.json.gz", Path: "project.json.gz"}}}}})
 		job.Spec.Template.Spec.Containers[0].VolumeMounts = append(job.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{Name: "theme-project", MountPath: "/input", ReadOnly: true})
 		return job
 	}

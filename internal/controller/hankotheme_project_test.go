@@ -88,3 +88,29 @@ func TestThemeProjectSourceIsImmutableAndCollectedWithItsJob(t *testing.T) {
 		t.Fatal("foreign Job adopted immutable source")
 	}
 }
+
+func TestThemeProjectJobContractSurvivesAPIDefaulting(t *testing.T) {
+	theme := &api.HankoTheme{ObjectMeta: metav1.ObjectMeta{Name: "studio", Namespace: "auth", UID: "owner", Generation: 1}, Spec: projectSpec(t)}
+	expected := (&HankoThemeReconciler{}).buildJob(theme, "build")
+	stored := expected.DeepCopy()
+	// The API server persists this mode even when a submitted ConfigMap volume omits it.
+	mode := int32(0644)
+	stored.Spec.Template.Spec.Volumes[1].ConfigMap.DefaultMode = &mode
+	if !themeJobSpecMatches(stored, expected) {
+		t.Fatal("API-defaulted project Job no longer matches its build contract")
+	}
+	for name, tamper := range map[string]func(*batchv1.Job){
+		"mode":     func(job *batchv1.Job) { *job.Spec.Template.Spec.Volumes[1].ConfigMap.DefaultMode = 0777 },
+		"source":   func(job *batchv1.Job) { job.Spec.Template.Spec.Volumes[1].ConfigMap.Name = "foreign-source" },
+		"path":     func(job *batchv1.Job) { job.Spec.Template.Spec.Volumes[1].ConfigMap.Items[0].Path = "different.gz" },
+		"writable": func(job *batchv1.Job) { job.Spec.Template.Spec.Containers[0].VolumeMounts[1].ReadOnly = false },
+	} {
+		t.Run(name, func(t *testing.T) {
+			changed := stored.DeepCopy()
+			tamper(changed)
+			if themeJobSpecMatches(changed, expected) {
+				t.Fatal("modified project input accepted")
+			}
+		})
+	}
+}
