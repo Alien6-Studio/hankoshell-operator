@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Independent admission expectations for Studio fields added after the frozen public baseline. Do not derive bounds from generated CRDs.",
+  "cases": [
+    {
+      "kind": "HankoRealm",
+      "path": "spec.emailTheme",
+      "type": "string",
+      "bounds": {
+        "maxLength": 255
+      },
+      "object": {
+        "spec": {
+          "emailTheme": "studio-theme"
+        }
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "spec.projectGzip",
+      "type": "string",
+      "bounds": {
+        "maxLength": 900000,
+        "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+      },
+      "object": {
+        "spec": {
+          "buildImage": "ghcr.io/alien6-studio/theme-builder@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "keycloakPVC": "providers",
+          "projectGzip": "H4sIAAAAAAAA/xXKuw2AMAwA0V1c822zCqIwwUCA2Cg2NCi7E7rT072wSIpo4GBDPqSxjSLVavccpLmS7OStfXqogDFS2XCOQTUIF7pwJQX3wilrYNf9OZ3ij4LDmHP+ADzWNDtfAAAA",
+          "projectSHA256": "ce8a16b1b594ce549dc1bfe3a7b482a8a22563477e15b91d4219517fdd2a5aff"
+        }
+      }
+    },
+    {
+      "kind": "HankoTheme",
+      "path": "spec.projectSHA256",
+      "type": "string",
+      "bounds": {
+        "maxLength": 64,
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "object": {
+        "spec": {
+          "buildImage": "ghcr.io/alien6-studio/theme-builder@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "keycloakPVC": "providers",
+          "projectGzip": "H4sIAAAAAAAA/xXKuw2AMAwA0V1c822zCqIwwUCA2Cg2NCi7E7rT072wSIpo4GBDPqSxjSLVavccpLmS7OStfXqogDFS2XCOQTUIF7pwJQX3wilrYNf9OZ3ij4LDmHP+ADzWNDtfAAAA",
+          "projectSHA256": "ce8a16b1b594ce549dc1bfe3a7b482a8a22563477e15b91d4219517fdd2a5aff"
+        }
+      }
+    }
+  ]
+}
