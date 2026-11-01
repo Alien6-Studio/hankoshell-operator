@@ -285,6 +285,7 @@ type RealmSpec struct {
 	DisplayName string
 	FrontendURL string
 	LoginTheme  string
+	EmailTheme  *string
 	Enabled     bool
 
 	// Security profile fields (applied via UpdateRealm)
@@ -360,6 +361,10 @@ func createRealmPayload(spec RealmSpec) map[string]any {
 		"sslRequired":          stringDefault(spec.SSLRequired, "external"),
 		"revokeRefreshToken":   spec.RevokeRefreshToken,
 		"refreshTokenMaxReuse": spec.RefreshTokenMaxReuse,
+	}
+
+	if spec.EmailTheme != nil {
+		payload["emailTheme"] = *spec.EmailTheme
 	}
 	if spec.FrontendURL != "" {
 		payload["attributes"] = map[string]string{"frontendUrl": spec.FrontendURL}
@@ -449,6 +454,10 @@ func (c *Client) updateRealmPayload(ctx context.Context, realmID string, spec Re
 		"minimumQuickLoginWaitSeconds": 60,
 		// Offline session idle timeout (30 days) — set on update to survive realm recreation.
 		"offlineSessionIdleTimeout": 2592000,
+	}
+
+	if spec.EmailTheme != nil {
+		payload["emailTheme"] = *spec.EmailTheme
 	}
 	attributes, err := c.realmFrontendAttributes(ctx, realmID, spec.FrontendURL)
 	if err != nil {

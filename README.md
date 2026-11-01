@@ -54,7 +54,7 @@ Install the versioned OCI chart:
 
 ```sh
 helm upgrade --install hankoshell-operator \
-  oci://ghcr.io/alien6-studio/charts/hankoshell-operator --version 1.1.0 \
+  oci://ghcr.io/alien6-studio/charts/hankoshell-operator --version 1.2.0 \
   --namespace auth --create-namespace \
   --values operator-values.yaml --wait --timeout 5m
 ```
@@ -65,9 +65,13 @@ Helm installs CRDs on first installation but does not upgrade them: use the
 [API migration policy](docs/api-migration-policy.md) before applying reviewed CRD
 changes to an existing installation. Metrics are off by default; [enabling them requires mTLS](docs/operations-runbooks.md#secure-metrics).
 
-An [OperatorHub/OLM installation](docs/operatorhub.md) is being prepared for 1.1.0.
+An [OperatorHub/OLM installation](docs/operatorhub.md) is being prepared for 1.2.0.
 Bounded software and agent delegation require the qualified Keycloak extension
 0.1.0-rc.2; follow the [coordinated provider rollout](docs/architecture/delegation-and-agent-identity.md#provider-rollout).
+
+Version **1.2.0** adds [Theme Studio project builds and realm email
+themes](docs/theme-studio-projects.md), plus support for extension 0.1.0.
+Install the matching controller, chart and CRDs when upgrading.
 
 ## 1. Connect an OIDC client
 
@@ -179,7 +183,7 @@ for endurance, memory, request rates and fault recovery, with the tested revisio
 and links to the underlying evidence.
 
 All 17 resources use one experimental API: `hanko.sh/v1alpha1`. The API remains
-in **initial development**; the operator's `1.1.0` version does not graduate it.
+in **initial development**; the operator's `1.2.0` version does not graduate it.
 
 [Endurance](https://github.com/Alien6-Studio/hankoshell-operator/issues/95) and
 [HA/recovery](https://github.com/Alien6-Studio/hankoshell-operator/issues/96) are complete;

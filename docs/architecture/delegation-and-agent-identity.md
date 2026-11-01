@@ -66,7 +66,7 @@ SNAPSHOT builds share a version identifier across different implementations,
 including builds preceding the signed-subject correction, so they are refused.
 The software-v1 grant format remains unchanged; task authorization stays explicit.
 
-Source after 1.1.0 also accepts the qualified extension **0.1.0**, alongside
+Operator 1.2.0 also accepts the qualified extension **0.1.0**, alongside
 rc.2, with the same initial-development contract marker and every existing
 capability guard. Other versions, including 0.1.1, are refused until reviewed.
 The published operator 1.1.0 remains pinned to rc.2; use a consumer build that
@@ -77,7 +77,7 @@ Choose the candidate JAR matching the exact Keycloak SDK and verify its checksum
 and provenance using the [extension installation guide](https://github.com/Alien6-Studio/keycloak-bounded-delegation/blob/v0.1.0-rc.2/docs/installation.md).
 Use a coordinated maintenance window: pause operator reconciliation, preserve
 the native database, identities and journals, and replace/rebuild the provider on
-the Keycloak nodes. Then install operator 1.1.0 and resume reconciliation after
+the Keycloak nodes. Then install the selected compatible operator and resume reconciliation after
 the new native capability and current resource status have been observed.
 
 No custom resource recreation or grant-format conversion is needed. Keep the

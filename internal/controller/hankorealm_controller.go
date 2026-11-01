@@ -776,17 +776,28 @@ func hasOperationalSecurityControls(profile *hankoshv1alpha1.RealmSecurityProfil
 }
 
 func (r *HankoRealmReconciler) reconcileThemeReadiness(ctx context.Context, realm *hankoshv1alpha1.HankoRealm) (bool, time.Duration, error) {
-	if realm.Spec.LoginTheme == "" {
+	ready, delay, err := r.reconcileNamedThemeReadiness(ctx, realm, realm.Spec.LoginTheme)
+	if err != nil || !ready {
+		return ready, delay, err
+	}
+	if realm.Spec.EmailTheme != nil && *realm.Spec.EmailTheme != "" && *realm.Spec.EmailTheme != realm.Spec.LoginTheme {
+		return r.reconcileNamedThemeReadiness(ctx, realm, *realm.Spec.EmailTheme)
+	}
+	return ready, delay, err
+}
+
+func (r *HankoRealmReconciler) reconcileNamedThemeReadiness(ctx context.Context, realm *hankoshv1alpha1.HankoRealm, themeName string) (bool, time.Duration, error) {
+	if themeName == "" {
 		setCondition(&realm.Status.Conditions, "ThemeReady", metav1.ConditionTrue, "KeycloakDefault",
 			"no realm login theme requested; the Keycloak default applies")
 		return true, 0, nil
 	}
 
 	var theme hankoshv1alpha1.HankoTheme
-	err := r.Get(ctx, types.NamespacedName{Name: realm.Spec.LoginTheme, Namespace: realm.Namespace}, &theme)
+	err := r.Get(ctx, types.NamespacedName{Name: themeName, Namespace: realm.Namespace}, &theme)
 	if apierrors.IsNotFound(err) {
 		setCondition(&realm.Status.Conditions, "ThemeReady", metav1.ConditionUnknown, "ExternalTheme",
-			fmt.Sprintf("no HankoTheme %q exists; treating it as an externally installed Keycloak theme", realm.Spec.LoginTheme))
+			fmt.Sprintf("no HankoTheme %q exists; treating it as an externally installed Keycloak theme", themeName))
 		return true, 0, nil
 	}
 	if err != nil {
@@ -846,7 +857,7 @@ func (r *HankoRealmReconciler) realmRequestsForTheme(ctx context.Context, obj cl
 		return nil
 	}
 	return r.realmRequests(ctx, theme.Namespace, func(realm *hankoshv1alpha1.HankoRealm) bool {
-		return realm.Spec.LoginTheme == theme.Name
+		return realm.Spec.LoginTheme == theme.Name || realm.Spec.EmailTheme != nil && *realm.Spec.EmailTheme == theme.Name
 	})
 }
 
@@ -875,6 +886,7 @@ func realmSpecWithSecurity(realm *hankoshv1alpha1.HankoRealm, profile *hankoshv1
 		DisplayName: realm.Spec.DisplayName,
 		FrontendURL: realm.Spec.FrontendURL,
 		LoginTheme:  realm.Spec.LoginTheme,
+		EmailTheme:  realm.Spec.EmailTheme,
 		Enabled:     true,
 	}
 	if profile != nil {

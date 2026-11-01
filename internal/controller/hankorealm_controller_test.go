@@ -224,3 +224,21 @@ func TestRealmSecretRotationSurfacesIAMProfileResolutionFailure(t *testing.T) {
 		t.Fatal("missing IAM profile was ignored")
 	}
 }
+
+func TestRealmEmailThemeReadinessAndDeletionProtection(t *testing.T) {
+	theme := testTheme()
+	theme.Status.Phase = "Building"
+	name := theme.Name
+	realm := &hankoshv1alpha1.HankoRealm{ObjectMeta: metav1.ObjectMeta{Name: "mail", Namespace: theme.Namespace}, Spec: hankoshv1alpha1.HankoRealmSpec{EmailTheme: &name}}
+	client := newThemeClient(t, theme, realm)
+	reconciler := &HankoRealmReconciler{Client: client}
+	ready, _, err := reconciler.reconcileThemeReadiness(context.Background(), realm)
+	if err != nil || ready {
+		t.Fatalf("email theme must wait for installation: ready=%v error=%v", ready, err)
+	}
+	themes := &HankoThemeReconciler{Client: client}
+	users, err := themes.themeUsers(context.Background(), theme)
+	if err != nil || len(users) != 1 {
+		t.Fatalf("email theme must remain protected while assigned: users=%v error=%v", users, err)
+	}
+}

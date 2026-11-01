@@ -691,3 +691,39 @@ func TestUpdateRealmOptionalMFAReconcilesOTP(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateRealmEmailThemeIsOptionalAndCanBeCleared(t *testing.T) {
+	for _, name := range []string{"unmanaged", "studio-mail", ""} {
+		t.Run(name, func(t *testing.T) {
+			var payload map[string]any
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/realms/master/protocol/openid-connect/token" {
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write([]byte(`{"access_token":"test-token","expires_in":60}`))
+					return
+				}
+				if r.Method == http.MethodPut && r.URL.Path == "/admin/realms/alien6" {
+					if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+						t.Fatal(err)
+					}
+					w.WriteHeader(http.StatusNoContent)
+					return
+				}
+				http.NotFound(w, r)
+			}))
+			defer server.Close()
+			spec := keycloak.RealmSpec{}
+			if name != "unmanaged" {
+				spec.EmailTheme = &name
+			}
+			client := keycloak.New(server.URL, "client", "secret", keycloak.WithInsecureHTTP())
+			if err := client.UpdateRealm(context.Background(), "alien6", spec); err != nil {
+				t.Fatal(err)
+			}
+			actual, exists := payload["emailTheme"]
+			if name == "unmanaged" && exists || name != "unmanaged" && (!exists || actual != name) {
+				t.Fatalf("emailTheme = %v, present = %v", actual, exists)
+			}
+		})
+	}
+}

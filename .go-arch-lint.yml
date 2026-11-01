@@ -10,6 +10,10 @@ allow:
 excludeFiles:
   - ".+_test\\.go"
 
+# Local qualification checkouts and downloaded tool sources are not shipped modules.
+exclude:
+  - ".tools"
+
 components:
   cmd:
     in: "/cmd/operator"

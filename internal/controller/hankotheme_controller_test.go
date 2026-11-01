@@ -47,7 +47,10 @@ func testKeycloakDeployment(namespace string) *appsv1.Deployment {
 	replicas := int32(1)
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: "keycloak", Namespace: namespace, Generation: 1},
-		Spec:       appsv1.DeploymentSpec{Replicas: &replicas},
+		Spec: appsv1.DeploymentSpec{Replicas: &replicas, Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{Name: "keycloak", Args: []string{"start"}, VolumeMounts: []corev1.VolumeMount{{Name: "providers", MountPath: keycloakProvidersPath}}}},
+			Volumes:    []corev1.Volume{{Name: "providers", VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "keycloak-providers"}}}},
+		}}},
 	}
 }
 
@@ -227,7 +230,7 @@ func TestThemeReconcileMissingPVCReportsErrorWithoutJob(t *testing.T) {
 func TestThemeReconcileCreatesBuildJob(t *testing.T) {
 	theme := testTheme()
 	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: theme.Spec.KeycloakPVC, Namespace: theme.Namespace}}
-	c := newThemeClient(t, theme, pvc)
+	c := newThemeClient(t, theme, pvc, testKeycloakDeployment(theme.Namespace))
 	r := &HankoThemeReconciler{
 		Client:         c,
 		Scheme:         newThemeScheme(t),
@@ -266,7 +269,7 @@ func TestThemeSpecChangeStopsStaleBuildBeforeStartingNext(t *testing.T) {
 		Namespace: theme.Namespace,
 		Labels:    map[string]string{"hanko.sh/theme": theme.Name},
 	}}
-	c := newThemeClient(t, theme, pvc, stale)
+	c := newThemeClient(t, theme, pvc, stale, testKeycloakDeployment(theme.Namespace))
 	r := &HankoThemeReconciler{
 		Client:         c,
 		Scheme:         newThemeScheme(t),
@@ -470,7 +473,9 @@ func TestThemePVCChangePrunesArtifactFromPreviouslyInstalledClaim(t *testing.T) 
 	oldPVC := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: theme.Status.InstalledPVC, Namespace: theme.Namespace}}
 	buildJob := ownedThemeBuildJob(t, theme, buildJobName)
 	buildJob.Status = completedJobStatus()
-	c := newThemeClient(t, theme, newPVC, oldPVC, buildJob, testKeycloakDeployment(theme.Namespace))
+	deployment := testKeycloakDeployment(theme.Namespace)
+	deployment.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName = theme.Spec.KeycloakPVC
+	c := newThemeClient(t, theme, newPVC, oldPVC, buildJob, deployment)
 	r := &HankoThemeReconciler{
 		Client: c, Scheme: newThemeScheme(t), KeycloakDeploymentName: "keycloak",
 		ImageValidator: approvedFixtureValidator(t),
