@@ -18,7 +18,7 @@ the same source and image-approval requirements.
 Use the published OCI chart at the selected exact version, or build the reviewed
 source for a private installation. Keep images pinned to their independently
 approved digest. A source candidate is not evidence of a published or approved
-image. The source version remains in development until its delivery gates pass.
+image. Publication requires the matching source and final-image delivery gates.
 
 ## Project input and readiness
 
