@@ -86,8 +86,13 @@ func (r *HankoThemeReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		if verifyErr := r.ImageValidator.VerifyImage(ctx, imagevalidator.ThemeBuilder, theme.Spec.BuildImage); verifyErr != nil {
 			return r.failTheme(ctx, &theme, "UntrustedImageRef", verifyErr)
 		}
-		if err := r.bindThemeProject(ctx, &theme, &job); err != nil {
-			return r.failTheme(ctx, &theme, "ProjectSourceFailed", err)
+		// After installation, TTL/GC may remove the source before this cache
+		// observes Job deletion. The installed generation no longer needs input;
+		// continue checking the Job contract and image approval above.
+		if !isJobComplete(&job) || !themeBuildInstalled(&theme, build) {
+			if err := r.bindThemeProject(ctx, &theme, &job); err != nil {
+				return r.failTheme(ctx, &theme, "ProjectSourceFailed", err)
+			}
 		}
 		return r.reconcileExistingThemeBuild(ctx, &theme, &job, build)
 	}
@@ -208,6 +213,9 @@ func (r *HankoThemeReconciler) reconcileCompletedThemeBuild(ctx context.Context,
 	if themeBuildInstalled(theme, build) {
 		return ctrl.Result{RequeueAfter: requeueInterval}, nil
 	}
+	if err := r.validateThemeRuntime(ctx, theme.Namespace, theme.Spec.KeycloakPVC); err != nil {
+		return r.failTheme(ctx, theme, "UnsupportedThemeRuntime", err)
+	}
 	if result, handled, err := r.prunePreviousThemeArtifact(ctx, theme, build); err != nil || handled {
 		return result, err
 	}
@@ -308,7 +316,7 @@ func (r *HankoThemeReconciler) submitThemeBuild(ctx context.Context, theme *hank
 	if err := r.ImageValidator.VerifyImage(ctx, imagevalidator.ThemeBuilder, theme.Spec.BuildImage); err != nil {
 		return r.failTheme(ctx, theme, "UntrustedImageRef", err)
 	}
-	if err := r.validateThemeRuntime(ctx, theme.Namespace); err != nil {
+	if err := r.validateThemeRuntime(ctx, theme.Namespace, theme.Spec.KeycloakPVC); err != nil {
 		return r.failTheme(ctx, theme, "UnsupportedThemeRuntime", err)
 	}
 	if err := r.ensureThemeProject(ctx, theme); err != nil {

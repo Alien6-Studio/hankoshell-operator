@@ -1,8 +1,23 @@
 # Changelog
 
-## 1.1.0
+## 1.2.0
 
 <!-- release-notes:start -->
+### Release overview
+
+hankoShell Operator 1.2.0 brings Theme Studio designs to Keycloak, including
+branded authentication emails.
+
+### Themes and branding
+
+- Deploy sign-in and email themes created with Theme Studio.
+- Choose email branding independently from sign-in branding.
+- Follow theme installation progress and see when the new design is ready, with
+  clear errors when Keycloak cannot install it.
+<!-- release-notes:end -->
+
+## 1.1.0
+
 ### Release overview
 
 hankoShell Operator 1.1.0 prepares an OLM distribution for OperatorHub and an
@@ -44,8 +59,6 @@ existing profiles; this release keeps experimental lifecycle operations opt-in.
   the operator deployment; connected and experimental profiles still use Helm.
 - Add reproducible bundle generation and official Operator Framework validation.
   OperatorHub publication remains pending upstream review.
-<!-- release-notes:end -->
-
 ## 1.0.1
 
 ### Release overview

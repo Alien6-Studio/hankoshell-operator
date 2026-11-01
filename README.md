@@ -69,6 +69,13 @@ An [OperatorHub/OLM installation](docs/operatorhub.md) is being prepared for 1.1
 Bounded software and agent delegation require the qualified Keycloak extension
 0.1.0-rc.2; follow the [coordinated provider rollout](docs/architecture/delegation-and-agent-identity.md#provider-rollout).
 
+This source branch targets **1.2.0**, adding [Theme Studio project builds and
+realm email themes](docs/theme-studio-projects.md), plus support for extension
+0.1.0. Its controller, chart and build version advance together. The installation
+example above selects the published 1.1.0 release; use the local chart when
+qualifying 1.2.0 before publication. Source checks do not replace final-image
+qualification or authorize deployment.
+
 ## 1. Connect an OIDC client
 
 Your SPA needs user login through Keycloak. These examples use the operator's
