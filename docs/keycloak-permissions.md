@@ -550,6 +550,12 @@ using the dedicated client's credentials.
 | client-roles | GET,PUT,DELETE | `/admin/realms/{realm}/clients/{client}/roles/{role}` | view-clients / manage-clients |
 | client-roles | GET | `/admin/realms/{realm}/clients/{client}/roles/{role}/composites` | view-clients |
 | client-scopes | GET,POST,DELETE | `/admin/realms/{realm}/clients/{client}/scope-mappings/realm` | view-clients / manage-clients and permission to map the realm role |
+| oauth-client-scopes | GET | `/admin/realms/{realm}/client-scopes` | view-clients or manage-clients |
+| oauth-client-scopes | GET | `/admin/realms/{realm}/client-scopes/{scope}` | view-clients or manage-clients |
+| oauth-client-scopes | GET | `/admin/realms/{realm}/clients/{client}/default-client-scopes` | view-clients or manage-clients |
+| oauth-client-scopes | GET | `/admin/realms/{realm}/clients/{client}/optional-client-scopes` | view-clients or manage-clients |
+| oauth-client-scopes | PUT,DELETE | `/admin/realms/{realm}/clients/{client}/default-client-scopes/{scope}` | manage-clients |
+| oauth-client-scopes | DELETE | `/admin/realms/{realm}/clients/{client}/optional-client-scopes/{scope}` | manage-clients |
 | protocol-mappers | GET,POST | `/admin/realms/{realm}/clients/{client}/protocol-mappers/models` | view-clients / manage-clients |
 | protocol-mappers | PUT,DELETE | `/admin/realms/{realm}/clients/{client}/protocol-mappers/models/{mapper}` | manage-clients |
 | identity-providers | GET,POST | `/admin/realms/{realm}/identity-provider/instances` | view-identity-providers / manage-identity-providers |

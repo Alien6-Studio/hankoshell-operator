@@ -67,6 +67,10 @@ All 17 `hanko.sh/v1alpha1` resources are experimental; no public API compatibili
   lifetime and version boundaries in the [permission inventory](keycloak-permissions.md)
   and [installed qualification](secure-deployment.md). They do not imply arbitrary
   provider versions or fleet-wide support.
+- Service-account OAuth scopes reconcile existing native scope attachments with
+  explicit omitted/empty semantics, described in
+  [scope management and rollback](service-account-oauth-scopes.md). Shared realm
+  scope definitions remain administrator prerequisites.
 - Instance management, issuer publication, import, theme builds, configuration
   snapshots and operations retain their individual
   [operational limitations](secure-deployment.md#privileged-lifecycle-behavior-and-limits).

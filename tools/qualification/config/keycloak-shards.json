@@ -29,6 +29,7 @@
     "TestRealKeycloakOrganizationalAuthorizationCharacterization",
     "TestRealKeycloakPermissionProfiles",
     "TestRealKeycloakServiceAccountAuthenticationRoundTrip",
+    "TestRealKeycloakServiceAccountOAuthScopes",
     "TestRealKeycloakStandardTokenExchange",
     "TestRealKeycloakWorkloadTrustController",
     "TestRealKeycloakWorkloadTrustRequiredInventoryPermissions"

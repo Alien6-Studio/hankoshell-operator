@@ -495,6 +495,9 @@ func (r *HankoServiceAccountReconciler) reconcileServiceAccountFallback(ctx cont
 		}
 		return r.reconcileServiceAccountDeletion(ctx, sa, s.source.client, false)
 	}
+	if sa.Spec.Scopes != nil {
+		return r.authenticationTransitionResult(ctx, sa, nil, nil, "OAuthScopesAuthenticationUnsupported")
+	}
 	if sa.Spec.Authentication.Transition == nil {
 		return r.authenticationTransitionResult(ctx, sa, nil, nil, "AuthenticationApprovalRequired")
 	}

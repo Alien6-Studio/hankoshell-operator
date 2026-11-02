@@ -22,10 +22,11 @@ import (
 )
 
 type configuration struct {
-	Issuer    string              `json:"issuer"`
-	Audience  string              `json:"audience"`
-	Resources map[string]string   `json:"resources"`
-	Agentic   *agentConfiguration `json:"agentic,omitempty"`
+	Issuer      string              `json:"issuer"`
+	Audience    string              `json:"audience"`
+	Resources   map[string]string   `json:"resources"`
+	Agentic     *agentConfiguration `json:"agentic,omitempty"`
+	OAuthScopes bool                `json:"oauth_scopes,omitempty"`
 }
 
 type verifier struct {
@@ -102,6 +103,14 @@ func (v verifier) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	status = http.StatusForbidden
+	if v.config.OAuthScopes {
+		required := v.config.Resources[r.URL.Path]
+		granted, _ := claims["scope"].(string)
+		if r.Method == http.MethodGet && required != "" && slices.Contains(strings.Fields(granted), required) {
+			status = http.StatusOK
+		}
+		return
+	}
 	resource := v.config.Resources[r.URL.Path]
 	scope := r.URL.Query().Get("scope")
 	if resource == "" || scope != "read" && scope != "write" || r.Method != http.MethodGet {

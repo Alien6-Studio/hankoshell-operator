@@ -328,6 +328,9 @@ func (r *HankoServiceAccountReconciler) reconcileWorkloadServiceAccount(ctx cont
 	if workloadbinding.Validate(sa) == nil && r.confirmedInvalidWorkload(ctx, sa) {
 		return r.recordInvalidWorkload(ctx, sa)
 	}
+	if sa.Spec.Scopes != nil && sa.DeletionTimestamp.IsZero() {
+		return r.workloadAccountStatus(ctx, sa, nil, nil, "OAuthScopesAuthenticationUnsupported")
+	}
 	if !sa.DeletionTimestamp.IsZero() || sa.Spec.RuntimeMetadata == nil {
 		if err := r.workloadDelivery(nil).Cleanup(ctx, sa); err != nil {
 			return r.workloadAccountStatus(ctx, sa, nil, nil, workloadbinding.Reason(err))

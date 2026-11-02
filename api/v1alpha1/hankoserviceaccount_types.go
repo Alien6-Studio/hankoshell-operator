@@ -61,7 +61,8 @@ type HankoServiceAccountSpec struct {
 	// +kubebuilder:validation:items:MinLength=1
 	// +kubebuilder:validation:items:MaxLength=255
 	// +kubebuilder:validation:items:Pattern=`^[^\x00-\x1F\x7F]+$`
-	Scopes []string `json:"scopes,omitempty"`
+	// +optional
+	Scopes []string `json:"scopes,omitzero"`
 
 	// SecretRotationPolicy controls automatic secret rotation.
 	SecretRotationPolicy *SecretRotationPolicy `json:"secretRotationPolicy,omitempty"`
