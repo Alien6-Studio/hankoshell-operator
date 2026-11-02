@@ -59,15 +59,16 @@ func newOAuthScopeFixture(t *testing.T) (*oauthScopeFixture, *Client) {
 			f.writes++
 			id := path[strings.LastIndex(path, "/")+1:]
 			if !f.dropWrite {
-				if r.Method == http.MethodDelete {
+				switch r.Method {
+				case http.MethodDelete:
 					*set = slices.DeleteFunc(*set, func(s oauthClientScope) bool { return s.ID == id })
-				} else if r.Method == http.MethodPut {
+				case http.MethodPut:
 					for _, scope := range f.available {
 						if scope.ID == id {
 							*set = append(*set, scope)
 						}
 					}
-				} else {
+				default:
 					t.Errorf("unexpected method %s", r.Method)
 				}
 			}

@@ -56,42 +56,17 @@ func (c *Client) ReconcileServiceAccountScopes(ctx context.Context, realm, clien
 	if err != nil {
 		return err
 	}
-	// Revoke before granting. An undeclared optional scope would still allow an
-	// OAuth caller to request authority outside the declared default set.
-	for _, group := range []struct {
-		kind   string
-		scopes []oauthClientScope
-	}{{"optional", optional}, {"default", defaults}} {
-		for _, scope := range group.scopes {
-			if group.kind == "default" && slices.ContainsFunc(desired, func(want oauthClientScope) bool { return want.ID == scope.ID }) {
-				continue
-			}
-			if _, err := c.ownedScopeClient(ctx, realm, clientID, uid, app.ID, verify); err != nil {
-				return err
-			}
-			if err := c.deleteMapper(ctx, base+"/"+group.kind+"-client-scopes/"+url.PathEscape(scope.ID)); err != nil {
-				return fmt.Errorf("detach OAuth client scope: %w", err)
-			}
-		}
+	verifyOwned := func(ctx context.Context) error {
+		_, err := c.ownedScopeClient(ctx, realm, clientID, uid, app.ID, verify)
+		return err
 	}
-	for _, scope := range desired {
-		if slices.ContainsFunc(defaults, func(have oauthClientScope) bool { return have.ID == scope.ID }) {
-			continue
-		}
-		// Pin the definition's UUID and name again at the mutation boundary. A
-		// same-name replacement never inherits authority from an earlier lookup.
-		var current oauthClientScope
-		if err := c.get(ctx, adminRealmsPath+url.PathEscape(realm)+"/client-scopes/"+url.PathEscape(scope.ID), &current); err != nil || current != scope {
-			return ErrApplicationPrecondition
-		}
-		if _, err := c.ownedScopeClient(ctx, realm, clientID, uid, app.ID, verify); err != nil {
-			return err
-		}
-		if err := c.putJSON(ctx, base+"/default-client-scopes/"+url.PathEscape(scope.ID), nil); err != nil {
-			return fmt.Errorf("attach OAuth client scope: %w", err)
-		}
+	if err := c.detachUndeclaredOAuthScopes(ctx, base, defaults, optional, desired, verifyOwned); err != nil {
+		return err
 	}
-	if _, err := c.ownedScopeClient(ctx, realm, clientID, uid, app.ID, verify); err != nil {
+	if err := c.attachDesiredOAuthScopes(ctx, realm, base, defaults, desired, verifyOwned); err != nil {
+		return err
+	}
+	if err := verifyOwned(ctx); err != nil {
 		return err
 	}
 	defaults, err = c.readOAuthScopeAttachments(ctx, base, "default")
@@ -106,6 +81,49 @@ func (c *Client) ReconcileServiceAccountScopes(ctx context.Context, realm, clien
 		return fmt.Errorf("OAuth client scope attachments were not confirmed")
 	}
 	return verify(ctx)
+}
+
+func (c *Client) detachUndeclaredOAuthScopes(ctx context.Context, base string, defaults, optional, desired []oauthClientScope, verifyOwned func(context.Context) error) error {
+	// Revoke before granting. An undeclared optional scope would still allow an
+	// OAuth caller to request authority outside the declared default set.
+	for _, group := range []struct {
+		kind   string
+		scopes []oauthClientScope
+	}{{"optional", optional}, {"default", defaults}} {
+		for _, scope := range group.scopes {
+			if group.kind == "default" && slices.ContainsFunc(desired, func(want oauthClientScope) bool { return want.ID == scope.ID }) {
+				continue
+			}
+			if err := verifyOwned(ctx); err != nil {
+				return err
+			}
+			if err := c.deleteMapper(ctx, base+"/"+group.kind+"-client-scopes/"+url.PathEscape(scope.ID)); err != nil {
+				return fmt.Errorf("detach OAuth client scope: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Client) attachDesiredOAuthScopes(ctx context.Context, realm, base string, defaults, desired []oauthClientScope, verifyOwned func(context.Context) error) error {
+	for _, scope := range desired {
+		if slices.ContainsFunc(defaults, func(have oauthClientScope) bool { return have.ID == scope.ID }) {
+			continue
+		}
+		// Pin the definition's UUID and name again at the mutation boundary. A
+		// same-name replacement never inherits authority from an earlier lookup.
+		var current oauthClientScope
+		if err := c.get(ctx, adminRealmsPath+url.PathEscape(realm)+"/client-scopes/"+url.PathEscape(scope.ID), &current); err != nil || current != scope {
+			return ErrApplicationPrecondition
+		}
+		if err := verifyOwned(ctx); err != nil {
+			return err
+		}
+		if err := c.putJSON(ctx, base+"/default-client-scopes/"+url.PathEscape(scope.ID), nil); err != nil {
+			return fmt.Errorf("attach OAuth client scope: %w", err)
+		}
+	}
+	return nil
 }
 
 func validateOAuthScopeNames(names []string) error {
