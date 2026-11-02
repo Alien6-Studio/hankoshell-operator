@@ -2,8 +2,8 @@ apiVersion: v2
 name: hankoshell-operator
 description: Manage Keycloak realms, applications and access declaratively from Kubernetes
 type: application
-version: "1.2.0"
-appVersion: "1.2.0"
+version: "1.2.1"
+appVersion: "1.2.1"
 kubeVersion: ">=1.35.0-0 <1.38.0-0"
 keywords:
   - oidc
@@ -24,15 +24,13 @@ annotations:
   artifacthub.io/operator: "true"
   artifacthub.io/prerelease: "false"
   artifacthub.io/changes: |
-    - kind: added
-      description: Deploy sign-in and authentication email themes created with Theme Studio.
-    - kind: added
-      description: Choose email branding independently from sign-in branding.
     - kind: fixed
-      description: Report installation errors when Keycloak cannot load the selected theme.
+      description: Apply declared OAuth access rights to service accounts using client secrets.
+    - kind: fixed
+      description: Remove undeclared access rights and confirm grants before delivering credentials.
   artifacthub.io/images: |
     - name: hankoshell-operator
-      image: ghcr.io/alien6-studio/hankoshell-operator:1.2.0
+      image: ghcr.io/alien6-studio/hankoshell-operator:1.2.1
       platforms:
         - linux/amd64
         - linux/arm64

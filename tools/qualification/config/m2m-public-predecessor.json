@@ -1,0 +1,9 @@
+{
+  "version": "1.2.0",
+  "revision": "0821eee914280c13e818ef58b59e8667aa470664",
+  "image": "ghcr.io/alien6-studio/hankoshell-operator@sha256:6ea432821f68c2a202992289aa111ab1908149c44370006a6708f7764e2b0003",
+  "chart_sha256": "a882570a211a8a22d60c1578ea2fda42e998141ccae4370088b2208c68f5b581",
+  "release": "https://github.com/Alien6-Studio/hankoshell-operator/releases/tag/v1.2.0",
+  "chart": "https://github.com/Alien6-Studio/hankoshell-operator/releases/download/v1.2.0/hankoshell-operator-1.2.0.tgz",
+  "provenance": "Public release signature, signed checksums, source/image binding and timestamped Attest receipt verified when pinning this predecessor."
+}

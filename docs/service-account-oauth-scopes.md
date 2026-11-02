@@ -118,3 +118,15 @@ scope, grant removal, read-only administrator denial and shared-scope preservati
 Run both pinned Keycloak versions before integration. The Hanko facade's
 `hanko_token_use` claim remains a separate facade contract; raw Keycloak issuance
 does not establish it. Source tests do not attest deployment or live readiness.
+
+The installed system job also upgrades the pinned public 1.2.0 chart and image,
+then exercises the Kubernetes declaration, controller, delivered Secret, native
+client-credentials token and a separate HTTPS API. The API verifies RS256
+signatures, issuer, audience, expiry and the exact required scope. Both supported
+Keycloak versions must allow declared access and refuse undeclared or removed
+rights. The scenario also checks omitted and empty declarations, credential and
+client UUID preservation on upgrade and restart, shared-scope preservation and
+the validity of already-issued tokens until expiry. Only public decisions and
+binary hashes enter `m2m-scopes.json`; credentials and tokens remain private to
+the disposable fixture. The predecessor is referenced by public URL and immutable
+digests in `tools/qualification/config/m2m-public-predecessor.json`.

@@ -219,7 +219,11 @@ func sameOAuthScopes(left, right []oauthClientScope) bool {
 		return false
 	}
 	for _, scope := range left {
-		if !slices.Contains(right, scope) {
+		// Keycloak attachment listings omit protocol. Definitions are resolved
+		// and protocol-checked separately; confirm their exact UUID and name.
+		if !slices.ContainsFunc(right, func(want oauthClientScope) bool {
+			return scope.ID == want.ID && scope.Name == want.Name && (scope.Protocol == "" || scope.Protocol == want.Protocol)
+		}) {
 			return false
 		}
 	}

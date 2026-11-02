@@ -53,7 +53,12 @@ func newOAuthScopeFixture(t *testing.T) (*oauthScopeFixture, *Client) {
 				set = &f.optional
 			}
 			if r.Method == http.MethodGet {
-				_ = json.NewEncoder(w).Encode(*set)
+				// Native attachment listings contain UUID and name but no protocol.
+				attachments := slices.Clone(*set)
+				for i := range attachments {
+					attachments[i].Protocol = ""
+				}
+				_ = json.NewEncoder(w).Encode(attachments)
 				return
 			}
 			f.writes++

@@ -1,16 +1,26 @@
 # Changelog
 
-## Unreleased
+## 1.2.1
 
-- Reconcile declared OAuth client scopes for Secret-mode service accounts,
-  confirming native grants before publishing new or recovered credentials.
-  Preserve explicit empty scope lists across typed updates. Existing nonempty
-  declarations now take effect; review the complete default-scope set and
-  [migration limits](docs/service-account-oauth-scopes.md) before upgrading.
+<!-- release-notes:start -->
+### Release overview
+
+hankoShell Operator 1.2.1 makes declared OAuth access rights effective for
+service accounts using client secrets.
+
+### Service account access
+
+- Give service accounts the OAuth access rights declared in Kubernetes.
+- Remove undeclared rights and prevent new tokens from requesting them.
+- Confirm access rights before delivering new or recovered credentials.
+
+Existing scope declarations now take effect. Review their intended access
+rights and the [upgrade guidance](docs/service-account-oauth-scopes.md) before
+upgrading. Tokens already issued keep their rights until they expire.
+<!-- release-notes:end -->
 
 ## 1.2.0
 
-<!-- release-notes:start -->
 ### Release overview
 
 hankoShell Operator 1.2.0 brings Theme Studio designs to Keycloak, including
@@ -22,7 +32,6 @@ branded authentication emails.
 - Choose email branding independently from sign-in branding.
 - Follow theme installation progress and see when the new design is ready, with
   clear errors when Keycloak cannot install it.
-<!-- release-notes:end -->
 
 ## 1.1.0
 
