@@ -167,9 +167,11 @@ def qualify(fixture, run, wait):
         update([])
         record("explicit_empty_list_survives_controller_updates_and_revokes_all_attachments", fixture.get("hankoserviceaccount", "scope-reader")["spec"].get("scopes") == [] and native_defaults() == [] and native_optional() == [])
         update(wanted)
+        checkpoint = fixture.get("hankoserviceaccount", "scope-reader")["status"].get("lastReconciled")
         fixture.kubectl("rollout", "restart", "deployment/system-operator", "-n", "auth")
         fixture.kubectl("rollout", "status", "deployment/system-operator", "-n", "auth", "--timeout=120s")
-        wait("scope declaration after restart", lambda: fixture.ready("hankoserviceaccount", "scope-reader"))
+        wait("fresh scope reconciliation after restart", lambda: fixture.ready("hankoserviceaccount", "scope-reader") and
+             fixture.get("hankoserviceaccount", "scope-reader")["status"].get("lastReconciled") not in (None, checkpoint))
         record("restart_preserves_client_and_credential", fixture.client("managed", "scope-reader")["id"] == client_uid and fixture.get("secret", "hanko-sa-scope-reader")["metadata"]["uid"] == secret_uid and fixture.get("secret", "hanko-sa-scope-reader")["data"]["client_secret"] == output["data"]["client_secret"])
         record("restored_declaration_allows_fresh_token", access(fixture, endpoint, exchange(fixture, credential)[1], "/read") == 200)
     fixture.kubectl("delete", "hankoserviceaccount", "scope-reader", "-n", "auth", "--wait=true", "--timeout=120s")

@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 import tempfile
+import time
 from urllib.request import urlopen
 
 from tools.qualification.scenarios import system_test as system, cross_version_installed_test as historical
@@ -44,6 +45,8 @@ def qualify(args, predecessor):
             fixture.apply_approved({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoRealm", "metadata": {"name": "managed", "namespace": "auth"},
                                     "spec": {"displayName": "M2M upgrade qualification"}})
             system.wait("public predecessor realm", lambda: fixture.ready("hankorealm", "managed"))
+            fixture.token = fixture.access_token({"client_id": "admin-cli", "grant_type": "password", "username": "fixture-admin", "password": fixture.password})
+            fixture.token_at = time.monotonic()
             for name in (scopes.READ, scopes.WRITE):
                 fixture.api("POST", "/admin/realms/managed/client-scopes", {"name": name, "protocol": "openid-connect", "attributes": {"include.in.token.scope": "true"}})
             for name in ("scope-reader", "scope-unmanaged"):
@@ -54,13 +57,15 @@ def qualify(args, predecessor):
                 fixture.apply_approved({"apiVersion": "hanko.sh/v1alpha1", "kind": "HankoServiceAccount", "metadata": {"name": name, "namespace": "auth"}, "spec": spec})
                 system.wait("public predecessor service account", lambda name=name: fixture.ready("hankoserviceaccount", name))
             before = {name: retained(fixture, name) for name in ("scope-reader", "scope-unmanaged")}
+            reconciled = {name: fixture.get("hankoserviceaccount", name).get("status", {}).get("lastReconciled") for name in before}
             if scopes.READ in {s["name"] for s in before["scope-reader"]["defaults"]}:
                 raise ValueError("Predecessor did not reproduce the missing scope behavior")
             values = json.loads(system.run([args.helm, "get", "values", "system", "-n", "auth", "--kubeconfig", fixture.config, "-o", "json"]))
             args.digest, fixture.chart_path = candidate, ROOT / "charts/hankoshell-operator"
             historical.transition(fixture, fixture.chart_path, candidate, [("auth", "system-operator", "system", values)])
             for name in before:
-                system.wait("upgraded service account", lambda name=name: fixture.ready("hankoserviceaccount", name))
+                system.wait("fresh upgraded service account reconciliation", lambda name=name: fixture.ready("hankoserviceaccount", name) and
+                            fixture.get("hankoserviceaccount", name).get("status", {}).get("lastReconciled") not in (None, reconciled[name]))
                 current = retained(fixture, name)
                 for field in ("client", "secret_uid", "credential"):
                     if current[field] != before[name][field]:
