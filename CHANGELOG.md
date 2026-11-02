@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Reconcile declared OAuth client scopes for Secret-mode service accounts,
+  confirming native grants before publishing new or recovered credentials.
+  Preserve explicit empty scope lists across typed updates. Existing nonempty
+  declarations now take effect; review the complete default-scope set and
+  [migration limits](docs/service-account-oauth-scopes.md) before upgrading.
+
 ## 1.2.0
 
 <!-- release-notes:start -->

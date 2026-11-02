@@ -18,7 +18,7 @@ compiled identities. It contains no credentials or captured production objects.
 | Resource-server defaults | CRD `mode=Manage`; resources, scopes and allow-only permissions retain their declared relationships. Unknown/unresolved capabilities fail before provider mutation. |
 | Semantic sets | Callback/logout/ACS destinations, role membership, URI/scope/resource/principal sets normalize ordering and duplicates where the domain defines a set. API map/set topology may reject duplicate entries independently. |
 | Ordered native values | Arbitrary native metadata value lists are not treated as unordered semantic sets. Native fields outside the selected boundary remain alpha. |
-| Nil and empty | Equivalent for ordinary semantic collections. Omitted realm-role scopes means unmanaged; explicitly empty means managed empty, and deliberately has a different intent identity. |
+| Nil and empty | Equivalent for ordinary semantic collections. Omitted realm-role scopes means unmanaged; explicitly empty means managed empty, and deliberately has a different intent identity. For Secret-mode service-account OAuth scopes, omission preserves native attachments and an explicit empty list revokes them. |
 | Whitespace | Identifiers and callback bytes are not globally trimmed. A whitespace change must not silently select another client or authority. Domain-specific normalization remains as frozen by its compiler. |
 | Local authority | Source UID/generation, reference/authority digests and ownership are separately checked execution preconditions. Application/role resolved owner UIDs also bind their plan identity. Authorization owned provider IDs are apply-time preconditions, not portable meaning. |
 

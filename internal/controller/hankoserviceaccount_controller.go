@@ -295,6 +295,10 @@ func (r *HankoServiceAccountReconciler) reconcileManagedServiceAccount(ctx conte
 		_ = r.Status().Patch(ctx, sa, patch)
 		return ctrl.Result{RequeueAfter: requeueOnError}, fmt.Errorf("validate M2M token claims for %q: %w", sa.Spec.ClientID, err)
 	}
+	if err := kc.ValidateServiceAccountScopes(ctx, sa.Spec.RealmRef, sa.Spec.Scopes); err != nil {
+		setCondition(&sa.Status.Conditions, "Synced", metav1.ConditionFalse, "OAuthScopesUnresolved", "declared OAuth client scopes must resolve before reconciliation")
+		return ctrl.Result{RequeueAfter: requeueOnError}, r.serviceAccountStatusError(ctx, sa, patch, "OAuthScopesUnresolved", err)
+	}
 	now := metav1.Now()
 	rotationPolicy, err := effectiveSecretRotationPolicy(ctx, r.Client, sa.Namespace, sa.Spec.RealmRef, sa.Spec.SecretRotationPolicy)
 	if err != nil {
@@ -352,6 +356,9 @@ func (r *HankoServiceAccountReconciler) ensureServiceAccountClient(ctx context.C
 			return r.serviceAccountStatusError(ctx, sa, patch, "UpdateFailed", fmt.Errorf("update M2M client attributes %q: %w", sa.Spec.ClientID, err))
 		}
 	}
+	if err := r.reconcileServiceAccountScopeAttachments(ctx, sa, kc, patch); err != nil {
+		return err
+	}
 	if err := r.ensureSASecret(ctx, sa, kc); err != nil {
 		return r.serviceAccountStatusError(ctx, sa, patch, "SecretDrift", err)
 	}
@@ -366,12 +373,26 @@ func (r *HankoServiceAccountReconciler) createServiceAccountClient(ctx context.C
 	if err != nil {
 		return r.serviceAccountStatusError(ctx, sa, patch, "CreateFailed", fmt.Errorf("create M2M client %q: %w", sa.Spec.ClientID, err))
 	}
+	// Do not expose a usable credential until the declared native grant set is
+	// confirmed. Recovery of an accepted create follows the same gate above.
+	if err := r.reconcileServiceAccountScopeAttachments(ctx, sa, kc, patch); err != nil {
+		return err
+	}
 	if err := r.upsertSASecret(ctx, sa, secret); err != nil {
 		return err
 	}
 	setServiceAccountSecretStatus(sa, now)
 	setServiceAccountNextRotation(sa, rotationPolicy)
 	log.FromContext(ctx).Info("M2M client created", "clientID", sa.Spec.ClientID)
+	return nil
+}
+
+func (r *HankoServiceAccountReconciler) reconcileServiceAccountScopeAttachments(ctx context.Context, sa *hankoshv1alpha1.HankoServiceAccount, kc *keycloak.Client, patch client.Patch) error {
+	verify := func(ctx context.Context) error { return r.validateServiceAccountExecution(ctx, sa, kc, true) }
+	if err := kc.ReconcileServiceAccountScopes(ctx, sa.Spec.RealmRef, sa.Spec.ClientID, string(sa.UID), sa.Spec.Scopes, verify); err != nil {
+		setCondition(&sa.Status.Conditions, "Synced", metav1.ConditionFalse, "OAuthScopesUnconfirmed", "OAuth client scope attachments require current read-back")
+		return r.serviceAccountStatusError(ctx, sa, patch, "OAuthScopesUnconfirmed", err)
+	}
 	return nil
 }
 
