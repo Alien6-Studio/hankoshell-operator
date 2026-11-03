@@ -38,6 +38,7 @@ versions-sync:
 all: check build
 check: fmt-check vet chart-check coverage
 preflight: fmt-check vet generated-check
+	python3 -m unittest tools.versions_test
 	python3 -m unittest tools.release.verifier_evidence_test
 	python3 -m unittest tools.release.oci_security_test
 	python3 -m unittest tools.qualification.fixtures.workload_fault_proxy_test
