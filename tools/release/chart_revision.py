@@ -25,7 +25,7 @@ from tools.release import oci_security
 ROOT = Path(__file__).resolve().parents[2]
 REPO = delivery.REPOSITORY
 BUNDLE = "hankoshell-chart-attest.tar.gz"
-WORKFLOW = "chart-release.yml"
+WORKFLOW = "chart-package.yml"
 
 
 def configuration():
@@ -308,58 +308,15 @@ def publish(args):
     base = args.root.parent / "operator-base"
     oci_security.verify(args.root.parent / "fresh-scan", config["operator_revision"], config["operator_version"],
                         config["image"].split("@")[1], base / "image.tar")
-    registry, github = delivery.Registry(args.oras, args.helm), delivery.GitHub(os.environ["GH_TOKEN"])
+    registry = delivery.Registry(args.oras, args.helm)
     chart = metadata.chart_file(args.root / "dist", config["operator_version"])
     exists = delivery.matching_file(registry, delivery.CHART + ":" + config["chart_version"], chart)
-    files = {p.name: p for d in (args.root / "dist", args.root / "release-evidence") for p in d.iterdir()}
-    matches = []
-    for page in range(1, 11):
-        releases = github.request("GET", f"/repos/{REPO}/releases?per_page=100&page={page}")
-        matches.extend(r for r in releases if r["tag_name"] == tag)
-        if len(releases) < 100:
-            break
-    if len(matches) > 1:
-        raise ValueError("Ambiguous chart release")
-    release = matches[0] if matches else None
-    title = f'Helm chart {config["chart_version"]} (operator {config["operator_version"]})'
-    uploaded, starters = {}, {}
-    if release:
-        if (release["target_commitish"] != revision or release["name"] != title or release["body"] != notes(config) or release["prerelease"] is not False):
-            raise ValueError("Existing chart release metadata differs")
-        for asset in github.assets(release):
-            if asset["name"] not in files or asset["name"] in uploaded or asset["name"] in starters:
-                raise ValueError("Unexpected chart release asset")
-            if release["draft"] and asset["state"] == "starter" and asset["size"] == 0:
-                starters[asset["name"]] = asset
-                continue
-            if asset["state"] != "uploaded" or hashlib.sha256(github.asset(asset)).hexdigest() != delivery.contract.security.sha256(files[asset["name"]]):
-                raise ValueError("Existing chart release bytes differ")
-            uploaded[asset["name"]] = asset
-        if not release["draft"]:
-            if set(uploaded) != set(files) or not exists:
-                raise ValueError("Published chart release is incomplete")
-            return
     if registry.resolve(metadata.IMAGE + ":" + config["operator_version"]) != config["image"].split("@")[1]:
         raise ValueError("Public operator tag differs from the qualified image")
     if not exists:
         registry.push_chart(chart, delivery.CHART)
         if not delivery.matching_file(registry, delivery.CHART + ":" + config["chart_version"], chart):
             raise ValueError("Chart publication was not acknowledged")
-    if release is None:
-        release = github.request("POST", f"/repos/{REPO}/releases", json.dumps({"tag_name": tag,
-            "target_commitish": revision, "name": title, "body": notes(config), "draft": True, "prerelease": False}).encode())
-    for name, path in sorted(files.items()):
-        if name in starters:
-            github.delete_incomplete(release, starters[name])
-        if name not in uploaded:
-            github.upload(release, path)
-    assets = github.assets(release)
-    if len(assets) != len(files) or {a["name"] for a in assets} != set(files) or any(
-            hashlib.sha256(github.asset(a)).hexdigest() != delivery.contract.security.sha256(files[a["name"]]) for a in assets):
-        raise ValueError("Incomplete chart release assets")
-    result = github.request("PATCH", f'/repos/{REPO}/releases/{release["id"]}', json.dumps({"draft": False, "make_latest": "false"}).encode())
-    if result["draft"] is not False or not result["published_at"]:
-        raise ValueError("Chart release publication was not acknowledged")
 
 
 def main():
