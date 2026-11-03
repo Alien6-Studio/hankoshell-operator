@@ -308,7 +308,7 @@ def publish(args):
     base = args.root.parent / "operator-base"
     oci_security.verify(args.root.parent / "fresh-scan", config["operator_revision"], config["operator_version"],
                         config["image"].split("@")[1], base / "image.tar")
-    registry, github = delivery.Registry(args.oras, args.helm), delivery.GitHub()
+    registry, github = delivery.Registry(args.oras, args.helm), delivery.GitHub(os.environ["GH_TOKEN"])
     chart = metadata.chart_file(args.root / "dist", config["operator_version"])
     exists = delivery.matching_file(registry, delivery.CHART + ":" + config["chart_version"], chart)
     files = {p.name: p for d in (args.root / "dist", args.root / "release-evidence") for p in d.iterdir()}
