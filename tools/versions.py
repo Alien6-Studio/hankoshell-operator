@@ -118,9 +118,14 @@ def generated(root=ROOT, data=None):
     cosign = data["tools"]["cosign"]
     # One generated shell fragment is sourced by both native and image builds.
     dependencies = " ".join(module + "@" + version for module, version in cosign["dependencies"].items())
-    for pin in (cosign["version"], *cosign["dependencies"].values()):
-        if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", pin):
-            raise ValueError("Expected a pinned cosign module version")
+    if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", cosign["version"]):
+        raise ValueError("Expected a pinned cosign release version")
+    for pin in cosign["dependencies"].values():
+        # Go publishes security fixes as checksum-verified pseudo-versions
+        # before the next stable module release. Keep the timestamp and commit
+        # exact; branches, ranges and arbitrary shell fragments remain invalid.
+        if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+(?:-0\.[0-9]{14}-[0-9a-f]{12})?", pin):
+            raise ValueError("Expected a pinned cosign dependency version")
     for module in cosign["dependencies"]:
         if not re.fullmatch(r"[a-zA-Z0-9./_-]+", module):
             raise ValueError("Invalid cosign dependency module")
