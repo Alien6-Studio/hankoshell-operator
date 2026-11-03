@@ -1,4 +1,4 @@
-name: Chart release
+name: Chart packaging
 on:
   workflow_dispatch:
     inputs:
@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
-      contents: write
+      contents: read
       actions: read
       pull-requests: read
       packages: write
@@ -104,7 +104,7 @@ jobs:
           python3 -m tools.release.chart_revision save --root "$RUNNER_TEMP/chart-delivery" \
             --helm "$RUNNER_TEMP/chart-tools/helm" --oras "$RUNNER_TEMP/chart-tools/oras" \
             --cosign "$RUNNER_TEMP/chart-tools/cosign" --attest "$RUNNER_TEMP/chart-tools/attest"
-      - name: Publish the chart and its complete GitHub release
+      - name: Publish the chart to the Helm registry
         run: |
           printf '%s' "$GH_TOKEN" | "$RUNNER_TEMP/chart-tools/helm" registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           python3 -m tools.release.chart_revision publish --root "$RUNNER_TEMP/chart-delivery" \

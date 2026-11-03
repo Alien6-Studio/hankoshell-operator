@@ -1,7 +1,6 @@
 """Chart documentation updates cannot silently replace application or runtime files."""
 import copy
 from contextlib import ExitStack
-import hashlib
 import io
 import json
 from pathlib import Path
@@ -72,10 +71,10 @@ class ChartRevisionTest(unittest.TestCase):
 
 class ChartPublicationTest(unittest.TestCase):
     def exercise(self, mutation=None):
-        """Exercise publication/retry with persistent storage and real API signatures."""
+        """A lost OCI push response must resume without a GitHub product release."""
         config = chart_revision.configuration()
         revision, tag = "a" * 40, "chart-v" + config["chart_version"]
-        state = {"release": None, "assets": {}, "chart": None, "writes": [], "interrupt": mutation is None}
+        state = {"chart": None, "writes": [], "interrupt": mutation is None}
         operator_digest = config["image"].split("@")[1]
 
         class Registry:
@@ -95,51 +94,14 @@ class ChartPublicationTest(unittest.TestCase):
                 assert reference == delivery.CHART and state["chart"] is None
                 state["chart"] = path.read_bytes()
                 state["writes"].append("chart")
-
-        # Retain the real constructor: an omitted credential argument must fail.
-        class GitHub(delivery.GitHub):
-            def request(self, method, path, data=None, content_type="application/json"):
-                assert self.token == "local-publication-fixture"
-                if method == "GET":
-                    assert "/releases?" in path
-                    return [state["release"]] if state["release"] else []
-                payload = json.loads(data)
-                if method == "POST":
-                    assert state["release"] is None and payload["draft"] is True
-                    state["release"] = dict(payload, id=1)
-                    state["writes"].append("draft")
-                else:
-                    assert method == "PATCH" and payload == {"draft": False, "make_latest": "false"}
-                    assert set(state["assets"]) == set(expected_files)
-                    state["release"].update(payload, published_at="2026-11-03T00:00:00Z")
-                    state["writes"].append("publish")
-                return state["release"]
-
-            def assets(self, release):
-                return [dict(name=name, id=name, state="uploaded" if value is not None else "starter",
-                             size=len(value) if value is not None else 0) for name, value in state["assets"].items()]
-
-            def asset(self, asset):
-                return state["assets"][asset["name"]]
-
-            def upload(self, release, path):
-                assert path.name not in state["assets"]
-                if state["interrupt"] and len(state["assets"]) == 1:
-                    state["assets"][path.name] = None
+                if state["interrupt"]:
                     state["interrupt"] = False
-                    raise ConnectionError("fixture interrupted upload")
-                state["assets"][path.name] = path.read_bytes()
-                state["writes"].append("upload:" + path.name)
-
-            def delete_incomplete(self, release, asset):
-                assert release["draft"] and asset["state"] == "starter" and asset["size"] == 0
-                del state["assets"][asset["name"]]
+                    raise ConnectionError("fixture lost OCI push response after commit")
 
         with tempfile.TemporaryDirectory() as temporary, ExitStack() as stack:
             root = Path(temporary) / "delivery"
-            dist, evidence = root / "dist", root / "release-evidence"
+            dist = root / "dist"
             dist.mkdir(parents=True)
-            evidence.mkdir()
             chart = dist / ("hankoshell-operator-" + config["chart_version"] + ".tgz")
             metadata = yaml.safe_dump({"name": "hankoshell-operator", "version": config["chart_version"],
                                        "appVersion": config["operator_version"]}).encode()
@@ -147,9 +109,6 @@ class ChartPublicationTest(unittest.TestCase):
                 entry = tarfile.TarInfo("hankoshell-operator/Chart.yaml")
                 entry.size = len(metadata)
                 archive.addfile(entry, io.BytesIO(metadata))
-            (dist / "checksums.txt").write_text(hashlib.sha256(chart.read_bytes()).hexdigest())
-            (evidence / "receipt.json").write_text("verified signing fixture")
-            expected_files = {p.name: p.read_bytes() for folder in (dist, evidence) for p in folder.iterdir()}
             (root / "checkpoint.json").write_text(json.dumps(chart_revision.binding(root, config, revision)))
             if mutation == "chart":
                 state["chart"] = b"other immutable published bytes"
@@ -157,31 +116,24 @@ class ChartPublicationTest(unittest.TestCase):
             stack.enter_context(patch.object(chart_revision, "verify_signatures"))
             stack.enter_context(patch.object(chart_revision.oci_security, "verify"))
             stack.enter_context(patch.object(delivery, "Registry", Registry))
-            stack.enter_context(patch.object(delivery, "GitHub", GitHub))
-            stack.enter_context(patch.dict(chart_revision.os.environ, GH_TOKEN="local-publication-fixture"))
+            github = stack.enter_context(patch.object(delivery, "GitHub", side_effect=AssertionError(
+                "Chart packaging must not access GitHub product releases")))
             args = SimpleNamespace(root=root, oras=None, helm=None)
             if mutation:
                 with self.assertRaises(ValueError):
                     chart_revision.publish(args)
                 self.assertEqual(state["writes"], [])
-                self.assertIsNone(state["release"])
-                return
-            with self.assertRaises(ConnectionError):
+            else:
+                with self.assertRaises(ConnectionError):
+                    chart_revision.publish(args)
+                self.assertEqual(state["chart"], chart.read_bytes())
                 chart_revision.publish(args)
-            self.assertTrue(state["release"]["draft"])
-            self.assertEqual(state["writes"].count("chart"), 1)
-            retained = {name: value for name, value in state["assets"].items() if value is not None}
-            chart_revision.publish(args)
-            self.assertFalse(state["release"]["draft"])
-            self.assertEqual(state["assets"], expected_files)
-            self.assertEqual(state["writes"].count("chart"), 1)
-            for name in retained:
-                self.assertEqual(state["writes"].count("upload:" + name), 1)
-            writes = list(state["writes"])
-            chart_revision.publish(args)
-            self.assertEqual(state["writes"], writes)
+                chart_revision.publish(args)
+                self.assertEqual(state["writes"], ["chart"])
+                self.assertEqual(state["chart"], chart.read_bytes())
+            github.assert_not_called()
 
-    def test_interrupted_delivery_resumes_without_replacing_chart_assets_or_latest_operator(self):
+    def test_interrupted_oci_delivery_resumes_without_a_github_release(self):
         self.exercise()
 
     def test_conflicting_chart_or_operator_blocks_all_public_writes(self):

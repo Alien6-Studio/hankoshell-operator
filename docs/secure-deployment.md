@@ -1371,7 +1371,7 @@ The Helm chart can receive a packaging revision independently of the operator.
 For example, chart 1.2.2 keeps appVersion 1.2.1 and selects the existing signed
 1.2.1 image by its immutable digest. OperatorHub CSV versions follow appVersion.
 
-The **Chart release** workflow runs from a signed `chart-vVERSION` tag on
+The **Chart packaging** workflow runs from a signed `chart-vVERSION` tag on
 qualified protected main, with the existing release-environment approval. It
 authenticates the public predecessor and freshly scans its exact image without
 rebuilding, signing or publishing an operator image. Only README and approved
@@ -1381,10 +1381,17 @@ label. The chart checksums and timestamped receipt bind the chart source,
 operator source and unchanged image explicitly. A committed chart checkpoint
 preserves the original bytes on retry. Conflicting published content is refused.
 
-Chart-only releases use the separate GitHub tag/name and do not change GitHub's
-latest operator release. Verify the public chart, receipt and Artifact Hub
-description after publication. Future operator releases select their chart
-version explicitly, above any previously published chart revision.
+Chart packaging publishes to the Helm OCI registry and Artifact Hub. GitHub
+Releases remain reserved for operator versions. The packaging workflow has
+read-only GitHub contents permission and cannot create a product release. Its
+signed source tag identifies the packaging revision; it does not announce an
+operator version. Signed checksums and the timestamped receipt remain in the
+public OCI delivery checkpoint at
+`ghcr.io/alien6-studio/charts/hankoshell-operator:chart-delivery-candidate-VERSION`.
+Use the verification tools from the matching signed source tag to inspect a
+historical package. Verify the public chart, receipt and Artifact Hub description
+after publication. Future operator releases select their chart version explicitly,
+above any previously published chart revision.
 
 ## Upgrade and rollback procedure
 
