@@ -29,6 +29,12 @@ class VerifierPinsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "pinned cosign release"):
             versions.generated(data=data)
 
+    def test_invalid_chart_version_is_rejected(self):
+        data = copy.deepcopy(versions.DATA)
+        data["chart"] = {"version": "latest"}
+        with self.assertRaisesRegex(ValueError, "pinned chart version"):
+            versions.validate(data)
+
 
 if __name__ == "__main__":
     unittest.main()

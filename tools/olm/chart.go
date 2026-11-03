@@ -36,7 +36,7 @@ func render(ctx context.Context, opts options) (*chartSource, error) {
 		return nil, fmt.Errorf("read chart metadata: %w", err)
 	}
 	var metadata struct {
-		Version string `json:"version"`
+		AppVersion string `json:"appVersion"`
 	}
 	if err := sigsyaml.Unmarshal(data, &metadata); err != nil {
 		return nil, fmt.Errorf("decode chart metadata: %w", err)
@@ -60,7 +60,7 @@ func render(ctx context.Context, opts options) (*chartSource, error) {
 	if err != nil {
 		return nil, errors.New("helm rendering failed; verify the chart and administrator values")
 	}
-	return decodeChart(data, metadata.Version)
+	return decodeChart(data, metadata.AppVersion)
 }
 
 func decodeChart(data []byte, version string) (*chartSource, error) {

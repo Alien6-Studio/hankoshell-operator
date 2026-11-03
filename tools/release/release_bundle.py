@@ -57,7 +57,7 @@ def prepare(archive, evidence, digest, revision, output, helm):
         "schemaVersion": 1, "version": version,
         "state": "ready-for-qualification", "productionQualified": False,
         "published": False, "image": image, "revision": revision,
-        "imageArchive": "image.tar", "chart": f"hankoshell-operator-{version}.tgz",
+        "imageArchive": "image.tar", "chart": contract.metadata.chart_file(dist, version).name,
         "apiMaturity": "experimental", "independentReleaseApproval": False,
         "verification": "OCI checks bind this archive, version, revision and digest. Checksums establish integrity, not independent publisher trust. No production Attest key, timestamp authority or catalog identity is included.",
     }, indent=2) + "\n")

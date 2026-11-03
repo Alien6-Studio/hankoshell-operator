@@ -345,7 +345,7 @@ def qualify(output, archive, evidence, image, revision, oras, helm, attest, conf
             "release_identity": {"product_version": VERSION, "fixture_tag": TAG, "prerelease": "-" in VERSION,
                                  "target_public_version": publish.contract.versioning.VERSION,
                                  "future_git_ref": "refs/tags/" + publish.contract.versioning.public_tag(publish.contract.versioning.VERSION),
-                                 "github_release_name": releases.current["name"], "chart_version": VERSION,
+                                 "github_release_name": releases.current["name"], "chart_version": publish.contract.pins.chart_version(),
                                  "image_tag": VERSION},
             "release_identity_conflict_rejection": "pass",
             "source_readiness": publish.contract.versioning.RELEASE_STATUS,

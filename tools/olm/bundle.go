@@ -111,7 +111,7 @@ func clusterServiceVersion(chart *chartSource, opts options) (map[string]any, er
 		"operators.operatorframework.io/os.linux": "supported",
 	}
 	spec := map[string]any{
-		"displayName": "HankoShell Operator", "description": bundleDescription,
+		"displayName": "hankoShell Operator", "description": bundleDescription,
 		"version": chart.Version, "minKubeVersion": "1.35.0", "maturity": "alpha",
 		"provider":    map[string]string{"name": "Alien6 Studio", "url": "https://hanko.sh"},
 		"maintainers": []any{map[string]string{"name": "Alien6 Studio", "email": "contact@alien6.com"}},
@@ -134,11 +134,13 @@ func clusterServiceVersion(chart *chartSource, opts options) (map[string]any, er
 	return map[string]any{"apiVersion": "operators.coreos.com/v1alpha1", "kind": "ClusterServiceVersion", "metadata": map[string]any{"name": packageName + ".v" + chart.Version, "annotations": annotations}, "spec": spec}, nil
 }
 
-const bundleDescription = `Manage Keycloak realms, OIDC clients, machine identities, roles and organizations declaratively from Kubernetes.
+const bundleDescription = `Keep Keycloak realms, application sign-in, service accounts, roles and organizations in sync with your Kubernetes declarations.
 
-Administrator preparation is REQUIRED before installation: follow https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/operatorhub.md. OLM does not install the chart's admission policies. The preparation command renders admission and network protections from the chart, an immutable installation contract and a Subscription with its independently approved hash. Missing, incompatible or changed protections prevent the operator from starting. A NetworkPolicy-enforcing CNI is required.
+Declare the OAuth access rights a service account receives. The operator confirms the declared rights before delivering new or recovered credentials. Removing a right prevents new tokens from requesting it; tokens already issued retain their rights until expiry. Upgrades preserve existing service-account identities and credentials.
 
-This alpha channel supports one namespace, the standard Keycloak profile, Linux amd64/arm64 and qualified Kubernetes 1.35–1.37. All 17 hanko.sh/v1alpha1 APIs remain experimental. Lifecycle operations stay disabled. Use Helm for connected Hub, lifecycle, experimental provider and advanced integration profiles. Do not install over a Helm-owned operator or share its watched namespace. Provider objects and custom resources are retained when the operator is removed; review finalizers before deleting CRDs.`
+Administrator preparation is REQUIRED before installation: follow https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/operatorhub.md. Review and apply the admission and network protections before approving the InstallPlan. A NetworkPolicy-enforcing CNI is required. The operator starts only when the independently approved installation protections are present and match the reviewed contract.
+
+The alpha channel supports an existing Keycloak deployment in one namespace, Linux amd64/arm64 and qualified Kubernetes 1.35–1.37. All 17 hanko.sh/v1alpha1 APIs remain experimental. Use Helm for connected Hub, lifecycle and advanced integration profiles. Install in a dedicated namespace. Removing the operator retains custom resources and provider objects; review finalizers before deleting CRDs.`
 
 func writeYAML(path string, object any) error {
 	data, err := sigsyaml.Marshal(object)

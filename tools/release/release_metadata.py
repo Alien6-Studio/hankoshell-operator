@@ -7,11 +7,13 @@ import os
 from pathlib import Path
 import re
 import shutil
+import tarfile
 from urllib.parse import quote
 from uuid import UUID
 
 import yaml
 
+from tools import versions
 from tools.release import release_version as versioning
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -19,6 +21,27 @@ ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY = "https://github.com/Alien6-Studio/hankoshell-operator"
 IMAGE = "ghcr.io/alien6-studio/hankoshell-operator"
 PUBLIC_KEY_FILE = "hankoshell-operator-attest-public-key.pem"
+
+
+def chart_metadata(path):
+    with tarfile.open(path) as package:
+        entry = package.getmember("hankoshell-operator/Chart.yaml")
+        if not entry.isfile() or entry.size > 65536:
+            raise ValueError("Invalid chart metadata entry")
+        metadata = yaml.safe_load(package.extractfile(entry))
+    versioning.from_tag("v" + metadata["version"])
+    if metadata.get("name") != "hankoshell-operator" or path.name != f'hankoshell-operator-{metadata["version"]}.tgz':
+        raise ValueError("Chart filename and metadata differ")
+    return metadata
+
+
+def chart_file(directory, operator_version):
+    files = list(directory.glob("hankoshell-operator-*.tgz"))
+    if len(files) != 1 or files[0].is_symlink() or not files[0].is_file():
+        raise ValueError("Expected one chart archive")
+    if chart_metadata(files[0])["appVersion"] != operator_version:
+        raise ValueError("Chart must select the declared operator version")
+    return files[0]
 
 
 def publisher():
@@ -55,13 +78,13 @@ def prepare(version, image, chart_output, dist, repository_id, public_key, revis
         raise ValueError("Expected the exact published operator image digest")
     source = ROOT / "charts/hankoshell-operator"
     chart = yaml.safe_load((source / "Chart.yaml").read_text())
-    if chart["version"] != version or chart["appVersion"] != version:
-        raise ValueError("Chart and application versions must match the reviewed release tag")
+    if chart["version"] != versions.chart_version() or chart["appVersion"] != version:
+        raise ValueError("Chart and application versions must match their reviewed pins")
     annotations = chart["annotations"]
     if not yaml.safe_load(annotations.get("artifacthub.io/changes", "")):
         raise ValueError("Describe this chart version in artifacthub.io/changes")
     chart["icon"] = f"https://raw.githubusercontent.com/Alien6-Studio/hankoshell-operator/{icon_ref}/charts/hankoshell-operator/icon.svg"
-    annotations["artifacthub.io/prerelease"] = "true" if "-" in version else "false"
+    annotations["artifacthub.io/prerelease"] = "true" if "-" in chart["version"] else "false"
     annotations["artifacthub.io/images"] = yaml.safe_dump([{
         "name": "hankoshell-operator", "image": image,
         "platforms": ["linux/amd64", "linux/arm64"],

@@ -68,8 +68,8 @@ def verify(version, revision, image, assets, trust, cosign, attest, *, fetch=git
         raise ValueError("A draft, prerelease or invented release is not a supported public predecessor")
     git = git or (lambda *args: run(["git", *args], cwd=ROOT).decode())
     identity = eligibility.verify_tag(REPOSITORY, tag, revision, "refs/tags/" + tag, fetch, git)
-    chart_name = f"hankoshell-operator-{version}.tgz"
     files = {path.name: path for path in assets.iterdir()}
+    chart_name = attestation.contract.metadata.chart_file(assets, version).name
     if any(path.is_symlink() or not path.is_file() for path in files.values()):
         raise ValueError("Historical assets must be regular files")
     bundle_name = "hankoshell-operator-attest.tar.gz"
@@ -108,7 +108,7 @@ def verify(version, revision, image, assets, trust, cosign, attest, *, fetch=git
             raise ValueError("Historical chart contains unsafe entries")
         metadata = yaml.safe_load(chart.extractfile("hankoshell-operator/Chart.yaml"))
         values = yaml.safe_load(chart.extractfile("hankoshell-operator/values.yaml"))
-        if (metadata.get("version") != version or metadata.get("appVersion") != version
+        if (metadata.get("appVersion") != version
                 or values["image"].get("tag") or values["image"]["repository"] + "@" + values["image"]["digest"] != image):
             raise ValueError("Historical chart does not pin the authentic predecessor")
     public = {key: trust[key] for key in ("KEY_ID", "PUBLIC_KEY", "TSA_CERTIFICATE")}
@@ -146,7 +146,8 @@ def verify(version, revision, image, assets, trust, cosign, attest, *, fetch=git
         attestation.validate_verdict(verdict, public["PUBLIC_KEY"], receipt)
     return {"version": version, "revision": revision, "image": image, "published": True, "verified": True,
             "tag_object": identity["tag_object"], "cosign_identity": expected_identity,
-            "attest_key_id": public["KEY_ID"], "chart_sha256": hashlib.sha256(files[chart_name].read_bytes()).hexdigest()}
+            "attest_key_id": public["KEY_ID"], "chart_version": metadata["version"],
+            "chart_sha256": hashlib.sha256(files[chart_name].read_bytes()).hexdigest()}
 
 
 def main():

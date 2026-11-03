@@ -1364,6 +1364,30 @@ are trusted administrators and must not race this workflow.
 
 ## Upgrade and rollback
 
+### Chart-only documentation revisions
+
+The Helm chart can receive a packaging revision independently of the operator.
+`versions.json` records the chart version and the operator version separately.
+For example, chart 1.2.2 keeps appVersion 1.2.1 and selects the existing signed
+1.2.1 image by its immutable digest. OperatorHub CSV versions follow appVersion.
+
+The **Chart release** workflow runs from a signed `chart-vVERSION` tag on
+qualified protected main, with the existing release-environment approval. It
+authenticates the public predecessor and freshly scans its exact image without
+rebuilding, signing or publishing an operator image. Only README and approved
+catalogue metadata changes are accepted; templates, CRDs, default values and
+rendered resources must match the predecessor, apart from the chart metadata
+label. The chart checksums and timestamped receipt bind the chart source,
+operator source and unchanged image explicitly. A committed chart checkpoint
+preserves the original bytes on retry. Conflicting published content is refused.
+
+Chart-only releases use the separate GitHub tag/name and do not change GitHub's
+latest operator release. Verify the public chart, receipt and Artifact Hub
+description after publication. Future operator releases select their chart
+version explicitly, above any previously published chart revision.
+
+## Upgrade and rollback procedure
+
 Apply the [API conversion, migration and rollback policy](api-migration-policy.md)
 and review the [per-resource support inventory](api-support.md). CRDs precede
 new operator fields; Helm rollback alone does not downgrade stored state.

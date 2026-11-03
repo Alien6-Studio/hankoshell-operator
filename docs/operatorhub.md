@@ -1,9 +1,10 @@
 # OperatorHub installation
 
-The OLM distribution is being prepared for **1.2.0** in
-[#158](https://github.com/Alien6-Studio/hankoshell-operator/issues/158). It is not
-yet listed on OperatorHub. The [upstream contribution](https://github.com/k8s-operatorhub/community-operators/pull/9782)
-tracks catalog validation and acceptance. Helm remains the published installation path.
+OperatorHub accepted **1.2.0** in the [upstream contribution](https://github.com/k8s-operatorhub/community-operators/pull/9782).
+The **1.2.1** catalogue update is being prepared with the service-account OAuth
+access improvements. See the [OperatorHub listing](https://operatorhub.io/operator/hankoshell-operator)
+for the version currently available. Helm chart **1.2.2** packages the same
+published operator **1.2.1** with updated installation and catalogue guidance.
 
 The first OLM profile runs in its own namespace on Kubernetes 1.35–1.37,
 Linux amd64 or arm64, with an existing Keycloak and a NetworkPolicy-enforcing
