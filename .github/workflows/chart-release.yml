@@ -1,0 +1,120 @@
+name: Chart release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing signed chart tag on qualified protected main (chart-v1.2.2)
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: operator-release
+  cancel-in-progress: false
+jobs:
+  eligibility:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.tag }}
+      REF: ${{ github.ref }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - run: python3 -m pip install -r tools/requirements.txt
+      - name: Require the signed chart tag and complete source qualification
+        run: python3 -m tools.release.chart_revision eligibility
+  publish:
+    needs: eligibility
+    environment: release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: read
+      packages: write
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.tag }}
+      REF: ${{ github.ref }}
+      HANKOSHELL_ATTEST_KEY_ID: ${{ vars.HANKOSHELL_ATTEST_KEY_ID }}
+      HANKOSHELL_ATTEST_PUBLIC_KEY: ${{ vars.HANKOSHELL_ATTEST_PUBLIC_KEY }}
+      HANKOSHELL_ATTEST_TSA_URL: ${{ vars.HANKOSHELL_ATTEST_TSA_URL }}
+      HANKOSHELL_ATTEST_TSA_CERTIFICATE: ${{ vars.HANKOSHELL_ATTEST_TSA_CERTIFICATE }}
+      HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID: ${{ vars.HANKOSHELL_ARTIFACTHUB_REPOSITORY_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Install reviewed chart publishing and verification tools
+        run: |
+          python3 -m pip install -r tools/requirements.txt
+          python3 -m tools.bootstrap.install helm attest trivy --directory "$RUNNER_TEMP/chart-tools"
+          GOBIN="$RUNNER_TEMP/chart-tools" go install "oras.land/oras/cmd/oras@$(python3 -m tools.versions get tools oras)"
+          bash tools/bootstrap/install_cosign.sh "$RUNNER_TEMP/chart-tools/cosign"
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify the public operator, freshly scan its exact image and prepare the chart
+        id: preparation
+        run: |
+          python3 -m tools.release.chart_revision prepare --root "$RUNNER_TEMP/chart-delivery" \
+            --helm "$RUNNER_TEMP/chart-tools/helm" --oras "$RUNNER_TEMP/chart-tools/oras" \
+            --cosign "$RUNNER_TEMP/chart-tools/cosign" --attest "$RUNNER_TEMP/chart-tools/attest" \
+            --trivy "$RUNNER_TEMP/chart-tools/trivy"
+      - name: Sign the chart checksums without signing or publishing an operator image
+        if: steps.preparation.outputs.restored != 'true'
+        run: |
+          "$RUNNER_TEMP/chart-tools/cosign" sign-blob --yes \
+            --bundle "$RUNNER_TEMP/chart-delivery/dist/checksums.sigstore.json" \
+            "$RUNNER_TEMP/chart-delivery/dist/checksums.txt"
+      - name: Sign, timestamp and verify the chart receipt
+        if: steps.preparation.outputs.restored != 'true'
+        env:
+          HANKOSHELL_ATTEST_SIGNING_KEY: ${{ secrets.HANKOSHELL_ATTEST_SIGNING_KEY }}
+        run: |
+          python3 -m tools.release.chart_revision sign --root "$RUNNER_TEMP/chart-delivery" \
+            --attest "$RUNNER_TEMP/chart-tools/attest"
+      - name: Remove temporary signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/chart-attest/.attest/keys/"*.key
+      - name: Commit the verified immutable chart delivery
+        if: steps.preparation.outputs.restored != 'true'
+        run: |
+          python3 -m tools.release.chart_revision save --root "$RUNNER_TEMP/chart-delivery" \
+            --helm "$RUNNER_TEMP/chart-tools/helm" --oras "$RUNNER_TEMP/chart-tools/oras" \
+            --cosign "$RUNNER_TEMP/chart-tools/cosign" --attest "$RUNNER_TEMP/chart-tools/attest"
+      - name: Publish the chart and its complete GitHub release
+        run: |
+          printf '%s' "$GH_TOKEN" | "$RUNNER_TEMP/chart-tools/helm" registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          python3 -m tools.release.chart_revision publish --root "$RUNNER_TEMP/chart-delivery" \
+            --helm "$RUNNER_TEMP/chart-tools/helm" --oras "$RUNNER_TEMP/chart-tools/oras" \
+            --cosign "$RUNNER_TEMP/chart-tools/cosign" --attest "$RUNNER_TEMP/chart-tools/attest"
+      - name: Preserve fresh operator-image scan evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: chart-operator-revalidation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/fresh-scan
+          if-no-files-found: ignore
+          retention-days: 30

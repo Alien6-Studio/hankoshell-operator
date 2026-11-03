@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/Alien6-Studio/hankoshell-operator/internal/installation"
+	operatorversion "github.com/Alien6-Studio/hankoshell-operator/internal/version"
 )
 
 func chartFixture(t *testing.T) (*chartSource, options) {
@@ -76,6 +77,10 @@ func TestBundleRetainsChartSecurityAndOLMOwnership(t *testing.T) {
 		t.Fatal(err)
 	}
 	owned, _, _ := unstructured.NestedSlice(document, "spec", "customresourcedefinitions", "owned")
+	appVersion, _, _ := unstructured.NestedString(document, "spec", "version")
+	if appVersion != operatorversion.Agent {
+		t.Fatal("CSV must select the operator appVersion independently of the chart revision")
+	}
 	if len(owned) != len(chart.CRDs) {
 		t.Fatal("bundle dropped owned APIs")
 	}

@@ -98,9 +98,9 @@ def check_qualification_profiles(ci):
 
 def check(version=VERSION):
     chart = yaml.safe_load((ROOT / "charts/hankoshell-operator/Chart.yaml").read_text())
-    if version != VERSION or chart["version"] != version or chart["appVersion"] != version:
-        raise ValueError("Source, chart and requested qualification versions must match " + VERSION)
-    if chart["annotations"]["artifacthub.io/prerelease"] != ("true" if "-" in version else "false"):
+    if version != VERSION or chart["version"] != pins.chart_version() or chart["appVersion"] != version:
+        raise ValueError("Source/application and chart versions must match their reviewed pins")
+    if chart["annotations"]["artifacthub.io/prerelease"] != ("true" if "-" in chart["version"] else "false"):
         raise ValueError("Artifact Hub prerelease status must match source maturity")
     if "artifacthub.io/signKey" in chart["annotations"]:
         raise ValueError("The Attest receipt key is not a Helm chart signing key")

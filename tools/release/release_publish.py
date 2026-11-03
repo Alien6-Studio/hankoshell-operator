@@ -88,7 +88,8 @@ class Registry:
                     return False
                 run([self.oras, "blob", "fetch", *self.flags, repository + "@" + manifest["config"]["digest"], "--output", payload])
                 metadata = json.loads(payload.read_text())
-                if metadata.get("name") != "hankoshell-operator" or metadata.get("version") != contract.VERSION or metadata.get("appVersion") != contract.VERSION:
+                expected_metadata = contract.metadata.chart_metadata(expected)
+                if any(metadata.get(key) != expected_metadata.get(key) for key in ("name", "version", "appVersion")):
                     return False
             elif (manifest["config"]["mediaType"] != "application/vnd.cncf.artifacthub.config.v1+yaml"
                   or manifest["config"]["size"] != 0
@@ -348,9 +349,10 @@ def _promote(registry, github, root, *, image_repository, chart_repository, fres
     contract.security.verify(fresh_evidence or root.parent / "fresh-scan", record["revision"], record["version"], digest, root / "image.tar")
     version, dist = record["version"], root / "dist"
     tag = contract.versioning.public_tag(version)
-    image_tag, chart_tag = image_repository + ":" + version, chart_repository + ":" + version
+    chart = contract.metadata.chart_file(dist, version)
+    chart_version = contract.metadata.chart_metadata(chart)["version"]
+    image_tag, chart_tag = image_repository + ":" + version, chart_repository + ":" + chart_version
     metadata_tag = chart_repository + ":artifacthub.io"
-    chart = dist / f"hankoshell-operator-{version}.tgz"
     files = {path.name: path for directory in (dist, root / "release-evidence") for path in directory.iterdir()}
     # Complete preflight before the first publication write. An existing,
     # conflicting artifact or release is an error, not permission to overwrite.

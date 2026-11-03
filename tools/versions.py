@@ -26,6 +26,11 @@ def get(*keys, data=None):
     return value
 
 
+def chart_version(data=None):
+    data = DATA if data is None else data
+    return data.get("chart", {}).get("version", data["release"]["version"])
+
+
 def crd_inventory(root=ROOT, data=None):
     """Derive the count and compare actual kinds, not just two equal counts."""
     import yaml
@@ -75,10 +80,15 @@ def generated(root=ROOT, data=None):
     replace("Dockerfile", r"^(ARG VERSION=)\S+$", release)
     replace("internal/version/version.go", r'^(var Agent = ).+$', json.dumps(release))
     chart = "charts/hankoshell-operator/Chart.yaml"
-    for field in ("version", "appVersion"):
-        replace(chart, rf"^({field}: ).+$", json.dumps(release))
+    replace(chart, r"^(version: ).+$", json.dumps(chart_version(data)))
+    replace(chart, r"^(appVersion: ).+$", json.dumps(release))
+    for filename in ("README.md", "charts/hankoshell-operator/README.md"):
+        replace(filename, r"^(  oci://ghcr.io/alien6-studio/charts/hankoshell-operator --version )\S+", chart_version(data))
+    replace("README.md", r"^(Operator \*\*)[^*]+(?=\*\* applies)", release)
+    replace("charts/hankoshell-operator/README.md", r"^(Chart \*\*)[^*]+(?=\*\* uses)", chart_version(data))
+    replace("charts/hankoshell-operator/README.md", r"^(Chart \*\*[^*]+\*\* uses the published operator \*\*)[^*]+(?=\*\*)", release)
     replace(chart, r"^(kubeVersion: ).+$", json.dumps(data["kubernetes"]["chart_range"]))
-    replace(chart, r'^(  artifacthub.io/prerelease: ).+$', json.dumps(str("-" in release).lower()))
+    replace(chart, r'^(  artifacthub.io/prerelease: ).+$', json.dumps(str("-" in chart_version(data)).lower()))
     replace(chart, r"^(      image: ghcr.io/alien6-studio/hankoshell-operator:).+$", release)
 
     ci = ".github/workflows/ci.yml"
@@ -152,6 +162,8 @@ def check(root=ROOT, data=None):
 
 
 def validate(data):
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?", chart_version(data)):
+        raise ValueError("Expected a pinned chart version")
     for family, count in (("kubernetes", 3), ("keycloak", 2)):
         values = data[family]["versions"]
         if (len(values) != count or len(values) != len(set(values)) or data[family]["default"] not in values

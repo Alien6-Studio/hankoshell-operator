@@ -147,7 +147,8 @@ def validate_verdict(report, signer, receipt):
 
 
 def delivery_files(dist, version, revision, image, *, fresh_scan=True):
-    expected = {f"hankoshell-operator-{version}.tgz", "image-digest.txt",
+    chart_path = contract.metadata.chart_file(dist, version)
+    expected = {chart_path.name, "image-digest.txt",
                 "source-revision.txt", "checksums.txt", "checksums.sigstore.json",
                 "artifacthub-repo.yml", PUBLIC_KEY_FILE, "oci-security.json",
                 "trivy-amd64.json", "trivy-arm64.json", "oci-vulnerability-policy.json", "release-notes.md",
@@ -177,11 +178,11 @@ def delivery_files(dist, version, revision, image, *, fresh_scan=True):
         if files[name].read_bytes() != (contract.ROOT / source).read_bytes():
             raise ValueError("Delivered dependency policy/notices mismatch: " + name)
     oci_security.verify(dist, revision, version, image.split("@")[1], fresh=fresh_scan)
-    with tarfile.open(files[f"hankoshell-operator-{version}.tgz"]) as chart:
+    with tarfile.open(chart_path) as chart:
         values = yaml.safe_load(chart.extractfile("hankoshell-operator/values.yaml"))
         metadata = yaml.safe_load(chart.extractfile("hankoshell-operator/Chart.yaml"))
     if (values["image"]["repository"] + "@" + values["image"]["digest"] != image or values["image"].get("tag")
-            or metadata["version"] != version or metadata["appVersion"] != version):
+            or metadata["appVersion"] != version):
         raise ValueError("Packaged chart must select the scanned image digest and release version")
     with tarfile.open(files[f"hankoshell-operator-olm-{version}.tar.gz"]) as bundle:
         entries = bundle.getmembers()
@@ -207,9 +208,13 @@ def delivery_files(dist, version, revision, image, *, fresh_scan=True):
 
 
 def sign_delivery(args, config):
+    files = delivery_files(args.dist, args.version, args.revision, args.image)
+    sign_files(args, config, files)
+
+
+def sign_files(args, config, files, *, extra=None, bundle_name="hankoshell-operator-attest.tar.gz"):
     if subprocess.check_output([str(args.attest), "--version"], text=True).strip() != "attest " + versions.get("tools", "attest", "version"):
         raise ValueError("Expected the pinned Attest version")
-    files = delivery_files(args.dist, args.version, args.revision, args.image)
     if files[PUBLIC_KEY_FILE].read_text() != public_key_pem(config["PUBLIC_KEY"]):
         raise ValueError("Published Attest key must match the independently trusted delivery signer")
     validate_configuration(config, args.attest, args.openssl)
@@ -223,7 +228,7 @@ def sign_delivery(args, config):
         target = delivery / name
         shutil.copyfile(path, target)
         hashes[name] = hashlib.sha256(target.read_bytes()).hexdigest()
-    (delivery / "manifest.json").write_text(json.dumps({
+    manifest = {
         "scope": "verified-release-delivery; build not supervised by Attest",
         "repository": "Alien6-Studio/hankoshell-operator",
         "source_revision": args.revision,
@@ -231,7 +236,11 @@ def sign_delivery(args, config):
         "image": args.image,
         "workflow_run": args.run_url,
         "artifacts": hashes,
-    }, indent=2, sort_keys=True) + "\n")
+    }
+    if set(extra or {}) & set(manifest):
+        raise ValueError("Additional delivery metadata cannot override its identity")
+    manifest.update(extra or {})
+    (delivery / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     trust = workspace / ".attest/trust"
     (trust / "tsa").mkdir(parents=True)
     (trust / f'{config["KEY_ID"]}.pub').write_text(public_key_pem(config["PUBLIC_KEY"]))
@@ -263,7 +272,7 @@ def sign_delivery(args, config):
     validate_verdict(report, config["PUBLIC_KEY"], receipt)
     args.output.mkdir(parents=True, exist_ok=False)
     (args.output / "attest-verification.json").write_text(json.dumps(report, indent=2) + "\n")
-    with tarfile.open(args.output / "hankoshell-operator-attest.tar.gz", "w:gz") as archive:
+    with tarfile.open(args.output / bundle_name, "w:gz") as archive:
         for name in ("attest.yaml", "receipt.yaml", "delivery"):
             archive.add(workspace / name, arcname=name)
 

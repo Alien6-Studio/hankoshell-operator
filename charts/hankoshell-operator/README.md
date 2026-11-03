@@ -1,9 +1,23 @@
 # hankoShell Operator chart
 
-Manage Keycloak realms, applications, roles and API permissions from Kubernetes.
-Standalone installations need neither hankoShell Hub nor Continuum.
+Keep Keycloak realms, application sign-in, service accounts, roles and API access
+in sync with your Kubernetes declarations. Deploy sign-in and email branding
+created with Theme Studio.
 
-The `1.1.0` operator retains the API in **initial development**. All 17 `hanko.sh/v1alpha1` CRDs are
+## Service account access
+
+Declare which OAuth access rights a service account receives. The operator
+confirms those rights before delivering new or recovered credentials. Removing
+a declared right prevents new tokens from requesting it; existing tokens retain
+their rights until expiry. Upgrades from 1.2.0 preserve existing identities and
+credentials. See the [service account guide](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/service-account-oauth-scopes.md)
+for declarations and upgrade guidance.
+
+Chart **1.2.2** uses the published operator **1.2.1** image. See the
+[chart release notes](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/CHART_CHANGELOG.md)
+for chart updates.
+
+The APIs remain in **initial development**. All 17 `hanko.sh/v1alpha1` CRDs are
 experimental and use `v1alpha1` for both serving and storage. See the [API inventory](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/api-support.md)
 and [selected 1.0 contract](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/public-contract-selection.md).
 
@@ -20,7 +34,7 @@ Install a published chart from GHCR:
 
 ```sh
 helm upgrade --install hankoshell-operator \
-  oci://ghcr.io/alien6-studio/charts/hankoshell-operator --version 1.1.0 \
+  oci://ghcr.io/alien6-studio/charts/hankoshell-operator --version 1.2.2 \
   --namespace auth --create-namespace \
   --values operator-values.yaml --wait --timeout 5m
 ```
