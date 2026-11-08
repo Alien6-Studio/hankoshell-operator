@@ -1,10 +1,9 @@
 # OperatorHub installation
 
 OperatorHub accepted **1.2.0** in the [upstream contribution](https://github.com/k8s-operatorhub/community-operators/pull/9782).
-The **1.2.1** catalogue update is being prepared with the service-account OAuth
-access improvements. See the [OperatorHub listing](https://operatorhub.io/operator/hankoshell-operator)
-for the version currently available. Helm chart **1.2.2** packages the same
-published operator **1.2.1** with updated installation and catalogue guidance.
+The **1.2.3** catalogue update is being prepared with service-account realm roles.
+See the [OperatorHub listing](https://operatorhub.io/operator/hankoshell-operator)
+for the version currently available.
 
 The first OLM profile runs in its own namespace on Kubernetes 1.35–1.37,
 Linux amd64 or arm64, with an existing Keycloak and a NetworkPolicy-enforcing

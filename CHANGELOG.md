@@ -1,8 +1,31 @@
 # Changelog
 
-## 1.2.1
+## 1.2.3
 
 <!-- release-notes:start -->
+### Release overview
+
+hankoShell Operator 1.2.3 lets machine-to-machine applications grant declared
+realm roles to their own service account.
+
+### Service account realm roles
+
+- Declare `serviceAccountRealmRoles` on an m2m `HankoApplication`; each role must
+  also appear in `realmRoleScopes`.
+- Only declared and previously granted roles are changed; other mappings are kept.
+- Platform-reserved roles are rejected.
+
+Using the field requires `manage-users` for the operator's Keycloak identity; see
+[Keycloak permissions](docs/keycloak-permissions.md). Applications that do not
+declare it are unchanged.
+
+### Dependencies
+
+- Kubernetes client libraries v0.37.2 and refreshed Go base image.
+<!-- release-notes:end -->
+
+## 1.2.1
+
 ### Release overview
 
 hankoShell Operator 1.2.1 makes declared OAuth access rights effective for
@@ -17,7 +40,6 @@ service accounts using client secrets.
 Existing scope declarations now take effect. Review their intended access
 rights and the [upgrade guidance](docs/service-account-oauth-scopes.md) before
 upgrading. Tokens already issued keep their rights until they expire.
-<!-- release-notes:end -->
 
 ## 1.2.0
 

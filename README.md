@@ -54,7 +54,7 @@ Install the versioned OCI chart:
 
 ```sh
 helm upgrade --install hankoshell-operator \
-  oci://ghcr.io/alien6-studio/charts/hankoshell-operator --version 1.2.2 \
+  oci://ghcr.io/alien6-studio/charts/hankoshell-operator --version 1.2.3 \
   --namespace auth --create-namespace \
   --values operator-values.yaml --wait --timeout 5m
 ```
@@ -71,10 +71,11 @@ and the required administrator preparation.
 Bounded software and agent delegation require the qualified Keycloak extension
 0.1.0-rc.2; follow the [coordinated provider rollout](docs/architecture/delegation-and-agent-identity.md#provider-rollout).
 
-Operator **1.2.1** applies the [OAuth access rights declared for service
-accounts](docs/service-account-oauth-scopes.md). Removing a declared right prevents
-new tokens from receiving it. Existing identities and credentials are preserved
-when upgrading from 1.2.0. [Theme Studio sign-in and email
+Operator **1.2.3** applies the realm roles a machine-to-machine application
+declares in `serviceAccountRealmRoles` to its service account, which requires
+`manage-users` (see [permissions](docs/keycloak-permissions.md)). Operator 1.2.1
+applies the [OAuth access rights declared for service
+accounts](docs/service-account-oauth-scopes.md). [Theme Studio sign-in and email
 branding](docs/theme-studio-projects.md) remains available.
 Install the matching controller, chart and CRDs when upgrading.
 

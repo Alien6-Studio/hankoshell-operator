@@ -2,8 +2,8 @@ apiVersion: v2
 name: hankoshell-operator
 description: Manage Keycloak sign-in, service accounts and access policies from Kubernetes
 type: application
-version: "1.2.2"
-appVersion: "1.2.1"
+version: "1.2.3"
+appVersion: "1.2.3"
 kubeVersion: ">=1.35.0-0 <1.38.0-0"
 keywords:
   - oidc
@@ -24,13 +24,13 @@ annotations:
   artifacthub.io/operator: "true"
   artifacthub.io/prerelease: "false"
   artifacthub.io/changes: |
-    - kind: fixed
-      description: Installation examples select chart 1.2.2 and the existing operator 1.2.1 image.
     - kind: added
-      description: Updated guidance for service-account access rights, upgrades and sign-in branding.
+      description: Grant declared realm roles to the service account of a machine-to-machine application.
+    - kind: changed
+      description: Update Kubernetes client libraries to v0.37.2 and the Go base image.
   artifacthub.io/images: |
     - name: hankoshell-operator
-      image: ghcr.io/alien6-studio/hankoshell-operator:1.2.1
+      image: ghcr.io/alien6-studio/hankoshell-operator:1.2.3
       platforms:
         - linux/amd64
         - linux/arm64
