@@ -16,7 +16,8 @@ fields differently. Keycloak is the only implemented backend.
 fields stay at their current paths. SPA, confidential web and M2M clients retain
 callbacks, logout redirects, themes, client roles, declared realm-role scopes,
 token claims, inbound OIDC broker mappings, native client attributes, credential
-rotation and authorized Secret projections. Manage and Observe remain separate.
+rotation and authorized Secret projections. M2M clients may also grant declared
+realm-role scopes to their service account. Manage and Observe remain separate.
 
 OIDC `spec.webOrigins` selects the exact CORS origin set. Omission retains the
 existing `["+"]` behavior, deriving origins from redirect URIs; `webOrigins: []`
@@ -65,7 +66,7 @@ independently of the request preference. Email uses the SAML 1.1 emailAddress UR
 unspecified uses the SAML 1.1 unspecified URI and Keycloak's username mapping.
 
 SAML rejects `type`, `webOrigins`, OIDC callbacks/logout redirects, `tokenClaims`,
-`identityMappings`, even an explicitly empty `realmRoleScopes`, rotation policies
+`identityMappings`, even an explicitly empty `realmRoleScopes`, `serviceAccountRealmRoles`, rotation policies
 and client-secret projections. Client roles and login theme selection are shared
 semantics. A realm's inherited OIDC rotation policy does not create a SAML secret.
 
@@ -107,7 +108,8 @@ Qualification is static adapter evidence from **26.7.5 and 26.8.0**, not privile
 runtime capability discovery. No global `admin`, `realm-admin` or impersonation
 grant is required. The protocol/client/client-role suite uses only target-realm
 `manage-clients`. Declared realm-role scope writes additionally require
-`manage-realm`; optional brokers retain `manage-identity-providers`. Public
+`manage-realm`; service-account realm-role grants need `manage-users`; optional
+brokers retain `manage-identity-providers`. Public
 discovery/metadata reads carry no administrative bearer token and use the existing
 verified TLS/CA transport and 1 MiB response budget. See [permissions](../keycloak-permissions.md).
 

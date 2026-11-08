@@ -61,6 +61,7 @@ type Intent struct {
 	SAML                                          *SAML
 	Rotation                                      *Rotation
 	Projections                                   []Projection
+	ServiceAccountRealmRoles                      []string `json:",omitempty"`
 }
 
 // ResolvedReferences contains only non-secret local/provider mapping inputs.
@@ -141,6 +142,9 @@ func Normalize(i Intent) Intent {
 	result.WebOrigins = normalizeWebOrigins(i.WebOrigins)
 	result.PostLogoutURIs = stringSet(result.PostLogoutURIs)
 	result.RealmRoleScopes = stringSet(result.RealmRoleScopes)
+	if len(result.ServiceAccountRealmRoles) > 0 {
+		result.ServiceAccountRealmRoles = stringSet(result.ServiceAccountRealmRoles)
+	}
 	for n := range result.Claims {
 		if result.Claims[n].JSONType == "" {
 			result.Claims[n].JSONType = "String"
@@ -292,7 +296,7 @@ func validateSAML(i Intent, e CapabilityEvidence) error {
 	if !supportsSAML(c) || i.SAML == nil {
 		return iamcontract.ErrRejected
 	}
-	if !i.SAML.SignedAssertions || i.Pattern != "" || i.WebOrigins != nil || len(i.RedirectURIs)+len(i.PostLogoutURIs)+len(i.Claims)+len(i.IdentityMappings)+len(i.Projections) > 0 || i.ScopesManaged || i.Rotation != nil {
+	if !i.SAML.SignedAssertions || i.Pattern != "" || i.WebOrigins != nil || len(i.RedirectURIs)+len(i.PostLogoutURIs)+len(i.Claims)+len(i.IdentityMappings)+len(i.Projections)+len(i.ServiceAccountRealmRoles) > 0 || i.ScopesManaged || i.Rotation != nil {
 		return iamcontract.ErrRejected
 	}
 	if !validEntity(i.ClientID) || len(i.SAML.ACS) < 1 || len(i.SAML.ACS) > 8 {

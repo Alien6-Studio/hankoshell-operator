@@ -447,6 +447,9 @@ func desiredInventoryFacts(item *adoptionInventoryItem, obj client.Object) []ado
 		if o.Spec.RealmRoleScopes != nil {
 			add("realmRoles", setValue(o.Spec.RealmRoleScopes))
 		}
+		if len(o.Spec.ServiceAccountRealmRoles) > 0 {
+			item.finding("service_account_realm_roles_excluded", "service-account realm-role grants are outside discovery and adoption diff", true)
+		}
 		if len(o.Spec.IdentityMappings) > 0 {
 			item.finding("identity_mapping_selection_deferred", "realm-scoped identity mapper selection requires reviewed broker references", true)
 		}

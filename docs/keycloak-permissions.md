@@ -163,6 +163,7 @@ roles already authorize the corresponding reads; redundant `view-*` and
 | Event/audit configuration, including default realm reconciliation | `manage-events` | Each managed target realm | Common profile |
 | Applications, client roles, protocol mappers and realm-role client scopes | `manage-clients` plus `manage-realm` for realm-role reconciliation/closure | All clients in each target realm | Common profile |
 | Machine/service-account clients, secret read/set/rotation | `manage-clients` | All clients in each target realm | Included in common profile; no `manage-users` needed just to create a machine client |
+| Service-account realm roles declared by `serviceAccountRealmRoles` | `manage-users` plus permission to map the role | Service-account user of each owned m2m client | Yes; only when the field is used |
 | Resource-server enablement, scopes/resources, role/client policies and scope permissions | Common profile's `manage-clients`; referenced realm roles need `view-realm` or `manage-realm` | All resource servers in target realm | No additional `manage-authorization` role needed |
 | Organization principals in resource-server permissions | `manage-clients` + explicitly provisioned `view-users` | Client authorization and user/group reads throughout the target realm | Yes; not part of the common profile |
 | Identity providers, broker trust settings and IdP mappers | `manage-identity-providers` | All providers in target realm | Yes |
@@ -186,8 +187,9 @@ are present; arbitrary source configurations remain outside this Clone subset.
 
 The operator does not provision user passwords, user membership or invitations,
 perform user impersonation, manage SMTP delivery, or manage administrative role
-bindings. Machine-client service accounts use client configuration and credentials;
-there is no service-account-user role-mapping API in normal reconciliation.
+bindings. Machine-client service accounts use client configuration and credentials.
+The only service-account-user role mappings are the realm roles a managed m2m
+`HankoApplication` declares in `serviceAccountRealmRoles`; they need `manage-users`.
 
 ### Version-dependent read authority
 
@@ -369,7 +371,8 @@ repairs descriptions under that same role and is denied to a no-role identity.
 Declared realm-role scope writes additionally need `manage-realm`; the legacy
 manifest migration fixture verifies this profile. `view-realm` alone does not
 permit those scope writes on the qualified versions. Optional inbound broker
-mappers still need `manage-identity-providers`.
+mappers still need `manage-identity-providers`. `serviceAccountRealmRoles` needs
+`manage-users`; without it reconciliation reports `ServiceAccountRoles=False`.
 
 Public OIDC discovery and SAML metadata GETs need no Admin API role. They use the
 configured verified CA transport, bounded gateway and no administrative bearer
@@ -599,6 +602,7 @@ using the dedicated client's credentials.
 | bounded-delegation | GET | `/admin/realms/{realm}/clients/{client}/service-account-user` | view-clients and view-users; UID-verified software client only |
 | bounded-delegation | GET | `/admin/realms/{realm}/users/{user}/role-mappings/realm/composite` | view-users; verified software service-account ID only |
 | bounded-delegation | GET | `/admin/realms/{realm}/users/{user}/groups` | view-users; verified software service-account ID only, max=129 |
+| service-account-roles | GET,POST,DELETE | `/admin/realms/{realm}/users/{user}/role-mappings/realm` | view-users / manage-users and permission to map the realm role; service account of the owned m2m client only |
 <!-- admin-operation-contract:end -->
 
 

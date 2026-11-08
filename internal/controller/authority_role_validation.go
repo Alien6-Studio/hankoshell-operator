@@ -37,6 +37,12 @@ func validateApplicationAuthorityRoles(app *hankoshv1alpha1.HankoApplication, pr
 				fmt.Sprintf("identity mapping %q", mapping.Name), mapping.Target.RealmRole)
 		}
 	}
+	for _, role := range app.Spec.ServiceAccountRealmRoles {
+		if isReservedAuthorityRole(role) {
+			return reservedAuthorityRoleError(protectedRealm, app.Spec.RealmRef,
+				fmt.Sprintf("application %q service account", app.Name), role)
+		}
+	}
 	return nil
 }
 

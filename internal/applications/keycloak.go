@@ -102,6 +102,7 @@ type observedApplication struct {
 	Roles               []Role
 	ScopesManaged       bool
 	Scopes              []string
+	ServiceAccountRoles []string `json:",omitempty"`
 	Mappers             []keycloak.ProtocolMapper
 	IdentityMappers     []keycloak.IdentityProviderMapper
 	Complete            bool
@@ -124,6 +125,9 @@ func (d *KeycloakDriver) observe(ctx context.Context, p Plan, got *keycloak.Appl
 		observeRoles(p, &o, children)
 		if state.Protocol == "oidc" {
 			if err := d.observeMappers(ctx, p, &o, children.Mappers); err != nil {
+				return State{}, iamcontract.SafeError(err)
+			}
+			if err := d.observeServiceAccountRoles(ctx, p, &o, *got); err != nil {
 				return State{}, iamcontract.SafeError(err)
 			}
 		}
@@ -223,6 +227,25 @@ func observeRoles(p Plan, o *observedApplication, children keycloak.ApplicationC
 		o.Scopes = append(o.Scopes, role.Name)
 	}
 	o.Scopes, o.ScopesManaged = stringSet(o.Scopes), true
+}
+func (d *KeycloakDriver) observeServiceAccountRoles(ctx context.Context, p Plan, o *observedApplication, got keycloak.Application) error {
+	if len(p.intent.ServiceAccountRealmRoles) == 0 || !got.ServiceAccountsEnabled {
+		return nil
+	}
+	roles, err := d.client.ReadServiceAccountRealmRoles(ctx, p.resolved.Realm, got)
+	if errors.Is(err, keycloak.ErrServiceAccountUnavailable) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for _, role := range roles {
+		if slices.Contains(p.intent.ServiceAccountRealmRoles, role.Name) {
+			o.ServiceAccountRoles = append(o.ServiceAccountRoles, role.Name)
+		}
+	}
+	o.ServiceAccountRoles = stringSet(o.ServiceAccountRoles)
+	return nil
 }
 func (d *KeycloakDriver) observeMappers(ctx context.Context, p Plan, o *observedApplication, mappers []keycloak.ProtocolMapper) error {
 	for _, mapper := range mappers {
@@ -325,6 +348,9 @@ func applicationDrift(p Plan, o observedApplication) bool {
 		return true
 	}
 	if p.intent.ScopesManaged && !slices.Equal(o.Scopes, p.intent.RealmRoleScopes) {
+		return true
+	}
+	if len(p.intent.ServiceAccountRealmRoles) > 0 && !slices.Equal(o.ServiceAccountRoles, p.intent.ServiceAccountRealmRoles) {
 		return true
 	}
 	return protocolMappersDrift(p, o.Mappers) || identityMappersDrift(p, o.IdentityMappers)

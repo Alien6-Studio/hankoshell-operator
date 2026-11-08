@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -726,6 +728,38 @@ func (r *HankoApplicationReconciler) reconcileRealmRoleScopes(ctx context.Contex
 	setCondition(&app.Status.Conditions, "RoleScopes", metav1.ConditionTrue, "Synced",
 		fmt.Sprintf("%d realm-role scope mapping(s) reconciled", len(app.Spec.RealmRoleScopes)))
 	return nil
+}
+
+func (r *HankoApplicationReconciler) reconcileServiceAccountRealmRoles(ctx context.Context, app *hankoshv1alpha1.HankoApplication, kc *keycloak.Client) error {
+	desired := app.Spec.ServiceAccountRealmRoles
+	if app.Spec.Type != "m2m" {
+		desired = nil
+	}
+	if len(desired) == 0 && len(app.Status.ManagedServiceAccountRealmRoles) == 0 {
+		meta.RemoveStatusCondition(&app.Status.Conditions, "ServiceAccountRoles")
+		return nil
+	}
+	if err := kc.ReconcileServiceAccountRealmRoles(ctx, app.Spec.RealmRef, app.Spec.ClientID, desired, app.Status.ManagedServiceAccountRealmRoles); err != nil {
+		setCondition(&app.Status.Conditions, "ServiceAccountRoles", metav1.ConditionFalse, "SyncFailed", "service-account realm roles were not reconciled")
+		return fmt.Errorf("reconcile service-account realm roles for %q: %w", app.Spec.ClientID, err)
+	}
+	app.Status.ManagedServiceAccountRealmRoles = append([]string(nil), desired...)
+	if len(desired) == 0 {
+		meta.RemoveStatusCondition(&app.Status.Conditions, "ServiceAccountRoles")
+		return nil
+	}
+	setCondition(&app.Status.Conditions, "ServiceAccountRoles", metav1.ConditionTrue, "Synced",
+		fmt.Sprintf("%d service-account realm role(s) reconciled", len(desired)))
+	return nil
+}
+
+func serviceAccountRoleCleanupPending(app *hankoshv1alpha1.HankoApplication) bool {
+	for _, previous := range app.Status.ManagedServiceAccountRealmRoles {
+		if app.Spec.Type != "m2m" || !slices.Contains(app.Spec.ServiceAccountRealmRoles, previous) {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *HankoApplicationReconciler) reconcileApplicationMappings(ctx context.Context, app *hankoshv1alpha1.HankoApplication, kc *keycloak.Client) error {

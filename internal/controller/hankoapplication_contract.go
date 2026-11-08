@@ -22,7 +22,8 @@ import (
 
 func applicationIntent(spec api.HankoApplicationSpec) applications.Intent {
 	i := applications.Intent{RealmRef: spec.RealmRef, ClientID: spec.ClientID, Protocol: spec.Protocol, Pattern: spec.Type, Theme: spec.Theme, WebOrigins: spec.WebOrigins,
-		RedirectURIs: spec.RedirectURIs, PostLogoutURIs: spec.PostLogoutRedirectURIs, RealmRoleScopes: spec.RealmRoleScopes, ScopesManaged: spec.RealmRoleScopes != nil}
+		RedirectURIs: spec.RedirectURIs, PostLogoutURIs: spec.PostLogoutRedirectURIs, RealmRoleScopes: spec.RealmRoleScopes, ScopesManaged: spec.RealmRoleScopes != nil,
+		ServiceAccountRealmRoles: spec.ServiceAccountRealmRoles}
 	for _, role := range spec.Roles {
 		i.Roles = append(i.Roles, applications.Role{Name: role.Name, Description: role.Description})
 	}
@@ -301,6 +302,11 @@ func (r *HankoApplicationReconciler) reconcileApplicationContract(ctx context.Co
 				return r.applicationContractError(ctx, app, patch, &plan, &state, iamcontract.SafeError(err))
 			}
 		}
+		if serviceAccountRoleCleanupPending(app) {
+			if err = r.reconcileServiceAccountRealmRoles(ctx, app, kc); err != nil {
+				return r.applicationContractError(ctx, app, patch, &plan, &state, iamcontract.SafeError(err))
+			}
+		}
 		if applications.Protocol(app.Spec.Protocol) == "oidc" {
 			if err = r.validateOwnedApplicationExecution(ctx, app, kc, plan); err != nil {
 				return r.applicationContractError(ctx, app, patch, &plan, &state, err)
@@ -381,6 +387,9 @@ func (r *HankoApplicationReconciler) reconcileApplicationChildren(ctx context.Co
 		return nil
 	}
 	if err := r.reconcileRealmRoleScopes(ctx, app, kc); err != nil {
+		return err
+	}
+	if err := r.reconcileServiceAccountRealmRoles(ctx, app, kc); err != nil {
 		return err
 	}
 	return r.reconcileApplicationMappings(ctx, app, kc)

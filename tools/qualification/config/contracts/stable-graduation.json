@@ -105,6 +105,10 @@
           "maturity": "alpha",
           "providerNative": true
         },
+        "serviceAccountRealmRoles": {
+          "maturity": "alpha",
+          "providerNative": false
+        },
         "secretRotationPolicy": {
           "maturity": "alpha",
           "providerNative": false
@@ -146,6 +150,7 @@
         "lastRotated": "alpha",
         "managedClientSecretProjections": "alpha",
         "managedIdentityMappings": "alpha",
+        "managedServiceAccountRealmRoles": "alpha",
         "managedTokenClaims": "alpha",
         "nextRotation": "alpha",
         "observationComplete": "alpha",

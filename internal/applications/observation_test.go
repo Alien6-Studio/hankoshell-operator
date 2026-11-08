@@ -135,3 +135,27 @@ func TestOpaqueUndeclaredAttributeValuesDoNotEnterObservation(t *testing.T) {
 		t.Fatal("opaque native attribute exported")
 	}
 }
+
+func TestServiceAccountRealmRolesDriftOnlyWhenDeclared(t *testing.T) {
+	base := Intent{Protocol: "oidc", Pattern: "m2m", ClientID: "robot", RealmRoleScopes: []string{"ADMIN"}, ScopesManaged: true}
+	withRoles := base
+	withRoles.ServiceAccountRealmRoles = []string{"ADMIN"}
+	if IntentIdentity(base) == IntentIdentity(withRoles) {
+		t.Fatal("service-account roles did not change the intent identity")
+	}
+	empty := base
+	empty.ServiceAccountRealmRoles = []string{}
+	if IntentIdentity(base) != IntentIdentity(empty) {
+		t.Fatal("an empty grant list changed existing intent identities")
+	}
+	p := testApplicationPlan(t, withRoles, ResolvedReferences{}, iamcontract.Preconditions{})
+	canonical, complete := observedClient(desired(p), p)
+	observed := observedApplication{Complete: complete, Client: canonical, Scopes: []string{"ADMIN"}}
+	if !applicationDrift(p, observed) {
+		t.Fatal("missing service-account grant was not drift")
+	}
+	observed.ServiceAccountRoles = []string{"ADMIN"}
+	if applicationDrift(p, observed) {
+		t.Fatal("granted service-account role was drift")
+	}
+}

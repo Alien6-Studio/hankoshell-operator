@@ -32,6 +32,8 @@ type HankoApplication struct {
 // +kubebuilder:validation:XValidation:rule="self.clientID.trim() != 'account' && self.clientID.trim() != 'account-console' && self.clientID.trim() != 'admin-cli' && self.clientID.trim() != 'broker' && self.clientID.trim() != 'realm-management' && self.clientID.trim() != 'security-admin-console'",message="built-in Keycloak clients cannot be managed as HankoApplication"
 // +kubebuilder:validation:XValidation:rule="(!has(self.protocol) || self.protocol == 'oidc') ? !has(self.saml) : has(self.saml)",message="saml configuration is required only for protocol saml"
 // +kubebuilder:validation:XValidation:rule="!has(self.protocol) || self.protocol != 'saml' || (!has(self.type) && !has(self.webOrigins) && (!has(self.redirectURIs) || size(self.redirectURIs) == 0) && (!has(self.postLogoutRedirectURIs) || size(self.postLogoutRedirectURIs) == 0) && (!has(self.tokenClaims) || size(self.tokenClaims) == 0) && (!has(self.identityMappings) || size(self.identityMappings) == 0) && !has(self.realmRoleScopes) && !has(self.secretRotationPolicy) && (!has(self.clientSecretProjections) || size(self.clientSecretProjections) == 0))",message="SAML rejects OIDC types, callbacks, claims, mappings, scopes, rotation and secret projections"
+// +kubebuilder:validation:XValidation:rule="!has(self.serviceAccountRealmRoles) || size(self.serviceAccountRealmRoles) == 0 || (has(self.type) && self.type == 'm2m' && (!has(self.mode) || self.mode == 'Manage'))",message="serviceAccountRealmRoles require a managed m2m client"
+// +kubebuilder:validation:XValidation:rule="!has(self.serviceAccountRealmRoles) || self.serviceAccountRealmRoles.all(r, has(self.realmRoleScopes) && r in self.realmRoleScopes)",message="serviceAccountRealmRoles must also be listed in realmRoleScopes"
 // +kubebuilder:validation:XValidation:rule="!has(self.attributes) || self.attributes.all(k, !k.matches('(?i)^(saml|hanko[.]).*') && !k.matches('(?i)^(protocol|login_theme|post[.]logout[.]redirect[.]uris)$') && !k.matches('(?i).*(private|password|secret|credential|access_token|bearer).*'))",message="native attributes cannot override protocol, SAML, ownership or managed theme/logout settings"
 type HankoApplicationSpec struct {
 	// RealmRef references the HankoRealm this application belongs to.
@@ -105,6 +107,17 @@ type HankoApplicationSpec struct {
 	// +kubebuilder:validation:items:MaxLength=255
 	// +kubebuilder:validation:items:Pattern=`^[^\x00-\x1F\x7F]+$`
 	RealmRoleScopes []string `json:"realmRoleScopes,omitempty"`
+
+	// ServiceAccountRealmRoles grants realm roles to the service account of an
+	// m2m client. Only listed and previously listed roles are managed; other
+	// service-account mappings, including default roles, are preserved.
+	// +listType=set
+	// +kubebuilder:validation:MaxItems=16
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:MaxLength=255
+	// +kubebuilder:validation:items:Pattern=`^[^\x00-\x1F\x7F]+$`
+	// +kubebuilder:validation:XValidation:rule="self.all(r, r != 'HANKO_PLATFORM' && !r.startsWith('HANKO_PLATFORM_') && !r.startsWith('HANKO_FLEET_') && !r.startsWith('HANKO_CLUSTER_'))",message="reserved platform, fleet and cluster roles cannot be granted to a service account"
+	ServiceAccountRealmRoles []string `json:"serviceAccountRealmRoles,omitempty"`
 
 	// IdentityMappings maps claims received from an upstream OIDC identity provider
 	// to Keycloak realm roles, roles owned by this client, or user attributes.
@@ -462,6 +475,14 @@ type HankoApplicationStatus struct {
 
 	// ManagedTokenClaims records client-scoped protocol mappers managed for this application.
 	ManagedTokenClaims []ManagedTokenClaimReference `json:"managedTokenClaims,omitempty"`
+
+	// ManagedServiceAccountRealmRoles records the service-account realm-role
+	// mappings this application grants.
+	// +listType=set
+	// +kubebuilder:validation:MaxItems=16
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:MaxLength=255
+	ManagedServiceAccountRealmRoles []string `json:"managedServiceAccountRealmRoles,omitempty"`
 }
 
 // ManagedIdentityMappingReference reports the desired identity-provider mapper's
