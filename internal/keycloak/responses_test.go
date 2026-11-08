@@ -93,6 +93,10 @@ func TestAllKeycloakOperationsBoundNetworkReadsAndCloseBodies(t *testing.T) {
 							request.URL.RawQuery = "first=0&max=129&briefRepresentation=true"
 						}
 					}
+					if operation.Capability == "service-account-roles" {
+						request = request.WithContext(context.WithValue(request.Context(), serviceAccountGrantKey{},
+							serviceAccountGrant{realm: "fixture", clientUUID: "fixture", userID: "fixture"}))
+					}
 					response, err := c.do(request)
 					if response != nil || !errors.Is(err, ErrResponseTooLarge) {
 						t.Fatalf("HTTP %d accepted an oversized response: %v", status, err)

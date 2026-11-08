@@ -4,4 +4,4 @@ package version
 // Agent is the operator build identifier reported to the Hub with every
 // heartbeat. Builds stamp the reviewed technical SemVer via -ldflags.
 // The default identifies current unreleased development.
-var Agent = "1.2.1"
+var Agent = "1.2.3"

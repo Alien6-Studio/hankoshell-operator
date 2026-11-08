@@ -99,15 +99,16 @@ func validMinimumVersion(value string) bool {
 // Objects derives mandatory capabilities from actual typed intent. Omitting
 // signed requirements never disables the local permission/capability gate.
 type objectSpec struct {
-	ArtifactSHA256    string            `json:"artifactSHA256"`
-	RealmRef          string            `json:"realmRef"`
-	IAMProfileRef     string            `json:"iamProfileRef"`
-	Protocol          string            `json:"protocol"`
-	Roles             []json.RawMessage `json:"roles"`
-	TokenClaims       []json.RawMessage `json:"tokenClaims"`
-	IdentityMappings  []json.RawMessage `json:"identityMappings"`
-	IdentityProviders []json.RawMessage `json:"identityProviders"`
-	RealmRoleScopes   []json.RawMessage `json:"realmRoleScopes"`
+	ArtifactSHA256           string            `json:"artifactSHA256"`
+	RealmRef                 string            `json:"realmRef"`
+	IAMProfileRef            string            `json:"iamProfileRef"`
+	Protocol                 string            `json:"protocol"`
+	Roles                    []json.RawMessage `json:"roles"`
+	TokenClaims              []json.RawMessage `json:"tokenClaims"`
+	IdentityMappings         []json.RawMessage `json:"identityMappings"`
+	IdentityProviders        []json.RawMessage `json:"identityProviders"`
+	RealmRoleScopes          []json.RawMessage `json:"realmRoleScopes"`
+	ServiceAccountRealmRoles []json.RawMessage `json:"serviceAccountRealmRoles"`
 }
 
 func Objects(p Plan) []Object {
@@ -171,6 +172,9 @@ func requiredCapabilities(kind string, s objectSpec) []string {
 	}
 	if len(s.RealmRoleScopes) > 0 {
 		required = append(required, "realm.manage")
+	}
+	if len(s.ServiceAccountRealmRoles) > 0 {
+		required = append(required, "service-account.manage")
 	}
 	return required
 }

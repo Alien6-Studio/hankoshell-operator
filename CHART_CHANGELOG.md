@@ -1,5 +1,10 @@
 # Helm chart changelog
 
+## 1.2.3
+
+hankoShell Helm chart 1.2.3 ships operator 1.2.3 and its updated CRDs, including
+`serviceAccountRealmRoles` on `HankoApplication`.
+
 ## 1.2.2
 
 hankoShell Helm chart 1.2.2 updates the installation and catalogue guidance for

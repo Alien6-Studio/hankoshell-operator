@@ -344,7 +344,7 @@ func hasNativeExtension(i applications.Intent, r applications.ResolvedReferences
 	return i.Theme != "" || len(r.Attributes) > 0 || len(r.Mappers) > 0 || len(r.IdentityMappers) > 0 || r.MigrationUUID != "" || r.MigrationObservation != ""
 }
 func hasBindings(i applications.Intent) bool {
-	return len(i.Roles) > 0 || len(i.Claims) > 0 || len(i.IdentityMappings) > 0 || i.ScopesManaged || len(i.RealmRoleScopes) > 0
+	return len(i.Roles) > 0 || len(i.Claims) > 0 || len(i.IdentityMappings) > 0 || i.ScopesManaged || len(i.RealmRoleScopes) > 0 || len(i.ServiceAccountRealmRoles) > 0
 }
 func validRedirects(values []string) bool {
 	for _, value := range values {

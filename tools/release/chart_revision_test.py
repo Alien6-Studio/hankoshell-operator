@@ -69,7 +69,25 @@ class ChartRevisionTest(unittest.TestCase):
         self.assertIn("ARG VERSION=1.2.1", output["Dockerfile"])
 
 
+# Chart 1.2.2 republished operator 1.2.1; joint releases carry no revision pins.
+REVISION_PINS = {
+    "release": {"version": "1.2.1", "status": "ready"},
+    "chart": {"version": "1.2.2"},
+    "chart_revision": {
+        "operator_version": "1.2.1",
+        "operator_revision": "6030aaa29bfb9855535703e384b2fee512459377",
+        "image": "ghcr.io/alien6-studio/hankoshell-operator@sha256:b64a9e03719fdf14c086531876e918524b401dbd3913198639898ddda6222427",
+        "base_chart_sha256": "a76cbee0952cf77ca47d0d672470d009b3cbf839eac415efa2390f94c567a846",
+    },
+}
+
+
 class ChartPublicationTest(unittest.TestCase):
+    def setUp(self):
+        pins = patch.dict(versions.DATA, REVISION_PINS)
+        pins.start()
+        self.addCleanup(pins.stop)
+
     def exercise(self, mutation=None):
         """A lost OCI push response must resume without a GitHub product release."""
         config = chart_revision.configuration()

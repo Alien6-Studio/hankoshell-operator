@@ -12,8 +12,10 @@ a declared right prevents new tokens from requesting it; existing tokens retain
 their rights until expiry. Upgrades from 1.2.0 preserve existing identities and
 credentials. See the [service account guide](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/service-account-oauth-scopes.md)
 for declarations and upgrade guidance.
+Machine-to-machine applications can also grant declared realm roles to their
+service account with `serviceAccountRealmRoles`; this requires `manage-users`.
 
-Chart **1.2.2** uses the published operator **1.2.1** image. See the
+Chart **1.2.3** uses the published operator **1.2.3** image. See the
 [chart release notes](https://github.com/Alien6-Studio/hankoshell-operator/blob/main/CHART_CHANGELOG.md)
 for chart updates.
 
@@ -34,7 +36,7 @@ Install a published chart from GHCR:
 
 ```sh
 helm upgrade --install hankoshell-operator \
-  oci://ghcr.io/alien6-studio/charts/hankoshell-operator --version 1.2.2 \
+  oci://ghcr.io/alien6-studio/charts/hankoshell-operator --version 1.2.3 \
   --namespace auth --create-namespace \
   --values operator-values.yaml --wait --timeout 5m
 ```

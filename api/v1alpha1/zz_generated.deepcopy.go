@@ -944,6 +944,11 @@ func (in *HankoApplicationSpec) DeepCopyInto(out *HankoApplicationSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.ServiceAccountRealmRoles != nil {
+		in, out := &in.ServiceAccountRealmRoles, &out.ServiceAccountRealmRoles
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.IdentityMappings != nil {
 		in, out := &in.IdentityMappings, &out.IdentityMappings
 		*out = make([]ApplicationIdentityMapping, len(*in))
@@ -1071,6 +1076,11 @@ func (in *HankoApplicationStatus) DeepCopyInto(out *HankoApplicationStatus) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.ManagedServiceAccountRealmRoles != nil {
+		in, out := &in.ManagedServiceAccountRealmRoles, &out.ManagedServiceAccountRealmRoles
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 }
 

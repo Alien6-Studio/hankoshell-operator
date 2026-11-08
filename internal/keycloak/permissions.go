@@ -91,6 +91,7 @@ var adminOperations = []AdminOperation{
 	{"bounded-delegation", "GET", "/admin/realms/{realm}/clients/{client}/service-account-user", "view-clients and view-users; UID-verified software client only"},
 	{"bounded-delegation", "GET", "/admin/realms/{realm}/users/{user}/role-mappings/realm/composite", "view-users; verified software service-account ID only"},
 	{"bounded-delegation", "GET", "/admin/realms/{realm}/users/{user}/groups", "view-users; verified software service-account ID only, max=129"},
+	{"service-account-roles", "GET,POST,DELETE", "/admin/realms/{realm}/users/{user}/role-mappings/realm", "view-users / manage-users and permission to map the realm role; service account of the owned m2m client only"},
 }
 
 // AdminOperations returns an independent copy for documentation and regression
@@ -164,6 +165,13 @@ func (c *Client) do(req *http.Request) (*http.Response, error) {
 	return buffered, readErr
 }
 
+func validateScopedUserRoute(req *http.Request, path string) error {
+	if granted, err := validateServiceAccountGrant(req, path); granted || err != nil {
+		return err
+	}
+	return validateBoundedDelegationRead(req, path)
+}
+
 func (c *Client) responseBudget(req *http.Request) (int64, error) {
 	if c.endpointError != nil {
 		return 0, c.endpointError
@@ -180,7 +188,7 @@ func (c *Client) responseBudget(req *http.Request) (int64, error) {
 	if !found || req.URL.Scheme != base.Scheme || req.URL.Host != base.Host || req.URL.User != nil {
 		return 0, fmt.Errorf("keycloak operation outside configured endpoint")
 	}
-	if err := validateBoundedDelegationRead(req, path); err != nil {
+	if err := validateScopedUserRoute(req, path); err != nil {
 		return 0, err
 	}
 	if isBootstrapTokenRequest(req.Method, path) {

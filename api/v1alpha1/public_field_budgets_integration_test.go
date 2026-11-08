@@ -68,7 +68,7 @@ func checkEveryPublicField(t *testing.T, ctx context.Context, admin client.Clien
 		SchemaVersion int
 		Cases         []publicFieldBudget
 	}
-	if err := json.Unmarshal(studioData, &studio); err != nil || studio.SchemaVersion != 1 || len(studio.Cases) != 3 {
+	if err := json.Unmarshal(studioData, &studio); err != nil || studio.SchemaVersion != 1 || len(studio.Cases) != 7 {
 		t.Fatal("incomplete Studio public-field admission corpus", err)
 	}
 	corpus.Cases = append(corpus.Cases, studio.Cases...)

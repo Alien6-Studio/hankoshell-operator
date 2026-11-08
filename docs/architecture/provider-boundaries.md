@@ -36,6 +36,7 @@ Secret references are D operational inputs; their values are excluded from contr
 | HankoApplication | realmRef, clientID, type, redirectURIs, postLogoutRedirectURIs | A OIDC application intent; B concrete flow/logout support |
 | HankoApplication | protocol, saml (assertionConsumerServices, requireSignedAssertions, nameIDFormat) | A application/SP identity and requirements; B qualified POST/signature/NameID mapping |
 | HankoApplication | roles (name, description), realmRoleScopes | A role definitions/bindings; B token scope behavior |
+| HankoApplication | serviceAccountRealmRoles | B additive realm-role grant to the owned m2m service account |
 | HankoApplication | theme, attributes | C login theme/client native attributes |
 | HankoApplication | mode, secretRotationPolicy, clientSecretProjections (namespace, name) | D authority/credential lifecycle/projection |
 | ApplicationIdentityMapping | name, identityProvider, claim, matchValue, target.realmRole/clientRole/userAttribute | B broker claim mapping semantics |

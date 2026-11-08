@@ -30,6 +30,7 @@
     "TestRealKeycloakPermissionProfiles",
     "TestRealKeycloakServiceAccountAuthenticationRoundTrip",
     "TestRealKeycloakServiceAccountOAuthScopes",
+    "TestRealKeycloakServiceAccountRealmRoles",
     "TestRealKeycloakStandardTokenExchange",
     "TestRealKeycloakWorkloadTrustController",
     "TestRealKeycloakWorkloadTrustRequiredInventoryPermissions"
