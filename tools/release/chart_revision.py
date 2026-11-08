@@ -29,6 +29,9 @@ WORKFLOW = "chart-package.yml"
 
 
 def configuration():
+    if not versions.DATA.get("chart_revision"):
+        raise ValueError("No chart-only revision is pinned: release " + versions.DATA["release"]["version"]
+                         + " publishes its chart through the Release workflow")
     config = dict(versions.DATA["chart_revision"])
     config["chart_version"] = versions.chart_version()
     if (config["operator_version"] != versions.DATA["release"]["version"]
