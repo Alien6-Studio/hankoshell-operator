@@ -731,7 +731,7 @@ cleanup also removes its roles, mappers and credentials. See the
 
 The operator and chart keep their own development SemVer (`1.0.0`); they do not share the
 cluster's version number. Kubernetes libraries are upgraded together:
-`k8s.io/{api,apimachinery,client-go,apiextensions-apiserver}` **v0.37.1** and
+`k8s.io/{api,apimachinery,client-go,apiextensions-apiserver}` **v0.37.2** and
 `controller-runtime` **v0.25.2**, following its
 [compatibility table](https://github.com/kubernetes-sigs/controller-runtime#compatibility).
 
