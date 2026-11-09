@@ -138,7 +138,7 @@ const bundleDescription = `Keep Keycloak realms, application sign-in, service ac
 
 Declare the OAuth access rights a service account receives. The operator confirms the declared rights before delivering new or recovered credentials. Removing a right prevents new tokens from requesting it; tokens already issued retain their rights until expiry. Upgrades preserve existing service-account identities and credentials.
 
-Administrator preparation is REQUIRED before installation: follow https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/operatorhub.md. Review and apply the admission and network protections before approving the InstallPlan. A NetworkPolicy-enforcing CNI is required. The operator starts only when the independently approved installation protections are present and match the reviewed contract.
+Administrator preparation is REQUIRED before installation: follow https://github.com/Alien6-Studio/hankoshell-operator/blob/main/docs/operatorhub.md. Review and apply the admission and network protections before approving the InstallPlan. A NetworkPolicy-enforcing CNI is required. Until the Subscription supplies the approved contract SHA-256, the operator serves only its health probes and reports the pending approval; it starts once the independently approved installation protections are present and match the reviewed contract.
 
 The alpha channel supports an existing Keycloak deployment in one namespace, Linux amd64/arm64 and qualified Kubernetes 1.35–1.37. All 17 hanko.sh/v1alpha1 APIs remain experimental. Use Helm for connected Hub, lifecycle and advanced integration profiles. Install in a dedicated namespace. Removing the operator retains custom resources and provider objects; review finalizers before deleting CRDs.`
 

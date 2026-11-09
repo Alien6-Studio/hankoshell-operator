@@ -72,6 +72,12 @@ func spokeMode() bool {
 
 func main() {
 	config := parseRuntimeConfig()
+	if config.awaitsInstallationApproval() {
+		// OLM installed the bundle before the administrator approval. Serve the
+		// probes only; the approved Subscription configuration replaces this pod.
+		fatalIfError(awaitInstallationApproval(ctrl.SetupSignalHandler(), config.probeAddr), "installation approval wait failed")
+		return
+	}
 	fatalIfError(verifyInstallation(config), "installation protections are not ready")
 	if config.installationCheckOnly {
 		return

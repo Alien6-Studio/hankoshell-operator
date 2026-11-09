@@ -94,6 +94,9 @@ func TestBundleRetainsChartSecurityAndOLMOwnership(t *testing.T) {
 	if !strings.Contains(string(joined), "--installation-contract-sha256=$(HANKO_INSTALLATION_CONTRACT_SHA256)") || !strings.Contains(string(joined), "--watch-namespace=$(POD_NAMESPACE)") || !strings.Contains(string(joined), "--require-installation-contract=true") {
 		t.Fatal("bundle can bypass installation or namespace verification")
 	}
+	if strings.Count(string(joined), `"optional":true`) != 2 {
+		t.Fatal("bundle pod cannot be created before the Keycloak credentials Secret exists")
+	}
 	if !strings.Contains(string(joined), `"readOnlyRootFilesystem":true`) || !strings.Contains(string(joined), `"allowPrivilegeEscalation":false`) {
 		t.Fatal("bundle weakened container security")
 	}

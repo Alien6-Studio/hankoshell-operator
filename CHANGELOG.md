@@ -6,7 +6,21 @@
 ### Release overview
 
 hankoShell Operator 1.2.3 lets machine-to-machine applications grant declared
-realm roles to their own service account.
+realm roles to their own service account and lets an OperatorHub installation
+wait for the administrator approval instead of exiting.
+
+### OLM installation approval
+
+- When the bundle is installed before the Subscription supplies the approved
+  contract SHA-256, the operator serves its probes only and reports the pending
+  approval; it starts no controller and opens no Kubernetes or Keycloak client.
+- Supplying the approved Subscription configuration rolls out a pod that verifies
+  the installation protections and starts.
+- Every other incomplete verification configuration still fails startup.
+- The bundle declares `minKubeVersion` 1.34.0; the qualified window remains
+  Kubernetes 1.35–1.37.
+- The chart references the Keycloak credentials Secret as optional at pod
+  creation. A started operator still refuses to run without the credentials.
 
 ### Service account realm roles
 

@@ -73,7 +73,8 @@ Bounded software and agent delegation require the qualified Keycloak extension
 
 Operator **1.2.3** applies the realm roles a machine-to-machine application
 declares in `serviceAccountRealmRoles` to its service account, which requires
-`manage-users` (see [permissions](docs/keycloak-permissions.md)). Operator 1.2.1
+`manage-users` (see [permissions](docs/keycloak-permissions.md)), and waits for
+the administrator approval when installed through OLM instead of exiting. Operator 1.2.1
 applies the [OAuth access rights declared for service
 accounts](docs/service-account-oauth-scopes.md). [Theme Studio sign-in and email
 branding](docs/theme-studio-projects.md) remains available.

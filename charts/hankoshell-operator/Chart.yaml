@@ -28,6 +28,8 @@ annotations:
       description: Grant declared realm roles to the service account of a machine-to-machine application.
     - kind: changed
       description: Update Kubernetes client libraries to v0.37.2 and the Go base image.
+    - kind: changed
+      description: Wait for the administrator approval of an OLM installation instead of exiting; the Keycloak credentials Secret reference is optional at pod creation.
   artifacthub.io/images: |
     - name: hankoshell-operator
       image: ghcr.io/alien6-studio/hankoshell-operator:1.2.3
