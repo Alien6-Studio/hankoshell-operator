@@ -98,6 +98,9 @@ keycloak:
   # Explicit compatibility escape hatch for intentionally trusted HTTP only.
   # Exposes administrative credentials and traffic; enterprise rejects HTTP.
   allowInsecureHTTP: false
+  # Existing Secret with client-id and client-secret keys. The pod starts
+  # without it so an OLM installation can wait for its approval; a started
+  # operator refuses to run without the credentials.
   credentialsSecret: keycloak-ops-credentials
   # Optional existing Secret for a private HTTPS CA; never disables TLS checks.
   caSecret: ""

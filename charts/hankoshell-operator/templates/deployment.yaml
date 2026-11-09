@@ -218,11 +218,13 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.keycloak.credentialsSecret }}
                   key: client-id
+                  optional: true
             - name: HANKO_KC_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.keycloak.credentialsSecret }}
                   key: client-secret
+                  optional: true
             {{- if .Values.keycloak.caSecret }}
             - name: HANKO_KEYCLOAK_CA_FILE
               value: /etc/hanko/keycloak-ca/ca.crt

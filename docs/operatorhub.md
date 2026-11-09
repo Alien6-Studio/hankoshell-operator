@@ -55,9 +55,14 @@ enforces traffic. Administrators retain ownership of the preparation resources.
 No preparation command reads credentials or changes Keycloak.
 
 Supply the approved Subscription configuration before approving its InstallPlan.
-In the OLM 0.41.0 qualification, a CSV stalled during installation did not receive
-a later environment override. The supported installation procedure supplies the
-complete approval before the CSV is installed.
+A bundle installed without it does not exit: the pod serves
+only its health probes, logs `installation approval pending` every five minutes
+and starts no controller, Kubernetes client or Keycloak client. This lets OLM
+complete the CSV. Supplying the approved configuration afterwards rolls out a pod
+that runs the verification and starts. In the OLM 0.41.0 qualification, a CSV
+stalled during installation did not receive a later environment override; that
+is why earlier versions required the complete approval before the CSV was
+installed.
 
 ## Upgrade and removal
 

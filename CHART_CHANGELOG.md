@@ -5,6 +5,11 @@
 hankoShell Helm chart 1.2.3 ships operator 1.2.3 and its updated CRDs, including
 `serviceAccountRealmRoles` on `HankoApplication`.
 
+- The Keycloak credentials Secret is referenced as optional so the pod can be
+  created before the Secret exists; a started operator still refuses to run
+  without the credentials. The OLM bundle generated from this chart waits for
+  the administrator approval instead of exiting.
+
 ## 1.2.2
 
 hankoShell Helm chart 1.2.2 updates the installation and catalogue guidance for
