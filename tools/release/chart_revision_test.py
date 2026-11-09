@@ -68,6 +68,12 @@ class ChartRevisionTest(unittest.TestCase):
         self.assertIn("--version 1.2.2", output["README.md"])
         self.assertIn("ARG VERSION=1.2.1", output["Dockerfile"])
 
+    def test_joint_release_without_revision_pins_is_refused(self):
+        with patch.dict(versions.DATA, {"release": {"version": "1.2.3", "status": "ready"},
+                                        "chart": {"version": "1.2.3"}, "chart_revision": None}):
+            with self.assertRaisesRegex(ValueError, "Release workflow"):
+                chart_revision.configuration()
+
 
 # Chart 1.2.2 republished operator 1.2.1; joint releases carry no revision pins.
 REVISION_PINS = {
