@@ -1,10 +1,9 @@
 # OperatorHub installation
 
 OperatorHub accepted **1.2.0** in the [upstream contribution](https://github.com/k8s-operatorhub/community-operators/pull/9782).
-**1.2.1** is under upstream review in [community-operators#9835](https://github.com/k8s-operatorhub/community-operators/pull/9835).
-The **1.2.3** bundle, with service-account realm roles, is attached to the
-[1.2.3 release](https://github.com/Alien6-Studio/hankoshell-operator/releases/tag/v1.2.3)
-and has not been submitted upstream.
+**1.2.3**, with service-account realm roles and the installation approval wait,
+was accepted in [community-operators#9835](https://github.com/k8s-operatorhub/community-operators/pull/9835)
+on 2026-11-09; it supersedes the 1.2.1 submission and replaces 1.2.0 in the alpha channel.
 See the [OperatorHub listing](https://operatorhub.io/operator/hankoshell-operator)
 for the version currently available.
 
