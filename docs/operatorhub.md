@@ -8,7 +8,9 @@ and has not been submitted upstream.
 See the [OperatorHub listing](https://operatorhub.io/operator/hankoshell-operator)
 for the version currently available.
 
-The first OLM profile runs in its own namespace on Kubernetes 1.35–1.37,
+The first OLM profile runs in its own namespace on Kubernetes 1.35–1.37
+(the bundle declares `minKubeVersion` 1.34.0 so OLM accepts it on the
+OperatorHub test clusters; 1.34 is not part of the qualified window),
 Linux amd64 or arm64, with an existing Keycloak and a NetworkPolicy-enforcing
 CNI. All 17 APIs remain `v1alpha1`. Lifecycle, connected Hub and experimental
 provider profiles require Helm.

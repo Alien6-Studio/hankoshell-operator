@@ -112,7 +112,7 @@ func clusterServiceVersion(chart *chartSource, opts options) (map[string]any, er
 	}
 	spec := map[string]any{
 		"displayName": "hankoShell Operator", "description": bundleDescription,
-		"version": chart.Version, "minKubeVersion": "1.35.0", "maturity": "alpha",
+		"version": chart.Version, "minKubeVersion": "1.34.0", "maturity": "alpha",
 		"provider":    map[string]string{"name": "Alien6 Studio", "url": "https://hanko.sh"},
 		"maintainers": []any{map[string]string{"name": "Alien6 Studio", "email": "contact@alien6.com"}},
 		"keywords":    []string{"keycloak", "iam", "oidc", "gitops"}, "license": "Apache-2.0",
